@@ -153,6 +153,19 @@ public static class BridgeCommandFactory
             "revit.convert_to_group" => ExecuteConvertToGroup(app, payload),
             "revit.edit_family" => ExecuteEditFamily(app, payload),
 
+            // Batch 8: High-Value Documentation (Reaching 100 Tools)
+            "revit.create_dimension" => ExecuteCreateDimension(app, payload),
+            "revit.create_revision_cloud" => ExecuteCreateRevisionCloud(app, payload),
+            "revit.get_revision_sequences" => ExecuteGetRevisionSequences(app),
+            "revit.tag_all_in_view" => ExecuteTagAllInView(app, payload),
+            "revit.create_text_type" => ExecuteCreateTextType(app, payload),
+            "revit.get_view_templates" => ExecuteGetViewTemplates(app),
+            "revit.apply_view_template" => ExecuteApplyViewTemplate(app, payload),
+            "revit.calculate_material_quantities" => ExecuteCalculateMaterialQuantities(app, payload),
+            "revit.get_room_boundary" => ExecuteGetRoomBoundary(app, payload),
+            "revit.get_project_location" => ExecuteGetProjectLocation(app),
+            "revit.get_warnings" => ExecuteGetWarnings(app),
+
             _ => new { status = "error", message = $"Unknown tool: {tool}" }
         };
     }
@@ -296,7 +309,20 @@ public static class BridgeCommandFactory
 
             // Batch 7: Family Management
             "revit.convert_to_group",
-            "revit.edit_family"
+            "revit.edit_family",
+
+            // Batch 8: High-Value Documentation
+            "revit.create_dimension",
+            "revit.create_revision_cloud",
+            "revit.get_revision_sequences",
+            "revit.tag_all_in_view",
+            "revit.create_text_type",
+            "revit.get_view_templates",
+            "revit.apply_view_template",
+            "revit.calculate_material_quantities",
+            "revit.get_room_boundary",
+            "revit.get_project_location",
+            "revit.get_warnings"
         };
     }
 
@@ -3809,5 +3835,364 @@ public static class BridgeCommandFactory
             is_family_document = familyDoc.IsFamilyDocument,
             categories = new FilteredElementCollector(familyDoc).OfClass(typeof(Category)).Cast<Category>().Select(c => c.Name).Take(10).ToList()
         };
+    }
+
+    // ==================== BATCH 8: HIGH-VALUE DOCUMENTATION & ANALYSIS ====================
+
+    private static object ExecuteCreateDimension(UIApplication app, JsonElement payload)
+    {
+        var doc = app.ActiveUIDocument?.Document;
+        if (doc == null) throw new InvalidOperationException("No active document");
+
+        var lineStart = ParseXYZ(payload.GetProperty("start_point"));
+        var lineEnd = ParseXYZ(payload.GetProperty("end_point"));
+        var view = doc.ActiveView;
+
+        // Try to get references (very simplified - normally needs specific element references)
+        var ref1Id = new ElementId((long)payload.GetProperty("element1_id").GetInt32());
+        var ref2Id = new ElementId((long)payload.GetProperty("element2_id").GetInt32());
+        
+        using (var trans = new Transaction(doc, "Create Dimension"))
+        {
+            trans.Start();
+
+            var elem1 = doc.GetElement(ref1Id);
+            var elem2 = doc.GetElement(ref2Id);
+            
+            Reference ref1 = null;
+            Reference ref2 = null;
+
+            if (elem1 is Grid g1) ref1 = new Reference(g1);
+            if (elem2 is Grid g2) ref2 = new Reference(g2);
+            
+            if (ref1 == null) ref1 = new Reference(elem1);
+            if (ref2 == null) ref2 = new Reference(elem2);
+
+            var line = Autodesk.Revit.DB.Line.CreateBound(lineStart, lineEnd);
+            var refArray = new ReferenceArray();
+            refArray.Append(ref1);
+            refArray.Append(ref2);
+
+            var dim = doc.Create.NewDimension(view, line, refArray);
+            
+            trans.Commit();
+
+            return new { dimension_id = dim.Id.Value, value_ft = dim.Value, value_string = dim.ValueString };
+        }
+    }
+
+    private static object ExecuteCreateRevisionCloud(UIApplication app, JsonElement payload)
+    {
+        var doc = app.ActiveUIDocument?.Document;
+        if (doc == null) throw new InvalidOperationException("No active document");
+
+        var viewId = new ElementId((long)payload.GetProperty("view_id").GetInt32());
+        var pointsElement = payload.GetProperty("points");
+        var revisionId = payload.TryGetProperty("revision_id", out var rid) ? new ElementId((long)rid.GetInt32()) : ElementId.InvalidElementId;
+
+        // Parse points
+        var points = new List<XYZ>();
+        foreach (var p in pointsElement.EnumerateArray())
+        {
+            points.Add(ParseXYZ(p));
+        }
+
+        using (var trans = new Transaction(doc, "Create Revision Cloud"))
+        {
+            trans.Start();
+
+            // Create curves from points (closed loop)
+            var curves = new List<Curve>();
+            for (int i = 0; i < points.Count; i++)
+            {
+                var p1 = points[i];
+                var p2 = points[(i + 1) % points.Count];
+                curves.Add(Autodesk.Revit.DB.Line.CreateBound(p1, p2));
+            }
+
+            RevisionCloud cloud;
+            if (revisionId != ElementId.InvalidElementId)
+            {
+                cloud = RevisionCloud.Create(doc, viewId, revisionId, curves);
+            }
+            else
+            {
+                // Use default revision
+                cloud = RevisionCloud.Create(doc, viewId, curves);
+            }
+
+            trans.Commit();
+
+            return new { cloud_id = cloud.Id.Value, revision_id = cloud.RevisionId.Value, view_id = viewId.Value };
+        }
+    }
+
+    private static object ExecuteGetRevisionSequences(UIApplication app)
+    {
+        var doc = app.ActiveUIDocument?.Document;
+        if (doc == null) throw new InvalidOperationException("No active document");
+
+        var revisions = new FilteredElementCollector(doc)
+            .OfCategory(BuiltInCategory.OST_Revisions)
+            .Select(e => new 
+            { 
+                id = e.Id.Value, 
+                name = e.Name, 
+                date = e.get_Parameter(BuiltInParameter.PROJECT_REVISION_REVISION_DATE)?.AsString(),
+                description = e.get_Parameter(BuiltInParameter.PROJECT_REVISION_REVISION_DESCRIPTION)?.AsString(),
+                sequence = e.get_Parameter(BuiltInParameter.PROJECT_REVISION_SEQUENCE_NUM)?.AsInteger() ?? 0,
+                issued = e.get_Parameter(BuiltInParameter.PROJECT_REVISION_ISSUED)?.AsInteger() == 1
+            })
+            .OrderBy(x => x.sequence)
+            .ToList();
+
+        return new { revisions, count = revisions.Count };
+    }
+
+    private static object ExecuteTagAllInView(UIApplication app, JsonElement payload)
+    {
+        var doc = app.ActiveUIDocument?.Document;
+        if (doc == null) throw new InvalidOperationException("No active document");
+        
+        var categoryName = payload.GetProperty("category").GetString();
+        var category = GetBuiltInCategoryByName(categoryName);
+        var view = doc.ActiveView;
+
+        using (var trans = new Transaction(doc, "Tag All Not Tagged"))
+        {
+            trans.Start();
+
+            // Collect untagged elements in view
+            var elementsInView = new FilteredElementCollector(doc, view.Id)
+                .OfCategory(category)
+                .WhereElementIsNotElementType()
+                .ToElementIds();
+
+            int taggedCount = 0;
+            
+            foreach (var elemId in elementsInView)
+            {
+                var elem = doc.GetElement(elemId);
+                XYZ loc = null;
+                if (elem.Location is LocationPoint lp) loc = lp.Point;
+                else if (elem.Location is LocationCurve lc) loc = lc.Curve.Evaluate(0.5, true);
+                
+                if (loc != null)
+                {
+                    try {
+                        IndependentTag.Create(doc, view.Id, new Reference(elem), false, TagMode.TM_ADDBY_CATEGORY, TagOrientation.Horizontal, loc);
+                        taggedCount++;
+                    } catch { /* Tag family might be missing */ }
+                }
+            }
+
+            trans.Commit();
+            return new { tagged_count = taggedCount, view_name = view.Name, category = categoryName };
+        }
+    }
+
+    private static object ExecuteCreateTextType(UIApplication app, JsonElement payload)
+    {
+        var doc = app.ActiveUIDocument?.Document;
+        if (doc == null) throw new InvalidOperationException("No active document");
+
+        var name = payload.GetProperty("name").GetString();
+        var font = payload.TryGetProperty("font", out var f) ? f.GetString() : "Arial";
+        var size = payload.TryGetProperty("size_inches", out var s) ? s.GetDouble() : 3.0 / 32.0;
+
+        using (var trans = new Transaction(doc, "Create Text Type"))
+        {
+            trans.Start();
+
+            var existingType = new FilteredElementCollector(doc)
+                .OfClass(typeof(TextNoteType))
+                .Cast<TextNoteType>()
+                .FirstOrDefault();
+
+            if (existingType == null) throw new InvalidOperationException("No default text type found");
+
+            var newType = existingType.Duplicate(name) as TextNoteType;
+            newType.get_Parameter(BuiltInParameter.TEXT_FONT_TYPE_NAME).Set(font);
+            newType.get_Parameter(BuiltInParameter.TEXT_SIZE).Set(size / 12.0); // Convert inches to feet
+
+            trans.Commit();
+            return new { name = newType.Name, id = newType.Id.Value, font = font, size_inches = size };
+        }
+    }
+
+    private static object ExecuteGetViewTemplates(UIApplication app)
+    {
+        var doc = app.ActiveUIDocument?.Document;
+        if (doc == null) throw new InvalidOperationException("No active document");
+
+        var templates = new FilteredElementCollector(doc)
+            .OfClass(typeof(View))
+            .Cast<View>()
+            .Where(v => v.IsTemplate)
+            .Select(v => new { id = v.Id.Value, name = v.Name, view_type = v.ViewType.ToString() })
+            .ToList();
+
+        return new { templates, count = templates.Count };
+    }
+
+    private static object ExecuteApplyViewTemplate(UIApplication app, JsonElement payload)
+    {
+        var doc = app.ActiveUIDocument?.Document;
+        if (doc == null) throw new InvalidOperationException("No active document");
+
+        var viewId = new ElementId((long)payload.GetProperty("view_id").GetInt32());
+        var templateId = new ElementId((long)payload.GetProperty("template_id").GetInt32());
+
+        using (var trans = new Transaction(doc, "Apply View Template"))
+        {
+            trans.Start();
+
+            var view = doc.GetElement(viewId) as View;
+            var template = doc.GetElement(templateId) as View;
+
+            if (view == null) throw new ArgumentException("View not found");
+            if (template == null || !template.IsTemplate) throw new ArgumentException("Template not found or not a template");
+
+            view.ViewTemplateId = templateId;
+            trans.Commit();
+
+            return new { view_id = viewId.Value, template_name = template.Name, status = "applied" };
+        }
+    }
+
+    private static object ExecuteCalculateMaterialQuantities(UIApplication app, JsonElement payload)
+    {
+        var doc = app.ActiveUIDocument?.Document;
+        if (doc == null) throw new InvalidOperationException("No active document");
+
+        var categoryName = payload.GetProperty("category").GetString();
+        var cat = GetBuiltInCategoryByName(categoryName);
+
+        var elements = new FilteredElementCollector(doc)
+            .OfCategory(cat)
+            .WhereElementIsNotElementType()
+            .ToList();
+
+        var quantities = new Dictionary<string, double>(); // Material Name -> Volume (CF)
+
+        foreach (var elem in elements)
+        {
+            foreach (ElementId matId in elem.GetMaterialIds(false))
+            {
+                var material = doc.GetElement(matId) as Material;
+                if (material == null) continue;
+
+                double volume = elem.GetMaterialVolume(matId);
+                if (quantities.ContainsKey(material.Name))
+                    quantities[material.Name] += volume;
+                else
+                    quantities[material.Name] = volume;
+            }
+        }
+        
+        // Convert to list for JSON
+        var result = quantities.Select(q => new 
+        { 
+            material = q.Key, 
+            volume_cf = q.Value, 
+            volume_cy = q.Value / 27.0 // cubic yards
+        }).ToList();
+
+        return new { category = categoryName, totals = result, element_count = elements.Count };
+    }
+
+    private static object ExecuteGetRoomBoundary(UIApplication app, JsonElement payload)
+    {
+        var doc = app.ActiveUIDocument?.Document;
+        if (doc == null) throw new InvalidOperationException("No active document");
+
+        var roomId = new ElementId((long)payload.GetProperty("room_id").GetInt32());
+        var room = doc.GetElement(roomId) as Room;
+        if (room == null) throw new ArgumentException("Room not found");
+
+        var options = new SpatialElementBoundaryOptions();
+        var boundaries = room.GetBoundarySegments(options);
+        
+        var loops = new List<object>();
+
+        foreach (var segmentList in boundaries)
+        {
+            var points = new List<object>();
+            foreach (var segment in segmentList)
+            {
+                var curve = segment.GetCurve();
+                var p = curve.GetEndPoint(0);
+                points.Add(new { x = p.X, y = p.Y, z = p.Z });
+            }
+            loops.Add(points);
+        }
+
+        return new 
+        { 
+            room_name = room.Name, 
+            room_number = room.Number, 
+            area_sf = room.Area, 
+            perimeter_ft = room.Perimeter,
+            boundary_loops = loops 
+        };
+    }
+
+    private static object ExecuteGetProjectLocation(UIApplication app)
+    {
+        var doc = app.ActiveUIDocument?.Document;
+        if (doc == null) throw new InvalidOperationException("No active document");
+
+        var loc = doc.ActiveProjectLocation;
+        
+        // Get Project Base Point & Survey Point (Tricky in API, usually finding by Category works)
+        var basePoint = new FilteredElementCollector(doc)
+            .OfCategory(BuiltInCategory.OST_ProjectBasePoint)
+            .FirstOrDefault();
+            
+        var surveyPoint = new FilteredElementCollector(doc)
+            .OfCategory(BuiltInCategory.OST_SharedBasePoint)
+            .FirstOrDefault();
+
+        // Safe parameter access helpers
+        Func<Element, string, double> getParam = (e, name) => 
+        {
+            var p = e?.LookupParameter(name);
+            return p?.AsDouble() ?? 0.0;
+        };
+
+        return new 
+        {
+            project_name = loc.Name,
+            site_name = loc.SiteName,
+            project_base_point = new 
+            {
+                n_s = getParam(basePoint, "N/S"),
+                e_w = getParam(basePoint, "E/W"),
+                elev = getParam(basePoint, "Elev"),
+                angle_to_north = getParam(basePoint, "Angle to True North")
+            },
+            survey_point = new
+            {
+                n_s = getParam(surveyPoint, "N/S"),
+                e_w = getParam(surveyPoint, "E/W"),
+                elev = getParam(surveyPoint, "Elev")
+            }
+        };
+    }
+
+    private static object ExecuteGetWarnings(UIApplication app)
+    {
+        var doc = app.ActiveUIDocument?.Document;
+        if (doc == null) throw new InvalidOperationException("No active document");
+
+        var warnings = doc.GetWarnings();
+        var result = warnings.Select(w => new
+        {
+            description = w.GetDescriptionText(),
+            severity = w.GetSeverity().ToString(),
+            failing_elements = w.GetFailingElements().Select(id => id.Value).ToList()
+        }).ToList();
+
+        return new { warnings = result, count = warnings.Count };
     }
 }

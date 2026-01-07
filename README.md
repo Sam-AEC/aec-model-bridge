@@ -4,11 +4,10 @@
 
 <!-- Logos -->
 <p>
-   <img src="https://upload.wikimedia.org/wikipedia/commons/9/9d/Autodesk_Revit_icon.svg" alt="Autodesk Revit" height="40" style="margin-right:15px;"/>
-   <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Microsoft_365_Copilot_Icon.svg" alt="Microsoft Copilot" height="40" style="margin-right:15px;"/>
-   <img src="https://modelcontextprotocol.io/images/logo.svg" alt="Model Context Protocol" height="40" style="margin-right:15px;"/>
-   <img src="https://upload.wikimedia.org/wikipedia/commons/c/c3/Python-logo-notext.svg" alt="Python" height="40" style="margin-right:15px;"/>
-   <img src="https://upload.wikimedia.org/wikipedia/commons/7/7d/Microsoft_.NET_logo.svg" alt=".NET" height="40"/>
+   <img src="https://cdn.simpleicons.org/autodeskrevit/0696D7" alt="Autodesk Revit" height="40" style="margin-right:15px;"/>
+   <img src="https://cdn.simpleicons.org/microsoft/5E5E5E" alt="Microsoft" height="40" style="margin-right:15px;"/>
+   <img src="https://cdn.simpleicons.org/python/3776AB" alt="Python" height="40" style="margin-right:15px;"/>
+   <img src="https://cdn.simpleicons.org/dotnet/512BD4" alt=".NET" height="40"/>
 </p>
 
 # 🏗️ RevitMCP: AI-Powered Revit Automation
