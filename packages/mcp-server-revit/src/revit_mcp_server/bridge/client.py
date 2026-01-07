@@ -48,13 +48,18 @@ class BridgeClient:
                     {"tool": tool, "payload": payload, "request_id": request_id}
                 )
 
-                if response.get("status") == "error":
+                # Handle both lowercase (status) and Pascal case (Status) from C# server
+                status = response.get("status") or response.get("Status", "ok")
+                if status == "error":
+                    message = response.get("message") or response.get("Message", "Unknown error")
+                    stack = response.get("stack_trace") or response.get("StackTrace", "N/A")
                     raise BridgeError(
-                        f"Bridge error: {response.get('message')}\n"
-                        f"Stack: {response.get('stack_trace', 'N/A')}"
+                        f"Bridge error: {message}\n"
+                        f"Stack: {stack}"
                     )
 
-                result = response.get("result", {})
+                # Handle both lowercase and Pascal case for Result
+                result = response.get("result") or response.get("Result", {})
 
                 # Normalize element ID keys from specific types to generic element_id
                 self._normalize_element_ids(result)
