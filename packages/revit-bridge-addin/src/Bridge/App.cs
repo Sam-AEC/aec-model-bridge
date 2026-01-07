@@ -13,6 +13,7 @@ public class App : IExternalApplication
 
     public static string? RevitVersion { get; private set; }
     public static string? ActiveDocumentName { get; private set; }
+    public static BridgeServer? Server { get; private set; }
 
     public Result OnStartup(UIControlledApplication application)
     {
@@ -27,7 +28,11 @@ public class App : IExternalApplication
             _externalEvent = ExternalEvent.Create(handler);
 
             _server = new BridgeServer(_queue, _externalEvent);
+            Server = _server; // Expose statically
             _server.Start();
+
+            // Create Ribbon UI
+            CreateRibbonInterface(application);
 
             application.ControlledApplication.DocumentChanged += (sender, args) =>
             {
@@ -42,6 +47,52 @@ public class App : IExternalApplication
             Log.Fatal(ex, "Failed to start RevitMCP Bridge");
             return Result.Failed;
         }
+    }
+
+    private void CreateRibbonInterface(UIControlledApplication app)
+    {
+        string tabName = "RevitMCP";
+        try
+        {
+            app.CreateRibbonTab(tabName);
+        }
+        catch (Autodesk.Revit.Exceptions.ArgumentException)
+        {
+            // Tab might already exist
+        }
+
+        RibbonPanel panel = app.CreateRibbonPanel(tabName, "Connection");
+
+        string assemblyPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+
+        // Connect Button
+        PushButtonData connectBtnData = new PushButtonData(
+            "cmdConnect",
+            "Connect",
+            assemblyPath,
+            "RevitBridge.Bridge.CommandConnect");
+        connectBtnData.ToolTip = "Start the MCP Bridge Server";
+        
+        // Disconnect Button
+        PushButtonData disconnectBtnData = new PushButtonData(
+            "cmdDisconnect",
+            "Disconnect",
+            assemblyPath,
+            "RevitBridge.Bridge.CommandDisconnect");
+        disconnectBtnData.ToolTip = "Stop the MCP Bridge Server";
+
+        // Status Button
+        PushButtonData statusBtnData = new PushButtonData(
+            "cmdStatus",
+            "Status",
+            assemblyPath,
+            "RevitBridge.Bridge.CommandStatus");
+        statusBtnData.ToolTip = "Check Server Status";
+
+        panel.AddItem(connectBtnData);
+        panel.AddItem(disconnectBtnData);
+        panel.AddSeparator();
+        panel.AddItem(statusBtnData);
     }
 
     public Result OnShutdown(UIControlledApplication application)

@@ -15,7 +15,7 @@ public class BridgeServer
     private readonly HttpListener _listener;
     private readonly CommandQueue _queue;
     private readonly ExternalEvent _externalEvent;
-    private readonly CancellationTokenSource _cts = new();
+    private CancellationTokenSource _cts = new();
     private readonly DateTime _startTime = DateTime.UtcNow;
     private Task? _listenerTask;
 
@@ -27,19 +27,45 @@ public class BridgeServer
         _listener.Prefixes.Add(prefix);
     }
 
+    public bool IsListening { get; private set; }
+
     public void Start()
     {
-        _listener.Start();
-        _listenerTask = Task.Run(ListenerLoop, _cts.Token);
-        Log.Information("BridgeServer started on {Prefixes}", string.Join(", ", _listener.Prefixes));
+        if (IsListening) return;
+
+        try
+        {
+            if (_cts.IsCancellationRequested)
+                _cts = new CancellationTokenSource();
+
+            _listener.Start();
+            _listenerTask = Task.Run(ListenerLoop, _cts.Token);
+            IsListening = true;
+            Log.Information("BridgeServer started on {Prefixes}", string.Join(", ", _listener.Prefixes));
+        }
+        catch (Exception ex)
+        {
+             Log.Error(ex, "Failed to start listener");
+             IsListening = false;
+        }
     }
 
     public void Stop()
     {
-        _cts.Cancel();
-        _listener.Stop();
-        _listenerTask?.Wait(5000);
-        Log.Information("BridgeServer stopped");
+        if (!IsListening) return;
+
+        try
+        {
+            _cts.Cancel();
+            _listener.Stop();
+            // _listenerTask?.Wait(5000); // Avoid blocking UI thread
+            IsListening = false;
+            Log.Information("BridgeServer stopped");
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to stop listener");
+        }
     }
 
     private async Task ListenerLoop()
