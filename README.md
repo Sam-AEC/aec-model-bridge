@@ -1,10 +1,15 @@
 <div align="center">
 
-<img src="https://cdn.simpleicons.org/autodeskrevit/0696D7" alt="Revit" height="80"/>
+# Autodesk Revit MCP Server
 
-# Revit MCP Server
+### **AI-Powered Revit Automation via Model Context Protocol**
 
-**Model Context Protocol server for Autodesk Revit**
+<p align="center">
+  <img src="https://cdn.simpleicons.org/autodeskrevit/0696D7" alt="Revit" height="50" style="margin:0 10px;"/>
+  <img src="https://cdn.simpleicons.org/python/3776AB" alt="Python" height="50" style="margin:0 10px;"/>
+  <img src="https://cdn.simpleicons.org/dotnet/512BD4" alt=".NET" height="50" style="margin:0 10px;"/>
+  <img src="https://upload.wikimedia.org/wikipedia/commons/1/13/Anthropic_logo.svg" alt="Claude" height="50" style="margin:0 10px;"/>
+</p>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-0078D4?style=flat-square)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
