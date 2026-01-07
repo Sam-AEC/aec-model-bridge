@@ -8,7 +8,6 @@
   <img src="https://cdn.simpleicons.org/autodeskrevit/0696D7" alt="Revit" height="50" style="margin:0 10px;"/>
   <img src="https://cdn.simpleicons.org/python/3776AB" alt="Python" height="50" style="margin:0 10px;"/>
   <img src="https://cdn.simpleicons.org/dotnet/512BD4" alt=".NET" height="50" style="margin:0 10px;"/>
-  <img src="https://upload.wikimedia.org/wikipedia/commons/1/13/Anthropic_logo.svg" alt="Claude" height="50" style="margin:0 10px;"/>
 </p>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
