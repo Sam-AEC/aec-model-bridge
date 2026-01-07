@@ -482,24 +482,32 @@ public static class BridgeCommandFactory
             trans.Start();
 
             var level = GetLevelByName(doc, levelName);
-            var curveArray = new CurveArray();
+            var curveLoop = new CurveLoop();
 
             for (int i = 0; i < boundaryPoints.Count; i++)
             {
                 var start = boundaryPoints[i];
                 var end = boundaryPoints[(i + 1) % boundaryPoints.Count];
-                curveArray.Append(Line.CreateBound(start, end));
+                curveLoop.Append(Line.CreateBound(start, end));
             }
 
             Floor floor;
             if (!string.IsNullOrEmpty(floorTypeName))
             {
                 var floorType = GetFloorTypeByName(doc, floorTypeName);
-                floor = doc.Create.NewFloor(curveArray, floorType, level, false);
+                floor = Floor.Create(doc, new List<CurveLoop> { curveLoop }, floorType.Id, level.Id);
             }
             else
             {
-                floor = doc.Create.NewFloor(curveArray, false);
+                var defaultFloorType = new FilteredElementCollector(doc)
+                    .OfClass(typeof(FloorType))
+                    .Cast<FloorType>()
+                    .FirstOrDefault();
+
+                if (defaultFloorType == null)
+                    throw new InvalidOperationException("No floor types found in document");
+
+                floor = Floor.Create(doc, new List<CurveLoop> { curveLoop }, defaultFloorType.Id, level.Id);
             }
 
             trans.Commit();
@@ -1125,7 +1133,7 @@ public static class BridgeCommandFactory
             {
                 name = p.Definition.Name,
                 value = GetParameterValueAsString(p),
-                parameter_type = p.Definition.ParameterType.ToString(),
+                parameter_type = GetDefinitionDataTypeName(p.Definition),
                 storage_type = p.StorageType.ToString(),
                 is_read_only = p.IsReadOnly,
                 is_shared = p.IsShared,
@@ -1205,7 +1213,7 @@ public static class BridgeCommandFactory
             parameter_name = parameterName,
             value = GetParameterValueAsString(parameter),
             storage_type = parameter.StorageType.ToString(),
-            parameter_type = parameter.Definition.ParameterType.ToString(),
+            parameter_type = GetDefinitionDataTypeName(parameter.Definition),
             is_read_only = parameter.IsReadOnly
         };
     }
@@ -1223,7 +1231,7 @@ public static class BridgeCommandFactory
             {
                 name = sp.Name,
                 guid = sp.GuidValue.ToString(),
-                definition_group = sp.GetDefinition()?.ParameterGroup.ToString()
+                definition_group = GetDefinitionGroupName(sp.GetDefinition())
             })
             .ToList();
 
@@ -1383,7 +1391,7 @@ public static class BridgeCommandFactory
             {
                 name = p.Definition.Name,
                 value = GetParameterValueAsString(p),
-                parameter_type = p.Definition.ParameterType.ToString(),
+                parameter_type = GetDefinitionDataTypeName(p.Definition),
                 storage_type = p.StorageType.ToString(),
                 is_read_only = p.IsReadOnly
             })
@@ -1454,6 +1462,49 @@ public static class BridgeCommandFactory
             StorageType.ElementId => parameter.AsElementId().IntegerValue.ToString(),
             _ => parameter.AsValueString()
         };
+    }
+
+    private static string GetDefinitionDataTypeName(Definition definition)
+    {
+        if (definition == null)
+            return null;
+
+        try
+        {
+            var dataType = definition.GetDataType();
+            if (dataType == null)
+                return null;
+
+            var label = LabelUtils.GetLabelForSpec(dataType);
+            if (!string.IsNullOrEmpty(label))
+                return label;
+
+            return dataType.TypeId;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string GetDefinitionGroupName(Definition definition)
+    {
+        if (definition == null)
+            return null;
+
+        try
+        {
+            var groupTypeId = definition.GetGroupTypeId();
+            var label = LabelUtils.GetLabelForGroupTypeId(groupTypeId);
+            if (!string.IsNullOrEmpty(label))
+                return label;
+
+            return groupTypeId.TypeId;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static void SetParameterValue(Parameter parameter, JsonElement value)
@@ -1627,7 +1678,7 @@ public static class BridgeCommandFactory
             if (view.ViewType == ViewType.DrawingSheet)
                 throw new InvalidOperationException("Cannot place a sheet view on another sheet");
 
-            if (Viewport.CanAddViewToSheet(doc, sheetId, viewId))
+            if (Viewport.CanAddViewToSheet(doc, new ElementId(sheetId), new ElementId(viewId)))
             {
                 var viewport = Viewport.Create(doc, sheet.Id, view.Id, location);
 
@@ -1887,9 +1938,11 @@ public static class BridgeCommandFactory
             }
             else
             {
-                var titleblockId = sourceSheet.GetAllElements()
-                    .OfType<FamilyInstance>()
-                    .FirstOrDefault(fi => fi.Category.Name == "Title Blocks")?.GetTypeId();
+                var titleblockId = new FilteredElementCollector(doc, sourceSheet.Id)
+                    .OfCategory(BuiltInCategory.OST_TitleBlocks)
+                    .WhereElementIsNotElementType()
+                    .FirstOrDefault()
+                    ?.GetTypeId();
 
                 if (titleblockId == null)
                     throw new InvalidOperationException("Cannot find titleblock on source sheet");
@@ -2197,11 +2250,22 @@ public static class BridgeCommandFactory
         {
             trans.Start();
 
-            var result = doc.Export(
-                System.IO.Path.GetDirectoryName(outputPath),
-                System.IO.Path.GetFileNameWithoutExtension(outputPath),
-                options
-            );
+            var exportSucceeded = true;
+            string exportError = null;
+
+            try
+            {
+                doc.Export(
+                    System.IO.Path.GetDirectoryName(outputPath),
+                    System.IO.Path.GetFileNameWithoutExtension(outputPath),
+                    options
+                );
+            }
+            catch (Exception ex)
+            {
+                exportSucceeded = false;
+                exportError = ex.Message;
+            }
 
             trans.Commit();
 
@@ -2210,11 +2274,12 @@ public static class BridgeCommandFactory
                 file_path = outputPath,
                 export_scope = exportScope,
                 view_id = viewId.IntegerValue,
-                export_succeeded = result,
+                export_succeeded = exportSucceeded,
                 file_size_bytes = System.IO.File.Exists(outputPath)
                     ? new System.IO.FileInfo(outputPath).Length
                     : (long?)null,
-                status = result ? "success" : "error"
+                status = exportSucceeded ? "success" : "error",
+                error = exportError
             };
         }
     }
@@ -2307,31 +2372,28 @@ public static class BridgeCommandFactory
         if (view == null)
             throw new ArgumentException($"3D View with ID {viewId} not found");
 
-        var renderingSettings = new RenderingSettings(doc);
-        renderingSettings.Quality = renderQuality switch
+        var imageResolution = renderQuality switch
         {
-            "Draft" => RenderingQualityType.Draft,
-            "Medium" => RenderingQualityType.Medium,
-            "High" => RenderingQualityType.High,
-            _ => RenderingQualityType.Medium
+            "Draft" => ImageResolution.DPI_72,
+            "High" => ImageResolution.DPI_300,
+            _ => ImageResolution.DPI_150
         };
-        renderingSettings.Resolution = RenderingResolution.Custom;
-        renderingSettings.ResolutionWidth = imageWidth;
-        renderingSettings.ResolutionHeight = imageHeight;
 
         using (var trans = new Transaction(doc, "Render 3D View"))
         {
             trans.Start();
 
-            var renderOptions = new RenderingImageExportOptions
+            var renderOptions = new ImageExportOptions
             {
-                ImageExportName = System.IO.Path.GetFileNameWithoutExtension(outputPath),
-                FilePath = System.IO.Path.GetDirectoryName(outputPath)
+                ZoomType = ZoomFitType.FitToPage,
+                PixelSize = Math.Max(imageWidth, imageHeight),
+                ImageResolution = imageResolution,
+                FilePath = System.IO.Path.GetDirectoryName(outputPath),
+                ExportRange = ExportRange.SetOfViews
             };
 
-            // Note: Rendering is typically an asynchronous operation in Revit
-            // This may require additional handling for production use
-            view.Render(renderingSettings, renderOptions);
+            renderOptions.SetViewsAndSheets(new List<ElementId> { view.Id });
+            doc.ExportImage(renderOptions);
 
             trans.Commit();
 
@@ -2343,8 +2405,8 @@ public static class BridgeCommandFactory
                 quality = renderQuality,
                 width = imageWidth,
                 height = imageHeight,
-                note = "Rendering may take time to complete. Check output directory.",
-                status = "initiated"
+                note = "Exported 3D view image via ImageExportOptions.",
+                status = "success"
             };
         }
     }
