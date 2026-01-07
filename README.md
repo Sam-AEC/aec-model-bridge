@@ -1,175 +1,333 @@
 <div align="center">
 
-# 🏗️ Revit MCP Bridge
+<img src="https://raw.githubusercontent.com/modelcontextprotocol/docs/main/logo/light.svg" alt="MCP Logo" width="120"/>
 
-**Control Autodesk Revit from AI agents, Python scripts, or any MCP client**
+# Revit MCP Server
 
-<br/>
+**Model Context Protocol server for Autodesk Revit automation**
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/modelcontextprotocol/docs/main/logo/light.svg" alt="MCP" height="60"/>
-  &nbsp;&nbsp;&nbsp;
-  <span style="font-size: 2em;">+</span>
-  &nbsp;&nbsp;&nbsp;
-  <img src="https://iconlogovector.com/logo/revit" alt="Revit" height="60"/>
-  &nbsp;&nbsp;&nbsp;
-  <span style="font-size: 2em;">=</span>
-  &nbsp;&nbsp;&nbsp;
-  <img src="https://www.vectorlogo.zone/logos/python/python-icon.svg" alt="Python" height="60"/>
-  &nbsp;&nbsp;&nbsp;
-  <span style="font-size: 2em;">+</span>
-  &nbsp;&nbsp;&nbsp;
-  <img src="https://cdn.worldvectorlogo.com/logos/c--4.svg" alt="C#" height="60"/>
-</p>
+Control Revit from AI agents, Python scripts, or any MCP-compatible client through a standardized interface.
 
-<br/>
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg?style=flat-square&logo=python&logoColor=white)](https://www.python.org/downloads/)
+[![.NET Framework 4.8](https://img.shields.io/badge/.NET-4.8-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
+[![Revit 2020-2024](https://img.shields.io/badge/Revit-2020--2024-0696D7?style=flat-square)](https://www.autodesk.com/products/revit)
 
-[![Build](https://img.shields.io/github/actions/workflow/status/Sam-AEC/mcp/ci.yml?style=for-the-badge&logo=github)](https://github.com/Sam-AEC/mcp/actions)
-[![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
-[![Revit](https://img.shields.io/badge/Revit-2020--2024-0696D7?style=for-the-badge&logo=autodesk)](https://autodesk.com/revit)
-[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![.NET](https://img.shields.io/badge/.NET-4.8-512BD4?style=for-the-badge&logo=dotnet)](https://dotnet.microsoft.com)
+[Installation](#installation) • [Features](#features) • [Architecture](#architecture) • [Documentation](#documentation)
 
 </div>
 
 ---
 
-## What It Does
+## Overview
 
-Exposes **25 Revit operations** through the Model Context Protocol. Use it with:
-- 🤖 AI agents (Claude, ChatGPT, custom tools)
-- 🐍 Python/TypeScript automation
-- 🔄 CI/CD pipelines
-- ☁️ Cloud workflows
+This project provides a bridge between the Model Context Protocol (MCP) and Autodesk Revit, enabling programmatic control of Revit through a standardized API. It exposes 25 Revit operations for quality assurance, data extraction, and automation workflows.
 
-**Components:**
-- **MCP Server** (Python) → Validates requests, enforces sandboxing, logs everything
-- **Bridge Add-in** (C# .NET) → Runs inside Revit, executes API calls via ExternalEvent
-- **Mock Mode** → Test without Revit (perfect for CI)
+**Key Components:**
+
+- **MCP Server** (Python): Protocol handler with request validation, workspace sandboxing, and audit logging
+- **Bridge Add-in** (C# .NET): Native Revit add-in that executes API calls via ExternalEvent
+- **Mock Mode**: Standalone testing mode with deterministic responses (no Revit required)
+
+**Use Cases:**
+
+- Automated quality assurance in CI/CD pipelines
+- AI-powered model analysis and reporting
+- Batch data extraction and exports
+- Integration with custom tooling and workflows
 
 ---
 
-## Quick Start
+## Installation
 
-### Mock Mode (No Revit Required)
+### Prerequisites
+
+**For Mock Mode (Testing/Development):**
+- Python 3.11 or higher
+- Git
+
+**For Bridge Mode (Production with Revit):**
+- Windows 10/11
+- Autodesk Revit 2020-2024
+- .NET Framework 4.8
+- Visual Studio Build Tools or MSBuild
+
+### Quick Start
+
+#### 1. Clone and Install
 
 ```bash
-git clone https://github.com/Sam-AEC/mcp.git && cd mcp
-python -m venv venv && source venv/bin/activate
-pip install -e packages/mcp-server-revit[dev]
-
-export MCP_REVIT_MODE=mock WORKSPACE_DIR="$(pwd)/workspace"
-mkdir -p workspace && pytest packages/mcp-server-revit/tests -v
-
-python -m revit_mcp_server  # Terminal 1
-python packages/client-demo/demo.py  # Terminal 2
+git clone https://github.com/Sam-AEC/mcp.git
+cd mcp
+python -m venv venv
 ```
 
-### Bridge Mode (Windows + Revit)
+**Windows:**
+```powershell
+.\venv\Scripts\activate
+```
+
+**macOS/Linux:**
+```bash
+source venv/bin/activate
+```
+
+Install the MCP server:
+```bash
+pip install -e packages/mcp-server-revit[dev]
+```
+
+#### 2. Run in Mock Mode
+
+```bash
+# Set environment variables
+export MCP_REVIT_MODE=mock
+export WORKSPACE_DIR="$(pwd)/workspace"
+mkdir -p workspace
+
+# Run tests
+pytest packages/mcp-server-revit/tests -v
+
+# Start server (terminal 1)
+python -m revit_mcp_server
+
+# Run demo client (terminal 2)
+python packages/client-demo/demo.py
+```
+
+#### 3. Run in Bridge Mode (Windows + Revit)
 
 ```powershell
-# After mock setup above...
+# Build and install add-in
 $env:REVIT_SDK = "C:\Program Files\Autodesk\Revit 2024\SDK"
 .\scripts\build-addin.ps1
 .\scripts\install-addin.ps1 -RevitYear 2024
 
-# Start Revit, then:
+# Start Revit, then configure and run server
 $env:MCP_REVIT_MODE = "bridge"
+$env:WORKSPACE_DIR = "C:\revit-workspace"
 python -m revit_mcp_server
 ```
 
----
-
-## Tools (25)
-
-| Category | Tools |
-|----------|-------|
-| **Health** | `revit.health` |
-| **Documents** | `open_document`, `list_views` |
-| **QA Audits** | `model_health_summary`, `warning_triage`, `naming_standards`, `parameter_compliance`, `shared_params`, `view_templates`, `tag_coverage`, `room_completeness`, `link_monitor`, `coordinate_check` |
-| **Exports** | `schedules`, `quantities`, `pdf`, `dwg`, `ifc` |
-| **Sheets** | `batch_create`, `place_views`, `titleblock_fill` |
-| **Baseline** | `export`, `diff` |
-
-[Full docs →](docs/tools.md)
+For detailed installation instructions, see [docs/install.md](docs/install.md).
 
 ---
 
-## Example: AI QA Agent
+## Features
 
-```python
-# Agent checks Revit model for issues
-response = client.call_tool("revit.open_document", {
-    "file_path": "/workspace/hospital.rvt"
-})
+### Available Tools (25)
 
-warnings = client.call_tool("revit.warning_triage_report", {})
-# → {"issues_found": 42, "severity": "warning"}
+| Category | Tools | Description |
+|----------|-------|-------------|
+| **Health Check** | `revit.health` | Server status and connectivity |
+| **Document Management** | `open_document`, `list_views` | File operations and view enumeration |
+| **Quality Assurance** | `model_health_summary`, `warning_triage`, `naming_standards`, `parameter_compliance`, `shared_params`, `view_templates`, `tag_coverage`, `room_completeness`, `link_monitor`, `coordinate_check` | Automated model validation and auditing |
+| **Data Export** | `export_schedules`, `export_quantities`, `export_pdf`, `export_dwg`, `export_ifc` | Multi-format data extraction |
+| **Sheet Management** | `batch_create_sheets`, `place_views_on_sheets`, `fill_titleblocks` | Sheet creation and configuration |
+| **Baseline Tracking** | `export_baseline`, `diff_baseline` | Model comparison and change detection |
 
-naming = client.call_tool("revit.naming_standards_audit", {})
-# → Agent generates report with fixes
-```
+Full tool documentation: [docs/tools.md](docs/tools.md)
+
+### Security Features
+
+- **Workspace Sandboxing**: All file operations restricted to allowed directories
+- **Schema Validation**: Pydantic-based request/response validation
+- **Audit Logging**: JSONL logs with timestamps for all operations
+- **Local-Only**: Bridge runs on localhost (no external network exposure)
+- **Mock Mode**: Complete testing without Revit installation
+
+Security model: [docs/security.md](docs/security.md)
 
 ---
 
 ## Architecture
 
 ```
-AI Agent/Script
-    ↓ (MCP stdio)
-Python Server (validation, sandboxing, logging)
-    ↓ (HTTP localhost:3000)
-C# Bridge Add-in (ExternalEvent queue)
-    ↓ (Revit API)
-Autodesk Revit
+┌─────────────────────┐
+│   AI Agent/Client   │
+│  (Claude, ChatGPT)  │
+└──────────┬──────────┘
+           │ MCP Protocol (stdio/SSE)
+           ▼
+┌─────────────────────┐
+│   Python MCP Server │
+│  - Validation       │
+│  - Sandboxing       │
+│  - Logging          │
+└──────────┬──────────┘
+           │ HTTP (localhost:3000)
+           ▼
+┌─────────────────────┐
+│  C# Bridge Add-in   │
+│  - ExternalEvent    │
+│  - API Execution    │
+└──────────┬──────────┘
+           │ Revit API
+           ▼
+┌─────────────────────┐
+│   Autodesk Revit    │
+└─────────────────────┘
 ```
 
-**Why?** Revit API needs .NET + Windows + UI thread. This bridge handles complexity while exposing simple JSON tools.
+**Why this architecture?**
 
-[Architecture docs →](docs/architecture.md)
+The Revit API requires:
+- .NET Framework (C# code)
+- Windows operating system
+- UI thread execution via ExternalEvent
 
----
+This bridge architecture handles the complexity while exposing a simple, cross-platform JSON interface via MCP.
 
-## Security
-
-✅ Workspace sandboxing (paths validated)
-✅ Schema validation (Pydantic)
-✅ Audit logs (JSONL with timestamps)
-✅ Mock mode (CI without Revit)
-✅ localhost-only (no external exposure)
-
-[Security docs →](docs/security.md)
+Detailed architecture: [docs/architecture.md](docs/architecture.md)
 
 ---
 
-## Use Cases
+## Usage Example
 
-**Automated QA** → Run naming/parameter checks on every commit
-**Scheduled Exports** → Nightly schedule/quantity exports to shared drives
-**AI Workflows** → Let agents analyze models and suggest fixes
-**Baseline Tracking** → Compare model snapshots over time
+### Python Client
+
+```python
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+
+# Connect to MCP server
+server_params = StdioServerParameters(
+    command="python",
+    args=["-m", "revit_mcp_server"],
+    env={"MCP_REVIT_MODE": "bridge"}
+)
+
+async with stdio_client(server_params) as (read, write):
+    async with ClientSession(read, write) as session:
+        # Initialize
+        await session.initialize()
+
+        # Open document
+        result = await session.call_tool(
+            "revit.open_document",
+            arguments={"file_path": "/workspace/project.rvt"}
+        )
+
+        # Run QA audit
+        warnings = await session.call_tool(
+            "revit.warning_triage_report",
+            arguments={}
+        )
+
+        # Export data
+        schedules = await session.call_tool(
+            "revit.export_schedules",
+            arguments={"output_dir": "/workspace/exports"}
+        )
+```
+
+### AI Agent Integration
+
+Configure in your MCP client (Claude Desktop, Continue, etc.):
+
+```json
+{
+  "mcpServers": {
+    "revit": {
+      "command": "python",
+      "args": ["-m", "revit_mcp_server"],
+      "env": {
+        "MCP_REVIT_MODE": "bridge",
+        "WORKSPACE_DIR": "C:\\revit-workspace"
+      }
+    }
+  }
+}
+```
+
+The agent can then use natural language to control Revit:
+
+```
+User: "Check the hospital.rvt model for warnings and naming violations"
+
+Agent: [calls revit.open_document with hospital.rvt]
+       [calls revit.warning_triage_report]
+       [calls revit.naming_standards_audit]
+       [generates report with findings and recommendations]
+```
+
+---
+
+## Development
+
+### Project Structure
+
+```
+mcp/
+├── packages/
+│   ├── mcp-server-revit/     # Python MCP server
+│   ├── revit-bridge-addin/   # C# Revit add-in
+│   └── client-demo/          # Example client
+├── scripts/                  # Build and deployment scripts
+├── docs/                     # Documentation
+└── examples/                 # Configuration examples
+```
+
+### Running Tests
+
+```bash
+# Python tests
+pytest packages/mcp-server-revit/tests -v
+
+# C# tests (requires Visual Studio)
+dotnet test packages/revit-bridge-addin/RevitBridge.Tests
+```
+
+### Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
+
+---
+
+## Documentation
+
+- **[Installation Guide](docs/install.md)**: Detailed setup for mock and bridge modes
+- **[Tool Reference](docs/tools.md)**: Complete API documentation for all 25 tools
+- **[Architecture](docs/architecture.md)**: System design and component interaction
+- **[Security Model](docs/security.md)**: Trust boundaries and threat mitigation
 
 ---
 
 ## Roadmap
 
-**Next (v0.2):** Real Revit API calls (currently stubs), async HTTP, error handling
-**Later:** More QA tools, Dynamo integration, Navisworks export, BIM 360 support
+**Version 0.2**
+- Complete Revit API implementation (replace stubs)
+- Async HTTP client with connection pooling
+- Enhanced error handling and recovery
+- Performance benchmarks
 
----
-
-## Docs
-
-[Install](docs/install.md) • [Tools](docs/tools.md) • [Architecture](docs/architecture.md) • [Security](docs/security.md) • [Contributing](CONTRIBUTING.md)
+**Future**
+- Additional QA tools (clash detection, BIM validation)
+- Dynamo script integration
+- Navisworks export support
+- BIM 360/ACC integration
+- Multi-document operations
 
 ---
 
 ## License
 
-MIT • Built with [mcp-use](https://github.com/mcp-use/mcp-use) framework
+This project is licensed under the MIT License - see [LICENSE](LICENSE) for details.
+
+---
+
+## Support
+
+- **Issues**: [GitHub Issues](https://github.com/Sam-AEC/mcp/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/Sam-AEC/mcp/discussions)
+- **Documentation**: [docs/](docs/)
+
+---
 
 <div align="center">
 
-⭐ **Star if useful** • [Report Bug](https://github.com/Sam-AEC/mcp/issues) • [Request Feature](https://github.com/Sam-AEC/mcp/issues)
+Built with the [Model Context Protocol](https://modelcontextprotocol.io)
+
+**[⭐ Star this repo](https://github.com/Sam-AEC/mcp)** if you find it useful
 
 </div>
