@@ -5,7 +5,7 @@
 <!-- Logos -->
 <p>
    <img src="https://cdn.simpleicons.org/autodeskrevit/0696D7" alt="Autodesk Revit" height="40" style="margin-right:15px;"/>
-   <img src="https://cdn.simpleicons.org/microsoft/5E5E5E" alt="Microsoft" height="40" style="margin-right:15px;"/>
+   <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Microsoft_logo.svg/2048px-Microsoft_logo.svg.png" alt="Microsoft" height="40" style="margin-right:15px;"/>
    <img src="https://cdn.simpleicons.org/python/3776AB" alt="Python" height="40" style="margin-right:15px;"/>
    <img src="https://cdn.simpleicons.org/dotnet/512BD4" alt=".NET" height="40"/>
 </p>
