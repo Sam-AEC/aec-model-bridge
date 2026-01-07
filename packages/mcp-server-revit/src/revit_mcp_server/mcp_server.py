@@ -709,6 +709,22 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
         "revit_create_schedule": ("revit.create_schedule", {"category_name": arguments.get("category_name"), "name": arguments.get("name")}),
         "revit_get_schedule_data": ("revit.get_schedule_data", {"schedule_id": arguments.get("schedule_id")}),
         "revit_get_element_bounding_box": ("revit.get_element_bounding_box", {"element_id": arguments.get("element_id")}),
+
+        # Batch 4: Phasing
+        "revit_get_phases": ("revit.get_phases", {}),
+        "revit_get_phase_filters": ("revit.get_phase_filters", {}),
+
+        # Batch 4: Design Options
+        "revit_get_design_options": ("revit.get_design_options", {}),
+
+        # Batch 4: Groups
+        "revit_create_group": ("revit.create_group", {"element_ids": arguments.get("element_ids"), "name": arguments.get("name")}),
+        "revit_ungroup": ("revit.ungroup", {"group_id": arguments.get("group_id")}),
+        "revit_get_group_members": ("revit.get_group_members", {"group_id": arguments.get("group_id")}),
+
+        # Batch 4: Links
+        "revit_get_rvt_links": ("revit.get_rvt_links", {}),
+        "revit_get_link_instances": ("revit.get_link_instances", {}),
     }
 
         if name not in tool_mapping:

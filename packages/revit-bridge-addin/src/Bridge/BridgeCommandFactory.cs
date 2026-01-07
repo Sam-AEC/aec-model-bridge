@@ -122,6 +122,22 @@ public static class BridgeCommandFactory
             "revit.get_schedule_data" => ExecuteGetScheduleData(app, payload),
             "revit.get_element_bounding_box" => ExecuteGetElementBoundingBox(app, payload),
 
+            // Batch 4: Phasing
+            "revit.get_phases" => ExecuteGetPhases(app),
+            "revit.get_phase_filters" => ExecuteGetPhaseFilters(app),
+
+            // Batch 4: Design Options
+            "revit.get_design_options" => ExecuteGetDesignOptions(app),
+
+            // Batch 4: Groups
+            "revit.create_group" => ExecuteCreateGroup(app, payload),
+            "revit.ungroup" => ExecuteUngroup(app, payload),
+            "revit.get_group_members" => ExecuteGetGroupMembers(app, payload),
+
+            // Batch 4: Links
+            "revit.get_rvt_links" => ExecuteGetRvtLinks(app),
+            "revit.get_link_instances" => ExecuteGetLinkInstances(app),
+
             _ => new { status = "error", message = $"Unknown tool: {tool}" }
         };
     }
@@ -234,7 +250,23 @@ public static class BridgeCommandFactory
             // Batch 3: Schedules & Data
             "revit.create_schedule",
             "revit.get_schedule_data",
-            "revit.get_element_bounding_box"
+            "revit.get_element_bounding_box",
+
+            // Batch 4: Phasing
+            "revit.get_phases",
+            "revit.get_phase_filters",
+
+            // Batch 4: Design Options
+            "revit.get_design_options",
+
+            // Batch 4: Groups
+            "revit.create_group",
+            "revit.ungroup",
+            "revit.get_group_members",
+
+            // Batch 4: Links
+            "revit.get_rvt_links",
+            "revit.get_link_instances"
         };
     }
 
@@ -3003,5 +3035,154 @@ public static class BridgeCommandFactory
             min = new { x = bbox.Min.X, y = bbox.Min.Y, z = bbox.Min.Z },
             max = new { x = bbox.Max.X, y = bbox.Max.Y, z = bbox.Max.Z }
         };
+    }
+
+    // ==================== BATCH 4: PHASING IMPL ====================
+    
+    private static object ExecuteGetPhases(UIApplication app)
+    {
+        var doc = app.ActiveUIDocument?.Document;
+        if (doc == null) throw new InvalidOperationException("No active document");
+        
+        var phases = doc.Phases.Cast<Phase>()
+            .OrderBy(p => p.Name)
+            .Select(p => new { name = p.Name, id = p.Id.Value })
+            .ToList();
+            
+        return new { phases };
+    }
+
+    private static object ExecuteGetPhaseFilters(UIApplication app)
+    {
+        var doc = app.ActiveUIDocument?.Document;
+        if (doc == null) throw new InvalidOperationException("No active document");
+        
+        var filters = new FilteredElementCollector(doc)
+            .OfClass(typeof(PhaseFilter))
+            .Cast<PhaseFilter>()
+            .OrderBy(f => f.Name)
+            .Select(f => new { name = f.Name, id = f.Id.Value })
+            .ToList();
+            
+        return new { phase_filters = filters };
+    }
+
+    // ==================== BATCH 4: DESIGN OPTIONS IMPL ====================
+
+    private static object ExecuteGetDesignOptions(UIApplication app)
+    {
+        var doc = app.ActiveUIDocument?.Document;
+        if (doc == null) throw new InvalidOperationException("No active document");
+        
+        var options = new FilteredElementCollector(doc)
+            .OfClass(typeof(DesignOption))
+            .Cast<DesignOption>()
+            .Select(o => new { name = o.Name, id = o.Id.Value, set_id = o.get_Parameter(BuiltInParameter.OPTION_SET_ID).AsElementId().Value })
+            .ToList();
+            
+        // Assuming DesignOptionSets are harder to get directly without looping options or specific collection
+        // Actually DesignOptionSet is an element too
+        
+        return new { design_options = options };
+    }
+
+    // ==================== BATCH 4: GROUPS IMPL ====================
+
+    private static object ExecuteCreateGroup(UIApplication app, JsonElement payload)
+    {
+        var doc = app.ActiveUIDocument?.Document;
+        if (doc == null) throw new InvalidOperationException("No active document");
+
+        var elementIds = payload.GetProperty("element_ids").EnumerateArray()
+            .Select(x => new ElementId((long)x.GetInt32()))
+            .ToList();
+        var name = payload.TryGetProperty("name", out var n) ? n.GetString() : null;
+
+        using (var trans = new Transaction(doc, "Create Group"))
+        {
+             trans.Start();
+             var group = doc.Create.NewGroup(elementIds);
+             if (!string.IsNullOrEmpty(name))
+             {
+                 group.GroupType.Name = name;
+             }
+             trans.Commit();
+             
+             return new { group_id = group.Id.Value, name = group.GroupType.Name };
+        }
+    }
+
+    private static object ExecuteUngroup(UIApplication app, JsonElement payload)
+    {
+        var doc = app.ActiveUIDocument?.Document;
+        if (doc == null) throw new InvalidOperationException("No active document");
+
+        var groupId = new ElementId((long)payload.GetProperty("group_id").GetInt32());
+
+        using (var trans = new Transaction(doc, "Ungroup"))
+        {
+             trans.Start();
+             var group = doc.GetElement(groupId) as Group;
+             if (group == null) throw new ArgumentException("Group not found");
+             
+             var memberIds = group.UngroupMembers().Select(id => id.Value).ToList();
+             trans.Commit();
+             
+             return new { status = "success", ungrouped_count = memberIds.Count, member_ids = memberIds };
+        }
+    }
+
+    private static object ExecuteGetGroupMembers(UIApplication app, JsonElement payload)
+    {
+        var doc = app.ActiveUIDocument?.Document;
+        if (doc == null) throw new InvalidOperationException("No active document");
+        
+        var groupId = new ElementId((long)payload.GetProperty("group_id").GetInt32());
+        var group = doc.GetElement(groupId) as Group;
+        if (group == null) throw new ArgumentException("Group not found");
+        
+        var members = group.GetMemberIds().Select(id => id.Value).ToList();
+        return new { group_id = groupId.Value, member_count = members.Count, member_ids = members };
+    }
+
+    // ==================== BATCH 4: LINKS IMPL ====================
+
+    private static object ExecuteGetRvtLinks(UIApplication app)
+    {
+        var doc = app.ActiveUIDocument?.Document;
+        if (doc == null) throw new InvalidOperationException("No active document");
+
+        var links = new FilteredElementCollector(doc)
+            .OfClass(typeof(RevitLinkType))
+            .Cast<RevitLinkType>()
+            .Select(l => new { 
+                name = l.Name, 
+                id = l.Id.Value, 
+                is_loaded = (RevitLinkType.IsLoaded(doc, l.Id)), 
+                is_nested = l.IsNestedLink,
+                path = l.IsNestedLink ? "Nested" : (l.GetExternalFileReference()?.GetPath() != null ? ModelPathUtils.ConvertModelPathToUserVisiblePath(l.GetExternalFileReference().GetPath()) : "Unknown")
+            })
+            .ToList();
+
+        return new { links };
+    }
+
+    private static object ExecuteGetLinkInstances(UIApplication app)
+    {
+        var doc = app.ActiveUIDocument?.Document;
+        if (doc == null) throw new InvalidOperationException("No active document");
+
+        var instances = new FilteredElementCollector(doc)
+            .OfClass(typeof(RevitLinkInstance))
+            .Cast<RevitLinkInstance>()
+            .Select(i => new { 
+                name = i.Name, 
+                id = i.Id.Value, 
+                type_id = i.GetTypeId().Value,
+                link_name = (doc.GetElement(i.GetTypeId()) as RevitLinkType)?.Name 
+            })
+            .ToList();
+
+        return new { instances };
     }
 }
