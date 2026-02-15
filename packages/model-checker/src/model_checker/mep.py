@@ -271,3 +271,219 @@ class MEPConnectivityValidator:
             Count of issues
         """
         return len(self.issues)
+
+
+class MEPSizingValidator:
+    """Validator for MEP duct and pipe sizing."""
+
+    def __init__(self) -> None:
+        """Initialize MEP sizing validator."""
+        self.issues: list[MEPConnectivityIssue] = []
+
+    def validate_duct_sizing(
+        self,
+        ducts: list[dict[str, Any]],
+        max_velocity: float = 10.0,  # m/s
+        min_size: float = 100.0,  # mm
+        max_size: float = 2000.0,  # mm
+    ) -> list[MEPConnectivityIssue]:
+        """Validate duct sizing parameters.
+
+        Args:
+            ducts: List of ducts with 'id', 'width', 'height', 'flow_rate', 'velocity'
+            max_velocity: Maximum allowed velocity in m/s
+            min_size: Minimum duct dimension in mm
+            max_size: Maximum duct dimension in mm
+
+        Returns:
+            List of sizing issues
+        """
+        issues = []
+
+        for duct in ducts:
+            width = duct.get("width", 0)
+            height = duct.get("height", 0)
+            velocity = duct.get("velocity", 0)
+
+            # Check minimum size
+            if width < min_size or height < min_size:
+                issue = MEPConnectivityIssue(
+                    element_id=duct["id"],
+                    element_type="duct",
+                    issue_type="undersized",
+                    description=f"Duct size {width}x{height}mm is below minimum {min_size}mm",
+                )
+                issues.append(issue)
+                self.issues.append(issue)
+
+            # Check maximum size
+            if width > max_size or height > max_size:
+                issue = MEPConnectivityIssue(
+                    element_id=duct["id"],
+                    element_type="duct",
+                    issue_type="oversized",
+                    description=f"Duct size {width}x{height}mm exceeds maximum {max_size}mm",
+                )
+                issues.append(issue)
+                self.issues.append(issue)
+
+            # Check velocity
+            if velocity > max_velocity:
+                issue = MEPConnectivityIssue(
+                    element_id=duct["id"],
+                    element_type="duct",
+                    issue_type="excessive_velocity",
+                    description=f"Duct velocity {velocity:.1f} m/s exceeds maximum {max_velocity} m/s",
+                )
+                issues.append(issue)
+                self.issues.append(issue)
+
+        return issues
+
+    def validate_pipe_sizing(
+        self,
+        pipes: list[dict[str, Any]],
+        max_velocity: float = 3.0,  # m/s for pipes
+        min_diameter: float = 15.0,  # mm
+        max_diameter: float = 600.0,  # mm
+    ) -> list[MEPConnectivityIssue]:
+        """Validate pipe sizing parameters.
+
+        Args:
+            pipes: List of pipes with 'id', 'diameter', 'flow_rate', 'velocity'
+            max_velocity: Maximum allowed velocity in m/s
+            min_diameter: Minimum pipe diameter in mm
+            max_diameter: Maximum pipe diameter in mm
+
+        Returns:
+            List of sizing issues
+        """
+        issues = []
+
+        for pipe in pipes:
+            diameter = pipe.get("diameter", 0)
+            velocity = pipe.get("velocity", 0)
+
+            # Check minimum diameter
+            if diameter < min_diameter:
+                issue = MEPConnectivityIssue(
+                    element_id=pipe["id"],
+                    element_type="pipe",
+                    issue_type="undersized",
+                    description=f"Pipe diameter {diameter}mm is below minimum {min_diameter}mm",
+                )
+                issues.append(issue)
+                self.issues.append(issue)
+
+            # Check maximum diameter
+            if diameter > max_diameter:
+                issue = MEPConnectivityIssue(
+                    element_id=pipe["id"],
+                    element_type="pipe",
+                    issue_type="oversized",
+                    description=f"Pipe diameter {diameter}mm exceeds maximum {max_diameter}mm",
+                )
+                issues.append(issue)
+                self.issues.append(issue)
+
+            # Check velocity
+            if velocity > max_velocity:
+                issue = MEPConnectivityIssue(
+                    element_id=pipe["id"],
+                    element_type="pipe",
+                    issue_type="excessive_velocity",
+                    description=f"Pipe velocity {velocity:.1f} m/s exceeds maximum {max_velocity} m/s",
+                )
+                issues.append(issue)
+                self.issues.append(issue)
+
+        return issues
+
+    def get_issues(self) -> list[MEPConnectivityIssue]:
+        """Get all sizing issues."""
+        return self.issues
+
+    def clear_issues(self) -> None:
+        """Clear all issues."""
+        self.issues = []
+
+
+class MEPClearanceValidator:
+    """Validator for MEP clearance requirements."""
+
+    def __init__(self) -> None:
+        """Initialize clearance validator."""
+        self.issues: list[MEPConnectivityIssue] = []
+
+    def validate_headroom_clearance(
+        self,
+        mep_elements: list[dict[str, Any]],
+        min_clearance: float = 2100.0,  # mm from floor
+    ) -> list[MEPConnectivityIssue]:
+        """Validate minimum headroom clearance for MEP elements.
+
+        Args:
+            mep_elements: List of MEP elements with 'id', 'type', 'elevation', 'height'
+            min_clearance: Minimum clearance from floor in mm
+
+        Returns:
+            List of clearance issues
+        """
+        issues = []
+
+        for element in mep_elements:
+            elevation = element.get("elevation", 0)
+            height = element.get("height", 0)
+            bottom = elevation - height / 2  # Assuming height is total height
+
+            if bottom < min_clearance:
+                issue = MEPConnectivityIssue(
+                    element_id=element["id"],
+                    element_type=element.get("type", "mep_element"),
+                    issue_type="insufficient_headroom",
+                    description=f"{element.get('type', 'Element')} at {bottom:.0f}mm is below minimum clearance {min_clearance}mm",
+                    location={"z": bottom},
+                )
+                issues.append(issue)
+                self.issues.append(issue)
+
+        return issues
+
+    def validate_access_clearance(
+        self,
+        equipment: list[dict[str, Any]],
+        min_access_clearance: float = 600.0,  # mm
+    ) -> list[MEPConnectivityIssue]:
+        """Validate access clearance around equipment.
+
+        Args:
+            equipment: List of equipment with 'id', 'type', 'access_clearance'
+            min_access_clearance: Minimum required clearance in mm
+
+        Returns:
+            List of clearance issues
+        """
+        issues = []
+
+        for equip in equipment:
+            clearance = equip.get("access_clearance", 0)
+
+            if clearance < min_access_clearance:
+                issue = MEPConnectivityIssue(
+                    element_id=equip["id"],
+                    element_type=equip.get("type", "equipment"),
+                    issue_type="insufficient_access",
+                    description=f"{equip.get('type', 'Equipment')} has only {clearance}mm clearance, needs {min_access_clearance}mm",
+                )
+                issues.append(issue)
+                self.issues.append(issue)
+
+        return issues
+
+    def get_issues(self) -> list[MEPConnectivityIssue]:
+        """Get all clearance issues."""
+        return self.issues
+
+    def clear_issues(self) -> None:
+        """Clear all issues."""
+        self.issues = []
