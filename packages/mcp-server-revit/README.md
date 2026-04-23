@@ -15,5 +15,5 @@ Environment variables (prefix `MCP_REVIT_`) include:
 - `AUDIT_LOG`
 - `LOG_LEVEL`
 
-<!-- mcp-name: io.github.sam-aec/autodesk-revit-mcp-server -->
+<!-- mcp-name: io.github.Sam-AEC/autodesk-revit-mcp-server -->
 

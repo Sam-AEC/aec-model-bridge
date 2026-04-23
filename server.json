@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.sam-aec/autodesk-revit-mcp-server",
+  "name": "io.github.Sam-AEC/autodesk-revit-mcp-server",
   "title": "Autodesk Revit MCP Server",
   "description": "MCP server connecting AI assistants to Autodesk Revit through a local bridge.",
   "repository": {
@@ -11,8 +11,9 @@
   "version": "0.1.1",
   "packages": [
     {
-      "registryType": "pypi",
-      "identifier": "revit-mcp-server",
+      "registryType": "mcpb",
+      "identifier": "https://github.com/Sam-AEC/Autodesk-Revit-MCP-Server/releases/download/v0.1.1/revit-mcp-server-0.1.1.mcpb",
+      "fileSha256": "feb1f736e892a079715d08f17a1fdc3643013b27febc2d373899c60636d9bcb8",
       "version": "0.1.1",
       "transport": {
         "type": "stdio"
