@@ -3,6 +3,15 @@
   "name": "io.github.Sam-AEC/autodesk-revit-mcp-server",
   "title": "Autodesk Revit MCP Server",
   "description": "MCP server connecting AI assistants to Autodesk Revit through a local bridge.",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/Sam-AEC/Autodesk-Revit-MCP-Server/main/assets/revit-icon.svg",
+      "mimeType": "image/svg+xml",
+      "sizes": [
+        "any"
+      ]
+    }
+  ],
   "repository": {
     "url": "https://github.com/Sam-AEC/Autodesk-Revit-MCP-Server",
     "source": "github",
