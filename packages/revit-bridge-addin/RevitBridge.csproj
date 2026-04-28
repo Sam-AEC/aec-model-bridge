@@ -1,12 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-
-    <TargetFramework Condition="'$(RevitVersion)' != '2025'">net48</TargetFramework>
-    <TargetFramework Condition="'$(RevitVersion)' == '2025'">net8.0-windows</TargetFramework>
+    <RevitVersion Condition="'$(RevitVersion)'==''">2024</RevitVersion>
+    <TargetFramework Condition="'$(RevitVersion)' == '2024'">net48</TargetFramework>
+    <TargetFramework Condition="'$(RevitVersion)' == '2025' OR '$(RevitVersion)' == '2026'">net8.0-windows</TargetFramework>
     <AssemblyName>RevitBridge</AssemblyName>
     <RootNamespace>RevitBridge</RootNamespace>
     <OutputType>Library</OutputType>
-    <RevitVersion Condition="'$(RevitVersion)'==''">2024</RevitVersion>
     <OutputPath>bin\$(Configuration)\$(RevitVersion)\</OutputPath>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
@@ -16,6 +15,7 @@
   <PropertyGroup>
     <RevitInstallPath Condition="'$(RevitVersion)'=='2024'">C:\Program Files\Autodesk\Revit 2024</RevitInstallPath>
     <RevitInstallPath Condition="'$(RevitVersion)'=='2025'">C:\Program Files\Autodesk\Revit 2025</RevitInstallPath>
+    <RevitInstallPath Condition="'$(RevitVersion)'=='2026'">C:\Program Files\Autodesk\Revit 2026</RevitInstallPath>
     <!-- Check if local Revit API exists, otherwise default to NuGet -->
     <UseLocalRevit Condition="Exists('$(RevitInstallPath)\RevitAPI.dll')">true</UseLocalRevit>
     <UseLocalRevit Condition="'$(UseLocalRevit)'==''">false</UseLocalRevit>
