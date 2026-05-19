@@ -100,9 +100,13 @@ namespace RevitBridge.Bridge
             );
             connectBtnData.ToolTip = "Start the MCP Bridge Server";
             connectBtnData.LongDescription = "Starts the RevitMCP Bridge Server to enable AI-powered automation and natural language control of Revit.";
-            connectBtnData.Image = new System.Windows.Media.Imaging.BitmapImage(new Uri(connectIconPath));
-            connectBtnData.LargeImage = new System.Windows.Media.Imaging.BitmapImage(new Uri(connectIconPath));
-            connectBtnData.ToolTipImage = new System.Windows.Media.Imaging.BitmapImage(new Uri(brandIconPath));
+            if (File.Exists(connectIconPath))
+            {
+                connectBtnData.Image = new System.Windows.Media.Imaging.BitmapImage(new Uri(connectIconPath));
+                connectBtnData.LargeImage = new System.Windows.Media.Imaging.BitmapImage(new Uri(connectIconPath));
+            }
+            if (File.Exists(brandIconPath))
+                connectBtnData.ToolTipImage = new System.Windows.Media.Imaging.BitmapImage(new Uri(brandIconPath));
 
             // Disconnect Button
             PushButtonData disconnectBtnData = new PushButtonData(
@@ -113,8 +117,11 @@ namespace RevitBridge.Bridge
             );
             disconnectBtnData.ToolTip = "Stop the MCP Bridge Server";
             disconnectBtnData.LongDescription = "Stops the RevitMCP Bridge Server and closes all active connections.";
-            disconnectBtnData.Image = new System.Windows.Media.Imaging.BitmapImage(new Uri(disconnectIconPath));
-            disconnectBtnData.LargeImage = new System.Windows.Media.Imaging.BitmapImage(new Uri(disconnectIconPath));
+            if (File.Exists(disconnectIconPath))
+            {
+                disconnectBtnData.Image = new System.Windows.Media.Imaging.BitmapImage(new Uri(disconnectIconPath));
+                disconnectBtnData.LargeImage = new System.Windows.Media.Imaging.BitmapImage(new Uri(disconnectIconPath));
+            }
 
             // Status Button
             PushButtonData statusBtnData = new PushButtonData(
@@ -125,8 +132,11 @@ namespace RevitBridge.Bridge
             );
             statusBtnData.ToolTip = "View Server Status and Statistics";
             statusBtnData.LongDescription = "Displays detailed information about the Bridge Server including connection status, statistics, and capabilities.";
-            statusBtnData.Image = new System.Windows.Media.Imaging.BitmapImage(new Uri(statusIconPath));
-            statusBtnData.LargeImage = new System.Windows.Media.Imaging.BitmapImage(new Uri(statusIconPath));
+            if (File.Exists(statusIconPath))
+            {
+                statusBtnData.Image = new System.Windows.Media.Imaging.BitmapImage(new Uri(statusIconPath));
+                statusBtnData.LargeImage = new System.Windows.Media.Imaging.BitmapImage(new Uri(statusIconPath));
+            }
 
             // Create stacked items for better layout
             connectionPanel.AddItem(connectBtnData);
@@ -145,8 +155,11 @@ namespace RevitBridge.Bridge
             );
             settingsBtnData.ToolTip = "Configure Bridge Settings";
             settingsBtnData.LongDescription = "Configure server settings, port, logging, and other options.";
-            settingsBtnData.Image = new System.Windows.Media.Imaging.BitmapImage(new Uri(settingsIconPath));
-            settingsBtnData.LargeImage = new System.Windows.Media.Imaging.BitmapImage(new Uri(settingsIconPath));
+            if (File.Exists(settingsIconPath))
+            {
+                settingsBtnData.Image = new System.Windows.Media.Imaging.BitmapImage(new Uri(settingsIconPath));
+                settingsBtnData.LargeImage = new System.Windows.Media.Imaging.BitmapImage(new Uri(settingsIconPath));
+            }
             settingsBtnData.AvailabilityClassName = "RevitBridge.Bridge.CommandAvailability";
 
             // Help Button
