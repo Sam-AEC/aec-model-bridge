@@ -8,8 +8,62 @@ namespace RevitBridge.UI
 {
     public partial class ModernDialog : Window
     {
+        private readonly Brush _bgBrush;
+        private readonly Brush _cardBgBrush;
+        private readonly Brush _textPrimaryBrush;
+        private readonly Brush _textSecondaryBrush;
+        private readonly Brush _borderBrush;
+        private readonly Brush _headerBrush;
+        private readonly Brush _footerBgBrush;
+        private readonly Brush _footerBorderBrush;
+
         public ModernDialog()
         {
+            // Detect Revit Theme
+            bool isDark = false;
+            try
+            {
+                isDark = Autodesk.Revit.UI.UIThemeManager.CurrentTheme == Autodesk.Revit.UI.UITheme.Dark;
+            }
+            catch
+            {
+                // Fallback if UIThemeManager is not available
+            }
+
+            // Establish professional, Revit-aligned color system
+            if (isDark)
+            {
+                _bgBrush = new SolidColorBrush(Color.FromRgb(43, 43, 43)); // Dark charcoal
+                _cardBgBrush = new SolidColorBrush(Color.FromRgb(51, 51, 51)); // Medium charcoal
+                _textPrimaryBrush = new SolidColorBrush(Color.FromRgb(224, 224, 224)); // Soft white
+                _textSecondaryBrush = new SolidColorBrush(Color.FromRgb(170, 170, 170)); // Slate gray
+                _borderBrush = new SolidColorBrush(Color.FromRgb(68, 68, 68)); // Charcoal border
+                _headerBrush = new SolidColorBrush(Color.FromRgb(31, 31, 31)); // Rich near-black header
+                _footerBgBrush = new SolidColorBrush(Color.FromRgb(37, 37, 37)); // Footer background
+                _footerBorderBrush = new SolidColorBrush(Color.FromRgb(48, 48, 48)); // Footer border
+            }
+            else
+            {
+                _bgBrush = new SolidColorBrush(Color.FromRgb(240, 240, 240)); // Professional light gray
+                _cardBgBrush = new SolidColorBrush(Color.FromRgb(255, 255, 255)); // Flawless white
+                _textPrimaryBrush = new SolidColorBrush(Color.FromRgb(34, 34, 34)); // Dark charcoal text
+                _textSecondaryBrush = new SolidColorBrush(Color.FromRgb(85, 85, 85)); // Muted slate text
+                _borderBrush = new SolidColorBrush(Color.FromRgb(208, 208, 208)); // Professional border gray
+                _headerBrush = new SolidColorBrush(Color.FromRgb(29, 58, 86)); // Sleek corporate Revit Blue/Slate
+                _footerBgBrush = new SolidColorBrush(Color.FromRgb(245, 245, 245)); // Off-white footer
+                _footerBorderBrush = new SolidColorBrush(Color.FromRgb(224, 224, 224)); // Footer separator
+            }
+
+            // Expose as DynamicResources before initializing components so XAML bindings compile and evaluate perfectly
+            Resources["BgBrush"] = _bgBrush;
+            Resources["CardBgBrush"] = _cardBgBrush;
+            Resources["TextPrimaryBrush"] = _textPrimaryBrush;
+            Resources["TextSecondaryBrush"] = _textSecondaryBrush;
+            Resources["BorderBrush"] = _borderBrush;
+            Resources["HeaderBrush"] = _headerBrush;
+            Resources["FooterBgBrush"] = _footerBgBrush;
+            Resources["FooterBorderBrush"] = _footerBorderBrush;
+
             InitializeComponent();
 
             // Enable dragging by clicking anywhere on the header
@@ -51,7 +105,7 @@ namespace RevitBridge.UI
                 FontSize = 32,
                 VerticalAlignment = VerticalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Center,
-                Foreground = iconColor ?? new SolidColorBrush(Color.FromRgb(33, 150, 243))
+                Foreground = iconColor ?? new SolidColorBrush(Color.FromRgb(33, 150, 243)) // Blue
             };
             Grid.SetColumn(iconText, 0);
             grid.Children.Add(iconText);
@@ -67,7 +121,7 @@ namespace RevitBridge.UI
             {
                 Text = label,
                 FontSize = 12,
-                Foreground = new SolidColorBrush(Color.FromRgb(117, 117, 117)),
+                Foreground = (Brush)FindResource("TextSecondaryBrush"),
                 Margin = new Thickness(0, 0, 0, 5)
             };
 
@@ -76,7 +130,7 @@ namespace RevitBridge.UI
                 Text = value,
                 FontSize = 18,
                 FontWeight = FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Color.FromRgb(33, 33, 33))
+                Foreground = (Brush)FindResource("TextPrimaryBrush")
             };
 
             textStack.Children.Add(labelText);
@@ -97,16 +151,16 @@ namespace RevitBridge.UI
                 Text = title,
                 FontSize = 14,
                 FontWeight = FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Color.FromRgb(66, 66, 66)),
+                Foreground = (Brush)FindResource("TextPrimaryBrush"),
                 Margin = new Thickness(0, 0, 0, 8)
             };
 
             var contentBorder = new Border
             {
-                Background = new SolidColorBrush(Color.FromRgb(250, 250, 250)),
-                CornerRadius = new CornerRadius(4),
-                Padding = new Thickness(12),
-                BorderBrush = new SolidColorBrush(Color.FromRgb(224, 224, 224)),
+                Background = (Brush)FindResource("BgBrush"),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(14),
+                BorderBrush = (Brush)FindResource("BorderBrush"),
                 BorderThickness = new Thickness(1)
             };
 
@@ -114,7 +168,7 @@ namespace RevitBridge.UI
             {
                 Text = content,
                 FontSize = 12,
-                Foreground = new SolidColorBrush(Color.FromRgb(97, 97, 97)),
+                Foreground = (Brush)FindResource("TextSecondaryBrush"),
                 TextWrapping = TextWrapping.Wrap,
                 FontFamily = new FontFamily("Consolas")
             };
@@ -157,17 +211,7 @@ namespace RevitBridge.UI
         {
             var card = new Border
             {
-                Background = Brushes.White,
-                CornerRadius = new CornerRadius(8),
-                Padding = new Thickness(15),
-                Margin = new Thickness(5),
-                Effect = new System.Windows.Media.Effects.DropShadowEffect
-                {
-                    Color = Colors.Black,
-                    Opacity = 0.1,
-                    BlurRadius = 10,
-                    ShadowDepth = 2
-                }
+                Style = (Style)FindResource("StatCard")
             };
 
             var stack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
@@ -186,7 +230,7 @@ namespace RevitBridge.UI
                 FontSize = 20,
                 FontWeight = FontWeights.Bold,
                 HorizontalAlignment = HorizontalAlignment.Center,
-                Foreground = new SolidColorBrush(Color.FromRgb(33, 150, 243)),
+                Foreground = new SolidColorBrush(Color.FromRgb(33, 150, 243)), // Autodesk Blue
                 Margin = new Thickness(0, 0, 0, 4)
             };
 
@@ -195,7 +239,7 @@ namespace RevitBridge.UI
                 Text = label,
                 FontSize = 11,
                 HorizontalAlignment = HorizontalAlignment.Center,
-                Foreground = new SolidColorBrush(Color.FromRgb(117, 117, 117))
+                Foreground = (Brush)FindResource("TextSecondaryBrush")
             };
 
             stack.Children.Add(iconText);
@@ -211,7 +255,7 @@ namespace RevitBridge.UI
             var separator = new Border
             {
                 Height = 1,
-                Background = new SolidColorBrush(Color.FromRgb(224, 224, 224)),
+                Background = (Brush)FindResource("BorderBrush"),
                 Margin = new Thickness(0, 15, 0, 15)
             };
             ContentPanel.Children.Add(separator);

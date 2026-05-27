@@ -6,69 +6,98 @@
         Width="600"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
-        Background="#F5F5F5"
+        Background="Transparent"
         WindowStyle="None"
         AllowsTransparency="True">
 
     <Window.Resources>
         <!-- Modern Button Style -->
         <Style x:Key="ModernButton" TargetType="Button">
-            <Setter Property="Background" Value="#2196F3"/>
+            <Setter Property="Background" Value="{DynamicResource HeaderBrush}"/>
             <Setter Property="Foreground" Value="White"/>
-            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontSize" Value="13"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Padding" Value="20,10"/>
+            <Setter Property="Padding" Value="24,10"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}"
-                                CornerRadius="4"
+                                CornerRadius="6"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center"
-                                            VerticalAlignment="Center"/>
+                                             VerticalAlignment="Center"/>
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#1976D2"/>
+                    <Setter Property="Opacity" Value="0.9"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#0D47A1"/>
+                    <Setter Property="Opacity" Value="0.8"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
         <!-- Secondary Button Style -->
         <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
-            <Setter Property="Background" Value="#757575"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                             VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#616161"/>
+                    <Setter Property="Background" Value="{DynamicResource BgBrush}"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- Stat Card Style -->
+        <!-- Stat Card Style with Elegant Shadows and Hover Effects -->
         <Style x:Key="StatCard" TargetType="Border">
-            <Setter Property="Background" Value="White"/>
+            <Setter Property="Background" Value="{DynamicResource CardBgBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="Padding" Value="15"/>
-            <Setter Property="Margin" Value="5"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Margin" Value="6"/>
             <Setter Property="Effect">
                 <Setter.Value>
-                    <DropShadowEffect Color="#000000" Opacity="0.1" BlurRadius="10" ShadowDepth="2"/>
+                    <DropShadowEffect Color="#000000" Opacity="0.06" BlurRadius="8" ShadowDepth="1"/>
                 </Setter.Value>
             </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="BorderBrush" Value="{DynamicResource HeaderBrush}"/>
+                    <Setter Property="Effect">
+                        <Setter.Value>
+                            <DropShadowEffect Color="#000000" Opacity="0.12" BlurRadius="12" ShadowDepth="3"/>
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+            </Style.Triggers>
         </Style>
     </Window.Resources>
 
-    <Border CornerRadius="8" Background="White">
+    <Border x:Name="MainWindowBorder" CornerRadius="8" Background="{DynamicResource CardBgBrush}">
         <Border.Effect>
-            <DropShadowEffect Color="#000000" Opacity="0.3" BlurRadius="20" ShadowDepth="5"/>
+            <DropShadowEffect Color="#000000" Opacity="0.25" BlurRadius="20" ShadowDepth="5"/>
         </Border.Effect>
 
         <Grid>
@@ -79,7 +108,7 @@
             </Grid.RowDefinitions>
 
             <!-- Header -->
-            <Border Grid.Row="0" Background="#2196F3" CornerRadius="8,8,0,0">
+            <Border x:Name="HeaderBorder" Grid.Row="0" Background="{DynamicResource HeaderBrush}" CornerRadius="8,8,0,0">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
@@ -88,7 +117,7 @@
                     </Grid.ColumnDefinitions>
 
                     <!-- Icon/Logo -->
-                    <Viewbox Grid.Column="0" Width="40" Height="40" Margin="15,0,10,0">
+                    <Viewbox Grid.Column="0" Width="36" Height="36" Margin="15,0,10,0">
                         <Canvas Width="24" Height="24">
                             <Path Fill="White" Data="M12,2L2,7V17L12,22L22,17V7M12,4.4L19.2,8.2V15.8L12,19.6L4.8,15.8V8.2"/>
                         </Canvas>
@@ -98,14 +127,14 @@
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock x:Name="DialogTitle"
                                    Text="RevitMCP Bridge Status"
-                                   FontSize="18"
+                                   FontSize="16"
                                    FontWeight="SemiBold"
                                    Foreground="White"/>
                         <TextBlock x:Name="DialogSubtitle"
                                    Text="AI-Powered Revit Automation"
-                                   FontSize="12"
-                                   Foreground="#E3F2FD"
-                                   Opacity="0.9"/>
+                                   FontSize="11"
+                                   Foreground="White"
+                                   Opacity="0.85"/>
                     </StackPanel>
 
                     <!-- Close Button -->
@@ -131,7 +160,7 @@
             </ScrollViewer>
 
             <!-- Footer -->
-            <Border Grid.Row="2" Background="#FAFAFA" CornerRadius="0,0,8,8" BorderBrush="#E0E0E0" BorderThickness="0,1,0,0">
+            <Border x:Name="FooterBorder" Grid.Row="2" Background="{DynamicResource FooterBgBrush}" CornerRadius="0,0,8,8" BorderBrush="{DynamicResource FooterBorderBrush}" BorderThickness="0,1,0,0">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="20,0">
                     <Button x:Name="ActionButton"
                             Content="OK"

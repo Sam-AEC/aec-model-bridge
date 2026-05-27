@@ -92,7 +92,7 @@ namespace RevitBridge.Bridge
             dialog.AddSeparator();
 
             dialog.AddInfoSection("Documentation",
-                "GitHub: github.com/your-repo/revit-mcp-server\n" +
+                "GitHub: github.com/Sam-AEC/Autodesk-Revit-MCP-Server\n" +
                 "Docs: See README.md for full documentation");
 
             dialog.AddInfoSection("Support",
@@ -105,7 +105,7 @@ namespace RevitBridge.Bridge
                 {
                     Process.Start(new ProcessStartInfo
                     {
-                        FileName = "https://github.com/anthropics/claude-desktop",
+                        FileName = "https://github.com/Sam-AEC/Autodesk-Revit-MCP-Server",
                         UseShellExecute = true
                     });
                 }

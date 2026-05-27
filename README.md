@@ -11,7 +11,7 @@
 [![.NET](https://img.shields.io/badge/.NET-4.8-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com)
 [![Revit](https://img.shields.io/badge/Revit-2024--2026-0696D7?style=flat-square)](https://autodesk.com/products/revit)
 
-[Quick Start](#quick-start) | [Documentation](docs/) | [API Reference](docs/tools.md)
+[Quick Start](#quick-start) | [API Reference](docs/tools.md)
 
 </div>
 
@@ -74,8 +74,6 @@ Edit `%APPDATA%\Claude\claude_desktop_config.json`:
 ### Configure VS Code / GitHub Copilot
 
 This repository includes a workspace MCP config at `.vscode/mcp.json`. After installing the Python package and starting Revit with the bridge add-in loaded, open this repository in VS Code and run `MCP: List Servers` or use the MCP Servers view.
-
-For marketplace and registry publication details, see [MCP Marketplaces and Client Distribution](docs/marketplaces.md).
 
 ### Verify Installation
 
@@ -264,34 +262,7 @@ Expected response:
 - `revit.reflect_get` - Get property via reflection
 - `revit.reflect_set` - Set property via reflection
 
-### Project Parameters
-- `revit.list_shared_parameters` - List shared parameters
-- `revit.create_shared_parameter` - Create shared parameter
-- `revit.list_project_parameters` - List project parameters
-- `revit.create_project_parameter` - Create project parameter
-
-### Revisions
-- `revit.get_revision_sequences` - Get revision sequences
-
 **Total: 100+ tools** • **Full API Reference:** [docs/tools.md](docs/tools.md)
-
-### Development Status
-
-This server is actively maintained and continuously improved. For the latest updates and known limitations, see:
-
-- [GitHub Issues](https://github.com/Sam-AEC/Autodesk-Revit-MCP-Server/issues) - Bug reports and feature requests
-- [Changelog](CHANGELOG.md) - Version history and updates
-- [Discussions](https://github.com/Sam-AEC/Autodesk-Revit-MCP-Server/discussions) - Community support
-
----
-
-## Security
-
-**Default:** Localhost-only (`127.0.0.1:3000`), no authentication required.
-
-**Enterprise:** Optional HTTPS, OAuth2 (Entra ID), audit logging, and rate limiting.
-
-See [docs/security.md](docs/security.md) for details.
 
 ---
 
@@ -315,9 +286,7 @@ Autodesk-Revit-MCP-Server/
 │   ├── build-addin.ps1           # Build C# DLL
 │   └── install.ps1               # Deploy to Revit
 ├── docs/
-│   ├── tools.md                  # API reference
-│   ├── architecture.md           # System design
-│   └── security.md               # Security model
+│   └── tools.md                  # API reference listing
 └── README.md
 ```
 
@@ -325,13 +294,7 @@ Autodesk-Revit-MCP-Server/
 
 ## Documentation
 
-- [Installation Guide](docs/install.md)
-- [API Reference](docs/tools.md)
-- [Architecture](docs/architecture.md)
-- [Security Model](docs/security.md)
-- [MCP Marketplaces and Client Distribution](docs/marketplaces.md)
-- [Claude Desktop Setup](CLAUDE_DESKTOP_SETUP.md)
-- [Contributing](CONTRIBUTING.md)
+- [API Reference (Revit MCP Tools List)](docs/tools.md)
 
 ---
 
@@ -345,7 +308,6 @@ Autodesk-Revit-MCP-Server/
 
 - [Issues](https://github.com/Sam-AEC/Autodesk-Revit-MCP-Server/issues)
 - [Discussions](https://github.com/Sam-AEC/Autodesk-Revit-MCP-Server/discussions)
-- [Changelog](CHANGELOG.md)
 - [Model Context Protocol](https://modelcontextprotocol.io)
 
 ---

@@ -1,6 +1,6 @@
 [project]
 name = "revit-mcp-server"
-version = "0.1.1"
+version = "1.0.0"
 description = "Model Context Protocol server for Autodesk Revit via a local bridge"
 readme = "README.md"
 requires-python = ">=3.11"
