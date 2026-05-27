@@ -97,7 +97,7 @@ Expected response:
 
 ```
 ┌─────────────────────────────────┐
-│ AI Client (Claude/Copilot)     │
+│ AI Client (Claude/Copilot)      │
 └───────────────┬─────────────────┘
                 │ MCP Protocol
 ┌───────────────▼─────────────────┐
