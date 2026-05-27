@@ -81,6 +81,16 @@ namespace RevitBridge.Bridge
             string settingsIconPath = Path.Combine(iconPath, "settings.png");
             string helpIconPath = Path.Combine(iconPath, "help.png");
 
+            // Dynamically generate theme-adaptive icons on startup to guarantee they are never missing and adapt to Revit's Dark/Light theme!
+            try
+            {
+                IconGenerator.GenerateAllIcons(iconPath);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to dynamically generate ribbon icons");
+            }
+
             // Log if icons are missing
             if (!File.Exists(connectIconPath))
                 Log.Warning("Icon not found: {IconPath}", connectIconPath);

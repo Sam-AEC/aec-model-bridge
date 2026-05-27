@@ -17,13 +17,13 @@
     "source": "github",
     "subfolder": "packages/mcp-server-revit"
   },
-  "version": "0.1.1",
+  "version": "1.0.0",
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/Sam-AEC/Autodesk-Revit-MCP-Server/releases/download/v0.1.1/revit-mcp-server-0.1.1.mcpb",
+      "identifier": "https://github.com/Sam-AEC/Autodesk-Revit-MCP-Server/releases/download/v1.0.0/revit-mcp-server-1.0.0.mcpb",
       "fileSha256": "feb1f736e892a079715d08f17a1fdc3643013b27febc2d373899c60636d9bcb8",
-      "version": "0.1.1",
+      "version": "1.0.0",
       "transport": {
         "type": "stdio"
       },
