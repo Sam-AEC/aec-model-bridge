@@ -1,0 +1,35 @@
+{
+  "manifest_version": "0.2",
+  "name": "aec-model-bridge",
+  "display_name": "AEC Model Bridge",
+  "version": "1.0.1",
+  "description": "Independent MCP integration for Autodesk Revit software through a local bridge.",
+  "author": {
+    "name": "Sam-AEC"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Sam-AEC/aec-model-bridge.git"
+  },
+  "server": {
+    "type": "python",
+    "entry_point": "src/revit_mcp_server/mcp_server.py",
+    "mcp_config": {
+      "command": "python",
+      "args": [
+        "-m",
+        "revit_mcp_server.mcp_server"
+      ],
+      "env": {
+        "PYTHONPATH": "${__dirname}/src"
+      }
+    }
+  },
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "revit",
+    "autodesk",
+    "bim"
+  ]
+}

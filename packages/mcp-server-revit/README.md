@@ -1,10 +1,10 @@
-# Autodesk Revit MCP Server (Python Package)
+# AEC Model Bridge (Python Package)
 
-Python package for the Autodesk Revit MCP server used by AI clients over stdio.
+Independent MCP integration for Autodesk Revit® software, used by AI clients over stdio.
 
-- Repository: https://github.com/Sam-AEC/Autodesk-Revit-MCP-Server
+- Repository: https://github.com/Sam-AEC/aec-model-bridge
 - MCP entrypoint: `python -m revit_mcp_server.mcp_server`
-- Console script: `revit-mcp-server`
+- Console scripts: `aec-model-bridge` and the compatibility alias `revit-mcp-server`
 - Requires Python 3.11+
 
 Environment variables (prefix `MCP_REVIT_`) include:
@@ -16,5 +16,8 @@ Environment variables (prefix `MCP_REVIT_`) include:
 - `AUDIT_LOG`
 - `LOG_LEVEL`
 
-<!-- mcp-name: io.github.Sam-AEC/autodesk-revit-mcp-server -->
+Autodesk and Revit are trademarks of the Autodesk group of companies. Sam-AEC
+is not affiliated with Autodesk.
+
+<!-- mcp-name: io.github.Sam-AEC/aec-model-bridge -->
 

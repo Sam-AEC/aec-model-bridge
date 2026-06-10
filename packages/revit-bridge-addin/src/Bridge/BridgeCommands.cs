@@ -139,7 +139,7 @@ namespace RevitBridge.Bridge
 
             var dialog = new ModernDialog();
             dialog.SetTitle(
-                "RevitMCP Bridge Status",
+                "AEC Model Bridge Status",
                 App.Server!.IsRunning ? "Server is Active" : "Server is Stopped"
             );
 

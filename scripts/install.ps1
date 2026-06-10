@@ -1,12 +1,12 @@
 param(
     [string]$RevitVersion = "2024",
     [switch]$AllUsers,
-    [string]$DistPath = "$PSScriptRoot\..\dist\RevitMCP"
+    [string]$DistPath = "$PSScriptRoot\..\dist\AECModelBridge"
 )
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "RevitMCP Installer" -ForegroundColor Cyan
+Write-Host "AEC Model Bridge Installer" -ForegroundColor Cyan
 Write-Host "==================`n" -ForegroundColor Cyan
 
 # Path Guard: Prevent Execution in System32 or Windows
@@ -20,7 +20,7 @@ if ($PSScriptRoot -like "*C:\Windows*") {
 if (-not (Test-Path $DistPath)) {
     Write-Host "Distribution package not found at: $DistPath" -ForegroundColor Yellow
     Write-Host "Auto-triggering packaging for Revit $RevitVersion..." -ForegroundColor Cyan
-    & "$PSScriptRoot\package.ps1" -RevitVersion $RevitVersion -Version "1.0.0"
+    & "$PSScriptRoot\package.ps1" -RevitVersion $RevitVersion -Version "1.0.1"
     
     if (-not (Test-Path $DistPath)) {
         Write-Error "Packaging failed. Please run .\scripts\package.ps1 manually to diagnose."
@@ -30,7 +30,7 @@ if (-not (Test-Path $DistPath)) {
 
 # Install binaries to ProgramData
 Write-Host "Installing binaries..." -ForegroundColor Yellow
-$targetBin = "C:\ProgramData\RevitMCP\bin"
+$targetBin = "C:\ProgramData\AECModelBridge\bin"
 New-Item -ItemType Directory -Path $targetBin -Force | Out-Null
 
 $sourceBin = "$DistPath\bin\$RevitVersion"
@@ -52,12 +52,17 @@ else {
 }
 
 New-Item -ItemType Directory -Path $addinDir -Force | Out-Null
-Copy-Item "$DistPath\addin\RevitBridge.addin" $addinDir -Force
+Copy-Item "$DistPath\addin\AECModelBridge.addin" $addinDir -Force
+$legacyManifest = Join-Path $addinDir "RevitBridge.addin"
+if (Test-Path $legacyManifest) {
+    Remove-Item -LiteralPath $legacyManifest -Force
+    Write-Host "  Removed legacy manifest: $legacyManifest" -ForegroundColor Gray
+}
 Write-Host "  Installed to: $addinDir" -ForegroundColor Green
 
 # Copy config (optional)
 Write-Host "`nCopying default configuration..." -ForegroundColor Yellow
-$configTarget = "C:\ProgramData\RevitMCP\config"
+$configTarget = "C:\ProgramData\AECModelBridge\config"
 New-Item -ItemType Directory -Path $configTarget -Force | Out-Null
 Copy-Item "$DistPath\config\default.json" $configTarget -Force
 Write-Host "  Installed to: $configTarget\default.json" -ForegroundColor Green
@@ -68,8 +73,8 @@ Write-Host "Installation Complete!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Cyan
 
 Write-Host "`nInstalled components:" -ForegroundColor Yellow
-Write-Host "  Bridge DLL:    $targetBin\RevitBridge.dll"
-Write-Host "  Add-in:        $addinDir\RevitBridge.addin"
+Write-Host "  Bridge DLL:    $targetBin\AECModelBridge.dll"
+Write-Host "  Add-in:        $addinDir\AECModelBridge.addin"
 Write-Host "  Config:        $configTarget\default.json"
 
 Write-Host "`nNext steps:" -ForegroundColor Yellow
@@ -92,5 +97,5 @@ else {
 
 Write-Host "`nTroubleshooting:" -ForegroundColor Yellow
 Write-Host "  - Check Revit journal: %LOCALAPPDATA%\Autodesk\Revit\Autodesk Revit $RevitVersion\Journals\" -ForegroundColor Gray
-Write-Host "  - Check bridge logs: %APPDATA%\RevitMCP\Logs\bridge.jsonl" -ForegroundColor Gray
+Write-Host "  - Check bridge logs: %APPDATA%\AECModelBridge\Logs\bridge.jsonl" -ForegroundColor Gray
 Write-Host "  - Uninstall: Remove files from paths above" -ForegroundColor Gray

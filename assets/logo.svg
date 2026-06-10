@@ -20,11 +20,11 @@
   <line x1="90" y1="100" x2="90" y2="105" stroke="#2563eb" stroke-width="2"/>
   <line x1="110" y1="100" x2="110" y2="105" stroke="#2563eb" stroke-width="2"/>
 
-  <!-- Revit Symbol (right) -->
+  <!-- Generic model symbol (right) -->
   <rect x="125" y="85" width="25" height="30" rx="2" stroke="#2563eb" stroke-width="2" fill="none"/>
   <line x1="130" y1="95" x2="145" y2="95" stroke="#1e40af" stroke-width="2"/>
   <line x1="130" y1="105" x2="145" y2="105" stroke="#1e40af" stroke-width="2"/>
 
   <!-- Text -->
-  <text x="100" y="150" text-anchor="middle" class="logo-text logo-primary" font-size="18">MCP Revit Bridge</text>
+  <text x="100" y="150" text-anchor="middle" class="logo-text logo-primary" font-size="16">AEC Model Bridge</text>
 </svg>

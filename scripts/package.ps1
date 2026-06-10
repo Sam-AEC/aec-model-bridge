@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.0.0",
+    [string]$Version = "1.0.1",
     [string]$RevitVersion = "All"
 )
 
@@ -12,7 +12,7 @@ if ($PSScriptRoot -like "*C:\Windows*") {
     exit 1
 }
 
-$distDir = "$PSScriptRoot\..\dist\RevitMCP"
+$distDir = "$PSScriptRoot\..\dist\AECModelBridge"
 Write-Host "Creating distribution package: $distDir" -ForegroundColor Cyan
 
 # Clean dist directory only if building everything or if it doesn't exist
@@ -21,7 +21,13 @@ if (-not (Test-Path $distDir)) {
 }
 
 # Define versions to build
-$versionsToBuild = @("2024", "2025", "2026")
+$targetFrameworks = @{
+    "2024" = "net48"
+    "2025" = "net8.0-windows"
+    "2026" = "net8.0-windows"
+    "2027" = "net10.0-windows"
+}
+$versionsToBuild = @("2024", "2025", "2026", "2027")
 if ($RevitVersion -ne "All") {
     if ($versionsToBuild -notcontains $RevitVersion) {
         Write-Error "Unsupported Revit version: $RevitVersion. Supported: $($versionsToBuild -join ', ')"
@@ -46,16 +52,14 @@ foreach ($year in $versionsToBuild) {
     New-Item -ItemType Directory -Path $binDir -Force | Out-Null
 
     $sourcePath = "$PSScriptRoot\..\packages\revit-bridge-addin\bin\Release\$year"
-    # Adjust source path for the selected target framework
-    if ($year -ge "2025" -and (Test-Path "$sourcePath\net8.0-windows")) {
-        $sourcePath = "$sourcePath\net8.0-windows"
-    }
-    elseif (Test-Path "$sourcePath\net48") {
-        $sourcePath = "$sourcePath\net48"
-    }
+    $sourcePath = Join-Path $sourcePath $targetFrameworks[$year]
 
     if (Test-Path $sourcePath) {
         Copy-Item "$sourcePath\*" $binDir -Recurse -Force
+        $nonWindowsRuntimes = Join-Path $binDir "runtimes"
+        if (Test-Path $nonWindowsRuntimes) {
+            Remove-Item -LiteralPath $nonWindowsRuntimes -Recurse -Force
+        }
         Write-Host "    Copied binaries for Revit $year" -ForegroundColor Green
     }
     else {
@@ -99,8 +103,12 @@ finally {
 Write-Host "`nCopying add-in manifests..." -ForegroundColor Yellow
 $addinDir = "$distDir\addin"
 New-Item -ItemType Directory -Path $addinDir -Force | Out-Null
-Copy-Item "$PSScriptRoot\..\packages\revit-bridge-addin\RevitBridge.addin" $addinDir -Force
-Write-Host "  Copied RevitBridge.addin" -ForegroundColor Green
+Copy-Item "$PSScriptRoot\..\packages\revit-bridge-addin\AECModelBridge.addin" $addinDir -Force
+Write-Host "  Copied AECModelBridge.addin" -ForegroundColor Green
+
+# Copy installer entrypoint into the distribution package
+Copy-Item "$PSScriptRoot\install.ps1" "$distDir\install.ps1" -Force
+Write-Host "  Copied install.ps1" -ForegroundColor Green
 
 # Create default config
 Write-Host "`nCreating default configuration..." -ForegroundColor Yellow
@@ -125,26 +133,26 @@ Write-Host "  Created default.json" -ForegroundColor Green
 
 # Create README for distribution
 $distReadme = @"
-# RevitMCP Distribution Package v$Version
+# AEC Model Bridge Distribution Package v$Version
 
-This package contains the RevitMCP Bridge add-in and MCP server.
+This package contains AEC Model Bridge for Revit software and its MCP server.
 
 ## Installation
 
-### Quick Install (Revit 2024)
+### Quick Install (Revit 2027)
 ``````powershell
-.\install.ps1 -RevitVersion 2024
+.\install.ps1 -RevitVersion 2027
 ``````
 
 ### Manual Install
-1. Copy bin\{year}\* to C:\ProgramData\RevitMCP\bin\
-2. Copy addin\RevitBridge.addin to C:\ProgramData\Autodesk\Revit\Addins\{year}\
+1. Copy bin\{year}\* to C:\ProgramData\AECModelBridge\bin\
+2. Copy addin\AECModelBridge.addin to C:\ProgramData\Autodesk\Revit\Addins\{year}\
 3. Restart Revit
 
 ## Verify Installation
 1. Start Revit
 2. In PowerShell: ``curl http://localhost:3000/health``
-3. Should return: ``{"status":"healthy","revit_version":"2024",...}``
+3. Should return: ``{"status":"healthy","revit_version":"2027",...}``
 
 ## Run MCP Server
 ``````powershell
@@ -162,7 +170,11 @@ python -m revit_mcp_server
 - Copilot Integration: ../docs/copilot-integration.md
 
 ## Support
-https://github.com/Sam-AEC/Autodesk-Revit-MCP-Server/issues
+https://github.com/Sam-AEC/aec-model-bridge/issues
+
+## Trademark Notice
+AEC Model Bridge is independent and is not affiliated with Autodesk.
+Autodesk and Revit are trademarks of the Autodesk group of companies.
 "@
 
 $distReadme | Set-Content "$distDir\README.txt"
@@ -176,7 +188,7 @@ Get-ChildItem $distDir -Recurse -File | ForEach-Object {
 }
 
 Write-Host "`nNext steps:" -ForegroundColor Yellow
-Write-Host "  1. Test installation: .\scripts\install.ps1 -RevitVersion 2024" -ForegroundColor White
+Write-Host "  1. Test installation: .\scripts\install.ps1 -RevitVersion 2027" -ForegroundColor White
 Write-Host "  2. Create MSI: Build WiX installer from dist\ folder" -ForegroundColor White
-Write-Host "  3. Create release: Compress to RevitMCP-$Version.zip" -ForegroundColor White
+Write-Host "  3. Create release: Compress to aec-model-bridge-$Version.zip" -ForegroundColor White
 exit 0

@@ -1,4 +1,4 @@
-"""Revit MCP server entrypoint."""
+"""AEC Model Bridge server entrypoint."""
 
 from .server import run_server
 

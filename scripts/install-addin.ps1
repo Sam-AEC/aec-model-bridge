@@ -7,5 +7,9 @@ $target = Join-Path $AddinDir $RevitYear
 if (-not (Test-Path $target)) {
     New-Item -ItemType Directory -Path $target | Out-Null
 }
-Copy-Item packages/revit-bridge-addin/RevitBridge.addin -Destination $target -Force
+Copy-Item packages/revit-bridge-addin/AECModelBridge.addin -Destination $target -Force
+$legacyManifest = Join-Path $target "RevitBridge.addin"
+if (Test-Path $legacyManifest) {
+    Remove-Item -LiteralPath $legacyManifest -Force
+}
 Write-Host "Installed add-in manifest to $target"

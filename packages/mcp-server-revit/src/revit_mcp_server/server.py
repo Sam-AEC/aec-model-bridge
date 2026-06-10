@@ -74,7 +74,7 @@ class MCPServer:
     ) -> None:
         stdin = stdin or sys.stdin
         stdout = stdout or sys.stdout
-        stdout.write("Revit MCP server started. Awaiting JSON requests.\n")
+        stdout.write("AEC Model Bridge server started. Awaiting JSON requests.\n")
         stdout.flush()
 
         while line := stdin.readline():

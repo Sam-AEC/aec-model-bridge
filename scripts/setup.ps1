@@ -14,7 +14,7 @@ if ($PSScriptRoot -like "*C:\Windows*") {
     exit 1
 }
 
-Write-Host "== RevitMCP Setup Master Script ==" -ForegroundColor Cyan
+Write-Host "== AEC Model Bridge Setup ==" -ForegroundColor Cyan
 Write-Host "Target Revit Version: $RevitVersion" -ForegroundColor Gray
 
 # == Config Loader ==

@@ -491,28 +491,21 @@ async def list_tools() -> list[Tool]:
         Tool(name="revit_get_rvt_links", description="Get RVT links", inputSchema={"type": "object", "properties": {}}),
         Tool(name="revit_get_link_instances", description="Get link instances", inputSchema={"type": "object", "properties": {}}),
         # Batch 5: Advanced MEP & Engineering
-        Tool(name="revit_create_cable_tray", description="Create cable tray run", inputSchema={"type": "object", "properties": {"level": {"type": "string"}, "start_x": {"type": "number"}, "start_y": {"type": "number"}, "start_z": {"type": "number", "default": 10}, "end_x": {"type": "number"}, "end_y": {"type": "number"}, "end_z": {"type": "number", "default": 10}, "width": {"type": "number", "default": 1.0}, "height": {"type": "number", "default": 0.33}}, "required": ["level", "start_x", "start_y", "end_x", "end_y"]}),
         Tool(name="revit_create_conduit", description="Create electrical conduit", inputSchema={"type": "object", "properties": {"level": {"type": "string"}, "start_x": {"type": "number"}, "start_y": {"type": "number"}, "start_z": {"type": "number", "default": 10}, "end_x": {"type": "number"}, "end_y": {"type": "number"}, "end_z": {"type": "number", "default": 10}, "diameter": {"type": "number", "default": 0.0625}}, "required": ["level", "start_x", "start_y", "end_x", "end_y"]}),
-        Tool(name="revit_get_mep_systems", description="Get MEP systems info", inputSchema={"type": "object", "properties": {"system_type": {"type": "string", "default": "all"}}}),
         Tool(name="revit_check_clashes", description="Check clashes between categories", inputSchema={"type": "object", "properties": {"category1": {"type": "string"}, "category2": {"type": "string"}, "tolerance": {"type": "number", "default": 0.01}}, "required": ["category1", "category2"]}),
         # Batch 6: Materials & Visuals
         Tool(name="revit_create_material", description="Create a new material with color and properties", inputSchema={"type": "object", "properties": {"name": {"type": "string"}, "color": {"type": "object", "properties": {"r": {"type": "integer"}, "g": {"type": "integer"}, "b": {"type": "integer"}}}, "transparency": {"type": "integer", "default": 0}, "shininess": {"type": "integer", "default": 50}, "smoothness": {"type": "integer", "default": 50}}, "required": ["name"]}),
         Tool(name="revit_set_element_material", description="Set material for an element or specific face", inputSchema={"type": "object", "properties": {"element_id": {"type": "integer"}, "material_name": {"type": "string"}, "face_index": {"type": "integer", "description": "Optional face index for face-specific material"}}, "required": ["element_id", "material_name"]}),
-        Tool(name="revit_get_render_settings", description="Get rendering settings from document", inputSchema={"type": "object", "properties": {}}),
         # Batch 7: Family Management
         Tool(name="revit_convert_to_group", description="Convert elements into a group", inputSchema={"type": "object", "properties": {"element_ids": {"type": "array", "items": {"type": "integer"}}, "name": {"type": "string"}}, "required": ["element_ids"]}),
         Tool(name="revit_edit_family", description="Open a family for editing", inputSchema={"type": "object", "properties": {"family_name": {"type": "string"}, "family_symbol_id": {"type": "integer"}, "family_instance_id": {"type": "integer"}}, "required": []}),
         # Batch 8: High-Value Documentation & Analysis
         Tool(name="revit_create_dimension", description="Create linear dimension between elements", inputSchema={"type": "object", "properties": {"start_point": {"type": "object", "properties": {"x": {"type": "number"}, "y": {"type": "number"}, "z": {"type": "number"}}}, "end_point": {"type": "object", "properties": {"x": {"type": "number"}, "y": {"type": "number"}, "z": {"type": "number"}}}, "element1_id": {"type": "integer"}, "element2_id": {"type": "integer"}}, "required": ["start_point", "end_point", "element1_id", "element2_id"]}),
-        Tool(name="revit_create_revision_cloud", description="Create revision cloud defined by points", inputSchema={"type": "object", "properties": {"view_id": {"type": "integer"}, "points": {"type": "array", "items": {"type": "object", "properties": {"x": {"type": "number"}, "y": {"type": "number"}, "z": {"type": "number"}}}}, "revision_id": {"type": "integer"}}, "required": ["view_id", "points"]}),
         Tool(name="revit_get_revision_sequences", description="Get list of revision sequences", inputSchema={"type": "object", "properties": {}}),
         Tool(name="revit_tag_all_in_view", description="Tag all elements of a category in view", inputSchema={"type": "object", "properties": {"category": {"type": "string"}}, "required": ["category"]}),
-        Tool(name="revit_create_text_type", description="Create or duplicate a text type", inputSchema={"type": "object", "properties": {"name": {"type": "string"}, "font": {"type": "string", "default": "Arial"}, "size_inches": {"type": "number", "default": 0.09375}}, "required": ["name"]}),
         Tool(name="revit_get_view_templates", description="Get list of view templates", inputSchema={"type": "object", "properties": {}}),
         Tool(name="revit_apply_view_template", description="Apply view template to a view", inputSchema={"type": "object", "properties": {"view_id": {"type": "integer"}, "template_id": {"type": "integer"}}, "required": ["view_id", "template_id"]}),
         Tool(name="revit_calculate_material_quantities", description="Calculate material volumes for a category", inputSchema={"type": "object", "properties": {"category": {"type": "string"}}, "required": ["category"]}),
-        Tool(name="revit_get_room_boundary", description="Get room geometric boundary loops", inputSchema={"type": "object", "properties": {"room_id": {"type": "integer"}}, "required": ["room_id"]}),
-        Tool(name="revit_get_project_location", description="Get project base and survey points", inputSchema={"type": "object", "properties": {}}),
         Tool(name="revit_get_warnings", description="Get current project warnings", inputSchema={"type": "object", "properties": {}}),
         # Batch 9: Universal Reflection Bridge (10k+ Tools)
         Tool(name="revit_invoke_method", description="Invoke any Revit API method dynamically using Reflection", inputSchema={"type": "object", "properties": {"class_name": {"type": "string"}, "method_name": {"type": "string"}, "arguments": {"type": "array", "items": {}}, "target_id": {"type": "string"}, "use_transaction": {"type": "boolean", "default": True}}, "required": ["class_name", "method_name", "arguments"]}),
@@ -879,23 +872,12 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             "revit_get_rvt_links": ("revit.get_rvt_links", {}),
             "revit_get_link_instances": ("revit.get_link_instances", {}),
             # Batch 5: Advanced MEP & Engineering
-            "revit_create_cable_tray": ("revit.create_cable_tray", {
-                "level": arguments.get("level"),
-                "start_point": {"x": arguments.get("start_x"), "y": arguments.get("start_y"), "z": arguments.get("start_z", 10)},
-                "end_point": {"x": arguments.get("end_x"), "y": arguments.get("end_y"), "z": arguments.get("end_z", 10)},
-                "width": arguments.get("width", 1.0),
-                "height": arguments.get("height", 0.33),
-                "cable_tray_type": arguments.get("cable_tray_type")
-            }),
             "revit_create_conduit": ("revit.create_conduit", {
                 "level": arguments.get("level"),
                 "start_point": {"x": arguments.get("start_x"), "y": arguments.get("start_y"), "z": arguments.get("start_z", 10)},
                 "end_point": {"x": arguments.get("end_x"), "y": arguments.get("end_y"), "z": arguments.get("end_z", 10)},
                 "diameter": arguments.get("diameter", 0.0625),
                 "conduit_type": arguments.get("conduit_type")
-            }),
-            "revit_get_mep_systems": ("revit.get_mep_systems", {
-                "system_type": arguments.get("system_type", "all")
             }),
             "revit_check_clashes": ("revit.check_clashes", {
                 "category1": arguments.get("category1"),
@@ -915,7 +897,6 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
                 "material_name": arguments.get("material_name"),
                 "face_index": arguments.get("face_index")
             }),
-            "revit_get_render_settings": ("revit.get_render_settings", {}),
             # Batch 7: Family Management
             "revit_convert_to_group": ("revit.convert_to_group", {
                 "element_ids": arguments.get("element_ids"),
@@ -933,26 +914,14 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
                 "element1_id": arguments.get("element1_id"),
                 "element2_id": arguments.get("element2_id")
             }),
-            "revit_create_revision_cloud": ("revit.create_revision_cloud", {
-                "view_id": arguments.get("view_id"),
-                "points": arguments.get("points"),
-                "revision_id": arguments.get("revision_id")
-            }),
             "revit_get_revision_sequences": ("revit.get_revision_sequences", {}),
             "revit_tag_all_in_view": ("revit.tag_all_in_view", {"category": arguments.get("category")}),
-            "revit_create_text_type": ("revit.create_text_type", {
-                "name": arguments.get("name"),
-                "font": arguments.get("font"),
-                "size_inches": arguments.get("size_inches")
-            }),
             "revit_get_view_templates": ("revit.get_view_templates", {}),
             "revit_apply_view_template": ("revit.apply_view_template", {
                 "view_id": arguments.get("view_id"),
                 "template_id": arguments.get("template_id")
             }),
             "revit_calculate_material_quantities": ("revit.calculate_material_quantities", {"category": arguments.get("category")}),
-            "revit_get_room_boundary": ("revit.get_room_boundary", {"room_id": arguments.get("room_id")}),
-            "revit_get_project_location": ("revit.get_project_location", {}),
             "revit_get_warnings": ("revit.get_warnings", {}),
             # Batch 9: Universal Reflection Bridge
             "revit_invoke_method": ("revit.invoke_method", {
@@ -1027,7 +996,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
         error_msg += "Make sure:\n"
         error_msg += "1. Revit is running\n"
         error_msg += "2. A project is open in Revit\n"
-        error_msg += "3. The RevitMCP Bridge add-in is loaded\n"
+        error_msg += "3. The AEC Model Bridge add-in is loaded\n"
         error_msg += "4. The bridge is accessible at http://localhost:3000"
 
         return [TextContent(type="text", text=error_msg)]
