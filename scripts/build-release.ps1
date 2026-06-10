@@ -93,7 +93,12 @@ if ($UpdateServerMetadata) {
     $server.packages[0].version = $Version
     $server.packages[0].identifier = "https://github.com/Sam-AEC/aec-model-bridge/releases/download/v$Version/aec-model-bridge-$Version.mcpb"
     $server.packages[0].fileSha256 = $mcpbSha
-    $server | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $serverPath -Encoding utf8
+    $serverJson = ($server | ConvertTo-Json -Depth 20) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText(
+        $serverPath,
+        $serverJson,
+        [System.Text.UTF8Encoding]::new($false)
+    )
 }
 
 $checksums = Get-ChildItem -Path $releaseDir -File |
