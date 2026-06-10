@@ -23,8 +23,8 @@ Mock mode runs the complete MCP server with deterministic responses, suitable fo
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/YOUR_ORG/mcp-revit-bridge.git
-cd mcp-revit-bridge
+git clone https://github.com/Sam-AEC/aec-model-bridge.git
+cd aec-model-bridge
 ```
 
 ### 2. Create Virtual Environment
@@ -148,14 +148,20 @@ $env:MCP_REVIT_MODE = "bridge"
 $env:MCP_REVIT_BRIDGE_URL = "http://localhost:3000"
 ```
 
-Or edit [examples/revit-mcp-config.json](../examples/revit-mcp-config.json):
+Or use the workspace MCP configuration in [.vscode/mcp.json](../.vscode/mcp.json) for VS Code and GitHub Copilot, and set the same environment variables in your shell for other clients:
 
 ```json
 {
-  "mode": "bridge",
-  "bridge_url": "http://localhost:3000",
-  "workspace_dir": "C:\\revit-workspace",
-  "allowed_directories": ["C:\\revit-workspace"]
+  "servers": {
+    "revit": {
+      "command": "python",
+      "args": ["-m", "revit_mcp_server.mcp_server"],
+      "env": {
+        "MCP_REVIT_MODE": "bridge",
+        "MCP_REVIT_BRIDGE_URL": "http://127.0.0.1:3000"
+      }
+    }
+  }
 }
 ```
 
