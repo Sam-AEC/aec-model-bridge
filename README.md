@@ -6,11 +6,11 @@
 
 Independent Model Context Protocol integration for Autodesk Revit® software.
 
-[![Total downloads](https://img.shields.io/github/downloads/Sam-AEC/aec-model-bridge/total?style=flat-square&logo=github&label=total%20downloads&color=2563EB)](https://github.com/Sam-AEC/aec-model-bridge/releases)
-[![Latest release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
-[![GitHub stars](https://img.shields.io/github/stars/Sam-AEC/aec-model-bridge?style=flat-square&logo=github)](https://github.com/Sam-AEC/aec-model-bridge/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/Sam-AEC/aec-model-bridge?style=flat-square&logo=github)](https://github.com/Sam-AEC/aec-model-bridge/forks)
-[![Commit activity](https://img.shields.io/github/commit-activity/m/Sam-AEC/aec-model-bridge?style=flat-square&logo=github)](https://github.com/Sam-AEC/aec-model-bridge/commits/main/)
+[![Total downloads](https://img.shields.io/github/downloads/Sam-AEC/Autodesk-Revit-MCP-Server/total?style=flat-square&logo=github&label=total%20downloads&color=2563EB)](https://github.com/Sam-AEC/Autodesk-Revit-MCP-Server/releases)
+[![Latest release](https://img.shields.io/github/v/release/Sam-AEC/Autodesk-Revit-MCP-Server?style=flat-square)](https://github.com/Sam-AEC/Autodesk-Revit-MCP-Server/releases/latest)
+[![GitHub stars](https://img.shields.io/github/stars/Sam-AEC/Autodesk-Revit-MCP-Server?style=flat-square&logo=github)](https://github.com/Sam-AEC/Autodesk-Revit-MCP-Server/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/Sam-AEC/Autodesk-Revit-MCP-Server?style=flat-square&logo=github)](https://github.com/Sam-AEC/Autodesk-Revit-MCP-Server/forks)
+[![Commit activity](https://img.shields.io/github/commit-activity/m/Sam-AEC/Autodesk-Revit-MCP-Server?style=flat-square&logo=github)](https://github.com/Sam-AEC/Autodesk-Revit-MCP-Server/commits/main/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-0078D4?style=flat-square)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![Revit 2024-2027](https://img.shields.io/badge/Revit-2024--2027-0696D7?style=flat-square)](https://www.autodesk.com/products/revit/)
@@ -35,11 +35,11 @@ The bridge currently implements 103 active command routes across model authoring
 The download badge reports the cumulative number of GitHub release-asset downloads. GitHub does not include clones or automatically generated source archives in that total.
 
 <div align="center">
-  <a href="https://star-history.com/#Sam-AEC/aec-model-bridge&Date">
+  <a href="https://star-history.com/#Sam-AEC/Autodesk-Revit-MCP-Server&Date">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Sam-AEC/aec-model-bridge&type=Date&theme=dark">
-      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Sam-AEC/aec-model-bridge&type=Date">
-      <img alt="AEC Model Bridge star history" src="https://api.star-history.com/svg?repos=Sam-AEC/aec-model-bridge&type=Date">
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Sam-AEC/Autodesk-Revit-MCP-Server&type=Date&theme=dark">
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Sam-AEC/Autodesk-Revit-MCP-Server&type=Date">
+      <img alt="AEC Model Bridge star history" src="https://api.star-history.com/svg?repos=Sam-AEC/Autodesk-Revit-MCP-Server&type=Date">
     </picture>
   </a>
 </div>
@@ -78,8 +78,8 @@ Revit 2027 support is compiled against the installed Autodesk Revit 2027 API ass
 ### 1. Clone and install the MCP server
 
 ```powershell
-git clone https://github.com/Sam-AEC/aec-model-bridge.git
-cd aec-model-bridge
+git clone https://github.com/Sam-AEC/Autodesk-Revit-MCP-Server.git
+cd Autodesk-Revit-MCP-Server
 pip install -e packages/mcp-server-revit
 ```
 

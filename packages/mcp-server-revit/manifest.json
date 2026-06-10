@@ -9,7 +9,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Sam-AEC/aec-model-bridge.git"
+    "url": "https://github.com/Sam-AEC/Autodesk-Revit-MCP-Server.git"
   },
   "server": {
     "type": "python",
