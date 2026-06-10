@@ -170,7 +170,7 @@ python -m revit_mcp_server
 - Copilot Integration: ../docs/copilot-integration.md
 
 ## Support
-https://github.com/Sam-AEC/Autodesk-Revit-MCP-Server/issues
+https://github.com/Sam-AEC/aec-model-bridge/issues
 
 ## Trademark Notice
 AEC Model Bridge is independent and is not affiliated with Autodesk.

@@ -29,9 +29,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Sam-AEC/Autodesk-Revit-MCP-Server"
-Repository = "https://github.com/Sam-AEC/Autodesk-Revit-MCP-Server"
-Issues = "https://github.com/Sam-AEC/Autodesk-Revit-MCP-Server/issues"
+Homepage = "https://github.com/Sam-AEC/aec-model-bridge"
+Repository = "https://github.com/Sam-AEC/aec-model-bridge"
+Issues = "https://github.com/Sam-AEC/aec-model-bridge/issues"
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]
