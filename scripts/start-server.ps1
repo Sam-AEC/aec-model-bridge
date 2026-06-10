@@ -4,7 +4,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "RevitMCP Server Startup" -ForegroundColor Cyan
+Write-Host "AEC Model Bridge Server Startup" -ForegroundColor Cyan
 Write-Host "=====================`n" -ForegroundColor Cyan
 
 # Check if .env exists

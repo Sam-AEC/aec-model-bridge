@@ -3,19 +3,27 @@
     <RevitVersion Condition="'$(RevitVersion)'==''">2024</RevitVersion>
     <TargetFramework Condition="'$(RevitVersion)' == '2024'">net48</TargetFramework>
     <TargetFramework Condition="'$(RevitVersion)' == '2025' OR '$(RevitVersion)' == '2026'">net8.0-windows</TargetFramework>
-    <AssemblyName>RevitBridge</AssemblyName>
+    <TargetFramework Condition="'$(RevitVersion)' == '2027'">net10.0-windows</TargetFramework>
+    <AssemblyName>AECModelBridge</AssemblyName>
     <RootNamespace>RevitBridge</RootNamespace>
+    <Version>1.0.1</Version>
+    <AssemblyVersion>1.0.1.0</AssemblyVersion>
+    <FileVersion>1.0.1.0</FileVersion>
+    <InformationalVersion>1.0.1</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <OutputType>Library</OutputType>
     <OutputPath>bin\$(Configuration)\$(RevitVersion)\</OutputPath>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
   <PropertyGroup>
     <RevitInstallPath Condition="'$(RevitVersion)'=='2024'">C:\Program Files\Autodesk\Revit 2024</RevitInstallPath>
     <RevitInstallPath Condition="'$(RevitVersion)'=='2025'">C:\Program Files\Autodesk\Revit 2025</RevitInstallPath>
     <RevitInstallPath Condition="'$(RevitVersion)'=='2026'">C:\Program Files\Autodesk\Revit 2026</RevitInstallPath>
+    <RevitInstallPath Condition="'$(RevitVersion)'=='2027'">C:\Program Files\Autodesk\Revit 2027</RevitInstallPath>
     <!-- Check if local Revit API exists, otherwise default to NuGet -->
     <UseLocalRevit Condition="Exists('$(RevitInstallPath)\RevitAPI.dll')">true</UseLocalRevit>
     <UseLocalRevit Condition="'$(UseLocalRevit)'==''">false</UseLocalRevit>
@@ -42,14 +50,14 @@
   <ItemGroup>
     <PackageReference Include="Serilog" Version="3.1.1" />
     <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
-    <PackageReference Include="System.Text.Json" Version="6.0.10" />
+    <PackageReference Include="System.Text.Json" Version="6.0.10" Condition="'$(TargetFramework)'=='net48'" />
     <!-- IronPython: enables execute_python tool (in-process Python scripting with full Revit API access) -->
     <PackageReference Include="IronPython" Version="2.7.12" Condition="'$(TargetFramework)'=='net48'" />
-    <PackageReference Include="IronPython" Version="3.4.1" Condition="'$(TargetFramework)'=='net8.0-windows'" />
+    <PackageReference Include="IronPython" Version="3.4.1" Condition="'$(TargetFramework)'!='net48'" />
   </ItemGroup>
 
-  <!-- WPF References for Modern UI -->
-  <ItemGroup>
+  <!-- .NET Framework requires explicit WPF references; modern SDK targets use UseWPF. -->
+  <ItemGroup Condition="'$(TargetFramework)'=='net48'">
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
     <Reference Include="WindowsBase" />

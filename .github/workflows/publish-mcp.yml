@@ -1,9 +1,9 @@
 name: Publish MCP Server
 
 on:
-  push:
-    tags:
-      - "v*"
+  release:
+    types:
+      - published
   workflow_dispatch:
 
 jobs:
@@ -16,6 +16,35 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Synchronize release artifact metadata
+        if: github.event_name == 'release'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          asset="aec-model-bridge-${version}.mcpb"
+          gh release download "$GITHUB_REF_NAME" --pattern "$asset" --dir release
+          sha256="$(sha256sum "release/$asset" | cut -d' ' -f1)"
+          python - "$version" "$sha256" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          version, sha256 = sys.argv[1:]
+          path = Path("server.json")
+          data = json.loads(path.read_text(encoding="utf-8"))
+          data["version"] = version
+          package = data["packages"][0]
+          package["version"] = version
+          package["identifier"] = (
+              "https://github.com/Sam-AEC/aec-model-bridge/"
+              f"releases/download/v{version}/aec-model-bridge-{version}.mcpb"
+          )
+          package["fileSha256"] = sha256
+          path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+          PY
 
       - name: Install mcp-publisher
         run: |
