@@ -214,7 +214,7 @@ Package all supported versions:
 - [Installation](docs/install.md)
 - [Tool reference](docs/tools.md)
 - [Architecture](docs/architecture.md)
-- [Configuration](docs/configuration-reference.md)
+- [Configuration reference](docs/configuration-reference.md)
 - [Build and install scripts](docs/build-and-install-scripts.md)
 - [Target frameworks and dependencies](docs/target-frameworks-and-dependencies.md)
 - [MCP marketplaces](docs/marketplaces.md)
