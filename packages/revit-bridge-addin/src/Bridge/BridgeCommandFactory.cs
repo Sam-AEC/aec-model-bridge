@@ -313,31 +313,23 @@ public static class BridgeCommandFactory
             "revit.get_link_instances",
 
             // Batch 5: Advanced MEP & Engineering
-            "revit.create_cable_tray",
             "revit.create_conduit",
-            "revit.get_mep_systems",
             "revit.check_clashes",
 
             // Batch 6: Materials & Visuals
             "revit.create_material",
             "revit.set_element_material",
-            "revit.get_render_settings",
 
             // Batch 7: Family Management
             "revit.convert_to_group",
             "revit.edit_family",
 
             // Batch 8: High-Value Documentation
-            "revit.create_dimension",
-            "revit.create_revision_cloud",
             "revit.get_revision_sequences",
             "revit.tag_all_in_view",
-            "revit.create_text_type",
             "revit.get_view_templates",
             "revit.apply_view_template",
             "revit.calculate_material_quantities",
-            "revit.get_room_boundary",
-            "revit.get_project_location",
             "revit.get_warnings",
 
             // Batch 9: Universal Reflection
@@ -3748,7 +3740,7 @@ public static class BridgeCommandFactory
             family_name = family.Name,
             family_document_title = familyDoc.Title,
             is_family_document = familyDoc.IsFamilyDocument,
-            categories = new FilteredElementCollector(familyDoc).OfClass(typeof(Category)).Cast<Category>().Select(c => c.Name).Take(10).ToList()
+            categories = familyDoc.Settings.Categories.Cast<Category>().Select(c => c.Name).Take(10).ToList()
         };
     }
 

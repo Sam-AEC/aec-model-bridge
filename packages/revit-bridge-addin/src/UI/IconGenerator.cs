@@ -210,7 +210,7 @@ namespace RevitBridge.UI
         }
 
         /// <summary>
-        /// Creates a branded RevitMCP icon (gorgeous isometric cyan/teal/blue 3D BIM cube)
+        /// Creates the generic AEC Model Bridge icon.
         /// </summary>
         public static BitmapSource CreateBrandIcon(int size = 32)
         {
@@ -219,7 +219,7 @@ namespace RevitBridge.UI
             {
                 double cX = size / 2.0;
 
-                // High-end Gradient Brushes
+                // Gradient faces for a generic building-model cube.
                 var topBrush = new LinearGradientBrush(Color.FromRgb(0, 188, 212), Color.FromRgb(0, 150, 136), 45); // Cyan to Teal
                 var leftBrush = new LinearGradientBrush(Color.FromRgb(33, 150, 243), Color.FromRgb(21, 101, 192), 90); // Blue to Dark Blue
                 var rightBrush = new LinearGradientBrush(Color.FromRgb(0, 150, 136), Color.FromRgb(0, 105, 92), 90); // Dark Teal

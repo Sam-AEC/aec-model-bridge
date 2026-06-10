@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Windows.Media.Imaging;
 using Autodesk.Revit.UI;
 using RevitBridge.UI;
 using Serilog;
@@ -32,27 +33,35 @@ namespace RevitBridge.Bridge
                 Server = _server; // Expose statically
                 _server.Start();
 
-                // Create Modern Ribbon UI with Icons
-                CreateModernRibbonInterface(application);
+                try
+                {
+                    CreateModernRibbonInterface(application);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Bridge started, but the AEC Model Bridge ribbon could not be created");
+                }
 
                 application.ControlledApplication.DocumentChanged += (sender, args) =>
                 {
                     ActiveDocumentName = args.GetDocument()?.Title;
                 };
 
-                Log.Information("RevitMCP Bridge started for Revit {Version}", RevitVersion);
+                Log.Information("AEC Model Bridge started for Revit {Version}", RevitVersion);
                 return Result.Succeeded;
             }
             catch (Exception ex)
             {
-                Log.Fatal(ex, "Failed to start RevitMCP Bridge");
+                Log.Fatal(ex, "Failed to start AEC Model Bridge");
+                _server?.Stop();
+                _externalEvent?.Dispose();
                 return Result.Failed;
             }
         }
 
         private void CreateModernRibbonInterface(UIControlledApplication app)
         {
-            string tabName = "RevitMCP";
+            string tabName = "AEC Bridge";
             try
             {
                 app.CreateRibbonTab(tabName);
@@ -81,7 +90,7 @@ namespace RevitBridge.Bridge
             string settingsIconPath = Path.Combine(iconPath, "settings.png");
             string helpIconPath = Path.Combine(iconPath, "help.png");
 
-            // Dynamically generate theme-adaptive icons on startup to guarantee they are never missing and adapt to Revit's Dark/Light theme!
+            // Generate theme-adaptive icons, then retain in-memory fallbacks if file I/O fails.
             try
             {
                 IconGenerator.GenerateAllIcons(iconPath);
@@ -91,13 +100,12 @@ namespace RevitBridge.Bridge
                 Log.Error(ex, "Failed to dynamically generate ribbon icons");
             }
 
-            // Log if icons are missing
-            if (!File.Exists(connectIconPath))
-                Log.Warning("Icon not found: {IconPath}", connectIconPath);
-            if (!File.Exists(disconnectIconPath))
-                Log.Warning("Icon not found: {IconPath}", disconnectIconPath);
-            if (!File.Exists(statusIconPath))
-                Log.Warning("Icon not found: {IconPath}", statusIconPath);
+            BitmapSource connectIcon = LoadIcon(connectIconPath, IconGenerator.CreateConnectIcon);
+            BitmapSource disconnectIcon = LoadIcon(disconnectIconPath, IconGenerator.CreateDisconnectIcon);
+            BitmapSource statusIcon = LoadIcon(statusIconPath, IconGenerator.CreateStatusIcon);
+            BitmapSource brandIcon = LoadIcon(brandIconPath, IconGenerator.CreateBrandIcon);
+            BitmapSource settingsIcon = LoadIcon(settingsIconPath, IconGenerator.CreateSettingsIcon);
+            BitmapSource helpIcon = LoadIcon(helpIconPath, IconGenerator.CreateHelpIcon);
 
             // === CONNECTION PANEL ===
 
@@ -109,14 +117,10 @@ namespace RevitBridge.Bridge
                 "RevitBridge.Bridge.CommandConnect"
             );
             connectBtnData.ToolTip = "Start the MCP Bridge Server";
-            connectBtnData.LongDescription = "Starts the RevitMCP Bridge Server to enable AI-powered automation and natural language control of Revit.";
-            if (File.Exists(connectIconPath))
-            {
-                connectBtnData.Image = new System.Windows.Media.Imaging.BitmapImage(new Uri(connectIconPath));
-                connectBtnData.LargeImage = new System.Windows.Media.Imaging.BitmapImage(new Uri(connectIconPath));
-            }
-            if (File.Exists(brandIconPath))
-                connectBtnData.ToolTipImage = new System.Windows.Media.Imaging.BitmapImage(new Uri(brandIconPath));
+            connectBtnData.LongDescription = "Starts AEC Model Bridge to enable MCP automation for Revit software.";
+            connectBtnData.Image = connectIcon;
+            connectBtnData.LargeImage = connectIcon;
+            connectBtnData.ToolTipImage = brandIcon;
 
             // Disconnect Button
             PushButtonData disconnectBtnData = new PushButtonData(
@@ -126,12 +130,9 @@ namespace RevitBridge.Bridge
                 "RevitBridge.Bridge.CommandDisconnect"
             );
             disconnectBtnData.ToolTip = "Stop the MCP Bridge Server";
-            disconnectBtnData.LongDescription = "Stops the RevitMCP Bridge Server and closes all active connections.";
-            if (File.Exists(disconnectIconPath))
-            {
-                disconnectBtnData.Image = new System.Windows.Media.Imaging.BitmapImage(new Uri(disconnectIconPath));
-                disconnectBtnData.LargeImage = new System.Windows.Media.Imaging.BitmapImage(new Uri(disconnectIconPath));
-            }
+            disconnectBtnData.LongDescription = "Stops AEC Model Bridge and closes all active connections.";
+            disconnectBtnData.Image = disconnectIcon;
+            disconnectBtnData.LargeImage = disconnectIcon;
 
             // Status Button
             PushButtonData statusBtnData = new PushButtonData(
@@ -142,11 +143,8 @@ namespace RevitBridge.Bridge
             );
             statusBtnData.ToolTip = "View Server Status and Statistics";
             statusBtnData.LongDescription = "Displays detailed information about the Bridge Server including connection status, statistics, and capabilities.";
-            if (File.Exists(statusIconPath))
-            {
-                statusBtnData.Image = new System.Windows.Media.Imaging.BitmapImage(new Uri(statusIconPath));
-                statusBtnData.LargeImage = new System.Windows.Media.Imaging.BitmapImage(new Uri(statusIconPath));
-            }
+            statusBtnData.Image = statusIcon;
+            statusBtnData.LargeImage = statusIcon;
 
             // Create stacked items for better layout
             connectionPanel.AddItem(connectBtnData);
@@ -165,11 +163,8 @@ namespace RevitBridge.Bridge
             );
             settingsBtnData.ToolTip = "Configure Bridge Settings";
             settingsBtnData.LongDescription = "Configure server settings, port, logging, and other options.";
-            if (File.Exists(settingsIconPath))
-            {
-                settingsBtnData.Image = new System.Windows.Media.Imaging.BitmapImage(new Uri(settingsIconPath));
-                settingsBtnData.LargeImage = new System.Windows.Media.Imaging.BitmapImage(new Uri(settingsIconPath));
-            }
+            settingsBtnData.Image = settingsIcon;
+            settingsBtnData.LargeImage = settingsIcon;
             settingsBtnData.AvailabilityClassName = "RevitBridge.Bridge.CommandAvailability";
 
             // Help Button
@@ -180,12 +175,9 @@ namespace RevitBridge.Bridge
                 "RevitBridge.Bridge.CommandHelp"
             );
             helpBtnData.ToolTip = "View Documentation";
-            helpBtnData.LongDescription = "Open the RevitMCP Bridge documentation and user guide.";
-            if (File.Exists(helpIconPath))
-            {
-                helpBtnData.Image = new System.Windows.Media.Imaging.BitmapImage(new Uri(helpIconPath));
-                helpBtnData.LargeImage = new System.Windows.Media.Imaging.BitmapImage(new Uri(helpIconPath));
-            }
+            helpBtnData.LongDescription = "Open the AEC Model Bridge documentation and user guide.";
+            helpBtnData.Image = helpIcon;
+            helpBtnData.LargeImage = helpIcon;
 
             toolsPanel.AddItem(settingsBtnData);
             toolsPanel.AddItem(helpBtnData);
@@ -197,13 +189,30 @@ namespace RevitBridge.Bridge
             Log.Information("Modern ribbon interface created with icons");
         }
 
+        private static BitmapSource LoadIcon(string path, Func<int, BitmapSource> fallbackFactory)
+        {
+            if (!File.Exists(path))
+            {
+                Log.Debug("Icon not found at {IconPath}; using generated fallback", path);
+                return fallbackFactory(32);
+            }
+
+            var icon = new BitmapImage();
+            icon.BeginInit();
+            icon.CacheOption = BitmapCacheOption.OnLoad;
+            icon.UriSource = new Uri(path, UriKind.Absolute);
+            icon.EndInit();
+            icon.Freeze();
+            return icon;
+        }
+
         public Result OnShutdown(UIControlledApplication application)
         {
             try
             {
                 _server?.Stop();
                 _externalEvent?.Dispose();
-                Log.Information("RevitMCP Bridge stopped");
+                Log.Information("AEC Model Bridge stopped");
                 Log.CloseAndFlush();
                 return Result.Succeeded;
             }
@@ -218,7 +227,7 @@ namespace RevitBridge.Bridge
         {
             var logPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "RevitMCP", "Logs", "bridge.jsonl"
+                "AECModelBridge", "Logs", "bridge.jsonl"
             );
 
             Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);

@@ -52,5 +52,5 @@ public class RevitCommandExecutor : IExternalEventHandler
         }
     }
 
-    public string GetName() => "RevitMCP Command Executor";
+    public string GetName() => "AEC Model Bridge Command Executor";
 }

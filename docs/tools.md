@@ -1,6 +1,6 @@
 # Tool Catalog
 
-MCP Revit Bridge exposes 25 tools organized into five categories: health checks, document operations, QA audits, export operations, and automation workflows.
+AEC Model Bridge exposes tools for health checks, document operations, QA audits, export operations, and automation workflows.
 
 All tools accept JSON inputs validated against Pydantic schemas and return structured JSON responses.
 

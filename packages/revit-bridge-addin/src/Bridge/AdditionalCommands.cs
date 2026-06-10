@@ -42,7 +42,7 @@ namespace RevitBridge.Bridge
 
             dialog.AddInfoSection("Advanced",
                 "Note: Advanced settings can be configured in the config file.\n" +
-                "Location: %AppData%\\RevitMCP\\config.json");
+                "Location: %AppData%\\AECModelBridge\\config.json");
 
             dialog.SetActionButton("OK");
             dialog.ShowDialog();
@@ -61,7 +61,7 @@ namespace RevitBridge.Bridge
         private void ShowHelpDialog()
         {
             var dialog = new ModernDialog();
-            dialog.SetTitle("RevitMCP Help", "Documentation & Support");
+            dialog.SetTitle("AEC Model Bridge Help", "Documentation & Support");
 
             dialog.AddStatsGrid(
                 ("📘", "Tools", "233"),
@@ -92,7 +92,7 @@ namespace RevitBridge.Bridge
             dialog.AddSeparator();
 
             dialog.AddInfoSection("Documentation",
-                "GitHub: github.com/Sam-AEC/Autodesk-Revit-MCP-Server\n" +
+                "GitHub: github.com/Sam-AEC/aec-model-bridge\n" +
                 "Docs: See README.md for full documentation");
 
             dialog.AddInfoSection("Support",
@@ -105,7 +105,7 @@ namespace RevitBridge.Bridge
                 {
                     Process.Start(new ProcessStartInfo
                     {
-                        FileName = "https://github.com/Sam-AEC/Autodesk-Revit-MCP-Server",
+                        FileName = "https://github.com/Sam-AEC/aec-model-bridge",
                         UseShellExecute = true
                     });
                 }
@@ -129,22 +129,22 @@ namespace RevitBridge.Bridge
         private void ShowAboutDialog()
         {
             var dialog = new ModernDialog();
-            dialog.SetTitle("About RevitMCP Bridge", "Version 1.0.0");
+            dialog.SetTitle("About AEC Model Bridge", "Version 1.0.1");
 
             dialog.AddStatusCard(
                 "🏆",
-                "RevitMCP Bridge",
-                "AI-Powered Revit Automation Platform",
+                "AEC Model Bridge",
+                "Independent MCP integration for Revit software",
                 new MediaBrush(MediaColor.FromRgb(33, 150, 243))
             );
 
             dialog.AddSeparator();
 
             dialog.AddInfoSection("Version Information",
-                "Version: 1.0.0\n" +
+                "Version: 1.0.1\n" +
                 $"Revit: {App.RevitVersion ?? "Unknown"}\n" +
-                "Build: 2026.01.08\n" +
-                "Platform: .NET Framework 4.8");
+                "Build: 2026.06.11\n" +
+                "Platform: Revit-version-specific .NET runtime");
 
             dialog.AddSeparator();
 
@@ -161,9 +161,9 @@ namespace RevitBridge.Bridge
 
             dialog.AddInfoSection("Credits",
                 "Built with Model Context Protocol (MCP)\n" +
-                "Powered by Anthropic Claude\n" +
                 "Revit API Integration\n\n" +
-                "© 2026 RevitMCP Project");
+                "Copyright 2026 AEC Model Bridge Contributors\n\n" +
+                "Not affiliated with or endorsed by Autodesk.");
 
             dialog.SetActionButton("Close");
             dialog.ShowDialog();

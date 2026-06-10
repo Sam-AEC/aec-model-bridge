@@ -1,7 +1,7 @@
 <Window x:Class="RevitBridge.UI.ModernDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="RevitMCP Bridge"
+        Title="AEC Model Bridge"
         Height="450"
         Width="600"
         WindowStartupLocation="CenterScreen"
@@ -126,12 +126,12 @@
                     <!-- Title -->
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock x:Name="DialogTitle"
-                                   Text="RevitMCP Bridge Status"
+                                   Text="AEC Model Bridge Status"
                                    FontSize="16"
                                    FontWeight="SemiBold"
                                    Foreground="White"/>
                         <TextBlock x:Name="DialogSubtitle"
-                                   Text="AI-Powered Revit Automation"
+                                   Text="MCP automation for Revit software"
                                    FontSize="11"
                                    Foreground="White"
                                    Opacity="0.85"/>

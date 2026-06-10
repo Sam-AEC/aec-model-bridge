@@ -4,6 +4,12 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$supportedVersions = @("2024", "2025", "2026", "2027")
+
+if ($supportedVersions -notcontains $RevitVersion) {
+    Write-Error "Unsupported Revit version: $RevitVersion. Supported: $($supportedVersions -join ', ')"
+    exit 1
+}
 
 # Path Guard: Prevent Execution in System32 or Windows
 if ($PSScriptRoot -like "*C:\Windows*") {
@@ -37,7 +43,7 @@ if (-not $msbuild) {
     exit 1
 }
 
-Write-Host "Building RevitBridge for Revit $RevitVersion ($Configuration)..." -ForegroundColor Cyan
+Write-Host "Building AEC Model Bridge for Revit $RevitVersion ($Configuration)..." -ForegroundColor Cyan
 
 if ($msbuild -like "*dotnet*") {
     & $msbuild build $projectPath `
@@ -57,5 +63,10 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
-$outputPath = "packages\revit-bridge-addin\bin\$Configuration\$RevitVersion\RevitBridge.dll"
-Write-Host "Build succeeded: $outputPath" -ForegroundColor Green
+$targetFramework = switch ($RevitVersion) {
+    "2024" { "net48" }
+    { $_ -in @("2025", "2026") } { "net8.0-windows" }
+    "2027" { "net10.0-windows" }
+}
+$outputPath = Join-Path $PSScriptRoot "..\packages\revit-bridge-addin\bin\$Configuration\$RevitVersion\$targetFramework\AECModelBridge.dll"
+Write-Host "Build succeeded: $([System.IO.Path]::GetFullPath($outputPath))" -ForegroundColor Green

@@ -1,6 +1,6 @@
 {
   "servers": {
-    "revit": {
+    "aec-model-bridge": {
       "type": "stdio",
       "command": "python",
       "args": ["-m", "revit_mcp_server.mcp_server"],
