@@ -39,7 +39,7 @@ jobs:
           package = data["packages"][0]
           package["version"] = version
           package["identifier"] = (
-              "https://github.com/Sam-AEC/Autodesk-Revit-MCP-Server/"
+              "https://github.com/Sam-AEC/aec-model-bridge/"
               f"releases/download/v{version}/aec-model-bridge-{version}.mcpb"
           )
           package["fileSha256"] = sha256
