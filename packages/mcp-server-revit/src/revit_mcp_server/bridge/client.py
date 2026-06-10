@@ -27,7 +27,7 @@ class BridgeClient:
         except httpx.RequestError as e:
             raise BridgeError(
                 f"Bridge unreachable at {self.base_url}. "
-                f"Ensure Revit is running with RevitMCP add-in loaded. Error: {e}"
+                f"Ensure Revit is running with the AEC Model Bridge add-in loaded. Error: {e}"
             ) from e
 
     def call_tool(self, tool: str, payload: dict[str, Any]) -> dict[str, Any]:
