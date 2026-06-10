@@ -23,8 +23,8 @@ Mock mode runs the complete MCP server with deterministic responses, suitable fo
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/Sam-AEC/aec-model-bridge.git
-cd aec-model-bridge
+git clone https://github.com/Sam-AEC/Autodesk-Revit-MCP-Server.git
+cd Autodesk-Revit-MCP-Server
 ```
 
 ### 2. Create Virtual Environment
