@@ -12,6 +12,34 @@ MCP server and native bridges for AI-assisted AEC workflows.
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![Revit](https://img.shields.io/badge/Revit-2024--2027-0696D7?style=flat-square)](https://www.autodesk.com/products/revit/)
 
+<br>
+<strong>Available now</strong><br>
+
+![Revit available](https://img.shields.io/badge/Revit-available-16A34A?style=flat-square)
+![IfcOpenShell available](https://img.shields.io/badge/IfcOpenShell-available-16A34A?style=flat-square)
+![Speckle available](https://img.shields.io/badge/Speckle-available-16A34A?style=flat-square)
+![Navisworks Manage preview](https://img.shields.io/badge/Navisworks_Manage-preview-F59E0B?style=flat-square)
+![Rhino and Grasshopper preview](https://img.shields.io/badge/Rhino_%2F_Grasshopper-preview-F59E0B?style=flat-square)
+
+<strong>Coming soon</strong><br>
+
+![Microsoft Excel coming soon](https://img.shields.io/badge/Microsoft_Excel-coming_soon-2563EB?style=flat-square)
+![Microsoft Graph coming soon](https://img.shields.io/badge/Microsoft_Graph-coming_soon-2563EB?style=flat-square)
+![Autodesk Construction Cloud coming soon](https://img.shields.io/badge/Autodesk_Construction_Cloud-coming_soon-2563EB?style=flat-square)
+![Autodesk Forma coming soon](https://img.shields.io/badge/Autodesk_Forma-coming_soon-2563EB?style=flat-square)
+![Solibri coming soon](https://img.shields.io/badge/Solibri-coming_soon-2563EB?style=flat-square)
+![Power BI coming soon](https://img.shields.io/badge/Power_BI_templates-coming_soon-2563EB?style=flat-square)
+![Parquet and DuckDB coming soon](https://img.shields.io/badge/Parquet_%2F_DuckDB-coming_soon-2563EB?style=flat-square)
+
+<strong>Future roadmap</strong><br>
+
+![Tekla Structures roadmap](https://img.shields.io/badge/Tekla_Structures-roadmap-64748B?style=flat-square)
+![Graphisoft Archicad roadmap](https://img.shields.io/badge/Graphisoft_Archicad-roadmap-64748B?style=flat-square)
+![Bentley iTwin roadmap](https://img.shields.io/badge/Bentley_iTwin-roadmap-64748B?style=flat-square)
+![Trimble Connect roadmap](https://img.shields.io/badge/Trimble_Connect-roadmap-64748B?style=flat-square)
+![Procore roadmap](https://img.shields.io/badge/Procore-roadmap-64748B?style=flat-square)
+![Oracle Primavera P6 roadmap](https://img.shields.io/badge/Oracle_Primavera_P6-roadmap-64748B?style=flat-square)
+![SketchUp roadmap](https://img.shields.io/badge/SketchUp-roadmap-64748B?style=flat-square)
 
 [Install](#installation) | [Tools](docs/tools.md) | [Documentation](#documentation) | [Latest release](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -32,39 +60,18 @@ hardening tasks.
 
 ### Available Now
 
-![Revit available](https://img.shields.io/badge/Revit-available-16A34A?style=flat-square)
-![IfcOpenShell available](https://img.shields.io/badge/IfcOpenShell-available-16A34A?style=flat-square)
-![Speckle available](https://img.shields.io/badge/Speckle-available-16A34A?style=flat-square)
-![Navisworks Manage preview](https://img.shields.io/badge/Navisworks_Manage-preview-F59E0B?style=flat-square)
-![Rhino and Grasshopper preview](https://img.shields.io/badge/Rhino_%2F_Grasshopper-preview-F59E0B?style=flat-square)
-
-Navisworks currently exposes bridge health and document metadata; model-tree,
+Revit, IfcOpenShell, and Speckle are available integrations. Navisworks
+currently exposes bridge health and document metadata; model-tree,
 append/refresh, viewpoints, and clash workflows are next. Rhino.Compute is
 integrated, while live Rhino MCP connectivity remains a preview.
 
 ### Coming Soon
-
-![Microsoft Excel coming soon](https://img.shields.io/badge/Microsoft_Excel-coming_soon-2563EB?style=flat-square)
-![Microsoft Graph coming soon](https://img.shields.io/badge/Microsoft_Graph-coming_soon-2563EB?style=flat-square)
-![Autodesk Construction Cloud coming soon](https://img.shields.io/badge/Autodesk_Construction_Cloud-coming_soon-2563EB?style=flat-square)
-![Autodesk Forma coming soon](https://img.shields.io/badge/Autodesk_Forma-coming_soon-2563EB?style=flat-square)
-![Solibri coming soon](https://img.shields.io/badge/Solibri-coming_soon-2563EB?style=flat-square)
-![Power BI coming soon](https://img.shields.io/badge/Power_BI_templates-coming_soon-2563EB?style=flat-square)
-![Parquet and DuckDB coming soon](https://img.shields.io/badge/Parquet_%2F_DuckDB-coming_soon-2563EB?style=flat-square)
 
 This wave adds Excel and SharePoint workbook round trips, ACC/Forma workflows
 through Autodesk Platform Services, Solibri model checking, and Power BI
 templates backed by Speckle or a local Parquet/DuckDB data plane.
 
 ### Future Roadmap
-
-![Tekla Structures roadmap](https://img.shields.io/badge/Tekla_Structures-roadmap-64748B?style=flat-square)
-![Graphisoft Archicad roadmap](https://img.shields.io/badge/Graphisoft_Archicad-roadmap-64748B?style=flat-square)
-![Bentley iTwin roadmap](https://img.shields.io/badge/Bentley_iTwin-roadmap-64748B?style=flat-square)
-![Trimble Connect roadmap](https://img.shields.io/badge/Trimble_Connect-roadmap-64748B?style=flat-square)
-![Procore roadmap](https://img.shields.io/badge/Procore-roadmap-64748B?style=flat-square)
-![Oracle Primavera P6 roadmap](https://img.shields.io/badge/Oracle_Primavera_P6-roadmap-64748B?style=flat-square)
-![SketchUp roadmap](https://img.shields.io/badge/SketchUp-roadmap-64748B?style=flat-square)
 
 Future connectors are opportunity-driven and will be scheduled when each has a
 defined workflow, test access, and a supported API path.
