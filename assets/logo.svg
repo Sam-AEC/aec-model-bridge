@@ -1,24 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 280" width="300" height="280">
   <defs>
     <style>
-      .cube-front { fill: #2563eb; }
-      .cube-top { fill: #3b82f6; }
-      .cube-side { fill: #1e40af; }
-      .cube-edge { stroke: #0f172a; stroke-width: 1.5; }
-      .text-aec { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, sans-serif; font-weight: 700; font-size: 56px; fill: #0f172a; }
-      .text-bridge { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, sans-serif; font-weight: 500; font-size: 20px; fill: #64748b; letter-spacing: 2px; }
-      .accent-line { stroke: #2563eb; stroke-width: 2; }
+      .cube-front { fill: #60a5fa; }
+      .cube-top { fill: #93c5fd; }
+      .cube-side { fill: #3b82f6; }
+      .cube-edge { stroke: #1e293b; stroke-width: 1.5; }
+      .text-aec { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, sans-serif; font-weight: 700; font-size: 56px; fill: #60a5fa; }
+      .text-bridge { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, sans-serif; font-weight: 500; font-size: 20px; fill: #94a3b8; letter-spacing: 2px; }
+      .accent-line { stroke: #60a5fa; stroke-width: 2; }
     </style>
   </defs>
 
   <!-- 3D Isometric Cube -->
-  <!-- Front face (blue) -->
+  <!-- Front face (bright blue) -->
   <polygon points="50,80 110,80 110,140 50,140" class="cube-front cube-edge"/>
   
-  <!-- Top face (lighter blue) -->
+  <!-- Top face (light blue) -->
   <polygon points="50,80 80,50 140,50 110,80" class="cube-top cube-edge"/>
   
-  <!-- Right side face (dark blue) -->
+  <!-- Right side face (medium blue) -->
   <polygon points="110,80 140,50 140,110 110,140" class="cube-side cube-edge"/>
 
   <!-- Decorative accent line -->
