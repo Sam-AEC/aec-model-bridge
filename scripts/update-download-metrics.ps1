@@ -111,7 +111,7 @@ $releaseMetrics = @(
         $downloads = [int](($release.assets | Measure-Object -Property download_count -Sum).Sum)
         [pscustomobject][ordered]@{
             tag = [string]$release.tag_name
-            published_at = [string]$release.published_at
+            published_at = ([DateTimeOffset]$release.published_at).ToUniversalTime().ToString("o")
             prerelease = [bool]$release.prerelease
             downloads = $downloads
         }
