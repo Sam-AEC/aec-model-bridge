@@ -16,6 +16,8 @@ dependencies = [
     "httpx>=0.24",
     "python-dotenv>=1.0",
     "mcp>=0.9.0",
+    "ifcopenshell>=0.7.0",
+    "networkx>=3.0",
 ]
 
 [project.scripts]
