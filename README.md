@@ -7,8 +7,6 @@
 MCP server and native add-in for AI-assisted Autodesk Revit workflows.
 
 
-[![Latest release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&logo=github&color=2563EB)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
-[![Build status](https://img.shields.io/github/actions/workflow/status/Sam-AEC/aec-model-bridge/ci.yml?branch=main&style=flat-square&logo=githubactions&label=build)](https://github.com/Sam-AEC/aec-model-bridge/actions/workflows/ci.yml)
 [![MCP Registry](https://img.shields.io/badge/MCP_Registry-active-0F766E?style=flat-square)](https://registry.modelcontextprotocol.io/?q=io.github.Sam-AEC%2Faec-model-bridge)
 [![License](https://img.shields.io/badge/license-GPLv3%2B%20%2F%20Commercial-2563EB?style=flat-square)](LICENSING.md)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
