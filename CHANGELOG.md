@@ -1,11 +1,14 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 - 2026-06-11
 
 - Rewrite the README as a shorter product and installation guide.
 - Standardize public badges on the Shields.io `flat-square` style.
 - Remove the custom download dashboard and repository-owned metric assets.
 - Clarify installation for Revit 2024, 2025, 2026, and 2027.
+- Adopt PolyForm Small Business 1.0.0 for version 1.1.0 and later, with
+  separate commercial licensing for organizations outside its thresholds.
+- Preserve the MIT terms and notices for version 1.0.2 and earlier.
 
 ## 1.0.2 - 2026-06-11
 

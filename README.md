@@ -10,7 +10,7 @@ MCP server and native add-in for AI-assisted Autodesk Revit workflows.
 [![Latest release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&logo=github&color=2563EB)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 [![Build status](https://img.shields.io/github/actions/workflow/status/Sam-AEC/aec-model-bridge/ci.yml?branch=main&style=flat-square&logo=githubactions&label=build)](https://github.com/Sam-AEC/aec-model-bridge/actions/workflows/ci.yml)
 [![MCP Registry](https://img.shields.io/badge/MCP_Registry-active-0F766E?style=flat-square)](https://registry.modelcontextprotocol.io/?q=io.github.Sam-AEC%2Faec-model-bridge)
-[![License](https://img.shields.io/github/license/Sam-AEC/aec-model-bridge?style=flat-square&color=2563EB)](LICENSE)
+[![License](https://img.shields.io/badge/license-PolyForm%20Small%20Business-7C3AED?style=flat-square)](LICENSING.md)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![Revit](https://img.shields.io/badge/Revit-2024--2027-0696D7?style=flat-square)](https://www.autodesk.com/products/revit/)
 
@@ -195,7 +195,10 @@ Maintained by [A. Sam Mohammad](https://github.com/Sam-AEC).
 [LinkedIn](https://www.linkedin.com/in/a-sam-mohammad-92790416b) |
 [Issues](https://github.com/Sam-AEC/aec-model-bridge/issues)
 
-Released under the [MIT License](LICENSE).
+Version 1.1.0 and later is source-available under the
+[PolyForm Small Business License 1.0.0](LICENSING.md). Qualifying small
+businesses may use it under those terms; larger organizations require a
+separate commercial license. Version 1.0.2 and earlier remains MIT licensed.
 
 AEC Model Bridge is an independent project and is not sponsored, endorsed, or
 provided by Autodesk. Autodesk and Revit are trademarks of the Autodesk group

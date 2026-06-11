@@ -2,6 +2,16 @@
 
 Thanks for improving AEC Model Bridge.
 
+## Licensing
+
+Open an issue before preparing a code contribution. To preserve the project's
+small-business and commercial licensing model, code pull requests can only be
+accepted after the contributor signs a separate contributor agreement.
+
+Do not submit code copied from projects whose licenses are incompatible with
+commercial redistribution. Issue reports, design proposals, and documentation
+corrections are welcome without a code contribution.
+
 ## Focus Areas
 
 Contributions are most useful when they improve one of the following:

@@ -2,7 +2,7 @@
   "manifest_version": "0.4",
   "name": "aec-model-bridge",
   "display_name": "AEC Model Bridge",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Independent MCP integration for Autodesk Revit software through a local bridge.",
   "long_description": "Connect MCP clients to a locally installed Revit application through the AEC Model Bridge add-in. The server exposes model authoring, documentation, inspection, export, worksharing, and advanced API tools.",
   "author": {
@@ -63,7 +63,7 @@
     }
   },
   "tools_generated": true,
-  "license": "MIT",
+  "license": "PolyForm-Small-Business-1.0.0",
   "keywords": [
     "mcp",
     "revit",

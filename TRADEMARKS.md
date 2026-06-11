@@ -6,7 +6,7 @@ is not affiliated with, sponsored by, endorsed by, or provided by Autodesk.
 Autodesk and Revit are trademarks of the Autodesk group of companies. Other
 product and company names may be trademarks of their respective owners.
 
-References to Autodesk Revit® software describe compatibility only. They are
+References to Autodesk Revit software describe compatibility only. They are
 not part of the AEC Model Bridge product name.
 
 ## Technical Boundary
@@ -23,9 +23,10 @@ AEC Model Bridge:
 The release build checks packaged files for known Autodesk API assemblies and
 fails if they are present.
 
-The MIT License applies only to this project's original code and assets. It
-does not grant rights to Autodesk trademarks, software, or other third-party
-intellectual property.
+The project licenses apply only to code and assets the applicable licensors
+have the right to license. They do not grant rights to Autodesk trademarks,
+software, APIs, or other third-party intellectual property. See
+[LICENSING.md](LICENSING.md) for the version-specific software terms.
 
 Users are responsible for complying with the license terms that apply to their
 Autodesk installation. Autodesk Education licenses must not be used for
