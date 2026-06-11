@@ -7,8 +7,6 @@
 Independent Model Context Protocol integration for Autodesk Revit® software.
 
 [![Release downloads](assets/downloads-total.svg)](https://github.com/Sam-AEC/aec-model-bridge/releases)
-[![Downloads during the last 7 days](assets/downloads-7d.svg)](metrics/downloads.json)
-[![Downloads during the last 30 days](assets/downloads-30d.svg)](metrics/downloads.json)
 [![Latest release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 [![Build and test](https://github.com/Sam-AEC/aec-model-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Sam-AEC/aec-model-bridge/actions/workflows/ci.yml)
 [![Official MCP Registry](https://img.shields.io/badge/MCP_Registry-active-0F766E?style=flat-square)](https://registry.modelcontextprotocol.io/?q=io.github.Sam-AEC%2Faec-model-bridge)
