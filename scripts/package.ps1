@@ -189,9 +189,10 @@ python -m revit_mcp_server
 https://github.com/Sam-AEC/aec-model-bridge/issues
 
 ## License
-Version 1.1.0 and later is available under the PolyForm Small Business
-License 1.0.0. Organizations outside its thresholds need a separate
-commercial license. See LICENSING.md.
+Version 1.1.0 and later is available under your choice of GPL-3.0-or-later with
+the AEC Model Bridge Revit Linking Exception, or a separate commercial license.
+Commercial terms are available for proprietary distribution and negotiated
+requirements. See LICENSING.md.
 
 ## Trademark Notice
 AEC Model Bridge is independent and is not affiliated with Autodesk.

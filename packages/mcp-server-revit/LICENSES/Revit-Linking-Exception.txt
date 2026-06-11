@@ -1,0 +1,24 @@
+AEC Model Bridge Revit Linking Exception
+
+As an additional permission under section 7 of the GNU General Public
+License version 3, the copyright holders of AEC Model Bridge grant
+permission to link or combine covered AEC Model Bridge code with
+unmodified Autodesk Revit software and Autodesk Revit API assemblies,
+and to run, copy, and convey the resulting combination.
+
+This permission is limited to the interaction required to load and use
+AEC Model Bridge through the Autodesk Revit APIs. It does not permit
+incorporating covered AEC Model Bridge code into another proprietary
+application or proprietary add-in.
+
+You must comply with the GNU GPL version 3 or any later version for all
+covered AEC Model Bridge code and modifications. This exception grants
+no rights to Autodesk software, APIs, or trademarks; Autodesk software
+must be obtained separately under Autodesk's terms.
+
+This exception applies only to code for which the AEC Model Bridge
+copyright holders have authority to grant it. Third-party components
+remain subject to their own licenses.
+
+If you modify covered AEC Model Bridge code, you may extend this
+exception to your version, but you are not required to do so.

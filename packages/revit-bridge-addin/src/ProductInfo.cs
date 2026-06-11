@@ -10,8 +10,10 @@ namespace RevitBridge
         public const string RepositoryUrl = "https://github.com/Sam-AEC/aec-model-bridge";
         public const string DocumentationUrl = RepositoryUrl + "#quick-start";
         public const string IssuesUrl = RepositoryUrl + "/issues";
+        public const string LicensingUrl = RepositoryUrl + "/blob/main/LICENSING.md";
         public const string GitHubProfileUrl = "https://github.com/Sam-AEC";
         public const string LinkedInUrl = "https://www.linkedin.com/in/a-sam-mohammad-92790416b";
+        public const string MaintainerEmail = "sammohammadwork@gmail.com";
         public const string MaintainerName = "A. Sam Mohammad";
         public const int McpToolCount = 100;
 
