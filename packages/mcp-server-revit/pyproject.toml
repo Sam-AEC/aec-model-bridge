@@ -4,7 +4,7 @@ version = "1.1.0"
 description = "Independent Model Context Protocol integration for Autodesk Revit software"
 readme = "README.md"
 requires-python = ">=3.11"
-license = "PolyForm-Small-Business-1.0.0"
+license = "GPL-3.0-or-later"
 license-files = ["LICENSE", "NOTICE", "LICENSING.md", "LICENSES/*"]
 authors = [
     { name = "Sam-AEC" },

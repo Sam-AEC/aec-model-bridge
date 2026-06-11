@@ -2,13 +2,21 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="AEC Model Bridge"
-        Height="560"
-        Width="700"
-        WindowStartupLocation="CenterScreen"
-        ResizeMode="NoResize"
+        Height="680"
+        Width="780"
+        MinHeight="500"
+        MinWidth="620"
+        MaxHeight="860"
+        MaxWidth="960"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip"
         Background="Transparent"
         WindowStyle="None"
-        AllowsTransparency="True">
+        AllowsTransparency="True"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display"
+        FontFamily="Segoe UI">
 
     <Window.Resources>
         <!-- Modern Button Style -->
@@ -106,9 +114,9 @@
 
         <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="68"/>
+                <RowDefinition Height="64"/>
                 <RowDefinition Height="*"/>
-                <RowDefinition Height="82"/>
+                <RowDefinition Height="76"/>
             </Grid.RowDefinitions>
 
             <!-- Header -->
@@ -158,7 +166,11 @@
             </Border>
 
             <!-- Content -->
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="24,20">
+            <ScrollViewer Grid.Row="1"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          CanContentScroll="False"
+                          Margin="22,18">
                 <StackPanel x:Name="ContentPanel">
                     <!-- Content will be dynamically added -->
                 </StackPanel>
@@ -180,7 +192,8 @@
                         <TextBlock Text="Independent MCP integration for Revit software"
                                    Margin="0,4,0,0"
                                    FontSize="11"
-                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">

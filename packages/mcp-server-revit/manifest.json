@@ -63,7 +63,7 @@
     }
   },
   "tools_generated": true,
-  "license": "PolyForm-Small-Business-1.0.0",
+  "license": "GPL-3.0-or-later",
   "keywords": [
     "mcp",
     "revit",

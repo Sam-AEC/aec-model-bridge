@@ -24,8 +24,9 @@ is not affiliated with Autodesk.
 
 ## License
 
-Version 1.1.0 and later is available under the PolyForm Small Business License
-1.0.0. Organizations outside its thresholds need a commercial license.
+Version 1.1.0 and later is available under your choice of GPL-3.0-or-later with
+the Revit Linking Exception, or a separate commercial license. Commercial
+terms are available for proprietary distribution and negotiated requirements.
 Version 1.0.2 and earlier remains MIT licensed. See `LICENSING.md`.
 
 <!-- mcp-name: io.github.Sam-AEC/aec-model-bridge -->

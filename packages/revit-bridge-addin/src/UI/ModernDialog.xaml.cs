@@ -1,7 +1,9 @@
 using System;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using RevitBridge;
 
@@ -67,10 +69,23 @@ namespace RevitBridge.UI
 
             InitializeComponent();
 
+            // Keep dialogs usable on smaller displays and owned by Revit.
+            var workArea = SystemParameters.WorkArea;
+            MaxWidth = Math.Max(MinWidth, Math.Min(960, workArea.Width * 0.94));
+            MaxHeight = Math.Max(MinHeight, Math.Min(860, workArea.Height * 0.92));
+            Width = Math.Min(780, MaxWidth);
+            Height = Math.Min(680, MaxHeight);
+
+            var revitHandle = Process.GetCurrentProcess().MainWindowHandle;
+            if (revitHandle != IntPtr.Zero)
+            {
+                new WindowInteropHelper(this).Owner = revitHandle;
+            }
+
             // Enable dragging by clicking anywhere on the header
             MouseDown += (s, e) =>
             {
-                if (e.ChangedButton == MouseButton.Left && e.GetPosition(this).Y < 68)
+                if (e.ChangedButton == MouseButton.Left && e.GetPosition(this).Y < 64)
                 {
                     DragMove();
                 }
@@ -105,7 +120,7 @@ namespace RevitBridge.UI
 
             var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
             // Icon
             var iconText = new TextBlock
@@ -131,7 +146,8 @@ namespace RevitBridge.UI
                 Text = label,
                 FontSize = 12,
                 Foreground = (Brush)FindResource("TextSecondaryBrush"),
-                Margin = new Thickness(0, 0, 0, 5)
+                Margin = new Thickness(0, 0, 0, 5),
+                TextWrapping = TextWrapping.Wrap
             };
 
             var valueText = new TextBlock
@@ -139,7 +155,8 @@ namespace RevitBridge.UI
                 Text = value,
                 FontSize = 18,
                 FontWeight = FontWeights.SemiBold,
-                Foreground = (Brush)FindResource("TextPrimaryBrush")
+                Foreground = (Brush)FindResource("TextPrimaryBrush"),
+                TextWrapping = TextWrapping.Wrap
             };
 
             textStack.Children.Add(labelText);
@@ -176,10 +193,10 @@ namespace RevitBridge.UI
             var contentText = new TextBlock
             {
                 Text = content,
-                FontSize = 12,
+                FontSize = 13,
                 Foreground = (Brush)FindResource("TextSecondaryBrush"),
                 TextWrapping = TextWrapping.Wrap,
-                FontFamily = new FontFamily("Consolas")
+                LineHeight = 20
             };
 
             contentBorder.Child = contentText;
@@ -239,6 +256,8 @@ namespace RevitBridge.UI
                 FontSize = 20,
                 FontWeight = FontWeights.Bold,
                 HorizontalAlignment = HorizontalAlignment.Center,
+                TextAlignment = TextAlignment.Center,
+                TextWrapping = TextWrapping.Wrap,
                 Foreground = new SolidColorBrush(Color.FromRgb(33, 150, 243)), // Autodesk Blue
                 Margin = new Thickness(0, 0, 0, 4)
             };
@@ -248,6 +267,8 @@ namespace RevitBridge.UI
                 Text = label,
                 FontSize = 11,
                 HorizontalAlignment = HorizontalAlignment.Center,
+                TextAlignment = TextAlignment.Center,
+                TextWrapping = TextWrapping.Wrap,
                 Foreground = (Brush)FindResource("TextSecondaryBrush")
             };
 
@@ -305,6 +326,118 @@ namespace RevitBridge.UI
             }
 
             ContentPanel.Children.Add(panel);
+        }
+
+        public void AddProfileSection(
+            string name,
+            string title,
+            string email,
+            string gitHubUrl,
+            string linkedInUrl)
+        {
+            var card = new Border
+            {
+                Style = (Style)FindResource("StatCard"),
+                Padding = new Thickness(18),
+                Margin = new Thickness(0, 10, 0, 10)
+            };
+
+            var layout = new Grid();
+            layout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(58) });
+            layout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            var initials = new Border
+            {
+                Width = 46,
+                Height = 46,
+                CornerRadius = new CornerRadius(23),
+                Background = (Brush)FindResource("HeaderBrush"),
+                VerticalAlignment = VerticalAlignment.Top
+            };
+            initials.Child = new TextBlock
+            {
+                Text = "SM",
+                Foreground = Brushes.White,
+                FontSize = 15,
+                FontWeight = FontWeights.Bold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            layout.Children.Add(initials);
+
+            var details = new StackPanel();
+            Grid.SetColumn(details, 1);
+
+            details.Children.Add(new TextBlock
+            {
+                Text = name,
+                FontSize = 16,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = (Brush)FindResource("TextPrimaryBrush"),
+                TextWrapping = TextWrapping.Wrap
+            });
+            details.Children.Add(new TextBlock
+            {
+                Text = title,
+                FontSize = 12,
+                Margin = new Thickness(0, 3, 0, 2),
+                Foreground = (Brush)FindResource("TextSecondaryBrush"),
+                TextWrapping = TextWrapping.Wrap
+            });
+            details.Children.Add(new TextBlock
+            {
+                Text = email,
+                FontSize = 11,
+                Foreground = (Brush)FindResource("TextSecondaryBrush"),
+                TextWrapping = TextWrapping.Wrap
+            });
+
+            var buttons = new WrapPanel { Margin = new Thickness(0, 12, 0, 0) };
+            buttons.Children.Add(CreateProfileButton(
+                "Email",
+                $"mailto:{email}",
+                Color.FromRgb(69, 90, 100)));
+            buttons.Children.Add(CreateProfileButton(
+                "GitHub",
+                gitHubUrl,
+                Color.FromRgb(36, 41, 46)));
+            buttons.Children.Add(CreateProfileButton(
+                "LinkedIn",
+                linkedInUrl,
+                Color.FromRgb(10, 102, 194)));
+            details.Children.Add(buttons);
+
+            layout.Children.Add(details);
+            card.Child = layout;
+            ContentPanel.Children.Add(card);
+        }
+
+        private Button CreateProfileButton(string label, string url, Color background)
+        {
+            var button = new Button
+            {
+                Content = label,
+                Style = (Style)FindResource("ModernButton"),
+                Background = new SolidColorBrush(background),
+                Foreground = Brushes.White,
+                Padding = new Thickness(14, 7, 14, 7),
+                Margin = new Thickness(0, 0, 8, 8),
+                ToolTip = url
+            };
+            button.Click += (s, e) =>
+            {
+                if (!ProductInfo.TryOpenUrl(url, out var error))
+                {
+                    MessageBox.Show(
+                        this,
+                        $"Could not open the link.\n\n{url}\n\n{error}",
+                        ProductInfo.ProductName,
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning
+                    );
+                }
+            };
+            return button;
         }
 
         public void SetActionButton(string text, Action? action = null)

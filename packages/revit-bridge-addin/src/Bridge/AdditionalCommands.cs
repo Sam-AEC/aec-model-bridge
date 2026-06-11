@@ -97,11 +97,25 @@ namespace RevitBridge.Bridge
             dialog.AddInfoSection("Support",
                 "Report reproducible defects and feature requests through GitHub Issues.");
 
+            dialog.AddInfoSection("Licensing",
+                "Version 1.1.0 and later is available under GPL-3.0-or-later with the " +
+                "Revit Linking Exception, or under a separate commercial license. GPLv3 permits commercial and private " +
+                "internal use. Its source and copyleft requirements apply when covered " +
+                "software or combined derivative works are distributed. Contact the " +
+                "maintainer for proprietary distribution rights or commercial support.");
+
             dialog.AddLinkButtons(
                 ("Documentation", ProductInfo.DocumentationUrl),
                 ("GitHub Issues", ProductInfo.IssuesUrl),
-                ("GitHub Profile", ProductInfo.GitHubProfileUrl),
-                ("LinkedIn", ProductInfo.LinkedInUrl)
+                ("Licensing", ProductInfo.LicensingUrl)
+            );
+
+            dialog.AddProfileSection(
+                ProductInfo.MaintainerName,
+                "Maintainer and commercial licensing contact",
+                ProductInfo.MaintainerEmail,
+                ProductInfo.GitHubProfileUrl,
+                ProductInfo.LinkedInUrl
             );
 
             dialog.SetActionButton("Close");
@@ -154,10 +168,23 @@ namespace RevitBridge.Bridge
                 "Copyright 2026 AEC Model Bridge Contributors\n\n" +
                 "Not affiliated with or endorsed by Autodesk.");
 
+            dialog.AddInfoSection("Licensing",
+                "Version 1.1.0 and later is available under GPL-3.0-or-later with the " +
+                "Revit Linking Exception, or under a separate commercial license. The GPL option permits use for any " +
+                "purpose, including commercial and private internal use. A commercial " +
+                "license is available for proprietary distribution or negotiated support.");
+
             dialog.AddLinkButtons(
                 ("Repository", ProductInfo.RepositoryUrl),
-                ("GitHub Profile", ProductInfo.GitHubProfileUrl),
-                ("LinkedIn", ProductInfo.LinkedInUrl)
+                ("Licensing", ProductInfo.LicensingUrl)
+            );
+
+            dialog.AddProfileSection(
+                ProductInfo.MaintainerName,
+                "Maintainer and commercial licensing contact",
+                ProductInfo.MaintainerEmail,
+                ProductInfo.GitHubProfileUrl,
+                ProductInfo.LinkedInUrl
             );
 
             dialog.SetActionButton("Close");

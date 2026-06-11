@@ -1,47 +1,56 @@
 # Licensing
 
-AEC Model Bridge uses a source-available licensing model from version 1.1.0.
+AEC Model Bridge version 1.1.0 and later is available under your choice of:
 
-## Small Business Use
+1. the [GNU General Public License version 3 or later](LICENSE), with the
+   [AEC Model Bridge Revit Linking Exception](LICENSES/Revit-Linking-Exception.txt);
+   or
+2. a separate commercial license agreed in writing with the applicable
+   copyright holders.
 
-Version 1.1.0 and later are offered under the
-[PolyForm Small Business License 1.0.0](LICENSE). The license permits use for
-the benefit of a company only when that company satisfies both thresholds in
-the license:
+## Why This Model
 
-- fewer than 100 total employees and independent contractors; and
-- less than USD 1,000,000 in prior-year revenue, measured in 2019 dollars and
-  adjusted for inflation as the license specifies.
+The GPL option aligns the project with community projects such as pyRevit and
+Bonsai. The Revit Linking Exception is a narrow additional permission that
+allows the GPL-covered add-in to load and operate through Autodesk's
+proprietary Revit APIs without making Autodesk software GPL-covered.
 
-Review the full license before using, modifying, or distributing the software.
-PolyForm Small Business is source-available, not an OSI-approved open-source
-license.
+The exception does not permit AEC Model Bridge code to be incorporated into
+another proprietary application or proprietary add-in.
 
-## Commercial Use
+## GPL-3.0-or-later Option
 
-Organizations that do not qualify under the small-business terms need a
-separate written commercial license before using version 1.1.0 or later.
-Commercial terms can also cover support, redistribution, embedding, and
-custom development.
+The GPL option is free and may be used for any purpose, including commercial
+and private internal use. You may inspect, modify, and redistribute the
+software subject to GPL-3.0-or-later and the Revit Linking Exception.
 
-Contact [A. Sam Mohammad](mailto:sammohammadwork@gmail.com) for commercial
-licensing.
+The GPL does not require private modifications to be published merely because
+they are used inside one organization. When you convey covered software, or a
+combined derivative work governed by the GPL, the GPL's license, notice, and
+corresponding-source obligations apply. Whether separately communicating
+programs form one combined work is fact-specific.
 
-## Earlier Releases
+An open-source license cannot, by itself, require every enterprise using the
+software internally to buy a commercial license.
 
-Version 1.0.2 and earlier were released under the MIT License. Those existing
-MIT grants remain valid and cannot be withdrawn. The historical MIT text is
+## Commercial Option
+
+A separate commercial license may be appropriate when you need rights to
+distribute a proprietary combined work without GPL copyleft obligations, or
+when you require negotiated support, training, warranties, deployment terms,
+or custom development.
+
+For commercial licensing terms, contact
+[A. Sam Mohammad](mailto:sammohammadwork@gmail.com). A commercial license can
+cover only rights controlled by its licensors; third-party components remain
+subject to their respective licenses.
+
+## Historical Releases
+
+Versions 1.0.2 and earlier were released under the MIT License. Existing copies
+and grants under those releases remain valid. The historical terms are
 preserved in [LICENSES/MIT.txt](LICENSES/MIT.txt).
 
-Portions carried forward from earlier MIT releases or third-party
-contributions remain subject to their applicable notices. The PolyForm terms
-govern the original changes first released in version 1.1.0 and later.
-
-## Trademarks and Third-Party Software
-
-The project license does not grant rights to Autodesk software, APIs,
-trademarks, or other third-party intellectual property. See
-[TRADEMARKS.md](TRADEMARKS.md).
-
-This summary is provided for convenience and is not a substitute for the
-license text or independent legal advice.
+This document is a practical summary, not legal advice. Have qualified counsel
+review the linking exception and commercial terms before relying on them for
+material licensing decisions.

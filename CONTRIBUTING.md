@@ -5,8 +5,9 @@ Thanks for improving AEC Model Bridge.
 ## Licensing
 
 Open an issue before preparing a code contribution. To preserve the project's
-small-business and commercial licensing model, code pull requests can only be
-accepted after the contributor signs a separate contributor agreement.
+GPL-3.0-or-later, Revit Linking Exception, and commercial dual-licensing model,
+code pull requests can only be accepted after the contributor signs a separate
+contributor agreement that permits both licensing options.
 
 Do not submit code copied from projects whose licenses are incompatible with
 commercial redistribution. Issue reports, design proposals, and documentation
