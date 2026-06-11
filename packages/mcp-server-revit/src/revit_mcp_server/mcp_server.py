@@ -24,6 +24,7 @@ from .providers import (
     SpeckleProvider,
     AutodeskDataProvider,
     JobProvider,
+    SQLiteExporterProvider,
 )
 from .security.workspace import WorkspaceMonitor
 from .security.audit import redact_data
@@ -42,6 +43,7 @@ registry = ProviderRegistry()
 registry.register(RevitProvider(workspace=workspace))
 registry.register(IfcProvider(workspace=workspace))
 registry.register(AECMapperProvider(workspace=workspace))
+registry.register(SQLiteExporterProvider(workspace=workspace, registry=registry))
 
 # Initialize Job Manager and Job Provider
 job_manager = JobManager()

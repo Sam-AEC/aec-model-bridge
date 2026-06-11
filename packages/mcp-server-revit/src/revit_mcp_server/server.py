@@ -21,6 +21,7 @@ from .providers import (
     SpeckleProvider,
     AutodeskDataProvider,
     JobProvider,
+    SQLiteExporterProvider,
 )
 from .jobs import JobManager
 
@@ -66,6 +67,7 @@ class MCPServer:
         self.registry.register(self.revit_provider)
         self.registry.register(IfcProvider(workspace=self.workspace))
         self.registry.register(AECMapperProvider(workspace=self.workspace))
+        self.registry.register(SQLiteExporterProvider(workspace=self.workspace, registry=self.registry))
 
         # Register Job Provider
         self.job_manager = JobManager()
