@@ -14,7 +14,14 @@ from urllib.parse import quote, urlencode, urlparse
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
+from specklepy.api.client import SpeckleClient
+from specklepy.api.credentials import get_default_account
+from specklepy.transports.server import ServerTransport
+from specklepy.api import operations
+from specklepy.objects.base import Base
+
 from .base import AECProvider, ProviderTool
+from ..errors import RevitMCPError
 
 CredentialCallback = Callable[[str], str | None] | Callable[[str], Awaitable[str | None]]
 SpeckleMergeBuilder = Callable[[Dict[str, Any]], Dict[str, Any]]
@@ -454,7 +461,7 @@ class SpeckleProvider(CloudProviderBase):
     ) -> None:
         _validate_https_url(host, allow_localhost_http=allow_localhost_http, label="speckle_host")
         self.host = host.rstrip("/")
-        resolved_client_id = client_id or os.getenv("SPECKLE_CLIENT_ID")
+        resolved_client_id = client_id or os.getenv("SPECKLE_CLIENT_ID") or "local-credentials-only"
         self._merge_operation_builder = merge_operation_builder
         oauth = OAuth2PKCETransport(
             provider_name="speckle",
@@ -492,6 +499,8 @@ class SpeckleProvider(CloudProviderBase):
             "speckle_publish_version": "_tool_publish_version",
             "speckle_merge_model": "_tool_merge_model",
             "speckle_merge_branch": "_tool_merge_model",
+            "speckle_send_object": "_tool_speckle_send_object",
+            "speckle_receive_object": "_tool_speckle_receive_object",
         }
 
     def _build_capabilities(self) -> List[ProviderTool]:
@@ -511,6 +520,34 @@ class SpeckleProvider(CloudProviderBase):
             ProviderTool(name="speckle_publish_version", description="Publish a Speckle version by creating a commit through GraphQL.", inputSchema={"type": "object", "properties": {"project_id": {"type": "string"}, "model_id": {"type": "string"}, "object_id": {"type": "string"}, "message": {"type": "string"}, "source_application": {"type": "string"}, "idempotency_key": {"type": "string"}}, "required": ["project_id", "model_id", "object_id", "message"], "additionalProperties": False}),
             ProviderTool(name="speckle_merge_model", description="Merge one Speckle model or branch into another through GraphQL.", inputSchema={"type": "object", "properties": {"project_id": {"type": "string"}, "source_model_id": {"type": "string"}, "target_model_id": {"type": "string"}, "message": {"type": "string"}, "idempotency_key": {"type": "string"}}, "required": ["project_id", "source_model_id", "target_model_id", "message"], "additionalProperties": False}),
             ProviderTool(name="speckle_merge_branch", description="Compatibility alias for merge_model.", inputSchema={"type": "object", "properties": {"project_id": {"type": "string"}, "source_model_id": {"type": "string"}, "target_model_id": {"type": "string"}, "message": {"type": "string"}, "idempotency_key": {"type": "string"}}, "required": ["project_id", "source_model_id", "target_model_id", "message"], "additionalProperties": False}),
+            ProviderTool(
+                name="speckle_send_object",
+                description="Sends generic data objects to a Speckle stream/project using local credentials.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "project_id": {"type": "string", "description": "The Speckle Project/Stream ID"},
+                        "model_name": {"type": "string", "description": "The Model/Branch name to send to"},
+                        "data": {"type": "object", "description": "JSON data to send as Base objects"},
+                        "message": {"type": "string", "description": "Commit message"}
+                    },
+                    "required": ["project_id", "model_name", "data"],
+                    "additionalProperties": False,
+                }
+            ),
+            ProviderTool(
+                name="speckle_receive_object",
+                description="Receives data from a Speckle stream/project using local credentials.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "project_id": {"type": "string", "description": "The Speckle Project/Stream ID"},
+                        "version_id": {"type": "string", "description": "Specific Version/Commit ID to receive"}
+                    },
+                    "required": ["project_id", "version_id"],
+                    "additionalProperties": False,
+                }
+            ),
         ]
 
     async def _tool_health(self, _: Dict[str, Any]) -> Dict[str, Any]:
@@ -675,6 +712,86 @@ class SpeckleProvider(CloudProviderBase):
         if not merged:
             raise RuntimeError("Speckle merge did not succeed")
         return {"merged": True}
+
+    def _ensure_local_account(self, project_id: str) -> tuple[SpeckleClient, ServerTransport]:
+        account = get_default_account()
+        if not account:
+            raise RevitMCPError("No local Speckle account found. Please authenticate via Speckle Manager.")
+        try:
+            client = SpeckleClient(host=account.serverInfo.url)
+            client.authenticate_with_account(account)
+            transport = ServerTransport(project_id, client)
+            return client, transport
+        except Exception as e:
+            raise RevitMCPError(f"Failed to initialize local Speckle client or transport: {e}") from e
+
+    async def _tool_speckle_send_object(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        project_id = arguments["project_id"]
+        model_name = arguments["model_name"]
+        data = arguments["data"]
+        message = arguments.get("message", "Sent from AEC Model Bridge")
+
+        client, transport = self._ensure_local_account(project_id)
+
+        # Build base object
+        base_obj = Base()
+        for k, v in data.items():
+            setattr(base_obj, k, v)
+
+        # Fix the legacy bug: resolve model_name -> ID via models query
+        try:
+            models_res = client.model.get_models(project_id, models_limit=100)
+            matching_model = next((m for m in models_res.items if m.name == model_name or m.id == model_name), None)
+            if not matching_model:
+                raise RevitMCPError(f"Model '{model_name}' not found in project '{project_id}'.")
+            model_id = matching_model.id
+        except Exception as e:
+            if isinstance(e, RevitMCPError):
+                raise
+            raise RevitMCPError(f"Failed to resolve model '{model_name}' to ID: {e}") from e
+
+        # Send the object to transport
+        try:
+            obj_id = operations.send(base=base_obj, transports=[transport])
+        except Exception as e:
+            raise RevitMCPError(f"Failed to send object: {e}") from e
+
+        # Create the version/commit using client
+        try:
+            version_id = client.version.create(
+                project_id=project_id,
+                model_id=model_id,
+                object_id=obj_id,
+                message=message,
+                source_application="AECModelBridge"
+            )
+            return {"result": f"Successfully sent data to Speckle. Version ID: {version_id}", "version_id": version_id}
+        except Exception as e:
+            raise RevitMCPError(f"Data sent to transport but version creation failed: {e}") from e
+
+    async def _tool_speckle_receive_object(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        project_id = arguments["project_id"]
+        version_id = arguments["version_id"]
+
+        client, transport = self._ensure_local_account(project_id)
+
+        try:
+            version = client.version.get(project_id, version_id)
+        except Exception as e:
+            raise RevitMCPError(f"Failed to retrieve version metadata: {e}") from e
+
+        try:
+            base_obj = operations.receive(obj_id=version.referencedObject, remote_transport=transport)
+        except Exception as e:
+            raise RevitMCPError(f"Failed to receive object data: {e}") from e
+
+        # Deserialize and return actual object data
+        try:
+            serialized = operations.serialize(base_obj)
+            data = json.loads(serialized)
+            return {"result": data}
+        except Exception as e:
+            raise RevitMCPError(f"Failed to deserialize received object: {e}") from e
 
     async def _graphql(
         self,

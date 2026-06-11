@@ -1,5 +1,9 @@
 # Tool Catalog
 
+> [!WARNING]
+> This is a legacy document covering the original 26 tools.
+> The complete generated catalog of all current tools lives in [tools-generated.md](tools-generated.md).
+
 AEC Model Bridge exposes tools for health checks, document operations, QA audits, export operations, and automation workflows.
 
 All tools accept JSON inputs validated against Pydantic schemas and return structured JSON responses.

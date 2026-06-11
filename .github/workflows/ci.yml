@@ -37,6 +37,12 @@ jobs:
         shell: pwsh
         run: python -m pytest packages/mcp-server-revit/tests
 
+      - name: Check tool catalog generation
+        shell: pwsh
+        run: |
+          python packages/mcp-server-revit/scripts/generate_tool_docs.py
+          git diff --exit-code docs/tools-generated.md
+
       - name: Validate repository metadata
         shell: pwsh
         run: |

@@ -137,11 +137,9 @@ namespace RevitBridge.Bridge
             var dialog = new ModernDialog();
             dialog.SetTitle("About AEC Model Bridge", $"Version {ProductInfo.Version}");
 
-            dialog.AddStatusCard(
-                "MCP",
+            dialog.AddBrandStatusCard(
                 "AEC Model Bridge",
-                "Independent MCP integration for Revit software",
-                new MediaBrush(MediaColor.FromRgb(33, 150, 243))
+                "Independent MCP integration for Revit software"
             );
 
             dialog.AddSeparator();

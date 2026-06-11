@@ -49,4 +49,33 @@ $targetFramework = switch ($RevitVersion) {
     "2027" { "net10.0-windows" }
 }
 $outputPath = Join-Path $PSScriptRoot "..\packages\revit-bridge-addin\bin\$Configuration\$RevitVersion\$targetFramework\AECModelBridge.dll"
-Write-Host "Build succeeded: $([System.IO.Path]::GetFullPath($outputPath))" -ForegroundColor Green
+Write-Host "Revit Build succeeded: $([System.IO.Path]::GetFullPath($outputPath))" -ForegroundColor Green
+
+# Build Navisworks Add-in
+$navisworksPath = "$PSScriptRoot\..\packages\navisworks-bridge-addin\NavisworksBridge.csproj"
+if (Test-Path $navisworksPath) {
+    Write-Host "Building AEC Model Bridge for Navisworks $RevitVersion ($Configuration)..." -ForegroundColor Cyan
+    
+    # Install to Navisworks 2026
+    $navisTargetDir = "$env:APPDATA\Autodesk\Navisworks Manage 2026\Plugins\NavisworksBridge"
+    if (-not (Test-Path $navisTargetDir)) {
+        New-Item -ItemType Directory -Force -Path $navisTargetDir | Out-Null
+    }
+    
+    & $dotnet.Source build $navisworksPath -c $Configuration -p:NavisworksVersion=$RevitVersion -v:minimal
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Navisworks build failed with exit code $LASTEXITCODE"
+        exit $LASTEXITCODE
+    }
+    
+    # Navisworks Manage is still on .NET Framework 4.8 for 2024-2026
+    $nwOutDir = Join-Path $PSScriptRoot "..\packages\navisworks-bridge-addin\bin\$Configuration\$RevitVersion\net48"
+    $nwOutputPath = Join-Path $nwOutDir "NavisworksBridge.dll"
+    
+    if (Test-Path $nwOutDir) {
+        Copy-Item "$nwOutDir\*" -Destination $navisTargetDir -Recurse -Force
+        Write-Host "Navisworks Build succeeded and deployed: $([System.IO.Path]::GetFullPath($nwOutputPath))" -ForegroundColor Green
+    } else {
+        Write-Error "Could not find Navisworks output directory: $nwOutDir"
+    }
+}

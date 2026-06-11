@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <NavisworksVersion Condition="'$(NavisworksVersion)'==''">2024</NavisworksVersion>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>NavisworksBridge</AssemblyName>
+    <RootNamespace>NavisworksBridge</RootNamespace>
+    <Version>1.1.0</Version>
+    <OutputType>Library</OutputType>
+    <OutputPath>bin\$(Configuration)\$(NavisworksVersion)\</OutputPath>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <NavisworksInstallPath Condition="'$(NavisworksVersion)'=='2024'">C:\Program Files\Autodesk\Navisworks Manage 2024</NavisworksInstallPath>
+    <NavisworksInstallPath Condition="'$(NavisworksVersion)'=='2025'">C:\Program Files\Autodesk\Navisworks Manage 2025</NavisworksInstallPath>
+    <NavisworksInstallPath Condition="'$(NavisworksVersion)'=='2026'">C:\Program Files\Autodesk\Navisworks Manage 2026</NavisworksInstallPath>
+    <NavisworksInstallPath Condition="'$(NavisworksVersion)'=='2027'">C:\Program Files\Autodesk\Navisworks Manage 2027</NavisworksInstallPath>
+    <UseLocalNavisworks Condition="Exists('$(NavisworksInstallPath)\Autodesk.Navisworks.Api.dll')">true</UseLocalNavisworks>
+    <UseLocalNavisworks Condition="'$(UseLocalNavisworks)'==''">false</UseLocalNavisworks>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(UseLocalNavisworks)'=='true'">
+    <Reference Include="Autodesk.Navisworks.Api">
+      <HintPath>$(NavisworksInstallPath)\Autodesk.Navisworks.Api.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Autodesk.Navisworks.Automation">
+      <HintPath>$(NavisworksInstallPath)\Autodesk.Navisworks.Automation.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseLocalNavisworks)'=='false'">
+    <!-- Fallback if not installed (dummy reference or NuGet if available) -->
+  </ItemGroup>
+
+  <ItemGroup>
+  </ItemGroup>
+</Project>

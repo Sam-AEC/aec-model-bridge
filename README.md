@@ -18,37 +18,37 @@ MCP server and native add-in for AI-assisted Autodesk Revit workflows.
 </div>
 
 AEC Model Bridge connects MCP clients such as Claude Desktop, VS Code, GitHub
-Copilot, and custom agents to a live Revit session.
+Copilot, and custom agents to a live session across multiple AEC platforms simultaneously.
 
-The Python server handles MCP communication. The C# add-in executes commands
-inside Revit through `ExternalEvent`, keeping API work on Revit's main thread.
+The Python server handles MCP communication, routing queries to the correct provider:
+- **Revit**: Native C# add-in (Revit 2024-2027) executing on the main thread via `ExternalEvent`.
+- **Navisworks Manage**: Native C# add-in (Navisworks 2024-2027) exposing the API over a local bridge.
+- **Rhino/Grasshopper**: Connects to Rhino.Compute or proxies to an active Rhino MCP server over SSE.
+- **Speckle**: Native Python provider integrating Specklepy V3 for seamless model pushing to Power BI.
+- **IfcOpenShell**: Headless IFC semantic extraction and parsing.
 
 ## Highlights
 
-- 100 MCP tools for model authoring, documentation, parameters, views, sheets,
-  exports, worksharing, architecture, structure, MEP, geometry, and QA.
-- Native Revit add-in with no pyRevit or Dynamo dependency.
-- Revit 2024, 2025, 2026, and 2027 support.
-- Reflection and in-process Python for advanced API workflows.
-- Localhost-only bridge by default.
-- Mock mode for development and automated testing without Revit.
+- 100+ MCP tools for model authoring, documentation, parameters, views, sheets, exports, and QA.
+- Native Revit & Navisworks add-ins with no Dynamo dependencies.
+- Multi-platform synchronization: Cross-query Navisworks clash results, Revit parameters, and Rhino models dynamically.
+- Speckle and PowerBI automated data handoffs.
+- Async job orchestration and centralized PII redaction.
+- Localhost-only bridge by default for absolute security.
 
 ## How It Works
 
 ```text
-MCP client
+MCP Client (Claude Desktop, VS Code)
     |
     | MCP over stdio
     v
-Python MCP server
-    |
-    | HTTP on 127.0.0.1:3000
-    v
-AEC Model Bridge add-in
-    |
-    | ExternalEvent
-    v
-Revit API
+Python MCP Server (Central Router)
+    ├── [Revit Provider] -----> HTTP localhost:3000 -----> Revit Bridge Add-in
+    ├── [Navisworks Provider] > HTTP localhost:3002 -----> Navisworks Bridge Add-in
+    ├── [Speckle Provider] ---> HTTPS (OAuth) -----------> Speckle Manager / Power BI
+    ├── [Rhino Proxy] --------> SSE localhost:9876 ------> Active Rhino MCP
+    └── [IFC Provider] -------> Local Filesystem --------> IfcOpenShell
 ```
 
 ## Installation
