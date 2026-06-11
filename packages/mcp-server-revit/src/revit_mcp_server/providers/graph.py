@@ -26,6 +26,11 @@ class SemanticGraphProvider(AECProvider):
         self._graph = nx.MultiDiGraph()
         self._init_capabilities()
 
+    @property
+    def graph(self) -> nx.MultiDiGraph:
+        """Access the underlying NetworkX MultiDiGraph instance."""
+        return self._graph
+
     def get_identity(self) -> str:
         return "graph"
 

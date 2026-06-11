@@ -8,6 +8,7 @@ from .rhino import RhinoProvider
 from .graph import SemanticGraphProvider
 from .cloud import SpeckleProvider, AutodeskDataProvider
 from .job_provider import JobProvider
+from .exporter import SQLiteExporterProvider
 
 __all__ = [
     "AECProvider",
@@ -22,4 +23,5 @@ __all__ = [
     "SpeckleProvider",
     "AutodeskDataProvider",
     "JobProvider",
+    "SQLiteExporterProvider",
 ]
