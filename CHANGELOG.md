@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Rewrite the README as a shorter product and installation guide.
+- Standardize public badges on the Shields.io `flat-square` style.
+- Remove the custom download dashboard and repository-owned metric assets.
+- Clarify installation for Revit 2024, 2025, 2026, and 2027.
+
 ## 1.0.2 - 2026-06-11
 
 - Replace the external star-history chart with repository-owned release-download tracking.
