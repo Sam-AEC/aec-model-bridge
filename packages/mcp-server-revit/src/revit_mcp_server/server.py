@@ -5,6 +5,7 @@ import io
 import json
 import logging
 import sys
+import os
 import threading
 from typing import Callable, Dict, Protocol
 
@@ -18,10 +19,11 @@ from .providers import (
     AECMapperProvider,
     RhinoProvider,
     SemanticGraphProvider,
-    SpeckleProvider,
     AutodeskDataProvider,
     JobProvider,
     SQLiteExporterProvider,
+    SpeckleProvider,
+    McpProxyProvider,
 )
 from .jobs import JobManager
 
@@ -85,14 +87,23 @@ class MCPServer:
             logger.warning("Could not initialize SemanticGraphProvider: %s", e)
 
         try:
-            self.registry.register(SpeckleProvider())
+            self.registry.register(SpeckleProvider(workspace=self.workspace))
         except Exception as e:
-            logger.warning("Could not initialize SpeckleProvider: %s. Please set SPECKLE_CLIENT_ID.", e)
+            logger.warning("Could not initialize SpeckleProvider: %s", e)
 
         try:
             self.registry.register(AutodeskDataProvider())
         except Exception as e:
             logger.warning("Could not initialize AutodeskDataProvider: %s. Please set APS_CLIENT_ID.", e)
+
+        try:
+            proxy_url = os.getenv("MCP_PROXY_URL")
+            if proxy_url:
+                proxy = McpProxyProvider(proxy_url)
+                self._loop.create_task(proxy._connect())
+                self.registry.register(proxy)
+        except Exception as e:
+            logger.warning("Could not initialize McpProxyProvider: %s", e)
 
     def _run_loop(self) -> None:
         asyncio.set_event_loop(self._loop)

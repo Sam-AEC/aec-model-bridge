@@ -128,10 +128,14 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- Icon/Logo -->
                     <Viewbox Grid.Column="0" Width="36" Height="36" Margin="15,0,10,0">
-                        <Canvas Width="24" Height="24">
-                            <Path Fill="White" Data="M12,2L2,7V17L12,22L22,17V7M12,4.4L19.2,8.2V15.8L12,19.6L4.8,15.8V8.2"/>
+                        <Canvas Width="200" Height="200">
+                            <!-- Top face (light blue) -->
+                            <Polygon Points="50,80 80,50 140,50 110,80" Fill="#93c5fd" Stroke="#1e293b" StrokeThickness="3" />
+                            <!-- Front face (bright blue) -->
+                            <Polygon Points="50,80 110,80 110,140 50,140" Fill="#60a5fa" Stroke="#1e293b" StrokeThickness="3" />
+                            <!-- Right side face (medium blue) -->
+                            <Polygon Points="110,80 140,50 140,110 110,140" Fill="#3b82f6" Stroke="#1e293b" StrokeThickness="3" />
                         </Canvas>
                     </Viewbox>
 

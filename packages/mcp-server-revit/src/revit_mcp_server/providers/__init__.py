@@ -9,6 +9,7 @@ from .graph import SemanticGraphProvider
 from .cloud import SpeckleProvider, AutodeskDataProvider
 from .job_provider import JobProvider
 from .exporter import SQLiteExporterProvider
+from .proxy import McpProxyProvider
 
 __all__ = [
     "AECProvider",
@@ -24,4 +25,5 @@ __all__ = [
     "AutodeskDataProvider",
     "JobProvider",
     "SQLiteExporterProvider",
+    "McpProxyProvider",
 ]

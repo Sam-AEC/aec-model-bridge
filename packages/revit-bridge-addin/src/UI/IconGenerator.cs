@@ -38,27 +38,24 @@ namespace RevitBridge.UI
         }
 
         /// <summary>
-        /// Creates a Connect icon (network node bridge with emerald accent)
+        /// Creates a Connect icon (network node bridge fully accented in emerald green)
         /// </summary>
         public static BitmapSource CreateConnectIcon(int size = 32)
         {
             var visual = new DrawingVisual();
             using (var context = visual.RenderOpen())
             {
-                bool isDark = IsDarkTheme();
-                var primaryBrush = isDark ? Brushes.White : new SolidColorBrush(Color.FromRgb(30, 41, 59));
                 var accentBrush = new SolidColorBrush(Color.FromRgb(46, 125, 50)); // Emerald Green
                 var softFillBrush = new SolidColorBrush(Color.FromArgb(64, 46, 125, 50)); // Semi-transparent green
-                var pen = new Pen(primaryBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
                 var accentPen = new Pen(accentBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
 
                 // Left node
-                context.DrawEllipse(softFillBrush, pen, new Point(size * 0.19, size * 0.72), size * 0.14, size * 0.14);
+                context.DrawEllipse(softFillBrush, accentPen, new Point(size * 0.19, size * 0.72), size * 0.14, size * 0.14);
                 // Right node
-                context.DrawEllipse(softFillBrush, pen, new Point(size * 0.81, size * 0.72), size * 0.14, size * 0.14);
+                context.DrawEllipse(softFillBrush, accentPen, new Point(size * 0.81, size * 0.72), size * 0.14, size * 0.14);
 
                 // Connecting bridge lines
-                context.DrawLine(pen, new Point(size * 0.33, size * 0.72), new Point(size * 0.67, size * 0.72));
+                context.DrawLine(accentPen, new Point(size * 0.33, size * 0.72), new Point(size * 0.67, size * 0.72));
 
                 // Server/AI node (Top center)
                 var geometry = new PathGeometry();
@@ -69,30 +66,29 @@ namespace RevitBridge.UI
                 context.DrawGeometry(softFillBrush, accentPen, geometry);
 
                 // Connector lines from bottom nodes to top server node
-                context.DrawLine(pen, new Point(size * 0.27, size * 0.61), new Point(size * 0.38, size * 0.40));
-                context.DrawLine(pen, new Point(size * 0.73, size * 0.61), new Point(size * 0.62, size * 0.40));
+                context.DrawLine(accentPen, new Point(size * 0.27, size * 0.61), new Point(size * 0.38, size * 0.40));
+                context.DrawLine(accentPen, new Point(size * 0.73, size * 0.61), new Point(size * 0.62, size * 0.40));
             }
 
             return RenderVisual(visual, size, size);
         }
 
         /// <summary>
-        /// Creates a Disconnect icon (network node bridge with broken links and crimson cancel slash)
+        /// Creates a Disconnect icon (network node bridge fully accented in crimson red with cancel slash)
         /// </summary>
         public static BitmapSource CreateDisconnectIcon(int size = 32)
         {
             var visual = new DrawingVisual();
             using (var context = visual.RenderOpen())
             {
-                bool isDark = IsDarkTheme();
-                var primaryBrush = isDark ? Brushes.White : new SolidColorBrush(Color.FromRgb(30, 41, 59));
                 var accentBrush = new SolidColorBrush(Color.FromRgb(211, 47, 47)); // Crimson Red
-                var pen = new Pen(primaryBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
+                var softFillBrush = new SolidColorBrush(Color.FromArgb(32, 211, 47, 47)); // Very transparent red for nodes
+                var accentPen = new Pen(accentBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
 
                 // Left node
-                context.DrawEllipse(null, pen, new Point(size * 0.19, size * 0.72), size * 0.14, size * 0.14);
+                context.DrawEllipse(softFillBrush, accentPen, new Point(size * 0.19, size * 0.72), size * 0.14, size * 0.14);
                 // Right node
-                context.DrawEllipse(null, pen, new Point(size * 0.81, size * 0.72), size * 0.14, size * 0.14);
+                context.DrawEllipse(softFillBrush, accentPen, new Point(size * 0.81, size * 0.72), size * 0.14, size * 0.14);
 
                 // Top server node
                 var geometry = new PathGeometry();
@@ -100,11 +96,11 @@ namespace RevitBridge.UI
                 figure.Segments.Add(new LineSegment(new Point(size * 0.68, size * 0.42), true));
                 figure.Segments.Add(new LineSegment(new Point(size * 0.32, size * 0.42), true));
                 geometry.Figures.Add(figure);
-                context.DrawGeometry(null, pen, geometry);
+                context.DrawGeometry(softFillBrush, accentPen, geometry);
 
                 // Broken connections
-                context.DrawLine(pen, new Point(size * 0.27, size * 0.61), new Point(size * 0.36, size * 0.44));
-                context.DrawLine(pen, new Point(size * 0.73, size * 0.61), new Point(size * 0.64, size * 0.44));
+                context.DrawLine(accentPen, new Point(size * 0.27, size * 0.61), new Point(size * 0.36, size * 0.44));
+                context.DrawLine(accentPen, new Point(size * 0.73, size * 0.61), new Point(size * 0.64, size * 0.44));
 
                 // Crimson cancel slash
                 var slashPen = new Pen(accentBrush, StrokeWidth(size, 0.08)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };

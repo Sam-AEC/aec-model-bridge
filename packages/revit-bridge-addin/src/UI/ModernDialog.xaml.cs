@@ -168,6 +168,68 @@ namespace RevitBridge.UI
             ContentPanel.Children.Add(card);
         }
 
+                public void AddBrandStatusCard(string label, string value)
+        {
+            var card = new Border
+            {
+                Style = (Style)FindResource("StatCard"),
+                MinHeight = 60
+            };
+
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            // Cube Icon
+            var viewBox = new Viewbox
+            {
+                Width = 40,
+                Height = 40,
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            var canvas = new Canvas { Width = 200, Height = 200 };
+            canvas.Children.Add(new System.Windows.Shapes.Polygon { Points = new PointCollection(new[] { new Point(50, 80), new Point(80, 50), new Point(140, 50), new Point(110, 80) }), Fill = new SolidColorBrush(Color.FromRgb(147, 197, 253)), Stroke = new SolidColorBrush(Color.FromRgb(30, 41, 59)), StrokeThickness = 3 });
+            canvas.Children.Add(new System.Windows.Shapes.Polygon { Points = new PointCollection(new[] { new Point(50, 80), new Point(110, 80), new Point(110, 140), new Point(50, 140) }), Fill = new SolidColorBrush(Color.FromRgb(96, 165, 250)), Stroke = new SolidColorBrush(Color.FromRgb(30, 41, 59)), StrokeThickness = 3 });
+            canvas.Children.Add(new System.Windows.Shapes.Polygon { Points = new PointCollection(new[] { new Point(110, 80), new Point(140, 50), new Point(140, 110), new Point(110, 140) }), Fill = new SolidColorBrush(Color.FromRgb(59, 130, 246)), Stroke = new SolidColorBrush(Color.FromRgb(30, 41, 59)), StrokeThickness = 3 });
+            viewBox.Child = canvas;
+
+            Grid.SetColumn(viewBox, 0);
+            grid.Children.Add(viewBox);
+
+            var textStack = new StackPanel
+            {
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(10, 0, 0, 0)
+            };
+
+            var labelText = new TextBlock
+            {
+                Text = label,
+                FontSize = 12,
+                Foreground = (Brush)FindResource("TextSecondaryBrush"),
+                Margin = new Thickness(0, 0, 0, 5),
+                TextWrapping = TextWrapping.Wrap
+            };
+
+            var valueText = new TextBlock
+            {
+                Text = value,
+                FontSize = 18,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = (Brush)FindResource("TextPrimaryBrush"),
+                TextWrapping = TextWrapping.Wrap
+            };
+
+            textStack.Children.Add(labelText);
+            textStack.Children.Add(valueText);
+            Grid.SetColumn(textStack, 1);
+            grid.Children.Add(textStack);
+
+            card.Child = grid;
+            ContentPanel.Children.Add(card);
+        }
+
         public void AddInfoSection(string title, string content)
         {
             var section = new StackPanel { Margin = new Thickness(0, 10, 0, 10) };

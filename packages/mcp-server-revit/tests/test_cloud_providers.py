@@ -380,3 +380,120 @@ async def test_redaction_in_errors_and_https_enforcement() -> None:
     )
     await localhost_provider.shutdown()
     await provider.shutdown()
+
+
+@pytest.mark.anyio
+async def test_speckle_local_tools_no_account_error() -> None:
+    from unittest.mock import patch
+    from revit_mcp_server.errors import RevitMCPError
+
+    provider = SpeckleProvider()
+    
+    with patch("revit_mcp_server.providers.cloud.get_default_account", return_value=None):
+        with pytest.raises(RevitMCPError, match="No local Speckle account found"):
+            await provider.execute_tool(
+                "speckle_send_object",
+                {"project_id": "p1", "model_name": "main", "data": {"a": 1}}
+            )
+
+        with pytest.raises(RevitMCPError, match="No local Speckle account found"):
+            await provider.execute_tool(
+                "speckle_receive_object",
+                {"project_id": "p1", "version_id": "v1"}
+            )
+    await provider.shutdown()
+
+
+@pytest.mark.anyio
+async def test_speckle_local_tools_send_and_receive_success() -> None:
+    from unittest.mock import MagicMock, patch
+    from specklepy.core.api.models.current import Model, ResourceCollection
+    from specklepy.objects.base import Base
+    from revit_mcp_server.errors import RevitMCPError
+
+    provider = SpeckleProvider()
+
+    # Create mock account and client
+    mock_account = MagicMock()
+    mock_account.serverInfo.url = "https://speckle.example"
+
+    mock_client = MagicMock()
+    
+    # Mock get_models
+    mock_model_1 = MagicMock(spec=Model)
+    mock_model_1.id = "m1-id"
+    mock_model_1.name = "main"
+    mock_model_2 = MagicMock(spec=Model)
+    mock_model_2.id = "m2-id"
+    mock_model_2.name = "other"
+    
+    mock_collection = MagicMock(spec=ResourceCollection)
+    mock_collection.items = [mock_model_1, mock_model_2]
+    mock_client.model.get_models.return_value = mock_collection
+
+    # Mock version.create
+    mock_client.version.create.return_value = "v1-created-id"
+
+    # Mock version.get
+    mock_version = MagicMock()
+    mock_version.referencedObject = "obj-123"
+    mock_client.version.get.return_value = mock_version
+
+    # Mock get_default_account & SpeckleClient
+    with patch("revit_mcp_server.providers.cloud.get_default_account", return_value=mock_account), \
+         patch("revit_mcp_server.providers.cloud.SpeckleClient", return_value=mock_client), \
+         patch("revit_mcp_server.providers.cloud.ServerTransport", return_value=MagicMock()), \
+         patch("revit_mcp_server.providers.cloud.operations.send", return_value="obj-123") as mock_send, \
+         patch("revit_mcp_server.providers.cloud.operations.receive") as mock_receive:
+
+        # Test send path: name -> ID resolution
+        send_args = {
+            "project_id": "p1",
+            "model_name": "main", # Needs resolution to m1-id
+            "data": {"foo": "bar", "token": "some_secret_token"},
+            "message": "my commit message"
+        }
+        res = await provider.execute_tool("speckle_send_object", send_args)
+        assert res["version_id"] == "v1-created-id"
+        assert "Successfully sent data" in res["result"]
+
+        # Verify models were queried and name main was resolved to m1-id
+        mock_client.model.get_models.assert_called_once_with("p1", models_limit=100)
+        mock_client.version.create.assert_called_once_with(
+            project_id="p1",
+            model_id="m1-id",
+            object_id="obj-123",
+            message="my commit message",
+            source_application="AECModelBridge"
+        )
+        
+        # Verify operations.send received a Base object with correct attributes
+        assert mock_send.call_count == 1
+        sent_base = mock_send.call_args[1]["base"]
+        assert isinstance(sent_base, Base)
+        assert sent_base.foo == "bar"
+        assert sent_base.token == "some_secret_token"
+
+        # Mock received Base object for receive path
+        received_base = Base()
+        received_base.foo = "bar_received"
+        received_base.token = "sensitive_token_to_redact"
+        mock_receive.return_value = received_base
+
+        # Test receive path: deserialization of actual object data
+        receive_args = {
+            "project_id": "p1",
+            "version_id": "v1-created-id"
+        }
+        receive_res = await provider.execute_tool("speckle_receive_object", receive_args)
+        
+        # Verify result structure
+        mock_receive.assert_called_once_with(obj_id="obj-123", remote_transport=mock_receive.call_args[1]["remote_transport"])
+        
+        # Verify that result has data, and sensitive keys/tokens are redacted
+        data = receive_res["result"]
+        assert data["foo"] == "bar_received"
+        assert data["token"] == "<redacted>"
+
+    await provider.shutdown()
+
