@@ -211,7 +211,6 @@ See [docs/security.md](docs/security.md) for the security model and [SECURITY.md
 - Some source directories are excluded from compilation while their APIs are stabilized.
 - Experimental command implementations are not advertised until they are active in the bridge.
 - Automated tests cover the Python server; full Revit integration testing still requires a licensed Windows/Revit environment.
-- Release download counts include GitHub release assets only. Git clones and GitHub-generated source archives are not counted.
 
 ## Development
 
