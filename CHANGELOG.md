@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.2 - 2026-06-11
+
+- Replace the external star-history chart with repository-owned release-download tracking.
+- Add daily total, 7-day, and 30-day download badges with a generated download chart.
+- Upgrade the MCPB manifest to the portable `uv` runtime format with guided workspace configuration.
+- Add verified repository, GitHub profile, issue tracker, and LinkedIn links to the Revit UI.
+- Replace unsupported UI claims with the actual 100 MCP tools and 103 active bridge routes.
+- Add an About ribbon command and refine the theme-aware status, help, and configuration dialogs.
+- Add continuous Python tests and Revit 2024-2027 add-in builds.
+- Correct installer paths, runtime environment names, packaged wheel instructions, and stale documentation links.
+- Install add-in binaries by Revit year and remove duplicate legacy manifests so supported versions can coexist.
+
 ## 1.0.1 - 2026-06-11
 
 - Add Autodesk Revit 2027 support targeting .NET 10.

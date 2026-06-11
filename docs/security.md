@@ -42,7 +42,7 @@ All file operations are restricted to allowed directories configured at server s
 
 ```python
 # Environment variables
-WORKSPACE_DIR = "C:\\revit-workspace"
+MCP_REVIT_WORKSPACE_DIR = "C:\\revit-workspace"
 MCP_REVIT_ALLOWED_DIRECTORIES = "C:\\revit-workspace;C:\\exports;C:\\templates"
 ```
 
@@ -130,7 +130,7 @@ Every tool invocation is logged with structured data.
 
 ### Log Location
 
-Default: `{WORKSPACE_DIR}/audit.jsonl`
+Recommended: `{MCP_REVIT_WORKSPACE_DIR}/audit.jsonl`
 
 Configure with:
 ```bash
@@ -241,7 +241,7 @@ Mock mode is safe for CI environments:
 
 Before deploying to production:
 
-- [ ] Configure `WORKSPACE_DIR` to a dedicated directory
+- [ ] Configure `MCP_REVIT_WORKSPACE_DIR` to a dedicated directory
 - [ ] Set `MCP_REVIT_ALLOWED_DIRECTORIES` to minimum required paths
 - [ ] Verify bridge binds to `127.0.0.1` only (default)
 - [ ] Review audit log location and retention policy

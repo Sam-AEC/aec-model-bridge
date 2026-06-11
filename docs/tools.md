@@ -598,4 +598,4 @@ All schemas are defined in [schemas.py](../packages/mcp-server-revit/src/revit_m
 
 Tool handler implementations are in [handlers.py](../packages/mcp-server-revit/src/revit_mcp_server/tools/handlers.py).
 
-For integration examples, see [demo.py](../packages/client-demo/demo.py).
+For client configuration examples, see [MCP marketplaces and clients](marketplaces.md).

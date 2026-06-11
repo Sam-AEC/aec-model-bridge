@@ -515,16 +515,16 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="revit_execute_python",
             description=(
-                "Execute arbitrary Python/IronPython code inside Revit with full Revit API access. "
+                "Execute arbitrary Python/IronPython code inside Revit with broad access to the public Revit API. "
                 "Variables pre-injected: doc (Document), uidoc (UIDocument), uiapp (UIApplication), app (Application). "
                 "Write output to stdout (print) or set __output__ = 'result string'. "
-                "Use 'from Autodesk.Revit.DB import *' for API access."
+                "Use 'from Autodesk.Revit.DB import *' for API access. "
+                "Execution is synchronous and is not sandboxed."
             ),
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "script": {"type": "string", "description": "Python script to execute"},
-                    "timeout_ms": {"type": "integer", "description": "Execution timeout in milliseconds", "default": 10000}
+                    "script": {"type": "string", "description": "Python script to execute"}
                 },
                 "required": ["script"]
             }
@@ -942,8 +942,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             }),
             # Batch 10: LLM Power Tools
             "revit_execute_python": ("revit.execute_python", {
-                "script": arguments.get("script"),
-                "timeout_ms": arguments.get("timeout_ms", 10000)
+                "script": arguments.get("script")
             }),
             "revit_change_element_type": ("revit.change_element_type", {
                 "source_type_id": arguments.get("source_type_id"),

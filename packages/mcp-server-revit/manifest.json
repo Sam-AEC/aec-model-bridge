@@ -1,30 +1,68 @@
 {
-  "manifest_version": "0.2",
+  "manifest_version": "0.4",
   "name": "aec-model-bridge",
   "display_name": "AEC Model Bridge",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Independent MCP integration for Autodesk Revit software through a local bridge.",
+  "long_description": "Connect MCP clients to a locally installed Revit application through the AEC Model Bridge add-in. The server exposes model authoring, documentation, inspection, export, worksharing, and advanced API tools.",
   "author": {
-    "name": "Sam-AEC"
+    "name": "A. Sam Mohammad",
+    "url": "https://github.com/Sam-AEC"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/Sam-AEC/aec-model-bridge.git"
   },
+  "homepage": "https://github.com/Sam-AEC/aec-model-bridge",
+  "documentation": "https://github.com/Sam-AEC/aec-model-bridge#quick-start",
+  "support": "https://github.com/Sam-AEC/aec-model-bridge/issues",
   "server": {
-    "type": "python",
+    "type": "uv",
     "entry_point": "src/revit_mcp_server/mcp_server.py",
     "mcp_config": {
-      "command": "python",
+      "command": "uv",
       "args": [
+        "run",
+        "--directory",
+        "${__dirname}",
+        "python",
         "-m",
         "revit_mcp_server.mcp_server"
       ],
       "env": {
-        "PYTHONPATH": "${__dirname}/src"
+        "MCP_REVIT_MODE": "bridge",
+        "MCP_REVIT_BRIDGE_URL": "${user_config.bridge_url}",
+        "MCP_REVIT_WORKSPACE_DIR": "${user_config.workspace_dir}",
+        "MCP_REVIT_ALLOWED_DIRECTORIES": "${user_config.workspace_dir}",
+        "MCP_REVIT_AUDIT_LOG": "${user_config.workspace_dir}${/}aec-model-bridge-audit.jsonl"
       }
     }
   },
+  "user_config": {
+    "workspace_dir": {
+      "type": "directory",
+      "title": "Revit workspace",
+      "description": "Select the directory that AEC Model Bridge may read from and write to.",
+      "required": true,
+      "default": "${DOCUMENTS}"
+    },
+    "bridge_url": {
+      "type": "string",
+      "title": "Local bridge URL",
+      "description": "Address exposed by the AEC Model Bridge Revit add-in.",
+      "required": true,
+      "default": "http://127.0.0.1:3000"
+    }
+  },
+  "compatibility": {
+    "platforms": [
+      "win32"
+    ],
+    "runtimes": {
+      "python": ">=3.11"
+    }
+  },
+  "tools_generated": true,
   "license": "MIT",
   "keywords": [
     "mcp",

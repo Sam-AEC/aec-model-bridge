@@ -2,6 +2,7 @@ using System;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using RevitBridge;
 using RevitBridge.UI;
 using MediaColor = System.Windows.Media.Color;
 using MediaBrush = System.Windows.Media.SolidColorBrush;
@@ -40,9 +41,9 @@ namespace RevitBridge.Bridge
                 new MediaBrush(MediaColor.FromRgb(76, 175, 80))
             );
 
-            dialog.AddInfoSection("Server Address", "http://localhost:3000/");
+            dialog.AddInfoSection("Server Address", "http://127.0.0.1:3000/");
 
-            dialog.SetActionButton("Great!");
+            dialog.SetActionButton("Close");
             dialog.ShowDialog();
         }
 
@@ -162,7 +163,7 @@ namespace RevitBridge.Bridge
             dialog.AddSeparator();
 
             // Server Information
-            dialog.AddInfoSection("Server Address", "http://localhost:3000/");
+            dialog.AddInfoSection("Server Address", "http://127.0.0.1:3000/");
 
             // Revit Information
             string revitInfo = $"Revit {App.RevitVersion ?? "Unknown"}";
@@ -184,11 +185,11 @@ namespace RevitBridge.Bridge
             dialog.AddSeparator();
 
             // Capabilities
-            string capabilities = "✅ Universal Bridge Enabled\n" +
-                                 "✅ 233 Available Tools\n" +
-                                 "✅ Reflection API (10,000+ methods)\n" +
-                                 "✅ Natural Language Support\n" +
-                                 "✅ AI-Ready Interface";
+            string capabilities = "Universal bridge enabled\n" +
+                                 $"{ProductInfo.McpToolCount} MCP tools\n" +
+                                 $"{BridgeCommandFactory.GetToolCatalog().Count} active bridge routes\n" +
+                                 "Reflection and in-process Python capabilities\n" +
+                                 "Revit-safe ExternalEvent dispatch";
             dialog.AddInfoSection("Capabilities", capabilities);
 
             dialog.SetActionButton("Close");

@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.0.1",
+    [string]$Version = "1.0.2",
     [string]$RevitVersion = "2027",
     [switch]$UpdateServerMetadata
 )
@@ -61,6 +61,7 @@ New-Item -ItemType Directory -Path $mcpbStage -Force | Out-Null
 $pythonPackage = Join-Path $repoRoot "packages\mcp-server-revit"
 Copy-Item (Join-Path $pythonPackage "manifest.json") $mcpbStage -Force
 Copy-Item (Join-Path $pythonPackage "pyproject.toml") $mcpbStage -Force
+Copy-Item (Join-Path $pythonPackage "uv.lock") $mcpbStage -Force
 Copy-Item (Join-Path $pythonPackage "README.md") $mcpbStage -Force
 Copy-Item (Join-Path $pythonPackage "src") $mcpbStage -Recurse -Force
 

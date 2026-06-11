@@ -3,6 +3,7 @@
     "name":  "io.github.Sam-AEC/aec-model-bridge",
     "title":  "AEC Model Bridge",
     "description":  "Independent MCP integration for Autodesk Revit software through a local bridge.",
+    "websiteUrl":  "https://github.com/Sam-AEC/aec-model-bridge",
     "icons":  [
                   {
                       "src":  "https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/assets/logo.svg",
@@ -17,13 +18,13 @@
                        "source":  "github",
                        "subfolder":  "packages/mcp-server-revit"
                    },
-    "version":  "1.0.1",
+    "version":  "1.0.2",
     "packages":  [
                      {
                          "registryType":  "mcpb",
-                         "identifier":  "https://github.com/Sam-AEC/aec-model-bridge/releases/download/v1.0.1/aec-model-bridge-1.0.1.mcpb",
-                         "fileSha256":  "f2ecdb8784c3f4f82a91a8a7d6673be473ae2cbf1ac1b5be0da9dd53aea19450",
-                         "version":  "1.0.1",
+                         "identifier":  "https://github.com/Sam-AEC/aec-model-bridge/releases/download/v1.0.2/aec-model-bridge-1.0.2.mcpb",
+                         "fileSha256":  "f0bd5941a954318fd816f18a64c484682b38bc8a839c16433937ba7dd80846fc",
+                         "version":  "1.0.2",
                          "transport":  {
                                            "type":  "stdio"
                                        },
@@ -47,6 +48,7 @@
                                                           "description":  "Server mode: mock or bridge.",
                                                           "isSecret":  false,
                                                           "isRequired":  false,
+                                                          "default":  "bridge",
                                                           "format":  "string"
                                                       },
                                                       {
@@ -54,6 +56,7 @@
                                                           "description":  "Bridge URL, for example http://127.0.0.1:3000 (required when MCP_REVIT_MODE=bridge).",
                                                           "isSecret":  false,
                                                           "isRequired":  false,
+                                                          "default":  "http://127.0.0.1:3000",
                                                           "format":  "string"
                                                       },
                                                       {

@@ -1,5 +1,6 @@
 param(
-    [string]$RevitVersion = "2024",
+    [string]$RevitVersion = "2027",
+    [string]$Version = "1.0.2",
     [switch]$Install,
     [switch]$AllUsers
 )
@@ -46,6 +47,7 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "`n[Step 2/3] Creating Distribution Package..." -ForegroundColor Yellow
 $packageArgs = @{
     RevitVersion = $RevitVersion
+    Version = $Version
 }
 & "$PSScriptRoot\package.ps1" @packageArgs
 
@@ -59,6 +61,7 @@ if ($Install) {
     Write-Host "`n[Step 3/3] Installing..." -ForegroundColor Yellow
     $installArgs = @{
         RevitVersion = $RevitVersion
+        Version = $Version
     }
     if ($AllUsers) { $installArgs.Add("AllUsers", $true) }
     
@@ -70,4 +73,4 @@ else {
     Write-Host "  .\scripts\install.ps1 -RevitVersion $RevitVersion" -ForegroundColor White
 }
 
-Write-Host "`n✅ Setup Complete!" -ForegroundColor Green
+Write-Host "`nSetup complete." -ForegroundColor Green

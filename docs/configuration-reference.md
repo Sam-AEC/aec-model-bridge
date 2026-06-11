@@ -15,8 +15,8 @@ The server supports two runtime modes:
 |---|---:|---|---|
 | `MCP_REVIT_MODE` | Yes | `mock` | Selects the active bridge mode. |
 | `MCP_REVIT_BRIDGE_URL` | Bridge mode | `http://127.0.0.1:3000` | URL of the Revit bridge listener. |
-| `MCP_REVIT_ALLOWED_DIRECTORIES` | Yes in production | current workspace | Semicolon-separated directories the server may access. |
-| `WORKSPACE_DIR` | Yes for file operations | current workspace | Root directory for generated files and workspace-backed tools. |
+| `MCP_REVIT_ALLOWED_DIRECTORIES` | Yes | none | Semicolon-separated directories the server may access. |
+| `MCP_REVIT_WORKSPACE_DIR` | Yes | none | Root directory for generated files and workspace-backed tools. |
 | `MCP_REVIT_AUDIT_LOG` | No | `workspace/audit.jsonl` | Audit log path used by the security layer. |
 | `REVIT_SDK` | Build only | unset | Optional path used by the add-in build scripts. |
 
@@ -42,7 +42,9 @@ The current package name is `aec-model-bridge`, and the official repository URL 
       "args": ["-m", "revit_mcp_server.mcp_server"],
       "env": {
         "MCP_REVIT_MODE": "bridge",
-        "MCP_REVIT_BRIDGE_URL": "http://127.0.0.1:3000"
+        "MCP_REVIT_BRIDGE_URL": "http://127.0.0.1:3000",
+        "MCP_REVIT_WORKSPACE_DIR": "C:\\RevitProjects",
+        "MCP_REVIT_ALLOWED_DIRECTORIES": "C:\\RevitProjects"
       }
     }
   }

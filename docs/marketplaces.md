@@ -12,8 +12,8 @@ Status: configured.
 
 Files and automation:
 
-- [server.json](../server.json) is valid for the official registry and points to the v1.0.1 MCPB release artifact.
-- [.github/workflows/publish-mcp.yml](../.github/workflows/publish-mcp.yml) publishes with GitHub OIDC on version tags or manual workflow dispatch.
+- [server.json](../server.json) is the source metadata for the current MCPB release artifact.
+- [.github/workflows/publish-mcp.yml](../.github/workflows/publish-mcp.yml) publishes with GitHub OIDC when a release is published or through manual workflow dispatch.
 - [.github/workflows/publish-pypi.yml](../.github/workflows/publish-pypi.yml) publishes the optional Python package to PyPI when triggered manually after PyPI trusted publishing is configured.
 - [packages/mcp-server-revit/README.md](../packages/mcp-server-revit/README.md) contains the required `mcp-name` ownership marker for PyPI verification if the package is also published to PyPI.
 
@@ -24,12 +24,7 @@ mcp-publisher login github
 mcp-publisher publish
 ```
 
-Automated publish from GitHub:
-
-```powershell
-git tag v1.0.1
-git push origin v1.0.1
-```
+Publishing a GitHub release triggers the registry workflow automatically.
 
 The official registry is the feed most downstream MCP galleries and aggregators are expected to scrape.
 

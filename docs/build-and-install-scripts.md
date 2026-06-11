@@ -34,7 +34,7 @@ Installs from a prepared distribution package.
 Key behavior:
 
 - auto-triggers packaging if `dist\AECModelBridge` is missing
-- copies bridge binaries into `C:\ProgramData\AECModelBridge\bin`
+- copies bridge binaries into `C:\ProgramData\AECModelBridge\bin\{year}`
 - installs the add-in manifest into the selected Revit add-in directory
 - copies default configuration into `C:\ProgramData\AECModelBridge\config`
 

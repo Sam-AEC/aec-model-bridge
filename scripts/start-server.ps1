@@ -3,16 +3,19 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
+$packageRoot = Join-Path $repoRoot "packages\mcp-server-revit"
 
 Write-Host "AEC Model Bridge Server Startup" -ForegroundColor Cyan
 Write-Host "=====================`n" -ForegroundColor Cyan
 
 # Check if .env exists
-$envFile = "$PSScriptRoot\.env"
+$envFile = Join-Path $repoRoot ".env"
 if (-not (Test-Path $envFile)) {
     Write-Host ".env file not found. Creating from example..." -ForegroundColor Yellow
-    if (Test-Path "$PSScriptRoot\.env.example") {
-        Copy-Item "$PSScriptRoot\.env.example" $envFile
+    $envExample = Join-Path $repoRoot ".env.example"
+    if (Test-Path $envExample) {
+        Copy-Item $envExample $envFile
         Write-Host "Created .env file. Please edit it with your paths!" -ForegroundColor Green
         Write-Host "Opening .env in notepad..." -ForegroundColor Yellow
         Start-Process notepad $envFile
@@ -45,7 +48,7 @@ if (-not $inVenv) {
 
 # Install/update dependencies
 Write-Host "`nInstalling Python MCP server package..." -ForegroundColor Yellow
-Push-Location "$PSScriptRoot\packages\mcp-server-revit"
+Push-Location $packageRoot
 try {
     python -m pip install -e . --quiet
     if ($LASTEXITCODE -ne 0) {
@@ -63,6 +66,7 @@ Write-Host "`nConfiguration:" -ForegroundColor Yellow
 Get-Content $envFile | Where-Object { $_ -notmatch "^#" -and $_ -match "\S" } | ForEach-Object {
     Write-Host "  $_" -ForegroundColor Gray
 }
+$env:MCP_REVIT_MODE = $Mode
 
 # Check if Revit is running (if bridge mode)
 if ($Mode -eq "bridge") {
@@ -92,7 +96,7 @@ Write-Host "========================================`n" -ForegroundColor Cyan
 Write-Host "Server is now listening for JSON-RPC requests on stdin/stdout" -ForegroundColor Yellow
 Write-Host "Press Ctrl+C to stop the server`n" -ForegroundColor Gray
 
-Push-Location "$PSScriptRoot\packages\mcp-server-revit"
+Push-Location $packageRoot
 try {
     python -m revit_mcp_server
 }
