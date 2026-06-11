@@ -14,7 +14,7 @@
     "url": "https://github.com/Sam-AEC/aec-model-bridge.git"
   },
   "homepage": "https://github.com/Sam-AEC/aec-model-bridge",
-  "documentation": "https://github.com/Sam-AEC/aec-model-bridge#quick-start",
+  "documentation": "https://github.com/Sam-AEC/aec-model-bridge#installation",
   "support": "https://github.com/Sam-AEC/aec-model-bridge/issues",
   "server": {
     "type": "uv",

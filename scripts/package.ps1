@@ -139,20 +139,27 @@ This package contains AEC Model Bridge for Revit software and its MCP server.
 
 ## Installation
 
-### Quick Install (Revit 2027)
-``````powershell
-.\install.ps1 -RevitVersion 2027
+This archive contains these Revit binaries:
+
+``````
+bin\$($versionsToBuild -join "`nbin\")
 ``````
 
-### Manual Install
-Use ``install.ps1`` so the add-in manifest receives the correct absolute,
-version-specific assembly path. Binaries are installed under
-``C:\ProgramData\AECModelBridge\bin\{year}\``.
+Check the available version folders and install the one matching Revit:
+
+``````powershell
+Get-ChildItem .\bin -Directory
+$RevitVersion = Read-Host "Choose one of the listed Revit years"
+.\install.ps1 -RevitVersion $RevitVersion
+``````
+
+The installer writes binaries to
+``C:\ProgramData\AECModelBridge\bin\{year}\`` and creates the matching manifest.
 
 ## Verify Installation
 1. Start Revit
 2. In PowerShell: ``curl http://127.0.0.1:3000/health``
-3. Should return: ``{"status":"healthy","revit_version":"2027",...}``
+3. The response should report ``healthy`` and the running Revit version.
 
 ## Run MCP Server
 ``````powershell

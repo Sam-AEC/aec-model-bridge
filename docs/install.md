@@ -1,140 +1,108 @@
-# Installation Guide
+# Installation
 
-This guide covers installation for both mock mode (no Revit required) and bridge mode (Windows with Revit).
+AEC Model Bridge has two components:
 
-## Prerequisites
+1. A Python MCP server used by the AI client.
+2. A native add-in loaded by Revit.
 
-### Mock Mode
+Both are required for live Revit automation. Mock mode only requires the Python
+server.
+
+## Requirements
+
+| Revit version | Add-in target | Build requirement |
+|---|---|---|
+| 2024 | .NET Framework 4.8 | .NET 8 SDK and .NET Framework 4.8 developer pack |
+| 2025 | .NET 8 for Windows | .NET 8 SDK |
+| 2026 | .NET 8 for Windows | .NET 8 SDK |
+| 2027 | .NET 10 for Windows | .NET 10 SDK |
+
+General requirements:
+
+- Windows 10 or 11
 - Python 3.11 or later
-- pip package manager
 - Git
+- A licensed Revit installation for live bridge mode
 
-### Bridge Mode (Additional)
-- Windows 10/11
-- Autodesk Revit 2024-2027
-- .NET Framework 4.8 developer tools for Revit 2024
-- .NET 8 SDK for Revit 2025-2026
-- .NET 10 SDK for Revit 2027
-- Visual Studio 2022 Build Tools or the matching .NET SDK
+## Install From Source
 
-## Mock Mode Setup
+Clone the repository and create a virtual environment:
 
-Mock mode runs the complete MCP server with deterministic responses, suitable for CI, testing, and development without Revit.
-
-### 1. Clone Repository
-
-```bash
+```powershell
 git clone https://github.com/Sam-AEC/aec-model-bridge.git
 cd aec-model-bridge
+
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e packages/mcp-server-revit
 ```
 
-### 2. Create Virtual Environment
-
-```bash
-python -m venv venv
-```
-
-Activate the environment:
-- Windows: `venv\Scripts\activate`
-- Linux/Mac: `source venv/bin/activate`
-
-### 3. Install Python Package
-
-```bash
-pip install -e packages/mcp-server-revit[dev]
-```
-
-This installs the MCP server with development dependencies (ruff, mypy, pytest).
-
-### 4. Configure Environment
-
-Set required environment variables:
+Choose the Revit version installed on your machine:
 
 ```powershell
-# PowerShell (Windows)
-$env:MCP_REVIT_MODE = "mock"
-$env:MCP_REVIT_WORKSPACE_DIR = "C:\revit-workspace"
-$env:MCP_REVIT_ALLOWED_DIRECTORIES = "C:\revit-workspace;C:\temp"
+$RevitVersion = Read-Host "Revit year (2024, 2025, 2026, or 2027)"
 ```
 
-```bash
-# Bash (Linux/Mac)
-export MCP_REVIT_MODE="mock"
-export MCP_REVIT_WORKSPACE_DIR="/home/user/revit-workspace"
-export MCP_REVIT_ALLOWED_DIRECTORIES="/home/user/revit-workspace;/tmp"
-```
-
-### 5. Verify Installation
-
-```bash
-python -m pytest packages/mcp-server-revit/tests
-```
-
-All tests should pass.
-
-### 6. Run Mock Server
-
-```bash
-python -m revit_mcp_server
-```
-
-The server listens on stdin/stdout for MCP protocol messages.
-
-## Bridge Mode Setup
-
-Bridge mode connects the MCP server to a running Revit instance via the .NET add-in.
-
-### 1. Complete Mock Mode Setup
-
-Follow steps 1-3 from Mock Mode Setup.
-
-### 2. Build Bridge Add-in
+Build, package, and install the matching add-in:
 
 ```powershell
-.\scripts\build-addin.ps1 -RevitVersion 2027
+.\scripts\package.ps1 -RevitVersion $RevitVersion
+.\scripts\install.ps1 -RevitVersion $RevitVersion
 ```
 
-This compiles [RevitBridge.csproj](../packages/revit-bridge-addin/RevitBridge.csproj) to a DLL.
+The default installation is per user:
 
-Expected output: `packages/revit-bridge-addin/bin/Release/{year}/{framework}/AECModelBridge.dll`
+```text
+Add-in manifest:
+%APPDATA%\Autodesk\Revit\Addins\<year>\AECModelBridge.addin
 
-### 3. Package and Install the Add-in
+Version-specific binaries:
+C:\ProgramData\AECModelBridge\bin\<year>\
+
+Configuration:
+C:\ProgramData\AECModelBridge\config\default.json
+```
+
+For an all-user manifest installation:
 
 ```powershell
-.\scripts\package.ps1 -RevitVersion 2027
-.\scripts\install.ps1 -RevitVersion 2027
+.\scripts\install.ps1 -RevitVersion $RevitVersion -AllUsers
 ```
 
-By default, the installer copies [AECModelBridge.addin](../packages/revit-bridge-addin/AECModelBridge.addin)
-to `%APPDATA%\Autodesk\Revit\Addins\2027\`. Use `-AllUsers` to install
-the manifest under `%ProgramData%`.
-
-### 4. Launch Revit
-
-Start Revit. The add-in loads automatically and starts the HTTP bridge on `http://127.0.0.1:3000/`.
-
-Verify in Revit:
-- Check the `AEC Bridge` ribbon tab.
-- Use `Status` to inspect the local bridge.
-
-### 5. Configure MCP Server for Bridge Mode
-
-Update environment:
+To package every supported Revit version:
 
 ```powershell
-$env:MCP_REVIT_MODE = "bridge"
-$env:MCP_REVIT_BRIDGE_URL = "http://127.0.0.1:3000"
-$env:MCP_REVIT_WORKSPACE_DIR = "C:\RevitProjects"
-$env:MCP_REVIT_ALLOWED_DIRECTORIES = "C:\RevitProjects"
+.\scripts\package.ps1 -RevitVersion All
 ```
 
-Or use the workspace MCP configuration in [.vscode/mcp.json](../.vscode/mcp.json) for VS Code and GitHub Copilot, and set the same environment variables in your shell for other clients:
+You can then run `install.ps1` once for each installed Revit year.
+
+## Install From a Release
+
+Download a package matching your Revit version from
+[GitHub Releases](https://github.com/Sam-AEC/aec-model-bridge/releases).
+
+Extract the archive, check the available folders under `bin`, and install the
+matching year:
+
+```powershell
+Get-ChildItem .\bin -Directory
+$RevitVersion = Read-Host "Choose one of the listed Revit years"
+.\install.ps1 -RevitVersion $RevitVersion
+```
+
+If a prebuilt package is not available for your year, use the source
+installation above.
+
+## Configure an MCP Client
+
+The server requires a bridge URL and an allowed workspace:
 
 ```json
 {
-  "servers": {
-    "revit": {
-      "command": "python",
+  "mcpServers": {
+    "aec-model-bridge": {
+      "command": "C:\\path\\to\\aec-model-bridge\\.venv\\Scripts\\python.exe",
       "args": ["-m", "revit_mcp_server.mcp_server"],
       "env": {
         "MCP_REVIT_MODE": "bridge",
@@ -147,79 +115,74 @@ Or use the workspace MCP configuration in [.vscode/mcp.json](../.vscode/mcp.json
 }
 ```
 
-### 6. Run Bridge Server
+The allowed directories value accepts multiple paths separated by semicolons.
 
-```bash
+VS Code users can start from [`.vscode/mcp.json`](../.vscode/mcp.json).
+
+Clients with MCP Bundle support can install the `.mcpb` asset from the latest
+release. The Revit add-in must still be installed separately.
+
+## Verify the Bridge
+
+Restart Revit after installing or replacing the add-in. Open a model and run:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:3000/health
+```
+
+The response should include:
+
+```json
+{
+  "status": "healthy",
+  "revit_version": "<running Revit year>"
+}
+```
+
+The reported year will match the running Revit version.
+
+## Mock Mode
+
+Mock mode runs the MCP server without Revit:
+
+```powershell
+$env:MCP_REVIT_MODE = "mock"
+$env:MCP_REVIT_WORKSPACE_DIR = "C:\revit-workspace"
+$env:MCP_REVIT_ALLOWED_DIRECTORIES = "C:\revit-workspace"
+
 python -m revit_mcp_server
 ```
 
-## Configuration Reference
+Run the automated tests with:
 
-### Environment Variables
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `MCP_REVIT_MODE` | Yes | - | `mock` or `bridge` |
-| `MCP_REVIT_WORKSPACE_DIR` | Yes | - | Root directory for file operations |
-| `MCP_REVIT_ALLOWED_DIRECTORIES` | Yes | - | Semicolon-separated list of allowed paths |
-| `MCP_REVIT_BRIDGE_URL` | Bridge only | `http://127.0.0.1:3000` | Bridge HTTP endpoint |
-| `MCP_REVIT_AUDIT_LOG` | No | `workspace/audit.jsonl` | Audit log file path |
-| `REVIT_SDK` | Build only | - | Path to Revit SDK for building add-in |
+```powershell
+python -m pytest packages/mcp-server-revit/tests
+```
 
 ## Troubleshooting
 
-### Issue: Workspace Violation Error
+### Bridge connection refused
 
-**Error**: `WorkspaceViolation: Path outside allowed directories`
+- Confirm Revit is running.
+- Confirm the `AEC Bridge` ribbon tab is present.
+- Check that the manifest year matches the running Revit year.
+- Check the bridge log at `%APPDATA%\AECModelBridge\Logs\bridge.jsonl`.
+- Confirm no other process is using port `3000`.
 
-**Fix**:
-1. Verify `MCP_REVIT_WORKSPACE_DIR` and `MCP_REVIT_ALLOWED_DIRECTORIES` are set
-2. Ensure paths use absolute paths (not relative)
-3. On Windows, use double backslashes or forward slashes: `C:\\workspace` or `C:/workspace`
-4. Check directory exists and has read/write permissions
+### Add-in build fails
 
-### Issue: Schema Validation Failed
+- Run `dotnet --list-sdks` and confirm the required SDK is installed.
+- For Revit 2024, install the .NET Framework 4.8 developer pack.
+- Confirm the selected `-RevitVersion` is one of `2024`, `2025`, `2026`, or
+  `2027`.
+- If Revit is not installed on the build machine, the project uses matching
+  Revit API reference packages for compilation.
 
-**Error**: `SchemaValidationError: Field 'document_path' is required`
+### Workspace access denied
 
-**Fix**:
-1. Check tool input matches schema in [docs/tools.md](tools.md)
-2. Review error message for missing/invalid fields
-3. Run tests to see valid examples: `pytest packages/mcp-server-revit/tests/test_tools.py -v`
+- Use absolute paths for `MCP_REVIT_WORKSPACE_DIR`.
+- Include every required directory in `MCP_REVIT_ALLOWED_DIRECTORIES`.
+- Separate multiple Windows paths with semicolons.
 
-### Issue: Bridge Connection Refused
-
-**Error**: `BridgeError: Connection refused to http://127.0.0.1:3000`
-
-**Fix**:
-1. Verify Revit is running with the add-in loaded
-2. Check the add-in manifest under `%APPDATA%\Autodesk\Revit\Addins\{year}\AECModelBridge.addin` or the all-user `%ProgramData%` path
-3. Verify DLL path in manifest points to the built DLL
-4. Check Windows Firewall isn't blocking `127.0.0.1:3000`
-5. Review Revit Journal file for add-in load errors
-
-### Issue: Add-in Build Failed
-
-**Error**: `MSBuild error: RevitAPI reference not found`
-
-**Fix**:
-1. Set `REVIT_SDK` environment variable to correct SDK path
-2. Verify Revit SDK is installed (comes with Revit or download separately)
-3. Check [RevitBridge.csproj](../packages/revit-bridge-addin/RevitBridge.csproj) references match your Revit version
-4. Ensure Visual Studio or MSBuild tools are installed
-
-### Issue: Mock Mode Files Not Created
-
-**Error**: Export tools don't create output files in mock mode
-
-**Fix**:
-1. Verify `MCP_REVIT_WORKSPACE_DIR` exists and is writable
-2. Check `MCP_REVIT_MODE=mock` is set
-3. Review audit log for errors: `cat workspace/audit.jsonl`
-4. Ensure no file permission issues in workspace directory
-
-## Next Steps
-
-- Review [tool catalog](tools.md) for available operations
-- Understand [architecture](architecture.md) and trust boundaries
-- Read [security model](security.md) for production deployments
+See the [configuration reference](configuration-reference.md) and
+[security guide](security.md) for advanced settings.
