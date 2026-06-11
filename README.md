@@ -4,7 +4,7 @@
 
 # AEC Model Bridge
 
-MCP server and native add-in for AI-assisted Autodesk Revit workflows.
+MCP server and native bridges for AI-assisted AEC workflows.
 
 
 [![MCP Registry](https://img.shields.io/badge/MCP_Registry-active-0F766E?style=flat-square)](https://registry.modelcontextprotocol.io/?q=io.github.Sam-AEC%2Faec-model-bridge)
@@ -18,10 +18,56 @@ MCP server and native add-in for AI-assisted Autodesk Revit workflows.
 </div>
 
 AEC Model Bridge connects MCP clients such as Claude Desktop, VS Code, GitHub
-Copilot, and custom agents to a live Revit session.
+Copilot, and custom agents to Revit and a growing ecosystem of AEC platforms.
 
-The Python server handles MCP communication. The C# add-in executes commands
-inside Revit through `ExternalEvent`, keeping API work on Revit's main thread.
+The Python hub handles MCP communication and routes each request to the relevant
+desktop, headless, cloud, or compute provider. Revit commands run through a
+native C# add-in and `ExternalEvent`, keeping API work on Revit's main thread.
+
+## Platform Status
+
+The status below reflects the Omni-Bridge system blueprint as of June 12, 2026.
+Preview integrations are present but still have incomplete workflows or
+hardening tasks.
+
+### Available Now
+
+![Revit available](https://img.shields.io/badge/Revit-available-16A34A?style=flat-square)
+![IfcOpenShell available](https://img.shields.io/badge/IfcOpenShell-available-16A34A?style=flat-square)
+![Speckle available](https://img.shields.io/badge/Speckle-available-16A34A?style=flat-square)
+![Navisworks Manage preview](https://img.shields.io/badge/Navisworks_Manage-preview-F59E0B?style=flat-square)
+![Rhino and Grasshopper preview](https://img.shields.io/badge/Rhino_%2F_Grasshopper-preview-F59E0B?style=flat-square)
+
+Navisworks currently exposes bridge health and document metadata; model-tree,
+append/refresh, viewpoints, and clash workflows are next. Rhino.Compute is
+integrated, while live Rhino MCP connectivity remains a preview.
+
+### Coming Soon
+
+![Microsoft Excel coming soon](https://img.shields.io/badge/Microsoft_Excel-coming_soon-2563EB?style=flat-square)
+![Microsoft Graph coming soon](https://img.shields.io/badge/Microsoft_Graph-coming_soon-2563EB?style=flat-square)
+![Autodesk Construction Cloud coming soon](https://img.shields.io/badge/Autodesk_Construction_Cloud-coming_soon-2563EB?style=flat-square)
+![Autodesk Forma coming soon](https://img.shields.io/badge/Autodesk_Forma-coming_soon-2563EB?style=flat-square)
+![Solibri coming soon](https://img.shields.io/badge/Solibri-coming_soon-2563EB?style=flat-square)
+![Power BI coming soon](https://img.shields.io/badge/Power_BI_templates-coming_soon-2563EB?style=flat-square)
+![Parquet and DuckDB coming soon](https://img.shields.io/badge/Parquet_%2F_DuckDB-coming_soon-2563EB?style=flat-square)
+
+This wave adds Excel and SharePoint workbook round trips, ACC/Forma workflows
+through Autodesk Platform Services, Solibri model checking, and Power BI
+templates backed by Speckle or a local Parquet/DuckDB data plane.
+
+### Future Roadmap
+
+![Tekla Structures roadmap](https://img.shields.io/badge/Tekla_Structures-roadmap-64748B?style=flat-square)
+![Graphisoft Archicad roadmap](https://img.shields.io/badge/Graphisoft_Archicad-roadmap-64748B?style=flat-square)
+![Bentley iTwin roadmap](https://img.shields.io/badge/Bentley_iTwin-roadmap-64748B?style=flat-square)
+![Trimble Connect roadmap](https://img.shields.io/badge/Trimble_Connect-roadmap-64748B?style=flat-square)
+![Procore roadmap](https://img.shields.io/badge/Procore-roadmap-64748B?style=flat-square)
+![Oracle Primavera P6 roadmap](https://img.shields.io/badge/Oracle_Primavera_P6-roadmap-64748B?style=flat-square)
+![SketchUp roadmap](https://img.shields.io/badge/SketchUp-roadmap-64748B?style=flat-square)
+
+Future connectors are opportunity-driven and will be scheduled when each has a
+defined workflow, test access, and a supported API path.
 
 ## Highlights
 
@@ -29,6 +75,8 @@ inside Revit through `ExternalEvent`, keeping API work on Revit's main thread.
   exports, worksharing, architecture, structure, MEP, geometry, and QA.
 - Native Revit add-in with no pyRevit or Dynamo dependency.
 - Revit 2024, 2025, 2026, and 2027 support.
+- Headless IFC, Speckle cloud, Rhino.Compute, and cross-platform provider
+  architecture.
 - Reflection and in-process Python for advanced API workflows.
 - Localhost-only bridge by default.
 - Mock mode for development and automated testing without Revit.
