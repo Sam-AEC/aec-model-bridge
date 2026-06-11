@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.0.1",
+    [string]$Version = "1.0.2",
     [string]$RevitVersion = "All"
 )
 
@@ -145,13 +145,13 @@ This package contains AEC Model Bridge for Revit software and its MCP server.
 ``````
 
 ### Manual Install
-1. Copy bin\{year}\* to C:\ProgramData\AECModelBridge\bin\
-2. Copy addin\AECModelBridge.addin to C:\ProgramData\Autodesk\Revit\Addins\{year}\
-3. Restart Revit
+Use ``install.ps1`` so the add-in manifest receives the correct absolute,
+version-specific assembly path. Binaries are installed under
+``C:\ProgramData\AECModelBridge\bin\{year}\``.
 
 ## Verify Installation
 1. Start Revit
-2. In PowerShell: ``curl http://localhost:3000/health``
+2. In PowerShell: ``curl http://127.0.0.1:3000/health``
 3. Should return: ``{"status":"healthy","revit_version":"2027",...}``
 
 ## Run MCP Server
@@ -160,14 +160,14 @@ This package contains AEC Model Bridge for Revit software and its MCP server.
 .\server\revit_mcp_server.exe
 
 # If using Python wheel:
-pip install server\revit_mcp_server-*.whl
+pip install server\aec_model_bridge-*.whl
 python -m revit_mcp_server
 ``````
 
 ## Documentation
 - README: ../README.md
 - Security: ../docs/security.md
-- Copilot Integration: ../docs/copilot-integration.md
+- MCP clients: ../docs/marketplaces.md
 
 ## Support
 https://github.com/Sam-AEC/aec-model-bridge/issues
@@ -188,7 +188,7 @@ Get-ChildItem $distDir -Recurse -File | ForEach-Object {
 }
 
 Write-Host "`nNext steps:" -ForegroundColor Yellow
-Write-Host "  1. Test installation: .\scripts\install.ps1 -RevitVersion 2027" -ForegroundColor White
+Write-Host "  1. Test installation: .\scripts\install.ps1 -RevitVersion $RevitVersion" -ForegroundColor White
 Write-Host "  2. Create MSI: Build WiX installer from dist\ folder" -ForegroundColor White
 Write-Host "  3. Create release: Compress to aec-model-bridge-$Version.zip" -ForegroundColor White
 exit 0

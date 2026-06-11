@@ -4090,7 +4090,6 @@ public static class BridgeCommandFactory
         if (doc == null) throw new InvalidOperationException("No active document");
 
         var script = payload.GetProperty("script").GetString() ?? "";
-        // timeout_ms is accepted but IronPython executes synchronously; implement timeout via Thread if needed
         var outputMs = new MemoryStream();
         var errorMs = new MemoryStream();
         string output = "";

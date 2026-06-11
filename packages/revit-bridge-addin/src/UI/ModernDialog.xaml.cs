@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using RevitBridge;
 
 namespace RevitBridge.UI
 {
@@ -69,9 +70,17 @@ namespace RevitBridge.UI
             // Enable dragging by clicking anywhere on the header
             MouseDown += (s, e) =>
             {
-                if (e.ChangedButton == MouseButton.Left && e.GetPosition(this).Y < 60)
+                if (e.ChangedButton == MouseButton.Left && e.GetPosition(this).Y < 68)
                 {
                     DragMove();
+                }
+            };
+
+            KeyDown += (s, e) =>
+            {
+                if (e.Key == Key.Escape)
+                {
+                    Close();
                 }
             };
         }
@@ -259,6 +268,43 @@ namespace RevitBridge.UI
                 Margin = new Thickness(0, 15, 0, 15)
             };
             ContentPanel.Children.Add(separator);
+        }
+
+        public void AddLinkButtons(params (string label, string url)[] links)
+        {
+            var panel = new WrapPanel
+            {
+                Margin = new Thickness(0, 8, 0, 8),
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+
+            foreach (var link in links)
+            {
+                var button = new Button
+                {
+                    Content = link.label,
+                    Style = (Style)FindResource("SecondaryButton"),
+                    Padding = new Thickness(14, 7, 14, 7),
+                    Margin = new Thickness(0, 0, 8, 8),
+                    ToolTip = link.url
+                };
+                button.Click += (s, e) =>
+                {
+                    if (!ProductInfo.TryOpenUrl(link.url, out var error))
+                    {
+                        MessageBox.Show(
+                            this,
+                            $"Could not open the link.\n\n{link.url}\n\n{error}",
+                            ProductInfo.ProductName,
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Warning
+                        );
+                    }
+                };
+                panel.Children.Add(button);
+            }
+
+            ContentPanel.Children.Add(panel);
         }
 
         public void SetActionButton(string text, Action? action = null)

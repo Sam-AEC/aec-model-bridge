@@ -1,8 +1,8 @@
 using System;
-using System.Diagnostics;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using RevitBridge;
 using RevitBridge.UI;
 using MediaColor = System.Windows.Media.Color;
 using MediaBrush = System.Windows.Media.SolidColorBrush;
@@ -21,28 +21,30 @@ namespace RevitBridge.Bridge
         private void ShowSettingsDialog()
         {
             var dialog = new ModernDialog();
-            dialog.SetTitle("Bridge Settings", "Configuration");
+            dialog.SetTitle("Bridge Configuration", "Current local settings");
 
             dialog.AddInfoSection("Server Configuration",
-                "Port: 3000\n" +
-                "Host: localhost\n" +
-                "Auto-start: Enabled\n" +
-                "Logging: Enabled");
+                "Address: http://127.0.0.1:3000/\n" +
+                "Startup: Automatic with Revit\n" +
+                "Transport: Localhost HTTP\n" +
+                "Revit dispatch: ExternalEvent");
 
             dialog.AddSeparator();
 
             dialog.AddInfoSection("Features",
-                "✅ Universal Bridge API\n" +
-                "✅ Natural Language Processing\n" +
-                "✅ Transaction Management\n" +
-                "✅ Error Handling\n" +
-                "✅ Batch Operations");
+                "Universal bridge routes\n" +
+                "Revit-safe main-thread execution\n" +
+                "Audit logging\n" +
+                "Batch operations\n" +
+                "Reflection and in-process Python capabilities");
 
             dialog.AddSeparator();
 
             dialog.AddInfoSection("Advanced",
-                "Note: Advanced settings can be configured in the config file.\n" +
-                "Location: %AppData%\\AECModelBridge\\config.json");
+                "Distribution config:\n" +
+                "C:\\ProgramData\\AECModelBridge\\config\\default.json\n\n" +
+                "Bridge logs:\n" +
+                "%APPDATA%\\AECModelBridge\\Logs\\bridge.jsonl");
 
             dialog.SetActionButton("OK");
             dialog.ShowDialog();
@@ -64,9 +66,9 @@ namespace RevitBridge.Bridge
             dialog.SetTitle("AEC Model Bridge Help", "Documentation & Support");
 
             dialog.AddStatsGrid(
-                ("📘", "Tools", "233"),
-                ("🎯", "Coverage", "99%"),
-                ("⚡", "Commands", "143")
+                ("MCP", "MCP tools", ProductInfo.McpToolCount.ToString()),
+                ("API", "Bridge routes", BridgeCommandFactory.GetToolCatalog().Count.ToString()),
+                (".NET", "Revit versions", "2024-2027")
             );
 
             dialog.AddSeparator();
@@ -80,39 +82,29 @@ namespace RevitBridge.Bridge
             dialog.AddSeparator();
 
             dialog.AddInfoSection("Available Commands",
-                "• Filtering (15 commands)\n" +
-                "• Geometry (20 commands)\n" +
-                "• Families (12 commands)\n" +
-                "• MEP (10 commands)\n" +
-                "• Structural (8 commands)\n" +
-                "• Batch Operations (9 commands)\n" +
-                "• Analysis & QA (7 commands)\n" +
-                "• And many more...");
+                "Model authoring and inspection\n" +
+                "Parameters, views, sheets, and schedules\n" +
+                "Architecture, structure, and MEP\n" +
+                "Exports, worksharing, and QA\n" +
+                "Reflection and in-process Python");
 
             dialog.AddSeparator();
 
             dialog.AddInfoSection("Documentation",
-                "GitHub: github.com/Sam-AEC/aec-model-bridge\n" +
-                "Docs: See README.md for full documentation");
+                $"{ProductInfo.RepositoryUrl}\n" +
+                "Use the links below for setup, documentation, and support.");
 
             dialog.AddInfoSection("Support",
-                "For issues and feature requests:\n" +
-                "Create an issue on GitHub repository");
+                "Report reproducible defects and feature requests through GitHub Issues.");
 
-            dialog.SetActionButton("Open GitHub", () =>
-            {
-                try
-                {
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = "https://github.com/Sam-AEC/aec-model-bridge",
-                        UseShellExecute = true
-                    });
-                }
-                catch { }
-            });
+            dialog.AddLinkButtons(
+                ("Documentation", ProductInfo.DocumentationUrl),
+                ("GitHub Issues", ProductInfo.IssuesUrl),
+                ("GitHub Profile", ProductInfo.GitHubProfileUrl),
+                ("LinkedIn", ProductInfo.LinkedInUrl)
+            );
 
-            dialog.ShowCancelButton(() => { }); // Just close
+            dialog.SetActionButton("Close");
             dialog.ShowDialog();
         }
     }
@@ -129,10 +121,10 @@ namespace RevitBridge.Bridge
         private void ShowAboutDialog()
         {
             var dialog = new ModernDialog();
-            dialog.SetTitle("About AEC Model Bridge", "Version 1.0.1");
+            dialog.SetTitle("About AEC Model Bridge", $"Version {ProductInfo.Version}");
 
             dialog.AddStatusCard(
-                "🏆",
+                "MCP",
                 "AEC Model Bridge",
                 "Independent MCP integration for Revit software",
                 new MediaBrush(MediaColor.FromRgb(33, 150, 243))
@@ -141,29 +133,32 @@ namespace RevitBridge.Bridge
             dialog.AddSeparator();
 
             dialog.AddInfoSection("Version Information",
-                "Version: 1.0.1\n" +
+                $"Version: {ProductInfo.Version}\n" +
                 $"Revit: {App.RevitVersion ?? "Unknown"}\n" +
-                "Build: 2026.06.11\n" +
                 "Platform: Revit-version-specific .NET runtime");
 
             dialog.AddSeparator();
 
             dialog.AddInfoSection("Features",
-                "✅ 233 Available Tools\n" +
-                "✅ 99% Workflow Coverage\n" +
-                "✅ Natural Language Support\n" +
-                "✅ All Disciplines (Arch, MEP, Structural)\n" +
-                "✅ Batch Operations\n" +
-                "✅ Quality Assurance Tools\n" +
-                "✅ Universal Reflection API");
+                $"{ProductInfo.McpToolCount} MCP tools\n" +
+                $"{BridgeCommandFactory.GetToolCatalog().Count} active bridge routes\n" +
+                "Architecture, structure, and MEP operations\n" +
+                "Batch, export, and QA workflows\n" +
+                "Universal reflection and in-process Python APIs");
 
             dialog.AddSeparator();
 
             dialog.AddInfoSection("Credits",
-                "Built with Model Context Protocol (MCP)\n" +
-                "Revit API Integration\n\n" +
+                $"Maintained by {ProductInfo.MaintainerName}\n" +
+                "Built with Model Context Protocol and the Revit desktop API.\n\n" +
                 "Copyright 2026 AEC Model Bridge Contributors\n\n" +
                 "Not affiliated with or endorsed by Autodesk.");
+
+            dialog.AddLinkButtons(
+                ("Repository", ProductInfo.RepositoryUrl),
+                ("GitHub Profile", ProductInfo.GitHubProfileUrl),
+                ("LinkedIn", ProductInfo.LinkedInUrl)
+            );
 
             dialog.SetActionButton("Close");
             dialog.ShowDialog();

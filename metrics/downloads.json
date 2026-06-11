@@ -1,0 +1,43 @@
+{
+    "schema_version":  1,
+    "repository":  "Sam-AEC/aec-model-bridge",
+    "updated_at":  "2026-06-11T06:27:45.8430667+00:00",
+    "totals":  {
+                   "all_releases":  49,
+                   "latest_release":  1,
+                   "last_7_days":  null,
+                   "last_30_days":  null
+               },
+    "releases":  [
+                     {
+                         "tag":  "v1.0.1",
+                         "published_at":  "2026-06-10T23:05:58Z",
+                         "prerelease":  false,
+                         "downloads":  1
+                     },
+                     {
+                         "tag":  "v1.0.0",
+                         "published_at":  "2026-05-27T07:47:54Z",
+                         "prerelease":  false,
+                         "downloads":  0
+                     },
+                     {
+                         "tag":  "v0.1.1",
+                         "published_at":  "2026-04-23T18:11:39Z",
+                         "prerelease":  false,
+                         "downloads":  48
+                     },
+                     {
+                         "tag":  "v0.1.0",
+                         "published_at":  "2026-01-07T16:32:53Z",
+                         "prerelease":  true,
+                         "downloads":  0
+                     }
+                 ],
+    "history":  [
+                    {
+                        "date":  "2026-06-11",
+                        "total":  49
+                    }
+                ]
+}

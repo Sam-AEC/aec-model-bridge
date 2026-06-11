@@ -1,10 +1,22 @@
 param(
-    [string]$RevitVersion = "2024",
+    [string]$RevitVersion = "2027",
+    [string]$Version = "1.0.2",
     [switch]$AllUsers,
-    [string]$DistPath = "$PSScriptRoot\..\dist\AECModelBridge"
+    [string]$DistPath
 )
 
 $ErrorActionPreference = "Stop"
+
+if (-not $DistPath) {
+    $packagedLayout = Test-Path -LiteralPath (Join-Path $PSScriptRoot "bin")
+    $DistPath = if ($packagedLayout) {
+        $PSScriptRoot
+    }
+    else {
+        Join-Path $PSScriptRoot "..\dist\AECModelBridge"
+    }
+}
+$DistPath = [System.IO.Path]::GetFullPath($DistPath)
 
 Write-Host "AEC Model Bridge Installer" -ForegroundColor Cyan
 Write-Host "==================`n" -ForegroundColor Cyan
@@ -20,7 +32,7 @@ if ($PSScriptRoot -like "*C:\Windows*") {
 if (-not (Test-Path $DistPath)) {
     Write-Host "Distribution package not found at: $DistPath" -ForegroundColor Yellow
     Write-Host "Auto-triggering packaging for Revit $RevitVersion..." -ForegroundColor Cyan
-    & "$PSScriptRoot\package.ps1" -RevitVersion $RevitVersion -Version "1.0.1"
+    & "$PSScriptRoot\package.ps1" -RevitVersion $RevitVersion -Version $Version
     
     if (-not (Test-Path $DistPath)) {
         Write-Error "Packaging failed. Please run .\scripts\package.ps1 manually to diagnose."
@@ -28,9 +40,10 @@ if (-not (Test-Path $DistPath)) {
     }
 }
 
-# Install binaries to ProgramData
+# Install binaries to a version-specific ProgramData directory so supported
+# Revit releases can coexist without overwriting one another.
 Write-Host "Installing binaries..." -ForegroundColor Yellow
-$targetBin = "C:\ProgramData\AECModelBridge\bin"
+$targetBin = "C:\ProgramData\AECModelBridge\bin\$RevitVersion"
 New-Item -ItemType Directory -Path $targetBin -Force | Out-Null
 
 $sourceBin = "$DistPath\bin\$RevitVersion"
@@ -52,13 +65,63 @@ else {
 }
 
 New-Item -ItemType Directory -Path $addinDir -Force | Out-Null
-Copy-Item "$DistPath\addin\AECModelBridge.addin" $addinDir -Force
+$sourceManifest = Join-Path $DistPath "addin\AECModelBridge.addin"
+$targetManifest = Join-Path $addinDir "AECModelBridge.addin"
+[xml]$manifest = Get-Content -LiteralPath $sourceManifest -Raw
+$manifest.RevitAddIns.AddIn.Assembly = [string](Join-Path $targetBin "AECModelBridge.dll")
+$manifest.Save($targetManifest)
 $legacyManifest = Join-Path $addinDir "RevitBridge.addin"
 if (Test-Path $legacyManifest) {
     Remove-Item -LiteralPath $legacyManifest -Force
     Write-Host "  Removed legacy manifest: $legacyManifest" -ForegroundColor Gray
 }
+
+$otherAddinDir = if ($AllUsers) {
+    "$env:APPDATA\Autodesk\Revit\Addins\$RevitVersion"
+}
+else {
+    "C:\ProgramData\Autodesk\Revit\Addins\$RevitVersion"
+}
+foreach ($duplicateName in @("AECModelBridge.addin", "RevitBridge.addin")) {
+    $duplicateManifest = Join-Path $otherAddinDir $duplicateName
+    if (Test-Path -LiteralPath $duplicateManifest) {
+        try {
+            Remove-Item -LiteralPath $duplicateManifest -Force
+            Write-Host "  Removed duplicate manifest: $duplicateManifest" -ForegroundColor Gray
+        }
+        catch {
+            Write-Warning "Could not remove duplicate manifest: $duplicateManifest"
+        }
+    }
+}
 Write-Host "  Installed to: $addinDir" -ForegroundColor Green
+
+$legacyBinRoot = "C:\ProgramData\AECModelBridge\bin"
+$legacyAssembly = Join-Path $legacyBinRoot "AECModelBridge.dll"
+if (Test-Path -LiteralPath $legacyAssembly) {
+    $manifestRoots = @(
+        "$env:APPDATA\Autodesk\Revit\Addins",
+        "C:\ProgramData\Autodesk\Revit\Addins"
+    )
+    $legacyReferences = foreach ($manifestRoot in $manifestRoots) {
+        if (Test-Path -LiteralPath $manifestRoot) {
+            Get-ChildItem -LiteralPath $manifestRoot -Recurse -Filter "*.addin" -File -ErrorAction SilentlyContinue |
+                Where-Object {
+                    (Get-Content -LiteralPath $_.FullName -Raw -ErrorAction SilentlyContinue) -match
+                        [regex]::Escape($legacyAssembly)
+                }
+        }
+    }
+
+    if (-not $legacyReferences) {
+        Get-ChildItem -LiteralPath $legacyBinRoot -File -ErrorAction SilentlyContinue |
+            Remove-Item -Force
+        Write-Host "  Removed obsolete shared binary files from: $legacyBinRoot" -ForegroundColor Gray
+    }
+    else {
+        Write-Warning "Legacy shared binaries remain because another add-in manifest still references them."
+    }
+}
 
 # Copy config (optional)
 Write-Host "`nCopying default configuration..." -ForegroundColor Yellow
@@ -74,13 +137,13 @@ Write-Host "========================================" -ForegroundColor Cyan
 
 Write-Host "`nInstalled components:" -ForegroundColor Yellow
 Write-Host "  Bridge DLL:    $targetBin\AECModelBridge.dll"
-Write-Host "  Add-in:        $addinDir\AECModelBridge.addin"
+Write-Host "  Add-in:        $targetManifest"
 Write-Host "  Config:        $configTarget\default.json"
 
 Write-Host "`nNext steps:" -ForegroundColor Yellow
 Write-Host "  1. Restart Revit $RevitVersion" -ForegroundColor White
 Write-Host "  2. Open a project in Revit" -ForegroundColor White
-Write-Host "  3. Verify bridge: curl http://localhost:3000/health" -ForegroundColor White
+Write-Host "  3. Verify bridge: curl http://127.0.0.1:3000/health" -ForegroundColor White
 Write-Host "  4. Expected response: {`"status`":`"healthy`",`"revit_version`":`"$RevitVersion`",...}" -ForegroundColor Gray
 
 Write-Host "`nTo install MCP server:" -ForegroundColor Yellow

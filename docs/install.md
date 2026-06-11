@@ -12,9 +12,10 @@ This guide covers installation for both mock mode (no Revit required) and bridge
 ### Bridge Mode (Additional)
 - Windows 10/11
 - Autodesk Revit 2024-2027
-- .NET Framework 4.8
-- Visual Studio 2019/2022 or MSBuild tools
-- Revit SDK (installed with Revit or available from Autodesk Developer Network)
+- .NET Framework 4.8 developer tools for Revit 2024
+- .NET 8 SDK for Revit 2025-2026
+- .NET 10 SDK for Revit 2027
+- Visual Studio 2022 Build Tools or the matching .NET SDK
 
 ## Mock Mode Setup
 
@@ -52,21 +53,15 @@ Set required environment variables:
 ```powershell
 # PowerShell (Windows)
 $env:MCP_REVIT_MODE = "mock"
-$env:WORKSPACE_DIR = "C:\revit-workspace"
+$env:MCP_REVIT_WORKSPACE_DIR = "C:\revit-workspace"
 $env:MCP_REVIT_ALLOWED_DIRECTORIES = "C:\revit-workspace;C:\temp"
 ```
 
 ```bash
 # Bash (Linux/Mac)
 export MCP_REVIT_MODE="mock"
-export WORKSPACE_DIR="/home/user/revit-workspace"
-export MCP_REVIT_ALLOWED_DIRECTORIES="/home/user/revit-workspace:/tmp"
-```
-
-Or use the provided script:
-
-```powershell
-.\scripts\dev.ps1
+export MCP_REVIT_WORKSPACE_DIR="/home/user/revit-workspace"
+export MCP_REVIT_ALLOWED_DIRECTORIES="/home/user/revit-workspace;/tmp"
 ```
 
 ### 5. Verify Installation
@@ -85,18 +80,6 @@ python -m revit_mcp_server
 
 The server listens on stdin/stdout for MCP protocol messages.
 
-### 7. Run Demo Client
-
-```bash
-python packages/client-demo/demo.py
-```
-
-Expected output:
-- Health check: `{"status": "healthy", "mode": "mock"}`
-- Document opened: Mock response with document path
-- Export quantities: Mock CSV file created in workspace
-- Audit log: JSON file with request tracking
-
 ## Bridge Mode Setup
 
 Bridge mode connects the MCP server to a running Revit instance via the .NET add-in.
@@ -105,47 +88,44 @@ Bridge mode connects the MCP server to a running Revit instance via the .NET add
 
 Follow steps 1-3 from Mock Mode Setup.
 
-### 2. Set Environment Variable
+### 2. Build Bridge Add-in
 
 ```powershell
-$env:REVIT_SDK = "C:\Program Files\Autodesk\Revit 2024\SDK"
-```
-
-Adjust path to your Revit version and SDK location.
-
-### 3. Build Bridge Add-in
-
-```powershell
-.\scripts\build-addin.ps1
+.\scripts\build-addin.ps1 -RevitVersion 2027
 ```
 
 This compiles [RevitBridge.csproj](../packages/revit-bridge-addin/RevitBridge.csproj) to a DLL.
 
 Expected output: `packages/revit-bridge-addin/bin/Release/{year}/{framework}/AECModelBridge.dll`
 
-### 4. Install Add-in Manifest
+### 3. Package and Install the Add-in
 
 ```powershell
-.\scripts\install-addin.ps1 -RevitYear 2024
+.\scripts\package.ps1 -RevitVersion 2027
+.\scripts\install.ps1 -RevitVersion 2027
 ```
 
-This copies [AECModelBridge.addin](../packages/revit-bridge-addin/AECModelBridge.addin) to `%ProgramData%\Autodesk\Revit\Addins\2024\`.
+By default, the installer copies [AECModelBridge.addin](../packages/revit-bridge-addin/AECModelBridge.addin)
+to `%APPDATA%\Autodesk\Revit\Addins\2027\`. Use `-AllUsers` to install
+the manifest under `%ProgramData%`.
 
-### 5. Launch Revit
+### 4. Launch Revit
 
-Start Revit. The add-in loads automatically and starts the HTTP bridge on `http://localhost:3000/`.
+Start Revit. The add-in loads automatically and starts the HTTP bridge on `http://127.0.0.1:3000/`.
 
 Verify in Revit:
-- Check the Add-Ins tab for "Revit Bridge" (if UI is implemented)
-- Bridge server runs silently in background
+- Check the `AEC Bridge` ribbon tab.
+- Use `Status` to inspect the local bridge.
 
-### 6. Configure MCP Server for Bridge Mode
+### 5. Configure MCP Server for Bridge Mode
 
 Update environment:
 
 ```powershell
 $env:MCP_REVIT_MODE = "bridge"
-$env:MCP_REVIT_BRIDGE_URL = "http://localhost:3000"
+$env:MCP_REVIT_BRIDGE_URL = "http://127.0.0.1:3000"
+$env:MCP_REVIT_WORKSPACE_DIR = "C:\RevitProjects"
+$env:MCP_REVIT_ALLOWED_DIRECTORIES = "C:\RevitProjects"
 ```
 
 Or use the workspace MCP configuration in [.vscode/mcp.json](../.vscode/mcp.json) for VS Code and GitHub Copilot, and set the same environment variables in your shell for other clients:
@@ -158,28 +138,20 @@ Or use the workspace MCP configuration in [.vscode/mcp.json](../.vscode/mcp.json
       "args": ["-m", "revit_mcp_server.mcp_server"],
       "env": {
         "MCP_REVIT_MODE": "bridge",
-        "MCP_REVIT_BRIDGE_URL": "http://127.0.0.1:3000"
+        "MCP_REVIT_BRIDGE_URL": "http://127.0.0.1:3000",
+        "MCP_REVIT_WORKSPACE_DIR": "C:\\RevitProjects",
+        "MCP_REVIT_ALLOWED_DIRECTORIES": "C:\\RevitProjects"
       }
     }
   }
 }
 ```
 
-### 7. Run Bridge Server
+### 6. Run Bridge Server
 
 ```bash
 python -m revit_mcp_server
 ```
-
-### 8. Run Demo Client
-
-```bash
-python packages/client-demo/demo.py
-```
-
-Expected output:
-- Health check: `{"status": "healthy", "mode": "bridge", "revit_version": "2024"}`
-- Real Revit operations execute via the bridge
 
 ## Configuration Reference
 
@@ -188,31 +160,11 @@ Expected output:
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `MCP_REVIT_MODE` | Yes | - | `mock` or `bridge` |
-| `WORKSPACE_DIR` | Yes | - | Root directory for file operations |
+| `MCP_REVIT_WORKSPACE_DIR` | Yes | - | Root directory for file operations |
 | `MCP_REVIT_ALLOWED_DIRECTORIES` | Yes | - | Semicolon-separated list of allowed paths |
-| `MCP_REVIT_BRIDGE_URL` | Bridge only | `http://localhost:3000` | Bridge HTTP endpoint |
+| `MCP_REVIT_BRIDGE_URL` | Bridge only | `http://127.0.0.1:3000` | Bridge HTTP endpoint |
 | `MCP_REVIT_AUDIT_LOG` | No | `workspace/audit.jsonl` | Audit log file path |
 | `REVIT_SDK` | Build only | - | Path to Revit SDK for building add-in |
-
-### Configuration File
-
-Alternative to environment variables: use a JSON config file.
-
-```json
-{
-  "mode": "mock",
-  "workspace_dir": "/path/to/workspace",
-  "allowed_directories": ["/path/to/workspace", "/path/to/data"],
-  "bridge_url": "http://localhost:3000",
-  "audit_log": "workspace/audit.jsonl"
-}
-```
-
-Load with:
-
-```bash
-python -m revit_mcp_server --config examples/revit-mcp-config.json
-```
 
 ## Troubleshooting
 
@@ -221,7 +173,7 @@ python -m revit_mcp_server --config examples/revit-mcp-config.json
 **Error**: `WorkspaceViolation: Path outside allowed directories`
 
 **Fix**:
-1. Verify `WORKSPACE_DIR` and `MCP_REVIT_ALLOWED_DIRECTORIES` are set
+1. Verify `MCP_REVIT_WORKSPACE_DIR` and `MCP_REVIT_ALLOWED_DIRECTORIES` are set
 2. Ensure paths use absolute paths (not relative)
 3. On Windows, use double backslashes or forward slashes: `C:\\workspace` or `C:/workspace`
 4. Check directory exists and has read/write permissions
@@ -237,13 +189,13 @@ python -m revit_mcp_server --config examples/revit-mcp-config.json
 
 ### Issue: Bridge Connection Refused
 
-**Error**: `BridgeError: Connection refused to http://localhost:3000`
+**Error**: `BridgeError: Connection refused to http://127.0.0.1:3000`
 
 **Fix**:
 1. Verify Revit is running with the add-in loaded
-2. Check add-in manifest is installed: `%ProgramData%\Autodesk\Revit\Addins\2024\AECModelBridge.addin`
+2. Check the add-in manifest under `%APPDATA%\Autodesk\Revit\Addins\{year}\AECModelBridge.addin` or the all-user `%ProgramData%` path
 3. Verify DLL path in manifest points to the built DLL
-4. Check Windows Firewall isn't blocking localhost:3000
+4. Check Windows Firewall isn't blocking `127.0.0.1:3000`
 5. Review Revit Journal file for add-in load errors
 
 ### Issue: Add-in Build Failed
@@ -261,7 +213,7 @@ python -m revit_mcp_server --config examples/revit-mcp-config.json
 **Error**: Export tools don't create output files in mock mode
 
 **Fix**:
-1. Verify `WORKSPACE_DIR` exists and is writable
+1. Verify `MCP_REVIT_WORKSPACE_DIR` exists and is writable
 2. Check `MCP_REVIT_MODE=mock` is set
 3. Review audit log for errors: `cat workspace/audit.jsonl`
 4. Ensure no file permission issues in workspace directory
@@ -271,4 +223,3 @@ python -m revit_mcp_server --config examples/revit-mcp-config.json
 - Review [tool catalog](tools.md) for available operations
 - Understand [architecture](architecture.md) and trust boundaries
 - Read [security model](security.md) for production deployments
-- Explore [examples](../examples/) for workflow configurations

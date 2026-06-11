@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Windows.Media.Imaging;
 using Autodesk.Revit.UI;
+using RevitBridge;
 using RevitBridge.UI;
 using Serilog;
 
@@ -157,12 +158,12 @@ namespace RevitBridge.Bridge
             // Settings Button (future)
             PushButtonData settingsBtnData = new PushButtonData(
                 "cmdSettings",
-                "Settings",
+                "Config",
                 assemblyPath,
                 "RevitBridge.Bridge.CommandSettings"
             );
-            settingsBtnData.ToolTip = "Configure Bridge Settings";
-            settingsBtnData.LongDescription = "Configure server settings, port, logging, and other options.";
+            settingsBtnData.ToolTip = "View Bridge Configuration";
+            settingsBtnData.LongDescription = "View the local server address, runtime behavior, configuration path, and log path.";
             settingsBtnData.Image = settingsIcon;
             settingsBtnData.LargeImage = settingsIcon;
             settingsBtnData.AvailabilityClassName = "RevitBridge.Bridge.CommandAvailability";
@@ -179,12 +180,22 @@ namespace RevitBridge.Bridge
             helpBtnData.Image = helpIcon;
             helpBtnData.LargeImage = helpIcon;
 
+            // About Button
+            PushButtonData aboutBtnData = new PushButtonData(
+                "cmdAbout",
+                "About",
+                assemblyPath,
+                "RevitBridge.Bridge.CommandAbout"
+            );
+            aboutBtnData.ToolTip = "About AEC Model Bridge";
+            aboutBtnData.LongDescription = "View the installed version, maintainer, documentation, and support links.";
+            aboutBtnData.Image = brandIcon;
+            aboutBtnData.LargeImage = brandIcon;
+
             toolsPanel.AddItem(settingsBtnData);
             toolsPanel.AddItem(helpBtnData);
-
-            // Add panel title text
-            TextBoxData textBoxData = new TextBoxData("txtInfo");
-            textBoxData.ToolTip = "AI-Powered Revit Automation";
+            toolsPanel.AddSeparator();
+            toolsPanel.AddItem(aboutBtnData);
 
             Log.Information("Modern ribbon interface created with icons");
         }

@@ -2,7 +2,7 @@
 <RevitAddIns>
   <AddIn Type="Application">
     <Name>AEC Model Bridge</Name>
-    <Assembly>C:\ProgramData\AECModelBridge\bin\AECModelBridge.dll</Assembly>
+    <Assembly>C:\ProgramData\AECModelBridge\bin\2027\AECModelBridge.dll</Assembly>
     <AddInId>6721F048-9A81-4DE6-8543-B485A6329B92</AddInId>
     <FullClassName>RevitBridge.Bridge.App</FullClassName>
     <VendorId>SAMA</VendorId>

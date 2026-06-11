@@ -38,7 +38,7 @@ AEC Model Bridge is a two-tier system connecting MCP clients to Revit software t
                              │ {"tool": "...", "payload": {...}}
                              │
 ┌────────────────────────────▼─────────────────────────────────────┐
-│  Revit Bridge Add-in (.NET 4.8)                                  │
+│  AEC Model Bridge add-in (.NET, version-specific target)          │
 │  ┌──────────────────────────────────────────────────────────┐    │
 │  │ BridgeServer (HttpListener on 127.0.0.1:3000)            │    │
 │  └────────────────────────────┬─────────────────────────────┘    │
@@ -94,13 +94,13 @@ AEC Model Bridge is a two-tier system connecting MCP clients to Revit software t
 **Configuration**:
 ```bash
 MCP_REVIT_MODE=mock|bridge          # Execution mode
-WORKSPACE_DIR=/path/to/workspace    # Root directory for file operations
+MCP_REVIT_WORKSPACE_DIR=/path/to/workspace # Root directory for file operations
 MCP_REVIT_ALLOWED_DIRECTORIES=...   # Colon/semicolon-separated paths
 MCP_REVIT_BRIDGE_URL=http://...     # Bridge HTTP endpoint (bridge mode only)
 MCP_REVIT_AUDIT_LOG=/path/to/log    # Audit log file
 ```
 
-### Revit Bridge Add-in (.NET)
+### AEC Model Bridge Add-in (.NET)
 
 **Location**: [packages/revit-bridge-addin/](../packages/revit-bridge-addin/)
 
@@ -121,7 +121,8 @@ MCP_REVIT_AUDIT_LOG=/path/to/log    # Audit log file
 1. Build with MSBuild or Visual Studio
 2. Output DLL: `packages/revit-bridge-addin/bin/Release/{year}/{framework}/AECModelBridge.dll`
 3. Manifest file: [AECModelBridge.addin](../packages/revit-bridge-addin/AECModelBridge.addin)
-4. Install to: `%ProgramData%\Autodesk\Revit\Addins\{year}\AECModelBridge.addin`
+4. Install per-user to: `%APPDATA%\Autodesk\Revit\Addins\{year}\AECModelBridge.addin`
+5. Installed binaries: `C:\ProgramData\AECModelBridge\bin\{year}\`
 
 **Communication Protocol**:
 
@@ -315,7 +316,7 @@ assert response["output_path"] == "/workspace/test.csv"
 1. Build and install bridge add-in
 2. Start Revit
 3. Verify HTTP listener: `curl http://localhost:3000/`
-4. Run demo client: `python packages/client-demo/demo.py`
+4. Connect an MCP client using the configuration in [marketplaces.md](marketplaces.md)
 5. Check audit log for recorded requests
 
 ## Security Considerations

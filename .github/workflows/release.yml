@@ -6,7 +6,7 @@ on:
       version:
         description: Release version without the v prefix
         required: true
-        default: 1.0.1
+        default: 1.0.2
       revit_version:
         description: Revit version to package
         required: true
@@ -58,4 +58,4 @@ jobs:
           dist/release/*
           --title "AEC Model Bridge v${{ inputs.version }}"
           --generate-notes
-          --verify-tag
+          --target "${{ github.sha }}"
