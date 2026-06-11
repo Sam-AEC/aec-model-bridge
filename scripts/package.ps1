@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.0.2",
+    [string]$Version = "1.1.0",
     [string]$RevitVersion = "All"
 )
 
@@ -110,6 +110,15 @@ Write-Host "  Copied AECModelBridge.addin" -ForegroundColor Green
 Copy-Item "$PSScriptRoot\install.ps1" "$distDir\install.ps1" -Force
 Write-Host "  Copied install.ps1" -ForegroundColor Green
 
+# Include license terms and required notices in every distribution.
+Copy-Item "$PSScriptRoot\..\LICENSE" "$distDir\LICENSE" -Force
+Copy-Item "$PSScriptRoot\..\NOTICE" "$distDir\NOTICE" -Force
+Copy-Item "$PSScriptRoot\..\LICENSING.md" "$distDir\LICENSING.md" -Force
+$distLicenses = Join-Path $distDir "LICENSES"
+New-Item -ItemType Directory -Path $distLicenses -Force | Out-Null
+Copy-Item "$PSScriptRoot\..\LICENSES\*" $distLicenses -Recurse -Force
+Write-Host "  Copied licensing documents" -ForegroundColor Green
+
 # Create default config
 Write-Host "`nCreating default configuration..." -ForegroundColor Yellow
 $configDir = "$distDir\config"
@@ -178,6 +187,11 @@ python -m revit_mcp_server
 
 ## Support
 https://github.com/Sam-AEC/aec-model-bridge/issues
+
+## License
+Version 1.1.0 and later is available under the PolyForm Small Business
+License 1.0.0. Organizations outside its thresholds need a separate
+commercial license. See LICENSING.md.
 
 ## Trademark Notice
 AEC Model Bridge is independent and is not affiliated with Autodesk.

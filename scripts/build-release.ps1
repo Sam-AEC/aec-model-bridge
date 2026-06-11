@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.0.2",
+    [string]$Version = "1.1.0",
     [string]$RevitVersion = "2027",
     [switch]$UpdateServerMetadata
 )
@@ -63,6 +63,10 @@ Copy-Item (Join-Path $pythonPackage "manifest.json") $mcpbStage -Force
 Copy-Item (Join-Path $pythonPackage "pyproject.toml") $mcpbStage -Force
 Copy-Item (Join-Path $pythonPackage "uv.lock") $mcpbStage -Force
 Copy-Item (Join-Path $pythonPackage "README.md") $mcpbStage -Force
+Copy-Item (Join-Path $pythonPackage "LICENSE") $mcpbStage -Force
+Copy-Item (Join-Path $pythonPackage "NOTICE") $mcpbStage -Force
+Copy-Item (Join-Path $pythonPackage "LICENSING.md") $mcpbStage -Force
+Copy-Item (Join-Path $pythonPackage "LICENSES") $mcpbStage -Recurse -Force
 Copy-Item (Join-Path $pythonPackage "src") $mcpbStage -Recurse -Force
 
 Get-ChildItem -Path $mcpbStage -Recurse -Directory -Filter "__pycache__" |

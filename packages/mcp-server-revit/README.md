@@ -1,6 +1,6 @@
 # AEC Model Bridge (Python Package)
 
-Independent MCP integration for Autodesk Revit® software, used by AI clients over stdio.
+Independent MCP integration for Autodesk Revit software, used by AI clients over stdio.
 
 - Repository: https://github.com/Sam-AEC/aec-model-bridge
 - Maintainer: [A. Sam Mohammad](https://github.com/Sam-AEC)
@@ -21,6 +21,12 @@ Environment variables (prefix `MCP_REVIT_`) include:
 
 Autodesk and Revit are trademarks of the Autodesk group of companies. Sam-AEC
 is not affiliated with Autodesk.
+
+## License
+
+Version 1.1.0 and later is available under the PolyForm Small Business License
+1.0.0. Organizations outside its thresholds need a commercial license.
+Version 1.0.2 and earlier remains MIT licensed. See `LICENSING.md`.
 
 <!-- mcp-name: io.github.Sam-AEC/aec-model-bridge -->
 

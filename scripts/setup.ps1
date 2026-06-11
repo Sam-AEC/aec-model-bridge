@@ -1,6 +1,6 @@
 param(
     [string]$RevitVersion = "2027",
-    [string]$Version = "1.0.2",
+    [string]$Version = "1.1.0",
     [switch]$Install,
     [switch]$AllUsers
 )
