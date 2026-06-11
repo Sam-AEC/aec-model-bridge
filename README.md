@@ -76,26 +76,6 @@ The curated routes are therefore not the limit of the product. They are the
 reliable, typed layer for common work. The universal tools are an advanced
 fallback for operations that have not yet been formalized as stable routes.
 
-### Comparison with public Revit MCP projects
-
-Arbitrary API execution is not unique on its own:
-
-- [MCP Server for Revit Python](https://github.com/mcp-servers-for-revit/mcp-server-for-revit-python)
-  exposes `execute_revit_code` through pyRevit Routes.
-- [Demolinator/revit-mcp-server](https://github.com/Demolinator/revit-mcp-server)
-  combines 48 documented tools with IronPython execution through pyRevit.
-- [mcp-servers-for-revit](https://github.com/mcp-servers-for-revit/mcp-servers-for-revit)
-  exposes `send_code_to_revit`, which dynamically compiles and executes C#.
-- [oakplank/RevitMCP](https://github.com/oakplank/RevitMCP)
-  documents 44 tools and a structured multi-step workflow planner.
-
-The distinguishing design here is the combined surface: a native C# add-in
-without a pyRevit dependency, 100 typed MCP tools, 103 active routes, .NET
-reflection with transient object references, in-process IronPython, mock-mode
-testing, and version-specific builds through Revit 2027. This is a technical
-comparison of the linked repositories as reviewed on June 11, 2026, not a
-claim that no other implementation can provide similar capabilities.
-
 ## Compatibility
 
 | Revit | Add-in target | Status |
