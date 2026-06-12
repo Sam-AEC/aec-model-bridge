@@ -149,7 +149,7 @@ ext-apps/
 out/
 build
 dist
-
+packages/*/build/
 
 # Debug
 npm-debug.log*
@@ -176,6 +176,7 @@ static/browser_history/*.gif
 
 # Virtual environments
 .venv
+packages/*/.venv/
 
 # user conf
 conf.yaml
