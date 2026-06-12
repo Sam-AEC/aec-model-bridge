@@ -49,18 +49,26 @@ class BridgeClient:
                     {"tool": tool, "payload": payload, "request_id": request_id}
                 )
 
-                # Handle both lowercase (status) and Pascal case (Status) from C# server
-                status = response.get("status") or response.get("Status", "ok")
-                if status == "error":
-                    message = response.get("message") or response.get("Message", "Unknown error")
-                    stack = response.get("stack_trace") or response.get("StackTrace", "N/A")
-                    raise BridgeError(
-                        f"Bridge error: {message}\n"
-                        f"Stack: {stack}"
-                    )
-
-                # Handle both lowercase and Pascal case for Result
-                result = response.get("result") or response.get("Result", {})
+                # Blueprint §3.2 envelope: { ok, request_id, data, warnings, artifacts, job }
+                # Legacy Revit envelope: { Status/status, Tool, Result/result }
+                if "ok" in response:
+                    if not response["ok"]:
+                        raise BridgeError(
+                            f"Bridge error: {response.get('message', 'Unknown error')}"
+                        )
+                    result = response.get("data") or {}
+                else:
+                    # Handle both lowercase (status) and Pascal case (Status) from C# server
+                    status = response.get("status") or response.get("Status", "ok")
+                    if status == "error":
+                        message = response.get("message") or response.get("Message", "Unknown error")
+                        stack = response.get("stack_trace") or response.get("StackTrace", "N/A")
+                        raise BridgeError(
+                            f"Bridge error: {message}\n"
+                            f"Stack: {stack}"
+                        )
+                    # Handle both lowercase and Pascal case for Result
+                    result = response.get("result") or response.get("Result", {})
 
                 # Normalize element ID keys from specific types to generic element_id
                 self._normalize_element_ids(result)
