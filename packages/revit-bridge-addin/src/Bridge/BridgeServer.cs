@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Linq;
 using Autodesk.Revit.UI;
 using Serilog;
 
@@ -21,13 +22,17 @@ public class BridgeServer
     private int _totalRequests = 0;
     private int _activeConnections = 0;
 
-    public BridgeServer(CommandQueue queue, ExternalEvent externalEvent, string prefix = "http://127.0.0.1:3000/")
+    public BridgeServer(CommandQueue queue, ExternalEvent externalEvent)
     {
         _queue = queue;
         _externalEvent = externalEvent;
         _listener = new HttpListener();
-        _listener.Prefixes.Add(prefix);
+        SessionToken = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
     }
+
+    public string SessionToken { get; }
+    public int Port { get; private set; }
+    public string RegistryFilePath { get; private set; }
 
     public bool IsListening { get; private set; }
     public bool IsRunning => IsListening;
@@ -44,10 +49,21 @@ public class BridgeServer
             if (_cts.IsCancellationRequested)
                 _cts = new CancellationTokenSource();
 
+            var tcp = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
+            tcp.Start();
+            Port = ((IPEndPoint)tcp.LocalEndpoint).Port;
+            tcp.Stop();
+
+            var prefix = $"http://127.0.0.1:{Port}/";
+            _listener.Prefixes.Clear();
+            _listener.Prefixes.Add(prefix);
+
             _listener.Start();
             _listenerTask = Task.Run(ListenerLoop, _cts.Token);
             IsListening = true;
             Log.Information("BridgeServer started on {Prefixes}", string.Join(", ", _listener.Prefixes));
+
+            WriteRegistryFile(prefix);
         }
         catch (Exception ex)
         {
@@ -67,6 +83,11 @@ public class BridgeServer
             // _listenerTask?.Wait(5000); // Avoid blocking UI thread
             IsListening = false;
             Log.Information("BridgeServer stopped");
+            
+            if (!string.IsNullOrEmpty(RegistryFilePath) && File.Exists(RegistryFilePath))
+            {
+                try { File.Delete(RegistryFilePath); } catch { }
+            }
         }
         catch (Exception ex)
         {
@@ -111,6 +132,10 @@ public class BridgeServer
             {
                 await HandleTools(context);
             }
+            else if (path == "/capabilities")
+            {
+                await HandleCapabilities(context);
+            }
             else if (path == "/execute" && context.Request.HttpMethod == "POST")
             {
                 await HandleExecute(context);
@@ -133,6 +158,13 @@ public class BridgeServer
 
     private async Task HandleExecute(HttpListenerContext context)
     {
+        var authHeader = context.Request.Headers["Authorization"];
+        if (string.IsNullOrEmpty(authHeader) || authHeader != $"Bearer {SessionToken}")
+        {
+            Respond(context, 401, new { error = "Unauthorized" });
+            return;
+        }
+
         var startTime = DateTime.UtcNow;
 
         using var reader = new StreamReader(context.Request.InputStream);
@@ -184,6 +216,46 @@ public class BridgeServer
         var tools = BridgeCommandFactory.GetToolCatalog();
         Respond(context, 200, new { tools });
         return Task.CompletedTask;
+    }
+
+    private Task HandleCapabilities(HttpListenerContext context)
+    {
+        var tools = BridgeCommandFactory.GetToolCatalog().Select(t => new { name = t });
+        Respond(context, 200, new { tools });
+        return Task.CompletedTask;
+    }
+
+    private void WriteRegistryFile(string endpoint)
+    {
+        try
+        {
+            int pid = System.Diagnostics.Process.GetCurrentProcess().Id;
+            var registryDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AECModelBridge", "registry");
+            Directory.CreateDirectory(registryDir);
+
+            RegistryFilePath = Path.Combine(registryDir, $"revit-{pid}.json");
+
+            var data = new
+            {
+                provider_id = "revit",
+                endpoint = endpoint.TrimEnd('/'),
+                pid = pid,
+                host_version = App.RevitVersion ?? "unknown",
+                connector_version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0",
+                protocol_version = 2,
+                capability_digest = "dynamic",
+                session_token = SessionToken,
+                started_at = _startTime.ToString("o")
+            };
+
+            var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(RegistryFilePath, json);
+            Log.Information("Wrote registry file to {RegistryFilePath}", RegistryFilePath);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to write registry file");
+        }
     }
 
     private void Respond(HttpListenerContext context, int statusCode, object data)
