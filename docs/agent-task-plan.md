@@ -197,7 +197,7 @@ Done 2026-06-12 · `docs/system-blueprint-and-workflows.md`, `docs/agent-handove
 
 > Goal: secure modular discovery (blueprint §3), a real Navisworks switch, and the policy gates. Lanes PY and NET run largely in parallel after B1.
 
-#### [ ] B1 — ADR 0002: Switch Contract v2 specification
+#### [x] B1 — ADR 0002: Switch Contract v2 specification (2026-06-13 · ADR merged)
 - **Lane:** DOCS · **Size:** M · **Depends on:** —
 - **Do:** Write `docs/0002-switch-contract-v2.md` finalizing: registry file JSON schema (path `%LOCALAPPDATA%\AECModelBridge\registry\<provider>-<pid>.json`; fields per blueprint §3.3), token rules (generation, ACL, header `Authorization: Bearer`), `/capabilities` manifest schema (reuse ADR 0001 §3), protocol_version=2 negotiation, legacy fixed-port fallback + deprecation timeline, stale-entry pruning rules (PID liveness + max age).
 - **Done when:** ADR merged; both PY and NET lanes can implement from it without further decisions.
@@ -610,6 +610,7 @@ Each G-task produces a 1–2 page spec in `docs/specs/` answering: named workflo
 
 Agents append one line per completed task (newest first): `YYYY-MM-DD · <task-id> · <branch/commit> · <evidence summary>`
 
+- 2026-06-13 · B1 · task/B1 · Authored docs/0002-switch-contract-v2.md establishing registry schema and auth.
 - 2026-06-13 · A11 · task/A11 · Implemented ADR 0007 and added test_perf.py asserting < 10ms dispatch overhead.
 - 2026-06-13 · A7 · task/A7 · Updated .gitignore for build artifacts and venv, confirmed CONTRIBUTING.md dist policy, noted missing 3dm files.
 - 2026-06-12 · A0 · — · Blueprint, strategy doc, handover rewrite authored (docs only, no code).
