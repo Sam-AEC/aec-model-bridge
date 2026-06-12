@@ -220,7 +220,7 @@ public class BridgeServer
 
     private Task HandleCapabilities(HttpListenerContext context)
     {
-        var tools = BridgeCommandFactory.GetToolCatalog().Select(t => new { name = t });
+        var tools = BridgeCommandFactory.GetCapabilities();
         Respond(context, 200, new { tools });
         return Task.CompletedTask;
     }
