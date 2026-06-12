@@ -16,339 +16,75 @@ namespace RevitBridge.Bridge;
 
 public static class BridgeCommandFactory
 {
+    private static readonly Dictionary<string, Func<UIApplication, JsonElement, object>> _handlers = new();
+    private static readonly List<object> _capabilities = new();
+    private static readonly List<string> _catalog = new();
+
+    static BridgeCommandFactory()
+    {
+        var methods = typeof(BridgeCommandFactory).GetMethods(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        foreach (var method in methods)
+        {
+            var attr = (BridgeCommandAttribute)Attribute.GetCustomAttribute(method, typeof(BridgeCommandAttribute));
+            if (attr != null)
+            {
+                var func = CreateHandlerDelegate(method);
+                _handlers[attr.Name] = func;
+                _catalog.Add(attr.Name);
+
+                _capabilities.Add(new
+                {
+                    name = attr.Name,
+                    is_mutating = attr.IsMutating,
+                    confirmation_required = attr.ConfirmationRequired
+                });
+            }
+        }
+    }
+
+    private static Func<UIApplication, JsonElement, object> CreateHandlerDelegate(System.Reflection.MethodInfo method)
+    {
+        var parameters = method.GetParameters();
+        if (parameters.Length == 1)
+        {
+            return (app, payload) => method.Invoke(null, new object[] { app });
+        }
+        else if (parameters.Length == 2)
+        {
+            return (app, payload) => method.Invoke(null, new object[] { app, payload });
+        }
+        throw new InvalidOperationException($"Method {method.Name} has invalid parameters.");
+    }
+
     public static object Execute(UIApplication app, string tool, JsonElement payload)
     {
-        return tool switch
+        if (_handlers.TryGetValue(tool, out var handler))
         {
-            // Existing 5 tools
-            "revit.health" => ExecuteHealth(app),
-            "revit.open_document" => ExecuteOpenDocument(app, payload),
-            "revit.list_views" => ExecuteListViews(app),
-            "revit.export_schedules" => ExecuteExportSchedules(app, payload),
-            "revit.export_pdf_by_sheet_set" => ExecuteExportPdf(app, payload),
-
-            // Document Management (5 new)
-            "revit.save_document" => ExecuteSaveDocument(app, payload),
-            "revit.close_document" => ExecuteCloseDocument(app, payload),
-            "revit.create_new_document" => ExecuteCreateNewDocument(app, payload),
-            "revit.get_document_info" => ExecuteGetDocumentInfo(app),
-            "revit.list_levels" => ExecuteListLevels(app),
-
-            // Geometry Creation (8 new)
-            "revit.create_wall" => ExecuteCreateWall(app, payload),
-            "revit.create_floor" => ExecuteCreateFloor(app, payload),
-            "revit.create_roof" => ExecuteCreateRoof(app, payload),
-            "revit.create_level" => ExecuteCreateLevel(app, payload),
-            "revit.create_grid" => ExecuteCreateGrid(app, payload),
-            "revit.create_room" => ExecuteCreateRoom(app, payload),
-            "revit.list_elements_by_category" => ExecuteListElementsByCategory(app, payload),
-            "revit.delete_element" => ExecuteDeleteElement(app, payload),
-
-            // Component Placement (4 new)
-            "revit.place_family_instance" => ExecutePlaceFamilyInstance(app, payload),
-            "revit.place_door" => ExecutePlaceDoor(app, payload),
-            "revit.place_window" => ExecutePlaceWindow(app, payload),
-            "revit.list_families" => ExecuteListFamilies(app, payload),
-
-            // View Creation (3 new)
-            "revit.create_floor_plan_view" => ExecuteCreateFloorPlanView(app, payload),
-            "revit.create_3d_view" => ExecuteCreate3DView(app, payload),
-            "revit.create_section_view" => ExecuteCreateSectionView(app, payload),
-
-            // Parameters & Properties (10 new)
-            "revit.get_element_parameters" => ExecuteGetElementParameters(app, payload),
-            "revit.set_parameter_value" => ExecuteSetParameterValue(app, payload),
-            "revit.get_parameter_value" => ExecuteGetParameterValue(app, payload),
-            "revit.list_shared_parameters" => ExecuteListSharedParameters(app),
-            "revit.create_shared_parameter" => ExecuteCreateSharedParameter(app, payload),
-            "revit.list_project_parameters" => ExecuteListProjectParameters(app),
-            "revit.create_project_parameter" => ExecuteCreateProjectParameter(app, payload),
-            "revit.batch_set_parameters" => ExecuteBatchSetParameters(app, payload),
-            "revit.get_type_parameters" => ExecuteGetTypeParameters(app, payload),
-            "revit.set_type_parameter" => ExecuteSetTypeParameter(app, payload),
-
-            // Sheets & Documentation (10 new)
-            "revit.list_sheets" => ExecuteListSheets(app),
-            "revit.create_sheet" => ExecuteCreateSheet(app, payload),
-            "revit.delete_sheet" => ExecuteDeleteSheet(app, payload),
-            "revit.place_viewport_on_sheet" => ExecutePlaceViewportOnSheet(app, payload),
-            "revit.batch_create_sheets_from_csv" => ExecuteBatchCreateSheetsFromCsv(app, payload),
-            "revit.populate_titleblock" => ExecutePopulateTitleblock(app, payload),
-            "revit.list_titleblocks" => ExecuteListTitleblocks(app),
-            "revit.get_sheet_info" => ExecuteGetSheetInfo(app, payload),
-            "revit.duplicate_sheet" => ExecuteDuplicateSheet(app, payload),
-            "revit.renumber_sheets" => ExecuteRenumberSheets(app, payload),
-
-            // Advanced Exports (5 new)
-            "revit.export_dwg_by_view" => ExecuteExportDwgByView(app, payload),
-            "revit.export_ifc_with_settings" => ExecuteExportIfcWithSettings(app, payload),
-            "revit.export_navisworks" => ExecuteExportNavisworks(app, payload),
-            "revit.export_image" => ExecuteExportImage(app, payload),
-            "revit.render_3d_view" => ExecuteRender3DView(app, payload),
-
-            // Batch 2: Selection
-            "revit.get_selection" => ExecuteGetSelection(app),
-            "revit.set_selection" => ExecuteSetSelection(app, payload),
-
-            // Batch 2: Annotation
-            "revit.create_text_note" => ExecuteCreateTextNote(app, payload),
-            "revit.create_dimension" => ExecuteCreateDimension(app, payload),
-            "revit.create_tag" => ExecuteCreateTag(app, payload),
-
-            // Batch 2: Structure
-            "revit.create_column" => ExecuteCreateColumn(app, payload),
-            "revit.create_beam" => ExecuteCreateBeam(app, payload),
-            "revit.create_foundation" => ExecuteCreateFoundation(app, payload),
-
-            // Batch 2: MEP
-            "revit.create_duct" => ExecuteCreateDuct(app, payload),
-            "revit.create_pipe" => ExecuteCreatePipe(app, payload),
-
-            // Batch 2: General Helper
-            "revit.get_categories" => ExecuteGetCategories(app),
-            "revit.get_element_type" => ExecuteGetElementType(app, payload),
-
-            // Batch 3: Editing
-            "revit.move_element" => ExecuteMoveElement(app, payload),
-            "revit.copy_element" => ExecuteCopyElement(app, payload),
-            "revit.rotate_element" => ExecuteRotateElement(app, payload),
-            "revit.mirror_element" => ExecuteMirrorElement(app, payload),
-            "revit.pin_element" => ExecutePinElement(app, payload),
-            "revit.unpin_element" => ExecuteUnpinElement(app, payload),
-
-            // Batch 3: Worksharing
-            "revit.sync_to_central" => ExecuteSyncToCentral(app, payload),
-            "revit.relinquish_all" => ExecuteRelinquishAll(app),
-            "revit.get_worksets" => ExecuteGetWorksets(app),
-
-            // Batch 3: Schedules & Data
-            "revit.create_schedule" => ExecuteCreateSchedule(app, payload),
-            "revit.get_schedule_data" => ExecuteGetScheduleData(app, payload),
-            "revit.get_element_bounding_box" => ExecuteGetElementBoundingBox(app, payload),
-
-            // Batch 4: Phasing
-            "revit.get_phases" => ExecuteGetPhases(app),
-            "revit.get_phase_filters" => ExecuteGetPhaseFilters(app),
-
-            // Batch 4: Design Options
-            "revit.get_design_options" => ExecuteGetDesignOptions(app),
-
-            // Batch 4: Groups
-            "revit.create_group" => ExecuteCreateGroup(app, payload),
-            "revit.ungroup" => ExecuteUngroup(app, payload),
-            "revit.get_group_members" => ExecuteGetGroupMembers(app, payload),
-
-            // Batch 4: Links
-            "revit.get_rvt_links" => ExecuteGetRvtLinks(app),
-            "revit.get_link_instances" => ExecuteGetLinkInstances(app),
-
-            // Batch 5: Advanced MEP & Engineering
-            // "revit.create_cable_tray" => ExecuteCreateCableTray(app, payload), // Temp disabled - API compat issue
-            "revit.create_conduit" => ExecuteCreateConduit(app, payload),
-            // "revit.get_mep_systems" => ExecuteGetMepSystems(app, payload), // Temp disabled - API compat issue
-            "revit.check_clashes" => ExecuteCheckClashes(app, payload),
-
-            // Batch 6: Materials & Visuals
-            "revit.create_material" => ExecuteCreateMaterial(app, payload),
-            "revit.set_element_material" => ExecuteSetElementMaterial(app, payload),
-            // "revit.get_render_settings" => ExecuteGetRenderSettings(app), // Temp disabled - API compat issue
-
-            // Batch 7: Family Management
-            "revit.convert_to_group" => ExecuteConvertToGroup(app, payload),
-            "revit.edit_family" => ExecuteEditFamily(app, payload),
-
-            // Batch 8: High-Value Documentation (Reaching 100 Tools)
-            // "revit.create_revision_cloud" => ExecuteCreateRevisionCloud(app, payload), // Temp disabled - API compat issue
-            "revit.get_revision_sequences" => ExecuteGetRevisionSequences(app),
-            "revit.tag_all_in_view" => ExecuteTagAllInView(app, payload),
-            // "revit.create_text_type" => ExecuteCreateTextType(app, payload), // Temp disabled - API compat issue
-            "revit.get_view_templates" => ExecuteGetViewTemplates(app),
-            "revit.apply_view_template" => ExecuteApplyViewTemplate(app, payload),
-            "revit.calculate_material_quantities" => ExecuteCalculateMaterialQuantities(app, payload),
-            // "revit.get_room_boundary" => ExecuteGetRoomBoundary(app, payload), // Temp disabled - API compat issue
-            // "revit.get_project_location" => ExecuteGetProjectLocation(app), // Temp disabled - API compat issue
-            "revit.get_warnings" => ExecuteGetWarnings(app),
-
-            // Universal Bridge - Reflection API (10,000+ methods accessible!)
-            "revit.invoke_method" => ExecuteInvokeMethod(app, payload),
-            "revit.reflect_get" => ExecuteReflectGet(app, payload),
-            "revit.reflect_set" => ExecuteReflectSet(app, payload),
-
-            // Batch 10: LLM Power Tools
-            "revit.execute_python" => ExecuteExecutePython(app, payload),
-            "revit.change_element_type" => ExecuteChangeElementType(app, payload),
-            "revit.get_elements_by_type" => ExecuteGetElementsByType(app, payload),
-            "revit.batch_set_parameters_by_filter" => ExecuteBatchSetParametersByFilter(app, payload),
-            "revit.replace_family_type" => ExecuteReplaceFamilyType(app, payload),
-            "revit.get_element_geometry" => ExecuteGetElementGeometry(app, payload),
-
-            _ => new { status = "error", message = $"Unknown tool: {tool}" }
-        };
+            try
+            {
+                return handler(app, payload);
+            }
+            catch (System.Reflection.TargetInvocationException ex)
+            {
+                throw ex.InnerException ?? ex;
+            }
+        }
+        return new { status = "error", message = $"Unknown tool: {tool}" };
     }
 
     public static List<string> GetToolCatalog()
     {
-        return new List<string>
-        {
-            // Original 5
-            "revit.health",
-            "revit.open_document",
-            "revit.list_views",
-            "revit.export_schedules",
-            "revit.export_pdf_by_sheet_set",
+        return _catalog;
+    }
 
-            // Document Management
-            "revit.save_document",
-            "revit.close_document",
-            "revit.create_new_document",
-            "revit.get_document_info",
-            "revit.list_levels",
-
-            // Geometry Creation
-            "revit.create_wall",
-            "revit.create_floor",
-            "revit.create_roof",
-            "revit.create_level",
-            "revit.create_grid",
-            "revit.create_room",
-            "revit.list_elements_by_category",
-            "revit.delete_element",
-
-            // Component Placement
-            "revit.place_family_instance",
-            "revit.place_door",
-            "revit.place_window",
-            "revit.list_families",
-
-            // View Creation
-            "revit.create_floor_plan_view",
-            "revit.create_3d_view",
-            "revit.create_section_view",
-
-            // Parameters & Properties
-            "revit.get_element_parameters",
-            "revit.set_parameter_value",
-            "revit.get_parameter_value",
-            "revit.list_shared_parameters",
-            "revit.create_shared_parameter",
-            "revit.list_project_parameters",
-            "revit.create_project_parameter",
-            "revit.batch_set_parameters",
-            "revit.get_type_parameters",
-            "revit.set_type_parameter",
-
-            // Sheets & Documentation
-            "revit.list_sheets",
-            "revit.create_sheet",
-            "revit.delete_sheet",
-            "revit.place_viewport_on_sheet",
-            "revit.batch_create_sheets_from_csv",
-            "revit.populate_titleblock",
-            "revit.list_titleblocks",
-            "revit.get_sheet_info",
-            "revit.duplicate_sheet",
-            "revit.renumber_sheets",
-
-            // Advanced Exports
-            "revit.export_dwg_by_view",
-            "revit.export_ifc_with_settings",
-            "revit.export_navisworks",
-            "revit.export_image",
-            "revit.render_3d_view",
-
-            // Batch 2: Selection
-            "revit.get_selection",
-            "revit.set_selection",
-
-            // Batch 2: Annotation
-            "revit.create_text_note",
-            "revit.create_dimension",
-            "revit.create_tag",
-
-            // Batch 2: Structure
-            "revit.create_column",
-            "revit.create_beam",
-            "revit.create_foundation",
-
-            // Batch 2: MEP
-            "revit.create_duct",
-            "revit.create_pipe",
-
-            // Batch 2: General Helper
-            "revit.get_categories",
-            "revit.get_element_type",
-
-            // Batch 3: Editing
-            "revit.move_element",
-            "revit.copy_element",
-            "revit.rotate_element",
-            "revit.mirror_element",
-            "revit.pin_element",
-            "revit.unpin_element",
-
-            // Batch 3: Worksharing
-            "revit.sync_to_central",
-            "revit.relinquish_all",
-            "revit.get_worksets",
-
-            // Batch 3: Schedules & Data
-            "revit.create_schedule",
-            "revit.get_schedule_data",
-            "revit.get_element_bounding_box",
-
-            // Batch 4: Phasing
-            "revit.get_phases",
-            "revit.get_phase_filters",
-
-            // Batch 4: Design Options
-            "revit.get_design_options",
-
-            // Batch 4: Groups
-            "revit.create_group",
-            "revit.ungroup",
-            "revit.get_group_members",
-
-            // Batch 4: Links
-            "revit.get_rvt_links",
-            "revit.get_link_instances",
-
-            // Batch 5: Advanced MEP & Engineering
-            "revit.create_conduit",
-            "revit.check_clashes",
-
-            // Batch 6: Materials & Visuals
-            "revit.create_material",
-            "revit.set_element_material",
-
-            // Batch 7: Family Management
-            "revit.convert_to_group",
-            "revit.edit_family",
-
-            // Batch 8: High-Value Documentation
-            "revit.get_revision_sequences",
-            "revit.tag_all_in_view",
-            "revit.get_view_templates",
-            "revit.apply_view_template",
-            "revit.calculate_material_quantities",
-            "revit.get_warnings",
-
-            // Batch 9: Universal Reflection
-            "revit.invoke_method",
-            "revit.reflect_get",
-            "revit.reflect_set",
-
-            // Batch 10: LLM Power Tools
-            "revit.execute_python",
-            "revit.change_element_type",
-            "revit.get_elements_by_type",
-            "revit.batch_set_parameters_by_filter",
-            "revit.replace_family_type",
-            "revit.get_element_geometry"
-        };
+    public static object GetCapabilities()
+    {
+        return _capabilities;
     }
 
     // ==================== EXISTING TOOLS ====================
 
+    [BridgeCommand("revit.health", IsMutating = false)]
     private static object ExecuteHealth(UIApplication app)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -363,6 +99,7 @@ public static class BridgeCommandFactory
         };
     }
 
+    [BridgeCommand("revit.open_document", IsMutating = true)]
     private static object ExecuteOpenDocument(UIApplication app, JsonElement payload)
     {
         var path = payload.GetProperty("path").GetString();
@@ -382,6 +119,7 @@ public static class BridgeCommandFactory
         };
     }
 
+    [BridgeCommand("revit.list_views", IsMutating = false)]
     private static object ExecuteListViews(UIApplication app)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -405,6 +143,7 @@ public static class BridgeCommandFactory
         return new { views, count = views.Count };
     }
 
+    [BridgeCommand("revit.export_schedules", IsMutating = false)]
     private static object ExecuteExportSchedules(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -454,6 +193,7 @@ public static class BridgeCommandFactory
         return new { schedules = exported, count = exported.Count };
     }
 
+    [BridgeCommand("revit.export_pdf_by_sheet_set", IsMutating = false)]
     private static object ExecuteExportPdf(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -501,6 +241,7 @@ public static class BridgeCommandFactory
 
     // ==================== DOCUMENT MANAGEMENT (5 NEW) ====================
 
+    [BridgeCommand("revit.save_document", IsMutating = true)]
     private static object ExecuteSaveDocument(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -524,6 +265,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.close_document", IsMutating = true)]
     private static object ExecuteCloseDocument(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -542,6 +284,7 @@ public static class BridgeCommandFactory
         return new { closed = title, saved = saveChanges };
     }
 
+    [BridgeCommand("revit.create_new_document", IsMutating = true)]
     private static object ExecuteCreateNewDocument(UIApplication app, JsonElement payload)
     {
         var templatePath = payload.TryGetProperty("template_path", out var tpl) ? tpl.GetString() : null;
@@ -564,6 +307,7 @@ public static class BridgeCommandFactory
         };
     }
 
+    [BridgeCommand("revit.get_document_info", IsMutating = false)]
     private static object ExecuteGetDocumentInfo(UIApplication app)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -586,6 +330,7 @@ public static class BridgeCommandFactory
         };
     }
 
+    [BridgeCommand("revit.list_levels", IsMutating = false)]
     private static object ExecuteListLevels(UIApplication app)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -611,6 +356,7 @@ public static class BridgeCommandFactory
 
     // ==================== GEOMETRY CREATION (8 NEW) ====================
 
+    [BridgeCommand("revit.create_wall", IsMutating = true)]
     private static object ExecuteCreateWall(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -659,6 +405,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.create_floor", IsMutating = true)]
     private static object ExecuteCreateFloor(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -716,6 +463,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.create_roof", IsMutating = true)]
     private static object ExecuteCreateRoof(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -760,6 +508,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.create_level", IsMutating = true)]
     private static object ExecuteCreateLevel(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -789,6 +538,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.create_grid", IsMutating = true)]
     private static object ExecuteCreateGrid(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -822,6 +572,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.create_room", IsMutating = true)]
     private static object ExecuteCreateRoom(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -869,6 +620,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.list_elements_by_category", IsMutating = false)]
     private static object ExecuteListElementsByCategory(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -893,6 +645,7 @@ public static class BridgeCommandFactory
         return new { elements, count = elements.Count, category = categoryName };
     }
 
+    [BridgeCommand("revit.delete_element", IsMutating = true)]
     private static object ExecuteDeleteElement(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -920,6 +673,7 @@ public static class BridgeCommandFactory
 
     // ==================== COMPONENT PLACEMENT (4 NEW) ====================
 
+    [BridgeCommand("revit.place_family_instance", IsMutating = true)]
     private static object ExecutePlaceFamilyInstance(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -958,6 +712,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.place_door", IsMutating = true)]
     private static object ExecutePlaceDoor(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -999,6 +754,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.place_window", IsMutating = true)]
     private static object ExecutePlaceWindow(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -1040,6 +796,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.list_families", IsMutating = false)]
     private static object ExecuteListFamilies(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -1071,6 +828,7 @@ public static class BridgeCommandFactory
 
     // ==================== VIEW CREATION (3 NEW) ====================
 
+    [BridgeCommand("revit.create_floor_plan_view", IsMutating = true)]
     private static object ExecuteCreateFloorPlanView(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -1106,6 +864,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.create_3d_view", IsMutating = true)]
     private static object ExecuteCreate3DView(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -1133,6 +892,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.create_section_view", IsMutating = true)]
     private static object ExecuteCreateSectionView(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -1307,6 +1067,7 @@ public static class BridgeCommandFactory
 
     // ==================== PARAMETERS & PROPERTIES TOOLS ====================
 
+    [BridgeCommand("revit.get_element_parameters", IsMutating = false)]
     private static object ExecuteGetElementParameters(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -1343,6 +1104,7 @@ public static class BridgeCommandFactory
         };
     }
 
+    [BridgeCommand("revit.set_parameter_value", IsMutating = true)]
     private static object ExecuteSetParameterValue(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -1382,6 +1144,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.get_parameter_value", IsMutating = false)]
     private static object ExecuteGetParameterValue(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -1410,6 +1173,7 @@ public static class BridgeCommandFactory
         };
     }
 
+    [BridgeCommand("revit.list_shared_parameters", IsMutating = false)]
     private static object ExecuteListSharedParameters(UIApplication app)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -1434,6 +1198,7 @@ public static class BridgeCommandFactory
         };
     }
 
+    [BridgeCommand("revit.create_shared_parameter", IsMutating = true)]
     private static object ExecuteCreateSharedParameter(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -1454,6 +1219,7 @@ public static class BridgeCommandFactory
             "Use Revit UI to set up shared parameter file first, or provide file path in payload.");
     }
 
+    [BridgeCommand("revit.list_project_parameters", IsMutating = false)]
     private static object ExecuteListProjectParameters(UIApplication app)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -1478,6 +1244,7 @@ public static class BridgeCommandFactory
         };
     }
 
+    [BridgeCommand("revit.create_project_parameter", IsMutating = true)]
     private static object ExecuteCreateProjectParameter(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -1495,6 +1262,7 @@ public static class BridgeCommandFactory
             "This functionality is planned for a future release.");
     }
 
+    [BridgeCommand("revit.batch_set_parameters", IsMutating = true)]
     private static object ExecuteBatchSetParameters(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -1561,6 +1329,7 @@ public static class BridgeCommandFactory
         };
     }
 
+    [BridgeCommand("revit.get_type_parameters", IsMutating = false)]
     private static object ExecuteGetTypeParameters(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -1600,6 +1369,7 @@ public static class BridgeCommandFactory
         };
     }
 
+    [BridgeCommand("revit.set_type_parameter", IsMutating = true)]
     private static object ExecuteSetTypeParameter(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -1722,6 +1492,7 @@ public static class BridgeCommandFactory
 
     // ==================== SHEETS & DOCUMENTATION TOOLS ====================
 
+    [BridgeCommand("revit.list_sheets", IsMutating = false)]
     private static object ExecuteListSheets(UIApplication app)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -1752,6 +1523,7 @@ public static class BridgeCommandFactory
         };
     }
 
+    [BridgeCommand("revit.create_sheet", IsMutating = true)]
     private static object ExecuteCreateSheet(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -1806,6 +1578,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.delete_sheet", IsMutating = true)]
     private static object ExecuteDeleteSheet(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -1839,6 +1612,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.place_viewport_on_sheet", IsMutating = true)]
     private static object ExecutePlaceViewportOnSheet(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -1888,6 +1662,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.batch_create_sheets_from_csv", IsMutating = true)]
     private static object ExecuteBatchCreateSheetsFromCsv(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -1969,6 +1744,7 @@ public static class BridgeCommandFactory
         };
     }
 
+    [BridgeCommand("revit.populate_titleblock", IsMutating = true)]
     private static object ExecutePopulateTitleblock(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -2026,6 +1802,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.list_titleblocks", IsMutating = false)]
     private static object ExecuteListTitleblocks(UIApplication app)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -2052,6 +1829,7 @@ public static class BridgeCommandFactory
         };
     }
 
+    [BridgeCommand("revit.get_sheet_info", IsMutating = false)]
     private static object ExecuteGetSheetInfo(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -2097,6 +1875,7 @@ public static class BridgeCommandFactory
         };
     }
 
+    [BridgeCommand("revit.duplicate_sheet", IsMutating = true)]
     private static object ExecuteDuplicateSheet(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -2202,6 +1981,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.renumber_sheets", IsMutating = true)]
     private static object ExecuteRenumberSheets(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -2270,6 +2050,7 @@ public static class BridgeCommandFactory
 
     // ==================== ADVANCED EXPORT TOOLS ====================
 
+    [BridgeCommand("revit.export_dwg_by_view", IsMutating = false)]
     private static object ExecuteExportDwgByView(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -2347,6 +2128,7 @@ public static class BridgeCommandFactory
         };
     }
 
+    [BridgeCommand("revit.export_ifc_with_settings", IsMutating = false)]
     private static object ExecuteExportIfcWithSettings(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -2400,6 +2182,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.export_navisworks", IsMutating = false)]
     private static object ExecuteExportNavisworks(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -2472,6 +2255,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.export_image", IsMutating = false)]
     private static object ExecuteExportImage(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -2538,6 +2322,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.render_3d_view", IsMutating = true)]
     private static object ExecuteRender3DView(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -2601,6 +2386,7 @@ public static class BridgeCommandFactory
 
     // ==================== BATCH 2: SELECTION & ANNOTATION IMPL ====================
 
+    [BridgeCommand("revit.get_selection", IsMutating = false)]
     private static object ExecuteGetSelection(UIApplication app)
     {
         var uidoc = app.ActiveUIDocument;
@@ -2610,6 +2396,7 @@ public static class BridgeCommandFactory
         return new { count = ids.Count, element_ids = ids };
     }
 
+    [BridgeCommand("revit.set_selection", IsMutating = true)]
     private static object ExecuteSetSelection(UIApplication app, JsonElement payload)
     {
         var uidoc = app.ActiveUIDocument;
@@ -2623,6 +2410,7 @@ public static class BridgeCommandFactory
         return new { selected_count = ids.Count };
     }
 
+    [BridgeCommand("revit.create_text_note", IsMutating = true)]
     private static object ExecuteCreateTextNote(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -2643,6 +2431,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.create_tag", IsMutating = true)]
     private static object ExecuteCreateTag(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -2668,6 +2457,7 @@ public static class BridgeCommandFactory
 
     // ==================== BATCH 2: STRUCTURE IMPL ====================
     
+    [BridgeCommand("revit.create_column", IsMutating = true)]
     private static object ExecuteCreateColumn(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -2692,6 +2482,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.create_beam", IsMutating = true)]
     private static object ExecuteCreateBeam(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -2718,6 +2509,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.create_foundation", IsMutating = true)]
     private static object ExecuteCreateFoundation(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -2744,6 +2536,7 @@ public static class BridgeCommandFactory
 
     // ==================== BATCH 2: MEP IMPL ====================
 
+    [BridgeCommand("revit.create_duct", IsMutating = true)]
     private static object ExecuteCreateDuct(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -2782,6 +2575,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.create_pipe", IsMutating = true)]
     private static object ExecuteCreatePipe(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -2820,6 +2614,7 @@ public static class BridgeCommandFactory
 
     // ==================== BATCH 2: GENERAL HELPER IMPL ====================
 
+    [BridgeCommand("revit.get_categories", IsMutating = false)]
     private static object ExecuteGetCategories(UIApplication app)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -2834,6 +2629,7 @@ public static class BridgeCommandFactory
         return new { categories };
     }
     
+    [BridgeCommand("revit.get_element_type", IsMutating = false)]
     private static object ExecuteGetElementType(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -2867,6 +2663,7 @@ public static class BridgeCommandFactory
 
     // ==================== BATCH 3: EDITING IMPL ====================
 
+    [BridgeCommand("revit.move_element", IsMutating = true)]
     private static object ExecuteMoveElement(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -2884,6 +2681,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.copy_element", IsMutating = true)]
     private static object ExecuteCopyElement(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -2901,6 +2699,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.rotate_element", IsMutating = true)]
     private static object ExecuteRotateElement(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -2920,6 +2719,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.mirror_element", IsMutating = true)]
     private static object ExecuteMirrorElement(UIApplication app, JsonElement payload)
     {
         // Minimal implementation assuming mirroring around a detailed plane is complex to pass via JSON.
@@ -2943,6 +2743,7 @@ public static class BridgeCommandFactory
         }
     }
     
+    [BridgeCommand("revit.pin_element", IsMutating = true)]
     private static object ExecutePinElement(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -2960,6 +2761,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.unpin_element", IsMutating = true)]
     private static object ExecuteUnpinElement(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -2979,6 +2781,7 @@ public static class BridgeCommandFactory
 
     // ==================== BATCH 3: WORKSHARING IMPL ====================
     
+    [BridgeCommand("revit.sync_to_central", IsMutating = true)]
     private static object ExecuteSyncToCentral(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -3009,6 +2812,7 @@ public static class BridgeCommandFactory
         return new { status = "success", message = "Synchronized to Central" };
     }
 
+    [BridgeCommand("revit.relinquish_all", IsMutating = true)]
     private static object ExecuteRelinquishAll(UIApplication app)
     {
          var doc = app.ActiveUIDocument?.Document;
@@ -3023,6 +2827,7 @@ public static class BridgeCommandFactory
          return new { status = "success", message = "Relinquished all ownership" };
     }
     
+    [BridgeCommand("revit.get_worksets", IsMutating = false)]
     private static object ExecuteGetWorksets(UIApplication app)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -3040,6 +2845,7 @@ public static class BridgeCommandFactory
 
     // ==================== BATCH 3: SCHEDULES & GEO IMPL ====================
 
+    [BridgeCommand("revit.create_schedule", IsMutating = true)]
     private static object ExecuteCreateSchedule(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -3061,6 +2867,7 @@ public static class BridgeCommandFactory
         }
     }
     
+    [BridgeCommand("revit.get_schedule_data", IsMutating = false)]
     private static object ExecuteGetScheduleData(UIApplication app, JsonElement payload)
     {
         // Getting actual data rows from a ViewSchedule is surprisingly hard in the API (ViewSchedule.GetCellText is for header section mostly or specific calls).
@@ -3082,6 +2889,7 @@ public static class BridgeCommandFactory
         return new { schedule_name = schedule.Name, fields = fields, note = "Data extraction limited to fields list in this version." };
     }
     
+    [BridgeCommand("revit.get_element_bounding_box", IsMutating = false)]
     private static object ExecuteGetElementBoundingBox(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -3104,6 +2912,7 @@ public static class BridgeCommandFactory
 
     // ==================== BATCH 4: PHASING IMPL ====================
     
+    [BridgeCommand("revit.get_phases", IsMutating = false)]
     private static object ExecuteGetPhases(UIApplication app)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -3117,6 +2926,7 @@ public static class BridgeCommandFactory
         return new { phases };
     }
 
+    [BridgeCommand("revit.get_phase_filters", IsMutating = false)]
     private static object ExecuteGetPhaseFilters(UIApplication app)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -3134,6 +2944,7 @@ public static class BridgeCommandFactory
 
     // ==================== BATCH 4: DESIGN OPTIONS IMPL ====================
 
+    [BridgeCommand("revit.get_design_options", IsMutating = false)]
     private static object ExecuteGetDesignOptions(UIApplication app)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -3153,6 +2964,7 @@ public static class BridgeCommandFactory
 
     // ==================== BATCH 4: GROUPS IMPL ====================
 
+    [BridgeCommand("revit.create_group", IsMutating = true)]
     private static object ExecuteCreateGroup(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -3177,6 +2989,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.ungroup", IsMutating = true)]
     private static object ExecuteUngroup(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -3197,6 +3010,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.get_group_members", IsMutating = false)]
     private static object ExecuteGetGroupMembers(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -3212,6 +3026,7 @@ public static class BridgeCommandFactory
 
     // ==================== BATCH 4: LINKS IMPL ====================
 
+    [BridgeCommand("revit.get_rvt_links", IsMutating = false)]
     private static object ExecuteGetRvtLinks(UIApplication app)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -3232,6 +3047,7 @@ public static class BridgeCommandFactory
         return new { links };
     }
 
+    [BridgeCommand("revit.get_link_instances", IsMutating = false)]
     private static object ExecuteGetLinkInstances(UIApplication app)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -3253,6 +3069,7 @@ public static class BridgeCommandFactory
 
     // ==================== BATCH 5: ADVANCED MEP & ENGINEERING ====================
 
+    [BridgeCommand("revit.create_cable_tray", IsMutating = true)]
     private static object ExecuteCreateCableTray(UIApplication app, JsonElement payload)
     {
         // TODO: Revit 2024 API compatibility issue - CableTrayType is inaccessible
@@ -3263,6 +3080,7 @@ public static class BridgeCommandFactory
         };
     }
 
+    [BridgeCommand("revit.create_conduit", IsMutating = true)]
     private static object ExecuteCreateConduit(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -3333,6 +3151,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.get_mep_systems", IsMutating = false)]
     private static object ExecuteGetMepSystems(UIApplication app, JsonElement payload)
     {
         // TODO: Revit 2024 API compatibility issue - MEPSystem.IsWellConnected not available
@@ -3343,6 +3162,7 @@ public static class BridgeCommandFactory
         };
     }
 
+    [BridgeCommand("revit.check_clashes", IsMutating = false)]
     private static object ExecuteCheckClashes(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -3462,6 +3282,7 @@ public static class BridgeCommandFactory
 
     // ==================== BATCH 6: MATERIALS & VISUALS ====================
 
+    [BridgeCommand("revit.create_material", IsMutating = true)]
     private static object ExecuteCreateMaterial(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -3504,6 +3325,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.set_element_material", IsMutating = true)]
     private static object ExecuteSetElementMaterial(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -3599,6 +3421,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.get_render_settings", IsMutating = false)]
     private static object ExecuteGetRenderSettings(UIApplication app)
     {
         // TODO: Revit 2024 API compatibility issue - RenderingSettings API changed
@@ -3637,6 +3460,7 @@ public static class BridgeCommandFactory
 
     // ==================== BATCH 7: FAMILY MANAGEMENT ====================
 
+    [BridgeCommand("revit.convert_to_group", IsMutating = true)]
     private static object ExecuteConvertToGroup(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -3685,6 +3509,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.edit_family", IsMutating = true)]
     private static object ExecuteEditFamily(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -3746,6 +3571,7 @@ public static class BridgeCommandFactory
 
     // ==================== BATCH 8: HIGH-VALUE DOCUMENTATION & ANALYSIS ====================
 
+    [BridgeCommand("revit.create_dimension", IsMutating = true)]
     private static object ExecuteCreateDimension(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -3788,6 +3614,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.create_revision_cloud", IsMutating = true)]
     private static object ExecuteCreateRevisionCloud(UIApplication app, JsonElement payload)
     {
         // TODO: Revit 2024 API compatibility issue - RevisionCloud.Create signature changed
@@ -3798,6 +3625,7 @@ public static class BridgeCommandFactory
         };
     }
 
+    [BridgeCommand("revit.get_revision_sequences", IsMutating = false)]
     private static object ExecuteGetRevisionSequences(UIApplication app)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -3820,6 +3648,7 @@ public static class BridgeCommandFactory
         return new { revisions, count = revisions.Count };
     }
 
+    [BridgeCommand("revit.tag_all_in_view", IsMutating = true)]
     private static object ExecuteTagAllInView(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -3862,6 +3691,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.create_text_type", IsMutating = true)]
     private static object ExecuteCreateTextType(UIApplication app, JsonElement payload)
     {
         // TODO: Revit 2024 API compatibility issue - TEXT_FONT_TYPE_NAME parameter not found
@@ -3872,6 +3702,7 @@ public static class BridgeCommandFactory
         };
     }
 
+    [BridgeCommand("revit.get_view_templates", IsMutating = false)]
     private static object ExecuteGetViewTemplates(UIApplication app)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -3887,6 +3718,7 @@ public static class BridgeCommandFactory
         return new { templates, count = templates.Count };
     }
 
+    [BridgeCommand("revit.apply_view_template", IsMutating = true)]
     private static object ExecuteApplyViewTemplate(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -3912,6 +3744,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.calculate_material_quantities", IsMutating = true)]
     private static object ExecuteCalculateMaterialQuantities(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -3953,6 +3786,7 @@ public static class BridgeCommandFactory
         return new { category = categoryName, totals = result, element_count = elements.Count };
     }
 
+    [BridgeCommand("revit.get_room_boundary", IsMutating = false)]
     private static object ExecuteGetRoomBoundary(UIApplication app, JsonElement payload)
     {
         // TODO: Revit 2024 API compatibility issue - Room type not found (namespace issue)
@@ -3963,6 +3797,7 @@ public static class BridgeCommandFactory
         };
     }
 
+    [BridgeCommand("revit.get_project_location", IsMutating = false)]
     private static object ExecuteGetProjectLocation(UIApplication app)
     {
         // TODO: Revit 2024 API compatibility issue - ProjectLocation.SiteName not available
@@ -3973,6 +3808,7 @@ public static class BridgeCommandFactory
         };
     }
 
+    [BridgeCommand("revit.get_warnings", IsMutating = false)]
     private static object ExecuteGetWarnings(UIApplication app)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -3991,6 +3827,7 @@ public static class BridgeCommandFactory
 
     // ==================== BATCH 9: UNIVERSAL REFLECTION BRIDGE ====================
 
+    [BridgeCommand("revit.invoke_method", IsMutating = true)]
     private static object ExecuteInvokeMethod(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -4024,6 +3861,7 @@ public static class BridgeCommandFactory
         }
     }
 
+    [BridgeCommand("revit.reflect_get", IsMutating = true)]
     private static object ExecuteReflectGet(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -4049,6 +3887,7 @@ public static class BridgeCommandFactory
         return new { type = "reference", id = refId, class_name = value.GetType().Name, str = value.ToString() };
     }
 
+    [BridgeCommand("revit.reflect_set", IsMutating = true)]
     private static object ExecuteReflectSet(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -4084,6 +3923,7 @@ public static class BridgeCommandFactory
 
     // ==================== BATCH 10: LLM POWER TOOLS ====================
 
+    [BridgeCommand("revit.execute_python", IsMutating = true)]
     private static object ExecuteExecutePython(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -4145,6 +3985,7 @@ public static class BridgeCommandFactory
         return new { success, output, error };
     }
 
+    [BridgeCommand("revit.change_element_type", IsMutating = true)]
     private static object ExecuteChangeElementType(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -4192,6 +4033,7 @@ public static class BridgeCommandFactory
         return new { success = true, changed, failed, failed_ids = failedIds };
     }
 
+    [BridgeCommand("revit.get_elements_by_type", IsMutating = false)]
     private static object ExecuteGetElementsByType(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -4284,6 +4126,7 @@ public static class BridgeCommandFactory
         };
     }
 
+    [BridgeCommand("revit.batch_set_parameters_by_filter", IsMutating = true)]
     private static object ExecuteBatchSetParametersByFilter(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -4358,6 +4201,7 @@ public static class BridgeCommandFactory
         return new { success = true, updated, failed, total = elements.Count };
     }
 
+    [BridgeCommand("revit.replace_family_type", IsMutating = true)]
     private static object ExecuteReplaceFamilyType(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
@@ -4419,6 +4263,7 @@ public static class BridgeCommandFactory
         return new { success = true, changed, failed, failed_ids = failedIds };
     }
 
+    [BridgeCommand("revit.get_element_geometry", IsMutating = false)]
     private static object ExecuteGetElementGeometry(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
