@@ -33,7 +33,7 @@ def test_handle_tool_with_mock(tmp_path: Path):
 def test_handle_tool_bridge_mode(tmp_path: Path):
     cfg = create_config(tmp_path, bridge_url="http://bridge", mode=BridgeMode.bridge)
     bridge = DummyBridge(cfg.bridge_url)
-    server = MCPServer(config=cfg, bridge_factory=lambda _: bridge)
+    server = MCPServer(config=cfg, bridge_factory=lambda _url, _token=None: bridge)
     try:
         response = server.handle_tool("revit.health", {"request_id": "req-bridge"})
         assert response["echo"] == "revit.health"

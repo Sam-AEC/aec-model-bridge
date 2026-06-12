@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 from typing import Any
 
 from mcp.server import Server
@@ -25,6 +26,7 @@ from .providers import (
     AutodeskDataProvider,
     JobProvider,
     SQLiteExporterProvider,
+    McpProxyProvider,
 )
 from .security.workspace import WorkspaceMonitor
 from .security.audit import redact_data
@@ -72,6 +74,27 @@ try:
     registry.register(AutodeskDataProvider())
 except Exception as e:
     logger.warning("Could not initialize AutodeskDataProvider: %s. Please set APS_CLIENT_ID.", e)
+
+# Mcp Proxy Providers
+proxy_targets = os.getenv("MCP_PROXY_TARGETS")
+if proxy_targets:
+    for target in proxy_targets.split(","):
+        target = target.strip()
+        if not target:
+            continue
+        if "=" in target:
+            name, url = target.split("=", 1)
+            name = name.strip()
+            url = url.strip()
+            identity = f"proxy_{name}"
+        else:
+            url = target
+            identity = "proxy"
+        
+        try:
+            registry.register(McpProxyProvider(target_url=url, identity=identity))
+        except Exception as e:
+            logger.warning("Could not initialize McpProxyProvider for %s: %s", target, e)
 
 @app.list_tools()
 async def list_tools() -> list[Tool]:

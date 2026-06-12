@@ -1,5 +1,6 @@
 import json
 import logging
+import httpx
 from typing import Any, Dict, List
 from pathlib import Path
 
@@ -45,7 +46,20 @@ class RevitProvider(AECProvider):
                     logger.info("Resolved Revit switch from registry: %s", url)
                 else:
                     url = "http://127.0.0.1:3000"
-                    logger.warning("No Revit switch found in registry, falling back to legacy port 3000")
+                    for port in (3000, 3002):
+                        probe_url = f"http://127.0.0.1:{port}"
+                        try:
+                            resp = httpx.get(f"{probe_url}/health", timeout=0.5)
+                            if resp.status_code == 200:
+                                url = probe_url
+                                break
+                        except Exception:
+                            continue
+
+                    logger.warning(
+                        "No Revit switch found in registry, falling back to legacy port %s. "
+                        "Tokenless connections are deprecated.", url
+                    )
 
             bridge_factory = factory or (lambda u, t=None: BridgeClient(u, token=t))
             bridge = bridge_factory(url, token)

@@ -162,6 +162,7 @@ def test_redaction_contract():
     # Synthetic result matching typical structure
     synthetic = {
         "access_token": "Bearer test-token-12345",
+        "session_token": "abc123xyz",
         "authorization": "Bearer token-abc",
         "win_path": "C:\\Users\\sammo\\Documents\\model.rvt",
         "posix_path": "/home/sammo/model.ifc",
@@ -175,6 +176,7 @@ def test_redaction_contract():
     
     # Assert bearer/token values are completely redacted to '<redacted>'
     assert redacted["access_token"] == "<redacted>"
+    assert redacted["session_token"] == "<redacted>"
     assert redacted["authorization"] == "<redacted>"
     assert redacted["nested"]["token"] == "<redacted>"
     
