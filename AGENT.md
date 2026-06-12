@@ -19,6 +19,10 @@ Working notes written by agents for future agents. Append dated bullets under Le
 
 ## Learnings
 
+- 2026-06-13 · Navisworks 2026 API changes from earlier versions: `DocumentSavedViewpoints.ToGroupItem()` → `.RootItem`; `DocumentCurrentViewpoint.ToSavedItem()` → `doc.SavedViewpoints.CaptureRuntimeOverrides()`; `ClashResult.Selection1/2` is `ModelItemCollection` — use `.Item1/.Item2` (single `ModelItem`) instead; iterate `TestsData.Tests` as `SavedItem` and cast to `ClashTest` to access `TestType`/`Status`.
+- 2026-06-13 · `BridgeCommandFactory` static constructor in Navisworks addin had a missing closing brace — all methods inside appeared to be inside the constructor, causing CS1513. Fix: ensure the constructor body closes before `CreateHandlerDelegate`.
+- 2026-06-13 · When C# code uses `BridgeCommandAttribute`-based reflection discovery, every command class (e.g. `ClashCommands`) must be explicitly listed in the `types[]` array in the static constructor — it does NOT auto-discover subclasses.
+- 2026-06-13 · Blueprint §3.2 result envelope (`ok`/`data`) differs from the legacy Revit bridge envelope (`Status`/`Result`). `BridgeClient.call_tool()` now handles both via `if "ok" in response` branching — backward-compat for Revit, correct for Navisworks.
 - 2026-06-13 · When adding custom pytest markers (e.g. `@pytest.mark.perf`), register them in `pyproject.toml` under `[tool.pytest.ini_options]` `markers` to avoid warnings.
 - 2026-06-13 · If a card's instructions contradict reality (e.g., requested files already deleted), follow reality, note the discrepancy in the evidence line, and proceed.
 - 2026-06-13 · File seeded during the Chapter 2 roadmap session (`docs/next-chapter.md`). Agents: append discoveries above this line.

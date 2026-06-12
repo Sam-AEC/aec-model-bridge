@@ -15,22 +15,25 @@ namespace NavisworksBridge
 
         static BridgeCommandFactory()
         {
-            var methods = typeof(BridgeCommandFactory).GetMethods(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-            foreach (var method in methods)
+            var types = new[] { typeof(BridgeCommandFactory), typeof(BridgeCommands), typeof(ClashCommands) };
+            foreach (var type in types)
             {
-                var attr = (BridgeCommandAttribute)Attribute.GetCustomAttribute(method, typeof(BridgeCommandAttribute));
-                if (attr != null)
+                var methods = type.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+                foreach (var method in methods)
                 {
-                    var func = CreateHandlerDelegate(method);
-                    _handlers[attr.Name] = func;
-                    _catalog.Add(attr.Name);
-
-                    _capabilities.Add(new
+                    var attr = (BridgeCommandAttribute)Attribute.GetCustomAttribute(method, typeof(BridgeCommandAttribute));
+                    if (attr != null)
                     {
-                        name = attr.Name,
-                        is_mutating = attr.IsMutating,
-                        confirmation_required = attr.ConfirmationRequired
-                    });
+                        var func = CreateHandlerDelegate(method);
+                        _handlers[attr.Name] = func;
+                        _catalog.Add(attr.Name);
+                        _capabilities.Add(new
+                        {
+                            name = attr.Name,
+                            is_mutating = attr.IsMutating,
+                            confirmation_required = attr.ConfirmationRequired
+                        });
+                    }
                 }
             }
         }
@@ -81,6 +84,13 @@ namespace NavisworksBridge
                 fileName = doc.FileName ?? "",
                 modelsCount = doc.Models.Count
             };
+        }
+
+        [BridgeCommand("navis.echo", IsMutating = false)]
+        private static object ExecuteEcho(JsonElement payload)
+        {
+            var message = payload.TryGetProperty("message", out var m) ? m.GetString() ?? "" : "";
+            return new { echo = message, application = "navisworks" };
         }
     }
 }

@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <NavisworksVersion Condition="'$(NavisworksVersion)'==''">2024</NavisworksVersion>
-    <TargetFramework>net48</TargetFramework>
+    <TargetFramework Condition="'$(NavisworksVersion)' == '2024' OR '$(NavisworksVersion)' == '2025' OR '$(NavisworksVersion)' == '2026'">net48</TargetFramework>
+    <TargetFramework Condition="'$(NavisworksVersion)' == '2027'">net8.0-windows</TargetFramework>
     <AssemblyName>NavisworksBridge</AssemblyName>
     <RootNamespace>NavisworksBridge</RootNamespace>
     <Version>1.1.0</Version>
@@ -30,6 +31,10 @@
     </Reference>
     <Reference Include="Autodesk.Navisworks.Automation">
       <HintPath>$(NavisworksInstallPath)\Autodesk.Navisworks.Automation.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Autodesk.Navisworks.Clash">
+      <HintPath>$(NavisworksInstallPath)\Autodesk.Navisworks.Clash.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>

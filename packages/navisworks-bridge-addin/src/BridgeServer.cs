@@ -217,12 +217,25 @@ namespace NavisworksBridge
 
             if (error != null)
             {
-                Respond(context, 200, new { request_id = requestId, status = "error", message = error.Message });
+                Respond(context, 200, new
+                {
+                    ok = false,
+                    request_id = requestId,
+                    error_code = "execution_error",
+                    message = error.Message
+                });
             }
             else
             {
-                // Unpack result if it returned a raw object or dictionary
-                Respond(context, 200, result);
+                Respond(context, 200, new
+                {
+                    ok = true,
+                    request_id = requestId,
+                    data = result,
+                    warnings = System.Array.Empty<string>(),
+                    artifacts = System.Array.Empty<object>(),
+                    job = (object?)null
+                });
             }
         }
 

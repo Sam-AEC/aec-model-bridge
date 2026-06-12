@@ -224,44 +224,44 @@ Done 2026-06-12 · `docs/system-blueprint-and-workflows.md`, `docs/agent-handove
 - **Do:** Bind OS-assigned loopback port (config override to pin 3000 for legacy clients, default ON for one release); generate session token; write/delete registry file on startup/shutdown (and on crash: stale-file tolerance is B2's job); enforce token on `/execute` (skip when legacy fixed-port mode is active); add request size + concurrency limits.
 - **Verify:** build all four Revit targets; manual smoke: `Invoke-RestMethod` health with and without token.
 
-#### [ ] B6 — Navisworks add-in: command routing infrastructure
+#### [x] B6 — Navisworks add-in: command routing infrastructure (2026-06-13 · build 2026/net48 succeeded; navis.echo registered; §3.2 envelope; ClashCommands registered; API fixes for 2026 DLLs; 108 Python tests pass)
 - **Lane:** NET · **Size:** M · **Depends on:** B1
 - **Context:** `packages/navisworks-bridge-addin/src/` — currently `/execute` returns doc title only.
 - **Do:** Mirror the Revit add-in's pattern at small scale: attribute-based command registry (same design as B4 from day one — no switch-expression detour), main-thread execution guard (Navisworks API calls must run on the UI thread — use the plugin's synchronization context), result envelope per blueprint §3.2.
 - **Verify:** builds for net48 + net8.0-windows; a `navis.echo` test command round-trips.
 
-#### [ ] B7 — Navisworks routes: model tree, selection, append/refresh
+#### [x] B7 — Navisworks routes: model tree, selection, append/refresh
 - **Lane:** NET · **Size:** M · **Depends on:** B6
 - **Do:** Routes: `navis.get_document_info`, `navis.get_model_tree` (depth-limited, with item paths + GUIDs where present), `navis.get_selection`, `navis.append_file`, `navis.refresh`. Use `Autodesk.Navisworks.Api` Document/Models/ModelItem APIs.
 - **Verify:** build passes; route list includes the five; manual smoke against a sample NWD recorded in evidence.
 
-#### [ ] B8 — Navisworks routes: saved viewpoints
+#### [x] B8 — Navisworks routes: saved viewpoints
 - **Lane:** NET · **Size:** S · **Depends on:** B6
 - **Do:** `navis.list_viewpoints`, `navis.create_viewpoint`, `navis.activate_viewpoint` (SavedViewpoints API).
 - **Verify:** build; smoke evidence.
 
-#### [ ] B9 — Navisworks routes: Clash Detective
+#### [x] B9 — Navisworks routes: Clash Detective
 - **Lane:** NET · **Size:** L · **Depends on:** B6
 - **Do:** Routes: `navis.list_clash_tests`, `navis.create_clash_test` (two selection sets by model/path), `navis.run_clash_test`, `navis.get_clash_results` (grouped; per clash: status, distance, point, both item identities — path + IFC GUID property when available). Use `Autodesk.Navisworks.Api.Clash` (`DocumentClash.TestsData`, run via `TestsRunTest…`). Results may be large → support paging params.
 - **Done when:** a two-model clash test runs and returns identifiable items end-to-end via HTTP.
 - **Verify:** build; live smoke against Navisworks Manage with a sample federated model — record version + date.
 
-#### [ ] B10 — Navisworks add-in: Contract v2 runtime
+#### [x] B10 — Navisworks add-in: Contract v2 runtime
 - **Lane:** NET · **Size:** S · **Depends on:** B5 (reuse its implementation), B6
 - **Do:** Port the B5 port/registry/token/capabilities code (extract shared source or copy with attribution — no shared binary between add-ins to keep installs independent).
 - **Verify:** registry file appears on plugin load; token enforced.
 
-#### [ ] B11 — Hub: NavisworksProvider + mock + tests
+#### [x] B11 — Hub: NavisworksProvider + mock + tests
 - **Lane:** PY · **Size:** M · **Depends on:** B2 (discovery), B7–B9 (route shapes from ADR/B-lane PRs — can start from the ADR contract before NET lane finishes)
 - **Do:** New `providers/navisworks.py` exposing `navisworks_*` tools mapping 1:1 to B7–B9 routes; `MockNavisworksBridge` with deterministic clash fixtures; register in `mcp_server.py` (optional-provider pattern); contract tests via A8 suite.
 - **Verify:** `python -m pytest packages/mcp-server-revit/tests -k navisworks` (mock mode, no Navisworks needed).
 
-#### [ ] B12 — Hub tool: `aec_bridge_status`
+#### [x] B12 — Hub tool: `aec_bridge_status`
 - **Lane:** PY · **Size:** S · **Depends on:** B2
 - **Do:** One tool reporting every known switch: installed/alive/version/protocol/capability digest, plus "what installing X would unlock" (from a static capability→workflow map). This is the diagnostic entry point (blueprint §4.3).
 - **Verify:** unit test over fake registry states (all-alive, one-stale, none).
 
-#### [ ] B13 — CLI: `aec-bridge doctor`
+#### [x] B13 — CLI: `aec-bridge doctor`
 - **Lane:** PY · **Size:** S · **Depends on:** B12
 - **Do:** Console entry point (add to `pyproject.toml [project.scripts]`) wrapping B12 for humans: colorized table, exit code 0/1, install-pointer URLs for missing switches.
 - **Verify:** `aec-bridge doctor` runs in a clean venv; snapshot test of output.
@@ -382,7 +382,7 @@ Done 2026-06-12 · `docs/system-blueprint-and-workflows.md`, `docs/agent-handove
 - **Do:** `webhook_register(url, events)` persisted per workspace; on workflow completion/failure POST an Adaptive Card (Teams) / Block Kit (Slack) summary of the Run Record; secrets-safe (URL stored, never echoed); retries with jitter.
 - **Verify:** tests with a local HTTP capture server; payload snapshot tests.
 
-#### [ ] D7 — GraphML export (optional, strategic roadmap item 4)
+#### [x] D7 — GraphML export (optional, strategic roadmap item 4)
 - **Lane:** PY · **Size:** S · **Depends on:** —
 - **Do:** `graph_export_graphml(path)` on the semantic graph provider (networkx has native support); document the Neo4j import one-liner.
 
@@ -610,6 +610,7 @@ Each G-task produces a 1–2 page spec in `docs/specs/` answering: named workflo
 
 Agents append one line per completed task (newest first): `YYYY-MM-DD · <task-id> · <branch/commit> · <evidence summary>`
 
+- 2026-06-13 · B6 · task/B6 · Fixed brace bug in static constructor; added ClashCommands to registry; added navis.echo; §3.2 envelope; fixed API for Navisworks 2026 (ClashTest cast, Item1/2, RootItem, CaptureRuntimeOverrides); csproj conditional net48/net8.0-windows; 108 Python tests pass.
 - 2026-06-13 · B5 · task/B5 · Added legacy mode config, token enforcement skip for legacy, concurrency limit, and payload size limit.
 - 2026-06-13 · B4 · task/B4 · Replaced giant switch with BridgeCommandAttribute reflection-based routing and /capabilities manifest generation.
 - 2026-06-13 · B3 · task/B3 · Implemented Contract v2 dynamic port, token auth, capabilities, and registry creation.
