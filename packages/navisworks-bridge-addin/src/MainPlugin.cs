@@ -16,11 +16,10 @@ namespace NavisworksBridge
             {
                 try
                 {
-                    // Capture the main thread dispatcher
                     var dispatcher = Dispatcher.CurrentDispatcher;
                     _server = new BridgeServer(dispatcher);
                     _server.Start();
-                    System.Windows.Forms.MessageBox.Show("AEC Model Bridge for Navisworks started on port 3002.");
+                    System.Windows.Forms.MessageBox.Show($"AEC Model Bridge for Navisworks started on port {_server.Port}.\nLegacy Mode: {_server.LegacyMode}");
                 }
                 catch (Exception ex)
                 {
