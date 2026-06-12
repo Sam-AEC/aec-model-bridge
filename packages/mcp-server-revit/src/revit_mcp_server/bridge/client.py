@@ -9,9 +9,10 @@ from ..errors import BridgeError
 
 
 class BridgeClient:
-    def __init__(self, base_url: str = "http://127.0.0.1:3000", timeout: int = 30):
+    def __init__(self, base_url: str = "http://127.0.0.1:3000", timeout: int = 30, token: str | None = None):
         self.base_url = base_url.rstrip('/')
         self.timeout = timeout
+        self.token = token
         self._tool_catalog: list[str] | None = None
 
     def initialize(self) -> None:
@@ -82,18 +83,23 @@ class BridgeClient:
         """Legacy method for backward compatibility."""
         return self.call_tool(tool_name, payload)
 
+    def _get_client(self) -> httpx.Client:
+        headers = {}
+        if self.token:
+            headers["Authorization"] = f"Bearer {self.token}"
+        return httpx.Client(headers=headers, timeout=self.timeout)
+
     def _get(self, path: str) -> dict[str, Any]:
-        with httpx.Client() as client:
-            resp = client.get(f"{self.base_url}{path}", timeout=self.timeout)
+        with self._get_client() as client:
+            resp = client.get(f"{self.base_url}{path}")
             resp.raise_for_status()
             return resp.json()
 
     def _post(self, path: str, data: dict[str, Any]) -> dict[str, Any]:
-        with httpx.Client() as client:
+        with self._get_client() as client:
             resp = client.post(
                 f"{self.base_url}{path}",
-                json=data,
-                timeout=self.timeout
+                json=data
             )
             resp.raise_for_status()
             return resp.json()

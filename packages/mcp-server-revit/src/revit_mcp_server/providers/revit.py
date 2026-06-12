@@ -32,10 +32,23 @@ class RevitProvider(AECProvider):
 
     def _build_bridge(self, factory=None):
         if self.mode == BridgeMode.bridge:
-            if not self.bridge_url:
-                raise ValueError("Bridge mode requires MCP_REVIT_BRIDGE_URL")
-            bridge_factory = factory or (lambda url: BridgeClient(url))
-            bridge = bridge_factory(self.bridge_url)
+            from ..bridge.discovery import discover_switches
+            switches = discover_switches()
+
+            url = self.bridge_url
+            token = None
+
+            if not url:
+                if "revit" in switches:
+                    url = switches["revit"].endpoint
+                    token = switches["revit"].session_token
+                    logger.info("Resolved Revit switch from registry: %s", url)
+                else:
+                    url = "http://127.0.0.1:3000"
+                    logger.warning("No Revit switch found in registry, falling back to legacy port 3000")
+
+            bridge_factory = factory or (lambda u, t=None: BridgeClient(u, token=t))
+            bridge = bridge_factory(url, token)
             if hasattr(bridge, 'initialize'):
                 try:
                     bridge.initialize()
