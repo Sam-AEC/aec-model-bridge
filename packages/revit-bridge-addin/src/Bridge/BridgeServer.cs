@@ -21,6 +21,8 @@ public class BridgeServer
     private Task? _listenerTask;
     private int _totalRequests = 0;
     private int _activeConnections = 0;
+    private SemaphoreSlim _concurrencySemaphore = new(10, 10);
+    private const long MaxRequestSizeBytes = 5 * 1024 * 1024; // 5 MB
 
     public BridgeServer(CommandQueue queue, ExternalEvent externalEvent)
     {
@@ -28,11 +30,15 @@ public class BridgeServer
         _externalEvent = externalEvent;
         _listener = new HttpListener();
         SessionToken = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
+        
+        var legacyEnv = Environment.GetEnvironmentVariable("MCP_REVIT_LEGACY_PORT");
+        LegacyMode = string.IsNullOrEmpty(legacyEnv) || legacyEnv.ToLower() == "true" || legacyEnv == "1";
     }
 
     public string SessionToken { get; }
     public int Port { get; private set; }
     public string RegistryFilePath { get; private set; }
+    public bool LegacyMode { get; }
 
     public bool IsListening { get; private set; }
     public bool IsRunning => IsListening;
@@ -49,10 +55,17 @@ public class BridgeServer
             if (_cts.IsCancellationRequested)
                 _cts = new CancellationTokenSource();
 
-            var tcp = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
-            tcp.Start();
-            Port = ((IPEndPoint)tcp.LocalEndpoint).Port;
-            tcp.Stop();
+            if (LegacyMode)
+            {
+                Port = 3000;
+            }
+            else
+            {
+                var tcp = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
+                tcp.Start();
+                Port = ((IPEndPoint)tcp.LocalEndpoint).Port;
+                tcp.Stop();
+            }
 
             var prefix = $"http://127.0.0.1:{Port}/";
             _listener.Prefixes.Clear();
@@ -122,6 +135,22 @@ public class BridgeServer
 
         try
         {
+            await _concurrencySemaphore.WaitAsync(_cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            Interlocked.Decrement(ref _activeConnections);
+            return;
+        }
+
+        try
+        {
+            if (context.Request.ContentLength64 > MaxRequestSizeBytes)
+            {
+                Respond(context, 413, new { error = "Payload too large" });
+                return;
+            }
+
             var path = context.Request.Url?.AbsolutePath ?? "/";
 
             if (path == "/health")
@@ -152,17 +181,21 @@ public class BridgeServer
         }
         finally
         {
+            _concurrencySemaphore.Release();
             Interlocked.Decrement(ref _activeConnections);
         }
     }
 
     private async Task HandleExecute(HttpListenerContext context)
     {
-        var authHeader = context.Request.Headers["Authorization"];
-        if (string.IsNullOrEmpty(authHeader) || authHeader != $"Bearer {SessionToken}")
+        if (!LegacyMode)
         {
-            Respond(context, 401, new { error = "Unauthorized" });
-            return;
+            var authHeader = context.Request.Headers["Authorization"];
+            if (string.IsNullOrEmpty(authHeader) || authHeader != $"Bearer {SessionToken}")
+            {
+                Respond(context, 401, new { error = "Unauthorized" });
+                return;
+            }
         }
 
         var startTime = DateTime.UtcNow;
