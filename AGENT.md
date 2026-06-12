@@ -19,5 +19,6 @@ Working notes written by agents for future agents. Append dated bullets under Le
 
 ## Learnings
 
+- 2026-06-13 · When adding custom pytest markers (e.g. `@pytest.mark.perf`), register them in `pyproject.toml` under `[tool.pytest.ini_options]` `markers` to avoid warnings.
 - 2026-06-13 · If a card's instructions contradict reality (e.g., requested files already deleted), follow reality, note the discrepancy in the evidence line, and proceed.
 - 2026-06-13 · File seeded during the Chapter 2 roadmap session (`docs/next-chapter.md`). Agents: append discoveries above this line.

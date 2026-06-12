@@ -184,7 +184,7 @@ Done 2026-06-12 · `docs/system-blueprint-and-workflows.md`, `docs/agent-handove
 - **Lane:** HUMAN · **Size:** S · **Depends on:** —
 - **Do (you):** Rename on GitHub (auto-redirect preserves old links); update badge URLs, clone URLs, MCP registry entry.
 
-#### [ ] A11 — ADR 0007: hub performance posture (Python-first, native hot paths)
+#### [x] A11 — ADR 0007: hub performance posture (2026-06-13 · test_perf passed)
 - **Lane:** DOCS+PY · **Size:** S · **Depends on:** —
 - **Do:** Record the language/runtime decision so no agent drifts into a rewrite: the hub stays **Python** — the ecosystem is the moat (MCP SDK, IfcOpenShell, specklepy, ifctester, openpyxl, pyarrow/DuckDB), and hub latency is dominated by host applications and network/disk I/O, not the interpreter. Rules: performance-critical paths must use native-backed libraries (IfcOpenShell's C++ core for geometry, pyarrow/DuckDB for the lake, `orjson` for large payloads); a single module may be dropped to Rust/C++ as a Python extension (PyO3/nanobind) ONLY when a recorded profile shows it dominating a workflow budget — never a whole-hub rewrite. Desktop switches remain native by construction (C# in-process with each host). Define budgets in the ADR: hub tool-dispatch overhead < 10 ms; W3 health audit on the sample IFC < 60 s on a laptop. Add one perf smoke test (skip-by-default marker) asserting the dispatch-overhead budget.
 - **Verify:** ADR merged with budgets table; `python -m pytest packages/mcp-server-revit/tests -k perf -m perf` passes locally.
@@ -610,6 +610,7 @@ Each G-task produces a 1–2 page spec in `docs/specs/` answering: named workflo
 
 Agents append one line per completed task (newest first): `YYYY-MM-DD · <task-id> · <branch/commit> · <evidence summary>`
 
+- 2026-06-13 · A11 · task/A11 · Implemented ADR 0007 and added test_perf.py asserting < 10ms dispatch overhead.
 - 2026-06-13 · A7 · task/A7 · Updated .gitignore for build artifacts and venv, confirmed CONTRIBUTING.md dist policy, noted missing 3dm files.
 - 2026-06-12 · A0 · — · Blueprint, strategy doc, handover rewrite authored (docs only, no code).
 
