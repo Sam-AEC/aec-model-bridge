@@ -15,6 +15,7 @@ corrections are welcome without a code contribution.
 
 ## Focus Areas
 
+
 Contributions are most useful when they improve one of the following:
 - Revit command coverage
 - MCP tool reliability and error handling
@@ -28,6 +29,11 @@ Contributions are most useful when they improve one of the following:
 - Sanitize local paths, machine names, and credentials from config examples.
 - If a change affects UI or commands, include reproduction steps and expected behavior.
 - Update examples or docs when behavior changes.
+
+## Repository Hygiene & Build Artifacts
+
+- **Build Artifacts (`dist/`, `build/`)**: Compiled distribution files, zip packages, and binary builds must not be committed to the git repository. All releases are attached directly to GitHub Releases.
+- **Local virtual environments**: Always run tests and scripts within local `.venv` environments, which are ignored by git.
 
 ## Pull Request Checklist
 

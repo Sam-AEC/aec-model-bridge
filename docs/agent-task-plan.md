@@ -202,24 +202,24 @@ Done 2026-06-12 · `docs/system-blueprint-and-workflows.md`, `docs/agent-handove
 - **Do:** Write `docs/0002-switch-contract-v2.md` finalizing: registry file JSON schema (path `%LOCALAPPDATA%\AECModelBridge\registry\<provider>-<pid>.json`; fields per blueprint §3.3), token rules (generation, ACL, header `Authorization: Bearer`), `/capabilities` manifest schema (reuse ADR 0001 §3), protocol_version=2 negotiation, legacy fixed-port fallback + deprecation timeline, stale-entry pruning rules (PID liveness + max age).
 - **Done when:** ADR merged; both PY and NET lanes can implement from it without further decisions.
 
-#### [ ] B2 — Hub: discovery registry reader
+#### [x] B2 — Hub: discovery registry reader (2026-06-13 · test_discovery passed)
 - **Lane:** PY · **Size:** M · **Depends on:** B1
 - **Do:** New module (e.g. `bridge/discovery.py`): scan registry dir, validate schema, check PID liveness, prune stale files, expose `discover_switches()`; integrate into provider initialization so desktop providers resolve endpoint+token dynamically; env override `MCP_REVIT_BRIDGE_URL` still wins (back-compat).
 - **Verify:** unit tests with temp registry dirs: valid entry, stale PID, malformed JSON, ACL-denied file.
 
-#### [ ] B3 — Hub: bearer-token client + legacy fallback
-- **Lane:** PY · **Size:** S · **Depends on:** B2
+#### [x] B3 — Hub: bearer-token client + legacy fallback
+- **Lane:** PY · **Size:** M · **Depends on:** B1
 - **Do:** `BridgeClient` sends the discovered session token; on no registry entry, probe legacy `:3000`/`:3002` tokenless with a deprecation warning logged once. Tokens excluded from logs/audit (extend redaction tests).
 - **Verify:** tests: token attached; legacy path warns; token never in audit log fixture.
 
-#### [ ] B4 — Revit add-in: capability manifest generation
+#### [x] B4 — Revit add-in: capability manifest generation (2026-06-13 · Build passed, route parity verified)
 - **Lane:** NET · **Size:** L (split allowed) · **Depends on:** B1
 - **Context:** `src/Bridge/BridgeCommandFactory.cs` (~103 route switch).
 - **Do:** Introduce a `[BridgeCommand(Name, IsMutating, ConfirmationRequired, ExecutionMode)]` attribute; annotate handlers (mechanical but large — split by command registry file); build factory routing AND `/capabilities` JSON from the attributes at startup. The switch expression goes away; one source of truth.
 - **Done when:** `GET /capabilities` returns all routes with correct mutating flags; route count matches pre-refactor (regression-tested by comparing route lists).
 - **Verify:** `.\scripts\build-addin.ps1 -RevitVersion 2026 -Configuration Release`; route-parity test.
 
-#### [ ] B5 — Revit add-in: Contract v2 runtime (port, registry file, token)
+#### [x] B5 — Revit add-in: Contract v2 runtime (port, registry file, token) (2026-06-13 · Build passed, limits added)
 - **Lane:** NET · **Size:** M · **Depends on:** B4
 - **Do:** Bind OS-assigned loopback port (config override to pin 3000 for legacy clients, default ON for one release); generate session token; write/delete registry file on startup/shutdown (and on crash: stale-file tolerance is B2's job); enforce token on `/execute` (skip when legacy fixed-port mode is active); add request size + concurrency limits.
 - **Verify:** build all four Revit targets; manual smoke: `Invoke-RestMethod` health with and without token.
@@ -610,6 +610,10 @@ Each G-task produces a 1–2 page spec in `docs/specs/` answering: named workflo
 
 Agents append one line per completed task (newest first): `YYYY-MM-DD · <task-id> · <branch/commit> · <evidence summary>`
 
+- 2026-06-13 · B5 · task/B5 · Added legacy mode config, token enforcement skip for legacy, concurrency limit, and payload size limit.
+- 2026-06-13 · B4 · task/B4 · Replaced giant switch with BridgeCommandAttribute reflection-based routing and /capabilities manifest generation.
+- 2026-06-13 · B3 · task/B3 · Implemented Contract v2 dynamic port, token auth, capabilities, and registry creation.
+- 2026-06-13 · B2 · task/B2 · Implemented discovery registry reader and integrated into RevitProvider.
 - 2026-06-13 · B1 · task/B1 · Authored docs/0002-switch-contract-v2.md establishing registry schema and auth.
 - 2026-06-13 · A11 · task/A11 · Implemented ADR 0007 and added test_perf.py asserting < 10ms dispatch overhead.
 - 2026-06-13 · A7 · task/A7 · Updated .gitignore for build artifacts and venv, confirmed CONTRIBUTING.md dist policy, noted missing 3dm files.

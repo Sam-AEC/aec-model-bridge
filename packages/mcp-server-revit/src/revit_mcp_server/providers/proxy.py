@@ -23,15 +23,16 @@ class McpProxyProvider(AECProvider):
     - We also support lazy connection/reconnection on `execute_tool` using exponential backoff 
       if the connection is lost.
     """
-    def __init__(self, target_url: str):
+    def __init__(self, target_url: str, identity: str = "proxy"):
         self.target_url = target_url
+        self._identity = identity
         self._session: ClientSession | None = None
         self._exit_stack = None
         self._tools: List[ProviderTool] = []
         self._connected = False
 
     def get_identity(self) -> str:
-        return "proxy"
+        return self._identity
 
     def get_capabilities(self) -> List[ProviderTool]:
         return self._tools
@@ -60,7 +61,7 @@ class McpProxyProvider(AECProvider):
             
             mcp_tools = await self._session.list_tools()
             for t in mcp_tools.tools:
-                namespaced_name = f"proxy_{t.name}"
+                namespaced_name = f"{self._identity}_{t.name}"
                 self._tools.append(ProviderTool(
                     name=namespaced_name,
                     description=t.description or "",
@@ -96,10 +97,11 @@ class McpProxyProvider(AECProvider):
         )
 
     async def execute_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        if not name.startswith("proxy_"):
-            raise ValueError(f"Unknown tool '{name}' on provider 'proxy'")
+        prefix = f"{self._identity}_"
+        if not name.startswith(prefix):
+            raise ValueError(f"Unknown tool '{name}' on provider '{self._identity}'")
 
-        remote_name = name[len("proxy_"):]
+        remote_name = name[len(prefix):]
 
         if not self._connected or not self._session:
             await self._connect_with_retry()
