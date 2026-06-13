@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.0 - 2026-06-13
+
+- Implement Phase B Switch Contract v2 with ADR 0002 specification.
+- Add hub discovery registry reader and bearer-token client with legacy fallback.
+- Enhance Revit add-in with Contract v2 runtime, token generation, and capability manifest generation via reflection.
+- Introduce Navisworks command routing infrastructure with attribute-based registry.
+- Establish baseline hub performance posture with ADR 0007.
+- Add parameterized provider contract tests and automated tool catalog generation.
+- Implement SQLiteExporterProvider for local database exports and graph mapping.
+- Add multi-provider integration, persistent background event loop, and data redaction.
+- Perform repository hygiene by removing obsolete agent task files and temporary branches.
+
 ## 1.1.0 - 2026-06-11
 
 - Rewrite the README as a shorter product and installation guide.
