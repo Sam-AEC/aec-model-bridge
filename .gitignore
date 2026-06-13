@@ -229,9 +229,4 @@ update_dll.ps1
 INSTALL_NEW_DLL.txt
 temp.json
 
-# Local proposed architecture / report MD files
-docs/0001-multi-provider-architecture.md
-docs/proposed-multi-workflow-architecture.md
-docs/agent-handover-prompt.md
-docs/roadmap-and-plans.md
 
