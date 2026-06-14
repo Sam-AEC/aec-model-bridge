@@ -18,6 +18,7 @@ from .providers import (
     IfcProvider,
     AECMapperProvider,
     RhinoProvider,
+    NavisworksProvider,
     SemanticGraphProvider,
     AutodeskDataProvider,
     JobProvider,
@@ -80,6 +81,11 @@ class MCPServer:
             self.registry.register(RhinoProvider(workspace=self.workspace))
         except Exception as e:
             logger.warning("Could not initialize RhinoProvider: %s", e)
+
+        try:
+            self.registry.register(NavisworksProvider(workspace=self.workspace))
+        except Exception as e:
+            logger.warning("Could not initialize NavisworksProvider: %s", e)
 
         try:
             self.registry.register(SemanticGraphProvider())

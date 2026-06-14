@@ -1,56 +1,34 @@
-from __future__ import annotations
+import logging
+from typing import Any, Dict, List
 
-import base64
-import os
-from urllib.parse import urlparse
-from pathlib import Path
-from typing import Any, Dict, List, Mapping, Sequence
-
-import httpx
-
-from ..errors import BridgeError, WorkspaceViolation
+from ..config import config, BridgeMode
+from ..bridge.client import BridgeClient
 from ..security.workspace import WorkspaceMonitor
 from .base import AECProvider, ProviderTool
 
+logger = logging.getLogger(__name__)
+
+
+def _optional(args: Dict, *keys) -> Dict:
+    """Return a dict of only the keys present in args (used to build sparse bridge payloads)."""
+    return {k: args[k] for k in keys if k in args}
+
 
 class RhinoProvider(AECProvider):
-    SUPPORTED_DEFINITION_EXTENSIONS = {".gh", ".ghx"}
-    SUPPORTED_GEOMETRY_EXTENSIONS = {".3dm"}
-
     def __init__(
         self,
         workspace: WorkspaceMonitor,
-        base_url: str | None = None,
-        api_key: str | None = None,
-        api_key_header: str = "RhinoComputeKey",
-        client: httpx.AsyncClient | None = None,
-        timeout: float = 30.0,
-        grasshopper_prefix: str = "/grasshopper",
-        rhino_prefix: str = "/rhino",
-        io_path: str = "/io",
-        solve_path: str = "/solve",
-        geometry_query_path: str = "/query_file_geometry",
-        layers_path: str = "/layers",
-        geometry_details_path: str = "/geometry_details",
-        max_upload_bytes: int | None = None,
+        mode: BridgeMode = config.mode,
+        bridge_url: str | None = None,
+        bridge_factory=None
     ) -> None:
         self.workspace = workspace
-        self.base_url = (base_url or os.getenv("MCP_RHINO_COMPUTE_URL") or os.getenv("RHINO_COMPUTE_URL") or "https://localhost:5001").rstrip("/")
-        self._enforce_base_url_policy(self.base_url)
-        self.api_key = api_key or os.getenv("MCP_RHINO_COMPUTE_KEY") or os.getenv("RHINO_COMPUTE_KEY")
-        self.api_key_header = api_key_header
-        self.timeout = timeout
-        self.max_upload_bytes = self._resolve_max_upload_bytes(max_upload_bytes)
-        self._own_client = client is None
-        self._client = client or httpx.AsyncClient(base_url=self.base_url, timeout=timeout, follow_redirects=True)
-        self._grasshopper_prefix = self._normalize_prefix(grasshopper_prefix)
-        self._rhino_prefix = self._normalize_prefix(rhino_prefix)
-        self._io_path = self._normalize_suffix(io_path)
-        self._solve_path = self._normalize_suffix(solve_path)
-        self._geometry_query_path = self._normalize_suffix(geometry_query_path)
-        self._layers_path = self._normalize_suffix(layers_path)
-        self._geometry_details_path = self._normalize_suffix(geometry_details_path)
-        self._init_capabilities()
+        self.mode = mode
+        
+        url = bridge_url or "http://127.0.0.1:3004"
+        bridge_factory = bridge_factory or (lambda u, t=None: BridgeClient(u, token=t))
+        self._bridge = bridge_factory(url, None)
+        self._init_tool_mapping()
 
     def get_identity(self) -> str:
         return "rhino"
@@ -59,285 +37,279 @@ class RhinoProvider(AECProvider):
         return self._capabilities
 
     async def check_health(self) -> Dict[str, Any]:
-        response = await self._request_json("GET", "/health")
-        return response
+        if self.mode == BridgeMode.bridge:
+            try:
+                if hasattr(self._bridge, '_get'):
+                    return self._bridge._get("/health")
+                return {"status": "healthy", "mode": "bridge"}
+            except Exception as e:
+                return {"status": "unhealthy", "error": str(e)}
+        return {"status": "healthy", "mode": "mock"}
 
     async def execute_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        normalized = name.replace(".", "_")
-        if normalized == "rhino_health":
-            return await self.check_health()
-        if normalized == "rhino_get_definition_io":
-            definition_path = self._require_path(arguments, "definition_path", self.SUPPORTED_DEFINITION_EXTENSIONS)
-            return await self._definition_io(definition_path)
-        if normalized == "rhino_evaluate_definition":
-            definition_path = self._require_path(arguments, "definition_path", self.SUPPORTED_DEFINITION_EXTENSIONS)
-            input_trees = self._validate_input_trees(arguments.get("input_trees"))
-            return await self._evaluate_definition(definition_path, input_trees)
-        if normalized == "rhino_query_file_geometry":
-            file_path = self._require_path(arguments, "file_path", self.SUPPORTED_GEOMETRY_EXTENSIONS)
-            return await self._query_file_geometry(file_path, arguments)
-        if normalized == "rhino_get_layers":
-            file_path = self._require_path(arguments, "file_path", self.SUPPORTED_GEOMETRY_EXTENSIONS)
-            return await self._get_layers(file_path)
-        if normalized == "rhino_get_geometry_details":
-            file_path = self._require_path(arguments, "file_path", self.SUPPORTED_GEOMETRY_EXTENSIONS)
-            return await self._get_geometry_details(file_path, arguments)
-        raise ValueError(f"Unknown Rhino tool '{name}'")
+        if name not in self._tool_mapping:
+            raise ValueError(f"Unknown Rhino tool '{name}'")
+            
+        bridge_tool, payload_builder = self._tool_mapping[name]
+        payload = payload_builder(arguments)
+        
+        if "request_id" in arguments and "request_id" not in payload:
+            payload["request_id"] = arguments["request_id"]
 
-    async def shutdown(self) -> None:
-        if self._own_client:
-            await self._client.aclose()
+        if self.mode == BridgeMode.bridge:
+            return self._bridge.send_tool(bridge_tool, payload)
+        else:
+            return {"mock": True, "tool": bridge_tool, "payload": payload}
 
-    def _init_capabilities(self) -> None:
-        self._capabilities = [
-            ProviderTool(
-                name="rhino_health",
-                description="Check Rhino.Compute connectivity and service status",
-                inputSchema={"type": "object", "properties": {}, "required": []},
-            ),
-            ProviderTool(
-                name="rhino_get_definition_io",
-                description="Upload a Grasshopper definition and return its Resthopper input/output metadata",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "definition_path": {
-                            "type": "string",
-                            "description": "Workspace path to a .gh or .ghx Grasshopper definition",
-                        }
-                    },
-                    "required": ["definition_path"],
-                },
-            ),
-            ProviderTool(
-                name="rhino_evaluate_definition",
-                description="Upload a Grasshopper definition, solve it against Resthopper-compatible trees, and return the compute response",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "definition_path": {
-                            "type": "string",
-                            "description": "Workspace path to a .gh or .ghx Grasshopper definition",
-                        },
-                        "input_trees": {
-                            "type": "array",
-                            "description": "Resthopper-compatible input trees",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "ParamName": {"type": "string"},
-                                    "InnerTree": {"type": "object"},
-                                },
-                                "required": ["ParamName", "InnerTree"],
-                            },
-                        },
-                    },
-                    "required": ["definition_path"],
-                },
-            ),
-            ProviderTool(
-                name="rhino_query_file_geometry",
-                description="Upload a .3dm file and query geometry summaries through Rhino.Compute",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "file_path": {
-                            "type": "string",
-                            "description": "Workspace path to a .3dm file",
-                        },
-                        "include_hidden": {
-                            "type": "boolean",
-                            "default": False,
-                            "description": "Include hidden objects when querying geometry",
-                        },
-                    },
-                    "required": ["file_path"],
-                },
-            ),
-            ProviderTool(
-                name="rhino_get_layers",
-                description="Return layer metadata for a .3dm file through Rhino.Compute",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "file_path": {
-                            "type": "string",
-                            "description": "Workspace path to a .3dm file",
-                        }
-                    },
-                    "required": ["file_path"],
-                },
-            ),
-            ProviderTool(
-                name="rhino_get_geometry_details",
-                description="Return detailed geometry metadata for a .3dm file through Rhino.Compute",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "file_path": {
-                            "type": "string",
-                            "description": "Workspace path to a .3dm file",
-                        }
-                    },
-                    "required": ["file_path"],
-                },
-            ),
-        ]
-
-    def _normalize_prefix(self, prefix: str) -> str:
-        cleaned = prefix.strip()
-        if not cleaned:
-            return ""
-        return "/" + cleaned.strip("/")
-
-    def _normalize_suffix(self, suffix: str) -> str:
-        cleaned = suffix.strip()
-        if not cleaned:
-            return ""
-        return "/" + cleaned.strip("/")
-
-    def _build_endpoint(self, prefix: str, suffix: str) -> str:
-        if not prefix:
-            return suffix or "/"
-        if not suffix:
-            return prefix
-        return f"{prefix}{suffix}"
-
-    def _require_path(self, arguments: Mapping[str, Any], key: str, allowed_extensions: Sequence[str]) -> Path:
-        raw_path = arguments.get(key)
-        if not isinstance(raw_path, str) or not raw_path.strip():
-            raise ValueError(f"Argument '{key}' is required.")
-        try:
-            resolved = self.workspace.assert_in_workspace(Path(raw_path))
-        except WorkspaceViolation as exc:
-            raise ValueError("Path is outside the allowed workspace.") from exc
-        if resolved.suffix.lower() not in {ext.lower() for ext in allowed_extensions}:
-            raise ValueError(
-                f"Unsupported Rhino file extension '{resolved.suffix or '<none>'}' for '{resolved.name}'."
-            )
-        if not resolved.exists():
-            raise FileNotFoundError(f"Rhino file not found: {resolved.name}")
-        return resolved
-
-    def _validate_input_trees(self, input_trees: Any) -> list[dict[str, Any]]:
-        if input_trees is None:
-            return []
-        if not isinstance(input_trees, list):
-            raise ValueError("Argument 'input_trees' must be a list when provided.")
-        validated: list[dict[str, Any]] = []
-        for index, tree in enumerate(input_trees):
-            if not isinstance(tree, dict):
-                raise ValueError(f"Input tree at index {index} must be an object.")
-            if "ParamName" not in tree or "InnerTree" not in tree:
-                raise ValueError(f"Input tree at index {index} must include 'ParamName' and 'InnerTree'.")
-            validated.append(tree)
-        return validated
-
-    def _tree_to_resthopper_values(self, input_trees: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
-        return [dict(tree) for tree in input_trees]
-
-    def _file_payload(self, file_path: Path) -> dict[str, Any]:
-        self._enforce_upload_size(file_path)
-        return {
-            "file_name": file_path.name,
-            "file_data": base64.b64encode(file_path.read_bytes()).decode("ascii"),
+    def _init_tool_mapping(self):
+        self._tool_mapping = {
+            # ── Core ──────────────────────────────────────────────────────────────
+            "rhino_health": ("health", lambda args: {}),
+            "rhino_get_document_info": ("get_document_info", lambda args: {}),
+            "rhino_get_lines": ("get_lines", lambda args: {}),
+            # ── Scene ─────────────────────────────────────────────────────────────
+            "rhino_get_scene": ("get_scene", lambda args: {}),
+            "rhino_list_layers": ("list_layers", lambda args: {}),
+            "rhino_clear_scene": ("clear_scene", lambda args: {
+                **({"layer": args["layer"]} if "layer" in args else {})
+            }),
+            "rhino_set_view": ("set_view", lambda args: {
+                "view": args.get("view", "perspective")
+            }),
+            # ── Geometry creation ─────────────────────────────────────────────────
+            "rhino_create_box": ("create_box", lambda args: {
+                "min_pt": args["min_pt"],
+                "max_pt": args["max_pt"],
+                **_optional(args, "layer", "color"),
+            }),
+            "rhino_create_sphere": ("create_sphere", lambda args: {
+                "center": args["center"],
+                "radius": args["radius"],
+                **_optional(args, "layer", "color"),
+            }),
+            "rhino_create_cylinder": ("create_cylinder", lambda args: {
+                "base": args["base"],
+                "height": args["height"],
+                "radius": args["radius"],
+                **_optional(args, "layer", "color"),
+            }),
+            # ── Booleans ──────────────────────────────────────────────────────────
+            "rhino_boolean_union": ("boolean_union", lambda args: {
+                "ids": args["ids"],
+                **_optional(args, "layer"),
+            }),
+            "rhino_boolean_difference": ("boolean_difference", lambda args: {
+                "base_id": args["base_id"],
+                "cutter_ids": args["cutter_ids"],
+            }),
+            # ── Materials ─────────────────────────────────────────────────────────
+            "rhino_set_material": ("set_material", lambda args: {
+                **_optional(args, "ids", "layer", "color", "transparency",
+                            "reflectivity", "name"),
+            }),
+            # ── Transform ─────────────────────────────────────────────────────────
+            "rhino_transform_objects": ("transform_objects", lambda args: {
+                "ids": args["ids"],
+                **_optional(args, "translation", "rotation", "scale"),
+            }),
+            # ── Python execution ──────────────────────────────────────────────────
+            "rhino_run_python": ("run_python", lambda args: {
+                "code": args["code"]
+            }),
+            # ── Parametric tower ──────────────────────────────────────────────────
+            "rhino_generate_diagrid_tower": ("generate_diagrid_tower", lambda args: {
+                "base_radius":      args.get("base_radius",      22.0),
+                "waist_radius":     args.get("waist_radius",     14.0),
+                "top_radius":       args.get("top_radius",       19.0),
+                "height":           args.get("height",          180.0),
+                "u_divs":           args.get("u_divs",             16),
+                "v_divs":           args.get("v_divs",             28),
+                "mullion_width":    args.get("mullion_width",    0.15),
+                "mullion_depth":    args.get("mullion_depth",    0.30),
+                "glass_thickness":  args.get("glass_thickness", 0.024),
+                "inset_ratio":      args.get("inset_ratio",     0.12),
+            }),
+            # ── Reflection ────────────────────────────────────────────────────────
+            "rhino_invoke_method": ("invoke_method", lambda args: {
+                "class_name":  args.get("class_name"),
+                "method_name": args.get("method_name"),
+                "arguments":   args.get("arguments"),
+                "target_id":   args.get("target_id"),
+            }),
+            "rhino_reflect_get": ("reflect_get", lambda args: {
+                "target_id":     args.get("target_id"),
+                "property_name": args.get("property_name"),
+            }),
+            "rhino_reflect_set": ("reflect_set", lambda args: {
+                "target_id":     args.get("target_id"),
+                "property_name": args.get("property_name"),
+                "value":         args.get("value"),
+            }),
         }
 
-    async def _definition_io(self, definition_path: Path) -> Dict[str, Any]:
-        payload = self._file_payload(definition_path)
-        response = await self._request_json(
-            "POST",
-            self._build_endpoint(self._grasshopper_prefix, self._io_path),
-            payload=payload,
-        )
-        return response
-
-    async def _evaluate_definition(self, definition_path: Path, input_trees: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
-        io_response = await self._definition_io(definition_path)
-        definition_id = (
-            io_response.get("definition_id")
-            or io_response.get("id")
-            or io_response.get("DefinitionId")
-            or io_response.get("DefinitionID")
-        )
-        if not definition_id:
-            raise BridgeError("Rhino.Compute did not return a definition identifier from the IO endpoint.")
-
-        solve_payload = {
-            "definition_id": definition_id,
-            "input_trees": self._tree_to_resthopper_values(input_trees),
-        }
-        return await self._request_json(
-            "POST",
-            self._build_endpoint(self._grasshopper_prefix, self._solve_path),
-            payload=solve_payload,
-        )
-
-    async def _query_file_geometry(self, file_path: Path, arguments: Mapping[str, Any]) -> Dict[str, Any]:
-        payload = self._file_payload(file_path)
-        payload["include_hidden"] = bool(arguments.get("include_hidden", False))
-        return await self._request_json(
-            "POST",
-            self._build_endpoint(self._rhino_prefix, self._geometry_query_path),
-            payload=payload,
-        )
-
-    async def _get_layers(self, file_path: Path) -> Dict[str, Any]:
-        payload = self._file_payload(file_path)
-        return await self._request_json(
-            "POST",
-            self._build_endpoint(self._rhino_prefix, self._layers_path),
-            payload=payload,
-        )
-
-    async def _get_geometry_details(self, file_path: Path, arguments: Mapping[str, Any]) -> Dict[str, Any]:
-        payload = self._file_payload(file_path)
-        if "object_ids" in arguments:
-            payload["object_ids"] = arguments["object_ids"]
-        return await self._request_json(
-            "POST",
-            self._build_endpoint(self._rhino_prefix, self._geometry_details_path),
-            payload=payload,
-        )
-
-    async def _request_json(self, method: str, endpoint: str, *, payload: dict[str, Any] | None = None) -> Dict[str, Any]:
-        headers = {}
-        if self.api_key:
-            headers[self.api_key_header] = self.api_key
-        try:
-            response = await self._client.request(method, endpoint, json=payload, headers=headers)
-            response.raise_for_status()
-            response_payload = response.json()
-        except httpx.HTTPStatusError as exc:
-            raise BridgeError(f"Rhino.Compute request to {endpoint} failed with status {exc.response.status_code}") from exc
-        except httpx.RequestError as exc:
-            raise BridgeError(f"Rhino.Compute request to {endpoint} failed: {exc.__class__.__name__}") from exc
-        except ValueError as exc:
-            raise BridgeError(f"Rhino.Compute response from {endpoint} was not valid JSON") from exc
-        if not isinstance(response_payload, dict):
-            raise BridgeError(f"Rhino.Compute response from {endpoint} was not a JSON object")
-        return response_payload
-
-    def _enforce_upload_size(self, file_path: Path) -> None:
-        if file_path.stat().st_size > self.max_upload_bytes:
-            raise ValueError(
-                f"Rhino file '{file_path.name}' exceeds the maximum upload size of {self.max_upload_bytes} bytes."
-            )
-
-    def _enforce_base_url_policy(self, base_url: str) -> None:
-        parsed = urlparse(base_url)
-        if parsed.scheme not in {"http", "https"}:
-            raise ValueError("Rhino.Compute base URL must use http or https.")
-        if parsed.scheme == "http" and not self._is_loopback_host(parsed.hostname):
-            raise ValueError("Rhino.Compute base URL must use https unless the host is localhost or 127.0.0.1.")
-
-    def _is_loopback_host(self, hostname: str | None) -> bool:
-        return hostname in {"localhost", "127.0.0.1", "::1"}
-
-    def _resolve_max_upload_bytes(self, max_upload_bytes: int | None) -> int:
-        if max_upload_bytes is not None:
-            return int(max_upload_bytes)
-        env_value = os.getenv("MCP_RHINO_COMPUTE_MAX_UPLOAD_BYTES") or os.getenv("RHINO_COMPUTE_MAX_UPLOAD_BYTES")
-        if env_value:
-            return int(env_value)
-        return 50 * 1024 * 1024
+    _capabilities = [
+        ProviderTool(
+            name="rhino_health",
+            description="Check if the Rhino bridge is running and healthy",
+            inputSchema={"type": "object", "properties": {}, "required": []}
+        ),
+        ProviderTool(
+            name="rhino_get_document_info",
+            description="Get the active Rhino document name, path, unit system, and object count",
+            inputSchema={"type": "object", "properties": {}, "required": []}
+        ),
+        ProviderTool(
+            name="rhino_get_lines",
+            description="Get all curves/lines from the active Rhino document",
+            inputSchema={"type": "object", "properties": {}, "required": []}
+        ),
+        ProviderTool(
+            name="rhino_get_scene",
+            description="Get all objects in the Rhino scene with their type, layer, and bounding box",
+            inputSchema={"type": "object", "properties": {}, "required": []}
+        ),
+        ProviderTool(
+            name="rhino_list_layers",
+            description="List all layers in the Rhino document with name, color, visibility, and lock state",
+            inputSchema={"type": "object", "properties": {}, "required": []}
+        ),
+        ProviderTool(
+            name="rhino_clear_scene",
+            description="Delete all objects in the Rhino document, or only objects on a specific layer",
+            inputSchema={"type": "object", "properties": {
+                "layer": {"type": "string", "description": "Optional layer name; omit to delete everything"}
+            }, "required": []}
+        ),
+        ProviderTool(
+            name="rhino_set_view",
+            description="Set the active Rhino viewport display mode or projection",
+            inputSchema={"type": "object", "properties": {
+                "view": {"type": "string",
+                         "enum": ["perspective", "top", "front", "right", "rendered", "arctic"],
+                         "description": "Viewport to switch to"}
+            }, "required": ["view"]}
+        ),
+        ProviderTool(
+            name="rhino_create_box",
+            description="Create a box (rectangular prism) from two corner points in metres",
+            inputSchema={"type": "object", "properties": {
+                "min_pt": {"type": "array", "items": {"type": "number"}, "description": "[x,y,z] min corner"},
+                "max_pt": {"type": "array", "items": {"type": "number"}, "description": "[x,y,z] max corner"},
+                "layer":  {"type": "string"},
+                "color":  {"type": "array", "items": {"type": "integer"}, "description": "[r,g,b]"},
+            }, "required": ["min_pt", "max_pt"]}
+        ),
+        ProviderTool(
+            name="rhino_create_sphere",
+            description="Create a sphere by centre point and radius in metres",
+            inputSchema={"type": "object", "properties": {
+                "center": {"type": "array", "items": {"type": "number"}, "description": "[x,y,z]"},
+                "radius": {"type": "number"},
+                "layer":  {"type": "string"},
+                "color":  {"type": "array", "items": {"type": "integer"}},
+            }, "required": ["center", "radius"]}
+        ),
+        ProviderTool(
+            name="rhino_create_cylinder",
+            description="Create a capped cylinder from base point, height, and radius in metres",
+            inputSchema={"type": "object", "properties": {
+                "base":   {"type": "array", "items": {"type": "number"}, "description": "[x,y,z] base centre"},
+                "height": {"type": "number"},
+                "radius": {"type": "number"},
+                "layer":  {"type": "string"},
+                "color":  {"type": "array", "items": {"type": "integer"}},
+            }, "required": ["base", "height", "radius"]}
+        ),
+        ProviderTool(
+            name="rhino_boolean_union",
+            description="Boolean union a list of Brep objects by GUID; returns new object GUIDs",
+            inputSchema={"type": "object", "properties": {
+                "ids":   {"type": "array", "items": {"type": "string"}, "description": "Object GUIDs to union"},
+                "layer": {"type": "string"},
+            }, "required": ["ids"]}
+        ),
+        ProviderTool(
+            name="rhino_boolean_difference",
+            description="Subtract cutter Breps from a base Brep; returns new object GUIDs",
+            inputSchema={"type": "object", "properties": {
+                "base_id":     {"type": "string"},
+                "cutter_ids":  {"type": "array", "items": {"type": "string"}},
+            }, "required": ["base_id", "cutter_ids"]}
+        ),
+        ProviderTool(
+            name="rhino_set_material",
+            description="Apply a material to objects by GUID list or by layer name",
+            inputSchema={"type": "object", "properties": {
+                "ids":          {"type": "array", "items": {"type": "string"}},
+                "layer":        {"type": "string"},
+                "color":        {"type": "array", "items": {"type": "integer"}, "description": "[r,g,b]"},
+                "transparency": {"type": "number", "minimum": 0, "maximum": 1},
+                "reflectivity": {"type": "number", "minimum": 0, "maximum": 1},
+                "name":         {"type": "string"},
+            }, "required": []}
+        ),
+        ProviderTool(
+            name="rhino_transform_objects",
+            description="Move, rotate, or scale objects by GUID. Provide exactly one of: translation, rotation, or scale",
+            inputSchema={"type": "object", "properties": {
+                "ids":         {"type": "array", "items": {"type": "string"}},
+                "translation": {"type": "array", "items": {"type": "number"}, "description": "[dx,dy,dz] in metres"},
+                "rotation":    {"type": "object", "properties": {
+                    "axis":      {"type": "array", "items": {"type": "number"}},
+                    "angle_deg": {"type": "number"},
+                    "origin":    {"type": "array", "items": {"type": "number"}},
+                }},
+                "scale":       {"type": "array", "items": {"type": "number"}, "description": "[sx,sy,sz]"},
+            }, "required": ["ids"]}
+        ),
+        ProviderTool(
+            name="rhino_run_python",
+            description="Execute arbitrary IronPython code inside Rhino with full RhinoCommon access. stdout is captured and returned.",
+            inputSchema={"type": "object", "properties": {
+                "code": {"type": "string", "description": "Python source code to run inside Rhino"},
+            }, "required": ["code"]}
+        ),
+        ProviderTool(
+            name="rhino_generate_diagrid_tower",
+            description="Generate a parametric diagrid skyscraper with aluminum mullion sweeps and glass panel solids. All dims in metres.",
+            inputSchema={"type": "object", "properties": {
+                "base_radius":     {"type": "number", "description": "Ground floor radius (m)"},
+                "waist_radius":    {"type": "number", "description": "Narrowest radius at mid-height (m)"},
+                "top_radius":      {"type": "number", "description": "Crown radius (m)"},
+                "height":          {"type": "number", "description": "Total tower height (m)"},
+                "u_divs":          {"type": "integer", "description": "Panels around circumference"},
+                "v_divs":          {"type": "integer", "description": "Panels up the height"},
+                "mullion_width":   {"type": "number", "description": "Visible face width (m)"},
+                "mullion_depth":   {"type": "number", "description": "Structural depth toward exterior (m)"},
+                "glass_thickness": {"type": "number", "description": "IGU depth (m)"},
+                "inset_ratio":     {"type": "number", "description": "Fraction to inset glass corners from cell edge"},
+            }, "required": []}
+        ),
+        ProviderTool(
+            name="rhino_invoke_method",
+            description="Invoke a C# method on a Rhino object via reflection",
+            inputSchema={"type": "object", "properties": {
+                "class_name":  {"type": "string"},
+                "method_name": {"type": "string"},
+                "arguments":   {"type": "array"},
+                "target_id":   {"type": "string"},
+            }, "required": ["class_name", "method_name", "arguments"]}
+        ),
+        ProviderTool(
+            name="rhino_reflect_get",
+            description="Get a C# property value from a Rhino object via reflection",
+            inputSchema={"type": "object", "properties": {
+                "target_id":     {"type": "string"},
+                "property_name": {"type": "string"},
+            }, "required": ["target_id", "property_name"]}
+        ),
+        ProviderTool(
+            name="rhino_reflect_set",
+            description="Set a C# property value on a Rhino object via reflection",
+            inputSchema={"type": "object", "properties": {
+                "target_id":     {"type": "string"},
+                "property_name": {"type": "string"},
+                "value":         {},
+            }, "required": ["target_id", "property_name", "value"]}
+        ),
+    ]

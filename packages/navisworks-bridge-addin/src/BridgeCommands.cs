@@ -182,5 +182,61 @@ namespace NavisworksBridge
                 activated = vp.DisplayName
             };
         }
+        [BridgeCommand("navis.invoke_method", IsMutating = true)]
+        public static object InvokeMethod(JsonElement payload)
+        {
+            var doc = Application.ActiveDocument;
+            var className = payload.GetProperty("class_name").GetString();
+            var methodName = payload.GetProperty("method_name").GetString();
+            var args = payload.GetProperty("arguments");
+            var targetId = payload.TryGetProperty("target_id", out var tId) ? tId.GetString() : null;
+
+            return ReflectionHelper.InvokeMethod(doc, className, methodName, args, targetId);
+        }
+
+        [BridgeCommand("navis.reflect_get", IsMutating = false)]
+        public static object ReflectGet(JsonElement payload)
+        {
+            var doc = Application.ActiveDocument;
+            var targetId = payload.GetProperty("target_id").GetString();
+            var propertyName = payload.GetProperty("property_name").GetString();
+
+            var target = ReflectionHelper.GetObject(targetId, doc);
+            if (target == null) throw new Exception($"Target '{targetId}' not found");
+
+            var prop = target.GetType().GetProperty(propertyName);
+            if (prop == null) throw new Exception($"Property '{propertyName}' not found on type '{target.GetType().Name}'");
+
+            var value = prop.GetValue(target);
+            if (value == null) return null;
+            if (value.GetType().IsPrimitive || value is string) return value;
+
+            var refId = ReflectionHelper.RegisterObject(value);
+            return new { type = "reference", id = refId, class_name = value.GetType().Name, str = value.ToString() };
+        }
+
+        [BridgeCommand("navis.reflect_set", IsMutating = true)]
+        public static object ReflectSet(JsonElement payload)
+        {
+            var doc = Application.ActiveDocument;
+            var targetId = payload.GetProperty("target_id").GetString();
+            var propertyName = payload.GetProperty("property_name").GetString();
+            var valueElement = payload.GetProperty("value");
+
+            var target = ReflectionHelper.GetObject(targetId, doc);
+            if (target == null) throw new Exception($"Target '{targetId}' not found");
+
+            var prop = target.GetType().GetProperty(propertyName);
+            if (prop == null) throw new Exception($"Property '{propertyName}' not found on type '{target.GetType().Name}'");
+
+            var value = ReflectionHelper.ParseArgument(valueElement, doc);
+            if (value != null && !prop.PropertyType.IsAssignableFrom(value.GetType()))
+            {
+                value = Convert.ChangeType(value, prop.PropertyType);
+            }
+
+            prop.SetValue(target, value);
+            return new { status = "success", target_id = targetId, property = propertyName };
+        }
     }
 }

@@ -79,3 +79,49 @@ if (Test-Path $navisworksPath) {
         Write-Error "Could not find Navisworks output directory: $nwOutDir"
     }
 }
+
+# Build Rhino Add-in
+$rhinoPath = "$PSScriptRoot\..\packages\rhino-bridge-addin\RhinoBridge.csproj"
+if (Test-Path $rhinoPath) {
+    Write-Host "Building AEC Model Bridge for Rhino ($Configuration)..." -ForegroundColor Cyan
+    
+    & $dotnet.Source build $rhinoPath -c $Configuration -v:minimal
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Rhino build failed with exit code $LASTEXITCODE"
+        # Don't exit here so we don't fail the whole build if just Rhino fails
+    } else {
+        Write-Host "Rhino Build succeeded" -ForegroundColor Green
+    }
+}
+
+# Build Power BI Tool
+$pbiPath = "$PSScriptRoot\..\packages\powerbi-bridge-tool\PowerBIBridge.csproj"
+if (Test-Path $pbiPath) {
+    Write-Host "Building AEC Model Bridge for Power BI ($Configuration)..." -ForegroundColor Cyan
+    
+    & $dotnet.Source build $pbiPath -c $Configuration -v:minimal
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Power BI build failed with exit code $LASTEXITCODE"
+    } else {
+        Write-Host "Power BI Build succeeded" -ForegroundColor Green
+        
+        # Setup pbitool.json
+        $pbiOutputDir = Join-Path $PSScriptRoot "..\packages\powerbi-bridge-tool\bin\$Configuration\net8.0-windows"
+        $pbiJsonTemplate = Join-Path $PSScriptRoot "..\packages\powerbi-bridge-tool\AECModelBridge.pbitool.json"
+        if (Test-Path $pbiJsonTemplate) {
+            $jsonContent = Get-Content $pbiJsonTemplate -Raw
+            $jsonContent = $jsonContent -replace "%PBITOOL_PATH%", $pbiOutputDir.Replace("\", "\\")
+            
+            $pbiExternalToolsDir = "C:\Program Files (x86)\Common Files\Microsoft Shared\Power BI Desktop\External Tools"
+            if (-not (Test-Path $pbiExternalToolsDir)) {
+                New-Item -ItemType Directory -Force -Path $pbiExternalToolsDir | Out-Null
+            }
+            try {
+                Set-Content -Path (Join-Path $pbiExternalToolsDir "AECModelBridge.pbitool.json") -Value $jsonContent
+                Write-Host "Registered Power BI External Tool." -ForegroundColor Green
+            } catch {
+                Write-Host "Could not register Power BI tool (requires admin rights). The tool was built successfully though." -ForegroundColor Yellow
+            }
+        }
+    }
+}
