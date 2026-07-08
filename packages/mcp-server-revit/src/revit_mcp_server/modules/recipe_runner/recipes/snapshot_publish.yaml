@@ -1,0 +1,16 @@
+id: snapshot_publish
+name: Snapshot → Speckle Publish
+description: "Take a BIM snapshot and publish it as a Speckle version."
+steps:
+  - id: take_snapshot
+    tool: snapshot_take
+    args: {}
+    capture_as: snapshot_result
+
+  - id: publish_speckle
+    tool: speckle_publish_version
+    args:
+      snapshot_id: "{{snapshot_result.snapshot_id}}"
+      stream_id: "{{stream_id}}"
+      message: "Auto-publish from recipe at {{snapshot_result.taken_at}}"
+    capture_as: speckle_result

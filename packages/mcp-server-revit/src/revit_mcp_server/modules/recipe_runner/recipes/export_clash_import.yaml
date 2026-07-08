@@ -1,0 +1,21 @@
+id: export_clash_import
+name: Export → Clash → Issue Import
+description: "Export model snapshot, retrieve clash results from Navisworks mapper, and import as QA/QC issues."
+steps:
+  - id: take_snapshot
+    tool: snapshot_take
+    args: {}
+    capture_as: snapshot_result
+
+  - id: export_data
+    tool: report_generator_export_sqlite_summary
+    args:
+      snapshot_id: "{{snapshot_result.snapshot_id}}"
+      output_filename: "clash_export.db"
+    capture_as: export_result
+
+  - id: check_qaqc
+    tool: qaqc_checker_run_check
+    args:
+      snapshot_id: "{{snapshot_result.snapshot_id}}"
+    capture_as: qaqc_result

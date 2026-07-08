@@ -1,0 +1,22 @@
+id: nightly_health_check
+name: Nightly Health Check → Excel
+description: "Take a model snapshot, run QA/QC checks, and export findings to Excel."
+steps:
+  - id: take_snapshot
+    tool: snapshot_take
+    args: {}
+    capture_as: snapshot_result
+
+  - id: run_qaqc
+    tool: qaqc_checker_run_check
+    args:
+      snapshot_id: "{{snapshot_result.snapshot_id}}"
+    capture_as: qaqc_result
+
+  - id: export_report
+    tool: report_generator_export_excel
+    args:
+      snapshot_id: "{{snapshot_result.snapshot_id}}"
+      include_qaqc: true
+      output_filename: "nightly_health_{{snapshot_result.taken_at}}.xlsx"
+    capture_as: report_result
