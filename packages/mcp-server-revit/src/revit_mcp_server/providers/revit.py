@@ -10,7 +10,7 @@ from ..bridge.client import BridgeClient
 from ..bridge.mock import MockBridge
 from ..security.workspace import WorkspaceMonitor
 from ..legacy.tools import TOOL_HANDLERS
-from .base import AECProvider, ProviderTool
+from .base import AECProvider, ProviderTool, enrich_mutation_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -30,14 +30,8 @@ class RevitProvider(AECProvider):
         self._enrich_tool_metadata()
 
     def _enrich_tool_metadata(self) -> None:
-        mutating_verbs = {"create", "place", "set", "delete", "save", "close", "renumber", "duplicate", "move", "copy", "rotate", "mirror", "pin", "unpin", "sync", "relinquish", "convert", "edit", "apply", "change", "replace", "invoke"}
-        for tool in self._capabilities:
-            name_parts = tool.name.split("_")
-            if any(verb in name_parts for verb in mutating_verbs):
-                tool.is_mutating = True
-            if tool.name == "revit_execute_python":
-                tool.is_mutating = True
-                tool.destructive = True
+        mutating_verbs = {"create", "place", "set", "delete", "save", "close", "renumber", "duplicate", "move", "copy", "rotate", "mirror", "pin", "unpin", "sync", "relinquish", "convert", "edit", "apply", "change", "replace", "invoke", "populate", "tag", "ungroup"}
+        enrich_mutation_metadata(self._capabilities, mutating_verbs=mutating_verbs, destructive={"revit_execute_python"})
 
     def get_identity(self) -> str:
         return "revit"
