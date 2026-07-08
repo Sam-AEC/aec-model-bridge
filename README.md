@@ -4,7 +4,8 @@
 
 # AEC Model Bridge
 
-MCP server and native bridges for AI-assisted AEC workflows.
+AEC Model Bridge is the open, secure runtime that lets AI agents operate Revit, Navisworks, Rhino, and your CDE — turning fragmented BIM workflows into one orchestrated pipeline from concept to dashboard.
+
 
 
 [![MCP Registry](https://img.shields.io/badge/MCP_Registry-active-0F766E?style=flat-square)](https://registry.modelcontextprotocol.io/?q=io.github.Sam-AEC%2Faec-model-bridge)
