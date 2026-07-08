@@ -25,6 +25,7 @@ from typing import Any, Dict
 from .errors import RevitMCPError
 from .registry_factory import build_registry
 from .security.audit import redact_data
+from .security.workspace import WorkspaceMonitor
 
 logger = logging.getLogger(__name__)
 
@@ -109,8 +110,8 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
             self._send_json(500, {"ok": False, "error": redact_data(str(e))})
 
 
-def build_server(port: int | None = None) -> ThreadingHTTPServer:
-    registry, approval_provider, _job_manager, _module_registry, _workspace = build_registry()
+def build_server(port: int | None = None, workspace: WorkspaceMonitor | None = None) -> ThreadingHTTPServer:
+    registry, approval_provider, _job_manager, _module_registry, _workspace = build_registry(workspace=workspace)
 
     handler = type("BoundPanelRequestHandler", (PanelRequestHandler,), {
         "registry": registry,
