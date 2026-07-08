@@ -16,7 +16,7 @@ import json
 import logging
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -114,13 +114,11 @@ class ModelInspectorModule:
             elements = [el.model_dump(by_alias=True) for el in snap.elements]
             types = [t.model_dump() for t in snap.types]
             source = snap.source.model_dump()
-            counts = snap.counts
         else:
             data = _load_snapshot(snapshot_id, workspace)
             elements = data.get("elements", [])
             types = data.get("types", [])
             source = data.get("source", {})
-            counts = data.get("counts", {})
 
         by_cat: Counter = Counter(el.get("category") for el in elements)
         family_set = set(

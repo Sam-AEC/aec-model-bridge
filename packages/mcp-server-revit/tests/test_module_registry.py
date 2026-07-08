@@ -1,5 +1,4 @@
 import pytest
-from pathlib import Path
 from revit_mcp_server.config import Config
 from revit_mcp_server.module_registry import ModuleRegistry
 from revit_mcp_server.providers.module_provider import ModuleProvider

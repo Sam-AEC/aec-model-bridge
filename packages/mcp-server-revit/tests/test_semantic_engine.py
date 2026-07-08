@@ -1,12 +1,10 @@
 import pytest
-from pathlib import Path
-from revit_mcp_server.config import Config
 from revit_mcp_server.security.workspace import WorkspaceMonitor
 from revit_mcp_server.providers.identity_mapper import AECMapperProvider
 from revit_mcp_server.providers.semantic_provider import SemanticProvider
 from revit_mcp_server.providers.registry import ProviderRegistry
 from revit_mcp_server.semantic import engine
-from revit_mcp_server.semantic.models import Snapshot, ElementRecord, ParamVal, LocationPoint
+from revit_mcp_server.semantic.models import Snapshot, ElementRecord
 
 def test_snapshot_query_and_diff(tmp_path):
     # 1. Create a dummy base snapshot
@@ -95,11 +93,6 @@ def test_three_way_conflict_detection():
 
 @pytest.mark.anyio
 async def test_semantic_provider_and_mapper_registration(tmp_path):
-    cfg = Config(
-        workspace_dir=tmp_path,
-        allowed_directories=[tmp_path],
-        audit_log=tmp_path / "audit.log"
-    )
     workspace = WorkspaceMonitor([tmp_path])
     registry = ProviderRegistry()
     

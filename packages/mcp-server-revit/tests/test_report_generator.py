@@ -1,10 +1,8 @@
 """Tests for Phase 14 — Report Generator module (W8, W16)."""
 import importlib.util
-import json
 import sqlite3
 import pytest
 from pathlib import Path
-from revit_mcp_server.semantic.engine import generate_mock_snapshot
 
 
 def _load_mod(relpath: str, name: str):

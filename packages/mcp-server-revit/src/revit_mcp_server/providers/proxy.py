@@ -112,7 +112,7 @@ class McpProxyProvider(AECProvider):
                 "result": "\n".join(content.text for content in result.content if hasattr(content, 'text')),
                 "is_error": result.isError
             }
-        except Exception as e:
+        except Exception:
             # Drop connection and try to reconnect once if a tool call fails (SSE drop)
             self._connected = False
             self._session = None

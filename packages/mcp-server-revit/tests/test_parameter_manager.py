@@ -1,7 +1,6 @@
 """Tests for Phase 9 — Parameter Manager + Family Type Mapper modules (W5, W6)."""
 import importlib.util
 import csv
-import json
 import pytest
 from pathlib import Path
 from revit_mcp_server.semantic.engine import generate_mock_snapshot

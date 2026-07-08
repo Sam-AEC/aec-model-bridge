@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-import json
 import logging
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 
-from revit_mcp_server.errors import BridgeError
 from revit_mcp_server.semantic.models import (
     ElementRecord,
     RelationRecord,
@@ -286,7 +283,6 @@ def reconcile_delta(
     live: Snapshot
 ) -> Dict[str, Any]:
     base_elements = {el.uid: el for el in base.elements}
-    target_elements = {el.uid: el for el in target.elements}
     live_elements = {el.uid: el for el in live.elements}
     
     conflicts = []

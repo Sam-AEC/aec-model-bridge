@@ -1,6 +1,4 @@
 import pytest
-from pathlib import Path
-from revit_mcp_server.config import Config, BridgeMode
 from revit_mcp_server.security.approval import ApprovalGate
 from revit_mcp_server.errors import BridgeError
 

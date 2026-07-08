@@ -21,6 +21,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
 | `approve_plan` | Approve a pending ActionPlan for execution. | No | sync |
+| `execute_plan` | Run every action in an approved ActionPlan. | No | sync |
 | `list_pending_plans` | List all pending ActionPlans waiting for review. | No | sync |
 | `plan_actions` | Create a draft ActionPlan of proposed modifications, capturing their before-states. | No | sync |
 | `reject_plan` | Reject and archive a pending ActionPlan. | No | sync |
@@ -32,8 +33,8 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | --- | --- | --- | --- |
 | `autodesk_data_auth_status` | Get Autodesk OAuth authentication status. | No | sync |
 | `autodesk_data_checkout_version` | Checkout Autodesk version metadata. | No | sync |
-| `autodesk_data_create_issue` | Compatibility alias for create_topic. | No | sync |
-| `autodesk_data_create_topic` | Create a BCF-compatible issue/topic through a configured endpoint. | No | sync |
+| `autodesk_data_create_issue` | Compatibility alias for create_topic. | Yes | sync |
+| `autodesk_data_create_topic` | Create a BCF-compatible issue/topic through a configured endpoint. | Yes | sync |
 | `autodesk_data_get_version_metadata` | Read Autodesk item/version metadata. | No | sync |
 | `autodesk_data_health` | Check Autodesk Data provider health. | No | sync |
 | `autodesk_data_list_hubs` | List Autodesk Construction Cloud hubs. | No | sync |
@@ -70,6 +71,8 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
+| `familytype_mapper_audit_families` | Audit Families. | No | sync |
+| `familytype_mapper_list_type_mappings` | List Type Mappings. | No | sync |
 | `hello_world_say_hello` | Say Hello. | No | sync |
 | `model_inspector_ask` | Ask About Model. | No | sync |
 | `model_inspector_inspect_selection` | Inspect Selection. | No | sync |
@@ -79,6 +82,21 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `model_inspector_save_query` | Save Query. | No | sync |
 | `model_inspector_summarize_model` | Summarize Model. | No | sync |
 | `module_list_commands` | List all registered modules and their commands for dockable panels. | No | sync |
+| `parameter_manager_diff_params` | Diff Parameter Values. | No | sync |
+| `parameter_manager_export_params_csv` | Export Parameters to CSV. | No | sync |
+| `parameter_manager_filter_params` | Filter Parameter Grid. | No | sync |
+| `parameter_manager_import_params_csv` | Import Parameters from CSV. | Yes | sync |
+| `parameter_manager_plan_set_params` | Plan Parameter Set. | Yes | sync |
+| `qaqc_checker_list_issues` | List QA/QC Issues. | No | sync |
+| `qaqc_checker_list_rules` | List Available Rules. | No | sync |
+| `qaqc_checker_resolve_issue` | Resolve Issue. | No | sync |
+| `qaqc_checker_run_check` | Run QA/QC Check. | No | sync |
+| `recipe_runner_get_run_status` | Get Recipe Run Status. | No | sync |
+| `recipe_runner_list_recipes` | List Recipes. | No | sync |
+| `recipe_runner_list_runs` | List Recipe Runs. | No | sync |
+| `recipe_runner_run_recipe` | Run Recipe. | No | sync |
+| `report_generator_export_excel` | Export to Excel. | No | sync |
+| `report_generator_export_sqlite_summary` | Export SQLite Summary. | No | sync |
 | `selection_tools_group_convert_to_detail` | Convert Group to Detail Group. | Yes | sync |
 | `selection_tools_group_rename` | Rename Group. | Yes | sync |
 | `selection_tools_group_ungroup` | Ungroup Group. | Yes | sync |
@@ -106,7 +124,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `navisworks_reflect_get` | Get a C# property value from a Navisworks object via reflection. | No | sync |
 | `navisworks_reflect_set` | Set a C# property value on a Navisworks object via reflection. | Yes | sync |
 | `navisworks_refresh` | Refresh all updated files in the active document. | No | sync |
-| `navisworks_run_clash_test` | Run a clash test by Guid. | No | sync |
+| `navisworks_run_clash_test` | Run a clash test by Guid. | Yes | sync |
 
 ## Revit Provider
 
@@ -197,7 +215,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_place_family_instance` | Place a family instance (e. | Yes | sync |
 | `revit_place_viewport_on_sheet` | Place a view on a sheet. | Yes | sync |
 | `revit_place_window` | Place a window in a wall. | Yes | sync |
-| `revit_populate_titleblock` | Populate titleblock parameters. | No | sync |
+| `revit_populate_titleblock` | Populate titleblock parameters. | Yes | sync |
 | `revit_reflect_get` | Get any Revit property value dynamically. | No | sync |
 | `revit_reflect_set` | Set any Revit property value dynamically. | Yes | sync |
 | `revit_relinquish_all` | Relinquish all elements and worksets. | Yes | sync |
@@ -211,33 +229,33 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_set_selection` | Set selection by element IDs. | Yes | sync |
 | `revit_set_type_parameter` | Set a type parameter value. | Yes | sync |
 | `revit_sync_to_central` | Sync to central model. | Yes | sync |
-| `revit_tag_all_in_view` | Tag all elements of a category in view. | No | sync |
-| `revit_ungroup` | Ungroup a group. | No | sync |
+| `revit_tag_all_in_view` | Tag all elements of a category in view. | Yes | sync |
+| `revit_ungroup` | Ungroup a group. | Yes | sync |
 | `revit_unpin_element` | Unpin an element. | Yes | sync |
 
 ## Rhino Provider
 
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
-| `rhino_boolean_difference` | Subtract cutter Breps from a base Brep; returns new object GUIDs. | No | sync |
-| `rhino_boolean_union` | Boolean union a list of Brep objects by GUID; returns new object GUIDs. | No | sync |
-| `rhino_clear_scene` | Delete all objects in the Rhino document, or only objects on a specific layer. | No | sync |
-| `rhino_create_box` | Create a box (rectangular prism) from two corner points in metres. | No | sync |
-| `rhino_create_cylinder` | Create a capped cylinder from base point, height, and radius in metres. | No | sync |
-| `rhino_create_sphere` | Create a sphere by centre point and radius in metres. | No | sync |
+| `rhino_boolean_difference` | Subtract cutter Breps from a base Brep; returns new object GUIDs. | Yes | sync |
+| `rhino_boolean_union` | Boolean union a list of Brep objects by GUID; returns new object GUIDs. | Yes | sync |
+| `rhino_clear_scene` | Delete all objects in the Rhino document, or only objects on a specific layer. | Yes | sync |
+| `rhino_create_box` | Create a box (rectangular prism) from two corner points in metres. | Yes | sync |
+| `rhino_create_cylinder` | Create a capped cylinder from base point, height, and radius in metres. | Yes | sync |
+| `rhino_create_sphere` | Create a sphere by centre point and radius in metres. | Yes | sync |
 | `rhino_generate_diagrid_tower` | Generate a parametric diagrid skyscraper with aluminum mullion sweeps and glass panel solids. | No | sync |
 | `rhino_get_document_info` | Get the active Rhino document name, path, unit system, and object count. | No | sync |
 | `rhino_get_lines` | Get all curves/lines from the active Rhino document. | No | sync |
 | `rhino_get_scene` | Get all objects in the Rhino scene with their type, layer, and bounding box. | No | sync |
 | `rhino_health` | Check if the Rhino bridge is running and healthy. | No | sync |
-| `rhino_invoke_method` | Invoke a C# method on a Rhino object via reflection. | No | sync |
+| `rhino_invoke_method` | Invoke a C# method on a Rhino object via reflection. | Yes | sync |
 | `rhino_list_layers` | List all layers in the Rhino document with name, color, visibility, and lock state. | No | sync |
 | `rhino_reflect_get` | Get a C# property value from a Rhino object via reflection. | No | sync |
-| `rhino_reflect_set` | Set a C# property value on a Rhino object via reflection. | No | sync |
-| `rhino_run_python` | Execute arbitrary IronPython code inside Rhino with full RhinoCommon access. | No | sync |
-| `rhino_set_material` | Apply a material to objects by GUID list or by layer name. | No | sync |
-| `rhino_set_view` | Set the active Rhino viewport display mode or projection. | No | sync |
-| `rhino_transform_objects` | Move, rotate, or scale objects by GUID. | No | sync |
+| `rhino_reflect_set` | Set a C# property value on a Rhino object via reflection. | Yes | sync |
+| `rhino_run_python` | Execute arbitrary IronPython code inside Rhino with full RhinoCommon access. | Yes | sync |
+| `rhino_set_material` | Apply a material to objects by GUID list or by layer name. | Yes | sync |
+| `rhino_set_view` | Set the active Rhino viewport display mode or projection. | Yes | sync |
+| `rhino_transform_objects` | Move, rotate, or scale objects by GUID. | Yes | sync |
 
 ## Semantic Graph Provider
 
@@ -257,21 +275,21 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | --- | --- | --- | --- |
 | `speckle_auth_status` | Get Speckle OAuth authentication status. | No | sync |
 | `speckle_checkout_version` | Checkout Speckle version metadata. | No | sync |
-| `speckle_create_branch` | Create an isolated Speckle branch for compatibility with model workflows. | No | sync |
-| `speckle_create_model` | Create an isolated Speckle model. | No | sync |
+| `speckle_create_branch` | Create an isolated Speckle branch for compatibility with model workflows. | Yes | sync |
+| `speckle_create_model` | Create an isolated Speckle model. | Yes | sync |
 | `speckle_get_version_metadata` | Read Speckle version metadata. | No | sync |
 | `speckle_health` | Check Speckle provider health. | No | sync |
 | `speckle_list_models` | List Speckle models for a project. | No | sync |
 | `speckle_list_projects` | List Speckle projects. | No | sync |
 | `speckle_list_versions` | List Speckle versions for a model or branch. | No | sync |
-| `speckle_merge_branch` | Compatibility alias for merge_model. | No | sync |
-| `speckle_merge_model` | Merge one Speckle model or branch into another through GraphQL. | No | sync |
+| `speckle_merge_branch` | Compatibility alias for merge_model. | Yes | sync |
+| `speckle_merge_model` | Merge one Speckle model or branch into another through GraphQL. | Yes | sync |
 | `speckle_oauth_exchange_code` | Exchange a Speckle OAuth authorization code. | No | sync |
 | `speckle_oauth_refresh` | Refresh the Speckle OAuth access token. | No | sync |
 | `speckle_oauth_start` | Generate a Speckle OAuth authorization URL using PKCE. | No | sync |
-| `speckle_publish_version` | Publish a Speckle version by creating a commit through GraphQL. | No | sync |
+| `speckle_publish_version` | Publish a Speckle version by creating a commit through GraphQL. | Yes | sync |
 | `speckle_receive_object` | Receives data from a Speckle stream/project using local credentials. | No | sync |
-| `speckle_send_object` | Sends generic data objects to a Speckle stream/project using local credentials. | No | sync |
+| `speckle_send_object` | Sends generic data objects to a Speckle stream/project using local credentials. | Yes | sync |
 
 ## SQLite Exporter Provider
 

@@ -1,10 +1,8 @@
-import os
 import pytest
 from pathlib import Path
-from typing import Dict, Any
 
 import ifcopenshell
-from revit_mcp_server.config import BridgeMode, Config
+from revit_mcp_server.config import BridgeMode
 from revit_mcp_server.providers import ProviderRegistry, RevitProvider, IfcProvider, FakeProvider
 from revit_mcp_server.security.workspace import WorkspaceMonitor
 

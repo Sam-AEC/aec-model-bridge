@@ -17,7 +17,6 @@ Validation rules (P9.2):
 from __future__ import annotations
 
 import csv
-import io
 import json
 import logging
 from pathlib import Path
