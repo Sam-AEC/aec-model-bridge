@@ -11,6 +11,7 @@ from .cloud import SpeckleProvider, AutodeskDataProvider
 from .job_provider import JobProvider
 from .exporter import SQLiteExporterProvider
 from .proxy import McpProxyProvider
+from .approval_provider import ApprovalProvider
 
 __all__ = [
     "AECProvider",
@@ -28,4 +29,5 @@ __all__ = [
     "JobProvider",
     "SQLiteExporterProvider",
     "McpProxyProvider",
+    "ApprovalProvider",
 ]

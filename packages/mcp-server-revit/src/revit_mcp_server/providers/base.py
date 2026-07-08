@@ -6,6 +6,10 @@ class ProviderTool(BaseModel):
     name: str
     description: str
     input_schema: Dict[str, Any] = Field(..., alias="inputSchema")
+    is_mutating: bool = False
+    destructive: bool = False
+    execution_mode: str = "sync"
+    permissions: List[str] = Field(default_factory=list)
 
     class Config:
         populate_by_name = True

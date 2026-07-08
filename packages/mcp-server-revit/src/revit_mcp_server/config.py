@@ -53,6 +53,7 @@ class Config(BaseSettings):
     mode: BridgeMode = Field(default=BridgeMode.mock)
     audit_log: Path = Field(default_factory=lambda: Path("audit.log"))
     log_level: str = Field("INFO")
+    approval_mode: str = Field(default="required")
 
     model_config = SettingsConfigDict(
         env_prefix="MCP_REVIT_",

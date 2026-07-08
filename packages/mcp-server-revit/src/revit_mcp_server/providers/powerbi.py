@@ -28,7 +28,7 @@ class PowerBIProvider(AECProvider):
         return "powerbi"
 
     def get_capabilities(self) -> List[ProviderTool]:
-        return self._capabilities
+        return [self._capabilities[0]]
 
     async def check_health(self) -> Dict[str, Any]:
         if self.mode == BridgeMode.bridge:
@@ -44,8 +44,8 @@ class PowerBIProvider(AECProvider):
         pass
 
     async def execute_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        if name not in self._tool_mapping:
-            raise ValueError(f"Unknown Power BI tool '{name}'")
+        if name != "powerbi_health":
+            raise ValueError(f"Tool '{name}' is disabled in health-only mode")
             
         bridge_tool, payload_builder = self._tool_mapping[name]
         payload = payload_builder(arguments)

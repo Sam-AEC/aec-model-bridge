@@ -1,7 +1,7 @@
 import time
 import pytest
-from revit_mcp_server.server import MCPServer
 from revit_mcp_server.config import Config, BridgeMode
+from helpers import MCPServer
 
 @pytest.mark.perf
 def test_dispatch_overhead(tmp_path):

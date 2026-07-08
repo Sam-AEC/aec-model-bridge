@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from revit_mcp_server.config import BridgeMode, Config
-from revit_mcp_server.server import MCPServer
+from helpers import MCPServer
 
 
 class DummyBridge:

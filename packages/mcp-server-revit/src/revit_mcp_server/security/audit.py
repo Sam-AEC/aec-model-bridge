@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
-from ..schemas import HealthOutput
 
 _SECRET_KEYS = {
     "authorization",

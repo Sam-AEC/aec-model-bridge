@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict
 
-from ..schemas import (
+from revit_mcp_server.legacy.schemas import (
     BaselineDiffInput,
     BaselineDiffOutput,
     BaselineExportInput,
@@ -27,7 +27,7 @@ from ..schemas import (
     SheetBatchInput,
     SheetBatchOutput,
 )
-from ..security.workspace import WorkspaceMonitor
+from revit_mcp_server.security.workspace import WorkspaceMonitor
 
 ToolHandler = Callable[[dict, WorkspaceMonitor], dict]
 
