@@ -1,0 +1,139 @@
+# QA/QC Core Rule Pack
+# Format: list of rule objects with id, severity, description, filter, assertion, fix_template
+rules:
+  - id: room_not_placed
+    severity: error
+    category: Rooms
+    description: "Room exists but is not placed on a level."
+    filter:
+      category: OST_Rooms
+      placed: false
+    assertion: "element_count == 0"
+    fix_template: "Place room '{label}' on the appropriate level."
+
+  - id: room_zero_area
+    severity: error
+    category: Rooms
+    description: "Placed room has zero computed area (not enclosed or too small)."
+    filter:
+      category: OST_Rooms
+      placed: true
+      parameter:
+        name: Area
+        value: "0"
+    assertion: "element_count == 0"
+    fix_template: "Ensure room '{label}' is enclosed by bounding elements."
+
+  - id: room_missing_number
+    severity: warning
+    category: Rooms
+    description: "Room has no Number parameter set."
+    filter:
+      category: OST_Rooms
+      parameter:
+        name: Number
+        empty: true
+    assertion: "element_count == 0"
+    fix_template: "Set a unique room number for '{label}'."
+
+  - id: room_missing_name
+    severity: warning
+    category: Rooms
+    description: "Room has no Name parameter set."
+    filter:
+      category: OST_Rooms
+      parameter:
+        name: Name
+        empty: true
+    assertion: "element_count == 0"
+    fix_template: "Set a descriptive room name for '{label}'."
+
+  - id: door_missing_mark
+    severity: warning
+    category: Doors
+    description: "Door has no Mark (door number) parameter set."
+    filter:
+      category: OST_Doors
+      parameter:
+        name: Mark
+        empty: true
+    assertion: "element_count == 0"
+    fix_template: "Set a Mark value for door '{label}'."
+
+  - id: window_missing_mark
+    severity: warning
+    category: Windows
+    description: "Window has no Mark parameter set."
+    filter:
+      category: OST_Windows
+      parameter:
+        name: Mark
+        empty: true
+    assertion: "element_count == 0"
+    fix_template: "Set a Mark value for window '{label}'."
+
+  - id: wall_missing_type
+    severity: error
+    category: Walls
+    description: "Wall has no type_name set."
+    filter:
+      category: OST_Walls
+    assertion: "all elements have type_name"
+    fix_template: "Assign a wall type to element '{label}'."
+
+  - id: level_missing_elevation
+    severity: info
+    category: Levels
+    description: "Level has no Elevation parameter readable."
+    filter:
+      category: OST_Levels
+      parameter:
+        name: Elevation
+        empty: true
+    assertion: "element_count == 0"
+    fix_template: "Set the elevation for level '{label}'."
+
+  - id: inplace_family_used
+    severity: warning
+    category: Families
+    description: "In-place families are present. Convert to loadable families for reuse."
+    filter:
+      family_source: inplace
+    assertion: "element_count == 0"
+    fix_template: "Convert in-place family '{label}' to a loadable RFA."
+
+  - id: door_no_host
+    severity: error
+    category: Doors
+    description: "Door is not hosted (missing host_uid)."
+    filter:
+      category: OST_Doors
+    assertion: "all elements have host_uid"
+    fix_template: "Ensure door '{label}' is placed in a wall."
+
+  - id: window_no_host
+    severity: error
+    category: Windows
+    description: "Window is not hosted (missing host_uid)."
+    filter:
+      category: OST_Windows
+    assertion: "all elements have host_uid"
+    fix_template: "Ensure window '{label}' is placed in a wall."
+
+  - id: element_no_level
+    severity: warning
+    category: General
+    description: "Element has no associated level."
+    filter:
+      category: OST_Walls
+    assertion: "all elements have level_uid"
+    fix_template: "Set the level for element '{label}'."
+
+  - id: workset_default
+    severity: info
+    category: Worksharing
+    description: "Elements remain on the default workset 'Workset1' — consider reassigning."
+    filter:
+      workset: Workset1
+    assertion: "element_count == 0"
+    fix_template: "Move '{label}' from 'Workset1' to an appropriate workset."
