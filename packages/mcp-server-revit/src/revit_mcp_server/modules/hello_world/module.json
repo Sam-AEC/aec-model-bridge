@@ -1,0 +1,32 @@
+{
+  "id": "hello_world",
+  "name": "Hello World Module",
+  "version": "1.0.0",
+  "schema_version": 1,
+  "min_hub_version": "1.2.0",
+  "description": "A demonstration module showcasing commands, schemas, validation hooks, and permission enforcement.",
+  "author": "AEC Model Bridge",
+  "license": "GPL-3.0-or-later",
+  "requires_providers": ["revit"],
+  "permissions": ["model.read"],
+  "commands": [
+    {
+      "id": "say_hello",
+      "title": "Say Hello",
+      "surface": ["mcp"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string", "default": "World"}
+        },
+        "required": ["name"]
+      }
+    }
+  ],
+  "hooks": {
+    "validate": "module:HelloWorldModule.validate",
+    "on_result": "module:HelloWorldModule.on_result"
+  }
+}

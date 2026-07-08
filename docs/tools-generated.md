@@ -66,6 +66,13 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 
 *No tools available for this provider.*
 
+## Module Provider
+
+| Tool Name | Description | Mutating? | Execution Type |
+| --- | --- | --- | --- |
+| `hello_world_say_hello` | Say Hello. | No | sync |
+| `module_list_commands` | List all registered modules and their commands for dockable panels. | No | sync |
+
 ## Navisworks Provider
 
 | Tool Name | Description | Mutating? | Execution Type |
