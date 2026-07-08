@@ -13,6 +13,7 @@ namespace RevitBridge.Bridge
         private BridgeServer? _server;
         private CommandQueue? _queue;
         private ExternalEvent? _externalEvent;
+        private PanelHubLauncher? _hubLauncher;
 
         public static string? RevitVersion { get; private set; }
         public static string? ActiveDocumentName { get; private set; }
@@ -50,6 +51,17 @@ namespace RevitBridge.Bridge
                 catch (Exception ex)
                 {
                     Log.Error(ex, "Bridge started, but the AEC Model Bridge ribbon could not be created");
+                }
+
+                try
+                {
+                    // Fire-and-forget: checks/launches in the background, never blocks startup.
+                    _hubLauncher = new PanelHubLauncher();
+                    _hubLauncher.EnsureRunning();
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Bridge started, but the panel hub could not be launched");
                 }
 
                 application.ControlledApplication.DocumentChanged += (sender, args) =>
@@ -303,6 +315,7 @@ namespace RevitBridge.Bridge
         {
             try
             {
+                _hubLauncher?.StopIfLaunched();
                 _server?.Stop();
                 _externalEvent?.Dispose();
                 Log.Information("AEC Model Bridge stopped");
