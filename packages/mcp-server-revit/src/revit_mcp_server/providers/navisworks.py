@@ -39,6 +39,9 @@ class NavisworksProvider(AECProvider):
                 return {"status": "unhealthy", "error": str(e)}
         return {"status": "healthy", "mode": "mock"}
 
+    async def shutdown(self) -> None:
+        pass
+
     async def execute_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         if name not in self._tool_mapping:
             raise ValueError(f"Unknown Navisworks tool '{name}'")

@@ -16,10 +16,14 @@ MCP server and native bridges for AI-assisted AEC workflows.
 <strong>Available now</strong><br>
 
 ![Revit available](https://img.shields.io/badge/Revit-available-16A34A?style=flat-square)
+![Rhino and Grasshopper available](https://img.shields.io/badge/Rhino_%2F_Grasshopper-available-16A34A?style=flat-square)
 ![IfcOpenShell available](https://img.shields.io/badge/IfcOpenShell-available-16A34A?style=flat-square)
 ![Speckle available](https://img.shields.io/badge/Speckle-available-16A34A?style=flat-square)
-![Navisworks Manage preview](https://img.shields.io/badge/Navisworks_Manage-preview-F59E0B?style=flat-square)
-![Rhino and Grasshopper preview](https://img.shields.io/badge/Rhino_%2F_Grasshopper-preview-F59E0B?style=flat-square)
+
+<strong>In progress</strong><br>
+
+![Navisworks Manage in progress](https://img.shields.io/badge/Navisworks_Manage-in_progress-F59E0B?style=flat-square)
+![Power BI in progress](https://img.shields.io/badge/Power_BI-in_progress-F59E0B?style=flat-square)
 
 <strong>Coming soon</strong><br>
 
@@ -28,7 +32,6 @@ MCP server and native bridges for AI-assisted AEC workflows.
 ![Autodesk Construction Cloud coming soon](https://img.shields.io/badge/Autodesk_Construction_Cloud-coming_soon-2563EB?style=flat-square)
 ![Autodesk Forma coming soon](https://img.shields.io/badge/Autodesk_Forma-coming_soon-2563EB?style=flat-square)
 ![Solibri coming soon](https://img.shields.io/badge/Solibri-coming_soon-2563EB?style=flat-square)
-![Power BI coming soon](https://img.shields.io/badge/Power_BI_templates-coming_soon-2563EB?style=flat-square)
 ![Parquet and DuckDB coming soon](https://img.shields.io/badge/Parquet_%2F_DuckDB-coming_soon-2563EB?style=flat-square)
 
 <strong>Future roadmap</strong><br>
@@ -41,7 +44,7 @@ MCP server and native bridges for AI-assisted AEC workflows.
 ![Oracle Primavera P6 roadmap](https://img.shields.io/badge/Oracle_Primavera_P6-roadmap-64748B?style=flat-square)
 ![SketchUp roadmap](https://img.shields.io/badge/SketchUp-roadmap-64748B?style=flat-square)
 
-[Install](#installation) | [Tools](docs/tools.md) | [Documentation](#documentation) | [Latest release](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
+[Install](#installation) | [Tools](docs/tools-generated.md) | [Documentation](#documentation) | [Latest release](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
 </div>
 
@@ -51,29 +54,27 @@ Copilot, and custom agents to a live session across multiple AEC platforms simul
 The Python hub handles MCP communication and routes each request to the relevant
 desktop, headless, cloud, or compute provider:
 - **Revit**: Native C# add-in (Revit 2024-2027) executing on the main thread via `ExternalEvent`.
-- **Navisworks Manage**: Native C# add-in (Navisworks 2024-2027) exposing the API over a local bridge.
-- **Rhino/Grasshopper**: Connects to Rhino.Compute or proxies to an active Rhino MCP server over SSE.
+- **Navisworks Manage**: Native C# add-in (Navisworks 2024-2027) exposing the API over a local bridge (in progress).
+- **Rhino/Grasshopper**: Connects to the Rhino Bridge Add-in over HTTP localhost:3004.
 - **Speckle**: Native Python provider integrating Specklepy V3 for seamless model pushing to Power BI.
 - **IfcOpenShell**: Headless IFC semantic extraction and parsing.
 
 ## Platform Status
 
-The status below reflects the Omni-Bridge system blueprint as of June 2026.
-Preview integrations are present but still have incomplete workflows or
-hardening tasks.
+The status below reflects the AEC Model Bridge system blueprint as of June 2026.
+In-progress integrations are implemented as routing infrastructure but require further registration or workflow integration.
 
 ### Available Now
 
-Revit, IfcOpenShell, and Speckle are available integrations. Navisworks
-currently exposes bridge health and document metadata; model-tree,
-append/refresh, viewpoints, and clash workflows are next. Rhino.Compute is
-integrated, while live Rhino MCP connectivity remains a preview.
+Revit, Rhino/Grasshopper, IfcOpenShell, and Speckle are available integrations. The Revit C# add-in (Revit 2024-2027) executes commands on the main thread. Rhino connects to the Rhino Bridge Add-in over HTTP on port 3004. IfcOpenShell provides headless IFC parsing, and Speckle integrates model pushing via Specklepy V3.
+
+### In Progress
+
+Navisworks Manage is currently in progress; while the C# add-in routing infrastructure is in place, the provider is not yet registered in the shipped hub. Power BI is also in progress, with the provider and tool in place but not yet integrated into the active hub runtime.
 
 ### Coming Soon
 
-This wave adds Excel and SharePoint workbook round trips, ACC/Forma workflows
-through Autodesk Platform Services, Solibri model checking, and Power BI
-templates backed by Speckle or a local Parquet/DuckDB data plane.
+This wave adds Excel and SharePoint workbook round trips, ACC/Forma workflows through Autodesk Platform Services, and Solibri model checking.
 
 ### Future Roadmap
 
@@ -98,12 +99,12 @@ MCP Client (Claude Desktop, VS Code)
     |
     | MCP over stdio
     v
-Python MCP Server (Central Router)
-    ├── [Revit Provider] -----> HTTP localhost:3000 -----> Revit Bridge Add-in
-    ├── [Navisworks Provider] > HTTP localhost:3002 -----> Navisworks Bridge Add-in
-    ├── [Speckle Provider] ---> HTTPS (OAuth) -----------> Speckle Manager / Power BI
-    ├── [Rhino Proxy] --------> SSE localhost:9876 ------> Active Rhino MCP
-    └── [IFC Provider] -------> Local Filesystem --------> IfcOpenShell
+    Python MCP Server (Central Router)
+        ├── [Revit Provider] -----> HTTP localhost:3000 -----> Revit Bridge Add-in
+        ├── [Navisworks Provider] > HTTP localhost:3002 -----> Navisworks Bridge Add-in
+        ├── [Speckle Provider] ---> HTTPS (OAuth) -----------> Speckle Manager / Power BI
+        ├── [Rhino Provider] -----> HTTP localhost:3004 -----> Rhino Bridge Add-in
+        └── [IFC Provider] -------> Local Filesystem --------> IfcOpenShell
 ```
 
 ## Installation
@@ -236,9 +237,9 @@ CI builds the Python server and add-in targets for Revit 2024 through 2027.
 ## Documentation
 
 - [Installation guide](docs/install.md)
-- [Tool reference](docs/tools.md)
-- [Architecture](docs/architecture.md)
-- [Multi-platform integration handover](docs/integration-expansion-handover.md)
+- [Tool reference](docs/tools-generated.md)
+- [Architecture](docs/0001-multi-provider-architecture.md)
+- [Multi-platform integration strategy](docs/product/INTEGRATION_STRATEGY.md)
 - [Configuration reference](docs/configuration-reference.md)
 - [Security](docs/security.md)
 - [MCP clients and registry](docs/marketplaces.md)
