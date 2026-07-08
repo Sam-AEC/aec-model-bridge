@@ -80,3 +80,22 @@ jobs:
       - name: Build add-in
         shell: pwsh
         run: ./scripts/build-addin.ps1 -RevitVersion "${{ matrix.revit-version }}" -Configuration Release
+
+  rhino-addin:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build Rhino bridge add-in
+        shell: pwsh
+        run: dotnet build packages/rhino-bridge-addin/RhinoBridge.csproj -c Release
+        # RhinoCommon is a plain NuGet package (unlike the Navisworks/Autodesk
+        # SDKs, which have no public NuGet distribution) — this needs no local
+        # Rhino install and was previously never built in CI at all.
