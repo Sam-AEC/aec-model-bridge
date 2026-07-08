@@ -229,4 +229,13 @@ update_dll.ps1
 INSTALL_NEW_DLL.txt
 temp.json
 
+# Metrics and local caches
+metrics/
+.ruff_cache/
+
+# Rhino backup/temporary files
+*.3dmbak
+*.rhl
+
+
 
