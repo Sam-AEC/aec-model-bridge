@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
@@ -32,7 +33,7 @@ namespace RevitBridge.UI
             {
                 await Browser.EnsureCoreWebView2Async();
                 Browser.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
-                Browser.NavigateToString(BuildShellHtml());
+                LoadPanelApp();
             }
             catch (Exception ex)
             {
@@ -71,6 +72,18 @@ namespace RevitBridge.UI
             });
 
             Browser.CoreWebView2?.PostWebMessageAsJson(payload);
+        }
+
+        private void LoadPanelApp()
+        {
+            var panelPath = Path.Combine(AppContext.BaseDirectory, "panel", "index.html");
+            if (File.Exists(panelPath))
+            {
+                Browser.Source = new Uri(panelPath);
+                return;
+            }
+
+            Browser.NavigateToString(BuildShellHtml());
         }
 
         private static string BuildShellHtml()

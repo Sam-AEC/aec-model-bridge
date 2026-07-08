@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AEC Model Bridge</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <aside class="rail" aria-label="Primary">
+    <div class="brand" aria-label="AEC Model Bridge">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span>AMB</span>
+    </div>
+    <button class="nav is-active" type="button" data-view="chat" title="Chat" aria-label="Chat">
+      <span aria-hidden="true">C</span>
+    </button>
+    <button class="nav" type="button" data-view="plans" title="Plans" aria-label="Plans">
+      <span aria-hidden="true">P</span>
+    </button>
+    <button class="nav" type="button" data-view="findings" title="Findings" aria-label="Findings">
+      <span aria-hidden="true">F</span>
+    </button>
+    <button class="nav" type="button" data-view="log" title="Run Log" aria-label="Run Log">
+      <span aria-hidden="true">L</span>
+    </button>
+    <button class="nav" type="button" data-view="settings" title="Settings" aria-label="Settings">
+      <span aria-hidden="true">S</span>
+    </button>
+  </aside>
+
+  <main class="app">
+    <header class="topbar">
+      <div>
+        <h1 id="view-title">Chat</h1>
+        <p id="view-subtitle">AEC Model Bridge</p>
+      </div>
+      <div class="status-pill" id="host-status">
+        <span class="dot"></span>
+        <span>Host pending</span>
+      </div>
+    </header>
+
+    <section class="view is-active" id="view-chat" aria-labelledby="view-title">
+      <div class="chat-feed" id="chat-feed"></div>
+      <form class="composer" id="chat-form">
+        <input id="chat-input" name="message" autocomplete="off" placeholder="Ask about the active model">
+        <button type="submit">Send</button>
+      </form>
+    </section>
+
+    <section class="view" id="view-plans" aria-labelledby="view-title">
+      <div class="toolbar">
+        <button type="button" data-action="refresh-plans">Refresh</button>
+        <button type="button" data-action="approve-selected">Approve Selected</button>
+      </div>
+      <div class="list" id="plan-list"></div>
+    </section>
+
+    <section class="view" id="view-findings" aria-labelledby="view-title">
+      <div class="toolbar">
+        <button type="button" data-action="run-health">Run Health Check</button>
+        <select id="severity-filter" aria-label="Severity">
+          <option value="all">All severities</option>
+          <option value="error">Errors</option>
+          <option value="warning">Warnings</option>
+          <option value="info">Info</option>
+        </select>
+      </div>
+      <div class="list" id="finding-list"></div>
+    </section>
+
+    <section class="view" id="view-log" aria-labelledby="view-title">
+      <div class="timeline" id="run-log"></div>
+    </section>
+
+    <section class="view" id="view-settings" aria-labelledby="view-title">
+      <form class="settings" id="settings-form">
+        <label>
+          Hub URL
+          <input id="hub-url" value="http://127.0.0.1:3000">
+        </label>
+        <label>
+          Approval Mode
+          <select id="approval-mode">
+            <option value="required">Required</option>
+            <option value="auto">Auto</option>
+          </select>
+        </label>
+        <button type="submit">Save</button>
+      </form>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>
