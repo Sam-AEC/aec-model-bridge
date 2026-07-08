@@ -12,6 +12,7 @@ from .job_provider import JobProvider
 from .exporter import SQLiteExporterProvider
 from .proxy import McpProxyProvider
 from .approval_provider import ApprovalProvider
+from .module_provider import ModuleProvider
 
 __all__ = [
     "AECProvider",
@@ -30,4 +31,5 @@ __all__ = [
     "SQLiteExporterProvider",
     "McpProxyProvider",
     "ApprovalProvider",
+    "ModuleProvider",
 ]

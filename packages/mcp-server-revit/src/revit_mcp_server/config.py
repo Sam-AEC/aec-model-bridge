@@ -54,6 +54,8 @@ class Config(BaseSettings):
     audit_log: Path = Field(default_factory=lambda: Path("audit.log"))
     log_level: str = Field("INFO")
     approval_mode: str = Field(default="required")
+    enable_user_modules: bool = Field(default=False)
+    allow_python_host: bool = Field(default=False)
 
     model_config = SettingsConfigDict(
         env_prefix="MCP_REVIT_",

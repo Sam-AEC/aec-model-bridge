@@ -27,7 +27,10 @@ from revit_mcp_server.providers import (
     AutodeskDataProvider,
     NavisworksProvider,
     ApprovalProvider,
+    ModuleProvider,
 )
+from revit_mcp_server.module_registry import ModuleRegistry
+from revit_mcp_server.config import config
 
 try:
     from revit_mcp_server.providers import McpProxyProvider
@@ -61,7 +64,12 @@ def main():
         except Exception as e:
             provider_instances.append((name, None, str(e)))
 
+    # Initialize module registry and provider
+    mod_registry = ModuleRegistry(config_obj=config)
+    mod_registry.discover_and_load()
+
     add_provider("Approval", lambda: ApprovalProvider(workspace=workspace, registry=registry))
+    add_provider("Module", lambda: ModuleProvider(module_registry=mod_registry, workspace=workspace))
     add_provider("Revit", lambda: RevitProvider(workspace=workspace))
     add_provider("IFC", lambda: IfcProvider(workspace=workspace))
     add_provider("AEC Mapper", lambda: AECMapperProvider(workspace=workspace))
