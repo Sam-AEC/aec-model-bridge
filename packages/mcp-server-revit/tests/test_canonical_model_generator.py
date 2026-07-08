@@ -5,10 +5,24 @@ import json
 import sys
 from pathlib import Path
 
+import yaml
+
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCRIPT_PATH = REPO_ROOT / "scripts" / "revit" / "generate_canonical_test_model.py"
 MANIFEST_PATH = REPO_ROOT / "fixtures" / "canonical-model" / "manifest.json"
+SEEDED_DEFECTS_PATH = REPO_ROOT / "fixtures" / "canonical-model" / "seeded-defects.json"
+RULES_PATH = (
+    REPO_ROOT
+    / "packages"
+    / "mcp-server-revit"
+    / "src"
+    / "revit_mcp_server"
+    / "modules"
+    / "qaqc_checker"
+    / "rules"
+    / "core.yaml"
+)
 
 
 def load_generator():
@@ -39,20 +53,38 @@ def test_planned_counts_match_manifest():
 
 def test_supported_seed_rules_exist_in_core_pack():
     generator = load_generator()
-    rules = (
-        REPO_ROOT
-        / "packages"
-        / "mcp-server-revit"
-        / "src"
-        / "revit_mcp_server"
-        / "modules"
-        / "qaqc_checker"
-        / "rules"
-        / "core.yaml"
-    ).read_text(encoding="utf-8")
+    rules = RULES_PATH.read_text(encoding="utf-8")
 
     for rule_id in generator.SUPPORTED_SEEDED_RULES:
         assert f"id: {rule_id}" in rules
+
+
+def test_seeded_defect_register_matches_manifest_and_core_rules():
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    register = json.loads(SEEDED_DEFECTS_PATH.read_text(encoding="utf-8"))
+    rules = yaml.safe_load(RULES_PATH.read_text(encoding="utf-8"))["rules"]
+    rules_by_id = {rule["id"]: rule for rule in rules}
+
+    assert register["fixture"] == manifest["name"]
+    assert register["source_manifest"] == "fixtures/canonical-model/manifest.json"
+    assert manifest["seeded_defects"] == "fixtures/canonical-model/seeded-defects.json"
+    expected = {entry["rule_id"]: entry["expected_count"] for entry in register["expected_findings"]}
+    assert expected == manifest["supported_seeded_rules"]
+    assert register["expected_total_findings"] == sum(expected.values())
+
+    for entry in register["expected_findings"]:
+        rule = rules_by_id[entry["rule_id"]]
+        assert entry["severity"] == rule["severity"]
+        assert entry["category"] == rule["category"]
+
+
+def test_seeded_defect_register_tracks_known_manifest_gaps():
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    register = json.loads(SEEDED_DEFECTS_PATH.read_text(encoding="utf-8"))
+    gaps = {entry["rule_id"]: entry["reason"] for entry in register["known_gaps"]}
+
+    assert gaps == manifest["known_gaps"]
+    assert {entry["status"] for entry in register["known_gaps"]} == {"bridge_gap"}
 
 
 def test_registry_discovery_uses_newest_switch(tmp_path, monkeypatch):

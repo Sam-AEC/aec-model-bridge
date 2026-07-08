@@ -213,6 +213,7 @@ def manifest(output_path: Path = DEFAULT_OUTPUT) -> dict[str, Any]:
         "name": "canonical_test_model",
         "generator": "scripts/revit/generate_canonical_test_model.py",
         "output_path": output_label(output_path),
+        "seeded_defects": "fixtures/canonical-model/seeded-defects.json",
         "expected_counts": EXPECTED_COUNTS,
         "supported_seeded_rules": SUPPORTED_SEEDED_RULES,
         "known_gaps": KNOWN_GAPS,

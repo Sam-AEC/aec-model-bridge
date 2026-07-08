@@ -3,6 +3,7 @@
   "name": "canonical_test_model",
   "generator": "scripts/revit/generate_canonical_test_model.py",
   "output_path": "fixtures/canonical-model/generated/canonical_test_model.rvt",
+  "seeded_defects": "fixtures/canonical-model/seeded-defects.json",
   "expected_counts": {
     "levels": 5,
     "walls": 200,
