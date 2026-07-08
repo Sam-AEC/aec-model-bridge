@@ -1,11 +1,9 @@
-import json
 import logging
 import httpx
 from typing import Any, Dict, List
 from pathlib import Path
 
 from ..config import config, BridgeMode
-from ..errors import BridgeError
 from ..bridge.client import BridgeClient
 from ..bridge.mock import MockBridge
 from ..security.workspace import WorkspaceMonitor

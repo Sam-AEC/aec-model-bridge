@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from enum import Enum
 from json import JSONDecodeError
 from pathlib import Path

@@ -7,9 +7,9 @@ import logging
 import sys
 import os
 import threading
-from typing import Callable, Dict, Protocol
+from typing import Callable, Protocol
 
-from .config import BridgeMode, Config, config
+from .config import Config, config
 from .security.audit import AuditRecorder, redact_data
 from .security.workspace import WorkspaceMonitor
 from .providers import (

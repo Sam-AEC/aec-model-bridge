@@ -1,5 +1,4 @@
 import pytest
-from pathlib import Path
 from revit_mcp_server.providers.identity_mapper import AECMapperProvider
 from revit_mcp_server.security.workspace import WorkspaceMonitor
 

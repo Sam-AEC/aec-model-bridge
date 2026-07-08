@@ -1,6 +1,5 @@
 """Tests for Phase 10 — QA/QC Checker module (W7, W9)."""
 import importlib.util
-import json
 import pytest
 from pathlib import Path
 from revit_mcp_server.semantic.engine import generate_mock_snapshot

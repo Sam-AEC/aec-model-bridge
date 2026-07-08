@@ -1,12 +1,11 @@
 import json
-import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
 
 import pytest
 
-from revit_mcp_server.bridge.discovery import SwitchInfo, discover_switches
+from revit_mcp_server.bridge.discovery import discover_switches
 
 
 @pytest.fixture
@@ -73,7 +72,7 @@ def test_ignore_malformed_json(registry_dir):
 
 def test_acl_denied(registry_dir):
     with mock.patch("revit_mcp_server.bridge.discovery.is_pid_alive", return_value=True):
-        file_path = create_mock_registry(registry_dir, "revit", 1234)
+        create_mock_registry(registry_dir, "revit", 1234)
         with mock.patch("builtins.open", side_effect=PermissionError("Access denied")):
             switches = discover_switches(registry_dir)
             assert "revit" not in switches

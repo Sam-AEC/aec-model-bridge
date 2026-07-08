@@ -1,15 +1,10 @@
 import pytest
-import os
-import sys
-from pathlib import Path
-from typing import Any, Dict, List
 
 from revit_mcp_server.config import BridgeMode
 from revit_mcp_server.security.workspace import WorkspaceMonitor
 from revit_mcp_server.providers.registry import ProviderRegistry
 from revit_mcp_server.jobs import JobManager
 from revit_mcp_server.security.audit import redact_data
-from revit_mcp_server.errors import RevitMCPError
 
 # Import providers
 from revit_mcp_server.providers import (

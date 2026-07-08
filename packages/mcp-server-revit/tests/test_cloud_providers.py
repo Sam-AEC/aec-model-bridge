@@ -409,7 +409,6 @@ async def test_speckle_local_tools_send_and_receive_success() -> None:
     from unittest.mock import MagicMock, patch
     from specklepy.core.api.models.current import Model, ResourceCollection
     from specklepy.objects.base import Base
-    from revit_mcp_server.errors import RevitMCPError
 
     provider = SpeckleProvider()
 

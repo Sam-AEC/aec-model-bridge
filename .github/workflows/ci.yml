@@ -33,6 +33,10 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e "packages/mcp-server-revit[dev]"
 
+      - name: Run ruff
+        shell: pwsh
+        run: python -m ruff check packages/mcp-server-revit/src packages/mcp-server-revit/tests
+
       - name: Run Python tests
         shell: pwsh
         run: python -m pytest packages/mcp-server-revit/tests

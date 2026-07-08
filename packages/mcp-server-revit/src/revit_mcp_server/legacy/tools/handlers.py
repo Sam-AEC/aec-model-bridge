@@ -121,7 +121,7 @@ def export_ifc_named_setup(payload: dict, workspace: WorkspaceMonitor) -> dict:
 
 
 def generic_audit(payload: dict, _: WorkspaceMonitor) -> dict:
-    input_model = GenericAuditInput(**payload)
+    GenericAuditInput(**payload)  # validate shape; audit result doesn't depend on the fields
     return GenericAuditOutput(issues_found=0).model_dump()
 
 

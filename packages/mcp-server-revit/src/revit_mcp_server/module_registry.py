@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 from pydantic import BaseModel, Field
 
-from revit_mcp_server.errors import BridgeError
 
 logger = logging.getLogger(__name__)
 

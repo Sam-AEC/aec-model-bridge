@@ -1,5 +1,3 @@
-import os
-from pathlib import Path
 
 from revit_mcp_server.config import Config
 

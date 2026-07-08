@@ -1,6 +1,5 @@
 """Tests for Phase 7 — Model Inspector module (W1–W3)."""
 import importlib.util
-import json
 import pytest
 from pathlib import Path
 from revit_mcp_server.semantic.engine import generate_mock_snapshot

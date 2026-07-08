@@ -6,9 +6,9 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-import pytest
+import pytest  # noqa: E402
 
-from revit_mcp_server.providers.graph import SemanticGraphProvider
+from revit_mcp_server.providers.graph import SemanticGraphProvider  # noqa: E402
 
 
 def sample_graph_payload():

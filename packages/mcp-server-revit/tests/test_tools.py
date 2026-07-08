@@ -1,5 +1,4 @@
 import pytest
-from pathlib import Path
 from revit_mcp_server.security.workspace import WorkspaceMonitor
 from revit_mcp_server.providers.revit import RevitProvider
 
@@ -15,8 +14,7 @@ def test_all_handlers_registered(tmp_path):
 async def test_export_quantities_uses_workspace(tmp_path):
     workspace = WorkspaceMonitor([tmp_path])
     provider = RevitProvider(workspace=workspace)
-    payload = {"output_path": str(tmp_path / "quantities.json")}
-    
+
     # Assert path is validated
     with pytest.raises(Exception):
         # Path outside workspace must raise ValueError or PermissionError
