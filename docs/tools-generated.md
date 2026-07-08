@@ -71,6 +71,13 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
 | `hello_world_say_hello` | Say Hello. | No | sync |
+| `model_inspector_ask` | Ask About Model. | No | sync |
+| `model_inspector_inspect_selection` | Inspect Selection. | No | sync |
+| `model_inspector_list_groups` | List Model Groups. | No | sync |
+| `model_inspector_list_saved_queries` | List Saved Queries. | No | sync |
+| `model_inspector_run_saved_query` | Run Saved Query. | No | sync |
+| `model_inspector_save_query` | Save Query. | No | sync |
+| `model_inspector_summarize_model` | Summarize Model. | No | sync |
 | `module_list_commands` | List all registered modules and their commands for dockable panels. | No | sync |
 
 ## Navisworks Provider

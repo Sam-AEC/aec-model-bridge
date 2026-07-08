@@ -162,7 +162,7 @@ class SemanticProvider(AECProvider):
         }
 
     def _load_snapshot(self, snapshot_id: str) -> Snapshot:
-        snapshots_dir = self.workspace.workspace_dir / "snapshots"
+        snapshots_dir = self.workspace.allowed_directories[0] / "snapshots"
         snapshot_path = snapshots_dir / f"{snapshot_id}.json"
         
         if not snapshot_path.exists():

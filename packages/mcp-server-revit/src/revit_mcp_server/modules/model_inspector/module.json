@@ -1,0 +1,133 @@
+{
+  "id": "model_inspector",
+  "name": "Model Inspector",
+  "version": "1.0.0",
+  "schema_version": 1,
+  "min_hub_version": "1.2.0",
+  "description": "Model inspection workflows: summarize model, query elements, inspect selection, list groups, and run saved queries.",
+  "author": "AEC Model Bridge",
+  "license": "GPL-3.0-or-later",
+  "requires_providers": ["revit", "semantic"],
+  "permissions": ["model.read"],
+  "commands": [
+    {
+      "id": "summarize_model",
+      "title": "Summarize Model",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "description": "Snapshot ID to summarize. Omit to auto-take a fresh snapshot."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "id": "ask",
+      "title": "Ask About Model",
+      "surface": ["mcp"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "description": "Snapshot ID to query. Omit to auto-take a fresh snapshot."
+          },
+          "filter": {
+            "type": "object",
+            "description": "DSL filter object to apply to snapshot query (category, family, type_name, level_uid, placed, parameter)."
+          }
+        },
+        "required": ["filter"]
+      }
+    },
+    {
+      "id": "list_groups",
+      "title": "List Model Groups",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "description": "Snapshot ID to query."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "id": "inspect_selection",
+      "title": "Inspect Selection",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "description": "Snapshot ID to inspect."
+          },
+          "element_uids": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "List of element UIDs to inspect from selection."
+          }
+        },
+        "required": ["element_uids"]
+      }
+    },
+    {
+      "id": "save_query",
+      "title": "Save Query",
+      "surface": ["mcp"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "query_name": {"type": "string", "description": "Unique name for this saved query."},
+          "filter": {"type": "object", "description": "DSL filter object to save."}
+        },
+        "required": ["query_name", "filter"]
+      }
+    },
+    {
+      "id": "run_saved_query",
+      "title": "Run Saved Query",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {"type": "string"},
+          "query_name": {"type": "string", "description": "Name of a previously saved query."}
+        },
+        "required": ["query_name"]
+      }
+    },
+    {
+      "id": "list_saved_queries",
+      "title": "List Saved Queries",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    }
+  ]
+}
