@@ -41,7 +41,7 @@ namespace RevitBridge.Bridge
                 new MediaBrush(MediaColor.FromRgb(76, 175, 80))
             );
 
-            dialog.AddInfoSection("Server Address", "http://127.0.0.1:3000/");
+            dialog.AddInfoSection("Server Address", App.Server != null ? $"http://127.0.0.1:{App.Server.Port}/" : "http://127.0.0.1:3000/");
 
             dialog.SetActionButton("Close");
             dialog.ShowDialog();
@@ -163,7 +163,7 @@ namespace RevitBridge.Bridge
             dialog.AddSeparator();
 
             // Server Information
-            dialog.AddInfoSection("Server Address", "http://127.0.0.1:3000/");
+            dialog.AddInfoSection("Server Address", App.Server != null ? $"http://127.0.0.1:{App.Server.Port}/" : "http://127.0.0.1:3000/");
 
             // Revit Information
             string revitInfo = $"Revit {App.RevitVersion ?? "Unknown"}";
