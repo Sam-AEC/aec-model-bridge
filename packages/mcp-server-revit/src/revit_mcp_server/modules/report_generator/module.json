@@ -1,0 +1,56 @@
+{
+  "id": "report_generator",
+  "name": "Report Generator",
+  "version": "1.0.0",
+  "schema_version": 1,
+  "min_hub_version": "1.2.0",
+  "description": "Management-grade reporting (W8, W16): Excel workbooks with elements/params/QA findings, schedule-able via jobs.",
+  "author": "AEC Model Bridge",
+  "license": "GPL-3.0-or-later",
+  "requires_providers": ["revit", "semantic"],
+  "permissions": ["model.read", "files.write"],
+  "commands": [
+    {
+      "id": "export_excel",
+      "title": "Export to Excel",
+      "surface": ["mcp"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {"type": "string"},
+          "element_filter": {"type": "object", "description": "DSL filter to select elements."},
+          "param_names": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Parameter columns to include.",
+            "default": []
+          },
+          "include_qaqc": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include a QA/QC findings sheet."
+          },
+          "output_filename": {"type": "string", "default": "model_report.xlsx"}
+        },
+        "required": []
+      }
+    },
+    {
+      "id": "export_sqlite_summary",
+      "title": "Export SQLite Summary",
+      "surface": ["mcp"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {"type": "string"},
+          "output_filename": {"type": "string", "default": "model_data.db"}
+        },
+        "required": []
+      }
+    }
+  ]
+}
