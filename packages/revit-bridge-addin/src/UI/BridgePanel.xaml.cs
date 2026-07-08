@@ -39,8 +39,8 @@ namespace RevitBridge.UI
                 Browser.CoreWebView2.NavigationCompleted += (_, _) =>
                 {
                     _pageReady = true;
-                    FlushPendingMessages();
                     PostHostStatus();
+                    FlushPendingMessages();
                 };
                 LoadPanelApp();
             }
@@ -71,13 +71,16 @@ namespace RevitBridge.UI
 
         private void PostHostStatus()
         {
+            var dirtyCount = DocumentDirtyTracker.GetDirtyUniqueIds().Count;
             var payload = JsonSerializer.Serialize(new
             {
                 type = "host.status",
                 serverRunning = App.Server?.IsRunning == true,
                 port = App.Server?.Port,
                 revitVersion = App.RevitVersion,
-                activeDocument = App.ActiveDocumentName
+                activeDocument = App.ActiveDocumentName,
+                dirtyElementCount = dirtyCount,
+                snapshotStale = dirtyCount > 0
             });
 
             Browser.CoreWebView2?.PostWebMessageAsJson(payload);

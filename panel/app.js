@@ -9,6 +9,8 @@ const views = {
 
 const state = {
   host: null,
+  snapshot: null,
+  llm: null,
   plans: [
     {
       id: "plan_demo_01",
@@ -38,6 +40,7 @@ const state = {
 };
 
 const hostStatus = document.getElementById("host-status");
+const systemAlerts = document.getElementById("system-alerts");
 const title = document.getElementById("view-title");
 const subtitle = document.getElementById("view-subtitle");
 const chatFeed = document.getElementById("chat-feed");
@@ -76,6 +79,27 @@ function addLog(titleText, detail) {
   renderLog();
 }
 
+function hasActiveDocument() {
+  const documentName = state.host?.activeDocument;
+  return !!documentName && documentName !== "none";
+}
+
+function isHubOnline() {
+  return !!state.host?.serverRunning;
+}
+
+function snapshotIsStale() {
+  return state.host?.snapshotStale || state.host?.snapshotState === "stale" || state.snapshot?.stale === true;
+}
+
+function llmIsOffline() {
+  return state.host?.llmOnline === false || state.host?.llmState === "offline" || state.llm?.online === false;
+}
+
+function modelActionsBlocked() {
+  return !isHubOnline() || !hasActiveDocument();
+}
+
 function setView(viewName) {
   document.querySelectorAll(".nav").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.view === viewName);
@@ -90,9 +114,60 @@ function setView(viewName) {
 function renderHostStatus() {
   const online = state.host?.serverRunning;
   hostStatus.classList.toggle("is-online", !!online);
+  hostStatus.classList.toggle("is-offline", !!state.host && !online);
   hostStatus.lastElementChild.textContent = online
     ? `Revit ${state.host.revitVersion || ""} :${state.host.port || ""}`
-    : "Host pending";
+    : state.host ? "Hub down" : "Host pending";
+}
+
+function renderAlerts() {
+  const alerts = [];
+  if (!state.host) {
+    alerts.push(["warning", "Waiting for host", "The panel has not received Revit status yet."]);
+  } else {
+    if (!isHubOnline()) {
+      alerts.push(["error", "Hub down", "Start the bridge server from the Connection panel."]);
+    }
+    if (!hasActiveDocument()) {
+      alerts.push(["warning", "No document open", "Open a Revit model to enable model tools."]);
+    }
+    if (snapshotIsStale()) {
+      const dirtyCount = state.host?.dirtyElementCount || state.snapshot?.dirtyElementCount;
+      const detail = dirtyCount
+        ? `${dirtyCount} changed elements since the last clean snapshot.`
+        : "Retake the model snapshot before running checks or exports.";
+      alerts.push(["warning", "Snapshot stale", detail]);
+    }
+    if (llmIsOffline()) {
+      alerts.push(["warning", "LLM offline", "Chat and natural-language tools are unavailable."]);
+    }
+  }
+
+  systemAlerts.hidden = alerts.length === 0;
+  systemAlerts.innerHTML = alerts.map(([level, heading, detail]) => `
+    <div class="alert ${escapeHtml(level)}">
+      <span class="alert-marker" aria-hidden="true"></span>
+      <div>
+        <strong>${escapeHtml(heading)}</strong>
+        <p>${escapeHtml(detail)}</p>
+      </div>
+    </div>`).join("");
+}
+
+function updateToolAvailability() {
+  const blocked = modelActionsBlocked();
+  const chatBlocked = blocked || llmIsOffline();
+  document.querySelectorAll("[data-action], [data-plan], [data-report]").forEach((control) => {
+    control.disabled = blocked;
+  });
+  chatInput.disabled = chatBlocked;
+  chatForm.querySelector("button").disabled = chatBlocked;
+}
+
+function renderSystemState() {
+  renderHostStatus();
+  renderAlerts();
+  updateToolAvailability();
 }
 
 function renderChat() {
@@ -113,6 +188,11 @@ function appendMessage(role, text) {
 
 function renderPlans() {
   planList.innerHTML = "";
+  if (state.plans.length === 0) {
+    renderEmpty(planList, "No pending actions", "Approved or rejected ActionPlans will clear from this queue.");
+    return;
+  }
+
   state.plans.forEach((plan) => {
     const item = document.createElement("article");
     item.className = "item";
@@ -133,23 +213,32 @@ function renderPlans() {
 function renderFindings() {
   findingList.innerHTML = "";
   const severity = severityFilter.value;
-  state.findings
-    .filter((finding) => severity === "all" || finding.severity === severity)
-    .forEach((finding) => {
-      const item = document.createElement("article");
-      item.className = "item";
-      item.innerHTML = `
-        <div class="item-head">
-          <h2>${escapeHtml(finding.title)}</h2>
-          <span class="badge ${escapeHtml(finding.severity)}">${escapeHtml(finding.severity)}</span>
-        </div>
-        <p>${escapeHtml(finding.detail)}</p>`;
-      findingList.appendChild(item);
-    });
+  const findings = state.findings.filter((finding) => severity === "all" || finding.severity === severity);
+  if (findings.length === 0) {
+    renderEmpty(findingList, "No findings", "Run a health check or change the severity filter.");
+    return;
+  }
+
+  findings.forEach((finding) => {
+    const item = document.createElement("article");
+    item.className = "item";
+    item.innerHTML = `
+      <div class="item-head">
+        <h2>${escapeHtml(finding.title)}</h2>
+        <span class="badge ${escapeHtml(finding.severity)}">${escapeHtml(finding.severity)}</span>
+      </div>
+      <p>${escapeHtml(finding.detail)}</p>`;
+    findingList.appendChild(item);
+  });
 }
 
 function renderReports() {
   reportList.innerHTML = "";
+  if (state.reports.length === 0) {
+    renderEmpty(reportList, "No reports", "Run a health check or refresh report exports.");
+    return;
+  }
+
   state.reports.forEach((report) => {
     const item = document.createElement("article");
     item.className = "item";
@@ -168,12 +257,24 @@ function renderReports() {
 
 function renderLog() {
   runLog.innerHTML = "";
+  if (state.log.length === 0) {
+    renderEmpty(runLog, "No run log entries", "Panel and host events will appear here.");
+    return;
+  }
+
   state.log.forEach((event) => {
     const item = document.createElement("article");
     item.className = "event";
     item.innerHTML = `<div class="meta">${escapeHtml(event.at)}</div><strong>${escapeHtml(event.title)}</strong><p>${escapeHtml(event.detail)}</p>`;
     runLog.appendChild(item);
   });
+}
+
+function renderEmpty(container, heading, detail) {
+  const item = document.createElement("article");
+  item.className = "empty";
+  item.innerHTML = `<strong>${escapeHtml(heading)}</strong><p>${escapeHtml(detail)}</p>`;
+  container.appendChild(item);
 }
 
 document.querySelectorAll(".nav").forEach((button) => {
@@ -250,14 +351,26 @@ if (window.chrome && window.chrome.webview) {
   window.chrome.webview.addEventListener("message", (event) => {
     if (event.data?.type === "host.status") {
       state.host = event.data;
-      renderHostStatus();
+      renderSystemState();
       addLog("Host status updated", state.host.activeDocument || "No active document");
+    }
+    if (event.data?.type === "snapshot.status") {
+      state.snapshot = event.data;
+      renderSystemState();
+    }
+    if (event.data?.type === "llm.status") {
+      state.llm = event.data;
+      renderSystemState();
     }
     if (event.data?.type === "panel.view" && views[event.data.view]) {
       setView(event.data.view);
       if (event.data.action) {
-        postToHost(event.data.action);
-        addLog("Ribbon command", event.data.action);
+        if (modelActionsBlocked()) {
+          addLog("Ribbon command blocked", event.data.action);
+        } else {
+          postToHost(event.data.action);
+          addLog("Ribbon command", event.data.action);
+        }
       }
     }
   });
@@ -268,5 +381,5 @@ renderPlans();
 renderFindings();
 renderReports();
 renderLog();
-renderHostStatus();
+renderSystemState();
 postToHost("panel.loaded");

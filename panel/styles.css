@@ -48,6 +48,13 @@ button:hover {
   border-color: var(--blue);
 }
 
+button:disabled,
+input:disabled,
+select:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 input,
 select {
   min-height: 36px;
@@ -106,7 +113,7 @@ select {
 .app {
   min-width: 0;
   display: grid;
-  grid-template-rows: 64px minmax(0, 1fr);
+  grid-template-rows: 64px auto minmax(0, 1fr);
 }
 
 .topbar {
@@ -155,6 +162,60 @@ p {
 
 .status-pill.is-online .dot {
   background: var(--green);
+}
+
+.status-pill.is-offline .dot {
+  background: var(--red);
+}
+
+.alerts {
+  display: grid;
+  gap: 8px;
+  padding: 10px 14px 0;
+}
+
+.alerts[hidden] {
+  display: none;
+}
+
+.alert,
+.empty {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.alert {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  padding: 9px 10px;
+}
+
+.alert-marker {
+  width: 9px;
+  height: 9px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--amber);
+}
+
+.alert.error .alert-marker {
+  background: var(--red);
+}
+
+.alert strong,
+.empty strong {
+  display: block;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.alert p,
+.empty p {
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .view {
@@ -236,6 +297,11 @@ p {
 
 .item {
   padding: 12px;
+}
+
+.empty {
+  padding: 18px;
+  text-align: center;
 }
 
 .item-head {
