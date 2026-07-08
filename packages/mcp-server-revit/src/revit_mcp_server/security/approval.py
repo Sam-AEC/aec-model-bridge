@@ -111,7 +111,13 @@ class ApprovalGate:
         if plan.get("state") != "approved":
             raise BridgeError(f"Plan '{plan_id}' is in state '{plan.get('state')}', not 'approved'. Execution blocked.")
 
-    def rollback_plan(self, plan_id: str, execute_fn) -> Dict[str, Any]:
+    async def rollback_plan(self, plan_id: str, execute_fn) -> Dict[str, Any]:
+        """Roll back an executed plan.
+
+        `execute_fn` is an async callable `(tool_name, arguments) -> dict`; it MUST be
+        awaited here rather than merely invoked, otherwise the inverse tool call never
+        actually runs (a bare call just constructs and discards a coroutine object).
+        """
         plan = self.load_plan(plan_id)
         if not plan:
             raise ValueError(f"Plan {plan_id} not found")
@@ -132,7 +138,7 @@ class ApprovalGate:
                         # We temporarily set the plan state to 'approved' for the rollback calls
                         plan["state"] = "approved"
                         self.save_plan(plan)
-                        execute_fn("revit_set_parameter_value", {
+                        await execute_fn("revit_set_parameter_value", {
                             "element_id": elem_id,
                             "parameter_name": param_name,
                             "value": old_val,
