@@ -1,0 +1,84 @@
+{
+  "id": "qaqc_checker",
+  "name": "QA/QC Checker",
+  "version": "1.0.0",
+  "schema_version": 1,
+  "min_hub_version": "1.2.0",
+  "description": "QA/QC validation workflows (W7, W9): YAML rule packs over snapshot queries, issue lifecycle (open/resolved/orphaned), async health checks via JobManager.",
+  "author": "AEC Model Bridge",
+  "license": "GPL-3.0-or-later",
+  "requires_providers": ["revit", "semantic"],
+  "permissions": ["model.read"],
+  "commands": [
+    {
+      "id": "run_check",
+      "title": "Run QA/QC Check",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {"type": "string"},
+          "rule_pack": {
+            "type": "string",
+            "description": "Rule pack name (e.g. 'core', or path to a YAML file).",
+            "default": "core"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "id": "list_issues",
+      "title": "List QA/QC Issues",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "doc_guid": {"type": "string"},
+          "status": {
+            "type": "string",
+            "enum": ["open", "resolved", "orphaned"],
+            "description": "Filter by issue lifecycle status."
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["error", "warning", "info"]
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "id": "resolve_issue",
+      "title": "Resolve Issue",
+      "surface": ["mcp"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "issue_id": {"type": "string"}
+        },
+        "required": ["issue_id"]
+      }
+    },
+    {
+      "id": "list_rules",
+      "title": "List Available Rules",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "rule_pack": {"type": "string", "default": "core"}
+        },
+        "required": []
+      }
+    }
+  ]
+}
