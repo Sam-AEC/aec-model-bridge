@@ -46,10 +46,12 @@ namespace RevitBridge.Bridge
                 application.ControlledApplication.DocumentChanged += (sender, args) =>
                 {
                     ActiveDocumentName = args.GetDocument()?.Title;
+                    DocumentDirtyTracker.HandleDocumentChanged(sender, args);
                 };
                 application.ViewActivated += (sender, args) =>
                 {
                     ActiveDocumentName = args.CurrentActiveView?.Document?.Title;
+                    DocumentDirtyTracker.Clear();
                 };
 
                 Log.Information("AEC Model Bridge started for Revit {Version}", RevitVersion);

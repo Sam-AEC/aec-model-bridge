@@ -20,6 +20,22 @@ public static class BridgeCommandFactory
     private static readonly List<object> _capabilities = new();
     private static readonly List<string> _catalog = new();
 
+    [ThreadStatic]
+    private static string? _currentActionId;
+
+    public static string? CurrentActionId
+    {
+        get => _currentActionId;
+        set => _currentActionId = value;
+    }
+
+    public static Transaction CreateTransaction(Document doc, string name)
+    {
+        var actionId = CurrentActionId;
+        string txName = string.IsNullOrEmpty(actionId) ? $"AMB: {name}" : $"AMB: {name} #{actionId}";
+        return BridgeCommandFactory.CreateTransaction(doc, txName);
+    }
+
     static BridgeCommandFactory()
     {
         var methods = typeof(BridgeCommandFactory).GetMethods(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
@@ -62,11 +78,24 @@ public static class BridgeCommandFactory
         {
             try
             {
+                if (payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty("action_id", out var actionProp))
+                {
+                    CurrentActionId = actionProp.GetString();
+                }
+                else
+                {
+                    CurrentActionId = null;
+                }
+
                 return handler(app, payload);
             }
             catch (System.Reflection.TargetInvocationException ex)
             {
                 throw ex.InnerException ?? ex;
+            }
+            finally
+            {
+                CurrentActionId = null;
             }
         }
         return new { status = "error", message = $"Unknown tool: {tool}" };
@@ -161,7 +190,7 @@ public static class BridgeCommandFactory
 
         var exported = new List<string>();
 
-        using (var trans = new Transaction(doc, "Export Schedules"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Export Schedules"))
         {
             trans.Start();
 
@@ -369,7 +398,7 @@ public static class BridgeCommandFactory
         var levelName = payload.GetProperty("level").GetString();
         var wallTypeName = payload.TryGetProperty("wall_type", out var wt) ? wt.GetString() : null;
 
-        using (var trans = new Transaction(doc, "Create Wall"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Wall"))
         {
             trans.Start();
 
@@ -416,7 +445,7 @@ public static class BridgeCommandFactory
         var levelName = payload.GetProperty("level").GetString();
         var floorTypeName = payload.TryGetProperty("floor_type", out var ft) ? ft.GetString() : null;
 
-        using (var trans = new Transaction(doc, "Create Floor"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Floor"))
         {
             trans.Start();
 
@@ -474,7 +503,7 @@ public static class BridgeCommandFactory
         var levelName = payload.GetProperty("level").GetString();
         var roofTypeName = payload.TryGetProperty("roof_type", out var rt) ? rt.GetString() : null;
 
-        using (var trans = new Transaction(doc, "Create Roof"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Roof"))
         {
             trans.Start();
 
@@ -518,7 +547,7 @@ public static class BridgeCommandFactory
         var name = payload.GetProperty("name").GetString();
         var elevation = payload.GetProperty("elevation").GetDouble();
 
-        using (var trans = new Transaction(doc, "Create Level"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Level"))
         {
             trans.Start();
 
@@ -549,7 +578,7 @@ public static class BridgeCommandFactory
         var endPoint = ParseXYZ(payload.GetProperty("end_point"));
         var name = payload.TryGetProperty("name", out var n) ? n.GetString() : null;
 
-        using (var trans = new Transaction(doc, "Create Grid"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Grid"))
         {
             trans.Start();
 
@@ -584,7 +613,7 @@ public static class BridgeCommandFactory
         var roomName = payload.TryGetProperty("name", out var n) ? n.GetString() : "Room";
         var roomNumber = payload.TryGetProperty("number", out var num) ? num.GetString() : null;
 
-        using (var trans = new Transaction(doc, "Create Room"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Room"))
         {
             trans.Start();
 
@@ -654,7 +683,7 @@ public static class BridgeCommandFactory
 
         var elementId = payload.GetProperty("element_id").GetInt32();
 
-        using (var trans = new Transaction(doc, "Delete Element"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Delete Element"))
         {
             trans.Start();
 
@@ -685,7 +714,7 @@ public static class BridgeCommandFactory
         var typeName = payload.GetProperty("type_name").GetString();
         var levelName = payload.GetProperty("level").GetString();
 
-        using (var trans = new Transaction(doc, "Place Family Instance"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Place Family Instance"))
         {
             trans.Start();
 
@@ -724,7 +753,7 @@ public static class BridgeCommandFactory
         var familyName = payload.TryGetProperty("family_name", out var fn) ? fn.GetString() : "Single-Flush";
         var typeName = payload.TryGetProperty("type_name", out var tn) ? tn.GetString() : "0915 x 2134mm";
 
-        using (var trans = new Transaction(doc, "Place Door"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Place Door"))
         {
             trans.Start();
 
@@ -766,7 +795,7 @@ public static class BridgeCommandFactory
         var familyName = payload.TryGetProperty("family_name", out var fn) ? fn.GetString() : "Fixed";
         var typeName = payload.TryGetProperty("type_name", out var tn) ? tn.GetString() : "1200 x 1500mm";
 
-        using (var trans = new Transaction(doc, "Place Window"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Place Window"))
         {
             trans.Start();
 
@@ -838,7 +867,7 @@ public static class BridgeCommandFactory
         var levelName = payload.GetProperty("level").GetString();
         var viewName = payload.TryGetProperty("name", out var n) ? n.GetString() : null;
 
-        using (var trans = new Transaction(doc, "Create Floor Plan View"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Floor Plan View"))
         {
             trans.Start();
 
@@ -873,7 +902,7 @@ public static class BridgeCommandFactory
 
         var viewName = payload.TryGetProperty("name", out var n) ? n.GetString() : "3D View";
 
-        using (var trans = new Transaction(doc, "Create 3D View"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create 3D View"))
         {
             trans.Start();
 
@@ -903,7 +932,7 @@ public static class BridgeCommandFactory
         var endPoint = ParseXYZ(payload.GetProperty("end_point"));
         var viewName = payload.TryGetProperty("name", out var n) ? n.GetString() : "Section";
 
-        using (var trans = new Transaction(doc, "Create Section View"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Section View"))
         {
             trans.Start();
 
@@ -1119,7 +1148,7 @@ public static class BridgeCommandFactory
         if (element == null)
             throw new ArgumentException($"Element with ID {elementId} not found");
 
-        using (var trans = new Transaction(doc, "Set Parameter Value"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Set Parameter Value"))
         {
             trans.Start();
 
@@ -1282,7 +1311,7 @@ public static class BridgeCommandFactory
         var successCount = 0;
         var errorCount = 0;
 
-        using (var trans = new Transaction(doc, "Batch Set Parameters"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Batch Set Parameters"))
         {
             trans.Start();
 
@@ -1384,7 +1413,7 @@ public static class BridgeCommandFactory
         if (elementType == null)
             throw new ArgumentException($"Element type with ID {typeId} not found");
 
-        using (var trans = new Transaction(doc, "Set Type Parameter"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Set Type Parameter"))
         {
             trans.Start();
 
@@ -1536,7 +1565,7 @@ public static class BridgeCommandFactory
             ? tbName.GetString()
             : null;
 
-        using (var trans = new Transaction(doc, "Create Sheet"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Sheet"))
         {
             trans.Start();
 
@@ -1587,7 +1616,7 @@ public static class BridgeCommandFactory
 
         var sheetId = payload.GetProperty("sheet_id").GetInt32();
 
-        using (var trans = new Transaction(doc, "Delete Sheet"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Delete Sheet"))
         {
             trans.Start();
 
@@ -1625,7 +1654,7 @@ public static class BridgeCommandFactory
             ? ParseXYZ(loc)
             : new XYZ(0.5, 0.5, 0);
 
-        using (var trans = new Transaction(doc, "Place Viewport"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Place Viewport"))
         {
             trans.Start();
 
@@ -1682,7 +1711,7 @@ public static class BridgeCommandFactory
         var successCount = 0;
         var errorCount = 0;
 
-        using (var trans = new Transaction(doc, "Batch Create Sheets"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Batch Create Sheets"))
         {
             trans.Start();
 
@@ -1755,7 +1784,7 @@ public static class BridgeCommandFactory
         var parameters = payload.GetProperty("parameters").EnumerateObject()
             .ToDictionary(p => p.Name, p => p.Value);
 
-        using (var trans = new Transaction(doc, "Populate Titleblock"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Populate Titleblock"))
         {
             trans.Start();
 
@@ -1889,7 +1918,7 @@ public static class BridgeCommandFactory
             ? dv.GetBoolean()
             : false;
 
-        using (var trans = new Transaction(doc, "Duplicate Sheet"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Duplicate Sheet"))
         {
             trans.Start();
 
@@ -2000,7 +2029,7 @@ public static class BridgeCommandFactory
         var successCount = 0;
         var errorCount = 0;
 
-        using (var trans = new Transaction(doc, "Renumber Sheets"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Renumber Sheets"))
         {
             trans.Start();
 
@@ -2080,7 +2109,7 @@ public static class BridgeCommandFactory
             }
         };
 
-        using (var trans = new Transaction(doc, "Export DWG"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Export DWG"))
         {
             trans.Start();
 
@@ -2157,7 +2186,7 @@ public static class BridgeCommandFactory
             SpaceBoundaryLevel = 1
         };
 
-        using (var trans = new Transaction(doc, "Export IFC"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Export IFC"))
         {
             trans.Start();
 
@@ -2217,7 +2246,7 @@ public static class BridgeCommandFactory
             options.ViewId = viewId;
         }
 
-        using (var trans = new Transaction(doc, "Export Navisworks"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Export Navisworks"))
         {
             trans.Start();
 
@@ -2296,7 +2325,7 @@ public static class BridgeCommandFactory
 
         options.SetViewsAndSheets(new List<ElementId> { view.Id });
 
-        using (var trans = new Transaction(doc, "Export Image"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Export Image"))
         {
             trans.Start();
 
@@ -2352,7 +2381,7 @@ public static class BridgeCommandFactory
             _ => ImageResolution.DPI_150
         };
 
-        using (var trans = new Transaction(doc, "Render 3D View"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Render 3D View"))
         {
             trans.Start();
 
@@ -2420,7 +2449,7 @@ public static class BridgeCommandFactory
         var location = ParseXYZ(payload.GetProperty("location"));
         var viewId = payload.TryGetProperty("view_id", out var v) ? v.GetInt32() : doc.ActiveView.Id.Value;
 
-        using (var trans = new Transaction(doc, "Create Text Note"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Text Note"))
         {
             trans.Start();
             var view = doc.GetElement(new ElementId((long)viewId)) as View;
@@ -2441,7 +2470,7 @@ public static class BridgeCommandFactory
         var location = ParseXYZ(payload.GetProperty("location"));
         var viewId = payload.TryGetProperty("view_id", out var v) ? v.GetInt32() : doc.ActiveView.Id.Value;
 
-        using (var trans = new Transaction(doc, "Create Tag"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Tag"))
         {
             trans.Start();
             var view = doc.GetElement(new ElementId((long)viewId)) as View;
@@ -2468,7 +2497,7 @@ public static class BridgeCommandFactory
         var familyName = payload.GetProperty("family_name").GetString();
         var typeName = payload.GetProperty("type_name").GetString();
 
-        using (var trans = new Transaction(doc, "Create Structural Column"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Structural Column"))
         {
              trans.Start();
              var level = GetLevelByName(doc, levelName);
@@ -2494,7 +2523,7 @@ public static class BridgeCommandFactory
         var familyName = payload.GetProperty("family_name").GetString();
         var typeName = payload.GetProperty("type_name").GetString();
 
-        using (var trans = new Transaction(doc, "Create Beam"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Beam"))
         {
              trans.Start();
              var level = GetLevelByName(doc, levelName);
@@ -2520,7 +2549,7 @@ public static class BridgeCommandFactory
         var familyName = payload.GetProperty("family_name").GetString();
         var typeName = payload.GetProperty("type_name").GetString();
 
-        using (var trans = new Transaction(doc, "Create Foundation"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Foundation"))
         {
              trans.Start();
              var level = GetLevelByName(doc, levelName);
@@ -2548,7 +2577,7 @@ public static class BridgeCommandFactory
         var systemTypeName = payload.TryGetProperty("system_type", out var s) ? s.GetString() : "Supply Air";
         var ductTypeName = payload.TryGetProperty("duct_type", out var d) ? d.GetString() : null; // Default to first available
 
-        using (var trans = new Transaction(doc, "Create Duct"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Duct"))
         {
              trans.Start();
              var level = GetLevelByName(doc, levelName);
@@ -2587,7 +2616,7 @@ public static class BridgeCommandFactory
         var systemTypeName = payload.TryGetProperty("system_type", out var s) ? s.GetString() : "Hydronic Supply";
         var pipeTypeName = payload.TryGetProperty("pipe_type", out var p) ? p.GetString() : null;
 
-        using (var trans = new Transaction(doc, "Create Pipe"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Pipe"))
         {
              trans.Start();
              var level = GetLevelByName(doc, levelName);
@@ -2672,7 +2701,7 @@ public static class BridgeCommandFactory
         var elementId = new ElementId((long)payload.GetProperty("element_id").GetInt32());
         var vector = ParseXYZ(payload.GetProperty("vector"));
 
-        using (var trans = new Transaction(doc, "Move Element"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Move Element"))
         {
             trans.Start();
             ElementTransformUtils.MoveElement(doc, elementId, vector);
@@ -2690,7 +2719,7 @@ public static class BridgeCommandFactory
         var elementId = new ElementId((long)payload.GetProperty("element_id").GetInt32());
         var vector = ParseXYZ(payload.GetProperty("vector"));
 
-        using (var trans = new Transaction(doc, "Copy Element"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Copy Element"))
         {
             trans.Start();
             var newIds = ElementTransformUtils.CopyElement(doc, elementId, vector);
@@ -2709,7 +2738,7 @@ public static class BridgeCommandFactory
         var axisPoint = ParseXYZ(payload.GetProperty("axis_point"));
         var angleRadians = payload.GetProperty("angle_radians").GetDouble();
 
-        using (var trans = new Transaction(doc, "Rotate Element"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Rotate Element"))
         {
             trans.Start();
             var axis = Line.CreateBound(axisPoint, axisPoint + XYZ.BasisZ); // Default to Z-axis rotation for now
@@ -2733,7 +2762,7 @@ public static class BridgeCommandFactory
         var planeOrigin = ParseXYZ(payload.GetProperty("plane_origin"));
         var planeNormal = ParseXYZ(payload.GetProperty("plane_normal")); // e.g., (1,0,0) for YZ plane
         
-        using (var trans = new Transaction(doc, "Mirror Element"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Mirror Element"))
         {
              trans.Start();
              var plane = Plane.CreateByNormalAndOrigin(planeNormal, planeOrigin);
@@ -2751,7 +2780,7 @@ public static class BridgeCommandFactory
         
         var elementId = new ElementId((long)payload.GetProperty("element_id").GetInt32());
         
-        using (var trans = new Transaction(doc, "Pin Element"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Pin Element"))
         {
              trans.Start();
              var el = doc.GetElement(elementId);
@@ -2769,7 +2798,7 @@ public static class BridgeCommandFactory
         
         var elementId = new ElementId((long)payload.GetProperty("element_id").GetInt32());
         
-        using (var trans = new Transaction(doc, "Unpin Element"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Unpin Element"))
         {
              trans.Start();
              var el = doc.GetElement(elementId);
@@ -2856,7 +2885,7 @@ public static class BridgeCommandFactory
         
         var category = GetCategoryByName(doc, categoryName);
 
-        using (var trans = new Transaction(doc, "Create Schedule"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Schedule"))
         {
              trans.Start();
              var schedule = ViewSchedule.CreateSchedule(doc, category.Id);
@@ -2975,7 +3004,7 @@ public static class BridgeCommandFactory
             .ToList();
         var name = payload.TryGetProperty("name", out var n) ? n.GetString() : null;
 
-        using (var trans = new Transaction(doc, "Create Group"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Group"))
         {
              trans.Start();
              var group = doc.Create.NewGroup(elementIds);
@@ -2997,7 +3026,7 @@ public static class BridgeCommandFactory
 
         var groupId = new ElementId((long)payload.GetProperty("group_id").GetInt32());
 
-        using (var trans = new Transaction(doc, "Ungroup"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Ungroup"))
         {
              trans.Start();
              var group = doc.GetElement(groupId) as Group;
@@ -3092,7 +3121,7 @@ public static class BridgeCommandFactory
         var diameter = payload.TryGetProperty("diameter", out var d) ? d.GetDouble() : 0.75 / 12.0; // Default 0.75 inches
         var conduitTypeName = payload.TryGetProperty("conduit_type", out var ct) ? ct.GetString() : null;
 
-        using (var trans = new Transaction(doc, "Create Conduit"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Conduit"))
         {
             trans.Start();
 
@@ -3294,7 +3323,7 @@ public static class BridgeCommandFactory
         var shininess = payload.TryGetProperty("shininess", out var s) ? s.GetInt32() : 50;
         var smoothness = payload.TryGetProperty("smoothness", out var sm) ? sm.GetInt32() : 50;
 
-        using (var trans = new Transaction(doc, "Create Material"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Material"))
         {
             trans.Start();
 
@@ -3335,7 +3364,7 @@ public static class BridgeCommandFactory
         var materialName = payload.GetProperty("material_name").GetString();
         var faceIndex = payload.TryGetProperty("face_index", out var fi) ? (int?)fi.GetInt32() : null;
 
-        using (var trans = new Transaction(doc, "Set Element Material"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Set Element Material"))
         {
             trans.Start();
 
@@ -3481,7 +3510,7 @@ public static class BridgeCommandFactory
 
         var name = payload.TryGetProperty("name", out var n) ? n.GetString() : null;
 
-        using (var trans = new Transaction(doc, "Create Group"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Group"))
         {
             trans.Start();
 
@@ -3585,7 +3614,7 @@ public static class BridgeCommandFactory
         var ref1Id = new ElementId((long)payload.GetProperty("element1_id").GetInt32());
         var ref2Id = new ElementId((long)payload.GetProperty("element2_id").GetInt32());
         
-        using (var trans = new Transaction(doc, "Create Dimension"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Dimension"))
         {
             trans.Start();
 
@@ -3658,7 +3687,7 @@ public static class BridgeCommandFactory
         var category = GetBuiltInCategoryByName(categoryName);
         var view = doc.ActiveView;
 
-        using (var trans = new Transaction(doc, "Tag All Not Tagged"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Tag All Not Tagged"))
         {
             trans.Start();
 
@@ -3727,7 +3756,7 @@ public static class BridgeCommandFactory
         var viewId = new ElementId((long)payload.GetProperty("view_id").GetInt32());
         var templateId = new ElementId((long)payload.GetProperty("template_id").GetInt32());
 
-        using (var trans = new Transaction(doc, "Apply View Template"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Apply View Template"))
         {
             trans.Start();
 
@@ -3838,7 +3867,7 @@ public static class BridgeCommandFactory
         JsonElement args = payload.GetProperty("arguments");
         string targetId = payload.TryGetProperty("target_id", out var t) ? t.GetString() : null;
 
-        using (var trans = new Transaction(doc, $"Invoke {methodName}"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, $"Invoke {methodName}"))
         {
             if (payload.TryGetProperty("use_transaction", out var ut) && ut.GetBoolean())
                 trans.Start();
@@ -3897,7 +3926,7 @@ public static class BridgeCommandFactory
         string propertyName = payload.GetProperty("property_name").GetString();
         JsonElement valueElement = payload.GetProperty("value");
 
-        using (var trans = new Transaction(doc, $"Set {propertyName}"))
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, $"Set {propertyName}"))
         {
             trans.Start();
             object target = ReflectionHelper.GetObject(targetId, doc);
@@ -4011,7 +4040,7 @@ public static class BridgeCommandFactory
         int changed = 0, failed = 0;
         var failedIds = new List<long>();
 
-        using (var tx = new Transaction(doc, "MCP: Change Element Type"))
+        using (var tx = BridgeCommandFactory.CreateTransaction(doc, "MCP: Change Element Type"))
         {
             tx.Start();
             foreach (var el in elements)
@@ -4178,7 +4207,7 @@ public static class BridgeCommandFactory
         var elements = query.ToList();
         int updated = 0, failed = 0;
 
-        using (var tx = new Transaction(doc, "MCP: Batch Set Parameters by Filter"))
+        using (var tx = BridgeCommandFactory.CreateTransaction(doc, "MCP: Batch Set Parameters by Filter"))
         {
             tx.Start();
             foreach (var el in elements)
@@ -4239,7 +4268,7 @@ public static class BridgeCommandFactory
         int changed = 0, failed = 0;
         var failedIds = new List<long>();
 
-        using (var tx = new Transaction(doc, "MCP: Replace Family Type"))
+        using (var tx = BridgeCommandFactory.CreateTransaction(doc, "MCP: Replace Family Type"))
         {
             tx.Start();
             if (!newSymbol.IsActive)
@@ -4333,4 +4362,184 @@ public static class BridgeCommandFactory
             volume = volParam?.AsDouble()
         };
     }
+
+    [BridgeCommand("revit.extract_snapshot", IsMutating = false)]
+    private static object ExecuteExtractSnapshot(UIApplication app, JsonElement payload)
+    {
+        var doc = app.ActiveUIDocument?.Document;
+        if (doc == null)
+            throw new InvalidOperationException("No active document");
+
+        bool dirtyOnly = payload.ValueKind == JsonValueKind.Object && 
+                         payload.TryGetProperty("dirty_only", out var dirtyProp) && 
+                         dirtyProp.GetBoolean();
+        string snapshotId = Guid.NewGuid().ToString("N");
+
+        var workspaceDir = Environment.GetEnvironmentVariable("MCP_REVIT_WORKSPACE_DIR") ?? Path.GetTempPath();
+        var snapshotDir = Path.Combine(workspaceDir, "snapshots");
+        Directory.CreateDirectory(snapshotDir);
+        var snapshotPath = Path.Combine(snapshotDir, $"snapshot-{snapshotId}.json");
+
+        var elementsToExtract = new List<Element>();
+        var dirtyIds = DocumentDirtyTracker.GetDirtyUniqueIds();
+
+        if (dirtyOnly)
+        {
+            foreach (var uid in dirtyIds)
+            {
+                if (uid.StartsWith("deleted:")) continue;
+                try
+                {
+                    var elem = doc.GetElement(uid);
+                    if (elem != null) elementsToExtract.Add(elem);
+                }
+                catch { }
+            }
+        }
+        else
+        {
+            var classes = new[]
+            {
+                typeof(FamilyInstance), typeof(Wall), typeof(Floor), typeof(RoofBase),
+                typeof(Level), typeof(Grid), typeof(ViewSheet), typeof(ViewDrafting)
+            };
+
+            foreach (var type in classes)
+            {
+                try
+                {
+                    var collector = new FilteredElementCollector(doc)
+                        .OfClass(type)
+                        .WhereElementIsNotElementType();
+                    elementsToExtract.AddRange(collector);
+                }
+                catch { }
+            }
+
+            try
+            {
+                var roomCollector = new FilteredElementCollector(doc)
+                    .OfCategory(BuiltInCategory.OST_Rooms)
+                    .WhereElementIsNotElementType();
+                elementsToExtract.AddRange(roomCollector);
+            }
+            catch { }
+        }
+
+        var elementRecords = new List<object>();
+        foreach (var elem in elementsToExtract)
+        {
+            if (elem == null || string.IsNullOrEmpty(elem.UniqueId)) continue;
+
+            Element? typeElem = null;
+            try { typeElem = doc.GetElement(elem.GetTypeId()); } catch { }
+
+            var paramsDict = new Dictionary<string, object>();
+            foreach (Parameter param in elem.Parameters)
+            {
+                if (param.HasValue)
+                {
+                    object val = param.StorageType switch
+                    {
+                        StorageType.Integer => param.AsInteger(),
+                        StorageType.Double => param.AsDouble(),
+                        StorageType.String => param.AsString() ?? string.Empty,
+                        StorageType.ElementId => param.AsElementId().Value.ToString(),
+                        _ => string.Empty
+                    };
+
+                    paramsDict[param.Definition.Name] = new
+                    {
+                        v = val,
+                        storage = param.StorageType.ToString(),
+                        instance = true,
+                        @readonly = param.IsReadOnly
+                    };
+                }
+            }
+
+            string catName = elem.Category?.BuiltInCategory.ToString() ?? elem.Category?.Name ?? "None";
+
+            var record = new
+            {
+                uid = elem.UniqueId,
+                amb_uid = elem.UniqueId,
+                element_id = elem.Id.Value,
+                category = catName,
+                @class = elem.GetType().Name,
+                type_uid = elem.GetTypeId().Value.ToString(),
+                family = typeElem?.get_Parameter(BuiltInParameter.ALL_MODEL_FAMILY_NAME)?.AsString() ?? typeElem?.Name ?? string.Empty,
+                type_name = typeElem?.Name ?? string.Empty,
+                level_uid = (elem as FamilyInstance)?.LevelId.Value.ToString() ?? (elem as Wall)?.LevelId.Value.ToString() ?? string.Empty,
+                @params = paramsDict
+            };
+
+            elementRecords.Add(record);
+        }
+
+        var deletedIdsList = dirtyOnly 
+            ? dirtyIds.Where(id => id.StartsWith("deleted:")).Select(id => id.Substring(8)).ToList() 
+            : new List<string>();
+
+        var snapshot = new
+        {
+            schema = "amb.snapshot/1",
+            snapshot_id = snapshotId,
+            taken_at = DateTime.UtcNow.ToString("o"),
+            source = new
+            {
+                app = "revit",
+                app_version = app.Application.VersionNumber,
+                doc_guid = doc.ProjectInformation?.UniqueId ?? doc.Title,
+                doc_title = doc.Title,
+                units = "SI"
+            },
+            elements = elementRecords,
+            deleted = deletedIdsList
+        };
+
+        var json = JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = false });
+        File.WriteAllText(snapshotPath, json);
+
+        return new
+        {
+            snapshot_id = snapshotId,
+            path = snapshotPath,
+            element_count = elementRecords.Count,
+            deleted_count = deletedIdsList.Count
+        };
+    }
+
+    [BridgeCommand("revit.get_snapshot_delta", IsMutating = false)]
+    private static object ExecuteGetSnapshotDelta(UIApplication app, JsonElement payload)
+    {
+        var doc = app.ActiveUIDocument?.Document;
+        if (doc == null)
+            throw new InvalidOperationException("No active document");
+
+        var dirtyIds = DocumentDirtyTracker.GetDirtyUniqueIds();
+        
+        var addedAndModified = new List<string>();
+        var deleted = new List<string>();
+
+        foreach (var id in dirtyIds)
+        {
+            if (id.StartsWith("deleted:"))
+            {
+                deleted.Add(id.Substring(8));
+            }
+            else
+            {
+                addedAndModified.Add(id);
+            }
+        }
+
+        return new
+        {
+            added_or_modified = addedAndModified,
+            deleted = deleted,
+            count = dirtyIds.Count
+        };
+    }
 }
+
