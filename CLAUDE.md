@@ -1,4 +1,4 @@
-# AEC Omni-Bridge — Project Reference
+# AEC Model Bridge — Project Reference
 
 ## Architecture
 
@@ -7,12 +7,12 @@ Four independent "switches" (per-platform add-ins) + one Python MCP hub:
 | package | language | port | status |
 |---------|----------|------|--------|
 | `packages/rhino-bridge-addin/` | C# .NET 4.8 | 3004 | built ✓ |
-| `packages/navisworks-bridge-addin/` | C# .NET 4.8 | 3005 | routing infra ✓ |
+| `packages/navisworks-bridge-addin/` | C# .NET 4.8 | 3002 | routing infra ✓ |
 | `packages/powerbi-bridge-tool/` | Python | — | stub |
 | `packages/mcp-server-revit/` | Python | — | MCP hub |
 
 MCP providers: `packages/mcp-server-revit/src/revit_mcp_server/providers/`  
-Canonical backlog: `docs/agent-task-plan.md`  
+Canonical backlog: `docs/product/SCAFFOLDING_TASK_LIST.md`  
 Architecture blueprint: `docs/system-blueprint-and-workflows.md`
 
 ## Rhino Bridge — Quick Reference
