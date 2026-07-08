@@ -12,6 +12,8 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 SCRIPT_PATH = REPO_ROOT / "scripts" / "revit" / "generate_canonical_test_model.py"
 MANIFEST_PATH = REPO_ROOT / "fixtures" / "canonical-model" / "manifest.json"
 SEEDED_DEFECTS_PATH = REPO_ROOT / "fixtures" / "canonical-model" / "seeded-defects.json"
+SNAPSHOT_GOLDEN_PATH = REPO_ROOT / "fixtures" / "canonical-model" / "goldens" / "snapshot-summary.json"
+QAQC_GOLDEN_PATH = REPO_ROOT / "fixtures" / "canonical-model" / "goldens" / "qaqc-findings-summary.json"
 RULES_PATH = (
     REPO_ROOT
     / "packages"
@@ -85,6 +87,31 @@ def test_seeded_defect_register_tracks_known_manifest_gaps():
 
     assert gaps == manifest["known_gaps"]
     assert {entry["status"] for entry in register["known_gaps"]} == {"bridge_gap"}
+
+
+def test_canonical_goldens_match_manifest_and_seed_register():
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    register = json.loads(SEEDED_DEFECTS_PATH.read_text(encoding="utf-8"))
+    snapshot_golden = json.loads(SNAPSHOT_GOLDEN_PATH.read_text(encoding="utf-8"))
+    qaqc_golden = json.loads(QAQC_GOLDEN_PATH.read_text(encoding="utf-8"))
+
+    assert manifest["goldens"] == {
+        "snapshot_summary": "fixtures/canonical-model/goldens/snapshot-summary.json",
+        "qaqc_findings_summary": "fixtures/canonical-model/goldens/qaqc-findings-summary.json",
+    }
+    assert snapshot_golden["fixture"] == manifest["name"]
+    assert qaqc_golden["fixture"] == manifest["name"]
+    assert snapshot_golden["required_category_counts"] == {
+        "OST_Levels": manifest["expected_counts"]["levels"],
+        "OST_Walls": manifest["expected_counts"]["walls"],
+        "OST_Doors": manifest["expected_counts"]["doors"],
+        "OST_Windows": manifest["expected_counts"]["windows"],
+        "OST_Rooms": manifest["expected_counts"]["rooms"],
+        "OST_Sheets": manifest["expected_counts"]["sheets"],
+    }
+    assert qaqc_golden["seeded_rule_counts"] == {
+        entry["rule_id"]: entry["expected_count"] for entry in register["expected_findings"]
+    }
 
 
 def test_registry_discovery_uses_newest_switch(tmp_path, monkeypatch):

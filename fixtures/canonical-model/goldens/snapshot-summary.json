@@ -1,0 +1,13 @@
+{
+  "schema": "amb.fixture.snapshot_summary/1",
+  "fixture": "canonical_test_model",
+  "required_category_counts": {
+    "OST_Levels": 5,
+    "OST_Walls": 200,
+    "OST_Doors": 60,
+    "OST_Windows": 40,
+    "OST_Rooms": 25,
+    "OST_Sheets": 10
+  },
+  "minimum_element_count": 340
+}

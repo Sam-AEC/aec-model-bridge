@@ -13,3 +13,10 @@ The script discovers the active Revit bridge from `%LOCALAPPDATA%\AECModelBridge
 If the bridge-created document is not activated by Revit, open a clean project template yourself and rerun with `--use-active-document`.
 
 Seeded QA/QC expectations live in `seeded-defects.json`. It is count-level on purpose: Revit element IDs and UniqueIds are generated per model build.
+
+Local/nightly e2e goldens live in `goldens/`. To run them, open the generated canonical model in Revit, then run:
+
+```powershell
+$env:AEC_MODEL_BRIDGE_E2E = "1"
+python -m pytest packages\mcp-server-revit\tests\e2e -m e2e
+```
