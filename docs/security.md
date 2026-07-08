@@ -1,273 +1,152 @@
 # Security Model
 
-AEC Model Bridge implements defense-in-depth security with workspace sandboxing, schema validation, audit logging, and safe defaults.
+AEC Model Bridge implements a defense-in-depth security model to protect local models and filesystems from unauthorized or destructive actions by AI agents. The security posture relies on strict trust boundaries, local loopback restrictions, workspace sandboxing, input schema validation, and structured audit logs.
 
-## Trust Boundaries
+---
+
+## 1. Trust Boundaries & Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  External Client (untrusted)                                │
+│  External client / LLM Agent (Untrusted)                    │
 └─────────────────────┬───────────────────────────────────────┘
-                      │ MCP Protocol (stdio)
-                      │ JSON messages
-┌─────────────────────▼───────────────────────────────────────┐
-│  MCP Server (Python)                                        │
-│  - Schema validation (Pydantic)                             │
-│  - Workspace enforcement                                    │
-│  - Audit logging                                            │
-│  - Tool routing                                             │
-└─────────────────────┬───────────────────────────────────────┘
-                      │ HTTP POST (localhost only)
-                      │ {"tool": "...", "payload": {...}}
-┌─────────────────────▼───────────────────────────────────────┐
-│  Bridge Add-in (.NET)                                       │
-│  - HTTP listener (127.0.0.1:3000)                           │
-│  - ExternalEvent queue                                      │
-│  - Revit API operations                                     │
-└─────────────────────┬───────────────────────────────────────┘
-                      │ Revit API
-┌─────────────────────▼───────────────────────────────────────┐
-│  Revit Process                                              │
-│  - Document operations                                      │
-│  - File I/O                                                 │
-│  - Export operations                                        │
-└─────────────────────────────────────────────────────────────┘
+                      │ MCP Protocol (stdio JSON-RPC)
+                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Unified Python MCP Server (Router)                         │
+│  - Configures environment & paths                           │
+│  - Enforces workspace sandbox via WorkspaceMonitor          │
+│  - Redacts sensitive logs & captures audits                 │
+│  - Routes tool calls to in-process or loopback providers    │
+└──────────┬──────────┬──────────┬──────────┬──────────┬──────┘
+           │          │          │          │          │
+   Local C#│   Local C#│  Headless│  In-Proc │   Cloud  │
+   Bridge  │   Bridge  │  IFC     │  Helper  │   OAuth  │
+   (:3000) │   (:3004) │  (Python)│  (SQLite)│  (HTTPS) │
+           ▼          ▼          ▼          ▼          ▼
+┌──────────┐┌─────────┐┌─────────┐┌─────────┐┌──────────┐
+│  Revit   ││  Rhino  ││ IfcOpen ││ AEC     ││ Speckle  │
+│  Add-in  ││  Bridge ││ Shell   ││ Mapper  ││ & APS    │
+└──────────┘└─────────┘└─────────┘└─────────┘└──────────┘
 ```
 
-## Workspace Sandboxing
+The system coordinates several platform providers:
+1. **Unified Python MCP Server**: The central gateway. Runs locally, communicates via standard input/output (stdio) with the LLM host.
+2. **Revit Add-in**: Runs in-process inside Revit. Exposes a local HTTP port.
+3. **Rhino Bridge Add-in**: Runs in-process inside Rhino. Exposes HTTP port 3004.
+4. **IFC Parsing**: Executed in-process via `IfcOpenShell` (headless Python).
+5. **Speckle & APS Cloud Connections**: Connect to external APIs over HTTPS using OAuth-PKCE.
 
-All file operations are restricted to allowed directories configured at server startup.
+---
+
+## 2. Network Security & Local Boundary
+
+To prevent remote exploitation, all desktop bridges bind strictly to the loopback address.
+
+### Localhost Boundary
+- Add-ins bind exclusively to `127.0.0.1` (localhost).
+- They will reject external incoming connections.
+- They must **never** be exposed via public reverse proxies or port-forwarding.
+
+### Authentication Modes (Revit Add-in)
+The C# Revit bridge supports two runtime modes:
+1. **Legacy Mode (Default)**: Binds to fixed port `3000` with no authentication (relies entirely on the localhost boundary). Enabled by default unless configured otherwise.
+2. **Contract v2 Mode**: Runs with dynamic loopback ports and bearer token authorization. A random per-session bearer token (nonce) is generated at startup and written to local registry files. The Python MCP provider reads the registry file, obtains the port and token, and uses authorization headers for subsequent requests.
+
+---
+
+## 3. Workspace Sandboxing
+
+All local filesystem activities (file reads, database exports, sheet prints) are sandboxed to explicitly configured directories.
 
 ### Configuration
+The sandboxing behavior is driven by the following environment variables:
 
-```python
-# Environment variables
-MCP_REVIT_WORKSPACE_DIR = "C:\\revit-workspace"
-MCP_REVIT_ALLOWED_DIRECTORIES = "C:\\revit-workspace;C:\\exports;C:\\templates"
-```
+| Environment Variable | Python Config Field | Description |
+|---|---|---|
+| `MCP_REVIT_WORKSPACE_DIR` | `workspace_dir` | The default directory for writing outputs and log files. |
+| `MCP_REVIT_ALLOWED_DIRECTORIES` | `allowed_directories` | A semicolon-delimited (`;`) list of allowed directories. |
 
 ### Enforcement
-
-The `WorkspaceMonitor` class validates every file path:
-
-```python
-from revit_mcp_server.security import WorkspaceMonitor
-
-monitor = WorkspaceMonitor(allowed_dirs=[Path("C:\\workspace")])
-safe_path = monitor.validate_path("C:\\workspace\\output.csv")  # OK
-unsafe_path = monitor.validate_path("C:\\system32\\file.txt")   # Raises WorkspaceViolation
-```
-
-### Path Resolution Rules
-
-1. All paths are resolved to absolute paths
-2. Symbolic links are resolved to their targets
-3. Path traversal attempts (`..`, `.`) are blocked
-4. Paths must be children of allowed directories (using `Path.is_relative_to()`)
-
-### Bypass Prevention
-
-- Paths are validated before any I/O operation
-- Mock mode also enforces workspace constraints
-- Validation occurs in both Python server and (planned) C# bridge
-
-## Schema Validation
-
-All tool inputs are validated against Pydantic models before execution.
-
-### Input Validation
+The `WorkspaceMonitor` class validates every path candidate before any filesystem operation:
 
 ```python
-from revit_mcp_server.schemas import ExportSchedulesInput
+from pathlib import Path
+from revit_mcp_server.security.workspace import WorkspaceMonitor
 
-# Valid input
-valid = ExportSchedulesInput(
-    document_path="C:\\workspace\\model.rvt",
-    schedule_names=["Door Schedule", "Window Schedule"],
-    output_dir="C:\\workspace\\exports"
-)
+# Initialize with allowed paths
+monitor = WorkspaceMonitor(allowed_directories=[Path("C:\\RevitProjects"), Path("C:\\exports")])
 
-# Invalid input - raises ValidationError
-invalid = ExportSchedulesInput(
-    document_path=123,  # Wrong type
-    schedule_names="not a list",  # Wrong type
-    output_dir=None  # Missing required field
-)
+# Safe Path
+safe_path = monitor.assert_in_workspace(Path("C:\\RevitProjects\\model.rvt"))  # Returns resolved Path
+
+# Unsafe Path - Raises WorkspaceViolation
+unsafe_path = monitor.assert_in_workspace(Path("C:\\Windows\\System32\\cmd.exe"))
 ```
 
-### Schema Coverage
+### Path Traversal Guard
+The `WorkspaceMonitor` resolves candidate paths to absolute, canonical paths:
+- Resolves all symbolic links.
+- Evaluates relative path elements (`..`, `.`).
+- Asserts that the target resolved path is relative to one of the configured allowed directories (`path.is_relative_to(allowed_dir)`).
 
-All 25 tools have defined schemas in [schemas.py](../packages/mcp-server-revit/src/revit_mcp_server/schemas.py):
+---
 
-- Input schemas: Define required/optional fields, types, constraints
-- Output schemas: Structure response data consistently
-- Validation errors: Return clear messages to client
+## 4. Input Validation & Schema Integrity
 
-## Audit Logging
+All tool arguments are validated before passing them to backend providers.
+- **Pydantic Validation**: Every MCP tool has an associated Pydantic schema defining required parameters, strict data types, and value constraints.
+- **Malformed Input Rejection**: Inputs violating schemas are rejected immediately by the Python server, preventing malformed inputs from reaching the C# API thread.
 
-Every tool invocation is logged with structured data.
+---
 
-### Log Format
+## 5. Audit Logging & Sensitive Data Redaction
 
+Every tool call (successful or failed) is recorded chronologically to an append-only audit trail.
+
+### Log Configuration
+- Configured via `MCP_REVIT_AUDIT_LOG` (defaults to `audit.log` in the working directory).
+- Controlled by `MCP_REVIT_LOG_LEVEL` (defaults to `INFO`).
+
+### Redaction Rules
+To prevent sensitive tokens, OAuth codes, and local directories from leaking into log files or LLM context windows, the `AuditRecorder` runs a recursive redaction step:
+- **Sensitive Keys**: Fields matching password, token, api_key, authorization, secret, client_secret, or auth codes are replaced with `<redacted>`.
+- **System Paths**: File path strings (both Windows and POSIX) are matched against regex patterns and replaced with `<redacted-path>`.
+
+Example serialized log entry:
 ```json
 {
-  "timestamp": "2025-01-07T10:30:45.123Z",
+  "timestamp": "2026-07-08T18:02:10.123456Z",
+  "tool": "revit.export_schedule",
   "request_id": "req_abc123",
-  "tool": "revit.export_schedules",
   "payload": {
-    "document_path": "C:\\workspace\\model.rvt",
-    "schedule_names": ["Door Schedule"],
-    "output_dir": "C:\\workspace\\exports"
+    "document_path": "<redacted-path>",
+    "schedule_name": "Door Schedule",
+    "output_dir": "<redacted-path>"
   },
   "response": {
     "success": true,
-    "exports": ["C:\\workspace\\exports\\Door_Schedule.csv"]
-  },
-  "duration_ms": 1250,
-  "mode": "bridge"
+    "output_path": "<redacted-path>"
+  }
 }
 ```
 
-### Log Location
+---
 
-Recommended: `{MCP_REVIT_WORKSPACE_DIR}/audit.jsonl`
+## 6. Threat Model & Safety Checklist
 
-Configure with:
-```bash
-export MCP_REVIT_AUDIT_LOG="/var/log/revit-mcp/audit.jsonl"
-```
+### In-Scope Guards
+- Path traversal exploits trying to read sensitive configuration or files.
+- Unauthorized cloud calls (credentials stored out-of-band in env vars/keyrings).
+- Malformed C# call execution leading to Revit process crashes (prevented by process boundary and input schema validation).
 
-### Log Security
+### Out-of-Scope (Host Machine Security)
+- Local network compromises (e.g. malicious software running on the same loopback).
+- Unauthorized physical access or user-level malware.
+- Vendor API bugs (Autodesk Revit, Rhino).
 
-- Append-only (no modification of past entries)
-- Includes all tool invocations (successful and failed)
-- Records file paths for output artifacts
-- Tamper-evident via chronological timestamps
-
-### Use Cases
-
-- Compliance auditing
-- Debugging failed operations
-- Usage analytics
-- Security incident investigation
-
-## Safe Defaults
-
-The server ships with secure defaults that must be explicitly relaxed.
-
-### Default Configuration
-
-- Mode: Not set (must be explicitly configured as `mock` or `bridge`)
-- Workspace: Not set (must be configured before first use)
-- Allowed directories: Empty (must be explicitly listed)
-- Bridge URL: `http://localhost:3000` (localhost only, not exposed externally)
-- Audit logging: Enabled (cannot be disabled)
-
-### Network Security
-
-The bridge HTTP listener:
-- Binds only to `127.0.0.1` (localhost)
-- Does not implement authentication (relies on localhost boundary)
-- Does not use HTTPS (localhost traffic is trusted)
-- Should never be exposed to external networks
-
-**Do not**:
-- Port forward bridge endpoint
-- Bind bridge to `0.0.0.0`
-- Proxy bridge through a reverse proxy accessible externally
-
-### Destructive Operations Policy
-
-Operations that modify models or delete data are disabled by default in mock mode and logged extensively in bridge mode.
-
-Destructive operations:
-- Model modification (element creation/deletion)
-- Document saves
-- File deletions
-- Batch operations on multiple documents
-
-Enable cautiously in production:
-```json
-{
-  "allow_destructive": true,
-  "destructive_confirm": true
-}
-```
-
-## Tool Allow-List
-
-While all 25 tools are exposed by default, you can restrict available tools for specific deployments.
-
-### Configuration
-
-```json
-{
-  "allowed_tools": [
-    "revit.health",
-    "revit.export_schedules",
-    "revit.export_quantities"
-  ]
-}
-```
-
-Tools not in the allow-list return an error when invoked.
-
-### Use Cases
-
-- Limit CI/CD pipelines to read-only export operations
-- Restrict automated workflows to specific QA tools
-- Create role-specific tool subsets
-
-## Mock Mode Security
-
-Mock mode provides the same security guarantees as bridge mode without requiring Revit.
-
-### Mock Mode Features
-
-- Workspace sandboxing: Enforced identically to bridge mode
-- Schema validation: Same Pydantic models
-- Audit logging: Full request/response logging
-- Deterministic outputs: Predictable mock data for testing
-
-### CI/CD Safety
-
-Mock mode is safe for CI environments:
-- No external network access
-- No Revit dependency
-- No system modifications outside workspace
-- Repeatable outputs for regression testing
-
-## Security Checklist
-
-Before deploying to production:
-
-- [ ] Configure `MCP_REVIT_WORKSPACE_DIR` to a dedicated directory
-- [ ] Set `MCP_REVIT_ALLOWED_DIRECTORIES` to minimum required paths
-- [ ] Verify bridge binds to `127.0.0.1` only (default)
-- [ ] Review audit log location and retention policy
-- [ ] Test workspace violations raise errors (not silently fail)
-- [ ] Verify schema validation blocks malformed inputs
-- [ ] Confirm destructive operations are appropriately restricted
-- [ ] Run in mock mode first to validate configuration
-- [ ] Document incident response procedures
-- [ ] Set up log monitoring/alerting
-
-## Threat Model
-
-### In Scope
-
-- Malicious MCP client attempting path traversal
-- Untrusted input attempting to corrupt Revit models
-- Unauthorized file access outside workspace
-- Tool invocation without audit trail
-
-### Out of Scope
-
-- Physical access to machine running bridge
-- Compromised Revit process
-- Operating system vulnerabilities
-- Revit API bugs or security issues (vendor responsibility)
-
-## Reporting Security Issues
-
-See [SECURITY.md](../SECURITY.md) for vulnerability reporting procedures.
+### Safety Checklist
+- [ ] Ensure `MCP_REVIT_WORKSPACE_DIR` is set to a dedicated folder.
+- [ ] Limit `MCP_REVIT_ALLOWED_DIRECTORIES` to only the required assets.
+- [ ] Confirm no bridge is configured to bind to `0.0.0.0` or shared port-forward.
+- [ ] Secure access permissions for the audit log path (`audit.log`).
