@@ -1,0 +1,56 @@
+{
+  "schema": "amb.fixture.seeded_defects/1",
+  "fixture": "canonical_test_model",
+  "source_manifest": "fixtures/canonical-model/manifest.json",
+  "rule_pack": "core",
+  "golden_scope": "rule_counts",
+  "expected_total_findings": 15,
+  "expected_findings": [
+    {
+      "rule_id": "door_missing_mark",
+      "severity": "warning",
+      "category": "Doors",
+      "expected_count": 12,
+      "seed": "The generator writes Mark values to the first 48 generated doors and leaves the last 12 without a Mark.",
+      "match": {
+        "revit_category": "OST_Doors",
+        "parameter": "Mark",
+        "empty": true
+      }
+    },
+    {
+      "rule_id": "room_missing_number",
+      "severity": "warning",
+      "category": "Rooms",
+      "expected_count": 3,
+      "seed": "The generator writes Number values to the first 22 generated rooms and leaves the last 3 without a Number.",
+      "match": {
+        "revit_category": "OST_Rooms",
+        "parameter": "Number",
+        "empty": true
+      }
+    }
+  ],
+  "known_gaps": [
+    {
+      "rule_id": "room_not_placed",
+      "status": "bridge_gap",
+      "reason": "No current bridge command creates an unplaced room."
+    },
+    {
+      "rule_id": "room_missing_name",
+      "status": "bridge_gap",
+      "reason": "Revit assigns a default room name when the create-room payload omits one."
+    },
+    {
+      "rule_id": "inplace_family_used",
+      "status": "bridge_gap",
+      "reason": "No current bridge command creates in-place families."
+    },
+    {
+      "rule_id": "duplicate_sheet_numbers",
+      "status": "bridge_gap",
+      "reason": "Revit rejects duplicate sheet numbers at creation time."
+    }
+  ]
+}

@@ -11,3 +11,5 @@ python scripts\revit\generate_canonical_test_model.py
 The script discovers the active Revit bridge from `%LOCALAPPDATA%\AECModelBridge\registry\`, falls back to `http://127.0.0.1:3000`, and saves to `fixtures/canonical-model/generated/canonical_test_model.rvt`.
 
 If the bridge-created document is not activated by Revit, open a clean project template yourself and rerun with `--use-active-document`.
+
+Seeded QA/QC expectations live in `seeded-defects.json`. It is count-level on purpose: Revit element IDs and UniqueIds are generated per model build.
