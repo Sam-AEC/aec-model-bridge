@@ -43,5 +43,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
 markers = [
+    "e2e: marks Revit bridge end-to-end tests (opt in with AEC_MODEL_BRIDGE_E2E=1)",
     "perf: marks tests as performance benchmarks (deselect with '-m \"not perf\"')"
 ]

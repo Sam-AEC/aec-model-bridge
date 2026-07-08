@@ -1,0 +1,9 @@
+{
+  "schema": "amb.fixture.qaqc_findings_summary/1",
+  "fixture": "canonical_test_model",
+  "rule_pack": "core",
+  "seeded_rule_counts": {
+    "door_missing_mark": 12,
+    "room_missing_number": 3
+  }
+}
