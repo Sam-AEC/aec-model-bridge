@@ -1,231 +1,190 @@
+"""Tests for the current bridge-based RhinoProvider (HTTP bridge to the C#
+rhino-bridge-addin on 127.0.0.1:3004 — see packages/rhino-bridge-addin and
+CLAUDE.md's Rhino Bridge command table).
+
+This file previously tested an entirely different, long-abandoned design
+(a Rhino.Compute REST client uploading .gh/.3dm files over HTTPS with API-key
+auth) that the provider was rewritten away from; none of that matched the
+current constructor or tool set, so every test failed with a TypeError on
+`base_url`. Rewritten from scratch against the real provider.
+"""
 from __future__ import annotations
 
-import base64
-import json
+from typing import Any, Dict
 
-import httpx
 import pytest
 
+from revit_mcp_server.config import BridgeMode
 from revit_mcp_server.providers.rhino import RhinoProvider
 from revit_mcp_server.security.workspace import WorkspaceMonitor
 
+EXPECTED_TOOL_NAMES = [
+    "rhino_health",
+    "rhino_get_document_info",
+    "rhino_get_lines",
+    "rhino_get_scene",
+    "rhino_list_layers",
+    "rhino_clear_scene",
+    "rhino_set_view",
+    "rhino_create_box",
+    "rhino_create_sphere",
+    "rhino_create_cylinder",
+    "rhino_boolean_union",
+    "rhino_boolean_difference",
+    "rhino_set_material",
+    "rhino_transform_objects",
+    "rhino_run_python",
+    "rhino_generate_diagrid_tower",
+    "rhino_invoke_method",
+    "rhino_reflect_get",
+    "rhino_reflect_set",
+]
 
-def _write_sample_file(path, content=b"sample"):
-    path.write_bytes(content)
-    return path
+
+class FakeBridge:
+    """Stands in for BridgeClient: records every dispatched tool call instead
+    of making a real HTTP request to the C# add-in."""
+
+    def __init__(self, base_url: str, token: str | None = None):
+        self.base_url = base_url
+        self.token = token
+        self.calls: list[tuple[str, Dict[str, Any]]] = []
+        self.health_response = {"status": "healthy"}
+
+    def send_tool(self, tool_name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        self.calls.append((tool_name, payload))
+        return {"ok": True, "tool": tool_name, "payload": payload}
+
+    def _get(self, path: str) -> Dict[str, Any]:
+        return self.health_response
 
 
-def test_rhino_capabilities_are_present(tmp_path):
+def _bridge_provider(tmp_path):
     workspace = WorkspaceMonitor([tmp_path])
-    provider = RhinoProvider(workspace=workspace, base_url="https://compute.example")
+    fake = FakeBridge("http://127.0.0.1:3004")
+    provider = RhinoProvider(workspace=workspace, mode=BridgeMode.bridge, bridge_factory=lambda u, t=None: fake)
+    return provider, fake
 
+
+def test_rhino_capabilities_match_the_bridge_command_table(tmp_path):
+    workspace = WorkspaceMonitor([tmp_path])
+    provider = RhinoProvider(workspace=workspace, mode=BridgeMode.mock)
     names = [tool.name for tool in provider.get_capabilities()]
-    assert names == [
-        "rhino_health",
-        "rhino_get_definition_io",
-        "rhino_evaluate_definition",
-        "rhino_query_file_geometry",
-        "rhino_get_layers",
-        "rhino_get_geometry_details",
-    ]
-
-    schema_dump = json.dumps([tool.model_dump(by_alias=True) for tool in provider.get_capabilities()])
-    assert "RHINO_COMPUTE_KEY" not in schema_dump
-    assert "MCP_RHINO_COMPUTE_KEY" not in schema_dump
+    assert names == EXPECTED_TOOL_NAMES
 
 
-@pytest.mark.anyio
-async def test_rhino_health_uses_injected_client_and_official_header(tmp_path):
-    workspace = WorkspaceMonitor([tmp_path])
-    seen = {}
-    secret = "super-secret-token"
-
-    async def handler(request: httpx.Request) -> httpx.Response:
-        seen["method"] = request.method
-        seen["path"] = request.url.path
-        seen["auth"] = request.headers.get("RhinoComputeKey")
-        return httpx.Response(200, json={"status": "healthy", "service": "rhino"})
-
-    client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="https://compute.example")
-    provider = RhinoProvider(workspace=workspace, base_url="https://compute.example", api_key=secret, client=client)
-
-    response = await provider.check_health()
-    assert response["status"] == "healthy"
-    assert seen == {"method": "GET", "path": "/health", "auth": secret}
-
-    await provider.shutdown()
-    await client.aclose()
-
-
-@pytest.mark.anyio
-async def test_rhino_get_definition_io_validates_workspace_and_payload(tmp_path):
-    workspace = WorkspaceMonitor([tmp_path])
-    definition_path = _write_sample_file(tmp_path / "function.gh", b"gh-bytes")
-    seen = {}
-
-    async def handler(request: httpx.Request) -> httpx.Response:
-        seen["path"] = request.url.path
-        seen["auth"] = request.headers.get("RhinoComputeKey")
-        seen["has_x_api_key"] = "X-Api-Key" in request.headers
-        seen["payload"] = json.loads(request.content.decode("utf-8"))
-        return httpx.Response(200, json={"definition_id": "def-123", "inputs": [], "outputs": []})
-
-    client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="https://compute.example")
-    provider = RhinoProvider(workspace=workspace, base_url="https://compute.example", api_key="secret", client=client)
-
-    response = await provider.execute_tool("rhino_get_definition_io", {"definition_path": str(definition_path)})
-    assert response["definition_id"] == "def-123"
-    assert seen["path"] == "/grasshopper/io"
-    assert seen["auth"] == "secret"
-    assert seen["has_x_api_key"] is False
-    assert seen["payload"]["file_name"] == "function.gh"
-    assert seen["payload"]["file_data"] == base64.b64encode(b"gh-bytes").decode("ascii")
-    assert set(seen["payload"]) == {"file_name", "file_data"}
-
-    await provider.shutdown()
-    await client.aclose()
-
-
-@pytest.mark.anyio
-async def test_rhino_evaluate_definition_posts_io_then_solve(tmp_path):
-    workspace = WorkspaceMonitor([tmp_path])
-    definition_path = _write_sample_file(tmp_path / "function.ghx", b"ghx-bytes")
-    requests = []
-
-    async def handler(request: httpx.Request) -> httpx.Response:
-        requests.append((request.method, request.url.path, json.loads(request.content.decode("utf-8"))))
-        if request.url.path.endswith("/io"):
-            return httpx.Response(200, json={"id": "definition-777"})
-        return httpx.Response(200, json={"values": [{"ParamName": "A", "InnerTree": {}}], "errors": [], "warnings": []})
-
-    client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="https://compute.example")
-    provider = RhinoProvider(workspace=workspace, base_url="https://compute.example", client=client)
-
-    result = await provider.execute_tool(
-        "rhino_evaluate_definition",
-        {
-            "definition_path": str(definition_path),
-            "input_trees": [
-                {"ParamName": "X", "InnerTree": {"{0}": [{"type": "System.Double", "data": "1.0"}]}}
-            ],
-        },
-    )
-
-    assert result["values"][0]["ParamName"] == "A"
-    assert [item[1] for item in requests] == ["/grasshopper/io", "/grasshopper/solve"]
-    assert requests[1][2]["definition_id"] == "definition-777"
-    assert requests[1][2]["input_trees"][0]["ParamName"] == "X"
-    assert "definition_path" not in requests[1][2]
-
-    await provider.shutdown()
-    await client.aclose()
-
-
-@pytest.mark.anyio
 @pytest.mark.parametrize(
-    "tool_name,filename,expected_path",
+    "tool_name,mutating,destructive",
     [
-        ("rhino_query_file_geometry", "model.3dm", "/rhino/query_file_geometry"),
-        ("rhino_get_layers", "model.3dm", "/rhino/layers"),
-        ("rhino_get_geometry_details", "model.3dm", "/rhino/geometry_details"),
+        ("rhino_health", False, False),
+        ("rhino_get_scene", False, False),
+        ("rhino_list_layers", False, False),
+        ("rhino_reflect_get", False, False),
+        ("rhino_clear_scene", True, False),
+        ("rhino_create_box", True, False),
+        ("rhino_boolean_union", True, False),
+        ("rhino_set_material", True, False),
+        ("rhino_transform_objects", True, False),
+        ("rhino_reflect_set", True, False),
+        ("rhino_invoke_method", True, False),
+        ("rhino_run_python", True, True),
     ],
 )
-async def test_rhino_3dm_tools_validate_extensions_and_use_expected_paths(tmp_path, tool_name, filename, expected_path):
+def test_rhino_mutation_metadata(tmp_path, tool_name, mutating, destructive):
+    """rhino_run_python executes arbitrary IronPython with full RhinoCommon
+    access — same risk class as revit_execute_python — so it must be both
+    mutating and destructive; other write tools are mutating only."""
     workspace = WorkspaceMonitor([tmp_path])
-    file_path = _write_sample_file(tmp_path / filename, b"3dm-bytes")
-    seen = {}
-
-    async def handler(request: httpx.Request) -> httpx.Response:
-        seen["path"] = request.url.path
-        seen["auth"] = request.headers.get("RhinoComputeKey")
-        seen["payload"] = json.loads(request.content.decode("utf-8"))
-        return httpx.Response(200, json={"status": "ok", "tool": tool_name})
-
-    client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="https://compute.example")
-    provider = RhinoProvider(workspace=workspace, base_url="https://compute.example", client=client)
-
-    result = await provider.execute_tool(tool_name, {"file_path": str(file_path), "include_hidden": True, "object_ids": [1, 2]})
-    assert result["tool"] == tool_name
-    assert seen["path"] == expected_path
-    assert seen["auth"] is None
-    assert seen["payload"]["file_name"] == "model.3dm"
-    assert "file_path" not in seen["payload"]
-    assert set(seen["payload"]).issuperset({"file_name", "file_data"})
-
-    await provider.shutdown()
-    await client.aclose()
+    provider = RhinoProvider(workspace=workspace, mode=BridgeMode.mock)
+    tool = next(t for t in provider.get_capabilities() if t.name == tool_name)
+    assert tool.is_mutating is mutating
+    assert tool.destructive is destructive
 
 
 @pytest.mark.anyio
-async def test_rhino_rejects_unsupported_extensions_before_request(tmp_path):
+async def test_mock_mode_does_not_touch_a_real_bridge(tmp_path):
     workspace = WorkspaceMonitor([tmp_path])
-    file_path = _write_sample_file(tmp_path / "unsupported.txt")
-    provider = RhinoProvider(workspace=workspace, base_url="https://compute.example")
+    provider = RhinoProvider(workspace=workspace, mode=BridgeMode.mock)
 
-    with pytest.raises(ValueError, match="Unsupported Rhino file extension"):
-        await provider.execute_tool("rhino_get_definition_io", {"definition_path": str(file_path)})
-
-    await provider.shutdown()
+    result = await provider.execute_tool("rhino_create_box", {"min_pt": [0, 0, 0], "max_pt": [1, 1, 1]})
+    assert result["mock"] is True
+    assert result["tool"] == "create_box"
+    assert result["payload"] == {"min_pt": [0, 0, 0], "max_pt": [1, 1, 1]}
 
 
 @pytest.mark.anyio
-async def test_rhino_redacts_secret_from_error_messages(tmp_path):
-    workspace = WorkspaceMonitor([tmp_path])
-    async def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(500, json={"error": "boom"})
+async def test_bridge_mode_dispatches_to_injected_bridge(tmp_path):
+    provider, fake = _bridge_provider(tmp_path)
 
-    client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="https://compute.example")
-    provider = RhinoProvider(
-        workspace=workspace,
-        base_url="https://compute.example",
-        api_key="top-secret-token",
-        client=client,
+    result = await provider.execute_tool("rhino_get_scene", {})
+    assert result == {"ok": True, "tool": "get_scene", "payload": {}}
+    assert fake.calls == [("get_scene", {})]
+
+
+@pytest.mark.anyio
+async def test_create_box_payload_includes_optional_fields_only_when_present(tmp_path):
+    provider, fake = _bridge_provider(tmp_path)
+
+    await provider.execute_tool("rhino_create_box", {"min_pt": [0, 0, 0], "max_pt": [2, 2, 2]})
+    _, payload = fake.calls[-1]
+    assert payload == {"min_pt": [0, 0, 0], "max_pt": [2, 2, 2]}
+    assert "layer" not in payload and "color" not in payload
+
+    await provider.execute_tool(
+        "rhino_create_box",
+        {"min_pt": [0, 0, 0], "max_pt": [2, 2, 2], "layer": "Facade", "color": [255, 0, 0]},
     )
-
-    with pytest.raises(Exception) as exc:
-        await provider.check_health()
-
-    assert "top-secret-token" not in str(exc.value)
-    assert "RhinoComputeKey" not in str(exc.value)
-
-    await provider.shutdown()
-    await client.aclose()
-
-
-def test_rhino_rejects_non_loopback_http_base_url(tmp_path):
-    workspace = WorkspaceMonitor([tmp_path])
-
-    with pytest.raises(ValueError, match="must use https unless the host is localhost or 127.0.0.1"):
-        RhinoProvider(workspace=workspace, base_url="http://compute.example")
-
-
-def test_rhino_allows_localhost_http_base_url(tmp_path):
-    workspace = WorkspaceMonitor([tmp_path])
-    provider = RhinoProvider(workspace=workspace, base_url="http://127.0.0.1:5001")
-    assert provider.base_url == "http://127.0.0.1:5001"
+    _, payload = fake.calls[-1]
+    assert payload["layer"] == "Facade"
+    assert payload["color"] == [255, 0, 0]
 
 
 @pytest.mark.anyio
-async def test_rhino_rejects_oversized_uploads_before_read(tmp_path):
-    workspace = WorkspaceMonitor([tmp_path])
-    definition_path = _write_sample_file(tmp_path / "huge.gh", b"x" * 16)
-    provider = RhinoProvider(workspace=workspace, base_url="https://compute.example", max_upload_bytes=8)
+async def test_generate_diagrid_tower_fills_in_defaults(tmp_path):
+    provider, fake = _bridge_provider(tmp_path)
 
-    with pytest.raises(ValueError, match="exceeds the maximum upload size"):
-        await provider.execute_tool("rhino_get_definition_io", {"definition_path": str(definition_path)})
-
-    await provider.shutdown()
+    await provider.execute_tool("rhino_generate_diagrid_tower", {"height": 200.0})
+    tool_name, payload = fake.calls[-1]
+    assert tool_name == "generate_diagrid_tower"
+    assert payload["height"] == 200.0
+    assert payload["base_radius"] == 22.0  # default from the tool mapping
+    assert payload["u_divs"] == 16
 
 
 @pytest.mark.anyio
-async def test_rhino_workspace_errors_do_not_expose_absolute_paths(tmp_path):
+async def test_run_python_forwards_code_verbatim(tmp_path):
+    provider, fake = _bridge_provider(tmp_path)
+
+    code = "print('hello from rhino')"
+    await provider.execute_tool("rhino_run_python", {"code": code})
+    tool_name, payload = fake.calls[-1]
+    assert tool_name == "run_python"
+    assert payload == {"code": code}
+
+
+@pytest.mark.anyio
+async def test_unknown_tool_raises_value_error(tmp_path):
     workspace = WorkspaceMonitor([tmp_path])
-    outside_dir = tmp_path.parent / "outside"
-    outside_dir.mkdir(exist_ok=True)
-    file_path = _write_sample_file(outside_dir / "escape.gh")
-    provider = RhinoProvider(workspace=workspace, base_url="https://compute.example")
+    provider = RhinoProvider(workspace=workspace, mode=BridgeMode.mock)
 
-    with pytest.raises(ValueError, match="outside the allowed workspace"):
-        await provider.execute_tool("rhino_get_definition_io", {"definition_path": str(file_path)})
+    with pytest.raises(ValueError, match="Unknown Rhino tool"):
+        await provider.execute_tool("rhino_does_not_exist", {})
 
-    await provider.shutdown()
+
+@pytest.mark.anyio
+async def test_check_health_in_bridge_mode_uses_injected_bridge(tmp_path):
+    provider, fake = _bridge_provider(tmp_path)
+    fake.health_response = {"status": "healthy", "service": "rhino-bridge"}
+
+    health = await provider.check_health()
+    assert health == {"status": "healthy", "service": "rhino-bridge"}
+
+
+@pytest.mark.anyio
+async def test_check_health_in_mock_mode_does_not_require_a_bridge(tmp_path):
+    workspace = WorkspaceMonitor([tmp_path])
+    provider = RhinoProvider(workspace=workspace, mode=BridgeMode.mock)
+
+    health = await provider.check_health()
+    assert health["status"] == "healthy"
+    assert health["mode"] == "mock"
