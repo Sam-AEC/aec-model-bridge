@@ -36,6 +36,15 @@ namespace RevitBridge.Bridge
 
                 try
                 {
+                    BridgePanelProvider.Register(application);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Bridge started, but the AEC Model Bridge dockable pane could not be registered");
+                }
+
+                try
+                {
                     CreateModernRibbonInterface(application);
                 }
                 catch (Exception ex)
@@ -173,6 +182,18 @@ namespace RevitBridge.Bridge
 
             // === TOOLS PANEL ===
 
+            // Open Panel Button
+            PushButtonData panelBtnData = new PushButtonData(
+                "cmdOpenPanel",
+                "Open Panel",
+                assemblyPath,
+                "RevitBridge.Bridge.CommandOpenPanel"
+            );
+            panelBtnData.ToolTip = "Open the AEC Model Bridge panel";
+            panelBtnData.LongDescription = "Shows the dockable AEC Model Bridge panel inside Revit.";
+            panelBtnData.Image = brandIcon16;
+            panelBtnData.LargeImage = brandIcon32;
+
             // Settings Button (future)
             PushButtonData settingsBtnData = new PushButtonData(
                 "cmdSettings",
@@ -210,6 +231,8 @@ namespace RevitBridge.Bridge
             aboutBtnData.Image = brandIcon16;
             aboutBtnData.LargeImage = brandIcon32;
 
+            toolsPanel.AddItem(panelBtnData);
+            toolsPanel.AddSeparator();
             toolsPanel.AddItem(settingsBtnData);
             toolsPanel.AddItem(helpBtnData);
             toolsPanel.AddSeparator();
