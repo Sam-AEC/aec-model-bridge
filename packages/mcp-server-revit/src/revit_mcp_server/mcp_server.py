@@ -27,6 +27,8 @@ from .providers import (
     JobProvider,
     SQLiteExporterProvider,
     McpProxyProvider,
+    NavisworksProvider,
+    ApprovalProvider,
 )
 from .security.workspace import WorkspaceMonitor
 from .security.audit import redact_data
@@ -42,10 +44,13 @@ workspace = WorkspaceMonitor(config.allowed_directories)
 
 # Initialize registry and register providers
 registry = ProviderRegistry()
+approval_provider = ApprovalProvider(workspace=workspace, registry=registry)
+registry.register(approval_provider)
 registry.register(RevitProvider(workspace=workspace))
 registry.register(IfcProvider(workspace=workspace))
 registry.register(AECMapperProvider(workspace=workspace))
 registry.register(SQLiteExporterProvider(workspace=workspace, registry=registry))
+registry.register(NavisworksProvider(workspace=workspace))
 
 # Initialize Job Manager and Job Provider
 job_manager = JobManager()
@@ -118,6 +123,17 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             text=f"Error: Unknown tool '{name}'"
         )]
 
+    # Approval Gate Middleware Check
+    tool_def = registry.lookup_tool(name)
+    if tool_def and tool_def.is_mutating:
+        try:
+            approval_provider.gate.check_tool_execution(name, arguments)
+        except Exception as e:
+            return [TextContent(
+                type="text",
+                text=f"Approval Gate Blocked: {str(e)}"
+            )]
+
     try:
         # Check if deferred execution is requested.
         run_async = False
@@ -144,6 +160,15 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
         # Execute the tool on the provider
         result = await provider.execute_tool(name, arguments)
+        
+        # If mutating tool and plan_id is provided, transition state to executed
+        if tool_def and tool_def.is_mutating and isinstance(arguments, dict) and "plan_id" in arguments:
+            plan_id = arguments["plan_id"]
+            try:
+                approval_provider.gate.update_plan_state(plan_id, "executed")
+            except Exception:
+                pass
+
         redacted_result = redact_data(result)
 
         # Format the response

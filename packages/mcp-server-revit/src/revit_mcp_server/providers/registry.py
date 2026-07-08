@@ -33,3 +33,10 @@ class ProviderRegistry:
                 if tool.name == tool_name:
                     return provider
         return None
+
+    def lookup_tool(self, tool_name: str) -> ProviderTool | None:
+        for provider in self._providers.values():
+            for tool in provider.get_capabilities():
+                if tool.name == tool_name:
+                    return tool
+        return None

@@ -9,7 +9,7 @@ from ..errors import BridgeError
 from ..bridge.client import BridgeClient
 from ..bridge.mock import MockBridge
 from ..security.workspace import WorkspaceMonitor
-from ..tools import TOOL_HANDLERS
+from ..legacy.tools import TOOL_HANDLERS
 from .base import AECProvider, ProviderTool
 
 logger = logging.getLogger(__name__)
@@ -27,6 +27,17 @@ class RevitProvider(AECProvider):
         self.bridge_url = bridge_url
         self._bridge = self._build_bridge(bridge_factory)
         self._init_tool_mapping()
+        self._enrich_tool_metadata()
+
+    def _enrich_tool_metadata(self) -> None:
+        mutating_verbs = {"create", "place", "set", "delete", "save", "close", "renumber", "duplicate", "move", "copy", "rotate", "mirror", "pin", "unpin", "sync", "relinquish", "convert", "edit", "apply", "change", "replace", "invoke"}
+        for tool in self._capabilities:
+            name_parts = tool.name.split("_")
+            if any(verb in name_parts for verb in mutating_verbs):
+                tool.is_mutating = True
+            if tool.name == "revit_execute_python":
+                tool.is_mutating = True
+                tool.destructive = True
 
     def get_identity(self) -> str:
         return "revit"
@@ -417,10 +428,16 @@ class RevitProvider(AECProvider):
             "revit_get_element_geometry": ("revit.get_element_geometry", lambda args: {
                 "element_id": args.get("element_id")
             }),
+            "revit_extract_snapshot": ("revit.extract_snapshot", lambda args: {
+                "dirty_only": args.get("dirty_only", False)
+            }),
+            "revit_get_snapshot_delta": ("revit.get_snapshot_delta", lambda args: {}),
         }
 
     # Define _capabilities schema list
     _capabilities = [
+        ProviderTool(name="revit_extract_snapshot", description="Extract a semantic BIM snapshot of the active document. Streams to a JSON file in the workspace directory.", inputSchema={"type": "object", "properties": {"dirty_only": {"type": "boolean", "description": "Extract only added or modified elements tracked in this session", "default": False}}, "required": []}),
+        ProviderTool(name="revit_get_snapshot_delta", description="Get lists of unique IDs for elements added, modified, or deleted during the active session.", inputSchema={"type": "object", "properties": {}, "required": []}),
         ProviderTool(name="revit_health", description="Check if Revit is running and get status information", inputSchema={"type": "object", "properties": {}, "required": []}),
         ProviderTool(name="revit_create_wall", description="Create a wall in Revit between two points", inputSchema={"type": "object", "properties": {"start_x": {"type": "number", "description": "Start point X coordinate in feet"}, "start_y": {"type": "number", "description": "Start point Y coordinate in feet"}, "start_z": {"type": "number", "description": "Start point Z coordinate in feet", "default": 0}, "end_x": {"type": "number", "description": "End point X coordinate in feet"}, "end_y": {"type": "number", "description": "End point Y coordinate in feet"}, "end_z": {"type": "number", "description": "End point Z coordinate in feet", "default": 0}, "height": {"type": "number", "description": "Wall height in feet", "default": 10}, "level": {"type": "string", "description": "Level name (e.g., 'L1', 'L2')", "default": "L1"}}, "required": ["start_x", "start_y", "end_x", "end_y"]}),
         ProviderTool(name="revit_create_floor", description="Create a floor in Revit with a rectangular or custom boundary", inputSchema={"type": "object", "properties": {"points": {"type": "array", "description": "Array of boundary points [{x, y, z}]. Minimum 3 points for a closed boundary.", "items": {"type": "object", "properties": {"x": {"type": "number"}, "y": {"type": "number"}, "z": {"type": "number", "default": 0}}, "required": ["x", "y"]}}, "level": {"type": "string", "description": "Level name", "default": "L1"}}, "required": ["points"]}),

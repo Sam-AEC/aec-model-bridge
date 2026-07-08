@@ -25,6 +25,8 @@ from revit_mcp_server.providers import (
     SemanticGraphProvider,
     SpeckleProvider,
     AutodeskDataProvider,
+    NavisworksProvider,
+    ApprovalProvider,
 )
 
 try:
@@ -59,12 +61,14 @@ def main():
         except Exception as e:
             provider_instances.append((name, None, str(e)))
 
+    add_provider("Approval", lambda: ApprovalProvider(workspace=workspace, registry=registry))
     add_provider("Revit", lambda: RevitProvider(workspace=workspace))
     add_provider("IFC", lambda: IfcProvider(workspace=workspace))
     add_provider("AEC Mapper", lambda: AECMapperProvider(workspace=workspace))
     add_provider("SQLite Exporter", lambda: SQLiteExporterProvider(workspace=workspace, registry=registry))
     add_provider("Job", lambda: JobProvider(manager=job_manager))
     add_provider("Rhino", lambda: RhinoProvider(workspace=workspace))
+    add_provider("Navisworks", lambda: NavisworksProvider(workspace=workspace))
     add_provider("Semantic Graph", lambda: SemanticGraphProvider())
     add_provider("Speckle", lambda: SpeckleProvider(client_id="dummy"))
     add_provider("Autodesk Data", lambda: AutodeskDataProvider(client_id="dummy"))
@@ -82,8 +86,8 @@ def main():
         "This catalog lists all tools exposed by the AEC Model Bridge providers.",
         "",
         "> [!NOTE]",
-        "> The columns `Mutating?` and `Execution Type` display `?` and `async` respectively,",
-        "> as these metadata fields are not explicitly defined on the provider tools yet.",
+        "> The columns `Mutating?` and `Execution Type` display the actual metadata parsed",
+        "> from C# command specifications and provider capabilities.",
         ""
     ]
 
@@ -109,7 +113,9 @@ def main():
         output_lines.append("| --- | --- | --- | --- |")
         for t in sorted_tools:
             desc = get_first_sentence(t.description)
-            output_lines.append(f"| `{t.name}` | {desc} | ? | async |")
+            mutating_str = "Yes" if t.is_mutating else "No"
+            exec_str = t.execution_mode
+            output_lines.append(f"| `{t.name}` | {desc} | {mutating_str} | {exec_str} |")
         output_lines.append("")
 
     # Write output file

@@ -5,212 +5,257 @@
 This catalog lists all tools exposed by the AEC Model Bridge providers.
 
 > [!NOTE]
-> The columns `Mutating?` and `Execution Type` display `?` and `async` respectively,
-> as these metadata fields are not explicitly defined on the provider tools yet.
+> The columns `Mutating?` and `Execution Type` display the actual metadata parsed
+> from C# command specifications and provider capabilities.
 
 ## AEC Mapper Provider
 
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
-| `aec_map_workspace_path` | Map and convert workspace paths between relative formats, Windows absolute format, and POSIX path format. | ? | async |
-| `aec_register_mapping` | Register custom relationship links between different BIM workflows (e. | ? | async |
-| `aec_translate_id` | Translate an element identifier between Revit UniqueId/GUID, IFC GlobalId, and custom registered workflows. | ? | async |
+| `aec_map_workspace_path` | Map and convert workspace paths between relative formats, Windows absolute format, and POSIX path format. | No | sync |
+| `aec_register_mapping` | Register custom relationship links between different BIM workflows (e. | No | sync |
+| `aec_translate_id` | Translate an element identifier between Revit UniqueId/GUID, IFC GlobalId, and custom registered workflows. | No | sync |
+
+## Approval Provider
+
+| Tool Name | Description | Mutating? | Execution Type |
+| --- | --- | --- | --- |
+| `approve_plan` | Approve a pending ActionPlan for execution. | No | sync |
+| `list_pending_plans` | List all pending ActionPlans waiting for review. | No | sync |
+| `plan_actions` | Create a draft ActionPlan of proposed modifications, capturing their before-states. | No | sync |
+| `reject_plan` | Reject and archive a pending ActionPlan. | No | sync |
+| `rollback_plan` | Rollback an executed ActionPlan using inverse values. | No | sync |
 
 ## Autodesk Data Provider
 
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
-| `autodesk_data_auth_status` | Get Autodesk OAuth authentication status. | ? | async |
-| `autodesk_data_checkout_version` | Checkout Autodesk version metadata. | ? | async |
-| `autodesk_data_create_issue` | Compatibility alias for create_topic. | ? | async |
-| `autodesk_data_create_topic` | Create a BCF-compatible issue/topic through a configured endpoint. | ? | async |
-| `autodesk_data_get_version_metadata` | Read Autodesk item/version metadata. | ? | async |
-| `autodesk_data_health` | Check Autodesk Data provider health. | ? | async |
-| `autodesk_data_list_hubs` | List Autodesk Construction Cloud hubs. | ? | async |
-| `autodesk_data_list_items` | List Autodesk items in a project folder or container. | ? | async |
-| `autodesk_data_list_projects` | List Autodesk projects in a hub. | ? | async |
-| `autodesk_data_oauth_exchange_code` | Exchange an Autodesk OAuth authorization code. | ? | async |
-| `autodesk_data_oauth_refresh` | Refresh the Autodesk OAuth access token. | ? | async |
-| `autodesk_data_oauth_start` | Generate an Autodesk OAuth authorization URL using PKCE. | ? | async |
+| `autodesk_data_auth_status` | Get Autodesk OAuth authentication status. | No | sync |
+| `autodesk_data_checkout_version` | Checkout Autodesk version metadata. | No | sync |
+| `autodesk_data_create_issue` | Compatibility alias for create_topic. | No | sync |
+| `autodesk_data_create_topic` | Create a BCF-compatible issue/topic through a configured endpoint. | No | sync |
+| `autodesk_data_get_version_metadata` | Read Autodesk item/version metadata. | No | sync |
+| `autodesk_data_health` | Check Autodesk Data provider health. | No | sync |
+| `autodesk_data_list_hubs` | List Autodesk Construction Cloud hubs. | No | sync |
+| `autodesk_data_list_items` | List Autodesk items in a project folder or container. | No | sync |
+| `autodesk_data_list_projects` | List Autodesk projects in a hub. | No | sync |
+| `autodesk_data_oauth_exchange_code` | Exchange an Autodesk OAuth authorization code. | No | sync |
+| `autodesk_data_oauth_refresh` | Refresh the Autodesk OAuth access token. | No | sync |
+| `autodesk_data_oauth_start` | Generate an Autodesk OAuth authorization URL using PKCE. | No | sync |
 
 ## IFC Provider
 
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
-| `ifc_get_bounding_box` | Get bounding box dimensions and placement information for a specific element. | ? | async |
-| `ifc_get_metadata` | Get file schema, header metadata, units, and georeferencing summary from an IFC file. | ? | async |
-| `ifc_get_properties` | Get property sets, quantities, and direct attributes for a specific element in an IFC file. | ? | async |
-| `ifc_get_spatial_structure` | Get the spatial hierarchy (Project -> Site -> Building -> Storey -> Element Types/Counts) from an IFC file. | ? | async |
-| `ifc_health` | Check status of IfcOpenShell and get version info. | ? | async |
-| `ifc_query_elements` | Query elements by IFC class, GUID, name, or simple property name/value criteria. | ? | async |
-| `ifc_validate` | Perform schema validation on the IFC file and return errors/warnings list. | ? | async |
+| `ifc_get_bounding_box` | Get bounding box dimensions and placement information for a specific element. | No | sync |
+| `ifc_get_metadata` | Get file schema, header metadata, units, and georeferencing summary from an IFC file. | No | sync |
+| `ifc_get_properties` | Get property sets, quantities, and direct attributes for a specific element in an IFC file. | No | sync |
+| `ifc_get_spatial_structure` | Get the spatial hierarchy (Project -> Site -> Building -> Storey -> Element Types/Counts) from an IFC file. | No | sync |
+| `ifc_health` | Check status of IfcOpenShell and get version info. | No | sync |
+| `ifc_query_elements` | Query elements by IFC class, GUID, name, or simple property name/value criteria. | No | sync |
+| `ifc_validate` | Perform schema validation on the IFC file and return errors/warnings list. | No | sync |
 
 ## Job Provider
 
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
-| `job_cancel` | Cancel a running or queued background job. | ? | async |
-| `job_status` | Get the status, progress, results, or error details of a background job. | ? | async |
+| `job_cancel` | Cancel a running or queued background job. | No | sync |
+| `job_status` | Get the status, progress, results, or error details of a background job. | No | sync |
 
 ## Mcp Proxy Provider
 
 *No tools available for this provider.*
 
+## Navisworks Provider
+
+| Tool Name | Description | Mutating? | Execution Type |
+| --- | --- | --- | --- |
+| `navisworks_activate_viewpoint` | Activate a saved viewpoint by Guid. | No | sync |
+| `navisworks_append_file` | Append a file (e. | No | sync |
+| `navisworks_create_viewpoint` | Create a new saved viewpoint from the current view. | Yes | sync |
+| `navisworks_get_clash_results` | Get results for a clash test by Guid. | No | sync |
+| `navisworks_get_document_info` | Get info about the active Navisworks document. | No | sync |
+| `navisworks_get_model_tree` | Get the model hierarchy tree in Navisworks. | No | sync |
+| `navisworks_get_selection` | Get active selection items in Navisworks. | No | sync |
+| `navisworks_health` | Check if Navisworks is running and get status information. | No | sync |
+| `navisworks_invoke_method` | Invoke a C# method in Navisworks via reflection. | Yes | sync |
+| `navisworks_list_clash_tests` | List clash tests defined in Clash Detective. | No | sync |
+| `navisworks_list_viewpoints` | List saved viewpoints. | No | sync |
+| `navisworks_reflect_get` | Get a C# property value from a Navisworks object via reflection. | No | sync |
+| `navisworks_reflect_set` | Set a C# property value on a Navisworks object via reflection. | Yes | sync |
+| `navisworks_refresh` | Refresh all updated files in the active document. | No | sync |
+| `navisworks_run_clash_test` | Run a clash test by Guid. | No | sync |
+
 ## Revit Provider
 
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
-| `revit_apply_view_template` | Apply view template to a view. | ? | async |
-| `revit_batch_create_sheets_from_csv` | Create multiple sheets from a CSV file. | ? | async |
-| `revit_batch_set_parameters` | Set a parameter value for multiple elements. | ? | async |
-| `revit_batch_set_parameters_by_filter` | Set a parameter value on all elements matching a filter (category, type, level, or parameter value). | ? | async |
-| `revit_calculate_material_quantities` | Calculate material volumes for a category. | ? | async |
-| `revit_change_element_type` | Swap all instances of one element type to another type. | ? | async |
-| `revit_check_clashes` | Check clashes between categories. | ? | async |
-| `revit_close_document` | Close active document. | ? | async |
-| `revit_convert_to_group` | Convert elements into a group. | ? | async |
-| `revit_copy_element` | Copy an element. | ? | async |
-| `revit_create_3d_view` | Create a new 3D view. | ? | async |
-| `revit_create_beam` | Create structural beam. | ? | async |
-| `revit_create_column` | Create structural column. | ? | async |
-| `revit_create_conduit` | Create electrical conduit. | ? | async |
-| `revit_create_dimension` | Create linear dimension between elements. | ? | async |
-| `revit_create_duct` | Create duct. | ? | async |
-| `revit_create_floor` | Create a floor in Revit with a rectangular or custom boundary. | ? | async |
-| `revit_create_floor_plan_view` | Create a floor plan view for a level. | ? | async |
-| `revit_create_foundation` | Create foundation. | ? | async |
-| `revit_create_grid` | Create a grid line in Revit. | ? | async |
-| `revit_create_group` | Create a group. | ? | async |
-| `revit_create_level` | Create a new level in Revit. | ? | async |
-| `revit_create_material` | Create a new material with color and properties. | ? | async |
-| `revit_create_new_document` | Create new project. | ? | async |
-| `revit_create_pipe` | Create pipe. | ? | async |
-| `revit_create_project_parameter` | Create a new project parameter. | ? | async |
-| `revit_create_roof` | Create a roof in Revit. | ? | async |
-| `revit_create_room` | Create a room at a specific point on a level. | ? | async |
-| `revit_create_schedule` | Create a schedule. | ? | async |
-| `revit_create_section_view` | Create a section view. | ? | async |
-| `revit_create_shared_parameter` | Create a new shared parameter. | ? | async |
-| `revit_create_sheet` | Create a new sheet. | ? | async |
-| `revit_create_tag` | Tag an element. | ? | async |
-| `revit_create_text_note` | Create a text note. | ? | async |
-| `revit_create_wall` | Create a wall in Revit between two points. | ? | async |
-| `revit_delete_element` | Delete an element by ID. | ? | async |
-| `revit_delete_sheet` | Delete a sheet. | ? | async |
-| `revit_duplicate_sheet` | Duplicate a sheet. | ? | async |
-| `revit_edit_family` | Open a family for editing. | ? | async |
-| `revit_execute_python` | Execute arbitrary Python/IronPython code inside Revit with broad access to the public Revit API. | ? | async |
-| `revit_export_dwg` | Export view to DWG. | ? | async |
-| `revit_export_ifc` | Export to IFC. | ? | async |
-| `revit_export_image` | Export view to Image. | ? | async |
-| `revit_export_navisworks` | Export to NWC. | ? | async |
-| `revit_get_categories` | List Revit categories. | ? | async |
-| `revit_get_design_options` | Get design options. | ? | async |
-| `revit_get_document_info` | Get information about the active Revit document. | ? | async |
-| `revit_get_element_bounding_box` | Get element bounding box. | ? | async |
-| `revit_get_element_geometry` | Get geometric data for an element: location point or curve endpoints, bounding box, level, area, volume, and length. | ? | async |
-| `revit_get_element_parameters` | Get all parameters of an element. | ? | async |
-| `revit_get_element_type` | Find element types/families. | ? | async |
-| `revit_get_elements_by_type` | Get element IDs and key parameters, filtered by type, category, and/or level. | ? | async |
-| `revit_get_group_members` | Get group members. | ? | async |
-| `revit_get_link_instances` | Get link instances. | ? | async |
-| `revit_get_parameter_value` | Get a specific parameter value. | ? | async |
-| `revit_get_phase_filters` | Get phase filters. | ? | async |
-| `revit_get_phases` | Get project phases. | ? | async |
-| `revit_get_revision_sequences` | Get list of revision sequences. | ? | async |
-| `revit_get_rvt_links` | Get RVT links. | ? | async |
-| `revit_get_schedule_data` | Get schedule data. | ? | async |
-| `revit_get_selection` | Get currently selected element IDs. | ? | async |
-| `revit_get_sheet_info` | Get detailed information about a sheet. | ? | async |
-| `revit_get_type_parameters` | Get type parameters for an element. | ? | async |
-| `revit_get_view_templates` | Get list of view templates. | ? | async |
-| `revit_get_warnings` | Get current project warnings. | ? | async |
-| `revit_get_worksets` | Get all worksets. | ? | async |
-| `revit_health` | Check if Revit is running and get status information. | ? | async |
-| `revit_invoke_method` | Invoke any Revit API method dynamically using Reflection. | ? | async |
-| `revit_list_elements` | List elements by category (Walls, Floors, Roofs, Doors, Windows, etc. | ? | async |
-| `revit_list_families` | List all loaded families and their types. | ? | async |
-| `revit_list_levels` | List all levels in the Revit project. | ? | async |
-| `revit_list_project_parameters` | List project parameters. | ? | async |
-| `revit_list_shared_parameters` | List shared parameters in the document. | ? | async |
-| `revit_list_sheets` | List all sheets. | ? | async |
-| `revit_list_titleblocks` | List available titleblocks. | ? | async |
-| `revit_list_views` | List all views in the Revit project. | ? | async |
-| `revit_mirror_element` | Mirror an element. | ? | async |
-| `revit_move_element` | Move an element. | ? | async |
-| `revit_pin_element` | Pin an element. | ? | async |
-| `revit_place_door` | Place a door in a wall. | ? | async |
-| `revit_place_family_instance` | Place a family instance (e. | ? | async |
-| `revit_place_viewport_on_sheet` | Place a view on a sheet. | ? | async |
-| `revit_place_window` | Place a window in a wall. | ? | async |
-| `revit_populate_titleblock` | Populate titleblock parameters. | ? | async |
-| `revit_reflect_get` | Get any Revit property value dynamically. | ? | async |
-| `revit_reflect_set` | Set any Revit property value dynamically. | ? | async |
-| `revit_relinquish_all` | Relinquish all elements and worksets. | ? | async |
-| `revit_render_3d` | Render 3D view to image. | ? | async |
-| `revit_renumber_sheets` | Batch renumber sheets. | ? | async |
-| `revit_replace_family_type` | Replace all instances of one family/type combination with another, identified by name. | ? | async |
-| `revit_rotate_element` | Rotate an element. | ? | async |
-| `revit_save_document` | Save the current Revit document. | ? | async |
-| `revit_set_element_material` | Set material for an element or specific face. | ? | async |
-| `revit_set_parameter_value` | Set a parameter value for an element. | ? | async |
-| `revit_set_selection` | Set selection by element IDs. | ? | async |
-| `revit_set_type_parameter` | Set a type parameter value. | ? | async |
-| `revit_sync_to_central` | Sync to central model. | ? | async |
-| `revit_tag_all_in_view` | Tag all elements of a category in view. | ? | async |
-| `revit_ungroup` | Ungroup a group. | ? | async |
-| `revit_unpin_element` | Unpin an element. | ? | async |
+| `revit_apply_view_template` | Apply view template to a view. | Yes | sync |
+| `revit_batch_create_sheets_from_csv` | Create multiple sheets from a CSV file. | Yes | sync |
+| `revit_batch_set_parameters` | Set a parameter value for multiple elements. | Yes | sync |
+| `revit_batch_set_parameters_by_filter` | Set a parameter value on all elements matching a filter (category, type, level, or parameter value). | Yes | sync |
+| `revit_calculate_material_quantities` | Calculate material volumes for a category. | No | sync |
+| `revit_change_element_type` | Swap all instances of one element type to another type. | Yes | sync |
+| `revit_check_clashes` | Check clashes between categories. | No | sync |
+| `revit_close_document` | Close active document. | Yes | sync |
+| `revit_convert_to_group` | Convert elements into a group. | Yes | sync |
+| `revit_copy_element` | Copy an element. | Yes | sync |
+| `revit_create_3d_view` | Create a new 3D view. | Yes | sync |
+| `revit_create_beam` | Create structural beam. | Yes | sync |
+| `revit_create_column` | Create structural column. | Yes | sync |
+| `revit_create_conduit` | Create electrical conduit. | Yes | sync |
+| `revit_create_dimension` | Create linear dimension between elements. | Yes | sync |
+| `revit_create_duct` | Create duct. | Yes | sync |
+| `revit_create_floor` | Create a floor in Revit with a rectangular or custom boundary. | Yes | sync |
+| `revit_create_floor_plan_view` | Create a floor plan view for a level. | Yes | sync |
+| `revit_create_foundation` | Create foundation. | Yes | sync |
+| `revit_create_grid` | Create a grid line in Revit. | Yes | sync |
+| `revit_create_group` | Create a group. | Yes | sync |
+| `revit_create_level` | Create a new level in Revit. | Yes | sync |
+| `revit_create_material` | Create a new material with color and properties. | Yes | sync |
+| `revit_create_new_document` | Create new project. | Yes | sync |
+| `revit_create_pipe` | Create pipe. | Yes | sync |
+| `revit_create_project_parameter` | Create a new project parameter. | Yes | sync |
+| `revit_create_roof` | Create a roof in Revit. | Yes | sync |
+| `revit_create_room` | Create a room at a specific point on a level. | Yes | sync |
+| `revit_create_schedule` | Create a schedule. | Yes | sync |
+| `revit_create_section_view` | Create a section view. | Yes | sync |
+| `revit_create_shared_parameter` | Create a new shared parameter. | Yes | sync |
+| `revit_create_sheet` | Create a new sheet. | Yes | sync |
+| `revit_create_tag` | Tag an element. | Yes | sync |
+| `revit_create_text_note` | Create a text note. | Yes | sync |
+| `revit_create_wall` | Create a wall in Revit between two points. | Yes | sync |
+| `revit_delete_element` | Delete an element by ID. | Yes | sync |
+| `revit_delete_sheet` | Delete a sheet. | Yes | sync |
+| `revit_duplicate_sheet` | Duplicate a sheet. | Yes | sync |
+| `revit_edit_family` | Open a family for editing. | Yes | sync |
+| `revit_execute_python` | Execute arbitrary Python/IronPython code inside Revit with broad access to the public Revit API. | Yes | sync |
+| `revit_export_dwg` | Export view to DWG. | No | sync |
+| `revit_export_ifc` | Export to IFC. | No | sync |
+| `revit_export_image` | Export view to Image. | No | sync |
+| `revit_export_navisworks` | Export to NWC. | No | sync |
+| `revit_extract_snapshot` | Extract a semantic BIM snapshot of the active document. | No | sync |
+| `revit_get_categories` | List Revit categories. | No | sync |
+| `revit_get_design_options` | Get design options. | No | sync |
+| `revit_get_document_info` | Get information about the active Revit document. | No | sync |
+| `revit_get_element_bounding_box` | Get element bounding box. | No | sync |
+| `revit_get_element_geometry` | Get geometric data for an element: location point or curve endpoints, bounding box, level, area, volume, and length. | No | sync |
+| `revit_get_element_parameters` | Get all parameters of an element. | No | sync |
+| `revit_get_element_type` | Find element types/families. | No | sync |
+| `revit_get_elements_by_type` | Get element IDs and key parameters, filtered by type, category, and/or level. | No | sync |
+| `revit_get_group_members` | Get group members. | No | sync |
+| `revit_get_link_instances` | Get link instances. | No | sync |
+| `revit_get_parameter_value` | Get a specific parameter value. | No | sync |
+| `revit_get_phase_filters` | Get phase filters. | No | sync |
+| `revit_get_phases` | Get project phases. | No | sync |
+| `revit_get_revision_sequences` | Get list of revision sequences. | No | sync |
+| `revit_get_rvt_links` | Get RVT links. | No | sync |
+| `revit_get_schedule_data` | Get schedule data. | No | sync |
+| `revit_get_selection` | Get currently selected element IDs. | No | sync |
+| `revit_get_sheet_info` | Get detailed information about a sheet. | No | sync |
+| `revit_get_snapshot_delta` | Get lists of unique IDs for elements added, modified, or deleted during the active session. | No | sync |
+| `revit_get_type_parameters` | Get type parameters for an element. | No | sync |
+| `revit_get_view_templates` | Get list of view templates. | No | sync |
+| `revit_get_warnings` | Get current project warnings. | No | sync |
+| `revit_get_worksets` | Get all worksets. | No | sync |
+| `revit_health` | Check if Revit is running and get status information. | No | sync |
+| `revit_invoke_method` | Invoke any Revit API method dynamically using Reflection. | Yes | sync |
+| `revit_list_elements` | List elements by category (Walls, Floors, Roofs, Doors, Windows, etc. | No | sync |
+| `revit_list_families` | List all loaded families and their types. | No | sync |
+| `revit_list_levels` | List all levels in the Revit project. | No | sync |
+| `revit_list_project_parameters` | List project parameters. | No | sync |
+| `revit_list_shared_parameters` | List shared parameters in the document. | No | sync |
+| `revit_list_sheets` | List all sheets. | No | sync |
+| `revit_list_titleblocks` | List available titleblocks. | No | sync |
+| `revit_list_views` | List all views in the Revit project. | No | sync |
+| `revit_mirror_element` | Mirror an element. | Yes | sync |
+| `revit_move_element` | Move an element. | Yes | sync |
+| `revit_pin_element` | Pin an element. | Yes | sync |
+| `revit_place_door` | Place a door in a wall. | Yes | sync |
+| `revit_place_family_instance` | Place a family instance (e. | Yes | sync |
+| `revit_place_viewport_on_sheet` | Place a view on a sheet. | Yes | sync |
+| `revit_place_window` | Place a window in a wall. | Yes | sync |
+| `revit_populate_titleblock` | Populate titleblock parameters. | No | sync |
+| `revit_reflect_get` | Get any Revit property value dynamically. | No | sync |
+| `revit_reflect_set` | Set any Revit property value dynamically. | Yes | sync |
+| `revit_relinquish_all` | Relinquish all elements and worksets. | Yes | sync |
+| `revit_render_3d` | Render 3D view to image. | No | sync |
+| `revit_renumber_sheets` | Batch renumber sheets. | Yes | sync |
+| `revit_replace_family_type` | Replace all instances of one family/type combination with another, identified by name. | Yes | sync |
+| `revit_rotate_element` | Rotate an element. | Yes | sync |
+| `revit_save_document` | Save the current Revit document. | Yes | sync |
+| `revit_set_element_material` | Set material for an element or specific face. | Yes | sync |
+| `revit_set_parameter_value` | Set a parameter value for an element. | Yes | sync |
+| `revit_set_selection` | Set selection by element IDs. | Yes | sync |
+| `revit_set_type_parameter` | Set a type parameter value. | Yes | sync |
+| `revit_sync_to_central` | Sync to central model. | Yes | sync |
+| `revit_tag_all_in_view` | Tag all elements of a category in view. | No | sync |
+| `revit_ungroup` | Ungroup a group. | No | sync |
+| `revit_unpin_element` | Unpin an element. | Yes | sync |
 
 ## Rhino Provider
 
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
-| `rhino_evaluate_definition` | Upload a Grasshopper definition, solve it against Resthopper-compatible trees, and return the compute response. | ? | async |
-| `rhino_get_definition_io` | Upload a Grasshopper definition and return its Resthopper input/output metadata. | ? | async |
-| `rhino_get_geometry_details` | Return detailed geometry metadata for a. | ? | async |
-| `rhino_get_layers` | Return layer metadata for a. | ? | async |
-| `rhino_health` | Check Rhino. | ? | async |
-| `rhino_query_file_geometry` | Upload a. | ? | async |
+| `rhino_boolean_difference` | Subtract cutter Breps from a base Brep; returns new object GUIDs. | No | sync |
+| `rhino_boolean_union` | Boolean union a list of Brep objects by GUID; returns new object GUIDs. | No | sync |
+| `rhino_clear_scene` | Delete all objects in the Rhino document, or only objects on a specific layer. | No | sync |
+| `rhino_create_box` | Create a box (rectangular prism) from two corner points in metres. | No | sync |
+| `rhino_create_cylinder` | Create a capped cylinder from base point, height, and radius in metres. | No | sync |
+| `rhino_create_sphere` | Create a sphere by centre point and radius in metres. | No | sync |
+| `rhino_generate_diagrid_tower` | Generate a parametric diagrid skyscraper with aluminum mullion sweeps and glass panel solids. | No | sync |
+| `rhino_get_document_info` | Get the active Rhino document name, path, unit system, and object count. | No | sync |
+| `rhino_get_lines` | Get all curves/lines from the active Rhino document. | No | sync |
+| `rhino_get_scene` | Get all objects in the Rhino scene with their type, layer, and bounding box. | No | sync |
+| `rhino_health` | Check if the Rhino bridge is running and healthy. | No | sync |
+| `rhino_invoke_method` | Invoke a C# method on a Rhino object via reflection. | No | sync |
+| `rhino_list_layers` | List all layers in the Rhino document with name, color, visibility, and lock state. | No | sync |
+| `rhino_reflect_get` | Get a C# property value from a Rhino object via reflection. | No | sync |
+| `rhino_reflect_set` | Set a C# property value on a Rhino object via reflection. | No | sync |
+| `rhino_run_python` | Execute arbitrary IronPython code inside Rhino with full RhinoCommon access. | No | sync |
+| `rhino_set_material` | Apply a material to objects by GUID list or by layer name. | No | sync |
+| `rhino_set_view` | Set the active Rhino viewport display mode or projection. | No | sync |
+| `rhino_transform_objects` | Move, rotate, or scale objects by GUID. | No | sync |
 
 ## Semantic Graph Provider
 
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
-| `graph_add_relation` | Add a typed relation between two existing nodes. | ? | async |
-| `graph_audit_clashes` | Audit axis-aligned bounding boxes for clashes using a tolerance value. | ? | async |
-| `graph_audit_disconnected` | Audit disconnected nodes or components using degree and connectivity rules. | ? | async |
-| `graph_audit_structural_loads` | Audit structural load-bearing and support consistency using SUPPORTED_BY relations. | ? | async |
-| `graph_compile` | Compile workspace model nodes and relations into the in-memory semantic graph. | ? | async |
-| `graph_health` | Check graph provider health and current graph size. | ? | async |
-| `graph_query_relations` | Query relations by node, related node, relation type, and direction. | ? | async |
+| `graph_add_relation` | Add a typed relation between two existing nodes. | No | sync |
+| `graph_audit_clashes` | Audit axis-aligned bounding boxes for clashes using a tolerance value. | No | sync |
+| `graph_audit_disconnected` | Audit disconnected nodes or components using degree and connectivity rules. | No | sync |
+| `graph_audit_structural_loads` | Audit structural load-bearing and support consistency using SUPPORTED_BY relations. | No | sync |
+| `graph_compile` | Compile workspace model nodes and relations into the in-memory semantic graph. | No | sync |
+| `graph_health` | Check graph provider health and current graph size. | No | sync |
+| `graph_query_relations` | Query relations by node, related node, relation type, and direction. | No | sync |
 
 ## Speckle Provider
 
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
-| `speckle_auth_status` | Get Speckle OAuth authentication status. | ? | async |
-| `speckle_checkout_version` | Checkout Speckle version metadata. | ? | async |
-| `speckle_create_branch` | Create an isolated Speckle branch for compatibility with model workflows. | ? | async |
-| `speckle_create_model` | Create an isolated Speckle model. | ? | async |
-| `speckle_get_version_metadata` | Read Speckle version metadata. | ? | async |
-| `speckle_health` | Check Speckle provider health. | ? | async |
-| `speckle_list_models` | List Speckle models for a project. | ? | async |
-| `speckle_list_projects` | List Speckle projects. | ? | async |
-| `speckle_list_versions` | List Speckle versions for a model or branch. | ? | async |
-| `speckle_merge_branch` | Compatibility alias for merge_model. | ? | async |
-| `speckle_merge_model` | Merge one Speckle model or branch into another through GraphQL. | ? | async |
-| `speckle_oauth_exchange_code` | Exchange a Speckle OAuth authorization code. | ? | async |
-| `speckle_oauth_refresh` | Refresh the Speckle OAuth access token. | ? | async |
-| `speckle_oauth_start` | Generate a Speckle OAuth authorization URL using PKCE. | ? | async |
-| `speckle_publish_version` | Publish a Speckle version by creating a commit through GraphQL. | ? | async |
-| `speckle_receive_object` | Receives data from a Speckle stream/project using local credentials. | ? | async |
-| `speckle_send_object` | Sends generic data objects to a Speckle stream/project using local credentials. | ? | async |
+| `speckle_auth_status` | Get Speckle OAuth authentication status. | No | sync |
+| `speckle_checkout_version` | Checkout Speckle version metadata. | No | sync |
+| `speckle_create_branch` | Create an isolated Speckle branch for compatibility with model workflows. | No | sync |
+| `speckle_create_model` | Create an isolated Speckle model. | No | sync |
+| `speckle_get_version_metadata` | Read Speckle version metadata. | No | sync |
+| `speckle_health` | Check Speckle provider health. | No | sync |
+| `speckle_list_models` | List Speckle models for a project. | No | sync |
+| `speckle_list_projects` | List Speckle projects. | No | sync |
+| `speckle_list_versions` | List Speckle versions for a model or branch. | No | sync |
+| `speckle_merge_branch` | Compatibility alias for merge_model. | No | sync |
+| `speckle_merge_model` | Merge one Speckle model or branch into another through GraphQL. | No | sync |
+| `speckle_oauth_exchange_code` | Exchange a Speckle OAuth authorization code. | No | sync |
+| `speckle_oauth_refresh` | Refresh the Speckle OAuth access token. | No | sync |
+| `speckle_oauth_start` | Generate a Speckle OAuth authorization URL using PKCE. | No | sync |
+| `speckle_publish_version` | Publish a Speckle version by creating a commit through GraphQL. | No | sync |
+| `speckle_receive_object` | Receives data from a Speckle stream/project using local credentials. | No | sync |
+| `speckle_send_object` | Sends generic data objects to a Speckle stream/project using local credentials. | No | sync |
 
 ## SQLite Exporter Provider
 
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
-| `exporter_db_health` | Check health and readiness of the local database exporter. | ? | async |
-| `exporter_graph_to_sqlite` | Extract the active semantic network graph and dump its nodes, properties, and typed edges to a local SQLite database in the workspace. | ? | async |
-| `exporter_to_sqlite` | Export a structured payload of BIM elements, parameters, and relationships to a local SQLite database in the workspace. | ? | async |
+| `exporter_db_health` | Check health and readiness of the local database exporter. | No | sync |
+| `exporter_graph_to_sqlite` | Extract the active semantic network graph and dump its nodes, properties, and typed edges to a local SQLite database in the workspace. | No | sync |
+| `exporter_to_sqlite` | Export a structured payload of BIM elements, parameters, and relationships to a local SQLite database in the workspace. | No | sync |
 
