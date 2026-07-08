@@ -1,0 +1,43 @@
+{
+  "id": "familytype_mapper",
+  "name": "Family Type Mapper",
+  "version": "1.0.0",
+  "schema_version": 1,
+  "min_hub_version": "1.2.0",
+  "description": "Family audit and type mapping workflows (W6): family quality audit, type mapping tables, in-place family detection, and shared-param GUID validation.",
+  "author": "AEC Model Bridge",
+  "license": "GPL-3.0-or-later",
+  "requires_providers": ["revit", "semantic"],
+  "permissions": ["model.read"],
+  "commands": [
+    {
+      "id": "audit_families",
+      "title": "Audit Families",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {"type": "string"}
+        },
+        "required": []
+      }
+    },
+    {
+      "id": "list_type_mappings",
+      "title": "List Type Mappings",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {"type": "string"},
+          "category": {"type": "string"}
+        },
+        "required": []
+      }
+    }
+  ]
+}
