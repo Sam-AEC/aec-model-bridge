@@ -1,31 +1,47 @@
 # Next Agent Handover
 
-**Session:** 2026-07-08, planning/scaffolding only — **no production code written, nothing deleted.**
+**Latest session:** 2026-07-08 (second session same day) — verification + bug-fix pass on top of a large implementation batch. Code changed, tests added, all committed to `development`. Nothing deleted.
 
-## What was inspected
-Full repo audit (delegated to an Explore subagent): all root + `docs/` markdown, all 5 packages (hub providers/servers/tests, Revit add-in incl. `BridgeCommandFactory.cs` and csproj exclusions, Rhino/Navisworks bridges, PowerBI tool), `scripts/`, `dist/`, `server.json`, git log vs CHANGELOG. Findings preserved in `CURRENT_REPO_AUDIT.md`.
+**IMPORTANT:** the previous version of this file (written by the planning-only session earlier the same day) is obsolete — a separate implementation pass landed ~21 commits (`5ad86e7`…`5c9342d`) claiming Phases 0–17 complete *before this session started*. **Do not trust commit messages as proof of working code in this repo without independent verification** — several of those commits overstated what they actually did (see "What I found was wrong" below). Trust `git log` + reading the diffs, not prose summaries, including this one after enough time has passed.
 
-## What was created (all new, in `docs/product/`)
-`AEC_MODEL_BRIDGE_PRODUCT_VISION.md` · `CURRENT_REPO_AUDIT.md` · `PLUGIN_APP_ARCHITECTURE.md` · `AEC_WORKFLOW_CATALOG.md` (W1–W16) · `INTEGRATION_STRATEGY.md` (18 integrations, P0–Future) · `PLUGIN_MODULE_SYSTEM.md` · `SEMANTIC_BIM_DATA_MODEL.md` · `AI_AGENT_SWARM_PLAN.md` (14 agents) · `SCAFFOLDING_TASK_LIST.md` (Phases 0–21) · `MVP_EXECUTION_PLAN.md` · `DECISIONS_AND_RISKS.md` · this file.
+## What I did this session
 
-## What was NOT changed
-No existing file edited or deleted. CLAUDE.md still has the wrong Navisworks port (3005→3002) and dead backlog pointer; README links still broken; `docs/security.md` still stale; 260 MB stray `.3dm*` binaries still in `docs/`; private strategy doc still in repo; versions still 1.1.0 vs CHANGELOG 1.2.0. All of that is **Phase 0** work awaiting Sam's approval of the deletion list (`CURRENT_REPO_AUDIT.md` §9).
+1. Spawned an Explore agent to verify the claimed Phase 0–17 work against actual code/tests/builds (not commit messages). Full report is in the conversation history; key findings below.
+2. Fixed a real bug: `ApprovalGate.rollback_plan` was `def` (sync) calling an `async def execute_fn` without `await` — the coroutine was created and discarded, so **every rollback in production silently did nothing**. Fixed, made the method `async`, rewrote the test that had masked it (it used a sync mock, production always passes an async one).
+3. Closed the actual W5 gap: `parameter_manager.plan_set_params`/`import_params_csv` produced a preview but **there was no way to ever apply it** — no execute path existed. Added `execute_plan` to `ApprovalProvider` (report-and-continue on partial failure) and made the parameter_manager module emit `plan_actions`-ready `actions` lists. Added `tests/test_approval_provider.py` proving the full plan→approve→execute→rollback round trip against a real `ProviderRegistry`.
+4. Closed the real R12 gap: Rhino and Speckle/APS mutating tools (`rhino_create_box`, `rhino_run_python`, `speckle_publish_version`, `autodesk_data_create_topic`, ...) had `is_mutating=False` (the `ProviderTool` default) because **nothing ever called mutation-metadata enrichment for those providers** — they bypassed the ApprovalGate entirely regardless of `approval_mode`. Added a shared `enrich_mutation_metadata()` helper (`providers/base.py`), wired it into Rhino and the cloud providers, and manually audited every existing `revit.py`/`navisworks.py` tool name against its own verb list, finding 4 more real gaps in code the audit had called "REAL/WORKING" (`revit_populate_titleblock`, `revit_tag_all_in_view`, `revit_ungroup`, `navisworks_run_clash_test`) — fixed those too.
+5. Found the contract test meant to catch exactly this (`test_provider_contract.py`) was itself broken: it checked `getattr(tool, "mutating", None)` but the real field is `is_mutating` — always `None`, and the only test using the result just *printed* a report, asserting nothing. Replaced with a real assertion-based regression test (`test_verb_matched_tools_are_flagged_mutating`), and added `navisworks` to the provider-contract parametrization (it existed but was never covered).
+6. `tests/test_rhino_provider.py` (13 tests) was written for an entirely different, abandoned Rhino.Compute-based design (HTTPS, API-key auth, `.gh`/`.3dm` uploads) — the provider was rewritten to the current HTTP-bridge-to-C#-add-in design without ever updating its tests, so **CI has been red since at least commit `949d2e5`**. Rewrote the file from scratch against the real provider.
+7. Fixed all 74 `ruff` errors (65 auto-fixable unused imports, 9 by hand — 2 were genuinely dead code, not masked bugs, one confirmed by tracing `semantic/engine.py:reconcile_delta`). Wired `ruff check` into `.github/workflows/ci.yml` (it was never actually run despite being part of the stated DoD). Regenerated `docs/tools-generated.md`, which picked up an entire batch of module tools (parameter_manager, qaqc_checker, report_generator, recipe_runner, familytype_mapper) that were registered but had never made it into the catalog.
+8. Found and fixed one more real bug while investigating why `legacy/tools/` (renamed from `tools/`, implying retirement) is still imported live by `providers/revit.py`: in bridge mode, a legacy handler's `WorkspaceViolation` (path-outside-sandbox) was caught and only logged as a warning, with the call still forwarded to the live bridge. Now re-raised always; other legacy-schema validation errors stay advisory (schema drift risk, not a security boundary). Note: in the *current* tool set this had no live exploitable case, since `RevitProvider`'s own universal `_assert_paths_in_workspace` pre-check already covers every path-key name the legacy handlers use — but it's real defense-in-depth for any future handler that doesn't, and "never swallow a security exception" should hold regardless.
+9. Verified (not just trusted) that `dotnet build -c Release -p:RevitVersion=2024` for `revit-bridge-addin` really is 0 errors / 84 warnings, confirming that specific Phase-3 claim.
 
-## Main findings (from the audit)
-1. Shipped hub = `mcp_server.py`, 9 providers, ~170 tools; a **legacy parallel server** (`server.py` + 25-tool `tools/` system) confuses tests and docs, and has a real bug (`proxy._connect()` doesn't exist).
-2. **Navisworks provider is not registered** in the shipped hub; **PowerBI provider registered nowhere** — both are advertised as working.
-3. Revit add-in is solid (110 attribute-registered commands, correct ExternalEvent threading), but `src/Commands/**` is a compile-excluded dead tree, and **Contract v2 auth exists but LegacyMode (port 3000, no auth) is the runtime default**.
-4. The approval/destructive-action layer documented in `docs/security.md` **was never implemented** — it is the MVP's core build item.
-5. Four competing product names; D-001 fixes it as **AEC Model Bridge**.
+Every fix above: implemented → tested (full suite run, not just the new test) → committed individually. Final state this session: **207 passed, 4 skipped, 0 failed. `ruff check`: all checks passed.**
 
-## Decisions locked with Sam (see DECISIONS_AND_RISKS.md)
-D-001 name · D-002 MVP = inspect/QA-QC/parameters, façade deferred to flagship · D-003 normal-Revit-user audience with dockable panel + approvals · D-005 net48+net8 targets · D-014 docs in `docs/product/`, strategy-free.
+## What I found was wrong despite "done" commit messages
 
-## Biggest risks
-R12 (silent AI mutation — the gate must be default-on and agent-unapprovable), R2 (snapshot perf on large models), R8 (WebView2-in-Revit spike unproven), D-013 (92 MB binaries may warrant history rewrite — needs Sam).
+- `legacy/server.py` + `legacy/tools/` + `legacy/schemas.py` are **not actually retired** — `providers/revit.py` still imports and calls `legacy.tools.TOOL_HANDLERS` live, in both bridge and mock mode. The rename to `legacy/` is cosmetic; don't delete this directory without first removing that import.
+- Commit `d5e6aca` says "register Navisworks/PowerBI" — Navisworks is genuinely registered; **PowerBI is not registered anywhere** (matches decision D-009, "file lane first", so arguably intentional, but the commit message overstates it).
+- `packages/navisworks-bridge-addin` **cannot be built in this environment**: `dotnet build` fails with 20 `CS0246` errors (no Navisworks API installed) and — unlike Revit's Nice3point NuGet fallback — there is no NuGet fallback wired up (`NavisworksBridge.csproj:42-44` has an empty comment where one should be). CI doesn't attempt to build it either. This needs either a NuGet package for the Navisworks API or acceptance that this project can only be verified on a machine with Navisworks installed.
+- The WebView2 dockable panel (Phase 16) is real plumbing wrapped around **fake data**: `panel/app.js` has hardcoded fixture plans/findings/reports (`plan_demo_01`, `f-001`, ...) that are never replaced with real hub calls, and the C# message bridge (`BridgePanel.xaml.cs:OnWebMessageReceived`) ignores incoming message content and only ever posts host status back — there is **no HTTP client anywhere in the add-in calling the Python hub's tools** (`plan_actions`, `qaqc_run_health_check`, etc.). The panel *looks* done; it does not function end-to-end. I did not fix this — it's a real feature-level task, not a bug fix, and deserves its own session (see below).
+
+## What I did NOT change
+
+- Did not touch the panel/hub wiring gap above (scope: a genuine implementation task, not a fix).
+- Did not attempt to build `navisworks-bridge-addin` or `rhino-bridge-addin`/`powerbi-bridge-tool` further than what the earlier verification pass already did.
+- Did not remove `legacy/tools` — it's load-bearing, not dead code; removing it needs a real migration, not a delete.
+- Did not re-verify Phases 5–15 beyond what the Explore agent's verification pass covered (module registry, semantic engine, individual modules were reported REAL/WORKING with file:line evidence — I did not re-derive that independently, only acted on the two gaps it surfaced in Phase 4 and the panel gap in Phase 16).
 
 ## Recommended next task
-**Phase 0** (`SCAFFOLDING_TASK_LIST.md`): present the §9 deletion list to Sam, then execute the doc/version cleanup. It's low-risk, unblocks everything, and makes the repo stop contradicting itself. First *code* task after that: **P4.1 tool metadata + P4.2 approval gate** (pure Python, testable without Revit open).
+
+**Wire the dockable panel to the real hub**, in this order:
+
+1. Add an `HttpClient`-based (or reuse `BridgeClient`-style) call path in the C# add-in from `BridgePanel.xaml.cs`'s `OnWebMessageReceived` to the actual MCP hub tools — this requires deciding how the WebView2 panel reaches a Python process (likely: hub exposes a minimal local HTTP shim for panel use, since MCP itself is stdio-only; this is a real architecture decision, not obvious — check `PLUGIN_APP_ARCHITECTURE.md` §2 for the intended shape before inventing one).
+2. Replace `panel/app.js`'s hardcoded fixture state with real data from that path.
+3. Add an end-to-end test (or at minimum a scripted manual verification) that clicking "Run Health Check" in the panel actually calls `qaqc_run_health_check` and renders real findings.
+
+Secondary, smaller, independently valuable if picked up first: decide and implement the Navisworks build story (D-011/D-012-adjacent — needs Sam's input on whether a NuGet fallback exists or whether this is accepted as "only buildable with Navisworks installed").
 
 ## Exact next prompt
-> Read docs/product/NEXT_AGENT_HANDOVER.md and docs/product/SCAFFOLDING_TASK_LIST.md. Execute Phase 0: first show me the deletion/untrack/move list from CURRENT_REPO_AUDIT.md §9 for approval, then apply approved items, fix CLAUDE.md (port 3002, backlog pointer → docs/product/SCAFFOLDING_TASK_LIST.md, retitle AEC Model Bridge), fix README broken links and the Rhino transport description, rewrite docs/security.md against the as-built provider system, and reconcile versions to CHANGELOG. Commit in logical chunks on development, no Co-Authored-By trailers.
+
+> Read docs/product/NEXT_AGENT_HANDOVER.md. The dockable panel (packages/revit-bridge-addin/src/UI/BridgePanel.xaml.cs + panel/app.js) is real plumbing around fake data — the message bridge never reaches the Python hub's MCP tools. Design and implement the real connection (check docs/product/PLUGIN_APP_ARCHITECTURE.md §2 for the intended shape first, since MCP is stdio-only and the panel needs some other local transport), replace the hardcoded fixture state in app.js with real calls, and add a test or scripted verification proving one real workflow (e.g. run_health_check) works end-to-end from the panel. Test and commit incrementally, one working piece at a time, no Co-Authored-By trailers.
