@@ -1,0 +1,3027 @@
+{
+  "Uuid": "cb09f430-cf5e-4f86-ad7c-21c01e6f3be9",
+  "IsCustomNode": false,
+  "Description": "Detailed Parametric Curtain Wall Façade System. Generated dynamically to match Rhino Grasshopper workflow.",
+  "Name": "facade_system",
+  "ElementResolver": {
+    "ResolutionMap": {
+      "DSCore.Color": {
+        "Key": "DSCore.Color",
+        "Value": "DSCoreNodes.dll"
+      }
+    }
+  },
+  "Inputs": [
+    {
+      "Id": "3e0e8b6d7f9e4f72a9096f3aa765f5cc",
+      "Name": "NUM BAYS",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "5",
+      "MaximumValue": 10.0,
+      "MinimumValue": 1.0,
+      "StepValue": 1.0,
+      "NumberType": "Integer",
+      "Description": "Produces integer values"
+    },
+    {
+      "Id": "b96e1661160a4f568027acdce1721213",
+      "Name": "NUM FLOORS",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "4",
+      "MaximumValue": 5.0,
+      "MinimumValue": 1.0,
+      "StepValue": 1.0,
+      "NumberType": "Integer",
+      "Description": "Produces integer values"
+    },
+    {
+      "Id": "8da8966fc846481cb1ad4bb913a26f68",
+      "Name": "BAY WIDTH",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "2.1",
+      "MaximumValue": 3.0,
+      "MinimumValue": 0.8,
+      "StepValue": 0.1,
+      "NumberType": "Double",
+      "Description": "Produces numeric values"
+    },
+    {
+      "Id": "a9a3b361afae4d0e8d09234e2a4f6c4b",
+      "Name": "FLOOR HEIGHT",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "3.5",
+      "MaximumValue": 5.0,
+      "MinimumValue": 2.5,
+      "StepValue": 0.1,
+      "NumberType": "Double",
+      "Description": "Produces numeric values"
+    },
+    {
+      "Id": "67ba837e2cf34048a3ac6724e3810f7e",
+      "Name": "MULLION W",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0.06",
+      "MaximumValue": 0.1,
+      "MinimumValue": 0.03,
+      "StepValue": 0.001,
+      "NumberType": "Double",
+      "Description": "Produces numeric values"
+    },
+    {
+      "Id": "b3c81662502348d0a2867ce7b8b793a8",
+      "Name": "MULLION D",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0.15",
+      "MaximumValue": 0.25,
+      "MinimumValue": 0.08,
+      "StepValue": 0.001,
+      "NumberType": "Double",
+      "Description": "Produces numeric values"
+    },
+    {
+      "Id": "3a6f389ff69d4dc4a04257cda57125ad",
+      "Name": "MULLION T",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0.003",
+      "MaximumValue": 0.008,
+      "MinimumValue": 0.002,
+      "StepValue": 0.001,
+      "NumberType": "Double",
+      "Description": "Produces numeric values"
+    },
+    {
+      "Id": "3b7bdeac2fbb42a682ed97c235beeed0",
+      "Name": "TRANSOM W",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0.06",
+      "MaximumValue": 0.1,
+      "MinimumValue": 0.03,
+      "StepValue": 0.001,
+      "NumberType": "Double",
+      "Description": "Produces numeric values"
+    },
+    {
+      "Id": "565ddd5ca8df4d94b2b887c2d6472940",
+      "Name": "TRANSOM D",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0.12",
+      "MaximumValue": 0.2,
+      "MinimumValue": 0.06,
+      "StepValue": 0.001,
+      "NumberType": "Double",
+      "Description": "Produces numeric values"
+    },
+    {
+      "Id": "4c4744cf3adf4efd8bdba6aba598dcac",
+      "Name": "TRANSOM T",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0.003",
+      "MaximumValue": 0.008,
+      "MinimumValue": 0.002,
+      "StepValue": 0.001,
+      "NumberType": "Double",
+      "Description": "Produces numeric values"
+    },
+    {
+      "Id": "ccbf5a3058a44b02b69cbd1b532e5794",
+      "Name": "GLASS OUTER T",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0.006",
+      "MaximumValue": 0.015,
+      "MinimumValue": 0.004,
+      "StepValue": 0.001,
+      "NumberType": "Double",
+      "Description": "Produces numeric values"
+    },
+    {
+      "Id": "12f316bae7934ad89bad9ac09df1fbeb",
+      "Name": "GLASS INNER T",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0.006",
+      "MaximumValue": 0.015,
+      "MinimumValue": 0.004,
+      "StepValue": 0.001,
+      "NumberType": "Double",
+      "Description": "Produces numeric values"
+    },
+    {
+      "Id": "caaf874b70b7402a82ee4c9dc18e0b36",
+      "Name": "GLASS GAP T",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0.016",
+      "MaximumValue": 0.024,
+      "MinimumValue": 0.008,
+      "StepValue": 0.001,
+      "NumberType": "Double",
+      "Description": "Produces numeric values"
+    },
+    {
+      "Id": "b3da8d4c6c78421a8ad297112f740389",
+      "Name": "GLASS REVEAL",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0.015",
+      "MaximumValue": 0.025,
+      "MinimumValue": 0.005,
+      "StepValue": 0.001,
+      "NumberType": "Double",
+      "Description": "Produces numeric values"
+    },
+    {
+      "Id": "105725b161694d57b8f334134fc5fb44",
+      "Name": "GLASS SETBACK",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0.04",
+      "MaximumValue": 0.08,
+      "MinimumValue": 0.02,
+      "StepValue": 0.001,
+      "NumberType": "Double",
+      "Description": "Produces numeric values"
+    },
+    {
+      "Id": "8ccabfcd98b148c18147cc71184ff2da",
+      "Name": "GASKET T",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0.004",
+      "MaximumValue": 0.01,
+      "MinimumValue": 0.002,
+      "StepValue": 0.001,
+      "NumberType": "Double",
+      "Description": "Produces numeric values"
+    },
+    {
+      "Id": "17fe3a97bbcf400a8a3507abdda738ba",
+      "Name": "GASKET W",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0.012",
+      "MaximumValue": 0.02,
+      "MinimumValue": 0.005,
+      "StepValue": 0.001,
+      "NumberType": "Double",
+      "Description": "Produces numeric values"
+    },
+    {
+      "Id": "d3ef1990bff44938ad66783fdcf8ecfd",
+      "Name": "ISOLATOR W",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0.012",
+      "MaximumValue": 0.024,
+      "MinimumValue": 0.006,
+      "StepValue": 0.001,
+      "NumberType": "Double",
+      "Description": "Produces numeric values"
+    },
+    {
+      "Id": "5595e927617e4909a1f08ce5da267f76",
+      "Name": "PRESSURE PLATE T",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0.006",
+      "MaximumValue": 0.015,
+      "MinimumValue": 0.004,
+      "StepValue": 0.001,
+      "NumberType": "Double",
+      "Description": "Produces numeric values"
+    },
+    {
+      "Id": "5143d28498ad49f0a5a660b4c3338e2e",
+      "Name": "COVER CAP D",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0.02",
+      "MaximumValue": 0.05,
+      "MinimumValue": 0.01,
+      "StepValue": 0.001,
+      "NumberType": "Double",
+      "Description": "Produces numeric values"
+    },
+    {
+      "Id": "fe794dec44174728adfc27ec61a4f21e",
+      "Name": "SLAB T",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0.3",
+      "MaximumValue": 0.5,
+      "MinimumValue": 0.15,
+      "StepValue": 0.1,
+      "NumberType": "Double",
+      "Description": "Produces numeric values"
+    },
+    {
+      "Id": "c89558e511a248399ede5a60dd7295ae",
+      "Name": "SLAB DEPTH",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "1.5",
+      "MaximumValue": 2.5,
+      "MinimumValue": 0.5,
+      "StepValue": 0.1,
+      "NumberType": "Double",
+      "Description": "Produces numeric values"
+    },
+    {
+      "Id": "72b4243578cd49f0b61606a711dd3359",
+      "Name": "SLAB INSET",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0.01",
+      "MaximumValue": 0.05,
+      "MinimumValue": 0.005,
+      "StepValue": 0.1,
+      "NumberType": "Double",
+      "Description": "Produces numeric values"
+    },
+    {
+      "Id": "d04e5255c03340489c7434ed373711b4",
+      "Name": "BRACKET W",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0.08",
+      "MaximumValue": 0.15,
+      "MinimumValue": 0.04,
+      "StepValue": 0.001,
+      "NumberType": "Double",
+      "Description": "Produces numeric values"
+    },
+    {
+      "Id": "4eed8d61cbb84781b675c24316787b32",
+      "Name": "BRACKET L1",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0.15",
+      "MaximumValue": 0.3,
+      "MinimumValue": 0.08,
+      "StepValue": 0.001,
+      "NumberType": "Double",
+      "Description": "Produces numeric values"
+    },
+    {
+      "Id": "cd9be4a0c23e45c2bf05628b74827d3c",
+      "Name": "BRACKET L2",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0.12",
+      "MaximumValue": 0.25,
+      "MinimumValue": 0.06,
+      "StepValue": 0.001,
+      "NumberType": "Double",
+      "Description": "Produces numeric values"
+    },
+    {
+      "Id": "40182fd99c064d2a80d33b55838b4b80",
+      "Name": "BRACKET T",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0.008",
+      "MaximumValue": 0.016,
+      "MinimumValue": 0.004,
+      "StepValue": 0.001,
+      "NumberType": "Double",
+      "Description": "Produces numeric values"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "CoreNodeModels.Input.IntegerSlider, CoreNodeModels",
+      "NumberType": "Integer",
+      "MaximumValue": 10,
+      "MinimumValue": 1,
+      "StepValue": 1,
+      "Id": "3e0e8b6d7f9e4f72a9096f3aa765f5cc",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "aa32f57e169f4b45919ac9fcda2567a6",
+          "Name": "",
+          "Description": "Int64",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces integer values",
+      "InputValue": 5
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.IntegerSlider, CoreNodeModels",
+      "NumberType": "Integer",
+      "MaximumValue": 5,
+      "MinimumValue": 1,
+      "StepValue": 1,
+      "Id": "b96e1661160a4f568027acdce1721213",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "7a23d5a543f2485d9609083d70fcec6f",
+          "Name": "",
+          "Description": "Int64",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces integer values",
+      "InputValue": 4
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleSlider, CoreNodeModels",
+      "NumberType": "Double",
+      "MaximumValue": 3.0,
+      "MinimumValue": 0.8,
+      "StepValue": 0.1,
+      "Id": "8da8966fc846481cb1ad4bb913a26f68",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "6f0e12fd6b0945ff97b7c472141864d9",
+          "Name": "",
+          "Description": "BAY WIDTH",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces numeric values",
+      "InputValue": 2.1
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleSlider, CoreNodeModels",
+      "NumberType": "Double",
+      "MaximumValue": 5.0,
+      "MinimumValue": 2.5,
+      "StepValue": 0.1,
+      "Id": "a9a3b361afae4d0e8d09234e2a4f6c4b",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "df9eecb5393c41d38916c034b1e892c0",
+          "Name": "",
+          "Description": "FLOOR HEIGHT",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces numeric values",
+      "InputValue": 3.5
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleSlider, CoreNodeModels",
+      "NumberType": "Double",
+      "MaximumValue": 0.1,
+      "MinimumValue": 0.03,
+      "StepValue": 0.001,
+      "Id": "67ba837e2cf34048a3ac6724e3810f7e",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "214893190dbb41469846ec6e4ec22656",
+          "Name": "",
+          "Description": "MULLION W",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces numeric values",
+      "InputValue": 0.06
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleSlider, CoreNodeModels",
+      "NumberType": "Double",
+      "MaximumValue": 0.25,
+      "MinimumValue": 0.08,
+      "StepValue": 0.001,
+      "Id": "b3c81662502348d0a2867ce7b8b793a8",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "70fa1c649d8e46848df8ab1bcdb24b52",
+          "Name": "",
+          "Description": "MULLION D",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces numeric values",
+      "InputValue": 0.15
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleSlider, CoreNodeModels",
+      "NumberType": "Double",
+      "MaximumValue": 0.008,
+      "MinimumValue": 0.002,
+      "StepValue": 0.001,
+      "Id": "3a6f389ff69d4dc4a04257cda57125ad",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "36aa2b3119964dd6b3c3a1c88e91fe72",
+          "Name": "",
+          "Description": "MULLION T",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces numeric values",
+      "InputValue": 0.003
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleSlider, CoreNodeModels",
+      "NumberType": "Double",
+      "MaximumValue": 0.1,
+      "MinimumValue": 0.03,
+      "StepValue": 0.001,
+      "Id": "3b7bdeac2fbb42a682ed97c235beeed0",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "dba0cd96ff574b6da132e6d04a45d252",
+          "Name": "",
+          "Description": "TRANSOM W",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces numeric values",
+      "InputValue": 0.06
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleSlider, CoreNodeModels",
+      "NumberType": "Double",
+      "MaximumValue": 0.2,
+      "MinimumValue": 0.06,
+      "StepValue": 0.001,
+      "Id": "565ddd5ca8df4d94b2b887c2d6472940",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "98e82c722c80476c99301b8f7d251643",
+          "Name": "",
+          "Description": "TRANSOM D",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces numeric values",
+      "InputValue": 0.12
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleSlider, CoreNodeModels",
+      "NumberType": "Double",
+      "MaximumValue": 0.008,
+      "MinimumValue": 0.002,
+      "StepValue": 0.001,
+      "Id": "4c4744cf3adf4efd8bdba6aba598dcac",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "467c26d243ef4040b360133208edc2db",
+          "Name": "",
+          "Description": "TRANSOM T",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces numeric values",
+      "InputValue": 0.003
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleSlider, CoreNodeModels",
+      "NumberType": "Double",
+      "MaximumValue": 0.015,
+      "MinimumValue": 0.004,
+      "StepValue": 0.001,
+      "Id": "ccbf5a3058a44b02b69cbd1b532e5794",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "4da2501efbca4e72b41da5278c519764",
+          "Name": "",
+          "Description": "GLASS OUTER T",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces numeric values",
+      "InputValue": 0.006
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleSlider, CoreNodeModels",
+      "NumberType": "Double",
+      "MaximumValue": 0.015,
+      "MinimumValue": 0.004,
+      "StepValue": 0.001,
+      "Id": "12f316bae7934ad89bad9ac09df1fbeb",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "d2fc5b8fedb144b68cc7a73ca51d1279",
+          "Name": "",
+          "Description": "GLASS INNER T",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces numeric values",
+      "InputValue": 0.006
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleSlider, CoreNodeModels",
+      "NumberType": "Double",
+      "MaximumValue": 0.024,
+      "MinimumValue": 0.008,
+      "StepValue": 0.001,
+      "Id": "caaf874b70b7402a82ee4c9dc18e0b36",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "53a7ec1f1125404f84e908df397d5b33",
+          "Name": "",
+          "Description": "GLASS GAP T",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces numeric values",
+      "InputValue": 0.016
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleSlider, CoreNodeModels",
+      "NumberType": "Double",
+      "MaximumValue": 0.025,
+      "MinimumValue": 0.005,
+      "StepValue": 0.001,
+      "Id": "b3da8d4c6c78421a8ad297112f740389",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "ec940296327a4b488a75fa21e086bbe1",
+          "Name": "",
+          "Description": "GLASS REVEAL",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces numeric values",
+      "InputValue": 0.015
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleSlider, CoreNodeModels",
+      "NumberType": "Double",
+      "MaximumValue": 0.08,
+      "MinimumValue": 0.02,
+      "StepValue": 0.001,
+      "Id": "105725b161694d57b8f334134fc5fb44",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "a083fca7ea6e472c88092ffbdf3d7c4a",
+          "Name": "",
+          "Description": "GLASS SETBACK",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces numeric values",
+      "InputValue": 0.04
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleSlider, CoreNodeModels",
+      "NumberType": "Double",
+      "MaximumValue": 0.01,
+      "MinimumValue": 0.002,
+      "StepValue": 0.001,
+      "Id": "8ccabfcd98b148c18147cc71184ff2da",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "f7c27791cc68426daac6a7f0744a3798",
+          "Name": "",
+          "Description": "GASKET T",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces numeric values",
+      "InputValue": 0.004
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleSlider, CoreNodeModels",
+      "NumberType": "Double",
+      "MaximumValue": 0.02,
+      "MinimumValue": 0.005,
+      "StepValue": 0.001,
+      "Id": "17fe3a97bbcf400a8a3507abdda738ba",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "871478408acb445da3a6864f98d8786f",
+          "Name": "",
+          "Description": "GASKET W",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces numeric values",
+      "InputValue": 0.012
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleSlider, CoreNodeModels",
+      "NumberType": "Double",
+      "MaximumValue": 0.024,
+      "MinimumValue": 0.006,
+      "StepValue": 0.001,
+      "Id": "d3ef1990bff44938ad66783fdcf8ecfd",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "c1854ece37de47d09baef7b89fdf4cc4",
+          "Name": "",
+          "Description": "ISOLATOR W",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces numeric values",
+      "InputValue": 0.012
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleSlider, CoreNodeModels",
+      "NumberType": "Double",
+      "MaximumValue": 0.015,
+      "MinimumValue": 0.004,
+      "StepValue": 0.001,
+      "Id": "5595e927617e4909a1f08ce5da267f76",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "44f05dce688642779c93a25dcbfd3730",
+          "Name": "",
+          "Description": "PRESSURE PLATE T",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces numeric values",
+      "InputValue": 0.006
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleSlider, CoreNodeModels",
+      "NumberType": "Double",
+      "MaximumValue": 0.05,
+      "MinimumValue": 0.01,
+      "StepValue": 0.001,
+      "Id": "5143d28498ad49f0a5a660b4c3338e2e",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "ac92f39881ff49d682076158ceffa52a",
+          "Name": "",
+          "Description": "COVER CAP D",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces numeric values",
+      "InputValue": 0.02
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleSlider, CoreNodeModels",
+      "NumberType": "Double",
+      "MaximumValue": 0.5,
+      "MinimumValue": 0.15,
+      "StepValue": 0.1,
+      "Id": "fe794dec44174728adfc27ec61a4f21e",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "e0d00dc0c8da4cad9d943d022b277aa2",
+          "Name": "",
+          "Description": "SLAB T",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces numeric values",
+      "InputValue": 0.3
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleSlider, CoreNodeModels",
+      "NumberType": "Double",
+      "MaximumValue": 2.5,
+      "MinimumValue": 0.5,
+      "StepValue": 0.1,
+      "Id": "c89558e511a248399ede5a60dd7295ae",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "feb4afbf457546dfa5936e0066a4526b",
+          "Name": "",
+          "Description": "SLAB DEPTH",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces numeric values",
+      "InputValue": 1.5
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleSlider, CoreNodeModels",
+      "NumberType": "Double",
+      "MaximumValue": 0.05,
+      "MinimumValue": 0.005,
+      "StepValue": 0.1,
+      "Id": "72b4243578cd49f0b61606a711dd3359",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "2824674e85ed41288b8b89f7cb6c6e16",
+          "Name": "",
+          "Description": "SLAB INSET",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces numeric values",
+      "InputValue": 0.01
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleSlider, CoreNodeModels",
+      "NumberType": "Double",
+      "MaximumValue": 0.15,
+      "MinimumValue": 0.04,
+      "StepValue": 0.001,
+      "Id": "d04e5255c03340489c7434ed373711b4",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "9577466fc9a0415cb0efc3c6d8205c72",
+          "Name": "",
+          "Description": "BRACKET W",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces numeric values",
+      "InputValue": 0.08
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleSlider, CoreNodeModels",
+      "NumberType": "Double",
+      "MaximumValue": 0.3,
+      "MinimumValue": 0.08,
+      "StepValue": 0.001,
+      "Id": "4eed8d61cbb84781b675c24316787b32",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "f031345ece3a49e995f822f53ab9ae30",
+          "Name": "",
+          "Description": "BRACKET L1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces numeric values",
+      "InputValue": 0.15
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleSlider, CoreNodeModels",
+      "NumberType": "Double",
+      "MaximumValue": 0.25,
+      "MinimumValue": 0.06,
+      "StepValue": 0.001,
+      "Id": "cd9be4a0c23e45c2bf05628b74827d3c",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "8c382c9fe63546b39a7a3aae39f8cd7b",
+          "Name": "",
+          "Description": "BRACKET L2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces numeric values",
+      "InputValue": 0.12
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleSlider, CoreNodeModels",
+      "NumberType": "Double",
+      "MaximumValue": 0.016,
+      "MinimumValue": 0.004,
+      "StepValue": 0.001,
+      "Id": "40182fd99c064d2a80d33b55838b4b80",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "958c83219231448f9068e1d5f0704fcc",
+          "Name": "",
+          "Description": "BRACKET T",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Produces numeric values",
+      "InputValue": 0.008
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\nclr.AddReference('ProtoGeometry')\nfrom Autodesk.DesignScript.Geometry import *\nimport math\n\n# Map inputs from IN list\nnum_bays = int(IN[0]) if IN[0] is not None else 3\nnum_floors = int(IN[1]) if IN[1] is not None else 2\nbay_width = float(IN[2]) if IN[2] is not None else 1.50\nfloor_height = float(IN[3]) if IN[3] is not None else 3.50\n\nmullion_w = float(IN[4]) if IN[4] is not None else 0.060\nmullion_d = float(IN[5]) if IN[5] is not None else 0.150\nmullion_t = float(IN[6]) if IN[6] is not None else 0.003\n\ntransom_w = float(IN[7]) if IN[7] is not None else 0.060\ntransom_d = float(IN[8]) if IN[8] is not None else 0.120\ntransom_t = float(IN[9]) if IN[9] is not None else 0.003\n\nglass_outer_t = float(IN[10]) if IN[10] is not None else 0.006\nglass_inner_t = float(IN[11]) if IN[11] is not None else 0.006\nglass_gap_t = float(IN[12]) if IN[12] is not None else 0.016\nglass_reveal = float(IN[13]) if IN[13] is not None else 0.015\nglass_setback = float(IN[14]) if IN[14] is not None else 0.040\n\ngasket_t = float(IN[15]) if IN[15] is not None else 0.004\ngasket_w = float(IN[16]) if IN[16] is not None else 0.012\nisolator_w = float(IN[17]) if IN[17] is not None else 0.012\npressure_plate_t = float(IN[18]) if IN[18] is not None else 0.006\ncover_cap_d = float(IN[19]) if IN[19] is not None else 0.020\n\nslab_t = float(IN[20]) if IN[20] is not None else 0.30\nslab_depth = float(IN[21]) if IN[21] is not None else 1.50\nslab_inset = float(IN[22]) if IN[22] is not None else 0.010\n\nbracket_w = float(IN[23]) if IN[23] is not None else 0.080\nbracket_l1 = float(IN[24]) if IN[24] is not None else 0.150\nbracket_l2 = float(IN[25]) if IN[25] is not None else 0.120\nbracket_t = float(IN[26]) if IN[26] is not None else 0.008\n\nTOTAL_HEIGHT = num_floors * floor_height\n\ndef make_box(x_min, x_max, y_min, y_max, z_min, z_max):\n    try:\n        pt1 = Point.ByCoordinates(x_min, y_min, z_min)\n        pt2 = Point.ByCoordinates(x_max, y_max, z_max)\n        return Cuboid.ByCorners(pt1, pt2)\n    except:\n        return None\n\n# Coords grid\nX_grid = [i * bay_width for i in range(num_bays + 1)]\n\n# Define transom elevations\nZ_grid = []\nZ_grid.append(0.0) # Bottom boundary\nfor f in range(1, num_floors):\n    fz = f * floor_height\n    Z_grid.append(fz - 0.15) # Head transom\n    Z_grid.append(fz + 0.85) # Sill transom\nZ_grid.append(TOTAL_HEIGHT) # Top boundary\nZ_grid = sorted(list(set(Z_grid)))\n\nm_list = []\nt_list = []\ngo_list = []\ngi_list = []\ng_list = []\nb_list = []\ns_list = []\nfs_list = []\nfx_list = []\n\n# Mullions with Noses\nfor x in X_grid:\n    # Main chamber\n    y_front = -glass_setback + gasket_t\n    y_back  = y_front + mullion_d\n    m_brep = make_box(x - mullion_w*0.5, x + mullion_w*0.5, y_front, y_back, 0.0, TOTAL_HEIGHT)\n    if m_brep: m_list.append(m_brep)\n    \n    # Nose\n    nose_w = 0.024\n    y_nose_min = -glass_setback - glass_inner_t\n    y_nose_max = -glass_setback + gasket_t\n    m_nose_brep = make_box(x - nose_w*0.5, x + nose_w*0.5, y_nose_min, y_nose_max, 0.0, TOTAL_HEIGHT)\n    if m_nose_brep: m_list.append(m_nose_brep)\n\n# Transoms with Noses (placed at all Z_grid levels)\nfor k in range(len(Z_grid)):\n    z = Z_grid[k]\n\n    for i in range(num_bays):\n        x_start = X_grid[i] + mullion_w*0.5\n        x_end   = X_grid[i+1] - mullion_w*0.5\n        length  = x_end - x_start\n        if length <= 0: continue\n        \n        # Main transom profile\n        y_front = -glass_setback + gasket_t\n        y_back  = y_front + transom_d\n        t_brep = make_box(x_start, x_end, y_front, y_back, z - transom_w*0.5, z + transom_w*0.5)\n        if t_brep: t_list.append(t_brep)\n        \n        # Central nose\n        nose_w = 0.024\n        y_nose_min = -glass_setback - glass_inner_t\n        y_nose_max = -glass_setback + gasket_t\n        t_nose_brep = make_box(x_start, x_end, y_nose_min, y_nose_max, z - transom_w*0.5, z + transom_w*0.5)\n        if t_nose_brep: t_list.append(t_nose_brep)\n\n# Floor slabs and Fire Stop containment (intermediate slab levels only)\nfor f in range(1, num_floors):\n    z_floor = f * floor_height\n    y_mullion_back = -glass_setback + gasket_t + mullion_d\n    slab_edge_y = y_mullion_back + slab_inset\n    \n    # Slab\n    slab = make_box(0.0, num_bays * bay_width, slab_edge_y, slab_edge_y + slab_depth, z_floor - slab_t, z_floor)\n    if slab: s_list.append(slab)\n        \n    # Fire wool\n    firestop_wool = make_box(0.0, num_bays * bay_width, y_mullion_back, slab_edge_y, z_floor - slab_t, z_floor)\n    if firestop_wool: fs_list.append(firestop_wool)\n        \n    # Galvanized sheet\n    smoke_sheet = make_box(0.0, num_bays * bay_width, y_mullion_back, slab_edge_y + 0.050, z_floor, z_floor + 0.002)\n    if smoke_sheet: b_list.append(smoke_sheet)\n\n# Slab brackets (intermediate levels only)\nfor f in range(1, num_floors):\n    z_floor = f * floor_height\n    y_mullion_back = -glass_setback + gasket_t + mullion_d\n    slab_edge_y = y_mullion_back + slab_inset\n    for x in X_grid:\n        leg1_l = make_box(x - mullion_w*0.5 - bracket_t, x - mullion_w*0.5, slab_edge_y, slab_edge_y + bracket_l1, z_floor, z_floor + bracket_t)\n        leg2_l = make_box(x - mullion_w*0.5 - bracket_t, x - mullion_w*0.5, y_mullion_back - bracket_w, slab_edge_y, z_floor, z_floor + bracket_l2)\n        if leg1_l: b_list.append(leg1_l)\n        if leg2_l: b_list.append(leg2_l)\n        leg1_r = make_box(x + mullion_w*0.5, x + mullion_w*0.5 + bracket_t, slab_edge_y, slab_edge_y + bracket_l1, z_floor, z_floor + bracket_t)\n        leg2_r = make_box(x + mullion_w*0.5, x + mullion_w*0.5 + bracket_t, y_mullion_back - bracket_w, slab_edge_y, z_floor, z_floor + bracket_l2)\n        if leg1_r: b_list.append(leg1_r)\n        if leg2_r: b_list.append(leg2_r)\n\n# Gaskets and pressure plates on Mullions\ng_w_m = mullion_w * 0.5 - glass_reveal\nfor x in X_grid:\n    g_l = make_box(x - glass_reveal - g_w_m, x - glass_reveal, -glass_setback, -glass_setback + gasket_t, 0.0, TOTAL_HEIGHT)\n    g_r = make_box(x + glass_reveal, x + glass_reveal + g_w_m, -glass_setback, -glass_setback + gasket_t, 0.0, TOTAL_HEIGHT)\n    if g_l: g_list.append(g_l)\n    if g_r: g_list.append(g_r)\n    \n    gy_min = -glass_setback - glass_inner_t - glass_gap_t - glass_outer_t - gasket_t\n    gy_max = gy_min + gasket_t\n    og_l = make_box(x - glass_reveal - g_w_m, x - glass_reveal, gy_min, gy_max, 0.0, TOTAL_HEIGHT)\n    og_r = make_box(x + glass_reveal, x + glass_reveal + g_w_m, gy_min, gy_max, 0.0, TOTAL_HEIGHT)\n    if og_l: g_list.append(og_l)\n    if og_r: g_list.append(og_r)\n    \n    iy_min = -glass_setback - glass_inner_t - glass_gap_t - glass_outer_t\n    iy_max = -glass_setback - glass_inner_t\n    ti = make_box(x - isolator_w*0.5, x + isolator_w*0.5, iy_min, iy_max, 0.0, TOTAL_HEIGHT)\n    if ti: t_list.append(ti)\n    \n    py_min = -glass_setback - glass_inner_t - glass_gap_t - glass_outer_t - gasket_t - pressure_plate_t\n    py_max = py_min + pressure_plate_t\n    pp = make_box(x - mullion_w*0.5, x + mullion_w*0.5, py_min, py_max, 0.0, TOTAL_HEIGHT)\n    if pp: t_list.append(pp)\n\n    # Detailed Snap-on Cover Cap (chamfered polygon)\n    try:\n        pts_c = [\n            Point.ByCoordinates(x - mullion_w*0.5, py_min, 0.0),\n            Point.ByCoordinates(x - mullion_w*0.5, py_min - cover_cap_d + 0.006, 0.0),\n            Point.ByCoordinates(x - mullion_w*0.5 + 0.006, py_min - cover_cap_d, 0.0),\n            Point.ByCoordinates(x + mullion_w*0.5 - 0.006, py_min - cover_cap_d, 0.0),\n            Point.ByCoordinates(x + mullion_w*0.5, py_min - cover_cap_d + 0.006, 0.0),\n            Point.ByCoordinates(x + mullion_w*0.5, py_min, 0.0),\n            Point.ByCoordinates(x - mullion_w*0.5, py_min, 0.0)\n        ]\n        cap = PolyCurve.ByPoints(pts_c).ExtrudeAsSolid(Vector.ByCoordinates(0, 0, 1), TOTAL_HEIGHT)\n        if cap: t_list.append(cap)\n    except:\n        # Fallback to simple box representation\n        cap = make_box(x - mullion_w*0.5, x + mullion_w*0.5, py_min - cover_cap_d, py_min, 0.0, TOTAL_HEIGHT)\n        if cap: t_list.append(cap)\n\n    # Screws as cylinders\n    screw_spacing = 0.35; screw_rad = 0.004; screw_len = 0.090\n    cur_z = 0.1\n    while cur_z < TOTAL_HEIGHT:\n        pt1 = Point.ByCoordinates(x, py_min, cur_z)\n        pt2 = Point.ByCoordinates(x, py_min + screw_len, cur_z)\n        cyl = Cylinder.ByPointsRadius(pt1, pt2, screw_rad)\n        if cyl: fx_list.append(cyl)\n        cur_z += screw_spacing\n\n# Gaskets and accessories on Transoms\ng_w_t = transom_w * 0.5 - glass_reveal\nfor k in range(len(Z_grid)):\n    z = Z_grid[k]\n\n    for i in range(num_bays):\n        x_start = X_grid[i] + mullion_w*0.5\n        x_end   = X_grid[i+1] - mullion_w*0.5\n        length  = x_end - x_start\n        if length <= 0: continue\n        \n        gy_min = -glass_setback - glass_inner_t - glass_gap_t - glass_outer_t - gasket_t\n        gy_max = gy_min + gasket_t\n\n        # Top Gaskets - skip if top boundary\n        if k < len(Z_grid) - 1:\n            g_t = make_box(x_start, x_end, -glass_setback, -glass_setback + gasket_t, z + glass_reveal, z + glass_reveal + g_w_t)\n            if g_t: g_list.append(g_t)\n            \n            og_t = make_box(x_start, x_end, gy_min, gy_max, z + glass_reveal, z + glass_reveal + g_w_t)\n            if og_t: g_list.append(og_t)\n\n        # Bottom Gaskets - skip if bottom boundary\n        if k > 0:\n            g_b = make_box(x_start, x_end, -glass_setback, -glass_setback + gasket_t, z - glass_reveal - g_w_t, z - glass_reveal)\n            if g_b: g_list.append(g_b)\n            \n            og_b = make_box(x_start, x_end, gy_min, gy_max, z - glass_reveal - g_w_t, z - glass_reveal)\n            if og_b: g_list.append(og_b)\n        \n        iy_min = -glass_setback - glass_inner_t - glass_gap_t - glass_outer_t\n        iy_max = -glass_setback - glass_inner_t\n        ti = make_box(x_start, x_end, iy_min, iy_max, z - isolator_w*0.5, z + isolator_w*0.5)\n        if ti: t_list.append(ti)\n        \n        py_min = -glass_setback - glass_inner_t - glass_gap_t - glass_outer_t - gasket_t - pressure_plate_t\n        py_max = py_min + pressure_plate_t\n        pp = make_box(x_start, x_end, py_min, py_max, z - transom_w*0.5, z + transom_w*0.5)\n        if pp: t_list.append(pp)\n\n        # Snap-on Transom Cover Cap (chamfered polygon in YZ plane extruded along X)\n        try:\n            pts_c = [\n                Point.ByCoordinates(x_start, py_min, z + transom_w*0.5),\n                Point.ByCoordinates(x_start, py_min - cover_cap_d + 0.006, z + transom_w*0.5),\n                Point.ByCoordinates(x_start, py_min - cover_cap_d, z + transom_w*0.5 - 0.006),\n                Point.ByCoordinates(x_start, py_min - cover_cap_d, z - transom_w*0.5 + 0.006),\n                Point.ByCoordinates(x_start, py_min - cover_cap_d + 0.006, z - transom_w*0.5),\n                Point.ByCoordinates(x_start, py_min, z - transom_w*0.5),\n                Point.ByCoordinates(x_start, py_min, z + transom_w*0.5)\n            ]\n            cap = PolyCurve.ByPoints(pts_c).ExtrudeAsSolid(Vector.ByCoordinates(1, 0, 0), length)\n            if cap: t_list.append(cap)\n        except:\n            # Fallback to simple box representation\n            cap = make_box(x_start, x_end, py_min - cover_cap_d, py_min, z - transom_w*0.5, z + transom_w*0.5)\n            if cap: t_list.append(cap)\n\n        # Screws\n        screw_spacing = 0.35; screw_rad = 0.004; screw_len = 0.090\n        cur_x = x_start + 0.1\n        while cur_x < x_end:\n            pt1 = Point.ByCoordinates(cur_x, py_min, z)\n            pt2 = Point.ByCoordinates(cur_x, py_min + screw_len, z)\n            cyl = Cylinder.ByPointsRadius(pt1, pt2, screw_rad)\n            if cyl: fx_list.append(cyl)\n            cur_x += screw_spacing\n\n# IGUs\nfor k in range(len(Z_grid) - 1):\n    z_start = Z_grid[k]\n    z_end   = Z_grid[k+1]\n    for i in range(num_bays):\n        x_start = X_grid[i]; x_end = X_grid[i+1]\n        x1 = x_start + glass_reveal; x2 = x_end - glass_reveal\n        z1 = z_start + glass_reveal; z2 = z_end - glass_reveal\n        if x2 - x1 <= 0 or z2 - z1 <= 0: continue\n        \n        # Inner Glass\n        y_in_min = -glass_setback - glass_inner_t\n        y_in_max = -glass_setback\n        glass_in = make_box(x1, x2, y_in_min, y_in_max, z1, z2)\n        if glass_in: gi_list.append(glass_in)\n\n        # Outer Glass\n        y_ot_min = -glass_setback - glass_inner_t - glass_gap_t - glass_outer_t\n        y_ot_max = y_ot_min + glass_outer_t\n        glass_ot = make_box(x1, x2, y_ot_min, y_ot_max, z1, z2)\n        if glass_ot: go_list.append(glass_ot)\n\n        # Spacers and sealant\n        sp_offset = 0.015; sp_width = 0.012\n        sx1 = x1 + sp_offset; sx2 = x2 - sp_offset\n        sz1 = z1 + sp_offset; sz2 = z2 - sp_offset\n        sy_min_spacer = -glass_setback - glass_inner_t - glass_gap_t\n        sy_max_spacer = -glass_setback - glass_inner_t\n        if sx2 - sx1 > 0 and sz2 - sz1 > 0:\n            sp_l = make_box(sx1, sx1 + sp_width, sy_min_spacer, sy_max_spacer, sz1, sz2)\n            sp_r = make_box(sx2 - sp_width, sx2, sy_min_spacer, sy_max_spacer, sz1, sz2)\n            sp_b = make_box(sx1 + sp_width, sx2 - sp_width, sy_min_spacer, sy_max_spacer, sz1, sz1 + sp_width)\n            sp_t = make_box(sx1 + sp_width, sx2 - sp_width, sy_min_spacer, sy_max_spacer, sz2 - sp_width, sz2)\n            for sp in (sp_l, sp_r, sp_b, sp_t):\n                if sp: t_list.append(sp)\n\n            se_l = make_box(x1, sx1, sy_min_spacer, sy_max_spacer, z1, z2)\n            se_r = make_box(sx2, x2, sy_min_spacer, sy_max_spacer, z1, z2)\n            se_b = make_box(sx1, sx2, sy_min_spacer, sy_max_spacer, z1, sz1)\n            se_t = make_box(sx1, sx2, sy_min_spacer, sy_max_spacer, sz2, z2)\n            for se in (se_l, se_r, se_b, se_t):\n                if se: t_list.append(se)\n\nOUT = [m_list, t_list, go_list, gi_list, g_list, b_list, s_list, fs_list, fx_list]\n",
+      "Engine": "PythonNet3",
+      "VariableInputPorts": true,
+      "Id": "ff9c2f0f66f24022b11fefba48402ac0",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "7580cb76ba074600bbca28e9ed72b18a",
+          "Name": "in_0",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "eb60dfbd82da4664b8fdc0182d8e1448",
+          "Name": "in_1",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "687af158da074e4997995f90389f0a6e",
+          "Name": "in_2",
+          "Description": "Input #2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "f2b4d6ff06424551babd627d8203bda5",
+          "Name": "in_3",
+          "Description": "Input #3",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "d746e471c13b49cfbdca128ee68c987f",
+          "Name": "in_4",
+          "Description": "Input #4",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "42a96191615a4f908b2696ee9198540f",
+          "Name": "in_5",
+          "Description": "Input #5",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "e534389c4cfb4bf698ccc49b5f854bc1",
+          "Name": "in_6",
+          "Description": "Input #6",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "c6001667d7aa401196a0adfc16af057a",
+          "Name": "in_7",
+          "Description": "Input #7",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "fba8872223aa4f0ba37e9fe1928d2e29",
+          "Name": "in_8",
+          "Description": "Input #8",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "6e8dbbdd14564718b5f7fde760d014cc",
+          "Name": "in_9",
+          "Description": "Input #9",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "f9b04122892840d193b1af64bbbfbb18",
+          "Name": "in_10",
+          "Description": "Input #10",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "e13d06fd16af409e9120f3feefc42437",
+          "Name": "in_11",
+          "Description": "Input #11",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "2c0ed2d2880243e1901fce64c56478bf",
+          "Name": "in_12",
+          "Description": "Input #12",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "a941fe9769ee49cfb4ab0957a797763d",
+          "Name": "in_13",
+          "Description": "Input #13",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "fc6a538e31d9408e9a97e1ed7760d206",
+          "Name": "in_14",
+          "Description": "Input #14",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "e33874576c3f4a11b61fb4a18eda8116",
+          "Name": "in_15",
+          "Description": "Input #15",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "0938d85d52f843899610162c44839848",
+          "Name": "in_16",
+          "Description": "Input #16",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "11771e96fca942a58ec68e03a74fa622",
+          "Name": "in_17",
+          "Description": "Input #17",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "f881934390f24013add689c7ca53a9f6",
+          "Name": "in_18",
+          "Description": "Input #18",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "37cc7c3e03c74d849b6401c509646152",
+          "Name": "in_19",
+          "Description": "Input #19",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "54228213f1c04de5ae72f19b2096facf",
+          "Name": "in_20",
+          "Description": "Input #20",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "afafff4b817b4163857ba04e65f5b33c",
+          "Name": "in_21",
+          "Description": "Input #21",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "1ae5bdf37e354f6d8350cb7038aba9f4",
+          "Name": "in_22",
+          "Description": "Input #22",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "aeb752395a7e4bc2b20a1c9a85f5db9c",
+          "Name": "in_23",
+          "Description": "Input #23",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "9807f0decc8b4329a835320a1b78500c",
+          "Name": "in_24",
+          "Description": "Input #24",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "b97759b0b5024fa79acbcee24a5feaf9",
+          "Name": "in_25",
+          "Description": "Input #25",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "2e08e4e9dc434feca05cf2cd9c2500a4",
+          "Name": "in_26",
+          "Description": "Input #26",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "9d21ba43e05f44e78a7d66477c2961ee",
+          "Name": "OUT",
+          "Description": "Engine Output",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Runs an embedded Python script."
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "Id": "2d1fde34e06f435dbfd0b06358331805",
+      "NodeType": "CodeBlockNode",
+      "Inputs": [
+        {
+          "Id": "83cf80ac685c4b37b7cef54e4df4553e",
+          "Name": "data",
+          "Description": "data",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "60a5f94ec1404907b114572ea374a9bf",
+          "Name": "mullions",
+          "Description": "mullions = DesignScript.Builtin.Get.ValueAtIndex(data, 0)",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "a2695ac386c84b328db05ac314f448e4",
+          "Name": "transoms",
+          "Description": "transoms = DesignScript.Builtin.Get.ValueAtIndex(data, 1)",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "e6027553888540568841b588a890f90d",
+          "Name": "glass_outer",
+          "Description": "glass_outer = DesignScript.Builtin.Get.ValueAtIndex(data, 2)",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "cd48b6f7cdef4184bc709a9719e6069b",
+          "Name": "glass_inner",
+          "Description": "glass_inner = DesignScript.Builtin.Get.ValueAtIndex(data, 3)",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "a70689410fe14e74a7b1ac609a6e2773",
+          "Name": "gaskets",
+          "Description": "gaskets = DesignScript.Builtin.Get.ValueAtIndex(data, 4)",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "cdda8c6074374a3a9e6da10d4eb6cf77",
+          "Name": "brackets",
+          "Description": "brackets = DesignScript.Builtin.Get.ValueAtIndex(data, 5)",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "54f4c97532644c27ad9dc4a2aed02f05",
+          "Name": "slabs",
+          "Description": "slabs = DesignScript.Builtin.Get.ValueAtIndex(data, 6)",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "4e430e799c854d7683a59c0f306877b7",
+          "Name": "firestops",
+          "Description": "firestops = DesignScript.Builtin.Get.ValueAtIndex(data, 7)",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "defc42a7a61049c4ad62e95e7b747195",
+          "Name": "fixings",
+          "Description": "fixings = DesignScript.Builtin.Get.ValueAtIndex(data, 8)",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Allows for DesignScript code to be authored directly",
+      "Code": "mullions = data[0];\ntransoms = data[1];\nglass_outer = data[2];\nglass_inner = data[3];\ngaskets = data[4];\nbrackets = data[5];\nslabs = data[6];\nfirestops = data[7];\nfixings = data[8];"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "Id": "a3e555303b5e4da5a6840ffb530f84a3",
+      "NodeType": "CodeBlockNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "3eed8abdc14346d2a0e0416effdd33ff",
+          "Name": "c_mullion",
+          "Description": "c_mullion = DSCore.Color.ByARGB(255, 35, 38, 46)",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "4fc8d21c11e64bcd9ec56ba84137a567",
+          "Name": "c_transom",
+          "Description": "c_transom = DSCore.Color.ByARGB(255, 50, 55, 65)",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "6498a603f7f44230a81cc183058ef3ac",
+          "Name": "c_glass_ot",
+          "Description": "c_glass_ot = DSCore.Color.ByARGB(120, 60, 140, 210)",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "bad88f2cb4664356a19bd58772836fb2",
+          "Name": "c_glass_in",
+          "Description": "c_glass_in = DSCore.Color.ByARGB(60, 170, 210, 240)",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "c99b8c715fa14f2cbb5cb6db1368274f",
+          "Name": "c_gaskets",
+          "Description": "c_gaskets = DSCore.Color.ByARGB(255, 20, 20, 20)",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "610cfaf8430d41209532314af54e95d0",
+          "Name": "c_brackets",
+          "Description": "c_brackets = DSCore.Color.ByARGB(255, 120, 120, 125)",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "42163ece32fa41aa9d07564471a6f7e0",
+          "Name": "c_slabs",
+          "Description": "c_slabs = DSCore.Color.ByARGB(255, 160, 155, 145)",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "aabffea6523f4a4698b4f478f23632c4",
+          "Name": "c_firestops",
+          "Description": "c_firestops = DSCore.Color.ByARGB(255, 180, 160, 100)",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "dc0afac0bbdf44be9bba591ad74384ab",
+          "Name": "c_fixings",
+          "Description": "c_fixings = DSCore.Color.ByARGB(255, 220, 220, 225)",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Allows for DesignScript code to be authored directly",
+      "Code": "c_mullion = DSCore.Color.ByARGB(255, 35, 38, 46);\nc_transom = DSCore.Color.ByARGB(255, 50, 55, 65);\nc_glass_ot = DSCore.Color.ByARGB(120, 60, 140, 210);\nc_glass_in = DSCore.Color.ByARGB(60, 170, 210, 240);\nc_gaskets = DSCore.Color.ByARGB(255, 20, 20, 20);\nc_brackets = DSCore.Color.ByARGB(255, 120, 120, 125);\nc_slabs = DSCore.Color.ByARGB(255, 160, 155, 145);\nc_firestops = DSCore.Color.ByARGB(255, 180, 160, 100);\nc_fixings = DSCore.Color.ByARGB(255, 220, 220, 225);"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "Id": "38d376e4a74c486298564a8d34b5df2d",
+      "NodeType": "FunctionNode",
+      "Inputs": [
+        {
+          "Id": "5cf15a289b484b68b7ef0e9c8f8e0e13",
+          "Name": "geometry",
+          "Description": "The geometry to which you would like to apply color.\n\nGeometry",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "df05b85705184536be24cde860441b94",
+          "Name": "color",
+          "Description": "The color.\n\nColor",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "7e09a67f763e4e4a8c388d0a8f53a17d",
+          "Name": "GeometryColor",
+          "Description": "A Display object.",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "FunctionSignature": "Modifiers.GeometryColor.ByGeometryColor@Autodesk.DesignScript.Geometry.Geometry,DSCore.Color",
+      "Replication": "Auto",
+      "Description": "Display geometry using a color.\n\nGeometryColor.ByGeometryColor (geometry: Geometry, color: Color): GeometryColor"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "Id": "d4cc672c845e4e7bbbb7a2e5a15b79c2",
+      "NodeType": "FunctionNode",
+      "Inputs": [
+        {
+          "Id": "7ca71ebc74634df5a4f2c7275647b64f",
+          "Name": "geometry",
+          "Description": "The geometry to which you would like to apply color.\n\nGeometry",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "601149504c714ae4813ae1ec5293b11d",
+          "Name": "color",
+          "Description": "The color.\n\nColor",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "2ea3dde479c7487b8b3c05c3df53bded",
+          "Name": "GeometryColor",
+          "Description": "A Display object.",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "FunctionSignature": "Modifiers.GeometryColor.ByGeometryColor@Autodesk.DesignScript.Geometry.Geometry,DSCore.Color",
+      "Replication": "Auto",
+      "Description": "Display geometry using a color.\n\nGeometryColor.ByGeometryColor (geometry: Geometry, color: Color): GeometryColor"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "Id": "18307a4a218f481d9c42e8976d64b1eb",
+      "NodeType": "FunctionNode",
+      "Inputs": [
+        {
+          "Id": "0c4b9138b0654f39b2cf3b25a3e85950",
+          "Name": "geometry",
+          "Description": "The geometry to which you would like to apply color.\n\nGeometry",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "32cd2b0cb9cb431291b5a8af0863cccb",
+          "Name": "color",
+          "Description": "The color.\n\nColor",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "48b78b101623463a9fc4fb34bb9c1e41",
+          "Name": "GeometryColor",
+          "Description": "A Display object.",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "FunctionSignature": "Modifiers.GeometryColor.ByGeometryColor@Autodesk.DesignScript.Geometry.Geometry,DSCore.Color",
+      "Replication": "Auto",
+      "Description": "Display geometry using a color.\n\nGeometryColor.ByGeometryColor (geometry: Geometry, color: Color): GeometryColor"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "Id": "781f5162975d4ecf9d4a6904689cdb01",
+      "NodeType": "FunctionNode",
+      "Inputs": [
+        {
+          "Id": "c782afd70f72460fbdc92e3d27c3de99",
+          "Name": "geometry",
+          "Description": "The geometry to which you would like to apply color.\n\nGeometry",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "feee51c6a34d426fa2cb54d40569ff2f",
+          "Name": "color",
+          "Description": "The color.\n\nColor",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "df1f948159674e9eb2cb382cb03bc9c8",
+          "Name": "GeometryColor",
+          "Description": "A Display object.",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "FunctionSignature": "Modifiers.GeometryColor.ByGeometryColor@Autodesk.DesignScript.Geometry.Geometry,DSCore.Color",
+      "Replication": "Auto",
+      "Description": "Display geometry using a color.\n\nGeometryColor.ByGeometryColor (geometry: Geometry, color: Color): GeometryColor"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "Id": "adb7d620a97044299c47f980007b55d0",
+      "NodeType": "FunctionNode",
+      "Inputs": [
+        {
+          "Id": "b43c9416c55e4d5295debc8f69f2fafc",
+          "Name": "geometry",
+          "Description": "The geometry to which you would like to apply color.\n\nGeometry",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "d7abc59e74db42cc8946548ce04abf31",
+          "Name": "color",
+          "Description": "The color.\n\nColor",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "dcb6e749c76046eebaedfce2accee005",
+          "Name": "GeometryColor",
+          "Description": "A Display object.",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "FunctionSignature": "Modifiers.GeometryColor.ByGeometryColor@Autodesk.DesignScript.Geometry.Geometry,DSCore.Color",
+      "Replication": "Auto",
+      "Description": "Display geometry using a color.\n\nGeometryColor.ByGeometryColor (geometry: Geometry, color: Color): GeometryColor"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "Id": "d6eb6a215bf94b9a83ae0d4f1b029686",
+      "NodeType": "FunctionNode",
+      "Inputs": [
+        {
+          "Id": "1ca58ba8974d4ede892821dc0a77ae5a",
+          "Name": "geometry",
+          "Description": "The geometry to which you would like to apply color.\n\nGeometry",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "44de613dda9949b58d35043014cd06c7",
+          "Name": "color",
+          "Description": "The color.\n\nColor",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "bdc6760dc01d49f49208314b86ae4698",
+          "Name": "GeometryColor",
+          "Description": "A Display object.",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "FunctionSignature": "Modifiers.GeometryColor.ByGeometryColor@Autodesk.DesignScript.Geometry.Geometry,DSCore.Color",
+      "Replication": "Auto",
+      "Description": "Display geometry using a color.\n\nGeometryColor.ByGeometryColor (geometry: Geometry, color: Color): GeometryColor"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "Id": "339ba37bbcbf4604ba465a1668e9e71c",
+      "NodeType": "FunctionNode",
+      "Inputs": [
+        {
+          "Id": "5b85fe115dcc409ea47cf810d6c828b2",
+          "Name": "geometry",
+          "Description": "The geometry to which you would like to apply color.\n\nGeometry",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "8fd59bad6fb344a7b23352d25c1572ca",
+          "Name": "color",
+          "Description": "The color.\n\nColor",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "7a350644973c49af80695b8cc3c996a4",
+          "Name": "GeometryColor",
+          "Description": "A Display object.",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "FunctionSignature": "Modifiers.GeometryColor.ByGeometryColor@Autodesk.DesignScript.Geometry.Geometry,DSCore.Color",
+      "Replication": "Auto",
+      "Description": "Display geometry using a color.\n\nGeometryColor.ByGeometryColor (geometry: Geometry, color: Color): GeometryColor"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "Id": "3f33572adcbc4550b828cb43753e1068",
+      "NodeType": "FunctionNode",
+      "Inputs": [
+        {
+          "Id": "4a86bc4b697b45e1b851c33bf0973b65",
+          "Name": "geometry",
+          "Description": "The geometry to which you would like to apply color.\n\nGeometry",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "a46427f6c7e9496480a64d8698a2f786",
+          "Name": "color",
+          "Description": "The color.\n\nColor",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "80738ce30f044ac18a27aaf31e2dc0db",
+          "Name": "GeometryColor",
+          "Description": "A Display object.",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "FunctionSignature": "Modifiers.GeometryColor.ByGeometryColor@Autodesk.DesignScript.Geometry.Geometry,DSCore.Color",
+      "Replication": "Auto",
+      "Description": "Display geometry using a color.\n\nGeometryColor.ByGeometryColor (geometry: Geometry, color: Color): GeometryColor"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "Id": "e6c587978eab492795075a507f431983",
+      "NodeType": "FunctionNode",
+      "Inputs": [
+        {
+          "Id": "8c94c5ff247c4bd0a3059497f96e8d5c",
+          "Name": "geometry",
+          "Description": "The geometry to which you would like to apply color.\n\nGeometry",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "e23b49a7329542759452ecae4de934ef",
+          "Name": "color",
+          "Description": "The color.\n\nColor",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "16c05e2c00284a80b93d229172da52ba",
+          "Name": "GeometryColor",
+          "Description": "A Display object.",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "FunctionSignature": "Modifiers.GeometryColor.ByGeometryColor@Autodesk.DesignScript.Geometry.Geometry,DSCore.Color",
+      "Replication": "Auto",
+      "Description": "Display geometry using a color.\n\nGeometryColor.ByGeometryColor (geometry: Geometry, color: Color): GeometryColor"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "Id": "4e58b8782643421ebb538af34ba03b10",
+      "NodeType": "CodeBlockNode",
+      "Inputs": [
+        {
+          "Id": "7f7442ddd086491e879837b6b3aaed0f",
+          "Name": "num_bays",
+          "Description": "num_bays",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "ce3c6a63b15943318571454d7838c07a",
+          "Name": "bay_width",
+          "Description": "bay_width",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "ca97ceb06718439195f4b566208f494e",
+          "Name": "num_floors",
+          "Description": "num_floors",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "c2db1878954e4f36bf8c7ab3c31821ef",
+          "Name": "floor_height",
+          "Description": "floor_height",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "002929fe3b25431da7174d04d10a62d2",
+          "Name": "area",
+          "Description": "area = (num_bays * bay_width) * (num_floors * floor_height)",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "b9d2107fe2b84a3c8c06ca6556a980b1",
+          "Name": "cost",
+          "Description": "cost = area * 650",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Allows for DesignScript code to be authored directly",
+      "Code": "area = (num_bays * bay_width) * (num_floors * floor_height);\ncost = area * 650.0;"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 42.5,
+      "WatchHeight": 40.0,
+      "Id": "bd7df917d96d40ca99f8ecc0e6759797",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "e624314e6cbe4d20b6079c48d65e278b",
+          "Name": "",
+          "Description": "Incoming data.",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "5d0c770d74394d9392616e96cc20cc71",
+          "Name": "",
+          "Description": "Watch contents.",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Visualizes a node's output"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 57.5,
+      "WatchHeight": 40.0,
+      "Id": "9f963a9799cc4f3c8d02c50382a0acc7",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "49824b21c8314e319df886bca62701e7",
+          "Name": "",
+          "Description": "Incoming data.",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "d19db200a4074d4e818ea51c4a214968",
+          "Name": "",
+          "Description": "Watch contents.",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Visualizes a node's output"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "aa32f57e169f4b45919ac9fcda2567a6",
+      "End": "7580cb76ba074600bbca28e9ed72b18a",
+      "Id": "07cce8fa2c244896bbed6050af52c4f5",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "aa32f57e169f4b45919ac9fcda2567a6",
+      "End": "7f7442ddd086491e879837b6b3aaed0f",
+      "Id": "f28df1b7203740289827fc19446f6f66",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "7a23d5a543f2485d9609083d70fcec6f",
+      "End": "eb60dfbd82da4664b8fdc0182d8e1448",
+      "Id": "003fc635eea14b27a1443d9989cf36c8",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "7a23d5a543f2485d9609083d70fcec6f",
+      "End": "ca97ceb06718439195f4b566208f494e",
+      "Id": "3f5c0a4c8baa487aa598301de1c851cd",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "6f0e12fd6b0945ff97b7c472141864d9",
+      "End": "687af158da074e4997995f90389f0a6e",
+      "Id": "c1e9e0970a444f11922abd7113112684",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "6f0e12fd6b0945ff97b7c472141864d9",
+      "End": "ce3c6a63b15943318571454d7838c07a",
+      "Id": "18fb3575f6a24c53b9d86f487a58027d",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "df9eecb5393c41d38916c034b1e892c0",
+      "End": "f2b4d6ff06424551babd627d8203bda5",
+      "Id": "4c5a6e21a1164f67bf4ecbf16a631743",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "df9eecb5393c41d38916c034b1e892c0",
+      "End": "c2db1878954e4f36bf8c7ab3c31821ef",
+      "Id": "ad93df090dc040e2b583a660483118bf",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "214893190dbb41469846ec6e4ec22656",
+      "End": "d746e471c13b49cfbdca128ee68c987f",
+      "Id": "0c942d5499844796b03a45478c1930cd",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "70fa1c649d8e46848df8ab1bcdb24b52",
+      "End": "42a96191615a4f908b2696ee9198540f",
+      "Id": "98d06f5257624a62a50137b7c86f89fb",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "36aa2b3119964dd6b3c3a1c88e91fe72",
+      "End": "e534389c4cfb4bf698ccc49b5f854bc1",
+      "Id": "fe54d3055c784613949912d93efc2c02",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "dba0cd96ff574b6da132e6d04a45d252",
+      "End": "c6001667d7aa401196a0adfc16af057a",
+      "Id": "12e03ee737f14b99b614ed7a6b9e661a",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "98e82c722c80476c99301b8f7d251643",
+      "End": "fba8872223aa4f0ba37e9fe1928d2e29",
+      "Id": "14e4a76716a74a56b038211c84c9b546",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "467c26d243ef4040b360133208edc2db",
+      "End": "6e8dbbdd14564718b5f7fde760d014cc",
+      "Id": "84334219252343c4b24d4b2e5e76dbd9",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "4da2501efbca4e72b41da5278c519764",
+      "End": "f9b04122892840d193b1af64bbbfbb18",
+      "Id": "5d5eff2ae18b4472be4e35d58fc2d00c",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "d2fc5b8fedb144b68cc7a73ca51d1279",
+      "End": "e13d06fd16af409e9120f3feefc42437",
+      "Id": "081199df5276436d88cb3da1ecdf9b52",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "53a7ec1f1125404f84e908df397d5b33",
+      "End": "2c0ed2d2880243e1901fce64c56478bf",
+      "Id": "4591fbacd8704ab98ed9242437ff12fe",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "ec940296327a4b488a75fa21e086bbe1",
+      "End": "a941fe9769ee49cfb4ab0957a797763d",
+      "Id": "e11a0d90f5d14836819f90a4c8d12165",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "a083fca7ea6e472c88092ffbdf3d7c4a",
+      "End": "fc6a538e31d9408e9a97e1ed7760d206",
+      "Id": "9392e830da0e4c2590b745a841a6aa1e",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "f7c27791cc68426daac6a7f0744a3798",
+      "End": "e33874576c3f4a11b61fb4a18eda8116",
+      "Id": "aa655fbc3d5744cebe34da8dab02dbc1",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "871478408acb445da3a6864f98d8786f",
+      "End": "0938d85d52f843899610162c44839848",
+      "Id": "830cf7f7d2ca4a348c8c46eb18a81fc6",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "c1854ece37de47d09baef7b89fdf4cc4",
+      "End": "11771e96fca942a58ec68e03a74fa622",
+      "Id": "60a2e89f9f394db899c438f1a5c5e6d7",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "44f05dce688642779c93a25dcbfd3730",
+      "End": "f881934390f24013add689c7ca53a9f6",
+      "Id": "e69a269bc52142c4a9b3cff27fd2cb93",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "ac92f39881ff49d682076158ceffa52a",
+      "End": "37cc7c3e03c74d849b6401c509646152",
+      "Id": "c70aabfa05f3441f99ab046e27a0bf7d",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "e0d00dc0c8da4cad9d943d022b277aa2",
+      "End": "54228213f1c04de5ae72f19b2096facf",
+      "Id": "b8030162a9664d26a7b2006f271756b0",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "feb4afbf457546dfa5936e0066a4526b",
+      "End": "afafff4b817b4163857ba04e65f5b33c",
+      "Id": "23968cfe1e244b7b8229b6fa63d0adfb",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "2824674e85ed41288b8b89f7cb6c6e16",
+      "End": "1ae5bdf37e354f6d8350cb7038aba9f4",
+      "Id": "8965f86d431141a888a6e723c0dcbc56",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "9577466fc9a0415cb0efc3c6d8205c72",
+      "End": "aeb752395a7e4bc2b20a1c9a85f5db9c",
+      "Id": "8ff28eff64a64b5087430bf14be36b15",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "f031345ece3a49e995f822f53ab9ae30",
+      "End": "9807f0decc8b4329a835320a1b78500c",
+      "Id": "6dd51affb1ea43b0a7c95598a6545a85",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "8c382c9fe63546b39a7a3aae39f8cd7b",
+      "End": "b97759b0b5024fa79acbcee24a5feaf9",
+      "Id": "2e899b38b1e647969e56ea4547190c84",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "958c83219231448f9068e1d5f0704fcc",
+      "End": "2e08e4e9dc434feca05cf2cd9c2500a4",
+      "Id": "49e90e7c3dba4d7b986cfe980363e4ae",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "9d21ba43e05f44e78a7d66477c2961ee",
+      "End": "83cf80ac685c4b37b7cef54e4df4553e",
+      "Id": "07b620f24699441c89b57eec9602eea2",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "60a5f94ec1404907b114572ea374a9bf",
+      "End": "5cf15a289b484b68b7ef0e9c8f8e0e13",
+      "Id": "64069faaf979452eb2e1c6234255ef0b",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "a2695ac386c84b328db05ac314f448e4",
+      "End": "7ca71ebc74634df5a4f2c7275647b64f",
+      "Id": "678918551ac54f5fbee91a8c728b8ac4",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "e6027553888540568841b588a890f90d",
+      "End": "0c4b9138b0654f39b2cf3b25a3e85950",
+      "Id": "a5ad2ab79c0b4ac38a5f1ebdd34ec110",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "cd48b6f7cdef4184bc709a9719e6069b",
+      "End": "c782afd70f72460fbdc92e3d27c3de99",
+      "Id": "c4a68a058c9b442d9c6b6e613c00cd88",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "a70689410fe14e74a7b1ac609a6e2773",
+      "End": "b43c9416c55e4d5295debc8f69f2fafc",
+      "Id": "33a82e7686ce4cbebab015ab7ce13c6b",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "cdda8c6074374a3a9e6da10d4eb6cf77",
+      "End": "1ca58ba8974d4ede892821dc0a77ae5a",
+      "Id": "a50a77f29b48491897d347d1ca2b3606",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "54f4c97532644c27ad9dc4a2aed02f05",
+      "End": "5b85fe115dcc409ea47cf810d6c828b2",
+      "Id": "912437b2b6ac4db0add89e1e589980a3",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "4e430e799c854d7683a59c0f306877b7",
+      "End": "4a86bc4b697b45e1b851c33bf0973b65",
+      "Id": "a3321f35e7cb4a25af7445511d510da2",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "defc42a7a61049c4ad62e95e7b747195",
+      "End": "8c94c5ff247c4bd0a3059497f96e8d5c",
+      "Id": "609a3e020afa441c8f9242611f7e382d",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "3eed8abdc14346d2a0e0416effdd33ff",
+      "End": "df05b85705184536be24cde860441b94",
+      "Id": "dd4c3f44cbe940cc8ecd13e47acb9193",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "4fc8d21c11e64bcd9ec56ba84137a567",
+      "End": "601149504c714ae4813ae1ec5293b11d",
+      "Id": "55c6936f34ba4da38860888f3031aae7",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "6498a603f7f44230a81cc183058ef3ac",
+      "End": "32cd2b0cb9cb431291b5a8af0863cccb",
+      "Id": "8dfd4f6e7f024c599394db010de31f12",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "bad88f2cb4664356a19bd58772836fb2",
+      "End": "feee51c6a34d426fa2cb54d40569ff2f",
+      "Id": "61e606eea37249d2b30be5c147b38fd0",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "c99b8c715fa14f2cbb5cb6db1368274f",
+      "End": "d7abc59e74db42cc8946548ce04abf31",
+      "Id": "508945948785450a8756ae6881646443",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "610cfaf8430d41209532314af54e95d0",
+      "End": "44de613dda9949b58d35043014cd06c7",
+      "Id": "00e6743369a141699b52bbb94f0a7965",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "42163ece32fa41aa9d07564471a6f7e0",
+      "End": "8fd59bad6fb344a7b23352d25c1572ca",
+      "Id": "ca2c7a20e7244aacab52b557d75b9624",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "aabffea6523f4a4698b4f478f23632c4",
+      "End": "a46427f6c7e9496480a64d8698a2f786",
+      "Id": "b47ded4f32114153953fa12b1ad18b90",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "dc0afac0bbdf44be9bba591ad74384ab",
+      "End": "e23b49a7329542759452ecae4de934ef",
+      "Id": "a6c633269fdb485ba0f02f72197e84c8",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "002929fe3b25431da7174d04d10a62d2",
+      "End": "e624314e6cbe4d20b6079c48d65e278b",
+      "Id": "18376856ed664153b9f9c1e330a3a88a",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "b9d2107fe2b84a3c8c06ca6556a980b1",
+      "End": "49824b21c8314e319df886bca62701e7",
+      "Id": "b4390fd64d364593a488c405d27a6ddb",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": false,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "Properties",
+      "Version": "4.1",
+      "Data": {}
+    }
+  ],
+  "Author": "AEC Computational Designer",
+  "Linting": {
+    "activeLinter": "None",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "4.1.0.4676",
+      "RunType": "Automatic",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "_Background Preview",
+      "EyeX": 24.04003143310547,
+      "EyeY": 14.398872375488281,
+      "EyeZ": 14.686155319213867,
+      "LookX": -21.99448013305664,
+      "LookY": -8.280454635620117,
+      "LookZ": -16.423992156982422,
+      "UpX": -0.038442812860012054,
+      "UpY": 0.9988484382629395,
+      "UpZ": -0.028706232085824013
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "3e0e8b6d7f9e4f72a9096f3aa765f5cc",
+        "Name": "NUM BAYS",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -1719.8928221570156,
+        "Y": -16.460349987498034
+      },
+      {
+        "Id": "b96e1661160a4f568027acdce1721213",
+        "Name": "NUM FLOORS",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -1489.8928221570156,
+        "Y": 143.53965001250197
+      },
+      {
+        "Id": "8da8966fc846481cb1ad4bb913a26f68",
+        "Name": "BAY WIDTH",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -1719.8928221570156,
+        "Y": 303.53965001250197
+      },
+      {
+        "Id": "a9a3b361afae4d0e8d09234e2a4f6c4b",
+        "Name": "FLOOR HEIGHT",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -1489.8928221570156,
+        "Y": 463.53965001250197
+      },
+      {
+        "Id": "67ba837e2cf34048a3ac6724e3810f7e",
+        "Name": "MULLION W",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -1727.7008722406376,
+        "Y": 704.30779498183
+      },
+      {
+        "Id": "b3c81662502348d0a2867ce7b8b793a8",
+        "Name": "MULLION D",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -1497.7008722406376,
+        "Y": 864.30779498183
+      },
+      {
+        "Id": "3a6f389ff69d4dc4a04257cda57125ad",
+        "Name": "MULLION T",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -1727.7008722406376,
+        "Y": 1024.30779498183
+      },
+      {
+        "Id": "3b7bdeac2fbb42a682ed97c235beeed0",
+        "Name": "TRANSOM W",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -1497.7008722406376,
+        "Y": 1184.30779498183
+      },
+      {
+        "Id": "565ddd5ca8df4d94b2b887c2d6472940",
+        "Name": "TRANSOM D",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -1727.7008722406376,
+        "Y": 1344.30779498183
+      },
+      {
+        "Id": "4c4744cf3adf4efd8bdba6aba598dcac",
+        "Name": "TRANSOM T",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -1497.7008722406376,
+        "Y": 1504.30779498183
+      },
+      {
+        "Id": "ccbf5a3058a44b02b69cbd1b532e5794",
+        "Name": "GLASS OUTER T",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -2433.732802195778,
+        "Y": 2221.42442109617
+      },
+      {
+        "Id": "12f316bae7934ad89bad9ac09df1fbeb",
+        "Name": "GLASS INNER T",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -2203.732802195778,
+        "Y": 2381.42442109617
+      },
+      {
+        "Id": "caaf874b70b7402a82ee4c9dc18e0b36",
+        "Name": "GLASS GAP T",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -2433.732802195778,
+        "Y": 2541.42442109617
+      },
+      {
+        "Id": "b3da8d4c6c78421a8ad297112f740389",
+        "Name": "GLASS REVEAL",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -2203.732802195778,
+        "Y": 2706.4244210961706
+      },
+      {
+        "Id": "105725b161694d57b8f334134fc5fb44",
+        "Name": "GLASS SETBACK",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -2433.732802195778,
+        "Y": 2866.4244210961706
+      },
+      {
+        "Id": "8ccabfcd98b148c18147cc71184ff2da",
+        "Name": "GASKET T",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -2433.732802195778,
+        "Y": 3092.4244210961697
+      },
+      {
+        "Id": "17fe3a97bbcf400a8a3507abdda738ba",
+        "Name": "GASKET W",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -2203.732802195778,
+        "Y": 3252.4244210961697
+      },
+      {
+        "Id": "d3ef1990bff44938ad66783fdcf8ecfd",
+        "Name": "ISOLATOR W",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -2433.732802195778,
+        "Y": 3412.42442109617
+      },
+      {
+        "Id": "5595e927617e4909a1f08ce5da267f76",
+        "Name": "PRESSURE PLATE T",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -2203.732802195778,
+        "Y": 3577.4244210961697
+      },
+      {
+        "Id": "5143d28498ad49f0a5a660b4c3338e2e",
+        "Name": "COVER CAP D",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -2433.732802195778,
+        "Y": 3737.4244210961697
+      },
+      {
+        "Id": "fe794dec44174728adfc27ec61a4f21e",
+        "Name": "SLAB T",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -2433.732802195778,
+        "Y": 3961.42442109617
+      },
+      {
+        "Id": "c89558e511a248399ede5a60dd7295ae",
+        "Name": "SLAB DEPTH",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -2203.732802195778,
+        "Y": 4121.42442109617
+      },
+      {
+        "Id": "72b4243578cd49f0b61606a711dd3359",
+        "Name": "SLAB INSET",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -2433.732802195778,
+        "Y": 4281.42442109617
+      },
+      {
+        "Id": "d04e5255c03340489c7434ed373711b4",
+        "Name": "BRACKET W",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -2203.732802195778,
+        "Y": 4441.42442109617
+      },
+      {
+        "Id": "4eed8d61cbb84781b675c24316787b32",
+        "Name": "BRACKET L1",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -2433.732802195778,
+        "Y": 4601.42442109617
+      },
+      {
+        "Id": "cd9be4a0c23e45c2bf05628b74827d3c",
+        "Name": "BRACKET L2",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -2203.732802195778,
+        "Y": 4761.42442109617
+      },
+      {
+        "Id": "40182fd99c064d2a80d33b55838b4b80",
+        "Name": "BRACKET T",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -2433.732802195778,
+        "Y": 4926.424421096171
+      },
+      {
+        "Id": "ff9c2f0f66f24022b11fefba48402ac0",
+        "Name": "KINETIC CURTAIN WALL ENGINE",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -1490.6694118945945,
+        "Y": 1941.975968221504
+      },
+      {
+        "Id": "2d1fde34e06f435dbfd0b06358331805",
+        "Name": "EXTRACT GEOMETRY CHANNELS",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -1550.0956249047315,
+        "Y": 3134.997744261373
+      },
+      {
+        "Id": "a3e555303b5e4da5a6840ffb530f84a3",
+        "Name": "MATERIAL COLOR SWATCHES",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -1717.270650846624,
+        "Y": 3524.8917845429614
+      },
+      {
+        "Id": "38d376e4a74c486298564a8d34b5df2d",
+        "Name": "RENDER: MULLIONS",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -1029.2643331442916,
+        "Y": 2221.734809328548
+      },
+      {
+        "Id": "d4cc672c845e4e7bbbb7a2e5a15b79c2",
+        "Name": "RENDER: TRANSOMS",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -1029.2643331442916,
+        "Y": 2381.734809328548
+      },
+      {
+        "Id": "18307a4a218f481d9c42e8976d64b1eb",
+        "Name": "RENDER: GLASS_OUTER",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -1029.2643331442916,
+        "Y": 2541.734809328548
+      },
+      {
+        "Id": "781f5162975d4ecf9d4a6904689cdb01",
+        "Name": "RENDER: GLASS_INNER",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -1029.2643331442916,
+        "Y": 2701.734809328548
+      },
+      {
+        "Id": "adb7d620a97044299c47f980007b55d0",
+        "Name": "RENDER: GASKETS",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -1029.2643331442916,
+        "Y": 2861.734809328548
+      },
+      {
+        "Id": "d6eb6a215bf94b9a83ae0d4f1b029686",
+        "Name": "RENDER: BRACKETS",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -1029.2643331442916,
+        "Y": 3021.734809328548
+      },
+      {
+        "Id": "339ba37bbcbf4604ba465a1668e9e71c",
+        "Name": "RENDER: SLABS",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -1029.2643331442916,
+        "Y": 3181.734809328548
+      },
+      {
+        "Id": "3f33572adcbc4550b828cb43753e1068",
+        "Name": "RENDER: FIRESTOPS",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -1029.2643331442916,
+        "Y": 3341.734809328548
+      },
+      {
+        "Id": "e6c587978eab492795075a507f431983",
+        "Name": "RENDER: FIXINGS",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -1029.2643331442916,
+        "Y": 3501.734809328548
+      },
+      {
+        "Id": "4e58b8782643421ebb538af34ba03b10",
+        "Name": "PERFORMANCE CALCULATOR",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -1414.8875227385731,
+        "Y": 4061.3805712970457
+      },
+      {
+        "Id": "bd7df917d96d40ca99f8ecc0e6759797",
+        "Name": "Watch: TOTAL AREA (m²)",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -661.8875227385731,
+        "Y": 3989.725571297046
+      },
+      {
+        "Id": "9f963a9799cc4f3c8d02c50382a0acc7",
+        "Name": "Watch: ESTIMATED COST ($)",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": false,
+        "X": -661.8875227385731,
+        "Y": 4149.7255712970455
+      }
+    ],
+    "Annotations": [
+      {
+        "Id": "6040cd10a6df4255924df88e6e1e5966",
+        "Title": "A: GRID & BAYS",
+        "DescriptionText": null,
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "UserSetWidth": 0.0,
+        "UserSetHeight": 0.0,
+        "Nodes": [
+          "3e0e8b6d7f9e4f72a9096f3aa765f5cc",
+          "b96e1661160a4f568027acdce1721213",
+          "8da8966fc846481cb1ad4bb913a26f68",
+          "a9a3b361afae4d0e8d09234e2a4f6c4b"
+        ],
+        "HasNestedGroups": false,
+        "Left": -1729.8928221570156,
+        "Top": -66.46034998749803,
+        "Width": 598.0,
+        "Height": 674.0,
+        "FontSize": 14.0,
+        "GroupStyleId": "00000000-0000-0000-0000-000000000000",
+        "InitialTop": -16.460349987498034,
+        "InitialHeight": 235.0,
+        "TextblockHeight": 40.0,
+        "IsOptionalInPortsCollapsed": false,
+        "IsUnconnectedOutPortsCollapsed": false,
+        "HasToggledOptionalInPorts": false,
+        "HasToggledUnconnectedOutPorts": false,
+        "Background": "#FFFFC999"
+      },
+      {
+        "Id": "6de664feac3c48f2bc6eb07d45af7546",
+        "Title": "B: STRUCTURAL PROFILES",
+        "DescriptionText": null,
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "UserSetWidth": 0.0,
+        "UserSetHeight": 0.0,
+        "Nodes": [
+          "67ba837e2cf34048a3ac6724e3810f7e",
+          "b3c81662502348d0a2867ce7b8b793a8",
+          "3a6f389ff69d4dc4a04257cda57125ad",
+          "3b7bdeac2fbb42a682ed97c235beeed0",
+          "565ddd5ca8df4d94b2b887c2d6472940",
+          "4c4744cf3adf4efd8bdba6aba598dcac"
+        ],
+        "HasNestedGroups": false,
+        "Left": -1737.7008722406376,
+        "Top": 654.30779498183,
+        "Width": 598.0,
+        "Height": 994.0,
+        "FontSize": 14.0,
+        "GroupStyleId": "883066aa-1fe2-44a4-9bd1-c3df86bfe9f6",
+        "InitialTop": 704.30779498183,
+        "InitialHeight": 325.0,
+        "TextblockHeight": 40.0,
+        "IsOptionalInPortsCollapsed": false,
+        "IsUnconnectedOutPortsCollapsed": false,
+        "HasToggledOptionalInPorts": false,
+        "HasToggledUnconnectedOutPorts": false,
+        "Background": "#FFFFB8D8"
+      },
+      {
+        "Id": "32c00fc1db004f629cd4143977d8a4b6",
+        "Title": "C: INSULATED GLAZING (IGU)",
+        "DescriptionText": null,
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "UserSetWidth": 0.0,
+        "UserSetHeight": 0.0,
+        "Nodes": [
+          "ccbf5a3058a44b02b69cbd1b532e5794",
+          "12f316bae7934ad89bad9ac09df1fbeb",
+          "caaf874b70b7402a82ee4c9dc18e0b36",
+          "b3da8d4c6c78421a8ad297112f740389",
+          "105725b161694d57b8f334134fc5fb44"
+        ],
+        "HasNestedGroups": false,
+        "Left": -2443.732802195778,
+        "Top": 2171.42442109617,
+        "Width": 598.0,
+        "Height": 839.0000000000005,
+        "FontSize": 14.0,
+        "GroupStyleId": "883066aa-1fe2-44a4-9bd1-c3df86bfe9f6",
+        "InitialTop": 2221.42442109617,
+        "InitialHeight": 325.0,
+        "TextblockHeight": 40.0,
+        "IsOptionalInPortsCollapsed": false,
+        "IsUnconnectedOutPortsCollapsed": false,
+        "HasToggledOptionalInPorts": false,
+        "HasToggledUnconnectedOutPorts": false,
+        "Background": "#FFFFB8D8"
+      },
+      {
+        "Id": "1157660f44c74a1283b9621a2914ab91",
+        "Title": "D: GASKETS & PRESSURE PLATES",
+        "DescriptionText": null,
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "UserSetWidth": 0.0,
+        "UserSetHeight": 0.0,
+        "Nodes": [
+          "8ccabfcd98b148c18147cc71184ff2da",
+          "17fe3a97bbcf400a8a3507abdda738ba",
+          "d3ef1990bff44938ad66783fdcf8ecfd",
+          "5595e927617e4909a1f08ce5da267f76",
+          "5143d28498ad49f0a5a660b4c3338e2e"
+        ],
+        "HasNestedGroups": false,
+        "Left": -2443.732802195778,
+        "Top": 3042.4244210961697,
+        "Width": 598.0,
+        "Height": 839.0,
+        "FontSize": 14.0,
+        "GroupStyleId": "00000000-0000-0000-0000-000000000000",
+        "InitialTop": 3092.4244210961697,
+        "InitialHeight": 325.0,
+        "TextblockHeight": 40.0,
+        "IsOptionalInPortsCollapsed": false,
+        "IsUnconnectedOutPortsCollapsed": false,
+        "HasToggledOptionalInPorts": false,
+        "HasToggledUnconnectedOutPorts": false,
+        "Background": "#FFFFC999"
+      },
+      {
+        "Id": "5f63659303584c16b9ee3d30c5717b20",
+        "Title": "E: SLAB & ANCHOR BRACKETS",
+        "DescriptionText": null,
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "UserSetWidth": 0.0,
+        "UserSetHeight": 0.0,
+        "Nodes": [
+          "fe794dec44174728adfc27ec61a4f21e",
+          "c89558e511a248399ede5a60dd7295ae",
+          "72b4243578cd49f0b61606a711dd3359",
+          "d04e5255c03340489c7434ed373711b4",
+          "4eed8d61cbb84781b675c24316787b32",
+          "cd9be4a0c23e45c2bf05628b74827d3c",
+          "40182fd99c064d2a80d33b55838b4b80"
+        ],
+        "HasNestedGroups": false,
+        "Left": -2443.732802195778,
+        "Top": 3911.42442109617,
+        "Width": 598.0,
+        "Height": 1159.0000000000005,
+        "FontSize": 14.0,
+        "GroupStyleId": "00000000-0000-0000-0000-000000000000",
+        "InitialTop": 3961.42442109617,
+        "InitialHeight": 415.0,
+        "TextblockHeight": 40.0,
+        "IsOptionalInPortsCollapsed": false,
+        "IsUnconnectedOutPortsCollapsed": false,
+        "HasToggledOptionalInPorts": false,
+        "HasToggledUnconnectedOutPorts": false,
+        "Background": "#FFFFC999"
+      },
+      {
+        "Id": "0be6ea7740bf4f8dba846fb87d09f506",
+        "Title": "KINETIC CURTAIN WALL ENGINE",
+        "DescriptionText": null,
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "UserSetWidth": 0.0,
+        "UserSetHeight": 0.0,
+        "Nodes": [
+          "ff9c2f0f66f24022b11fefba48402ac0"
+        ],
+        "HasNestedGroups": false,
+        "Left": -1500.6694118945945,
+        "Top": 1891.975968221504,
+        "Width": 334.5,
+        "Height": 1072.0,
+        "FontSize": 14.0,
+        "GroupStyleId": "00000000-0000-0000-0000-000000000000",
+        "InitialTop": 1941.975968221504,
+        "InitialHeight": 145.0,
+        "TextblockHeight": 40.0,
+        "IsOptionalInPortsCollapsed": false,
+        "IsUnconnectedOutPortsCollapsed": false,
+        "HasToggledOptionalInPorts": false,
+        "HasToggledUnconnectedOutPorts": false,
+        "Background": "#FF333333"
+      },
+      {
+        "Id": "00ebc3f93996476ea0b05cc7862661d4",
+        "Title": "EXTRACT GEOMETRY CHANNELS",
+        "DescriptionText": null,
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "UserSetWidth": 0.0,
+        "UserSetHeight": 0.0,
+        "Nodes": [
+          "2d1fde34e06f435dbfd0b06358331805"
+        ],
+        "HasNestedGroups": false,
+        "Left": -1560.0956249047315,
+        "Top": 3084.997744261373,
+        "Width": 362.5,
+        "Height": 318.0,
+        "FontSize": 14.0,
+        "GroupStyleId": "00000000-0000-0000-0000-000000000000",
+        "InitialTop": 3134.997744261373,
+        "InitialHeight": 145.0,
+        "TextblockHeight": 40.0,
+        "IsOptionalInPortsCollapsed": false,
+        "IsUnconnectedOutPortsCollapsed": false,
+        "HasToggledOptionalInPorts": false,
+        "HasToggledUnconnectedOutPorts": false,
+        "Background": "#FF505050"
+      },
+      {
+        "Id": "d0cf827484ed45beafea719b6dbb041a",
+        "Title": "MATERIAL COLOR SWATCHES",
+        "DescriptionText": null,
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "UserSetWidth": 0.0,
+        "UserSetHeight": 0.0,
+        "Nodes": [
+          "a3e555303b5e4da5a6840ffb530f84a3"
+        ],
+        "HasNestedGroups": false,
+        "Left": -1727.270650846624,
+        "Top": 3474.8917845429614,
+        "Width": 563.0,
+        "Height": 318.0,
+        "FontSize": 14.0,
+        "GroupStyleId": "00000000-0000-0000-0000-000000000000",
+        "InitialTop": 3524.8917845429614,
+        "InitialHeight": 145.0,
+        "TextblockHeight": 40.0,
+        "IsOptionalInPortsCollapsed": false,
+        "IsUnconnectedOutPortsCollapsed": false,
+        "HasToggledOptionalInPorts": false,
+        "HasToggledUnconnectedOutPorts": false,
+        "Background": "#FF505050"
+      },
+      {
+        "Id": "f036b5f22a684c9dbb7a37816b5fd8b4",
+        "Title": "RENDER PIPELINE",
+        "DescriptionText": null,
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "UserSetWidth": 0.0,
+        "UserSetHeight": 0.0,
+        "Nodes": [
+          "38d376e4a74c486298564a8d34b5df2d",
+          "d4cc672c845e4e7bbbb7a2e5a15b79c2",
+          "18307a4a218f481d9c42e8976d64b1eb",
+          "781f5162975d4ecf9d4a6904689cdb01",
+          "adb7d620a97044299c47f980007b55d0",
+          "d6eb6a215bf94b9a83ae0d4f1b029686",
+          "339ba37bbcbf4604ba465a1668e9e71c",
+          "3f33572adcbc4550b828cb43753e1068",
+          "e6c587978eab492795075a507f431983"
+        ],
+        "HasNestedGroups": false,
+        "Left": -1039.2643331442916,
+        "Top": 2171.734809328548,
+        "Width": 292.0,
+        "Height": 1490.0,
+        "FontSize": 14.0,
+        "GroupStyleId": "00000000-0000-0000-0000-000000000000",
+        "InitialTop": 2221.734809328548,
+        "InitialHeight": 1425.0,
+        "TextblockHeight": 40.0,
+        "IsOptionalInPortsCollapsed": false,
+        "IsUnconnectedOutPortsCollapsed": false,
+        "HasToggledOptionalInPorts": false,
+        "HasToggledUnconnectedOutPorts": false,
+        "Background": "#FF4B6C3F"
+      },
+      {
+        "Id": "2341b6ea7ac24d9ab8eec25380971acf",
+        "Title": "PERFORMANCE CALCULATOR (NATIVE GRAPH)",
+        "DescriptionText": null,
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "UserSetWidth": 0.0,
+        "UserSetHeight": 0.0,
+        "Nodes": [
+          "4e58b8782643421ebb538af34ba03b10",
+          "bd7df917d96d40ca99f8ecc0e6759797",
+          "9f963a9799cc4f3c8d02c50382a0acc7"
+        ],
+        "HasNestedGroups": false,
+        "Left": -1424.8875227385731,
+        "Top": 3939.725571297046,
+        "Width": 1055.0,
+        "Height": 361.6550000000002,
+        "FontSize": 14.0,
+        "GroupStyleId": "00000000-0000-0000-0000-000000000000",
+        "InitialTop": 3989.725571297046,
+        "InitialHeight": 265.0,
+        "TextblockHeight": 40.0,
+        "IsOptionalInPortsCollapsed": false,
+        "IsUnconnectedOutPortsCollapsed": false,
+        "HasToggledOptionalInPorts": false,
+        "HasToggledUnconnectedOutPorts": false,
+        "Background": "#FFA36423"
+      }
+    ],
+    "X": 918.5805375911324,
+    "Y": 375.3957504976821,
+    "Zoom": 0.5315777610431371
+  }
+}
