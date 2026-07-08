@@ -79,6 +79,14 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `model_inspector_save_query` | Save Query. | No | sync |
 | `model_inspector_summarize_model` | Summarize Model. | No | sync |
 | `module_list_commands` | List all registered modules and their commands for dockable panels. | No | sync |
+| `selection_tools_group_convert_to_detail` | Convert Group to Detail Group. | Yes | sync |
+| `selection_tools_group_rename` | Rename Group. | Yes | sync |
+| `selection_tools_group_ungroup` | Ungroup Group. | Yes | sync |
+| `selection_tools_list_saved_selections` | List Saved Selections. | No | sync |
+| `selection_tools_restore_selection` | Restore Selection. | Yes | sync |
+| `selection_tools_save_selection` | Save Selection. | No | sync |
+| `selection_tools_select_by_query` | Select By Query. | Yes | sync |
+| `selection_tools_set_selection` | Set Selection. | Yes | sync |
 
 ## Navisworks Provider
 
