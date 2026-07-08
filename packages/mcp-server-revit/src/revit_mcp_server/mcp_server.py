@@ -30,6 +30,7 @@ from .providers import (
     NavisworksProvider,
     ApprovalProvider,
     ModuleProvider,
+    SemanticProvider,
 )
 from .module_registry import ModuleRegistry
 from .security.workspace import WorkspaceMonitor
@@ -53,6 +54,7 @@ registry.register(IfcProvider(workspace=workspace))
 registry.register(AECMapperProvider(workspace=workspace))
 registry.register(SQLiteExporterProvider(workspace=workspace, registry=registry))
 registry.register(NavisworksProvider(workspace=workspace))
+registry.register(SemanticProvider(workspace=workspace, registry=registry))
 
 # Initialize and register Module registry and Module provider
 module_registry = ModuleRegistry(config_obj=config)
