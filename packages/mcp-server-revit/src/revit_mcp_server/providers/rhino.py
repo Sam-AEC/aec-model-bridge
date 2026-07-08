@@ -4,7 +4,7 @@ from typing import Any, Dict, List
 from ..config import config, BridgeMode
 from ..bridge.client import BridgeClient
 from ..security.workspace import WorkspaceMonitor
-from .base import AECProvider, ProviderTool
+from .base import AECProvider, ProviderTool, enrich_mutation_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,16 @@ class RhinoProvider(AECProvider):
         bridge_factory = bridge_factory or (lambda u, t=None: BridgeClient(u, token=t))
         self._bridge = bridge_factory(url, None)
         self._init_tool_mapping()
+        self._enrich_tool_metadata()
+
+    def _enrich_tool_metadata(self) -> None:
+        # rhino_run_python executes arbitrary IronPython with full RhinoCommon access —
+        # same escape-hatch risk class as revit_execute_python, so it gets the same
+        # mutating+destructive treatment. reflect_get/invoke_method/reflect_set are
+        # left at the same risk level revit.py uses for their Revit-side equivalents
+        # (mutating via the "invoke"/"set" verbs, not separately marked destructive).
+        mutating_verbs = {"create", "clear", "set", "transform", "run", "boolean", "invoke"}
+        enrich_mutation_metadata(self._capabilities, mutating_verbs=mutating_verbs, destructive={"rhino_run_python"})
 
     def get_identity(self) -> str:
         return "rhino"

@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 from ..config import config, BridgeMode
 from ..bridge.client import BridgeClient
 from ..security.workspace import WorkspaceMonitor
-from .base import AECProvider, ProviderTool
+from .base import AECProvider, ProviderTool, enrich_mutation_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +25,8 @@ class NavisworksProvider(AECProvider):
         self._enrich_tool_metadata()
 
     def _enrich_tool_metadata(self) -> None:
-        mutating_verbs = {"set", "invoke", "delete", "create", "move", "copy", "rotate", "mirror"}
-        for tool in self._capabilities:
-            name_parts = tool.name.split("_")
-            if any(verb in name_parts for verb in mutating_verbs):
-                tool.is_mutating = True
+        mutating_verbs = {"set", "invoke", "delete", "create", "move", "copy", "rotate", "mirror", "run"}
+        enrich_mutation_metadata(self._capabilities, mutating_verbs=mutating_verbs)
 
     def get_identity(self) -> str:
         return "navisworks"

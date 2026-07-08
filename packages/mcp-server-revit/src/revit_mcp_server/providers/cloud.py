@@ -20,7 +20,7 @@ from specklepy.transports.server import ServerTransport
 from specklepy.api import operations
 from specklepy.objects.base import Base
 
-from .base import AECProvider, ProviderTool
+from .base import AECProvider, ProviderTool, enrich_mutation_metadata
 from ..errors import RevitMCPError
 
 CredentialCallback = Callable[[str], str | None] | Callable[[str], Awaitable[str | None]]
@@ -350,6 +350,13 @@ class OAuth2PKCETransport:
 
 class CloudProviderBase(AECProvider):
     provider_identity = "cloud"
+    # Exact tool names that mutate remote state (create/publish/merge/send commits,
+    # branches, models, or BCF issues). Matched by exact name rather than verb, since
+    # this provider's tool names include read verbs (list/get) that a generic verb
+    # matcher would need to carefully exclude — an explicit, auditable set is safer
+    # for a fixed-size tool surface like this one. See providers/base.py for why every
+    # provider must do this: an unflagged mutating tool bypasses the ApprovalGate.
+    _mutating_tool_names: frozenset[str] = frozenset()
 
     def __init__(
         self,
@@ -363,6 +370,7 @@ class CloudProviderBase(AECProvider):
         self._owns_client = http_client is None
         self._client = http_client or httpx.AsyncClient(transport=transport, timeout=timeout)
         self._capabilities = self._build_capabilities()
+        enrich_mutation_metadata(self._capabilities, mutating_names=self._mutating_tool_names)
 
     def get_identity(self) -> str:
         return self.provider_identity
@@ -440,6 +448,14 @@ class CloudProviderBase(AECProvider):
 
 class SpeckleProvider(CloudProviderBase):
     provider_identity = "speckle"
+    _mutating_tool_names = frozenset({
+        "speckle_create_model",
+        "speckle_create_branch",
+        "speckle_publish_version",
+        "speckle_merge_model",
+        "speckle_merge_branch",
+        "speckle_send_object",
+    })
 
     def __init__(
         self,
@@ -810,6 +826,10 @@ class SpeckleProvider(CloudProviderBase):
 
 class AutodeskDataProvider(CloudProviderBase):
     provider_identity = "autodesk_data"
+    _mutating_tool_names = frozenset({
+        "autodesk_data_create_topic",
+        "autodesk_data_create_issue",
+    })
 
     def __init__(
         self,
