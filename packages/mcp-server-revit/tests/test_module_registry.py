@@ -65,4 +65,5 @@ async def test_module_provider_execution(tmp_path):
     list_res = await provider.execute_tool("module_list_commands", {})
     assert "modules" in list_res
     assert len(list_res["modules"]) >= 1
-    assert list_res["modules"][0]["id"] == "hello_world"
+    module_ids = {m["id"] for m in list_res["modules"]}
+    assert "hello_world" in module_ids

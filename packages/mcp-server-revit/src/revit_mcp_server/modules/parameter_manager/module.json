@@ -1,0 +1,106 @@
+{
+  "id": "parameter_manager",
+  "name": "Parameter Manager",
+  "version": "1.0.0",
+  "schema_version": 1,
+  "min_hub_version": "1.2.0",
+  "description": "Parameter management workflows (W5): filter parameter grid, diff before/after values, plan-time validation, batch-set with inverse rollback plan, and CSV import/export.",
+  "author": "AEC Model Bridge",
+  "license": "GPL-3.0-or-later",
+  "requires_providers": ["revit", "semantic"],
+  "permissions": ["model.read", "model.write", "params.write"],
+  "commands": [
+    {
+      "id": "filter_params",
+      "title": "Filter Parameter Grid",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {"type": "string"},
+          "element_filter": {"type": "object", "description": "DSL filter to select elements."},
+          "param_name": {"type": "string", "description": "Parameter name to inspect."},
+          "include_readonly": {"type": "boolean", "default": false}
+        },
+        "required": ["element_filter", "param_name"]
+      }
+    },
+    {
+      "id": "diff_params",
+      "title": "Diff Parameter Values",
+      "surface": ["mcp"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_a_id": {"type": "string"},
+          "snapshot_b_id": {"type": "string"},
+          "param_names": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Parameter names to compare."
+          }
+        },
+        "required": ["snapshot_a_id", "snapshot_b_id", "param_names"]
+      }
+    },
+    {
+      "id": "plan_set_params",
+      "title": "Plan Parameter Set",
+      "surface": ["mcp"],
+      "execution_mode": "sync",
+      "is_mutating": true,
+      "destructive": false,
+      "requires_plan": true,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {"type": "string"},
+          "element_filter": {"type": "object"},
+          "param_updates": {
+            "type": "object",
+            "description": "Map of param_name → new_value to apply."
+          }
+        },
+        "required": ["element_filter", "param_updates"]
+      }
+    },
+    {
+      "id": "export_params_csv",
+      "title": "Export Parameters to CSV",
+      "surface": ["mcp"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {"type": "string"},
+          "element_filter": {"type": "object"},
+          "param_names": {"type": "array", "items": {"type": "string"}},
+          "output_filename": {"type": "string", "default": "params_export.csv"}
+        },
+        "required": ["element_filter", "param_names"]
+      }
+    },
+    {
+      "id": "import_params_csv",
+      "title": "Import Parameters from CSV",
+      "surface": ["mcp"],
+      "execution_mode": "sync",
+      "is_mutating": true,
+      "destructive": false,
+      "requires_plan": true,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "csv_filename": {"type": "string"},
+          "snapshot_id": {"type": "string"}
+        },
+        "required": ["csv_filename"]
+      }
+    }
+  ]
+}
