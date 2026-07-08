@@ -24,6 +24,7 @@ dependencies = [
 [project.scripts]
 aec-model-bridge = "revit_mcp_server.mcp_server:run_mcp_server"
 revit-mcp-server = "revit_mcp_server.mcp_server:run_mcp_server"
+aec-model-bridge-panel-server = "revit_mcp_server.panel_server:run_panel_server"
 
 [project.optional-dependencies]
 dev = [
