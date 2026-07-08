@@ -57,6 +57,13 @@
     <PackageReference Include="IronPython" Version="3.4.1" Condition="'$(TargetFramework)'!='net48'" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="..\..\panel\**\*">
+      <Link>panel\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
   <!-- .NET Framework requires explicit WPF references; modern SDK targets use UseWPF. -->
   <ItemGroup Condition="'$(TargetFramework)'=='net48'">
     <Reference Include="PresentationCore" />
