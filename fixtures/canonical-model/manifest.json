@@ -1,0 +1,26 @@
+{
+  "schema": "amb.fixture.canonical_model/1",
+  "name": "canonical_test_model",
+  "generator": "scripts/revit/generate_canonical_test_model.py",
+  "output_path": "fixtures/canonical-model/generated/canonical_test_model.rvt",
+  "expected_counts": {
+    "levels": 5,
+    "walls": 200,
+    "doors": 60,
+    "windows": 40,
+    "rooms": 25,
+    "floor_plan_views": 30,
+    "sheets": 10,
+    "model_groups": 4
+  },
+  "supported_seeded_rules": {
+    "door_missing_mark": 12,
+    "room_missing_number": 3
+  },
+  "known_gaps": {
+    "room_not_placed": "No current bridge command creates an unplaced room.",
+    "room_missing_name": "Revit assigns a default room name when the create-room payload omits one.",
+    "inplace_family_used": "No current bridge command creates in-place families.",
+    "duplicate_sheet_numbers": "Revit rejects duplicate sheet numbers at creation time."
+  }
+}

@@ -237,5 +237,8 @@ metrics/
 *.3dmbak
 *.rhl
 
+# Generated canonical Revit test models
+fixtures/canonical-model/generated/
+
 
 
