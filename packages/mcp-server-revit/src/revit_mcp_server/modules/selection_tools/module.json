@@ -1,0 +1,148 @@
+{
+  "id": "selection_tools",
+  "name": "Selection Tools",
+  "version": "1.0.0",
+  "schema_version": 1,
+  "min_hub_version": "1.2.0",
+  "description": "Selection management and model group workflows (W2 write side, W4): set/save/restore selections, select-by-query, rename/ungroup/convert groups with approval plan preview.",
+  "author": "AEC Model Bridge",
+  "license": "GPL-3.0-or-later",
+  "requires_providers": ["revit", "semantic"],
+  "permissions": ["model.read", "model.write"],
+  "commands": [
+    {
+      "id": "set_selection",
+      "title": "Set Selection",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": true,
+      "destructive": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "element_uids": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Element UIDs to select in the active Revit view."
+          }
+        },
+        "required": ["element_uids"]
+      }
+    },
+    {
+      "id": "save_selection",
+      "title": "Save Selection",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "selection_name": {"type": "string", "description": "Name to save the current selection under."},
+          "element_uids": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Element UIDs to persist as a named selection."
+          }
+        },
+        "required": ["selection_name", "element_uids"]
+      }
+    },
+    {
+      "id": "restore_selection",
+      "title": "Restore Selection",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": true,
+      "destructive": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "selection_name": {"type": "string", "description": "Name of a previously saved selection to restore."}
+        },
+        "required": ["selection_name"]
+      }
+    },
+    {
+      "id": "select_by_query",
+      "title": "Select By Query",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": true,
+      "destructive": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {"type": "string"},
+          "filter": {
+            "type": "object",
+            "description": "DSL filter to identify elements to select."
+          }
+        },
+        "required": ["filter"]
+      }
+    },
+    {
+      "id": "list_saved_selections",
+      "title": "List Saved Selections",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "id": "group_rename",
+      "title": "Rename Group",
+      "surface": ["mcp"],
+      "execution_mode": "sync",
+      "is_mutating": true,
+      "destructive": false,
+      "requires_plan": true,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "group_uid": {"type": "string", "description": "UID of the group type or instance to rename."},
+          "new_name": {"type": "string", "description": "New name for the group type."}
+        },
+        "required": ["group_uid", "new_name"]
+      }
+    },
+    {
+      "id": "group_ungroup",
+      "title": "Ungroup Group",
+      "surface": ["mcp"],
+      "execution_mode": "sync",
+      "is_mutating": true,
+      "destructive": true,
+      "requires_plan": true,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "group_uid": {"type": "string", "description": "UID of the group instance to ungroup."},
+          "snapshot_id": {"type": "string", "description": "Snapshot to use for member count preview."}
+        },
+        "required": ["group_uid"]
+      }
+    },
+    {
+      "id": "group_convert_to_detail",
+      "title": "Convert Group to Detail Group",
+      "surface": ["mcp"],
+      "execution_mode": "sync",
+      "is_mutating": true,
+      "destructive": false,
+      "requires_plan": true,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "group_uid": {"type": "string", "description": "UID of the model group to convert to a detail group."}
+        },
+        "required": ["group_uid"]
+      }
+    }
+  ]
+}
