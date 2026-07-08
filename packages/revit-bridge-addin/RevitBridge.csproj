@@ -64,11 +64,4 @@
     <Reference Include="System.Xaml" />
   </ItemGroup>
 
-  <!-- Temporarily exclude Phase commands with API compatibility issues -->
-  <ItemGroup>
-    <Compile Remove="src\Commands\Core\**\*.cs" />
-    <Compile Remove="src\Commands\Advanced\**\*.cs" />
-    <Compile Remove="src\Commands\Specialized\**\*.cs" />
-    <Compile Remove="src\Commands\Enhancements\**\*.cs" />
-  </ItemGroup>
 </Project>
