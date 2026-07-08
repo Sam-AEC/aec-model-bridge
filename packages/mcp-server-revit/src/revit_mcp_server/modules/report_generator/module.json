@@ -13,7 +13,7 @@
     {
       "id": "export_excel",
       "title": "Export to Excel",
-      "surface": ["mcp"],
+      "surface": ["mcp", "panel"],
       "execution_mode": "sync",
       "is_mutating": false,
       "input_schema": {
