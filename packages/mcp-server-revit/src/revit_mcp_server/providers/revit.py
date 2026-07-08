@@ -6,6 +6,7 @@ from pathlib import Path
 from ..config import config, BridgeMode
 from ..bridge.client import BridgeClient
 from ..bridge.mock import MockBridge
+from ..errors import WorkspaceViolation
 from ..security.workspace import WorkspaceMonitor
 from ..legacy.tools import TOOL_HANDLERS
 from .base import AECProvider, ProviderTool, enrich_mutation_metadata
@@ -108,15 +109,25 @@ class RevitProvider(AECProvider):
                 payload["request_id"] = arguments["request_id"]
 
         if self.mode == BridgeMode.bridge:
-            # Under bridge mode, execute the legacy handler if we need custom validation or prep
+            # Under bridge mode, run the legacy handler for validation/prep only — its
+            # return value is discarded, the bridge call below is the real result.
             legacy_dot_name = bridge_tool
             handler = TOOL_HANDLERS.get(legacy_dot_name)
             if handler:
                 try:
                     handler(payload, self.workspace)
+                except WorkspaceViolation:
+                    # A workspace-sandbox escape must always block the call — swallowing
+                    # this as a warning would let a path-outside-workspace request reach
+                    # the live bridge anyway, silently defeating the sandbox for every
+                    # tool that happens to have a legacy handler.
+                    raise
                 except Exception as e:
+                    # Other legacy-schema validation failures are advisory only: these
+                    # Pydantic input models predate the current provider architecture
+                    # and can drift out of sync with what the bridge actually accepts.
                     logger.warning(f"Revit legacy handler validation warning: {e}")
-            
+
             # Send to bridge client
             return self._bridge.send_tool(bridge_tool, payload)
         else:
