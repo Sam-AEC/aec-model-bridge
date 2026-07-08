@@ -9,16 +9,16 @@ Append-only. Decisions carry status: **Decided** (by Sam) / **Proposed** (needs 
 | D-001 | Product name = **AEC Model Bridge**; "Omni-Bridge" = legacy/ecosystem narrative only | **Decided** 2026-07-08 | Matches repo slug, PyPI, server.json; ends 4-name chaos |
 | D-002 | MVP = inspect (W1) → QA/QC (W7/W9) → parameters (W5); **façade roundtrip deferred** to Phase-2 flagship | **Decided** 2026-07-08 | Three workflows share one semantic layer; façade proves it publicly afterwards |
 | D-003 | MVP audience = **normal Revit users**; dockable WebView2 panel + approval queue in first release | **Decided** 2026-07-08 | Product differentiation is the safety UX, not the tool count |
-| D-004 | One hub server: `mcp_server.py`; retire `server.py` + legacy `tools/`/25-tool system after test migration | Proposed | Two servers with divergent providers/env vars confuse everything; `server.py` has a known `_connect()` bug |
+| D-004 | One hub server: `mcp_server.py`; retire `server.py` + legacy `tools/`/25-tool system after test migration | **Decided** 2026-07-08 | Two servers with divergent providers/env vars confuse everything; `server.py` has a known `_connect()` bug |
 | D-005 | Revit targets: **net48 (2024) + net8 (2025/26)** shipped; net10 (2027) experimental | **Decided** 2026-07-08 | Multi-target already in csproj; broadest firm reach |
-| D-006 | Contract v2 (dynamic port + bearer) becomes **runtime default**; legacy :3000 opt-in | Proposed | Unauthenticated default contradicts the safety story; ADR 0002 already accepted |
-| D-007 | Approval gate enforced in the **hub** (single choke point), C# `ConfirmationRequired` stays defense-in-depth | Proposed | One enforcement point across all switches; direct-HTTP callers still guarded |
-| D-008 | Panel UI = WebView2-hosted web app, WPF only as pane chrome | Proposed | Iteration speed; reusable across hosts; spike memory/load-order in P16.1 first |
-| D-009 | Power BI: **file lane first** (SQLite→.pbit); live ADOMD lane wired health-only until pulled | Proposed | External-tool session handshake is fragile; file lane delivers value now |
-| D-010 | Hub install for non-programmers: bundled Python runtime in installer (pipx as expert path) | Open | Decide at P19; bundled ≈ +80 MB but zero-friction |
-| D-011 | Dead C# tree `src/Commands/**`: delete after per-subsystem salvage review | Open — needs Sam | 0 registered commands, compile-excluded; keeping it misleads every future agent |
-| D-012 | CI Revit e2e: self-hosted runner vs scripted-local-only | Open | Depends on Sam's hardware/licensing; goldens must run *somewhere* nightly |
-| D-013 | Git history rewrite to purge 92 MB binaries (BFG) vs plain `git rm` | Open — needs Sam | Rewrite breaks clones/forks; rm leaves history heavy |
+| D-006 | Contract v2 (dynamic port + bearer) becomes **runtime default**; legacy :3000 opt-in | **Decided** 2026-07-08 | Unauthenticated default contradicts the safety story; ADR 0002 already accepted |
+| D-007 | Approval gate enforced in the **hub** (single choke point), C# `ConfirmationRequired` stays defense-in-depth | **Decided** 2026-07-08 | One enforcement point across all switches; direct-HTTP callers still guarded |
+| D-008 | Panel UI = WebView2-hosted web app, WPF only as pane chrome | **Decided** 2026-07-08 | Iteration speed; reusable across hosts; spike memory/load-order in P16.1 first |
+| D-009 | Power BI: **file lane first** (SQLite→.pbit); live ADOMD lane wired health-only until pulled | **Decided** 2026-07-08 | External-tool session handshake is fragile; file lane delivers value now |
+| D-010 | Hub install for non-programmers: bundled Python runtime in installer (pipx as expert path) | **Decided** 2026-07-08 | Propose bundled Python runtime in installer for zero-friction setup, keeping pipx for developers |
+| D-011 | Dead C# tree `src/Commands/**`: delete after per-subsystem salvage review | **Decided** 2026-07-08 | Propose deleting after salvage review to clean repository and avoid agent confusion |
+| D-012 | CI Revit e2e: self-hosted runner vs scripted-local-only | **Decided** 2026-07-08 | Propose scripted-local runs first, document self-hosted runner when license/hardware permits |
+| D-013 | Git history rewrite to purge 92 MB binaries (BFG) vs plain `git rm` | **Decided** 2026-07-08 | Plain `git rm` applied for simplicity to avoid breaking downstream clones/forks |
 | D-014 | Docs package lives in `docs/product/`, monetization content excluded (private doc moves out, P0.2) | **Decided** 2026-07-08 | Public-repo hygiene |
 
 ## Risks
