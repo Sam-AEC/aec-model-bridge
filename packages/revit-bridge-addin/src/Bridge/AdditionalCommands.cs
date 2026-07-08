@@ -10,6 +10,22 @@ using MediaBrush = System.Windows.Media.SolidColorBrush;
 namespace RevitBridge.Bridge
 {
     [Transaction(TransactionMode.Manual)]
+    public class CommandOpenPanel : IExternalCommand
+    {
+        public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
+        {
+            if (BridgePanelProvider.Show(commandData.Application, out var error))
+            {
+                return Result.Succeeded;
+            }
+
+            message = error;
+            TaskDialog.Show(ProductInfo.ProductName, "The AEC Model Bridge panel could not be opened.\n\n" + error);
+            return Result.Failed;
+        }
+    }
+
+    [Transaction(TransactionMode.Manual)]
     public class CommandSettings : IExternalCommand
     {
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
