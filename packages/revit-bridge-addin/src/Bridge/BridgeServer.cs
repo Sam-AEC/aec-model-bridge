@@ -23,6 +23,7 @@ public class BridgeServer
     private int _activeConnections = 0;
     private SemaphoreSlim _concurrencySemaphore = new(10, 10);
     private const long MaxRequestSizeBytes = 5 * 1024 * 1024; // 5 MB
+    private readonly WorkspaceMonitor _workspaceMonitor = new();
 
     public BridgeServer(CommandQueue queue, ExternalEvent externalEvent)
     {
@@ -32,7 +33,7 @@ public class BridgeServer
         SessionToken = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
         
         var legacyEnv = Environment.GetEnvironmentVariable("MCP_REVIT_LEGACY_PORT");
-        LegacyMode = string.IsNullOrEmpty(legacyEnv) || legacyEnv.ToLower() == "true" || legacyEnv == "1";
+        LegacyMode = !string.IsNullOrEmpty(legacyEnv) && (legacyEnv.ToLower() == "true" || legacyEnv == "1");
     }
 
     public string SessionToken { get; }
@@ -153,6 +154,16 @@ public class BridgeServer
 
             var path = context.Request.Url?.AbsolutePath ?? "/";
 
+            if (!LegacyMode && path != "/health")
+            {
+                var authHeader = context.Request.Headers["Authorization"];
+                if (string.IsNullOrEmpty(authHeader) || authHeader != $"Bearer {SessionToken}")
+                {
+                    Respond(context, 401, new { error = "Unauthorized" });
+                    return;
+                }
+            }
+
             if (path == "/health")
             {
                 await HandleHealth(context);
@@ -188,16 +199,6 @@ public class BridgeServer
 
     private async Task HandleExecute(HttpListenerContext context)
     {
-        if (!LegacyMode)
-        {
-            var authHeader = context.Request.Headers["Authorization"];
-            if (string.IsNullOrEmpty(authHeader) || authHeader != $"Bearer {SessionToken}")
-            {
-                Respond(context, 401, new { error = "Unauthorized" });
-                return;
-            }
-        }
-
         var startTime = DateTime.UtcNow;
 
         using var reader = new StreamReader(context.Request.InputStream);
@@ -208,6 +209,17 @@ public class BridgeServer
         var requestId = root.GetProperty("request_id").GetString() ?? Guid.NewGuid().ToString();
         var tool = root.GetProperty("tool").GetString() ?? string.Empty;
         var payload = root.GetProperty("payload");
+
+        try
+        {
+            ValidatePayloadPaths(payload);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Log.Warning("Workspace violation in request {RequestId} {Tool}: {Message}", requestId, tool, ex.Message);
+            Respond(context, 403, new { error = "Workspace violation: " + ex.Message });
+            return;
+        }
 
         var request = new CommandRequest
         {
@@ -228,6 +240,36 @@ public class BridgeServer
             requestId, tool, response.Status, (DateTime.UtcNow - startTime).TotalMilliseconds);
 
         Respond(context, 200, response);
+    }
+
+    private void ValidatePayloadPaths(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in element.EnumerateObject())
+            {
+                var name = property.Name.ToLower();
+                if (property.Value.ValueKind == JsonValueKind.String)
+                {
+                    var val = property.Value.GetString();
+                    if (!string.IsNullOrEmpty(val) && (name.Contains("path") || name.Contains("file")))
+                    {
+                        _workspaceMonitor.AssertInWorkspace(val);
+                    }
+                }
+                else
+                {
+                    ValidatePayloadPaths(property.Value);
+                }
+            }
+        }
+        else if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray())
+            {
+                ValidatePayloadPaths(item);
+            }
+        }
     }
 
     private Task HandleHealth(HttpListenerContext context)
