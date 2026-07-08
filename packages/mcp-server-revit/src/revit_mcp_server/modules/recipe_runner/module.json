@@ -1,0 +1,66 @@
+{
+  "id": "recipe_runner",
+  "name": "Recipe Runner",
+  "version": "1.0.0",
+  "schema_version": 1,
+  "min_hub_version": "1.2.0",
+  "description": "AI agent orchestration: run multi-step YAML recipes with template substitution, condition evaluation, and run logging. Ships three built-in recipes.",
+  "author": "AEC Model Bridge",
+  "license": "GPL-3.0-or-later",
+  "requires_providers": [],
+  "permissions": ["model.read", "files.write"],
+  "commands": [
+    {
+      "id": "run_recipe",
+      "title": "Run Recipe",
+      "surface": ["mcp"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "recipe_id": {"type": "string", "description": "Recipe name or path."},
+          "args": {"type": "object", "description": "Context variables for template substitution."},
+          "dry_run": {"type": "boolean", "default": false, "description": "If true, plan steps without executing."}
+        },
+        "required": ["recipe_id"]
+      }
+    },
+    {
+      "id": "list_recipes",
+      "title": "List Recipes",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {"type": "object", "properties": {}, "required": []}
+    },
+    {
+      "id": "list_runs",
+      "title": "List Recipe Runs",
+      "surface": ["mcp"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "recipe_id": {"type": "string", "description": "Filter by recipe ID."}
+        },
+        "required": []
+      }
+    },
+    {
+      "id": "get_run_status",
+      "title": "Get Recipe Run Status",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "run_id": {"type": "string", "description": "Recipe run ID."}
+        },
+        "required": ["run_id"]
+      }
+    }
+  ]
+}

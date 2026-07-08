@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
-from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 from revit_mcp_server.errors import BridgeError
@@ -60,9 +59,10 @@ def validate_json_schema(data: Any, schema: Dict[str, Any], path: str = "root") 
             raise ValueError(f"Value at {path} must be a boolean")
 
 class ModuleProvider(AECProvider):
-    def __init__(self, module_registry: ModuleRegistry, workspace: WorkspaceMonitor):
+    def __init__(self, module_registry: ModuleRegistry, workspace: WorkspaceMonitor, tool_registry: Any = None):
         self.registry = module_registry
         self.workspace = workspace
+        self.tool_registry = tool_registry
 
     def get_identity(self) -> str:
         return "module"
@@ -209,6 +209,7 @@ class ModuleProvider(AECProvider):
         return {"modules": module_list}
 
     async def _run_callable(self, func: Callable[..., Any], arguments: Dict[str, Any]) -> Any:
+        loop = asyncio.get_running_loop()
         sig = inspect.signature(func)
         kwargs = {}
         for param_name, param in sig.parameters.items():
@@ -216,6 +217,8 @@ class ModuleProvider(AECProvider):
                 kwargs[param_name] = arguments
             elif param_name == "workspace":
                 kwargs[param_name] = self.workspace
+            elif param_name == "tool_executor" and self.tool_registry:
+                kwargs[param_name] = self._sync_tool_executor(loop)
             elif param_name in arguments:
                 kwargs[param_name] = arguments[param_name]
                 
@@ -229,6 +232,36 @@ class ModuleProvider(AECProvider):
             return await func(**kwargs)
         else:
             return await asyncio.get_running_loop().run_in_executor(None, lambda: func(**kwargs))
+
+    def _sync_tool_executor(self, loop: asyncio.AbstractEventLoop) -> Callable[[str, Dict[str, Any]], Dict[str, Any]]:
+        def execute(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+            future = asyncio.run_coroutine_threadsafe(
+                self._execute_registered_tool(tool_name, arguments),
+                loop,
+            )
+            return future.result()
+
+        return execute
+
+    async def _execute_registered_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        provider = self.tool_registry.lookup_tool_provider(tool_name) if self.tool_registry else None
+        tool_def = self.tool_registry.lookup_tool(tool_name) if self.tool_registry else None
+        if not provider:
+            raise BridgeError(f"Recipe step tool '{tool_name}' not found in registry")
+
+        gate = getattr(self.tool_registry.get_provider("approval"), "gate", None)
+        if tool_def and tool_def.is_mutating and gate:
+            gate.check_tool_execution(tool_name, arguments)
+
+        result = await provider.execute_tool(tool_name, arguments)
+
+        if tool_def and tool_def.is_mutating and gate and isinstance(arguments, dict) and "plan_id" in arguments:
+            try:
+                gate.update_plan_state(arguments["plan_id"], "executed")
+            except Exception:
+                pass
+
+        return result
 
     async def _run_callable_with_timeout(self, func: Callable[..., Any], *args, timeout: float = 2.0) -> Any:
         try:

@@ -59,7 +59,7 @@ registry.register(SemanticProvider(workspace=workspace, registry=registry))
 # Initialize and register Module registry and Module provider
 module_registry = ModuleRegistry(config_obj=config)
 module_registry.discover_and_load()
-registry.register(ModuleProvider(module_registry=module_registry, workspace=workspace))
+registry.register(ModuleProvider(module_registry=module_registry, workspace=workspace, tool_registry=registry))
 
 # Initialize Job Manager and Job Provider
 job_manager = JobManager()
