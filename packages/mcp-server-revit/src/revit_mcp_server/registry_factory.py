@@ -36,14 +36,21 @@ from .jobs import JobManager
 logger = logging.getLogger(__name__)
 
 
-def build_registry() -> tuple[ProviderRegistry, ApprovalProvider, JobManager, ModuleRegistry, WorkspaceMonitor]:
+def build_registry(
+    workspace: WorkspaceMonitor | None = None,
+) -> tuple[ProviderRegistry, ApprovalProvider, JobManager, ModuleRegistry, WorkspaceMonitor]:
     """Construct one fully-wired ProviderRegistry with every provider registered.
 
     Each caller gets its own independent instance — that's fine, since
     ApprovalGate persists plans to disk under the shared workspace directory,
     so plans created via one process are still visible to the other.
+
+    `workspace` defaults to the process-wide config's allowed directories;
+    pass an explicit WorkspaceMonitor (e.g. over a pytest tmp_path) to keep a
+    test's plans/snapshots from being written into a shared directory.
     """
-    workspace = WorkspaceMonitor(config.allowed_directories)
+    if workspace is None:
+        workspace = WorkspaceMonitor(config.allowed_directories)
 
     registry = ProviderRegistry()
     approval_provider = ApprovalProvider(workspace=workspace, registry=registry)
