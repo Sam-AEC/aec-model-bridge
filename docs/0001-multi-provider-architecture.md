@@ -1,7 +1,7 @@
 # ADR 0001: Multi-Provider AEC Automation Architecture
 
 ## Status
-Proposed
+Accepted
 
 ## Context
 The AEC Model Bridge is being expanded from a Revit-only MCP bridge to a multi-platform AEC automation platform. To accommodate diverse software systems (e.g., Rhino, Tekla, Archicad, IfcOpenShell, Autodesk Forma, Speckle) while maintaining existing Revit tools and compatibility, we need a unified provider architecture.
