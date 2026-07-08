@@ -104,6 +104,33 @@ def test_plan_set_params_valid(pm, workspace):
     assert planned[0]["updates"]["Mark"]["before"] == "D-101"
 
 
+def test_plan_set_params_emits_plan_actions_ready_actions(pm, workspace):
+    """result['actions'] must be directly consumable by the approval gate's
+    plan_actions tool — this is the bridge that lets a batch parameter change
+    actually get applied, not just previewed (see providers/approval_provider.py)."""
+    result = pm.plan_set_params(
+        element_filter={"category": "OST_Doors"},
+        param_updates={"Mark": "D-201"},
+        workspace=workspace,
+    )
+    actions = result["actions"]
+    assert len(actions) == 1
+    assert actions[0] == {
+        "tool": "revit_set_parameter_value",
+        "arguments": {"element_id": actions[0]["arguments"]["element_id"], "parameter_name": "Mark", "value": "D-201"},
+    }
+    assert actions[0]["arguments"]["element_id"] is not None
+
+
+def test_plan_set_params_blocked_updates_produce_no_actions(pm, workspace):
+    result = pm.plan_set_params(
+        element_filter={"category": "OST_Levels"},
+        param_updates={"Elevation": 10.0},
+        workspace=workspace,
+    )
+    assert result["actions"] == []
+
+
 def test_plan_set_params_blocks_readonly(pm, workspace):
     result = pm.plan_set_params(
         element_filter={"category": "OST_Levels"},

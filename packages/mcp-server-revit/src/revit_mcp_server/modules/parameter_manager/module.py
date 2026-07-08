@@ -106,7 +106,31 @@ def _make_action_plan(tool_name: str, args: Dict[str, Any], preview: Dict[str, A
         "arguments": args,
         "preview": preview,
         "requires_approval": True,
+        "actions": _actions_from_planned(preview.get("planned", [])),
     }
+
+
+def _actions_from_planned(planned: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Flatten a planned-updates list into `plan_actions`-ready tool calls.
+
+    One `revit_set_parameter_value` action per (element, parameter) pair, so the
+    caller can pass this straight to `plan_actions` — that path already captures
+    before-state and supports rollback for this tool, generalizing to any batch
+    size with no additional code.
+    """
+    actions: List[Dict[str, Any]] = []
+    for entry in planned:
+        element_id = entry.get("element_id")
+        for pname, change in entry.get("updates", {}).items():
+            actions.append({
+                "tool": "revit_set_parameter_value",
+                "arguments": {
+                    "element_id": element_id,
+                    "parameter_name": pname,
+                    "value": change.get("after"),
+                },
+            })
+    return actions
 
 
 class ParameterManagerModule:
@@ -352,7 +376,7 @@ class ParameterManagerModule:
                         blocked.append({"uid": uid, "param": pname, "reason": reason})
                 
                 if el_updates:
-                    planned.append({"uid": uid, "updates": el_updates})
+                    planned.append({"uid": uid, "element_id": el.get("element_id"), "updates": el_updates})
         
         preview = {
             "csv_filename": csv_filename,

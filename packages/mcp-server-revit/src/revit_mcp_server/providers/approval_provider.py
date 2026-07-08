@@ -74,10 +74,53 @@ class ApprovalProvider(AECProvider):
                     raise ValueError(f"Provider not found for tool {t_name}")
                 return await prov.execute_tool(t_name, t_args)
 
-            return self.gate.rollback_plan(plan_id, execute_helper)
+            return await self.gate.rollback_plan(plan_id, execute_helper)
+
+        elif name == "execute_plan":
+            return await self._execute_plan(arguments.get("plan_id"))
 
         else:
             raise ValueError(f"Unknown approval tool '{name}'")
+
+    async def _execute_plan(self, plan_id: str) -> Dict[str, Any]:
+        """Run every action in an approved plan, report-and-continue on failure.
+
+        A partially-failed plan is left in state 'approved' (not 'executed') so it is
+        never mistaken for fully applied and never silently retried by rollback; failed
+        and succeeded actions are both recorded so nothing is dropped from the audit trail.
+        """
+        plan = self.gate.load_plan(plan_id)
+        if not plan:
+            raise ValueError(f"Plan {plan_id} not found")
+        if plan.get("state") != "approved":
+            raise ValueError(
+                f"Plan {plan_id} is in state '{plan.get('state')}', not 'approved'. Execution blocked."
+            )
+
+        results = []
+        had_failure = False
+        for action in plan["actions"]:
+            tool = action["tool"]
+            args = dict(action["arguments"])
+            args["plan_id"] = plan_id
+            provider = self.registry.lookup_tool_provider(tool)
+            if not provider:
+                action["state"] = "failed"
+                had_failure = True
+                results.append({"action_id": action["action_id"], "tool": tool, "error": f"Provider not found for tool {tool}"})
+                continue
+            try:
+                result = await provider.execute_tool(tool, args)
+                action["state"] = "executed"
+                results.append({"action_id": action["action_id"], "tool": tool, "result": result})
+            except Exception as e:
+                action["state"] = "failed"
+                had_failure = True
+                results.append({"action_id": action["action_id"], "tool": tool, "error": str(e)})
+
+        plan["state"] = "approved" if had_failure else "executed"
+        self.gate.save_plan(plan)
+        return {"plan_id": plan_id, "state": plan["state"], "results": results}
 
     _capabilities = [
         ProviderTool(
@@ -131,6 +174,19 @@ class ApprovalProvider(AECProvider):
         ProviderTool(
             name="rollback_plan",
             description="Rollback an executed ActionPlan using inverse values.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "plan_id": {"type": "string"}
+                },
+                "required": ["plan_id"]
+            }
+        ),
+        ProviderTool(
+            name="execute_plan",
+            description="Run every action in an approved ActionPlan. Report-and-continue: a partial "
+                        "failure leaves the plan in state 'approved' with per-action results recorded, "
+                        "rather than silently skipping the rest or marking the plan fully executed.",
             inputSchema={
                 "type": "object",
                 "properties": {
