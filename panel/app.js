@@ -7,33 +7,17 @@ const views = {
   settings: { title: "Settings", subtitle: "Local bridge" }
 };
 
+// plans/findings/reports start empty and are populated only from real
+// host.dispatchToHub responses (see the "message" listener below) - there is
+// no fixture/demo data. Use the matching ribbon/panel action (Run Health
+// Check, Review Pending Actions, Export Report) to populate each list.
 const state = {
   host: null,
   snapshot: null,
   llm: null,
-  plans: [
-    {
-      id: "plan_demo_01",
-      title: "Set FireRating on 12 doors",
-      status: "pending",
-      detail: "Parameter Manager will write FireRating = 60 to matching door instances."
-    },
-    {
-      id: "plan_demo_02",
-      title: "Rename duplicate sheet numbers",
-      status: "pending",
-      detail: "QA/QC checker found duplicate sheet numbers in the active document."
-    }
-  ],
-  findings: [
-    { id: "f-001", severity: "error", title: "Doors missing FireRating", detail: "12 door instances have an empty FireRating value." },
-    { id: "f-002", severity: "warning", title: "Views not on sheets", detail: "8 views are not placed on sheets." },
-    { id: "f-003", severity: "info", title: "Unplaced rooms", detail: "3 rooms are unplaced in the active model." }
-  ],
-  reports: [
-    { id: "r-001", title: "Model health workbook", detail: "Excel export with elements, types, and QA/QC issues." },
-    { id: "r-002", title: "SQLite model summary", detail: "Local database export for downstream reporting." }
-  ],
+  plans: [],
+  findings: [],
+  reports: [],
   log: [
     { at: "09:00", title: "Panel loaded", detail: "Waiting for host status." }
   ]
@@ -347,6 +331,41 @@ settingsForm.addEventListener("submit", (event) => {
   addLog("Settings saved", hubUrl.value);
 });
 
+// Maps for the raw hub tool results the host forwards after a real MCP tool
+// call (see packages/revit-bridge-addin/src/UI/BridgePanel.xaml.cs's
+// DispatchToHubAsync) into the shapes the render* functions above expect.
+function mapFindings(hubResult) {
+  const findings = (hubResult && hubResult.findings) || [];
+  return findings.map((finding, index) => ({
+    id: finding.element_uid ? `${finding.rule_id}:${finding.element_uid}` : `${finding.rule_id}:${index}`,
+    severity: finding.severity || "info",
+    title: String(finding.rule_id || "finding").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+    detail: finding.message || ""
+  }));
+}
+
+function mapPlans(hubResult) {
+  const plans = (hubResult && hubResult.plans) || [];
+  return plans.map((plan) => {
+    const actions = plan.actions || [];
+    return {
+      id: plan.plan_id,
+      status: plan.state,
+      title: actions.length === 1 ? actions[0].tool : `${actions.length} action(s)`,
+      detail: actions.map((action) => action.tool).join(", ") || "No actions"
+    };
+  });
+}
+
+function mapReport(hubResult) {
+  const fileName = String(hubResult.output_file || "").split(/[\\/]/).pop();
+  return {
+    id: hubResult.output_file || `report-${Date.now()}`,
+    title: fileName || "Report",
+    detail: `${hubResult.element_count ?? "?"} elements, ${hubResult.type_count ?? "?"} types exported to ${hubResult.output_file || "workspace"}`
+  };
+}
+
 if (window.chrome && window.chrome.webview) {
   window.chrome.webview.addEventListener("message", (event) => {
     if (event.data?.type === "host.status") {
@@ -361,6 +380,25 @@ if (window.chrome && window.chrome.webview) {
     if (event.data?.type === "llm.status") {
       state.llm = event.data;
       renderSystemState();
+    }
+    if (event.data?.type === "findings.updated") {
+      state.findings = mapFindings(event.data.result);
+      renderFindings();
+      addLog("Health check complete", `${state.findings.length} finding(s)`);
+    }
+    if (event.data?.type === "plans.updated") {
+      state.plans = mapPlans(event.data.result);
+      renderPlans();
+      addLog("Plans updated", `${state.plans.length} pending`);
+    }
+    if (event.data?.type === "reports.updated") {
+      const report = mapReport(event.data.result);
+      state.reports = [report, ...state.reports];
+      renderReports();
+      addLog("Report exported", report.title);
+    }
+    if (event.data?.type === "tool.error") {
+      addLog(`Error: ${event.data.action || "tool"}`, event.data.message || "Unknown error");
     }
     if (event.data?.type === "panel.view" && views[event.data.view]) {
       setView(event.data.view);

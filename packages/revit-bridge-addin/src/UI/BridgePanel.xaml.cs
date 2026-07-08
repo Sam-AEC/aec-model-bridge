@@ -53,7 +53,7 @@ namespace RevitBridge.UI
             }
         }
 
-        private void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs args)
+        private async void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs args)
         {
             string message;
             try
@@ -66,7 +66,88 @@ namespace RevitBridge.UI
             }
 
             Log.Information("Bridge panel message received: {Message}", message);
+
+            try
+            {
+                await DispatchToHubAsync(message);
+            }
+            catch (JsonException)
+            {
+                // The connectivity-check fallback shell (BuildShellHtml) posts bare
+                // strings like "panel.loaded", not JSON objects — nothing to dispatch.
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to dispatch panel message: {Message}", message);
+            }
+
             PostHostStatus();
+        }
+
+        /// <summary>
+        /// Maps a panel message type to a real hub tool call and posts the result back.
+        /// Only the message types app.js currently sends for real workflows are wired;
+        /// chat/settings/report-browsing are local-only for now (no corresponding hub
+        /// tool) — see docs/product/NEXT_AGENT_HANDOVER.md.
+        /// </summary>
+        private async Task DispatchToHubAsync(string message)
+        {
+            using var doc = JsonDocument.Parse(message);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("type", out var typeEl))
+            {
+                return;
+            }
+
+            var type = typeEl.GetString();
+            switch (type)
+            {
+                case "qaqc.runHealthCheck":
+                    await RunToolAndPostAsync("qaqc_checker_run_check", new { }, "findings.updated", type);
+                    break;
+
+                case "plans.refresh":
+                    await RunToolAndPostAsync("list_pending_plans", new { }, "plans.updated", type);
+                    break;
+
+                case "plan.approve":
+                case "plan.reject":
+                {
+                    var planId = root.TryGetProperty("planId", out var idEl) ? idEl.GetString() : null;
+                    if (string.IsNullOrEmpty(planId))
+                    {
+                        break;
+                    }
+
+                    var decisionTool = type == "plan.approve" ? "approve_plan" : "reject_plan";
+                    var decision = await HubClient.ExecuteToolAsync(decisionTool, new { plan_id = planId });
+                    if (!decision.Ok)
+                    {
+                        PostToPanel(new { type = "tool.error", action = type, message = decision.Error });
+                        break;
+                    }
+
+                    await RunToolAndPostAsync("list_pending_plans", new { }, "plans.updated", type);
+                    break;
+                }
+
+                case "reports.exportExcel":
+                    await RunToolAndPostAsync("report_generator_export_excel", new { }, "reports.updated", type);
+                    break;
+            }
+        }
+
+        private async Task RunToolAndPostAsync(string tool, object arguments, string successType, string action)
+        {
+            var result = await HubClient.ExecuteToolAsync(tool, arguments);
+            if (result.Ok)
+            {
+                PostToPanel(new { type = successType, action, result = result.Result });
+            }
+            else
+            {
+                PostToPanel(new { type = "tool.error", action, message = result.Error });
+            }
         }
 
         private void PostHostStatus()
