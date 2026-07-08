@@ -21,6 +21,9 @@
     <button class="nav" type="button" data-view="findings" title="Findings" aria-label="Findings">
       <span aria-hidden="true">F</span>
     </button>
+    <button class="nav" type="button" data-view="reports" title="Reports" aria-label="Reports">
+      <span aria-hidden="true">R</span>
+    </button>
     <button class="nav" type="button" data-view="log" title="Run Log" aria-label="Run Log">
       <span aria-hidden="true">L</span>
     </button>
@@ -68,6 +71,14 @@
         </select>
       </div>
       <div class="list" id="finding-list"></div>
+    </section>
+
+    <section class="view" id="view-reports" aria-labelledby="view-title">
+      <div class="toolbar">
+        <button type="button" data-action="export-excel">Export Excel</button>
+        <button type="button" data-action="refresh-reports">Refresh</button>
+      </div>
+      <div class="list" id="report-list"></div>
     </section>
 
     <section class="view" id="view-log" aria-labelledby="view-title">

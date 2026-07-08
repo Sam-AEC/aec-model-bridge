@@ -89,6 +89,7 @@ namespace RevitBridge.Bridge
 
             // Create panels
             RibbonPanel connectionPanel = app.CreateRibbonPanel(tabName, "Connection");
+            RibbonPanel workflowPanel = app.CreateRibbonPanel(tabName, "Workflows");
             RibbonPanel toolsPanel = app.CreateRibbonPanel(tabName, "Tools");
 
             string assemblyPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
@@ -194,6 +195,39 @@ namespace RevitBridge.Bridge
             panelBtnData.Image = brandIcon16;
             panelBtnData.LargeImage = brandIcon32;
 
+            PushButtonData healthBtnData = new PushButtonData(
+                "cmdRunHealthCheck",
+                "Health Check",
+                assemblyPath,
+                "RevitBridge.Bridge.CommandRunHealthCheck"
+            );
+            healthBtnData.ToolTip = "Open the panel and start a model health check";
+            healthBtnData.LongDescription = "Opens the findings view and requests a QA/QC health check.";
+            healthBtnData.Image = statusIcon16;
+            healthBtnData.LargeImage = statusIcon32;
+
+            PushButtonData pendingBtnData = new PushButtonData(
+                "cmdReviewPendingActions",
+                "Pending Actions",
+                assemblyPath,
+                "RevitBridge.Bridge.CommandReviewPendingActions"
+            );
+            pendingBtnData.ToolTip = "Review pending ActionPlans";
+            pendingBtnData.LongDescription = "Opens the approval queue in the AEC Model Bridge panel.";
+            pendingBtnData.Image = brandIcon16;
+            pendingBtnData.LargeImage = brandIcon32;
+
+            PushButtonData reportsBtnData = new PushButtonData(
+                "cmdReports",
+                "Reports",
+                assemblyPath,
+                "RevitBridge.Bridge.CommandOpenReports"
+            );
+            reportsBtnData.ToolTip = "Open report tools";
+            reportsBtnData.LongDescription = "Opens report export controls in the AEC Model Bridge panel.";
+            reportsBtnData.Image = settingsIcon16;
+            reportsBtnData.LargeImage = settingsIcon32;
+
             // Settings Button (future)
             PushButtonData settingsBtnData = new PushButtonData(
                 "cmdSettings",
@@ -231,8 +265,12 @@ namespace RevitBridge.Bridge
             aboutBtnData.Image = brandIcon16;
             aboutBtnData.LargeImage = brandIcon32;
 
-            toolsPanel.AddItem(panelBtnData);
-            toolsPanel.AddSeparator();
+            workflowPanel.AddItem(panelBtnData);
+            workflowPanel.AddItem(healthBtnData);
+            workflowPanel.AddItem(pendingBtnData);
+            workflowPanel.AddSeparator();
+            workflowPanel.AddItem(reportsBtnData);
+
             toolsPanel.AddItem(settingsBtnData);
             toolsPanel.AddItem(helpBtnData);
             toolsPanel.AddSeparator();
