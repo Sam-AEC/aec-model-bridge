@@ -2,6 +2,7 @@ const views = {
   chat: { title: "Chat", subtitle: "AEC Model Bridge" },
   plans: { title: "Pending Actions", subtitle: "Approval queue" },
   findings: { title: "Findings", subtitle: "Model health" },
+  reports: { title: "Reports", subtitle: "Exports" },
   log: { title: "Run Log", subtitle: "Recent activity" },
   settings: { title: "Settings", subtitle: "Local bridge" }
 };
@@ -27,6 +28,10 @@ const state = {
     { id: "f-002", severity: "warning", title: "Views not on sheets", detail: "8 views are not placed on sheets." },
     { id: "f-003", severity: "info", title: "Unplaced rooms", detail: "3 rooms are unplaced in the active model." }
   ],
+  reports: [
+    { id: "r-001", title: "Model health workbook", detail: "Excel export with elements, types, and QA/QC issues." },
+    { id: "r-002", title: "SQLite model summary", detail: "Local database export for downstream reporting." }
+  ],
   log: [
     { at: "09:00", title: "Panel loaded", detail: "Waiting for host status." }
   ]
@@ -40,6 +45,7 @@ const chatForm = document.getElementById("chat-form");
 const chatInput = document.getElementById("chat-input");
 const planList = document.getElementById("plan-list");
 const findingList = document.getElementById("finding-list");
+const reportList = document.getElementById("report-list");
 const runLog = document.getElementById("run-log");
 const severityFilter = document.getElementById("severity-filter");
 const settingsForm = document.getElementById("settings-form");
@@ -142,6 +148,24 @@ function renderFindings() {
     });
 }
 
+function renderReports() {
+  reportList.innerHTML = "";
+  state.reports.forEach((report) => {
+    const item = document.createElement("article");
+    item.className = "item";
+    item.innerHTML = `
+      <div class="item-head">
+        <h2>${escapeHtml(report.title)}</h2>
+        <span class="badge info">report</span>
+      </div>
+      <p>${escapeHtml(report.detail)}</p>
+      <div class="item-actions">
+        <button type="button" data-report="${escapeHtml(report.id)}">Open</button>
+      </div>`;
+    reportList.appendChild(item);
+  });
+}
+
 function renderLog() {
   runLog.innerHTML = "";
   state.log.forEach((event) => {
@@ -175,12 +199,26 @@ document.body.addEventListener("click", (event) => {
     postToHost("qaqc.runHealthCheck");
     addLog("Health check requested", "QA/QC run sent to the host.");
   }
+  if (action === "export-excel") {
+    postToHost("reports.exportExcel");
+    addLog("Report export requested", "Excel export sent to the host.");
+  }
+  if (action === "refresh-reports") {
+    postToHost("reports.refresh");
+    addLog("Reports refreshed", "Requested available reports from the host.");
+  }
 
   const planId = target.dataset.plan;
   if (planId) {
     const decision = target.dataset.decision;
     postToHost(`plan.${decision}`, { planId });
     addLog(`Plan ${decision}`, planId);
+  }
+
+  const reportId = target.dataset.report;
+  if (reportId) {
+    postToHost("reports.open", { reportId });
+    addLog("Report opened", reportId);
   }
 });
 
@@ -215,12 +253,20 @@ if (window.chrome && window.chrome.webview) {
       renderHostStatus();
       addLog("Host status updated", state.host.activeDocument || "No active document");
     }
+    if (event.data?.type === "panel.view" && views[event.data.view]) {
+      setView(event.data.view);
+      if (event.data.action) {
+        postToHost(event.data.action);
+        addLog("Ribbon command", event.data.action);
+      }
+    }
   });
 }
 
 renderChat();
 renderPlans();
 renderFindings();
+renderReports();
 renderLog();
 renderHostStatus();
 postToHost("panel.loaded");

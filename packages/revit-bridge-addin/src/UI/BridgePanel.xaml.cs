@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -13,6 +14,8 @@ namespace RevitBridge.UI
     public partial class BridgePanel : UserControl
     {
         private bool _initialized;
+        private bool _pageReady;
+        private readonly Queue<string> _pendingMessages = new Queue<string>();
 
         public BridgePanel()
         {
@@ -33,6 +36,12 @@ namespace RevitBridge.UI
             {
                 await Browser.EnsureCoreWebView2Async();
                 Browser.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
+                Browser.CoreWebView2.NavigationCompleted += (_, _) =>
+                {
+                    _pageReady = true;
+                    FlushPendingMessages();
+                    PostHostStatus();
+                };
                 LoadPanelApp();
             }
             catch (Exception ex)
@@ -72,6 +81,26 @@ namespace RevitBridge.UI
             });
 
             Browser.CoreWebView2?.PostWebMessageAsJson(payload);
+        }
+
+        public void PostToPanel(object payload)
+        {
+            var json = JsonSerializer.Serialize(payload);
+            if (!_pageReady || Browser.CoreWebView2 == null)
+            {
+                _pendingMessages.Enqueue(json);
+                return;
+            }
+
+            Browser.CoreWebView2.PostWebMessageAsJson(json);
+        }
+
+        private void FlushPendingMessages()
+        {
+            while (_pendingMessages.Count > 0 && Browser.CoreWebView2 != null)
+            {
+                Browser.CoreWebView2.PostWebMessageAsJson(_pendingMessages.Dequeue());
+            }
         }
 
         private void LoadPanelApp()

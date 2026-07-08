@@ -14,7 +14,42 @@ namespace RevitBridge.Bridge
     {
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
-            if (BridgePanelProvider.Show(commandData.Application, out var error))
+            return PanelCommand.Show(commandData, ref message);
+        }
+    }
+
+    [Transaction(TransactionMode.Manual)]
+    public class CommandRunHealthCheck : IExternalCommand
+    {
+        public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
+        {
+            return PanelCommand.Show(commandData, ref message, "findings", "qaqc.runHealthCheck");
+        }
+    }
+
+    [Transaction(TransactionMode.Manual)]
+    public class CommandReviewPendingActions : IExternalCommand
+    {
+        public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
+        {
+            return PanelCommand.Show(commandData, ref message, "plans", "plans.refresh");
+        }
+    }
+
+    [Transaction(TransactionMode.Manual)]
+    public class CommandOpenReports : IExternalCommand
+    {
+        public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
+        {
+            return PanelCommand.Show(commandData, ref message, "reports", "reports.refresh");
+        }
+    }
+
+    internal static class PanelCommand
+    {
+        public static Result Show(ExternalCommandData commandData, ref string message, string view = "", string action = "")
+        {
+            if (BridgePanelProvider.Show(commandData.Application, out var error, view, action))
             {
                 return Result.Succeeded;
             }

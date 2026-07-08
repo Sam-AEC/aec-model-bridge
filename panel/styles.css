@@ -61,7 +61,7 @@ select {
 
 .rail {
   display: grid;
-  grid-template-rows: 58px repeat(5, 44px) 1fr;
+  grid-template-rows: 58px repeat(6, 44px) 1fr;
   gap: 6px;
   padding: 8px;
   border-right: 1px solid var(--line);
