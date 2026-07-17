@@ -210,6 +210,47 @@ def test_nonexistent_recipe_raises(module, workspace):
         module.run_recipe(recipe_id="does_not_exist", workspace=workspace)
 
 
+def test_snapshot_publish_calls_send_object_not_publish_version(module, workspace):
+    """snapshot_publish.yaml previously called speckle_publish_version with
+    snapshot_id/stream_id args that don't exist on that tool's schema (real
+    fields: project_id/model_id/object_id/message) and tried to template the
+    whole captured snapshot into a string, which the engine can only
+    stringify, not pass as an object. Fixed to call speckle_send_object (the
+    tool that actually sends data AND creates the version in one call) with
+    a literal dict of scalar-templated fields."""
+    call_log = []
+
+    def mock_executor(tool_name: str, args: dict) -> dict:
+        call_log.append((tool_name, args))
+        if tool_name == "snapshot_take":
+            return {"snapshot_id": "snap-042", "taken_at": "2026-01-01T00:00:00Z", "elements_count": 6}
+        if tool_name == "speckle_send_object":
+            return {"result": "ok", "version_id": "ver-1"}
+        return {}
+
+    result = module.run_recipe(
+        recipe_id="snapshot_publish",
+        args={"project_id": "proj-1", "model_name": "main"},
+        dry_run=False,
+        workspace=workspace,
+        tool_executor=mock_executor,
+    )
+
+    assert result["status"] == "completed"
+    tool_names = [name for name, _ in call_log]
+    assert tool_names == ["snapshot_take", "speckle_send_object"]
+
+    _, publish_args = call_log[1]
+    assert publish_args["project_id"] == "proj-1"
+    assert publish_args["model_name"] == "main"
+    assert publish_args["data"] == {
+        "snapshot_id": "snap-042",
+        "taken_at": "2026-01-01T00:00:00Z",
+        "elements_count": "6",  # stringified: template substitution always renders to str
+    }
+    assert "snap-042" not in "".join(k for k in publish_args if isinstance(k, str))  # sanity: no stray keys
+
+
 @pytest.mark.anyio
 async def test_provider_executes_recipe_steps(tmp_path):
     registry = ProviderRegistry()

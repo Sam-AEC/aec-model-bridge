@@ -1,6 +1,17 @@
+# NOTE: the template engine (recipe_runner/module.py:_render) only substitutes
+# {{...}} inside string values and always stringifies the looked-up value - it
+# cannot thread a whole captured object (e.g. the full snapshot) into another
+# step's argument. speckle_send_object's "data" must therefore be a literal
+# dict of scalar template strings (a small summary), not "{{snapshot_result}}"
+# whole. speckle_send_object is also the tool to use here, not
+# speckle_publish_version: send_object uploads data AND creates the Speckle
+# version/commit in one call (see providers/cloud.py's
+# _tool_speckle_send_object); publish_version is the lower-level API for when
+# you already have an object_id from elsewhere. project_id/model_name/data
+# must be supplied by the caller via run_recipe's `args`.
 id: snapshot_publish
 name: Snapshot → Speckle Publish
-description: "Take a BIM snapshot and publish it as a Speckle version."
+description: "Take a BIM snapshot and publish a summary of it as a Speckle version. Requires project_id and model_name as recipe args."
 steps:
   - id: take_snapshot
     tool: snapshot_take
@@ -8,9 +19,13 @@ steps:
     capture_as: snapshot_result
 
   - id: publish_speckle
-    tool: speckle_publish_version
+    tool: speckle_send_object
     args:
-      snapshot_id: "{{snapshot_result.snapshot_id}}"
-      stream_id: "{{stream_id}}"
+      project_id: "{{project_id}}"
+      model_name: "{{model_name}}"
+      data:
+        snapshot_id: "{{snapshot_result.snapshot_id}}"
+        taken_at: "{{snapshot_result.taken_at}}"
+        elements_count: "{{snapshot_result.elements_count}}"
       message: "Auto-publish from recipe at {{snapshot_result.taken_at}}"
     capture_as: speckle_result
