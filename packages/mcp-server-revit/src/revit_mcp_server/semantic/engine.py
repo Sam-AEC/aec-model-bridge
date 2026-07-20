@@ -164,12 +164,12 @@ def generate_mock_snapshot() -> Snapshot:
         counts=counts
     )
 
-def snapshot_take(workspace: Any, bridge_client_or_provider: Any = None) -> Snapshot:
+async def snapshot_take(workspace: Any, bridge_client_or_provider: Any = None) -> Snapshot:
     # Check if we should execute a real snapshot or generate a mock
     if bridge_client_or_provider and hasattr(bridge_client_or_provider, "execute_tool"):
         try:
             # Call C# execute snapshot
-            res = bridge_client_or_provider.execute_tool("revit_extract_snapshot", {})
+            res = await bridge_client_or_provider.execute_tool("revit_extract_snapshot", {})
             if isinstance(res, dict) and "snapshot" in res:
                 return Snapshot(**res["snapshot"])
         except Exception as e:
