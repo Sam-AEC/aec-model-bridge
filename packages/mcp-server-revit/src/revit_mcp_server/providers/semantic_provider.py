@@ -96,7 +96,7 @@ class SemanticProvider(AECProvider):
         if self.registry:
             revit_prov = self.registry.get_provider("revit")
             
-        snapshot = engine.snapshot_take(self.workspace, revit_prov)
+        snapshot = await engine.snapshot_take(self.workspace, revit_prov)
         
         # Identity mapper integration: register mappings in memory
         if self.registry:
