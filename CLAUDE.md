@@ -12,7 +12,7 @@ Four independent "switches" (per-platform add-ins) + one Python MCP hub:
 | `packages/mcp-server-revit/` | Python | — | MCP hub |
 
 MCP providers: `packages/mcp-server-revit/src/revit_mcp_server/providers/`  
-Architecture blueprint: `docs/system-blueprint-and-workflows.md`
+Architecture decision records: `docs/000*.md`
 
 ## Rhino Bridge — Quick Reference
 
@@ -78,7 +78,6 @@ self._tool_mapping["rhino_foo"] = ("foo_command", lambda args: {"param": args.ge
 ## Commit Rules
 
 - No `Co-Authored-By` trailers — ever
-- `docs/ecosystem-strategy-and-monetization.md` is potentially private — check before pushing
 
 ## Diagrid Glass Panel Geometry
 
