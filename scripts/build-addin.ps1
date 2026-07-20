@@ -52,31 +52,33 @@ $outputPath = Join-Path $PSScriptRoot "..\packages\revit-bridge-addin\bin\$Confi
 Write-Host "Revit Build succeeded: $([System.IO.Path]::GetFullPath($outputPath))" -ForegroundColor Green
 
 # Build Navisworks Add-in
+# Unlike Revit (Nice3point NuGet fallback) and Rhino (RhinoCommon is a plain
+# NuGet package), the Navisworks API has no public NuGet distribution at all -
+# NavisworksBridge.csproj can only compile against a locally licensed
+# Navisworks install (UseLocalNavisworks). CI runners never have one, so this
+# step is best-effort like Rhino/Power BI below: warn and continue rather than
+# fail the whole job over a build that is structurally impossible in CI.
 $navisworksPath = "$PSScriptRoot\..\packages\navisworks-bridge-addin\NavisworksBridge.csproj"
 if (Test-Path $navisworksPath) {
     Write-Host "Building AEC Model Bridge for Navisworks $RevitVersion ($Configuration)..." -ForegroundColor Cyan
-    
-    # Install to Navisworks 2026
-    $navisTargetDir = "$env:APPDATA\Autodesk\Navisworks Manage 2026\Plugins\NavisworksBridge"
-    if (-not (Test-Path $navisTargetDir)) {
-        New-Item -ItemType Directory -Force -Path $navisTargetDir | Out-Null
-    }
-    
+
     & $dotnet.Source build $navisworksPath -c $Configuration -p:NavisworksVersion=$RevitVersion -v:minimal
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "Navisworks build failed with exit code $LASTEXITCODE"
-        exit $LASTEXITCODE
-    }
-    
-    # Navisworks Manage is still on .NET Framework 4.8 for 2024-2026
-    $nwOutDir = Join-Path $PSScriptRoot "..\packages\navisworks-bridge-addin\bin\$Configuration\$RevitVersion\net48"
-    $nwOutputPath = Join-Path $nwOutDir "NavisworksBridge.dll"
-    
-    if (Test-Path $nwOutDir) {
-        Copy-Item "$nwOutDir\*" -Destination $navisTargetDir -Recurse -Force
-        Write-Host "Navisworks Build succeeded and deployed: $([System.IO.Path]::GetFullPath($nwOutputPath))" -ForegroundColor Green
+        Write-Host "Navisworks build skipped/failed (expected without a local licensed Navisworks install) - continuing." -ForegroundColor Yellow
     } else {
-        Write-Error "Could not find Navisworks output directory: $nwOutDir"
+        # Navisworks Manage is still on .NET Framework 4.8 for 2024-2026
+        $nwOutDir = Join-Path $PSScriptRoot "..\packages\navisworks-bridge-addin\bin\$Configuration\$RevitVersion\net48"
+        $nwOutputPath = Join-Path $nwOutDir "NavisworksBridge.dll"
+        Write-Host "Navisworks Build succeeded: $([System.IO.Path]::GetFullPath($nwOutputPath))" -ForegroundColor Green
+
+        # Local dev convenience only: deploy straight into a running Navisworks 2026
+        # install's plugin folder. Never attempted in CI (no such folder exists there).
+        $navisTargetDir = "$env:APPDATA\Autodesk\Navisworks Manage 2026\Plugins\NavisworksBridge"
+        if ((Test-Path "$env:APPDATA\Autodesk\Navisworks Manage 2026") -and (Test-Path $nwOutDir)) {
+            New-Item -ItemType Directory -Force -Path $navisTargetDir | Out-Null
+            Copy-Item "$nwOutDir\*" -Destination $navisTargetDir -Recurse -Force
+            Write-Host "Deployed to $navisTargetDir" -ForegroundColor Green
+        }
     }
 }
 
