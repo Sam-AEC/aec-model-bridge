@@ -4,7 +4,7 @@
 
 # AEC Model Bridge
 
-AEC Model Bridge is the open, secure runtime that lets AI agents operate Revit, Navisworks, Rhino, and your CDE — turning fragmented BIM workflows into one orchestrated pipeline from concept to dashboard.
+AEC Model Bridge is the open, secure runtime that puts Revit, Rhino, Navisworks, and Power BI behind one MCP call center — so an AI agent orchestrates them directly, instead of you manually dumping data between disconnected apps.
 
 
 
@@ -29,28 +29,18 @@ AEC Model Bridge is the open, secure runtime that lets AI agents operate Revit, 
 <strong>Coming soon</strong><br>
 
 ![Microsoft Excel coming soon](https://img.shields.io/badge/Microsoft_Excel-coming_soon-2563EB?style=flat-square)
-![Microsoft Graph coming soon](https://img.shields.io/badge/Microsoft_Graph-coming_soon-2563EB?style=flat-square)
-![Autodesk Construction Cloud coming soon](https://img.shields.io/badge/Autodesk_Construction_Cloud-coming_soon-2563EB?style=flat-square)
-![Autodesk Forma coming soon](https://img.shields.io/badge/Autodesk_Forma-coming_soon-2563EB?style=flat-square)
-![Solibri coming soon](https://img.shields.io/badge/Solibri-coming_soon-2563EB?style=flat-square)
 ![Parquet and DuckDB coming soon](https://img.shields.io/badge/Parquet_%2F_DuckDB-coming_soon-2563EB?style=flat-square)
-
-<strong>Future roadmap</strong><br>
-
-![Tekla Structures roadmap](https://img.shields.io/badge/Tekla_Structures-roadmap-64748B?style=flat-square)
-![Graphisoft Archicad roadmap](https://img.shields.io/badge/Graphisoft_Archicad-roadmap-64748B?style=flat-square)
-![Bentley iTwin roadmap](https://img.shields.io/badge/Bentley_iTwin-roadmap-64748B?style=flat-square)
-![Trimble Connect roadmap](https://img.shields.io/badge/Trimble_Connect-roadmap-64748B?style=flat-square)
-![Procore roadmap](https://img.shields.io/badge/Procore-roadmap-64748B?style=flat-square)
-![Oracle Primavera P6 roadmap](https://img.shields.io/badge/Oracle_Primavera_P6-roadmap-64748B?style=flat-square)
-![SketchUp roadmap](https://img.shields.io/badge/SketchUp-roadmap-64748B?style=flat-square)
 
 [Install](#installation) | [Tools](docs/tools-generated.md) | [Documentation](#documentation) | [Latest release](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
 </div>
 
-AEC Model Bridge connects MCP clients such as Claude Desktop, VS Code, GitHub
-Copilot, and custom agents to a live session across multiple AEC platforms simultaneously.
+A single MCP client — Claude Desktop, VS Code, GitHub Copilot, or a custom
+agent — talks to one Python hub, and the hub routes each call to whichever
+app the task actually needs: draw geometry in Rhino, query parameters in
+Revit, resolve clashes in Navisworks, publish a dashboard to Power BI. The
+agent plans the workflow once; the bridge is what lets it reach every app
+without you being the one copying data between them.
 
 The Python hub handles MCP communication and routes each request to the relevant
 desktop, headless, cloud, or compute provider:
@@ -75,12 +65,7 @@ Navisworks Manage is currently in progress; while the C# add-in routing infrastr
 
 ### Coming Soon
 
-This wave adds Excel and SharePoint workbook round trips, ACC/Forma workflows through Autodesk Platform Services, and Solibri model checking.
-
-### Future Roadmap
-
-Future connectors are opportunity-driven and will be scheduled when each has a
-defined workflow, test access, and a supported API path.
+This wave adds Excel workbook round trips and a Parquet/DuckDB data plane for cross-platform reporting.
 
 ## Highlights
 
