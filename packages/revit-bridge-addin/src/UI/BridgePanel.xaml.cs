@@ -103,7 +103,7 @@ namespace RevitBridge.UI
         /// Maps a panel message type to a real hub tool call and posts the result back.
         /// chat.message shells out to a CLI agent (see agent_bridge.py) rather than
         /// calling a tool directly; settings/report-browsing remain local-only for now
-        /// (no corresponding hub tool) — see docs/product/NEXT_AGENT_HANDOVER.md.
+        /// (no corresponding hub tool).
         /// </summary>
         private async Task DispatchToHubAsync(string message)
         {

@@ -9,8 +9,8 @@ namespace RevitBridge.UI
     /// <summary>
     /// Calls the Python MCP hub's local panel HTTP shim (packages/mcp-server-revit's
     /// panel_server.py). MCP itself is stdio-only — a WebView2 page cannot launch or
-    /// speak to a stdio subprocess — so per docs/product/PLUGIN_APP_ARCHITECTURE.md
-    /// section 2 the panel reaches the hub over a small loopback HTTP shim instead.
+    /// speak to a stdio subprocess — so the panel reaches the hub over a small
+    /// loopback HTTP shim instead.
     /// This is the one piece of the add-in that bridges that gap.
     /// </summary>
     internal static class HubClient

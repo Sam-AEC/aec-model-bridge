@@ -10,12 +10,11 @@ permission handling; this module only owns process plumbing and provider
 dispatch. Mutating Revit tool calls still pass through ApprovalGate exactly as
 they do for every other caller — nothing here bypasses that.
 
-Personal-use scope only (see docs/product/DECISIONS_AND_RISKS.md): this
-assumes the operator's own machine has `claude` and/or `codex` on PATH and
-already authenticated. Shipping this to other users would need a very
-different trust model (bundled/managed CLI, no reliance on the operator's own
-CLI session) — do not extend this to the general product surface without
-revisiting that.
+Personal-use scope only: this assumes the operator's own machine has `claude`
+and/or `codex` on PATH and already authenticated. Shipping this to other users
+would need a very different trust model (bundled/managed CLI, no reliance on
+the operator's own CLI session) — do not extend this to the general product
+surface without revisiting that.
 """
 from __future__ import annotations
 

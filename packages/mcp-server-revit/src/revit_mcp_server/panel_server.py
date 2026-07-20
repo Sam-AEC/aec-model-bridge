@@ -1,12 +1,11 @@
 """Loopback-only HTTP shim for the Revit dockable panel (WebView2 JS).
 
 The MCP hub (mcp_server.py) speaks stdio to AI clients (Claude Desktop/Code) —
-a browser page in WebView2 cannot launch or speak to a stdio subprocess. Per
-docs/product/PLUGIN_APP_ARCHITECTURE.md §2 ("panel UI is HTML/JS talking to
-the add-in over the WebView2 message bridge, and to the hub via localhost"),
-this module runs the *same* provider registry as the stdio server behind a
-minimal local-only HTTP server, so the C# add-in can forward panel button
-clicks to real MCP tools.
+a browser page in WebView2 cannot launch or speak to a stdio subprocess, so
+the panel UI talks HTML/JS to the add-in over the WebView2 message bridge,
+and the add-in reaches the hub via localhost. This module runs the *same*
+provider registry as the stdio server behind a minimal local-only HTTP
+server, so the C# add-in can forward panel button clicks to real MCP tools.
 
 This is not a general-purpose remote API: it binds 127.0.0.1 only, mirroring
 every other switch in this product (Revit/Rhino/Navisworks bridges), and

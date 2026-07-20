@@ -1,6 +1,5 @@
 """Tests for panel_server.py, the loopback HTTP shim the dockable panel calls
-since MCP itself is stdio-only (see panel_server.py's module docstring and
-docs/product/PLUGIN_APP_ARCHITECTURE.md section 2).
+since MCP itself is stdio-only (see panel_server.py's module docstring).
 
 Each test builds its own server bound to workspace=WorkspaceMonitor([tmp_path])
 so ApprovalGate plan files never land in the shared tests/ workspace.

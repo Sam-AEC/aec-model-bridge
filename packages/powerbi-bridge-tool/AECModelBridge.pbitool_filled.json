@@ -1,8 +1,0 @@
-{
-  "name": "AEC Model Bridge",
-  "description": "Connects Power BI to the AEC Model Bridge Hub",
-  "path": "C:\\Users\\sammo\\OneDrive\\Documenten\\GitHub\\Autodesk-Revit-MCP-Server\\packages\\powerbi-bridge-tool\\bin\\Release\\net8.0-windows\\PowerBIBridge.exe",
-  "arguments": "\"%server%\" \"%database%\"",
-  "iconData": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAALEwAACxMBAJqcGAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAAydEVYdFRpdGxlAENyZWF0aXZlIENvbW1vbnMgQXR0cmlidXRpb24gMy4wIFVucG9ydGVkIExpY2Vuc2Xp9yqAAAAAElFTkSuQmCC"
-}
-
