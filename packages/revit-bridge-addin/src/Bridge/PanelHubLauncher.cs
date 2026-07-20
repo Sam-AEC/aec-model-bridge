@@ -81,8 +81,10 @@ public sealed class PanelHubLauncher
                 Arguments = "-m revit_mcp_server.panel_server",
                 UseShellExecute = false,
                 CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
+                // Do NOT redirect stdout/stderr: redirected but unread pipes deadlock
+                // once the subprocess writes more than ~4KB (the pipe buffer). The hub
+                // logs at startup so this threshold is reachable. Output is discarded
+                // anyway — the health-poll loop is the correct readiness signal (H4 fix).
             };
 
             _launchedProcess = Process.Start(startInfo);

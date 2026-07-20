@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 class ParamVal(BaseModel):
     v: Any
@@ -43,16 +43,14 @@ class ElementRecord(BaseModel):
     geometry_ref: Optional[Dict[str, Any]] = None
     materials: List[str] = Field(default_factory=list)
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 class RelationRecord(BaseModel):
     kind: str
     from_id: str = Field(..., alias="from")
     to_id: str = Field(..., alias="to")
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 class TypeRecord(BaseModel):
     uid: str
@@ -81,8 +79,7 @@ class Snapshot(BaseModel):
     types: List[TypeRecord] = Field(default_factory=list)
     counts: Dict[str, Any] = Field(default_factory=dict)
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 class SnapshotDelta(BaseModel):
     snapshot_id: str
@@ -108,5 +105,4 @@ class FacadeZone(BaseModel):
     panels: List[FacadePanel] = Field(default_factory=list)
     counts_expected: Dict[str, int] = Field(default_factory=dict)
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)

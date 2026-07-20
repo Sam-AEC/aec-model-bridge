@@ -21,8 +21,12 @@ logger = logging.getLogger(__name__)
 # Initialize the MCP server
 app = Server("aec-model-bridge")
 
-# Build the registry used by the stdio MCP server below.
-registry, approval_provider, job_manager, module_registry, workspace = build_registry()
+# Registry components — populated in main() so importing this module never
+# triggers provider construction (Rhino health probes, Speckle OAuth, SQLite
+# connections, module filesystem scans) as a side effect.
+registry = None
+approval_provider = None
+job_manager = None
 
 
 @app.list_tools()
@@ -84,7 +88,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
         # Execute the tool on the provider
         result = await provider.execute_tool(name, arguments)
-        
+
         # If mutating tool and plan_id is provided, transition state to executed
         if tool_def and tool_def.is_mutating and isinstance(arguments, dict) and "plan_id" in arguments:
             plan_id = arguments["plan_id"]
@@ -119,6 +123,8 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
 async def main():
     """Run the MCP server."""
+    global registry, approval_provider, job_manager
+    registry, approval_provider, job_manager, _module_registry, _workspace = build_registry()
     try:
         async with stdio_server() as (read_stream, write_stream):
             await app.run(

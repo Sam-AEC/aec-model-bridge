@@ -19,6 +19,8 @@ dependencies = [
     "ifcopenshell>=0.7.0",
     "networkx>=3.0",
     "specklepy>=3,<4",
+    "pyyaml>=6.0",
+    "openpyxl>=3.1",
 ]
 
 [project.scripts]

@@ -127,7 +127,7 @@ async def test_execute_plan_partial_failure_reports_and_continues(registry_and_p
     await approval.execute_tool("approve_plan", {"plan_id": plan_id})
     result = await approval.execute_tool("execute_plan", {"plan_id": plan_id})
 
-    assert result["state"] == "approved"  # not fully executed
+    assert result["state"] == "partial"  # mixed result — not fully executed, not fully failed
     assert store.values[1]["FireRating"] == "60"  # succeeded action applied
     assert store.values[2]["FireRating"] == "45"  # failed action left untouched
     errors = [r for r in result["results"] if "error" in r]

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import importlib.metadata
+import importlib.util
 import json
 import logging
 import os
 import sys
-import importlib.util
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -163,7 +165,10 @@ class ModuleRegistry:
             manifest = ModuleManifest(**data)
             
             # Version checks: min_hub_version gate
-            hub_version = "1.2.0"
+            try:
+                hub_version = importlib.metadata.version("aec-model-bridge")
+            except importlib.metadata.PackageNotFoundError:
+                hub_version = "1.2.0"  # fallback for editable installs without metadata
             if manifest.min_hub_version:
                 # Basic check: compare major/minor parts
                 try:
