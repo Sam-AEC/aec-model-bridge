@@ -150,7 +150,10 @@ def _run_codex_turn(message: str, session_id: Optional[str]) -> Dict[str, Any]:
         base = [codex_path, "exec"]
         if session_id:
             base += ["resume", session_id]
-        base += [message, "--sandbox", "read-only", "--skip-git-repo-check", "--json", "-o", out_path]
+        # message is untrusted user input and must not be parsed as a flag if
+        # it starts with "-" — "--" tells codex's CLI parser everything after
+        # it is positional, so flags all go before it, message last.
+        base += ["--sandbox", "read-only", "--skip-git-repo-check", "--json", "-o", out_path, "--", message]
 
         try:
             proc = subprocess.run(base, capture_output=True, encoding="utf-8", stdin=subprocess.DEVNULL, timeout=_TURN_TIMEOUT_SECONDS)
