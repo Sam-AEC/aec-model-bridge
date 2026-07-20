@@ -114,6 +114,33 @@ def test_codex_missing_cli(monkeypatch):
     assert "codex" in result["error"]
 
 
+def test_codex_message_starting_with_dash_is_not_parsed_as_a_flag(monkeypatch):
+    monkeypatch.setattr(agent_bridge, "_CODEX_REGISTRATION_CHECKED", True)
+    monkeypatch.setattr(agent_bridge.shutil, "which", lambda _name: "/usr/bin/codex")
+
+    captured = {}
+
+    def fake_run(args, **kwargs):
+        captured["args"] = args
+        out_index = args.index("-o") + 1
+        with open(args[out_index], "w", encoding="utf-8") as f:
+            f.write("done")
+        return _completed(args, stdout="")
+
+    monkeypatch.setattr(agent_bridge.subprocess, "run", fake_run)
+
+    agent_bridge.run_agent_turn("codex", "-fix the wall heights", None)
+
+    args = captured["args"]
+    assert "--" in args
+    dash_index = args.index("--")
+    # everything before "--" must be a recognized flag/value, the message
+    # must be the last argument, after "--", so codex's parser can't treat
+    # a leading "-" in the message as a flag.
+    assert args[dash_index + 1] == "-fix the wall heights"
+    assert dash_index + 1 == len(args) - 1
+
+
 def test_codex_success_reads_last_message_file(monkeypatch, tmp_path):
     monkeypatch.setattr(agent_bridge, "_CODEX_REGISTRATION_CHECKED", True)
     monkeypatch.setattr(agent_bridge.shutil, "which", lambda _name: "/usr/bin/codex")

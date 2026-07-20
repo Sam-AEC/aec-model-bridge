@@ -89,8 +89,10 @@ if (Test-Path $rhinoPath) {
     
     & $dotnet.Source build $rhinoPath -c $Configuration -v:minimal
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "Rhino build failed with exit code $LASTEXITCODE"
-        # Don't exit here so we don't fail the whole build if just Rhino fails
+        # Write-Host, not Write-Error: with $ErrorActionPreference = "Stop" (top
+        # of this script), Write-Error is a terminating error and would abort
+        # the whole script here, exactly what this branch exists to avoid.
+        Write-Host "Rhino build failed with exit code $LASTEXITCODE - continuing." -ForegroundColor Yellow
     } else {
         Write-Host "Rhino Build succeeded" -ForegroundColor Green
     }
@@ -103,7 +105,10 @@ if (Test-Path $pbiPath) {
     
     & $dotnet.Source build $pbiPath -c $Configuration -v:minimal
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "Power BI build failed with exit code $LASTEXITCODE"
+        # Write-Host, not Write-Error - see the identical note on the Rhino
+        # build above; Write-Error would abort the script under
+        # $ErrorActionPreference = "Stop".
+        Write-Host "Power BI build failed with exit code $LASTEXITCODE - continuing." -ForegroundColor Yellow
     } else {
         Write-Host "Power BI Build succeeded" -ForegroundColor Green
         
