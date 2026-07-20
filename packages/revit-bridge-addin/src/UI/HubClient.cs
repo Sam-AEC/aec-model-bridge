@@ -17,6 +17,11 @@ namespace RevitBridge.UI
     {
         private static readonly HttpClient Client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
 
+        // Chat turns shell out to a CLI (agent_bridge.py) that can call the model and
+        // run several tool calls before replying — matches that module's own
+        // 180s subprocess ceiling with headroom, well past the 30s tool-call timeout above.
+        private static readonly HttpClient ChatClient = new HttpClient { Timeout = TimeSpan.FromSeconds(200) };
+
         private static int Port
         {
             get
@@ -45,6 +50,25 @@ namespace RevitBridge.UI
             }
         }
 
+        public static async Task<ChatResult> ChatAsync(string provider, string message, string sessionId)
+        {
+            var requestBody = JsonSerializer.Serialize(new { provider, message, session_id = sessionId });
+
+            try
+            {
+                using (var content = new StringContent(requestBody, Encoding.UTF8, "application/json"))
+                using (var response = await ChatClient.PostAsync($"http://127.0.0.1:{Port}/agent/chat", content).ConfigureAwait(false))
+                {
+                    var text = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    return ParseChatResponse(text, (int)response.StatusCode);
+                }
+            }
+            catch (Exception ex)
+            {
+                return ChatResult.Failure($"Could not reach the AEC Model Bridge hub on 127.0.0.1:{Port}: {ex.Message}");
+            }
+        }
+
         private static HubResult ParseResponse(string text, int statusCode)
         {
             try
@@ -67,6 +91,30 @@ namespace RevitBridge.UI
                 return HubResult.Failure($"Hub returned an unparseable response (HTTP {statusCode})");
             }
         }
+
+        private static ChatResult ParseChatResponse(string text, int statusCode)
+        {
+            try
+            {
+                using (var doc = JsonDocument.Parse(text))
+                {
+                    var root = doc.RootElement;
+                    var ok = root.TryGetProperty("ok", out var okEl) && okEl.ValueKind == JsonValueKind.True;
+                    if (ok && root.TryGetProperty("response", out var responseEl))
+                    {
+                        var sessionId = root.TryGetProperty("session_id", out var sidEl) ? sidEl.GetString() : null;
+                        return ChatResult.Success(responseEl.GetString() ?? string.Empty, sessionId);
+                    }
+
+                    var error = root.TryGetProperty("error", out var errEl) ? errEl.GetString() : null;
+                    return ChatResult.Failure(error ?? $"Hub returned HTTP {statusCode}");
+                }
+            }
+            catch (JsonException)
+            {
+                return ChatResult.Failure($"Hub returned an unparseable response (HTTP {statusCode})");
+            }
+        }
     }
 
     internal readonly struct HubResult
@@ -85,5 +133,25 @@ namespace RevitBridge.UI
         public static HubResult Success(JsonElement result) => new HubResult(true, result, null);
 
         public static HubResult Failure(string error) => new HubResult(false, default, error);
+    }
+
+    internal readonly struct ChatResult
+    {
+        public bool Ok { get; }
+        public string Response { get; }
+        public string SessionId { get; }
+        public string Error { get; }
+
+        private ChatResult(bool ok, string response, string sessionId, string error)
+        {
+            Ok = ok;
+            Response = response;
+            SessionId = sessionId;
+            Error = error;
+        }
+
+        public static ChatResult Success(string response, string sessionId) => new ChatResult(true, response, sessionId, null);
+
+        public static ChatResult Failure(string error) => new ChatResult(false, null, null, error);
     }
 }

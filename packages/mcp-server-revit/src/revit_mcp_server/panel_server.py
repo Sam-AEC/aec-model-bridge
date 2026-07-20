@@ -22,6 +22,7 @@ import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict
 
+from .agent_bridge import run_agent_turn
 from .errors import RevitMCPError
 from .registry_factory import build_registry
 from .security.audit import redact_data
@@ -83,6 +84,10 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
         self._send_json(404, {"ok": False, "error": f"Unknown path '{self.path}'"})
 
     def do_POST(self) -> None:  # noqa: N802
+        if self.path == "/agent/chat":
+            self._handle_agent_chat()
+            return
+
         if self.path != "/execute":
             self._send_json(404, {"ok": False, "error": f"Unknown path '{self.path}'"})
             return
@@ -108,6 +113,33 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
             self._send_json(409, {"ok": False, "error": redact_data(str(e))})
         except Exception as e:
             self._send_json(500, {"ok": False, "error": redact_data(str(e))})
+
+    def _handle_agent_chat(self) -> None:
+        length = int(self.headers.get("Content-Length", "0") or "0")
+        raw = self.rfile.read(length) if length else b"{}"
+        try:
+            body = json.loads(raw or b"{}")
+        except json.JSONDecodeError:
+            self._send_json(400, {"ok": False, "error": "Request body must be valid JSON"})
+            return
+
+        message = body.get("message")
+        if not message or not isinstance(message, str):
+            self._send_json(400, {"ok": False, "error": "Request body must include a string 'message' field"})
+            return
+
+        provider = body.get("provider") or "claude"
+        session_id = body.get("session_id")
+
+        try:
+            result = run_agent_turn(provider, message, session_id)
+        except Exception as e:
+            self._send_json(500, {"ok": False, "error": redact_data(str(e))})
+            return
+
+        if not result.get("ok"):
+            result["error"] = redact_data(result.get("error", ""))
+        self._send_json(200 if result.get("ok") else 502, result)
 
 
 def build_server(port: int | None = None, workspace: WorkspaceMonitor | None = None) -> ThreadingHTTPServer:

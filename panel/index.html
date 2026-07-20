@@ -48,8 +48,13 @@
     <section class="view is-active" id="view-chat" aria-labelledby="view-title">
       <div class="chat-feed" id="chat-feed"></div>
       <form class="composer" id="chat-form">
+        <select id="chat-provider" aria-label="Agent">
+          <option value="claude">Claude</option>
+          <option value="codex">Codex</option>
+        </select>
         <input id="chat-input" name="message" autocomplete="off" placeholder="Ask about the active model">
         <button type="submit">Send</button>
+        <button type="button" id="chat-reset" title="Start a new conversation">New</button>
       </form>
     </section>
 
