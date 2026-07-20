@@ -127,6 +127,14 @@ namespace RevitBridge.Bridge
             string settingsIconPath32 = Path.Combine(iconPath, "settings_32.png");
             string helpIconPath16 = Path.Combine(iconPath, "help_16.png");
             string helpIconPath32 = Path.Combine(iconPath, "help_32.png");
+            string panelIconPath16 = Path.Combine(iconPath, "panel_16.png");
+            string panelIconPath32 = Path.Combine(iconPath, "panel_32.png");
+            string healthIconPath16 = Path.Combine(iconPath, "healthcheck_16.png");
+            string healthIconPath32 = Path.Combine(iconPath, "healthcheck_32.png");
+            string pendingIconPath16 = Path.Combine(iconPath, "pending_16.png");
+            string pendingIconPath32 = Path.Combine(iconPath, "pending_32.png");
+            string reportsIconPath16 = Path.Combine(iconPath, "reports_16.png");
+            string reportsIconPath32 = Path.Combine(iconPath, "reports_32.png");
 
             // Generate theme-adaptive icons, then retain in-memory fallbacks if file I/O fails.
             try
@@ -150,6 +158,14 @@ namespace RevitBridge.Bridge
             BitmapSource settingsIcon32 = LoadIcon(settingsIconPath32, IconGenerator.CreateSettingsIcon, 32);
             BitmapSource helpIcon16 = LoadIcon(helpIconPath16, IconGenerator.CreateHelpIcon, 16);
             BitmapSource helpIcon32 = LoadIcon(helpIconPath32, IconGenerator.CreateHelpIcon, 32);
+            BitmapSource panelIcon16 = LoadIcon(panelIconPath16, IconGenerator.CreatePanelIcon, 16);
+            BitmapSource panelIcon32 = LoadIcon(panelIconPath32, IconGenerator.CreatePanelIcon, 32);
+            BitmapSource healthIcon16 = LoadIcon(healthIconPath16, IconGenerator.CreateHealthIcon, 16);
+            BitmapSource healthIcon32 = LoadIcon(healthIconPath32, IconGenerator.CreateHealthIcon, 32);
+            BitmapSource pendingIcon16 = LoadIcon(pendingIconPath16, IconGenerator.CreatePendingIcon, 16);
+            BitmapSource pendingIcon32 = LoadIcon(pendingIconPath32, IconGenerator.CreatePendingIcon, 32);
+            BitmapSource reportsIcon16 = LoadIcon(reportsIconPath16, IconGenerator.CreateReportsIcon, 16);
+            BitmapSource reportsIcon32 = LoadIcon(reportsIconPath32, IconGenerator.CreateReportsIcon, 32);
 
             // === CONNECTION PANEL ===
 
@@ -207,8 +223,8 @@ namespace RevitBridge.Bridge
             );
             panelBtnData.ToolTip = "Open the AEC Model Bridge panel";
             panelBtnData.LongDescription = "Shows the dockable AEC Model Bridge panel inside Revit.";
-            panelBtnData.Image = brandIcon16;
-            panelBtnData.LargeImage = brandIcon32;
+            panelBtnData.Image = panelIcon16;
+            panelBtnData.LargeImage = panelIcon32;
 
             PushButtonData healthBtnData = new PushButtonData(
                 "cmdRunHealthCheck",
@@ -218,8 +234,8 @@ namespace RevitBridge.Bridge
             );
             healthBtnData.ToolTip = "Open the panel and start a model health check";
             healthBtnData.LongDescription = "Opens the findings view and requests a QA/QC health check.";
-            healthBtnData.Image = statusIcon16;
-            healthBtnData.LargeImage = statusIcon32;
+            healthBtnData.Image = healthIcon16;
+            healthBtnData.LargeImage = healthIcon32;
 
             PushButtonData pendingBtnData = new PushButtonData(
                 "cmdReviewPendingActions",
@@ -229,8 +245,8 @@ namespace RevitBridge.Bridge
             );
             pendingBtnData.ToolTip = "Review pending ActionPlans";
             pendingBtnData.LongDescription = "Opens the approval queue in the AEC Model Bridge panel.";
-            pendingBtnData.Image = brandIcon16;
-            pendingBtnData.LargeImage = brandIcon32;
+            pendingBtnData.Image = pendingIcon16;
+            pendingBtnData.LargeImage = pendingIcon32;
 
             PushButtonData reportsBtnData = new PushButtonData(
                 "cmdReports",
@@ -240,8 +256,8 @@ namespace RevitBridge.Bridge
             );
             reportsBtnData.ToolTip = "Open report tools";
             reportsBtnData.LongDescription = "Opens report export controls in the AEC Model Bridge panel.";
-            reportsBtnData.Image = settingsIcon16;
-            reportsBtnData.LargeImage = settingsIcon32;
+            reportsBtnData.Image = reportsIcon16;
+            reportsBtnData.LargeImage = reportsIcon32;
 
             // Settings Button (future)
             PushButtonData settingsBtnData = new PushButtonData(

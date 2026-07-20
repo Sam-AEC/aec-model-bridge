@@ -218,6 +218,127 @@ namespace RevitBridge.UI
         }
 
         /// <summary>
+        /// Creates a dockable-panel icon (frame with a filled docked side panel) for Open Panel.
+        /// </summary>
+        public static BitmapSource CreatePanelIcon(int size = 32)
+        {
+            var visual = new DrawingVisual();
+            using (var context = visual.RenderOpen())
+            {
+                bool isDark = IsDarkTheme();
+                var primaryBrush = isDark ? Brushes.White : new SolidColorBrush(Color.FromRgb(30, 41, 59));
+                var accentBrush = new SolidColorBrush(Color.FromRgb(63, 81, 181)); // Indigo
+                var softFillBrush = new SolidColorBrush(Color.FromArgb(90, 63, 81, 181)); // Semi-transparent indigo
+                var pen = new Pen(primaryBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
+                var accentPen = new Pen(accentBrush, StrokeWidth(size, 0.05)) { LineJoin = PenLineJoin.Round };
+
+                // Outer window frame
+                context.DrawRoundedRectangle(null, pen, new Rect(size * 0.07, size * 0.07, size * 0.86, size * 0.86), size * 0.09, size * 0.09);
+
+                // Docked side panel (filled, right third)
+                context.DrawRectangle(softFillBrush, accentPen, new Rect(size * 0.63, size * 0.09, size * 0.28, size * 0.82));
+
+                // Content rows in the main area
+                context.DrawLine(pen, new Point(size * 0.17, size * 0.30), new Point(size * 0.53, size * 0.30));
+                context.DrawLine(pen, new Point(size * 0.17, size * 0.50), new Point(size * 0.46, size * 0.50));
+            }
+
+            return RenderVisual(visual, size, size);
+        }
+
+        /// <summary>
+        /// Creates a health-check icon (clipboard with a checkmark) for QA/QC model health checks.
+        /// </summary>
+        public static BitmapSource CreateHealthIcon(int size = 32)
+        {
+            var visual = new DrawingVisual();
+            using (var context = visual.RenderOpen())
+            {
+                bool isDark = IsDarkTheme();
+                var primaryBrush = isDark ? Brushes.White : new SolidColorBrush(Color.FromRgb(30, 41, 59));
+                var accentBrush = new SolidColorBrush(Color.FromRgb(245, 124, 0)); // Amber
+                var pen = new Pen(primaryBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
+                var accentPen = new Pen(accentBrush, StrokeWidth(size, 0.09)) { StartLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
+
+                // Clipboard body
+                context.DrawRoundedRectangle(null, pen, new Rect(size * 0.20, size * 0.12, size * 0.60, size * 0.78), size * 0.06, size * 0.06);
+
+                // Clip tab
+                context.DrawRoundedRectangle(isDark ? Brushes.Black : Brushes.White, pen, new Rect(size * 0.38, size * 0.05, size * 0.24, size * 0.11), size * 0.03, size * 0.03);
+
+                // Checkmark
+                var check = new PathGeometry();
+                var checkFig = new PathFigure { StartPoint = new Point(size * 0.32, size * 0.53), IsClosed = false };
+                checkFig.Segments.Add(new LineSegment(new Point(size * 0.45, size * 0.66), true));
+                checkFig.Segments.Add(new LineSegment(new Point(size * 0.70, size * 0.36), true));
+                check.Figures.Add(checkFig);
+                context.DrawGeometry(null, accentPen, check);
+            }
+
+            return RenderVisual(visual, size, size);
+        }
+
+        /// <summary>
+        /// Creates a pending-actions icon (list rows with a clock badge) for the approval queue.
+        /// </summary>
+        public static BitmapSource CreatePendingIcon(int size = 32)
+        {
+            var visual = new DrawingVisual();
+            using (var context = visual.RenderOpen())
+            {
+                bool isDark = IsDarkTheme();
+                var primaryBrush = isDark ? Brushes.White : new SolidColorBrush(Color.FromRgb(30, 41, 59));
+                var accentBrush = new SolidColorBrush(Color.FromRgb(123, 31, 162)); // Violet
+                var softFillBrush = new SolidColorBrush(Color.FromArgb(64, 123, 31, 162));
+                var pen = new Pen(primaryBrush, StrokeWidth(size, 0.07)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
+                var accentPen = new Pen(accentBrush, StrokeWidth(size, 0.055)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
+
+                // Queued list rows (descending widths, top-left)
+                context.DrawLine(pen, new Point(size * 0.10, size * 0.22), new Point(size * 0.62, size * 0.22));
+                context.DrawLine(pen, new Point(size * 0.10, size * 0.42), new Point(size * 0.54, size * 0.42));
+                context.DrawLine(pen, new Point(size * 0.10, size * 0.62), new Point(size * 0.42, size * 0.62));
+
+                // Clock badge (bottom-right) — the "pending/awaiting" marker
+                var badgeCenter = new Point(size * 0.74, size * 0.76);
+                double badgeR = size * 0.23;
+                context.DrawEllipse(softFillBrush, accentPen, badgeCenter, badgeR, badgeR);
+                context.DrawLine(accentPen, badgeCenter, new Point(badgeCenter.X, badgeCenter.Y - badgeR * 0.55));
+                context.DrawLine(accentPen, badgeCenter, new Point(badgeCenter.X + badgeR * 0.45, badgeCenter.Y + badgeR * 0.1));
+            }
+
+            return RenderVisual(visual, size, size);
+        }
+
+        /// <summary>
+        /// Creates a reports icon (ascending bar chart) for report export tools.
+        /// </summary>
+        public static BitmapSource CreateReportsIcon(int size = 32)
+        {
+            var visual = new DrawingVisual();
+            using (var context = visual.RenderOpen())
+            {
+                bool isDark = IsDarkTheme();
+                var primaryBrush = isDark ? Brushes.White : new SolidColorBrush(Color.FromRgb(30, 41, 59));
+                var accentBrush = new SolidColorBrush(Color.FromRgb(25, 118, 210)); // Blue
+                var softFillBrush = new SolidColorBrush(Color.FromArgb(90, 25, 118, 210));
+                var pen = new Pen(primaryBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
+                var accentPen = new Pen(accentBrush, StrokeWidth(size, 0.05)) { LineJoin = PenLineJoin.Round };
+
+                double baseline = size * 0.86;
+                double barWidth = size * 0.17;
+
+                context.DrawRectangle(softFillBrush, accentPen, new Rect(size * 0.15, size * 0.58, barWidth, baseline - size * 0.58));
+                context.DrawRectangle(softFillBrush, accentPen, new Rect(size * 0.415, size * 0.40, barWidth, baseline - size * 0.40));
+                context.DrawRectangle(softFillBrush, accentPen, new Rect(size * 0.68, size * 0.22, barWidth, baseline - size * 0.22));
+
+                // Baseline
+                context.DrawLine(pen, new Point(size * 0.10, baseline), new Point(size * 0.90, baseline));
+            }
+
+            return RenderVisual(visual, size, size);
+        }
+
+        /// <summary>
         /// Creates the generic AEC Model Bridge icon.
         /// </summary>
         public static BitmapSource CreateBrandIcon(int size = 32)
@@ -316,6 +437,14 @@ namespace RevitBridge.UI
             SaveIcon(CreateBrandIcon(32), Path.Combine(iconDir, "brand.png"));
             SaveIcon(CreateHelpIcon(32), Path.Combine(iconDir, "help_32.png"));
             SaveIcon(CreateHelpIcon(32), Path.Combine(iconDir, "help.png"));
+            SaveIcon(CreatePanelIcon(32), Path.Combine(iconDir, "panel_32.png"));
+            SaveIcon(CreatePanelIcon(32), Path.Combine(iconDir, "panel.png"));
+            SaveIcon(CreateHealthIcon(32), Path.Combine(iconDir, "healthcheck_32.png"));
+            SaveIcon(CreateHealthIcon(32), Path.Combine(iconDir, "healthcheck.png"));
+            SaveIcon(CreatePendingIcon(32), Path.Combine(iconDir, "pending_32.png"));
+            SaveIcon(CreatePendingIcon(32), Path.Combine(iconDir, "pending.png"));
+            SaveIcon(CreateReportsIcon(32), Path.Combine(iconDir, "reports_32.png"));
+            SaveIcon(CreateReportsIcon(32), Path.Combine(iconDir, "reports.png"));
 
             // 16x16 icons for Revit small buttons and stacked items.
             SaveIcon(CreateConnectIcon(16), Path.Combine(iconDir, "connect_16.png"));
@@ -324,6 +453,10 @@ namespace RevitBridge.UI
             SaveIcon(CreateSettingsIcon(16), Path.Combine(iconDir, "settings_16.png"));
             SaveIcon(CreateBrandIcon(16), Path.Combine(iconDir, "brand_16.png"));
             SaveIcon(CreateHelpIcon(16), Path.Combine(iconDir, "help_16.png"));
+            SaveIcon(CreatePanelIcon(16), Path.Combine(iconDir, "panel_16.png"));
+            SaveIcon(CreateHealthIcon(16), Path.Combine(iconDir, "healthcheck_16.png"));
+            SaveIcon(CreatePendingIcon(16), Path.Combine(iconDir, "pending_16.png"));
+            SaveIcon(CreateReportsIcon(16), Path.Combine(iconDir, "reports_16.png"));
         }
     }
 }
