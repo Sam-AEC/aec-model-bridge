@@ -161,7 +161,7 @@ async def test_execute_unknown_tool_raises_typed_error(provider_instance):
 # set), mark a tool as mutating. A provider with a write-shaped tool that never
 # calls enrich_mutation_metadata at all (the exact bug found 2026-07 in
 # RhinoProvider and the Speckle/APS cloud providers) will fail this test instead
-# of silently bypassing the ApprovalGate — see docs/product/DECISIONS_AND_RISKS.md R12.
+# of silently bypassing the ApprovalGate.
 _MUTATING_VERBS = {
     "create", "place", "set", "delete", "save", "close", "renumber", "duplicate",
     "move", "copy", "rotate", "mirror", "pin", "unpin", "sync", "relinquish",

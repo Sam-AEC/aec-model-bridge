@@ -12,7 +12,6 @@ Four independent "switches" (per-platform add-ins) + one Python MCP hub:
 | `packages/mcp-server-revit/` | Python | — | MCP hub |
 
 MCP providers: `packages/mcp-server-revit/src/revit_mcp_server/providers/`  
-Canonical backlog: `docs/product/SCAFFOLDING_TASK_LIST.md`  
 Architecture blueprint: `docs/system-blueprint-and-workflows.md`
 
 ## Rhino Bridge — Quick Reference

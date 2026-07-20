@@ -18,9 +18,9 @@ namespace RevitBridge.Bridge;
 /// future bundled-runtime launcher), this leaves it alone entirely, both at
 /// startup and at shutdown.
 ///
-/// Python provisioning is not yet bundled with the installer (see
-/// docs/product/DECISIONS_AND_RISKS.md D-010 — still open); this is a best-effort
-/// launch matching the interpreter conventions docs/install.md already documents
+/// Python provisioning is not yet bundled with the installer (still open,
+/// D-010); this is a best-effort launch matching the interpreter conventions
+/// docs/install.md already documents
 /// (a project .venv, or a bare `python`/`py` on PATH), not a substitute for that
 /// installer work.
 /// </summary>

@@ -2,14 +2,6 @@
 
 This document outlines the core engineering thesis, historical progress, and future roadmap of the **AEC Model Bridge** platform developed on the `development` branch.
 
-## 🔗 Product Backlog & Plan References
-For the buildable scaffolding plan and product vision details, see:
-- [AEC Model Bridge Product Vision](file:///c:/Users/sammo/OneDrive/Documenten/GitHub/Autodesk-Revit-MCP-Server/docs/product/AEC_MODEL_BRIDGE_PRODUCT_VISION.md)
-- [Scaffolding Task List (Phase Backlog)](file:///c:/Users/sammo/OneDrive/Documenten/GitHub/Autodesk-Revit-MCP-Server/docs/product/SCAFFOLDING_TASK_LIST.md)
-- [MVP Execution Plan](file:///c:/Users/sammo/OneDrive/Documenten/GitHub/Autodesk-Revit-MCP-Server/docs/product/MVP_EXECUTION_PLAN.md)
-
----
-
 ## 💡 The Core Thesis
 
 ### The Problem in AEC Today

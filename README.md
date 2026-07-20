@@ -225,7 +225,6 @@ CI builds the Python server and add-in targets for Revit 2024 through 2027.
 - [Installation guide](docs/install.md)
 - [Tool reference](docs/tools-generated.md)
 - [Architecture](docs/0001-multi-provider-architecture.md)
-- [Multi-platform integration strategy](docs/product/INTEGRATION_STRATEGY.md)
 - [Configuration reference](docs/configuration-reference.md)
 - [Security](docs/security.md)
 - [MCP clients and registry](docs/marketplaces.md)
