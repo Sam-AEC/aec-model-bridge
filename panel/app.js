@@ -30,6 +30,8 @@ const subtitle = document.getElementById("view-subtitle");
 const chatFeed = document.getElementById("chat-feed");
 const chatForm = document.getElementById("chat-form");
 const chatInput = document.getElementById("chat-input");
+const chatProvider = document.getElementById("chat-provider");
+const chatReset = document.getElementById("chat-reset");
 const planList = document.getElementById("plan-list");
 const findingList = document.getElementById("finding-list");
 const reportList = document.getElementById("report-list");
@@ -167,6 +169,21 @@ function appendMessage(role, text) {
   item.className = `message ${role === "user" ? "user" : "assistant"}`;
   item.innerHTML = `<div class="meta">${role === "user" ? "You" : "AMB"}</div><div>${escapeHtml(text)}</div>`;
   chatFeed.appendChild(item);
+  chatFeed.scrollTop = chatFeed.scrollHeight;
+  return item;
+}
+
+let pendingChatMessage = null;
+
+function resolvePendingChatMessage(text, isError) {
+  if (!pendingChatMessage) {
+    appendMessage("assistant", text);
+    return;
+  }
+  pendingChatMessage.classList.remove("pending");
+  pendingChatMessage.classList.toggle("error", !!isError);
+  pendingChatMessage.querySelector("div:last-child").textContent = text;
+  pendingChatMessage = null;
   chatFeed.scrollTop = chatFeed.scrollHeight;
 }
 
@@ -315,9 +332,17 @@ chatForm.addEventListener("submit", (event) => {
   }
   appendMessage("user", text);
   chatInput.value = "";
-  postToHost("chat.message", { text });
-  appendMessage("assistant", "Request sent to the host.");
-  addLog("Chat message sent", text);
+  postToHost("chat.message", { message: text, provider: chatProvider.value });
+  pendingChatMessage = appendMessage("assistant", "Thinking…");
+  pendingChatMessage.classList.add("pending");
+  addLog("Chat message sent", `[${chatProvider.value}] ${text}`);
+});
+
+chatReset.addEventListener("click", () => {
+  postToHost("chat.reset");
+  pendingChatMessage = null;
+  renderChat();
+  addLog("Chat reset", "Started a new conversation.");
 });
 
 severityFilter.addEventListener("change", renderFindings);
@@ -399,6 +424,14 @@ if (window.chrome && window.chrome.webview) {
     }
     if (event.data?.type === "tool.error") {
       addLog(`Error: ${event.data.action || "tool"}`, event.data.message || "Unknown error");
+    }
+    if (event.data?.type === "chat.response") {
+      resolvePendingChatMessage(event.data.message || "(empty response)", false);
+      addLog("Chat response received", "");
+    }
+    if (event.data?.type === "chat.error") {
+      resolvePendingChatMessage(`Error: ${event.data.message || "Unknown error"}`, true);
+      addLog("Chat error", event.data.message || "Unknown error");
     }
     if (event.data?.type === "panel.view" && views[event.data.view]) {
       setView(event.data.view);

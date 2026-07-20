@@ -16,6 +16,7 @@ namespace RevitBridge.UI
         private bool _initialized;
         private bool _pageReady;
         private readonly Queue<string> _pendingMessages = new Queue<string>();
+        private string? _chatSessionId;
 
         public BridgePanel()
         {
@@ -34,7 +35,21 @@ namespace RevitBridge.UI
 
             try
             {
-                await Browser.EnsureCoreWebView2Async();
+                // Default WebView2 user data folder is next to the host executable —
+                // for a Revit add-in that's Revit.exe under Program Files, which the
+                // current user can't write to (0x80070005 ACCESS_DENIED). Point it at
+                // a writable per-user folder instead; this is Microsoft's documented
+                // fix for any WebView2 host that doesn't run from a writable directory.
+                var userDataFolder = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "AECModelBridge", "WebView2");
+                Directory.CreateDirectory(userDataFolder);
+
+                var environment = await CoreWebView2Environment.CreateAsync(
+                    browserExecutableFolder: null,
+                    userDataFolder: userDataFolder);
+
+                await Browser.EnsureCoreWebView2Async(environment);
                 Browser.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
                 Browser.CoreWebView2.NavigationCompleted += (_, _) =>
                 {
@@ -86,9 +101,9 @@ namespace RevitBridge.UI
 
         /// <summary>
         /// Maps a panel message type to a real hub tool call and posts the result back.
-        /// Only the message types app.js currently sends for real workflows are wired;
-        /// chat/settings/report-browsing are local-only for now (no corresponding hub
-        /// tool) — see docs/product/NEXT_AGENT_HANDOVER.md.
+        /// chat.message shells out to a CLI agent (see agent_bridge.py) rather than
+        /// calling a tool directly; settings/report-browsing remain local-only for now
+        /// (no corresponding hub tool) — see docs/product/NEXT_AGENT_HANDOVER.md.
         /// </summary>
         private async Task DispatchToHubAsync(string message)
         {
@@ -133,6 +148,31 @@ namespace RevitBridge.UI
 
                 case "reports.exportExcel":
                     await RunToolAndPostAsync("report_generator_export_excel", new { }, "reports.updated", type);
+                    break;
+
+                case "chat.message":
+                {
+                    var text = root.TryGetProperty("message", out var msgEl) ? msgEl.GetString() : null;
+                    if (string.IsNullOrWhiteSpace(text))
+                    {
+                        break;
+                    }
+
+                    var provider = root.TryGetProperty("provider", out var providerEl) ? providerEl.GetString() : "claude";
+                    var chatResult = await HubClient.ChatAsync(provider ?? "claude", text, _chatSessionId);
+                    if (!chatResult.Ok)
+                    {
+                        PostToPanel(new { type = "chat.error", message = chatResult.Error });
+                        break;
+                    }
+
+                    _chatSessionId = chatResult.SessionId;
+                    PostToPanel(new { type = "chat.response", message = chatResult.Response });
+                    break;
+                }
+
+                case "chat.reset":
+                    _chatSessionId = null;
                     break;
             }
         }
