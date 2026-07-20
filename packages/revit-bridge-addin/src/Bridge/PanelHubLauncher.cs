@@ -136,9 +136,15 @@ public sealed class PanelHubLauncher
     private static string? ResolvePythonInterpreter()
     {
         var overridePath = Environment.GetEnvironmentVariable("AEC_MODEL_BRIDGE_PYTHON");
-        if (!string.IsNullOrWhiteSpace(overridePath))
+        if (!string.IsNullOrWhiteSpace(overridePath) && System.IO.File.Exists(overridePath))
         {
             return overridePath;
+        }
+
+        const string bundledPath = @"C:\ProgramData\AECModelBridge\python\python.exe";
+        if (System.IO.File.Exists(bundledPath))
+        {
+            return bundledPath;
         }
 
         foreach (var candidate in new[] { "python", "py" })

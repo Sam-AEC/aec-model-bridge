@@ -40,61 +40,88 @@ if (-not (Test-Path $DistPath)) {
     }
 }
 
-# Install binaries to a version-specific ProgramData directory so supported
-# Revit releases can coexist without overwriting one another.
-Write-Host "Installing binaries..." -ForegroundColor Yellow
-$targetBin = "C:\ProgramData\AECModelBridge\bin\$RevitVersion"
-New-Item -ItemType Directory -Path $targetBin -Force | Out-Null
+$availableBinDirs = Get-ChildItem "$DistPath\bin" -Directory -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
+$versionsToInstall = if ($RevitVersion -eq "All") {
+    $availableBinDirs
+} else {
+    @($RevitVersion)
+}
 
-$sourceBin = "$DistPath\bin\$RevitVersion"
-if (-not (Test-Path $sourceBin)) {
-    Write-Error "Binaries for Revit $RevitVersion not found in distribution package.`nAvailable versions: $((Get-ChildItem "$DistPath\bin" -Directory).Name -join ', ')"
+if (-not $versionsToInstall -or $versionsToInstall.Count -eq 0) {
+    Write-Error "No valid Revit version binaries found in $DistPath\bin"
     exit 1
 }
 
-Copy-Item "$sourceBin\*" $targetBin -Recurse -Force
-Write-Host "  Installed to: $targetBin" -ForegroundColor Green
+foreach ($year in $versionsToInstall) {
+    # Install binaries to a version-specific ProgramData directory
+    Write-Host "`nInstalling binaries for Revit $year..." -ForegroundColor Yellow
+    $targetBin = "C:\ProgramData\AECModelBridge\bin\$year"
+    New-Item -ItemType Directory -Path $targetBin -Force | Out-Null
 
-# Install add-in manifest
-Write-Host "`nInstalling add-in manifest..." -ForegroundColor Yellow
-$addinDir = if ($AllUsers) {
-    "C:\ProgramData\Autodesk\Revit\Addins\$RevitVersion"
-}
-else {
-    "$env:APPDATA\Autodesk\Revit\Addins\$RevitVersion"
-}
+    $sourceBin = "$DistPath\bin\$year"
+    if (-not (Test-Path $sourceBin)) {
+        Write-Error "Binaries for Revit $year not found in distribution package.`nAvailable versions: $($availableBinDirs -join ', ')"
+        exit 1
+    }
 
-New-Item -ItemType Directory -Path $addinDir -Force | Out-Null
-$sourceManifest = Join-Path $DistPath "addin\AECModelBridge.addin"
-$targetManifest = Join-Path $addinDir "AECModelBridge.addin"
-[xml]$manifest = Get-Content -LiteralPath $sourceManifest -Raw
-$manifest.RevitAddIns.AddIn.Assembly = [string](Join-Path $targetBin "AECModelBridge.dll")
-$manifest.Save($targetManifest)
-$legacyManifest = Join-Path $addinDir "RevitBridge.addin"
-if (Test-Path $legacyManifest) {
-    Remove-Item -LiteralPath $legacyManifest -Force
-    Write-Host "  Removed legacy manifest: $legacyManifest" -ForegroundColor Gray
-}
-
-$otherAddinDir = if ($AllUsers) {
-    "$env:APPDATA\Autodesk\Revit\Addins\$RevitVersion"
-}
-else {
-    "C:\ProgramData\Autodesk\Revit\Addins\$RevitVersion"
-}
-foreach ($duplicateName in @("AECModelBridge.addin", "RevitBridge.addin")) {
-    $duplicateManifest = Join-Path $otherAddinDir $duplicateName
-    if (Test-Path -LiteralPath $duplicateManifest) {
-        try {
-            Remove-Item -LiteralPath $duplicateManifest -Force
-            Write-Host "  Removed duplicate manifest: $duplicateManifest" -ForegroundColor Gray
+    Get-ChildItem -Path $sourceBin -Recurse | ForEach-Object {
+        $relPath = $_.FullName.Substring($sourceBin.Length)
+        $destPath = Join-Path $targetBin $relPath
+        if ($_.PSIsContainer) {
+            New-Item -ItemType Directory -Path $destPath -Force | Out-Null
         }
-        catch {
-            Write-Warning "Could not remove duplicate manifest: $duplicateManifest"
+        else {
+            try {
+                Copy-Item -LiteralPath $_.FullName -Destination $destPath -Force
+            }
+            catch {
+                Write-Warning "Could not copy $relPath (file locked, Revit may be running)"
+            }
         }
     }
+    Write-Host "  Installed to: $targetBin" -ForegroundColor Green
+
+    # Install add-in manifest
+    Write-Host "Installing add-in manifest for Revit $year..." -ForegroundColor Yellow
+    $addinDir = if ($AllUsers) {
+        "C:\ProgramData\Autodesk\Revit\Addins\$year"
+    }
+    else {
+        "$env:APPDATA\Autodesk\Revit\Addins\$year"
+    }
+
+    New-Item -ItemType Directory -Path $addinDir -Force | Out-Null
+    $sourceManifest = Join-Path $DistPath "addin\AECModelBridge.addin"
+    $targetManifest = Join-Path $addinDir "AECModelBridge.addin"
+    [xml]$manifest = Get-Content -LiteralPath $sourceManifest -Raw
+    $manifest.RevitAddIns.AddIn.Assembly = [string](Join-Path $targetBin "AECModelBridge.dll")
+    $manifest.Save($targetManifest)
+    $legacyManifest = Join-Path $addinDir "RevitBridge.addin"
+    if (Test-Path $legacyManifest) {
+        Remove-Item -LiteralPath $legacyManifest -Force
+        Write-Host "  Removed legacy manifest: $legacyManifest" -ForegroundColor Gray
+    }
+
+    $otherAddinDir = if ($AllUsers) {
+        "$env:APPDATA\Autodesk\Revit\Addins\$year"
+    }
+    else {
+        "C:\ProgramData\Autodesk\Revit\Addins\$year"
+    }
+    foreach ($duplicateName in @("AECModelBridge.addin", "RevitBridge.addin")) {
+        $duplicateManifest = Join-Path $otherAddinDir $duplicateName
+        if (Test-Path -LiteralPath $duplicateManifest) {
+            try {
+                Remove-Item -LiteralPath $duplicateManifest -Force
+                Write-Host "  Removed duplicate manifest: $duplicateManifest" -ForegroundColor Gray
+            }
+            catch {
+                Write-Warning "Could not remove duplicate manifest: $duplicateManifest"
+            }
+        }
+    }
+    Write-Host "  Installed manifest to: $targetManifest" -ForegroundColor Green
 }
-Write-Host "  Installed to: $addinDir" -ForegroundColor Green
 
 $legacyBinRoot = "C:\ProgramData\AECModelBridge\bin"
 $legacyAssembly = Join-Path $legacyBinRoot "AECModelBridge.dll"
@@ -129,6 +156,16 @@ $configTarget = "C:\ProgramData\AECModelBridge\config"
 New-Item -ItemType Directory -Path $configTarget -Force | Out-Null
 Copy-Item "$DistPath\config\default.json" $configTarget -Force
 Write-Host "  Installed to: $configTarget\default.json" -ForegroundColor Green
+
+# Copy bundled Python runtime (if present)
+$sourcePython = Join-Path $DistPath "python"
+$targetPython = "C:\ProgramData\AECModelBridge\python"
+if (Test-Path $sourcePython) {
+    Write-Host "`nInstalling bundled Python runtime..." -ForegroundColor Yellow
+    New-Item -ItemType Directory -Path $targetPython -Force | Out-Null
+    Copy-Item "$sourcePython\*" $targetPython -Recurse -Force
+    Write-Host "  Installed to: $targetPython" -ForegroundColor Green
+}
 
 # Installation summary
 Write-Host "`n========================================" -ForegroundColor Cyan
