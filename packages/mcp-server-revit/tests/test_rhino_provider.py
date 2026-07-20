@@ -1,6 +1,5 @@
 """Tests for the current bridge-based RhinoProvider (HTTP bridge to the C#
-rhino-bridge-addin on 127.0.0.1:3004 — see packages/rhino-bridge-addin and
-CLAUDE.md's Rhino Bridge command table).
+rhino-bridge-addin on 127.0.0.1:3004 — see packages/rhino-bridge-addin).
 
 This file previously tested an entirely different, long-abandoned design
 (a Rhino.Compute REST client uploading .gh/.3dm files over HTTPS with API-key
