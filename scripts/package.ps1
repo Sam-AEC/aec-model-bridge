@@ -99,6 +99,11 @@ finally {
     Pop-Location
 }
 
+# Bundle portable Python runtime
+if (Test-Path "$PSScriptRoot\bundle-python.ps1") {
+    & "$PSScriptRoot\bundle-python.ps1" -DistPath $distDir
+}
+
 # Copy add-in manifests
 Write-Host "`nCopying add-in manifests..." -ForegroundColor Yellow
 $addinDir = "$distDir\addin"
@@ -106,9 +111,12 @@ New-Item -ItemType Directory -Path $addinDir -Force | Out-Null
 Copy-Item "$PSScriptRoot\..\packages\revit-bridge-addin\AECModelBridge.addin" $addinDir -Force
 Write-Host "  Copied AECModelBridge.addin" -ForegroundColor Green
 
-# Copy installer entrypoint into the distribution package
+# Copy installer entrypoints and helper scripts into the distribution package
 Copy-Item "$PSScriptRoot\install.ps1" "$distDir\install.ps1" -Force
-Write-Host "  Copied install.ps1" -ForegroundColor Green
+$distScripts = Join-Path $distDir "scripts"
+New-Item -ItemType Directory -Path $distScripts -Force | Out-Null
+Copy-Item "$PSScriptRoot\*" $distScripts -Recurse -Force
+Write-Host "  Copied install.ps1 and helper scripts" -ForegroundColor Green
 
 # Include license terms and required notices in every distribution.
 Copy-Item "$PSScriptRoot\..\LICENSE" "$distDir\LICENSE" -Force
