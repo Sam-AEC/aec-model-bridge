@@ -1,7 +1,7 @@
 import uuid
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from ..config import config
@@ -64,7 +64,7 @@ class ApprovalGate:
         plan = {
             "plan_id": plan_id,
             "state": "pending",
-            "created_at": datetime.utcnow().isoformat() + "Z",
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "actions": plan_actions,
             "is_reversible": True,
             "reversible_strategy": "inverse"
@@ -117,6 +117,10 @@ class ApprovalGate:
         `execute_fn` is an async callable `(tool_name, arguments) -> dict`; it MUST be
         awaited here rather than merely invoked, otherwise the inverse tool call never
         actually runs (a bare call just constructs and discards a coroutine object).
+
+        Tools without a registered rollback handler are recorded as warnings (not
+        errors) so that a mixed plan (some rollback-able, some not) still rolls back
+        what it can and reports clearly what was skipped.
         """
         plan = self.load_plan(plan_id)
         if not plan:
@@ -125,6 +129,7 @@ class ApprovalGate:
             raise ValueError(f"Plan {plan_id} is in state '{plan.get('state')}', cannot rollback. Only executed plans can be rolled back.")
 
         errors = []
+        warnings = []
         for action in reversed(plan["actions"]):
             tool = action["tool"]
             before = action["diff"]["before"]
@@ -149,12 +154,18 @@ class ApprovalGate:
                     finally:
                         plan["state"] = "executed"
                         self.save_plan(plan)
+                else:
+                    warnings.append(f"Skipped rollback for action {action.get('action_id')}: no before-value recorded")
             else:
-                errors.append(f"Rollback not supported for tool {tool}")
+                warnings.append(f"No rollback handler for tool '{tool}' (action {action.get('action_id')}) — skipped")
 
         if errors:
+            plan["state"] = "partial_rollback"
+            plan["rollback_warnings"] = warnings
+            self.save_plan(plan)
             raise BridgeError(f"Rollback encountered errors: {'; '.join(errors)}")
 
         plan["state"] = "rolled_back"
+        plan["rollback_warnings"] = warnings
         self.save_plan(plan)
         return plan

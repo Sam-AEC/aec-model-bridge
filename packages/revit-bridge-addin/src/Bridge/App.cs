@@ -72,7 +72,10 @@ namespace RevitBridge.Bridge
                 application.ViewActivated += (sender, args) =>
                 {
                     ActiveDocumentName = args.CurrentActiveView?.Document?.Title;
-                    DocumentDirtyTracker.Clear();
+                    // Do NOT clear dirty tracker here — it must persist until after a
+                    // successful revit_extract_snapshot so get_snapshot_delta has a
+                    // complete list. Clearing on view activation dropped the entire
+                    // delta whenever the user switched views after editing (H3 fix).
                 };
 
                 Log.Information("AEC Model Bridge started for Revit {Version}", RevitVersion);

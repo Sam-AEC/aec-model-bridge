@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, FrozenSet, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 def enrich_mutation_metadata(
@@ -41,9 +41,7 @@ class ProviderTool(BaseModel):
     execution_mode: str = "sync"
     permissions: List[str] = Field(default_factory=list)
 
-    class Config:
-        populate_by_name = True
-        populate_by_field_name = True  # Support both for older Pydantic compatibility if needed
+    model_config = ConfigDict(populate_by_name=True)
 
 class AECProvider(ABC):
     @abstractmethod

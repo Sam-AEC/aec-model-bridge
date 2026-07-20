@@ -118,7 +118,7 @@ class ApprovalProvider(AECProvider):
                 had_failure = True
                 results.append({"action_id": action["action_id"], "tool": tool, "error": str(e)})
 
-        plan["state"] = "approved" if had_failure else "executed"
+        plan["state"] = "partial" if had_failure else "executed"
         self.gate.save_plan(plan)
         return {"plan_id": plan_id, "state": plan["state"], "results": results}
 
