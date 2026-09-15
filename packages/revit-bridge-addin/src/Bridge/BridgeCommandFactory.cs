@@ -811,7 +811,9 @@ public static class BridgeCommandFactory
                 doc.Regenerate();
             }
 
-            var window = doc.Create.NewFamilyInstance(location, familySymbol, wall, Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
+            var level = GetPlacementLevel(doc, wall, location);
+            var window = doc.Create.NewFamilyInstance(location, familySymbol, wall, level, Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
+            SetWindowSillHeight(window, location, level);
 
             trans.Commit();
 
@@ -820,7 +822,9 @@ public static class BridgeCommandFactory
                 window_id = window.Id.Value,
                 family = familyName,
                 type = typeName,
-                wall_id = wallId
+                wall_id = wallId,
+                level = level.Name,
+                sill_height = location.Z - level.Elevation
             };
         }
     }
@@ -1001,6 +1005,35 @@ public static class BridgeCommandFactory
             throw new ArgumentException($"Level '{name}' not found");
 
         return level;
+    }
+
+    private static Level GetPlacementLevel(Document doc, Wall wall, XYZ location)
+    {
+        if (wall.LevelId != ElementId.InvalidElementId)
+        {
+            var wallLevel = doc.GetElement(wall.LevelId) as Level;
+            if (wallLevel != null)
+                return wallLevel;
+        }
+
+        var level = new FilteredElementCollector(doc)
+            .OfClass(typeof(Level))
+            .Cast<Level>()
+            .OrderBy(l => Math.Abs(l.Elevation - location.Z))
+            .FirstOrDefault();
+
+        if (level == null)
+            throw new InvalidOperationException("No levels found for hosted placement");
+
+        return level;
+    }
+
+    private static void SetWindowSillHeight(FamilyInstance window, XYZ location, Level level)
+    {
+        var sillHeight = location.Z - level.Elevation;
+        var sillParam = window.get_Parameter(BuiltInParameter.INSTANCE_SILL_HEIGHT_PARAM);
+        if (sillParam != null && !sillParam.IsReadOnly)
+            sillParam.Set(sillHeight);
     }
 
     private static WallType GetWallTypeByName(Document doc, string name)

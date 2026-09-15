@@ -176,6 +176,8 @@ that the server may access:
 ```
 
 VS Code users can start from [`.vscode/mcp.json`](.vscode/mcp.json).
+Hermes Desktop users can start from [`Hermes.json`](Hermes.json); replace the
+placeholder Python path with the path to your local virtual environment.
 
 Clients that support MCP Bundles can install the `.mcpb` file from the
 [latest release](https://github.com/Sam-AEC/aec-model-bridge/releases/latest).
