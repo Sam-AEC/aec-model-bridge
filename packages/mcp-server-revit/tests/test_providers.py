@@ -74,6 +74,32 @@ async def test_revit_provider_mock_mode(tmp_path):
     assert res2["status"] == "healthy"
 
 
+def test_revit_wall_placement_preserves_nested_location_z(tmp_path):
+    workspace = WorkspaceMonitor([tmp_path])
+    provider = RevitProvider(workspace=workspace, mode=BridgeMode.mock)
+
+    for tool_name in ("revit_place_window", "revit_place_door"):
+        _, build_payload = provider._tool_mapping[tool_name]
+        payload = build_payload({
+            "wall_id": 1245580,
+            "family_name": "Window-Double-Hung",
+            "type_name": '26" x 42"',
+            "location": {"x": -25.0, "y": -50.0, "z": 33.0},
+        })
+
+        assert payload["location"] == {"x": -25.0, "y": -50.0, "z": 33.0}
+
+
+def test_revit_wall_placement_keeps_flat_coordinates_compatible(tmp_path):
+    workspace = WorkspaceMonitor([tmp_path])
+    provider = RevitProvider(workspace=workspace, mode=BridgeMode.mock)
+
+    _, build_payload = provider._tool_mapping["revit_place_window"]
+    payload = build_payload({"wall_id": 1245580, "x": 1.0, "y": 2.0, "z": 3.0})
+
+    assert payload["location"] == {"x": 1.0, "y": 2.0, "z": 3.0}
+
+
 @pytest.mark.anyio
 async def test_ifc_provider_tools(tmp_path):
     workspace = WorkspaceMonitor([tmp_path])

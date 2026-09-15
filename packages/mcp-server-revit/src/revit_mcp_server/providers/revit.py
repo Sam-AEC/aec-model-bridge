@@ -147,6 +147,24 @@ class RevitProvider(AECProvider):
             if key in arguments and isinstance(arguments[key], str):
                 self.workspace.assert_in_workspace(Path(arguments[key]))
 
+    @staticmethod
+    def _placement_location(args: Dict[str, Any]) -> Dict[str, Any]:
+        location = args.get("location")
+        if location is not None:
+            if not isinstance(location, dict):
+                raise ValueError("location must be an object with x, y, and optional z coordinates")
+            return {
+                "x": location.get("x"),
+                "y": location.get("y"),
+                "z": location.get("z", 0),
+            }
+
+        return {
+            "x": args.get("x"),
+            "y": args.get("y"),
+            "z": args.get("z", 0),
+        }
+
     def _init_tool_mapping(self):
         self._tool_mapping = {
             "revit_health": ("revit.health", lambda args: {}),
@@ -202,13 +220,13 @@ class RevitProvider(AECProvider):
                 "wall_id": args.get("wall_id"),
                 "family_name": args.get("family_name"),
                 "type_name": args.get("type_name"),
-                "location": {"x": args.get("x"), "y": args.get("y"), "z": args.get("z", 0)}
+                "location": self._placement_location(args)
             }),
             "revit_place_window": ("revit.place_window", lambda args: {
                 "wall_id": args.get("wall_id"),
                 "family_name": args.get("family_name"),
                 "type_name": args.get("type_name"),
-                "location": {"x": args.get("x"), "y": args.get("y"), "z": args.get("z", 0)}
+                "location": self._placement_location(args)
             }),
             "revit_list_families": ("revit.list_families", lambda args: {}),
             "revit_create_floor_plan_view": ("revit.create_floor_plan_view", lambda args: {
@@ -455,8 +473,8 @@ class RevitProvider(AECProvider):
         ProviderTool(name="revit_create_room", description="Create a room at a specific point on a level", inputSchema={"type": "object", "properties": {"level": {"type": "string"}, "x": {"type": "number"}, "y": {"type": "number"}, "name": {"type": "string", "default": "Room"}, "number": {"type": "string"}}, "required": ["level", "x", "y"]}),
         ProviderTool(name="revit_delete_element", description="Delete an element by ID", inputSchema={"type": "object", "properties": {"element_id": {"type": "integer"}}, "required": ["element_id"]}),
         ProviderTool(name="revit_place_family_instance", description="Place a family instance (e.g., furniture, equipment)", inputSchema={"type": "object", "properties": {"family_name": {"type": "string"}, "type_name": {"type": "string"}, "level": {"type": "string"}, "x": {"type": "number"}, "y": {"type": "number"}, "z": {"type": "number", "default": 0}}, "required": ["family_name", "type_name", "level", "x", "y"]}),
-        ProviderTool(name="revit_place_door", description="Place a door in a wall", inputSchema={"type": "object", "properties": {"wall_id": {"type": "integer"}, "x": {"type": "number"}, "y": {"type": "number"}, "z": {"type": "number", "default": 0}, "family_name": {"type": "string"}, "type_name": {"type": "string"}}, "required": ["wall_id", "x", "y"]}),
-        ProviderTool(name="revit_place_window", description="Place a window in a wall", inputSchema={"type": "object", "properties": {"wall_id": {"type": "integer"}, "x": {"type": "number"}, "y": {"type": "number"}, "z": {"type": "number", "default": 0}, "family_name": {"type": "string"}, "type_name": {"type": "string"}}, "required": ["wall_id", "x", "y"]}),
+        ProviderTool(name="revit_place_door", description="Place a door in a wall", inputSchema={"type": "object", "properties": {"wall_id": {"type": "integer"}, "x": {"type": "number"}, "y": {"type": "number"}, "z": {"type": "number", "default": 0}, "location": {"type": "object", "properties": {"x": {"type": "number"}, "y": {"type": "number"}, "z": {"type": "number", "default": 0}}, "required": ["x", "y"]}, "family_name": {"type": "string"}, "type_name": {"type": "string"}}, "required": ["wall_id"], "oneOf": [{"required": ["x", "y"]}, {"required": ["location"]}]}),
+        ProviderTool(name="revit_place_window", description="Place a window in a wall", inputSchema={"type": "object", "properties": {"wall_id": {"type": "integer"}, "x": {"type": "number"}, "y": {"type": "number"}, "z": {"type": "number", "default": 0}, "location": {"type": "object", "properties": {"x": {"type": "number"}, "y": {"type": "number"}, "z": {"type": "number", "default": 0}}, "required": ["x", "y"]}, "family_name": {"type": "string"}, "type_name": {"type": "string"}}, "required": ["wall_id"], "oneOf": [{"required": ["x", "y"]}, {"required": ["location"]}]}),
         ProviderTool(name="revit_list_families", description="List all loaded families and their types", inputSchema={"type": "object", "properties": {}}),
         ProviderTool(name="revit_create_floor_plan_view", description="Create a floor plan view for a level", inputSchema={"type": "object", "properties": {"level_name": {"type": "string"}, "view_name": {"type": "string"}}, "required": ["level_name"]}),
         ProviderTool(name="revit_create_3d_view", description="Create a new 3D view", inputSchema={"type": "object", "properties": {"view_name": {"type": "string"}}, "required": ["view_name"]}),
