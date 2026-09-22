@@ -175,17 +175,22 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
         session_id = body.get("session_id")
 
         try:
-            if config.anthropic_api_key:
-                # Native path takes priority whenever an API key is
-                # configured, regardless of the requested `provider` value -
-                # it replaces the CLI-based "claude" option entirely (see
-                # /agent/providers above for how the panel learns this).
+            if provider == "codex":
+                # codex has no native path (Task 1's ADR scopes it as
+                # CLI-only) - route here unconditionally, even when an API
+                # key is configured for the "claude" native path. agent_bridge
+                # itself reports a missing-CLI error if codex isn't on PATH.
+                result = agent_bridge.run_agent_turn(provider, message, session_id)
+            elif config.anthropic_api_key:
+                # Native path takes priority for "claude" (or an unspecified
+                # provider, which defaults to "claude") whenever an API key
+                # is configured - it replaces the CLI-based "claude" option
+                # entirely (see /agent/providers above for how the panel
+                # learns this).
                 result = agent_native.run_native_turn(message, session_id, self.registry, self.approval_provider)
-            elif provider == "codex" or (provider == "claude" and shutil.which("claude") is not None):
-                # CLI fallback: codex has no native path so always routes
-                # here (agent_bridge itself reports a missing-CLI error);
-                # claude only lands here with no API key configured AND the
-                # CLI resolvable on PATH.
+            elif provider == "claude" and shutil.which("claude") is not None:
+                # CLI fallback: only reached with no API key configured AND
+                # the claude CLI resolvable on PATH.
                 result = agent_bridge.run_agent_turn(provider, message, session_id)
             else:
                 result = {

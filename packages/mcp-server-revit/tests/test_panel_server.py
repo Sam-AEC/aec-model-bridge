@@ -233,6 +233,37 @@ def test_agent_chat_dispatches_to_native_when_api_key_configured(running_server,
     assert bridge_calls == []
 
 
+def test_agent_chat_explicit_codex_stays_on_cli_path_even_with_api_key_configured(running_server, monkeypatch):
+    """Regression test: codex has no native path (Task 1's ADR scopes it as
+    CLI-only regardless of API key state). An explicit provider: "codex"
+    request must always go through agent_bridge.run_agent_turn, even when an
+    Anthropic API key is configured and would otherwise route "claude" to
+    the native path."""
+    monkeypatch.setattr(panel_server.config, "anthropic_api_key", "test-key")
+    monkeypatch.setattr(panel_server.shutil, "which", lambda name: "/usr/bin/codex" if name == "codex" else None)
+
+    native_calls = []
+    bridge_calls = []
+
+    def fake_native(message, session_id, registry, approval_provider):
+        native_calls.append((message, session_id))
+        return {"ok": True, "response": "native reply", "session_id": "sess-native"}
+
+    def fake_bridge(provider, message, session_id):
+        bridge_calls.append((provider, message, session_id))
+        return {"ok": True, "response": "codex reply", "session_id": "sess-codex"}
+
+    monkeypatch.setattr(panel_server.agent_native, "run_native_turn", fake_native)
+    monkeypatch.setattr(panel_server.agent_bridge, "run_agent_turn", fake_bridge)
+
+    status, body = _post(running_server, "/agent/chat", {"message": "hi", "provider": "codex"})
+
+    assert status == 200
+    assert body == {"ok": True, "response": "codex reply", "session_id": "sess-codex"}
+    assert bridge_calls == [("codex", "hi", None)]
+    assert native_calls == []
+
+
 def test_agent_chat_no_provider_available_returns_error_without_dispatch(running_server, monkeypatch):
     """No API key and no CLI on PATH: the chat request must fail fast with
     the "no provider available" error, without ever calling either agent
