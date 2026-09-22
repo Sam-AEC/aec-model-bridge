@@ -214,3 +214,35 @@ def test_session_id_continues_conversation_history(monkeypatch, registry, approv
     user_texts = [m["content"] for m in second_call_messages if m["role"] == "user"]
     assert "My name is Alice" in user_texts
     assert "What's my name?" in user_texts
+
+
+def test_failed_turn_rolls_back_session_history(monkeypatch, registry, approval_provider):
+    """Regression test for the rollback-on-exception path: a failure that
+    happens AFTER the user message has already been appended to session
+    history (e.g. building the tools list blows up) must not leave a
+    dangling/unbalanced turn behind - the session must look exactly as it
+    did before the failed call, and must still work normally afterward."""
+    monkeypatch.setattr(agent_native.config, "anthropic_api_key", "test-key")
+
+    create = Mock(return_value=_text_response("Hello!"))
+    _install_fake_client(monkeypatch, create)
+    first = agent_native.run_native_turn("hi", None, registry, approval_provider)
+    session_id = first["session_id"]
+    history_len_before_failure = len(agent_native._sessions[session_id])
+
+    original_build_tools = agent_native._build_tools
+
+    def boom(_registry):
+        raise RuntimeError("registry exploded")
+
+    monkeypatch.setattr(agent_native, "_build_tools", boom)
+
+    result = agent_native.run_native_turn("this call will fail", session_id, registry, approval_provider)
+
+    assert result == {"ok": False, "error": "registry exploded"}
+    assert len(agent_native._sessions[session_id]) == history_len_before_failure
+
+    monkeypatch.setattr(agent_native, "_build_tools", original_build_tools)
+    create.return_value = _text_response("Still working")
+    followup = agent_native.run_native_turn("does this still work?", session_id, registry, approval_provider)
+    assert followup == {"ok": True, "response": "Still working", "session_id": session_id}

@@ -172,12 +172,13 @@ def run_native_turn(
 
     history = _sessions[resolved_session_id]
     snapshot_len = len(history)
-    history.append({"role": "user", "content": message})
-
-    client = anthropic.Anthropic(api_key=config.anthropic_api_key)
-    tools = _build_tools(registry)
 
     try:
+        history.append({"role": "user", "content": message})
+
+        client = anthropic.Anthropic(api_key=config.anthropic_api_key)
+        tools = _build_tools(registry)
+
         for _ in range(_MAX_TURNS):
             response = client.messages.create(
                 model=_MODEL_ID,
