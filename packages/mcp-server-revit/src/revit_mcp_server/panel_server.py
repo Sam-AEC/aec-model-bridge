@@ -18,10 +18,13 @@ import asyncio
 import json
 import logging
 import os
+import shutil
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict
 
-from .agent_bridge import run_agent_turn
+from . import agent_bridge
+from . import agent_native
+from .config import config
 from .errors import RevitMCPError
 from .registry_factory import build_registry
 from .security.audit import redact_data
@@ -92,7 +95,20 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
         if self.path == "/reports":
             self._handle_list_reports()
             return
+        if self.path == "/agent/providers":
+            self._handle_agent_providers()
+            return
         self._send_json(404, {"ok": False, "error": f"Unknown path '{self.path}'"})
+
+    def _handle_agent_providers(self) -> None:
+        """Reports which chat providers are actually usable right now, so the
+        panel's dropdown can show/enable options accordingly. "claude" covers
+        both the native (API key) and CLI-fallback paths that /agent/chat's
+        dispatch chain below may route to; "codex" has no native path (CLI
+        only, per Task 1's ADR)."""
+        claude_available = bool(config.anthropic_api_key) or shutil.which("claude") is not None
+        codex_available = shutil.which("codex") is not None
+        self._send_json(200, {"ok": True, "providers": {"claude": claude_available, "codex": codex_available}})
 
     def _handle_list_reports(self) -> None:
         workspace_dir = self.workspace.allowed_directories[0]
@@ -159,7 +175,26 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
         session_id = body.get("session_id")
 
         try:
-            result = run_agent_turn(provider, message, session_id)
+            if config.anthropic_api_key:
+                # Native path takes priority whenever an API key is
+                # configured, regardless of the requested `provider` value -
+                # it replaces the CLI-based "claude" option entirely (see
+                # /agent/providers above for how the panel learns this).
+                result = agent_native.run_native_turn(message, session_id, self.registry, self.approval_provider)
+            elif provider == "codex" or (provider == "claude" and shutil.which("claude") is not None):
+                # CLI fallback: codex has no native path so always routes
+                # here (agent_bridge itself reports a missing-CLI error);
+                # claude only lands here with no API key configured AND the
+                # CLI resolvable on PATH.
+                result = agent_bridge.run_agent_turn(provider, message, session_id)
+            else:
+                result = {
+                    "ok": False,
+                    "error": (
+                        "No AI provider is available. Add an Anthropic API key in Settings, "
+                        "or install and sign in to the claude/codex CLI."
+                    ),
+                }
         except Exception as e:
             self._send_json(500, {"ok": False, "error": redact_data(str(e))})
             return
