@@ -63,7 +63,7 @@ Key behavior:
 - creates `.env` from `.env.example` if needed
 - checks Python availability
 - installs the Python package in editable mode
-- optionally probes `http://127.0.0.1:3000/health` in bridge mode
+- optionally probes the dynamic Revit bridge endpoint from the local registry in bridge mode
 - launches `python -m revit_mcp_server`
 
 ### `scripts/run-server.ps1`

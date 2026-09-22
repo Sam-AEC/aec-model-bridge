@@ -45,7 +45,7 @@ The workspace config is already committed at `.vscode/mcp.json`.
 For user-level install:
 
 ```powershell
-code --add-mcp "{`"name`":`"revit`",`"type`":`"stdio`",`"command`":`"python`",`"args`":[`"-m`",`"revit_mcp_server.mcp_server`"],`"env`":{`"MCP_REVIT_MODE`":`"bridge`",`"MCP_REVIT_BRIDGE_URL`":`"http://127.0.0.1:3000`",`"MCP_REVIT_WORKSPACE_DIR`":`"C:\\RevitProjects`",`"MCP_REVIT_ALLOWED_DIRECTORIES`":`"C:\\RevitProjects`"}}"
+code --add-mcp "{`"name`":`"revit-2026`",`"type`":`"stdio`",`"command`":`"python`",`"args`":[`"-m`",`"revit_mcp_server.mcp_server`"],`"env`":{`"MCP_REVIT_MODE`":`"bridge`",`"MCP_REVIT_HOST_VERSION`":`"2026`",`"MCP_REVIT_WORKSPACE_DIR`":`"C:\\RevitProjects`",`"MCP_REVIT_ALLOWED_DIRECTORIES`":`"C:\\RevitProjects`"}}"
 ```
 
 ### Claude Desktop, Cursor, Windsurf, Cline, Roo Code, Continue, and Similar Clients
@@ -60,7 +60,7 @@ Most desktop MCP clients accept this shape:
       "args": ["-m", "revit_mcp_server.mcp_server"],
       "env": {
         "MCP_REVIT_MODE": "bridge",
-        "MCP_REVIT_BRIDGE_URL": "http://127.0.0.1:3000",
+        "MCP_REVIT_HOST_VERSION": "2026",
         "MCP_REVIT_WORKSPACE_DIR": "C:\\RevitProjects",
         "MCP_REVIT_ALLOWED_DIRECTORIES": "C:\\RevitProjects"
       }
@@ -78,7 +78,7 @@ If the Python package was installed from PyPI, the console script can be used in
       "command": "aec-model-bridge",
       "env": {
         "MCP_REVIT_MODE": "bridge",
-        "MCP_REVIT_BRIDGE_URL": "http://127.0.0.1:3000",
+        "MCP_REVIT_HOST_VERSION": "2026",
         "MCP_REVIT_WORKSPACE_DIR": "C:\\RevitProjects",
         "MCP_REVIT_ALLOWED_DIRECTORIES": "C:\\RevitProjects"
       }
