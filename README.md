@@ -217,7 +217,9 @@ python -m pip install -e packages/mcp-server-revit
 
 ### 2. Install the Revit add-in
 
-Set the version to match your Revit installation:
+Set the version to match your Revit installation. If Windows blocks the
+downloaded scripts, right-click each `.ps1` file, open Properties, and select
+Unblock before running them.
 
 ```powershell
 $RevitVersion = Read-Host "Revit year (2024, 2025, 2026, or 2027)"
