@@ -42,3 +42,5 @@ Before opening a PR, confirm that:
 - config examples still work with placeholder values
 - README or docs are updated when setup or behavior changes
 - any limitations or known gaps are called out explicitly
+
+Accepted contributions are credited in [CONTRIBUTORS.md](CONTRIBUTORS.md).
