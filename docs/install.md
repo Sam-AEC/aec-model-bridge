@@ -96,7 +96,9 @@ installation above.
 
 ## Configure an MCP Client
 
-The server requires a bridge URL and an allowed workspace:
+The server requires an allowed workspace. In bridge mode it auto-discovers the
+newest open Revit instance; set `MCP_REVIT_HOST_VERSION` to target a specific
+Revit year:
 
 ```json
 {
@@ -106,7 +108,16 @@ The server requires a bridge URL and an allowed workspace:
       "args": ["-m", "revit_mcp_server.mcp_server"],
       "env": {
         "MCP_REVIT_MODE": "bridge",
-        "MCP_REVIT_BRIDGE_URL": "http://127.0.0.1:3000",
+        "MCP_REVIT_WORKSPACE_DIR": "C:\\RevitProjects",
+        "MCP_REVIT_ALLOWED_DIRECTORIES": "C:\\RevitProjects"
+      }
+    },
+    "aec-model-bridge-revit-2026": {
+      "command": "C:\\path\\to\\aec-model-bridge\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "revit_mcp_server.mcp_server"],
+      "env": {
+        "MCP_REVIT_MODE": "bridge",
+        "MCP_REVIT_HOST_VERSION": "2026",
         "MCP_REVIT_WORKSPACE_DIR": "C:\\RevitProjects",
         "MCP_REVIT_ALLOWED_DIRECTORIES": "C:\\RevitProjects"
       }
@@ -124,10 +135,13 @@ release. The Revit add-in must still be installed separately.
 
 ## Verify the Bridge
 
-Restart Revit after installing or replacing the add-in. Open a model and run:
+The add-in writes a live endpoint file under
+`%LOCALAPPDATA%\AECModelBridge\registry` when Revit starts:
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:3000/health
+$registry = Get-ChildItem "$env:LOCALAPPDATA\AECModelBridge\registry\revit-*.json" | Select-Object -First 1
+$switch = Get-Content $registry.FullName -Raw | ConvertFrom-Json
+Invoke-RestMethod "$($switch.endpoint)/health"
 ```
 
 The response should include:

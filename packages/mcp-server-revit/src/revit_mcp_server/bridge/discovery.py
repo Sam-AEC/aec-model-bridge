@@ -3,7 +3,7 @@ import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List
 import ctypes
 
 from pydantic import BaseModel, ValidationError
@@ -58,13 +58,14 @@ def _is_stale(info: SwitchInfo) -> bool:
     return not is_pid_alive(info.pid)
 
 
-def discover_switches(registry_dir: Path = REGISTRY_DIR) -> Dict[str, SwitchInfo]:
+def discover_switches(registry_dir: Path | None = None) -> Dict[str, SwitchInfo]:
     """
     Scans the registry directory for valid switch files.
     Prunes stale files.
     Returns a dict mapping provider_id to SwitchInfo.
     """
     switches: Dict[str, SwitchInfo] = {}
+    registry_dir = registry_dir or REGISTRY_DIR
 
     if not registry_dir.exists():
         return switches
@@ -105,4 +106,72 @@ def discover_switches(registry_dir: Path = REGISTRY_DIR) -> Dict[str, SwitchInfo
             logger.error("Unexpected error reading %s: %s", file_path, e)
 
     return switches
+
+
+def discover_switch_list(registry_dir: Path | None = None) -> List[SwitchInfo]:
+    """Return every live switch entry, sorted from newest to oldest."""
+    switches: List[SwitchInfo] = []
+    registry_dir = registry_dir or REGISTRY_DIR
+
+    if not registry_dir.exists():
+        return switches
+
+    for file_path in registry_dir.glob("*.json"):
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            info = SwitchInfo(**data)
+
+            if _is_stale(info):
+                logger.info("Pruning stale switch registry entry: %s", file_path)
+                try:
+                    file_path.unlink()
+                except OSError as e:
+                    logger.warning("Failed to delete stale entry %s: %s", file_path, e)
+                continue
+
+            switches.append(info)
+        except (json.JSONDecodeError, ValidationError) as e:
+            logger.warning("Malformed registry entry %s: %s", file_path, e)
+        except PermissionError as e:
+            logger.warning("ACL denied access to registry entry %s: %s", file_path, e)
+        except Exception as e:
+            logger.error("Unexpected error reading %s: %s", file_path, e)
+
+    def started_at(info: SwitchInfo) -> datetime:
+        try:
+            return datetime.fromisoformat(info.started_at.replace("Z", "+00:00"))
+        except ValueError:
+            return datetime.min.replace(tzinfo=timezone.utc)
+
+    return sorted(switches, key=started_at, reverse=True)
+
+
+def select_switch(
+    provider_id: str = "revit",
+    host_version: str | None = None,
+    registry_dir: Path | None = None,
+) -> SwitchInfo | None:
+    """Select the newest live switch for a provider, optionally by host version."""
+    requested_version = host_version.strip().lower() if host_version else None
+    for switch in discover_switch_list(registry_dir):
+        if switch.provider_id != provider_id:
+            continue
+        switch_version = switch.host_version.lower()
+        if requested_version and switch_version != requested_version and not switch_version.startswith(requested_version):
+            continue
+        return switch
+    return None
+
+
+def available_host_versions(provider_id: str = "revit", registry_dir: Path | None = None) -> List[str]:
+    """Return live host versions for a provider, sorted newest first without duplicates."""
+    versions: List[str] = []
+    for switch in discover_switch_list(registry_dir):
+        if switch.provider_id != provider_id:
+            continue
+        if switch.host_version not in versions:
+            versions.append(switch.host_version)
+    return versions
 

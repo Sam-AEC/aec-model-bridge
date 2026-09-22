@@ -7,14 +7,15 @@ This page documents the main environment variables, package metadata, and runtim
 The server supports two runtime modes:
 
 - `mock`: uses the built-in mock bridge for CI, development, and tests.
-- `bridge`: connects to the Revit add-in over HTTP on `127.0.0.1:3000`.
+- `bridge`: connects to a live Revit add-in over its local registry entry or an explicit bridge URL.
 
 ## Environment Variables
 
 | Variable | Required | Default | Description |
 |---|---:|---|---|
 | `MCP_REVIT_MODE` | Yes | `mock` | Selects the active bridge mode. |
-| `MCP_REVIT_BRIDGE_URL` | Bridge mode | `http://127.0.0.1:3000` | URL of the Revit bridge listener. |
+| `MCP_REVIT_BRIDGE_URL` | No | auto-discovered | Explicit URL of the Revit bridge listener. Overrides registry discovery. |
+| `MCP_REVIT_HOST_VERSION` | No | newest live Revit | Revit year to select from the local registry, such as `2024` or `2026`. |
 | `MCP_REVIT_ALLOWED_DIRECTORIES` | Yes | none | Semicolon-separated directories the server may access. |
 | `MCP_REVIT_WORKSPACE_DIR` | Yes | none | Root directory for generated files and workspace-backed tools. |
 | `MCP_REVIT_AUDIT_LOG` | No | `workspace/audit.jsonl` | Audit log path used by the security layer. |
@@ -42,7 +43,7 @@ The current package name is `aec-model-bridge`, and the official repository URL 
       "args": ["-m", "revit_mcp_server.mcp_server"],
       "env": {
         "MCP_REVIT_MODE": "bridge",
-        "MCP_REVIT_BRIDGE_URL": "http://127.0.0.1:3000",
+        "MCP_REVIT_HOST_VERSION": "2026",
         "MCP_REVIT_WORKSPACE_DIR": "C:\\RevitProjects",
         "MCP_REVIT_ALLOWED_DIRECTORIES": "C:\\RevitProjects"
       }
@@ -54,4 +55,5 @@ The current package name is `aec-model-bridge`, and the official repository URL 
 ## Notes
 
 - The server should be run from the repository root or an environment where the package is installed in editable mode.
-- For Revit integration, make sure the Revit add-in is installed and Revit is running before testing the bridge endpoint.
+- For Revit integration, make sure the Revit add-in is installed and the requested Revit version is running before testing.
+- Configure separate MCP client entries with different `MCP_REVIT_HOST_VERSION` values to target multiple open Revit versions side by side.
