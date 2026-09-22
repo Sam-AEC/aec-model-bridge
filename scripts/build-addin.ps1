@@ -119,11 +119,15 @@ if (Test-Path $pbiPath) {
             $jsonContent = Get-Content $pbiJsonTemplate -Raw
             $jsonContent = $jsonContent -replace "%PBITOOL_PATH%", $pbiOutputDir.Replace("\", "\\")
             
+            # Both the directory creation and the file write need admin rights under
+            # Program Files - the same try/catch must cover both, or an unwritable
+            # directory throws a script-terminating error here (Stop preference)
+            # before the write's own catch ever runs.
             $pbiExternalToolsDir = "C:\Program Files (x86)\Common Files\Microsoft Shared\Power BI Desktop\External Tools"
-            if (-not (Test-Path $pbiExternalToolsDir)) {
-                New-Item -ItemType Directory -Force -Path $pbiExternalToolsDir | Out-Null
-            }
             try {
+                if (-not (Test-Path $pbiExternalToolsDir)) {
+                    New-Item -ItemType Directory -Force -Path $pbiExternalToolsDir | Out-Null
+                }
                 Set-Content -Path (Join-Path $pbiExternalToolsDir "AECModelBridge.pbitool.json") -Value $jsonContent
                 Write-Host "Registered Power BI External Tool." -ForegroundColor Green
             } catch {
