@@ -1,5 +1,6 @@
 param(
-    [string]$Mode = "bridge"
+    [string]$Mode = "bridge",
+    [string]$RevitVersion
 )
 
 $ErrorActionPreference = "Stop"
@@ -67,15 +68,39 @@ Get-Content $envFile | Where-Object { $_ -notmatch "^#" -and $_ -match "\S" } | 
     Write-Host "  $_" -ForegroundColor Gray
 }
 $env:MCP_REVIT_MODE = $Mode
+if ($RevitVersion) {
+    $env:MCP_REVIT_HOST_VERSION = $RevitVersion
+}
 
 # Check if Revit is running (if bridge mode)
 if ($Mode -eq "bridge") {
     Write-Host "`nChecking Revit bridge..." -ForegroundColor Yellow
     try {
-        $response = Invoke-WebRequest -Uri "http://127.0.0.1:3000/health" -Method GET -TimeoutSec 2 -UseBasicParsing
+        $registryDir = Join-Path $env:LOCALAPPDATA "AECModelBridge\registry"
+        $switches = @()
+        if (Test-Path -LiteralPath $registryDir) {
+            $switches = Get-ChildItem -LiteralPath $registryDir -Filter "*.json" -File |
+                ForEach-Object {
+                    try { Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json } catch { $null }
+                } |
+                Where-Object {
+                    $_ -and $_.provider_id -eq "revit" -and
+                    (-not $RevitVersion -or $_.host_version -like "$RevitVersion*")
+                } |
+                Sort-Object started_at -Descending
+        }
+
+        if (-not $switches -or $switches.Count -eq 0) {
+            $target = if ($RevitVersion) { "Revit $RevitVersion" } else { "a Revit bridge" }
+            throw "Could not find $target in $registryDir"
+        }
+
+        $switch = $switches | Select-Object -First 1
+        $response = Invoke-WebRequest -Uri "$($switch.endpoint)/health" -Method GET -TimeoutSec 2 -UseBasicParsing
         $health = $response.Content | ConvertFrom-Json
         Write-Host "Bridge status: $($health.status)" -ForegroundColor Green
         Write-Host "Revit version: $($health.revit_version)" -ForegroundColor Green
+        Write-Host "Bridge endpoint: $($switch.endpoint)" -ForegroundColor Green
         if ($health.active_document) {
             Write-Host "Active document: $($health.active_document)" -ForegroundColor Green
         }
@@ -83,7 +108,7 @@ if ($Mode -eq "bridge") {
     catch {
         Write-Host "WARNING: Cannot connect to Revit bridge!" -ForegroundColor Red
         Write-Host "Make sure Revit is running with a project open." -ForegroundColor Yellow
-        Write-Host "The bridge should be available at http://127.0.0.1:3000" -ForegroundColor Yellow
+        Write-Host "The bridge should be registered under %LOCALAPPDATA%\AECModelBridge\registry." -ForegroundColor Yellow
         Write-Host "`nContinuing anyway... (server will fail on first tool call)`n" -ForegroundColor Gray
     }
 }

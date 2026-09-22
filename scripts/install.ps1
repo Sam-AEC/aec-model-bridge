@@ -180,7 +180,7 @@ Write-Host "  Config:        $configTarget\default.json"
 Write-Host "`nNext steps:" -ForegroundColor Yellow
 Write-Host "  1. Restart Revit $RevitVersion" -ForegroundColor White
 Write-Host "  2. Open a project in Revit" -ForegroundColor White
-Write-Host "  3. Verify bridge: curl http://127.0.0.1:3000/health" -ForegroundColor White
+Write-Host "  3. Verify bridge: read %LOCALAPPDATA%\AECModelBridge\registry\revit-*.json and call its /health endpoint" -ForegroundColor White
 Write-Host "  4. Expected response: {`"status`":`"healthy`",`"revit_version`":`"$RevitVersion`",...}" -ForegroundColor Gray
 
 Write-Host "`nTo install MCP server:" -ForegroundColor Yellow

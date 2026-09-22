@@ -87,6 +87,17 @@ public sealed class PanelHubLauncher
                 // anyway — the health-poll loop is the correct readiness signal (H4 fix).
             };
 
+            // Config() (config.py) requires MCP_REVIT_WORKSPACE_DIR and
+            // MCP_REVIT_ALLOWED_DIRECTORIES and has no fallback for an installed
+            // layout with no discoverable .env - without these the subprocess crashed
+            // on import every time and never became reachable. Respect any value the
+            // user already has set system-wide; otherwise default to Documents, same
+            // as install.ps1's own default.json.
+            SetEnvironmentDefault(startInfo, "MCP_REVIT_MODE", "bridge");
+            var defaultWorkspace = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            SetEnvironmentDefault(startInfo, "MCP_REVIT_WORKSPACE_DIR", defaultWorkspace);
+            SetEnvironmentDefault(startInfo, "MCP_REVIT_ALLOWED_DIRECTORIES", defaultWorkspace);
+
             _launchedProcess = Process.Start(startInfo);
             Log.Information("Launched panel hub via '{Interpreter} -m revit_mcp_server.panel_server' (pid {Pid})",
                 interpreter, _launchedProcess?.Id);
@@ -111,6 +122,14 @@ public sealed class PanelHubLauncher
             "Launched the panel hub but it never became reachable on 127.0.0.1:{Port} after {Attempts} attempts. " +
             "Check %LOCALAPPDATA%\\AECModelBridge or the process's own logs for why it failed to start.",
             Port, PostLaunchMaxAttempts);
+    }
+
+    private static void SetEnvironmentDefault(ProcessStartInfo startInfo, string name, string defaultValue)
+    {
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(name)))
+        {
+            startInfo.EnvironmentVariables[name] = defaultValue;
+        }
     }
 
     private static async Task<bool> IsHealthyAsync()

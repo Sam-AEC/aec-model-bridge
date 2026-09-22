@@ -300,7 +300,13 @@ namespace RevitBridge.UI
 
         private void LoadPanelApp()
         {
-            var panelPath = Path.Combine(AppContext.BaseDirectory, "panel", "index.html");
+            // AppContext.BaseDirectory resolves to the host process's directory (Revit.exe,
+            // under Program Files) for an add-in assembly Revit loads into its own process -
+            // not this DLL's directory - so it silently missed the real panel every time and
+            // fell back to BuildShellHtml() below. Assembly.Location is what App.cs already
+            // uses for the same reason when locating ribbon icons next to this DLL.
+            var assemblyDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? AppContext.BaseDirectory;
+            var panelPath = Path.Combine(assemblyDir, "panel", "index.html");
             if (File.Exists(panelPath))
             {
                 Browser.Source = new Uri(panelPath);

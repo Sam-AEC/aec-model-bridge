@@ -75,7 +75,7 @@ namespace RevitBridge.Bridge
             dialog.SetTitle("Bridge Configuration", "Current local settings");
 
             dialog.AddInfoSection("Server Configuration",
-                "Address: http://127.0.0.1:3000/\n" +
+                $"Address: {(App.Server != null ? $"http://127.0.0.1:{App.Server.Port}/" : "dynamic localhost port")}\n" +
                 "Startup: Automatic with Revit\n" +
                 "Transport: Localhost HTTP\n" +
                 "Revit dispatch: ExternalEvent");

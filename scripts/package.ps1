@@ -175,7 +175,7 @@ The installer writes binaries to
 
 ## Verify Installation
 1. Start Revit
-2. In PowerShell: ``curl http://127.0.0.1:3000/health``
+2. In PowerShell, read ``%LOCALAPPDATA%\AECModelBridge\registry\revit-*.json`` and call the listed ``/health`` endpoint.
 3. The response should report ``healthy`` and the running Revit version.
 
 ## Run MCP Server

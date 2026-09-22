@@ -15,7 +15,8 @@ Environment variables (prefix `MCP_REVIT_`) include:
 - `MCP_REVIT_WORKSPACE_DIR`
 - `MCP_REVIT_ALLOWED_DIRECTORIES`
 - `MCP_REVIT_MODE` (`mock` or `bridge`)
-- `MCP_REVIT_BRIDGE_URL` (required for `bridge` mode)
+- `MCP_REVIT_HOST_VERSION` (optional Revit year selector, for example `2024` or `2026`)
+- `MCP_REVIT_BRIDGE_URL` (optional explicit endpoint override for `bridge` mode)
 - `MCP_REVIT_AUDIT_LOG`
 - `MCP_REVIT_LOG_LEVEL`
 

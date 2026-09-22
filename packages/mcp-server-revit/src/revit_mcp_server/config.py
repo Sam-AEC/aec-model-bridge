@@ -49,6 +49,7 @@ class Config(BaseSettings):
     workspace_dir: Path = Field(...)
     allowed_directories: List[DirectoryPath] = Field(...)
     bridge_url: str | None = Field(default=None)
+    host_version: str | None = Field(default=None)
     mode: BridgeMode = Field(default=BridgeMode.mock)
     audit_log: Path = Field(default_factory=lambda: Path("audit.log"))
     log_level: str = Field("INFO")
