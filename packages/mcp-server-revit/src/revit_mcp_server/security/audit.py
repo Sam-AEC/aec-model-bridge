@@ -23,7 +23,7 @@ _SECRET_KEYS = {
 }
 
 _SECRET_VALUE_RE = re.compile(
-    r"(?i)\b(api[_-]?key|token|session[_-]?token|secret|password|passwd|session|authorization|rhinocomputekey)\b\s*[:=]\s*([^\s,;]+)"
+    r"(?i)(?:^|[^a-z0-9])(api[_-]?key|token|session[_-]?token|secret|password|passwd|session|authorization|rhinocomputekey)\b\s*[:=]\s*([^\s,;]+)"
 )
 _WINDOWS_PATH_RE = re.compile(r"(?<!\w)(?:[A-Za-z]:[\\/](?:[^\s\"'<>|]+[\\/])*[^\s\"'<>|]+)")
 _POSIX_PATH_RE = re.compile(r"(?:(?<=^)|(?<=[\s\"'(<\[]))(/(?:[^/\s]+/)*[^/\s]+)")
@@ -31,7 +31,7 @@ _POSIX_PATH_RE = re.compile(r"(?:(?<=^)|(?<=[\s\"'(<\[]))(/(?:[^/\s]+/)*[^/\s]+)
 
 def _is_sensitive_key(key: str) -> bool:
     normalized = re.sub(r"[^a-z0-9]", "", key.strip().lower())
-    return normalized in _SECRET_KEYS
+    return any(normalized == secret or normalized.endswith(secret) for secret in _SECRET_KEYS)
 
 
 def _redact_text(value: str) -> str:
