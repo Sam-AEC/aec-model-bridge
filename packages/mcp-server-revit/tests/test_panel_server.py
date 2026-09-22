@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 import urllib.error
 import urllib.request
 
@@ -98,6 +99,38 @@ def test_mutating_tool_without_plan_is_rejected(running_server):
     assert status == 409
     assert body["ok"] is False
     assert "plan_id" in body["error"]
+
+
+def test_reports_lists_workspace_exports_newest_first(running_server, tmp_path):
+    """The Reports tab's Refresh button has no MCP tool behind it - it lists
+    whatever report_generator has already written to the workspace root."""
+    (tmp_path / "model_report.xlsx").write_bytes(b"x")
+    time.sleep(0.05)
+    (tmp_path / "model_data.db").write_bytes(b"x")
+
+    status, body = _get(running_server, "/reports")
+
+    assert status == 200
+    assert body["ok"] is True
+    assert [r["name"] for r in body["reports"]] == ["model_data.db", "model_report.xlsx"]
+
+
+def test_reports_excludes_internal_state_files(running_server, tmp_path):
+    """qaqc_issues.db is the QA/QC module's own tracking database, not
+    something report_generator exported - it must never appear as a report."""
+    (tmp_path / "qaqc_issues.db").write_bytes(b"x")
+
+    status, body = _get(running_server, "/reports")
+
+    assert status == 200
+    assert body["reports"] == []
+
+
+def test_reports_empty_workspace_returns_empty_list(running_server):
+    status, body = _get(running_server, "/reports")
+    assert status == 200
+    assert body["ok"] is True
+    assert body["reports"] == []
 
 
 def test_plan_actions_approve_execute_round_trip_over_http(running_server):

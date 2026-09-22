@@ -31,6 +31,14 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_PORT = 8787
 
+# report_generator writes exports directly to the workspace root (see
+# modules/report_generator/module.py's _ws_dir). Other modules keep their own
+# state there too (qaqc_issues.db, saved_selections.json) - these are never
+# something a user exported and would want to open, so they're excluded by
+# name even though qaqc_issues.db shares a report extension.
+REPORT_EXTENSIONS = {".xlsx", ".csv", ".db"}
+NON_REPORT_FILENAMES = {"qaqc_issues.db"}
+
 
 def _run_tool_sync(registry, approval_provider, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Execute one tool call to completion in a fresh event loop.
@@ -64,6 +72,7 @@ def _run_tool_sync(registry, approval_provider, name: str, arguments: Dict[str, 
 class PanelRequestHandler(BaseHTTPRequestHandler):
     registry = None
     approval_provider = None
+    workspace = None
 
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
         logger.debug("panel_server: " + format, *args)
@@ -80,7 +89,26 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
         if self.path == "/health":
             self._send_json(200, {"status": "healthy", "tools": len(self.registry.get_all_tools())})
             return
+        if self.path == "/reports":
+            self._handle_list_reports()
+            return
         self._send_json(404, {"ok": False, "error": f"Unknown path '{self.path}'"})
+
+    def _handle_list_reports(self) -> None:
+        workspace_dir = self.workspace.allowed_directories[0]
+        reports = [
+            {
+                "path": str(entry),
+                "name": entry.name,
+                "modified": entry.stat().st_mtime,
+            }
+            for entry in workspace_dir.iterdir()
+            if entry.is_file()
+            and entry.suffix.lower() in REPORT_EXTENSIONS
+            and entry.name not in NON_REPORT_FILENAMES
+        ]
+        reports.sort(key=lambda r: r["modified"], reverse=True)
+        self._send_json(200, {"ok": True, "reports": reports})
 
     def do_POST(self) -> None:  # noqa: N802
         if self.path == "/agent/chat":
@@ -142,11 +170,12 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
 
 
 def build_server(port: int | None = None, workspace: WorkspaceMonitor | None = None) -> ThreadingHTTPServer:
-    registry, approval_provider, _job_manager, _module_registry, _workspace = build_registry(workspace=workspace)
+    registry, approval_provider, _job_manager, _module_registry, resolved_workspace = build_registry(workspace=workspace)
 
     handler = type("BoundPanelRequestHandler", (PanelRequestHandler,), {
         "registry": registry,
         "approval_provider": approval_provider,
+        "workspace": resolved_workspace,
     })
 
     resolved_port = port if port is not None else int(os.getenv("MCP_PANEL_HTTP_PORT", str(DEFAULT_PORT)))

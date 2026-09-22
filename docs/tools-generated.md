@@ -224,6 +224,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_replace_family_type` | Replace all instances of one family/type combination with another, identified by name. | Yes | sync |
 | `revit_rotate_element` | Rotate an element. | Yes | sync |
 | `revit_save_document` | Save the current Revit document. | Yes | sync |
+| `revit_select_by_unique_ids` | Select and zoom to elements in the active view by their UniqueId. | No | sync |
 | `revit_set_element_material` | Set material for an element or specific face. | Yes | sync |
 | `revit_set_parameter_value` | Set a parameter value for an element. | Yes | sync |
 | `revit_set_selection` | Set selection by element IDs. | Yes | sync |

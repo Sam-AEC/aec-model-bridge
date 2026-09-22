@@ -223,12 +223,18 @@ function renderFindings() {
   findings.forEach((finding) => {
     const item = document.createElement("article");
     item.className = "item";
+    const selectButton = finding.elementUid
+      ? `<div class="item-actions">
+          <button type="button" data-select-uid="${escapeHtml(finding.elementUid)}">Select in Revit</button>
+        </div>`
+      : "";
     item.innerHTML = `
       <div class="item-head">
         <h2>${escapeHtml(finding.title)}</h2>
         <span class="badge ${escapeHtml(finding.severity)}">${escapeHtml(finding.severity)}</span>
       </div>
-      <p>${escapeHtml(finding.detail)}</p>`;
+      <p>${escapeHtml(finding.detail)}</p>
+      ${selectButton}`;
     findingList.appendChild(item);
   });
 }
@@ -322,6 +328,12 @@ document.body.addEventListener("click", (event) => {
     postToHost("reports.open", { reportId });
     addLog("Report opened", reportId);
   }
+
+  const selectUid = target.dataset.selectUid;
+  if (selectUid) {
+    postToHost("selection.set", { elementUids: [selectUid] });
+    addLog("Selection requested", selectUid);
+  }
 });
 
 chatForm.addEventListener("submit", (event) => {
@@ -363,6 +375,7 @@ function mapFindings(hubResult) {
   const findings = (hubResult && hubResult.findings) || [];
   return findings.map((finding, index) => ({
     id: finding.element_uid ? `${finding.rule_id}:${finding.element_uid}` : `${finding.rule_id}:${index}`,
+    elementUid: finding.element_uid || null,
     severity: finding.severity || "info",
     title: String(finding.rule_id || "finding").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
     detail: finding.message || ""
@@ -388,6 +401,17 @@ function mapReport(hubResult) {
     id: hubResult.output_file || `report-${Date.now()}`,
     title: fileName || "Report",
     detail: `${hubResult.element_count ?? "?"} elements, ${hubResult.type_count ?? "?"} types exported to ${hubResult.output_file || "workspace"}`
+  };
+}
+
+// Maps one entry from GET /reports (packages/mcp-server-revit's panel_server.py) -
+// a plain workspace-directory listing, not an MCP tool result, since listing past
+// exports has no tool of its own.
+function mapReportEntry(entry) {
+  return {
+    id: entry.path,
+    title: entry.name,
+    detail: `Modified ${new Date(entry.modified * 1000).toLocaleString()}`
   };
 }
 
@@ -421,6 +445,19 @@ if (window.chrome && window.chrome.webview) {
       state.reports = [report, ...state.reports];
       renderReports();
       addLog("Report exported", report.title);
+    }
+    if (event.data?.type === "reports.list") {
+      state.reports = (event.data.reports || []).map(mapReportEntry);
+      renderReports();
+      addLog("Reports refreshed", `${state.reports.length} report(s)`);
+    }
+    if (event.data?.type === "selection.result") {
+      const result = event.data.result || {};
+      const notFound = result.not_found_count || 0;
+      const detail = notFound > 0
+        ? `${result.selected_count || 0} selected, ${notFound} not found in the active document`
+        : `${result.selected_count || 0} selected`;
+      addLog("Selection updated", detail);
     }
     if (event.data?.type === "tool.error") {
       addLog(`Error: ${event.data.action || "tool"}`, event.data.message || "Unknown error");

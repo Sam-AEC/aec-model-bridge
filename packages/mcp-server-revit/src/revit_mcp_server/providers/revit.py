@@ -7,12 +7,26 @@ import httpx
 from ..bridge.client import BridgeClient
 from ..bridge.mock import MockBridge
 from ..config import BridgeMode, config
-from ..errors import WorkspaceViolation
+from ..errors import BridgeError, WorkspaceViolation
 from ..legacy.tools import TOOL_HANDLERS
 from ..security.workspace import WorkspaceMonitor
 from .base import AECProvider, ProviderTool, enrich_mutation_metadata
 
 logger = logging.getLogger(__name__)
+
+
+class UnavailableBridge:
+    def __init__(self, message: str) -> None:
+        self.message = message
+
+    def initialize(self) -> None:
+        return None
+
+    def _get(self, path: str) -> Dict[str, Any]:
+        return {"status": "unhealthy", "error": self.message}
+
+    def send_tool(self, tool_name: str, payload: dict) -> dict:
+        raise BridgeError(self.message)
 
 
 class RevitProvider(AECProvider):
@@ -21,11 +35,13 @@ class RevitProvider(AECProvider):
         workspace: WorkspaceMonitor,
         mode: BridgeMode = config.mode,
         bridge_url: str | None = config.bridge_url,
+        host_version: str | None = config.host_version,
         bridge_factory=None,
     ) -> None:
         self.workspace = workspace
         self.mode = mode
         self.bridge_url = bridge_url
+        self.host_version = host_version
         self._bridge = self._build_bridge(bridge_factory)
         self._init_tool_mapping()
         self._enrich_tool_metadata()
@@ -67,18 +83,30 @@ class RevitProvider(AECProvider):
 
     def _build_bridge(self, factory=None):
         if self.mode == BridgeMode.bridge:
-            from ..bridge.discovery import discover_switches
-
-            switches = discover_switches()
+            from ..bridge.discovery import available_host_versions, select_switch
 
             url = self.bridge_url
             token = None
 
             if not url:
-                if "revit" in switches:
-                    url = switches["revit"].endpoint
-                    token = switches["revit"].session_token
-                    logger.info("Resolved Revit switch from registry: %s", url)
+                switch = select_switch("revit", self.host_version)
+                if switch:
+                    url = switch.endpoint
+                    token = switch.session_token
+                    logger.info(
+                        "Resolved Revit %s switch from registry: %s",
+                        switch.host_version,
+                        url,
+                    )
+                elif self.host_version:
+                    versions = available_host_versions("revit")
+                    available = ", ".join(versions) if versions else "none"
+                    message = (
+                        f"No live Revit {self.host_version} bridge found. "
+                        f"Available Revit versions: {available}."
+                    )
+                    logger.warning(message)
+                    return UnavailableBridge(message)
                 else:
                     url = "http://127.0.0.1:3000"
                     for port in (3000, 3002):
@@ -402,6 +430,10 @@ class RevitProvider(AECProvider):
             ),
             "revit_get_selection": ("revit.get_selection", lambda args: {}),
             "revit_set_selection": ("revit.set_selection", lambda args: {"element_ids": args.get("element_ids")}),
+            "revit_select_by_unique_ids": (
+                "revit.select_by_unique_ids",
+                lambda args: {"element_uids": args.get("element_uids")},
+            ),
             "revit_create_text_note": (
                 "revit.create_text_note",
                 lambda args: {
@@ -1203,6 +1235,19 @@ class RevitProvider(AECProvider):
                 "type": "object",
                 "properties": {"element_ids": {"type": "array", "items": {"type": "integer"}}},
                 "required": ["element_ids"],
+            },
+        ),
+        # Not flagged mutating: only changes what's selected/framed in the active
+        # view, never the document, so the dockable panel can jump to a flagged
+        # element (by its stable UniqueId, unlike revit_set_selection's
+        # session-scoped ElementIds) without an approval round trip.
+        ProviderTool(
+            name="revit_select_by_unique_ids",
+            description="Select and zoom to elements in the active view by their UniqueId",
+            inputSchema={
+                "type": "object",
+                "properties": {"element_uids": {"type": "array", "items": {"type": "string"}}},
+                "required": ["element_uids"],
             },
         ),
         ProviderTool(

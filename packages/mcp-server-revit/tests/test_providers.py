@@ -3,6 +3,7 @@ from pathlib import Path
 import ifcopenshell
 import pytest
 from revit_mcp_server.config import BridgeMode
+from revit_mcp_server.errors import BridgeError
 from revit_mcp_server.providers import FakeProvider, IfcProvider, ProviderRegistry, RevitProvider
 from revit_mcp_server.security.workspace import WorkspaceMonitor
 
@@ -118,6 +119,69 @@ def test_revit_wall_placement_keeps_flat_coordinates_compatible(tmp_path):
     payload = build_payload({"wall_id": 1245580, "x": 1.0, "y": 2.0, "z": 3.0})
 
     assert payload["location"] == {"x": 1.0, "y": 2.0, "z": 3.0}
+
+
+def test_revit_select_by_unique_ids_is_registered_and_not_mutating(tmp_path):
+    """The panel selects a flagged element by its stable UniqueId (not the
+    session-scoped integer ElementId revit_set_selection expects), and must
+    never require an approved plan just to change what's on screen."""
+    workspace = WorkspaceMonitor([tmp_path])
+    provider = RevitProvider(workspace=workspace, mode=BridgeMode.mock)
+
+    tools = {tool.name: tool for tool in provider.get_capabilities()}
+    assert "revit_select_by_unique_ids" in tools
+    assert tools["revit_select_by_unique_ids"].is_mutating is False
+
+
+@pytest.mark.anyio
+async def test_revit_select_by_unique_ids_passes_uids_through(tmp_path):
+    workspace = WorkspaceMonitor([tmp_path])
+    provider = RevitProvider(workspace=workspace, mode=BridgeMode.mock)
+
+    result = await provider.execute_tool(
+        "revit_select_by_unique_ids", {"element_uids": ["abc-123", "def-456"]}
+    )
+
+    assert result["tool"] == "revit.select_by_unique_ids"
+    assert result["payload"]["element_uids"] == ["abc-123", "def-456"]
+
+
+def test_revit_provider_explicit_bridge_url_takes_precedence(tmp_path):
+    workspace = WorkspaceMonitor([tmp_path])
+    calls = []
+
+    class DummyBridge:
+        def initialize(self):
+            calls.append(("initialize", None))
+
+    provider = RevitProvider(
+        workspace=workspace,
+        mode=BridgeMode.bridge,
+        bridge_url="http://bridge",
+        host_version="2024",
+        bridge_factory=lambda url, token=None: calls.append((url, token)) or DummyBridge(),
+    )
+
+    assert provider.bridge_url == "http://bridge"
+    assert calls[0] == ("http://bridge", None)
+
+
+@pytest.mark.anyio
+async def test_revit_provider_missing_requested_host_version_reports_available(tmp_path, monkeypatch):
+    workspace = WorkspaceMonitor([tmp_path])
+
+    monkeypatch.setattr("revit_mcp_server.bridge.discovery.select_switch", lambda provider_id, host_version: None)
+    monkeypatch.setattr("revit_mcp_server.bridge.discovery.available_host_versions", lambda provider_id: ["2024", "2026"])
+
+    provider = RevitProvider(workspace=workspace, mode=BridgeMode.bridge, host_version="2025")
+    health = await provider.check_health()
+
+    assert health["status"] == "unhealthy"
+    assert "No live Revit 2025 bridge found" in health["error"]
+    assert "2024, 2026" in health["error"]
+
+    with pytest.raises(BridgeError, match="No live Revit 2025 bridge found"):
+        await provider.execute_tool("revit_health", {})
 
 
 @pytest.mark.anyio
