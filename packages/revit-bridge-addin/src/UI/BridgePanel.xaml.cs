@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -102,8 +103,11 @@ namespace RevitBridge.UI
         /// <summary>
         /// Maps a panel message type to a real hub tool call and posts the result back.
         /// chat.message shells out to a CLI agent (see agent_bridge.py) rather than
-        /// calling a tool directly; settings/report-browsing remain local-only for now
-        /// (no corresponding hub tool).
+        /// calling a tool directly; reports.refresh/open and selection.set have no MCP
+        /// tool for one side of the round trip (reports.open opens a local file, and
+        /// reports.refresh lists the workspace directly via the panel hub's /reports
+        /// endpoint, not a tool call). settings remains local-only for now (no
+        /// corresponding hub tool).
         /// </summary>
         private async Task DispatchToHubAsync(string message)
         {
@@ -149,6 +153,73 @@ namespace RevitBridge.UI
                 case "reports.exportExcel":
                     await RunToolAndPostAsync("report_generator_export_excel", new { }, "reports.updated", type);
                     break;
+
+                case "reports.refresh":
+                {
+                    var reports = await HubClient.ListReportsAsync();
+                    if (!reports.Ok)
+                    {
+                        PostToPanel(new { type = "tool.error", action = type, message = reports.Error });
+                        break;
+                    }
+
+                    PostToPanel(new { type = "reports.list", reports = reports.Result });
+                    break;
+                }
+
+                case "reports.open":
+                {
+                    var path = root.TryGetProperty("reportId", out var pathEl) ? pathEl.GetString() : null;
+                    if (string.IsNullOrEmpty(path))
+                    {
+                        break;
+                    }
+
+                    if (!File.Exists(path))
+                    {
+                        PostToPanel(new { type = "tool.error", action = type, message = $"Report file not found: {path}" });
+                        break;
+                    }
+
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning(ex, "Failed to open report file {Path}", path);
+                        PostToPanel(new { type = "tool.error", action = type, message = $"Could not open report: {ex.Message}" });
+                    }
+                    break;
+                }
+
+                case "selection.set":
+                {
+                    var elementUids = new List<string>();
+                    if (root.TryGetProperty("elementUids", out var uidsEl) && uidsEl.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var uidEl in uidsEl.EnumerateArray())
+                        {
+                            var uid = uidEl.GetString();
+                            if (!string.IsNullOrEmpty(uid))
+                            {
+                                elementUids.Add(uid);
+                            }
+                        }
+                    }
+
+                    if (elementUids.Count == 0)
+                    {
+                        break;
+                    }
+
+                    await RunToolAndPostAsync(
+                        "revit_select_by_unique_ids",
+                        new { element_uids = elementUids },
+                        "selection.result",
+                        type);
+                    break;
+                }
 
                 case "chat.message":
                 {

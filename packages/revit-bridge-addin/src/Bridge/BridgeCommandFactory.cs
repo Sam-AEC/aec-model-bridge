@@ -2472,6 +2472,37 @@ public static class BridgeCommandFactory
         return new { selected_count = ids.Count };
     }
 
+    // UniqueId is stable across sessions (unlike ElementId, which revit.set_selection
+    // takes) - the panel only has UniqueIds from QA/QC findings, which come from a
+    // stored snapshot, not the live document. Not mutating: this only changes the
+    // active view's selection/framing, never the document.
+    [BridgeCommand("revit.select_by_unique_ids", IsMutating = false)]
+    private static object ExecuteSelectByUniqueIds(UIApplication app, JsonElement payload)
+    {
+        var uidoc = app.ActiveUIDocument;
+        if (uidoc == null) throw new InvalidOperationException("No active UIDocument");
+
+        var doc = uidoc.Document;
+        var requestedUids = payload.GetProperty("element_uids").EnumerateArray()
+            .Select(x => x.GetString())
+            .ToList();
+
+        var ids = requestedUids
+            .Select(uid => doc.GetElement(uid))
+            .Where(element => element != null)
+            .Select(element => element.Id)
+            .ToList();
+
+        if (ids.Count == 0)
+        {
+            return new { selected_count = 0, not_found_count = requestedUids.Count };
+        }
+
+        uidoc.Selection.SetElementIds(ids);
+        uidoc.ShowElements(ids);
+        return new { selected_count = ids.Count, not_found_count = requestedUids.Count - ids.Count };
+    }
+
     [BridgeCommand("revit.create_text_note", IsMutating = true)]
     private static object ExecuteCreateTextNote(UIApplication app, JsonElement payload)
     {

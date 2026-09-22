@@ -50,6 +50,22 @@ namespace RevitBridge.UI
             }
         }
 
+        public static async Task<HubResult> ListReportsAsync()
+        {
+            try
+            {
+                using (var response = await Client.GetAsync($"http://127.0.0.1:{Port}/reports").ConfigureAwait(false))
+                {
+                    var text = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    return ParseReportsResponse(text, (int)response.StatusCode);
+                }
+            }
+            catch (Exception ex)
+            {
+                return HubResult.Failure($"Could not reach the AEC Model Bridge hub on 127.0.0.1:{Port}: {ex.Message}");
+            }
+        }
+
         public static async Task<ChatResult> ChatAsync(string provider, string message, string sessionId)
         {
             var requestBody = JsonSerializer.Serialize(new { provider, message, session_id = sessionId });
@@ -66,6 +82,29 @@ namespace RevitBridge.UI
             catch (Exception ex)
             {
                 return ChatResult.Failure($"Could not reach the AEC Model Bridge hub on 127.0.0.1:{Port}: {ex.Message}");
+            }
+        }
+
+        private static HubResult ParseReportsResponse(string text, int statusCode)
+        {
+            try
+            {
+                using (var doc = JsonDocument.Parse(text))
+                {
+                    var root = doc.RootElement;
+                    var ok = root.TryGetProperty("ok", out var okEl) && okEl.ValueKind == JsonValueKind.True;
+                    if (ok && root.TryGetProperty("reports", out var reportsEl))
+                    {
+                        return HubResult.Success(reportsEl.Clone());
+                    }
+
+                    var error = root.TryGetProperty("error", out var errEl) ? errEl.GetString() : null;
+                    return HubResult.Failure(error ?? $"Hub returned HTTP {statusCode}");
+                }
+            }
+            catch (JsonException)
+            {
+                return HubResult.Failure($"Hub returned an unparseable response (HTTP {statusCode})");
             }
         }
 
