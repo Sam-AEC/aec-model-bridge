@@ -80,17 +80,114 @@ This wave adds Excel workbook round trips and a Parquet/DuckDB data plane for cr
 
 ## How It Works
 
-```text
-MCP Client (Claude Desktop, VS Code)
-    |
-    | MCP over stdio
-    v
-    Python MCP Server (Central Router)
-        ├── [Revit Provider] -----> HTTP localhost:3000 -----> Revit Bridge Add-in
-        ├── [Navisworks Provider] > HTTP localhost:3002 -----> Navisworks Bridge Add-in
-        ├── [Speckle Provider] ---> HTTPS (OAuth) -----------> Speckle Manager / Power BI
-        ├── [Rhino Provider] -----> HTTP localhost:3004 -----> Rhino Bridge Add-in
-        └── [IFC Provider] -------> Local Filesystem --------> IfcOpenShell
+```mermaid
+flowchart TD
+
+subgraph group_clients["Clients and UI"]
+  node_panel_ui["Bridge Panel<br/>[app.js]"]
+end
+
+subgraph group_hub["Hub and Governance"]
+  node_mcp_hub["MCP Hub<br/>[mcp_server.py]"]
+  node_provider_registry["Provider Registry<br/>[registry.py]"]
+  node_job_manager["Job Manager<br/>[jobs.py]"]
+  node_security_controls["Security Controls<br/>[workspace.py]"]
+  node_audit_log["Audit Log<br/>[audit.py]"]
+end
+
+subgraph group_revit["Revit Runtime"]
+  node_revit_bridge_client["Bridge Client<br/>[client.py]"]
+  node_revit_addin["Revit Add-in<br/>[BridgeServer.cs]"]
+  node_external_executor["External Executor"]
+  node_revit_commands["Revit Commands"]
+  node_revit_model[("Revit Model")]
+end
+
+subgraph group_providers["Integration Providers"]
+  node_revit_provider["Revit Provider<br/>[revit.py]"]
+  node_rhino_provider["Rhino Provider<br/>[rhino.py]"]
+  node_rhino_addin["Rhino Add-in<br/>[BridgeCommands.cs]"]
+  node_ifc_provider["IFC Provider<br/>[ifc.py]"]
+  node_speckle_provider["Speckle Provider<br/>[cloud.py]"]
+  node_navisworks_provider["Navisworks Provider<br/>[navisworks.py]"]
+  node_navisworks_addin["Navisworks Add-in<br/>[BridgeServer.cs]"]
+  node_powerbi_provider["Power BI Provider<br/>[powerbi.py]"]
+  node_powerbi_tool["Power BI Tool<br/>[Program.cs]"]
+end
+
+subgraph group_intelligence["AEC Intelligence"]
+  node_semantic_provider["Semantic Provider"]
+  node_semantic_engine["Semantic Engine<br/>[engine.py]"]
+  node_revit_modules["Revit Tool Modules"]
+  node_approval_provider["Approval Provider"]
+end
+
+node_mcp_client(("MCP Client"))
+
+node_mcp_client -->|"sends requests"| node_mcp_hub
+node_panel_ui -->|"shows results"| node_mcp_hub
+node_mcp_hub -->|"validates access"| node_security_controls
+node_mcp_hub -->|"records calls"| node_audit_log
+node_mcp_hub -->|"schedules jobs"| node_job_manager
+node_mcp_hub -->|"dispatches tools"| node_provider_registry
+node_provider_registry -->|"routes Revit"| node_revit_provider
+node_provider_registry -->|"routes Rhino"| node_rhino_provider
+node_provider_registry -->|"routes IFC"| node_ifc_provider
+node_provider_registry -->|"routes Speckle"| node_speckle_provider
+node_provider_registry -->|"routes semantics"| node_semantic_provider
+node_provider_registry -->|"routes approvals"| node_approval_provider
+node_provider_registry -.->|"routes clashes"| node_navisworks_provider
+node_provider_registry -.->|"routes dashboards"| node_powerbi_provider
+node_revit_provider -->|"calls tools"| node_revit_bridge_client
+node_revit_bridge_client -->|"uses HTTP"| node_revit_addin
+node_revit_addin -->|"queues commands"| node_external_executor
+node_external_executor -->|"executes tools"| node_revit_commands
+node_revit_commands -->|"reads and writes"| node_revit_model
+node_revit_addin -->|"opens panel"| node_panel_ui
+node_rhino_provider -->|"uses HTTP"| node_rhino_addin
+node_ifc_provider -->|"extracts IFC"| node_semantic_engine
+node_speckle_provider -->|"pushes models"| node_semantic_engine
+node_navisworks_provider -.->|"uses bridge"| node_navisworks_addin
+node_powerbi_provider -.->|"executes queries"| node_powerbi_tool
+node_semantic_provider -->|"queries graph"| node_semantic_engine
+node_approval_provider -->|"updates queue"| node_panel_ui
+
+click node_panel_ui "https://github.com/Sam-AEC/aec-model-bridge/blob/main/panel/app.js"
+click node_mcp_hub "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py"
+click node_provider_registry "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/providers/registry.py"
+click node_job_manager "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/jobs.py"
+click node_security_controls "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/security/workspace.py"
+click node_audit_log "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/security/audit.py"
+click node_revit_provider "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/providers/revit.py"
+click node_revit_bridge_client "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/bridge/client.py"
+click node_revit_addin "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/revit-bridge-addin/src/Bridge/BridgeServer.cs"
+click node_external_executor "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/revit-bridge-addin/src/Bridge/ExternalEventHandler.cs"
+click node_revit_commands "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/revit-bridge-addin/src/Bridge/BridgeCommandFactory.cs"
+click node_rhino_provider "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/providers/rhino.py"
+click node_rhino_addin "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/rhino-bridge-addin/src/BridgeCommands.cs"
+click node_ifc_provider "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/providers/ifc.py"
+click node_speckle_provider "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/providers/cloud.py"
+click node_navisworks_provider "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/providers/navisworks.py"
+click node_navisworks_addin "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/navisworks-bridge-addin/src/BridgeServer.cs"
+click node_powerbi_provider "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/providers/powerbi.py"
+click node_powerbi_tool "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/powerbi-bridge-tool/src/Program.cs"
+click node_semantic_provider "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/providers/semantic_provider.py"
+click node_semantic_engine "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/semantic/engine.py"
+click node_revit_modules "https://github.com/Sam-AEC/aec-model-bridge/tree/main/packages/mcp-server-revit/src/revit_mcp_server/modules"
+click node_approval_provider "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/providers/approval_provider.py"
+
+classDef toneNeutral fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a
+classDef toneBlue fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
+classDef toneAmber fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f
+classDef toneMint fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
+classDef toneRose fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#881337
+classDef toneIndigo fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#312e81
+classDef toneTeal fill:#ccfbf1,stroke:#0f766e,stroke-width:1.5px,color:#134e4a
+class node_panel_ui,node_mcp_client toneBlue
+class node_mcp_hub,node_provider_registry,node_job_manager,node_security_controls,node_audit_log toneAmber
+class node_revit_bridge_client,node_revit_addin,node_external_executor,node_revit_commands,node_revit_model toneMint
+class node_revit_provider,node_rhino_provider,node_rhino_addin,node_ifc_provider,node_speckle_provider,node_navisworks_provider,node_navisworks_addin,node_powerbi_provider,node_powerbi_tool toneRose
+class node_semantic_provider,node_semantic_engine,node_revit_modules,node_approval_provider toneIndigo
 ```
 
 ## Installation
@@ -166,7 +263,16 @@ that the server may access:
       "args": ["-m", "revit_mcp_server.mcp_server"],
       "env": {
         "MCP_REVIT_MODE": "bridge",
-        "MCP_REVIT_BRIDGE_URL": "http://127.0.0.1:3000",
+        "MCP_REVIT_WORKSPACE_DIR": "C:\\RevitProjects",
+        "MCP_REVIT_ALLOWED_DIRECTORIES": "C:\\RevitProjects"
+      }
+    },
+    "aec-model-bridge-revit-2026": {
+      "command": "C:\\path\\to\\aec-model-bridge\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "revit_mcp_server.mcp_server"],
+      "env": {
+        "MCP_REVIT_MODE": "bridge",
+        "MCP_REVIT_HOST_VERSION": "2026",
         "MCP_REVIT_WORKSPACE_DIR": "C:\\RevitProjects",
         "MCP_REVIT_ALLOWED_DIRECTORIES": "C:\\RevitProjects"
       }
@@ -174,6 +280,11 @@ that the server may access:
   }
 }
 ```
+
+Omit `MCP_REVIT_HOST_VERSION` to target the newest open Revit instance, or set
+it to a year such as `2024` or `2026` to keep a client entry locked to that
+Revit version. `MCP_REVIT_BRIDGE_URL` remains available as an explicit endpoint
+override for advanced setups.
 
 VS Code users can start from [`.vscode/mcp.json`](.vscode/mcp.json).
 Hermes Desktop users can start from [`Hermes.json`](Hermes.json); replace the
@@ -189,7 +300,9 @@ running desktop application.
 Restart Revit after installing the add-in, open a model, and run:
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:3000/health
+$registry = Get-ChildItem "$env:LOCALAPPDATA\AECModelBridge\registry\revit-*.json" | Select-Object -First 1
+$switch = Get-Content $registry.FullName -Raw | ConvertFrom-Json
+Invoke-RestMethod "$($switch.endpoint)/health"
 ```
 
 The response should report `healthy` and the active Revit version.
@@ -231,6 +344,7 @@ CI builds the Python server and add-in targets for Revit 2024 through 2027.
 - [Security](docs/security.md)
 - [MCP clients and registry](docs/marketplaces.md)
 - [Contributing](CONTRIBUTING.md)
+- [Contributors](CONTRIBUTORS.md)
 
 ## Project
 
