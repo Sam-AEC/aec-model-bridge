@@ -7,23 +7,45 @@ $ErrorActionPreference = "Stop"
 Write-Host "Configuring MCP clients for AEC Model Bridge..." -ForegroundColor Cyan
 Write-Host "  Python binary: $PythonPath" -ForegroundColor Gray
 
-# Define MCP server configurations
-$serverConfigStdio = [ordered]@{
-    command = $PythonPath
-    args    = @("-m", "revit_mcp_server.mcp_server")
-    env     = [ordered]@{
-        MCP_REVIT_MODE       = "bridge"
-        MCP_REVIT_BRIDGE_URL = "http://127.0.0.1:3000"
+function New-ServerConfig {
+    param(
+        [string]$HostVersion,
+        [switch]$VSCode
+    )
+
+    $envConfig = [ordered]@{
+        MCP_REVIT_MODE = "bridge"
     }
+    if ($HostVersion) {
+        $envConfig["MCP_REVIT_HOST_VERSION"] = $HostVersion
+    }
+
+    $config = [ordered]@{
+        command = $PythonPath
+        args    = @("-m", "revit_mcp_server.mcp_server")
+        env     = $envConfig
+    }
+    if ($VSCode) {
+        $config = [ordered]@{
+            type    = "stdio"
+            command = $PythonPath
+            args    = @("-m", "revit_mcp_server.mcp_server")
+            env     = $envConfig
+        }
+    }
+    return $config
 }
 
-$serverConfigVSCode = [ordered]@{
-    type    = "stdio"
-    command = $PythonPath
-    args    = @("-m", "revit_mcp_server.mcp_server")
-    env     = [ordered]@{
-        MCP_REVIT_MODE       = "bridge"
-        MCP_REVIT_BRIDGE_URL = "http://127.0.0.1:3000"
+function Add-RevitServers {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Collections.IDictionary]$Servers,
+        [switch]$VSCode
+    )
+
+    $Servers["aec-model-bridge"] = New-ServerConfig -VSCode:$VSCode
+    foreach ($year in @("2024", "2025", "2026", "2027")) {
+        $Servers["aec-model-bridge-revit-$year"] = New-ServerConfig -HostVersion $year -VSCode:$VSCode
     }
 }
 
@@ -58,7 +80,7 @@ try {
         }
     }
 
-    $claudeConfig["mcpServers"]["aec-model-bridge"] = $serverConfigStdio
+    Add-RevitServers -Servers $claudeConfig["mcpServers"]
     $claudeConfig | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $claudeConfigFile -Force
     Write-Host "  Configured Claude Desktop: $claudeConfigFile" -ForegroundColor Green
 }
@@ -89,7 +111,7 @@ if (Test-Path $codeUserDir) {
                 }
             }
         }
-        $vscConfig["servers"]["aec-model-bridge"] = $serverConfigVSCode
+        Add-RevitServers -Servers $vscConfig["servers"] -VSCode
         $vscConfig | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $vscMcpFile -Force
         Write-Host "  Configured VS Code MCP file: $vscMcpFile" -ForegroundColor Green
     }
@@ -114,7 +136,7 @@ if (Test-Path $codeUserDir) {
                 }
             }
         }
-        $userConfig["servers"]["aec-model-bridge"] = $serverConfigVSCode
+        Add-RevitServers -Servers $userConfig["servers"] -VSCode
         $userConfig | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $userMcpFile -Force
         Write-Host "  Configured VS Code User mcp.json: $userMcpFile" -ForegroundColor Green
     }
@@ -144,7 +166,7 @@ if (Test-Path $codeUserDir) {
                 $mcpServersObj[$prop.Name] = $prop.Value
             }
         }
-        $mcpServersObj["aec-model-bridge"] = $serverConfigStdio
+        Add-RevitServers -Servers $mcpServersObj
         $settingsConfig["mcp.servers"] = $mcpServersObj
         $settingsConfig | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $settingsFile -Force
         Write-Host "  Configured VS Code settings.json: $settingsFile" -ForegroundColor Green
