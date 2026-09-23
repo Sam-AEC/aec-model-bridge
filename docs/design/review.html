@@ -84,6 +84,10 @@ body{
 .hero .tag{margin:10px 0 0;font-size:17px;color:var(--muted);font-weight:400}
 .hero p.lede{margin:26px 0 0;max-width:46ch;color:var(--muted);font-size:14.5px}
 .hero p.lede b{color:var(--ink);font-weight:600}
+.herocap{
+  margin:8px 0 0;text-align:center;font-size:11px;color:var(--faint);
+  font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
 
 /* annotation layer on the hero mark */
 .annot line{stroke:rgba(141,155,173,.42);stroke-width:.55;stroke-dasharray:2.4 2.6}
@@ -123,6 +127,7 @@ section > .body{min-width:0}
 /* ---------- chips: a light context and a dark context ---------- */
 
 .chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.chips.wide{grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
 
 .chip{
   border-radius:12px;
@@ -387,6 +392,7 @@ footer code{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;color:va
 
   <!-- ================= HERO ================= -->
   <div class="hero">
+    <div>
     <svg class="mark" viewBox="-26 -10 152 116" width="456" height="348" role="img"
          aria-label="The Span: two nodes joined by a deck, with a triangular apex above them">
       <g class="annot">
@@ -417,6 +423,8 @@ footer code{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;color:va
                 <polygon class="br" points="50,8.5 67,43 33,43"/>
               </g>
     </svg>
+    <p class="herocap">300 px &#183; construction dimensions</p>
+    </div>
 
     <div>
       <h1>The Span</h1>
@@ -583,6 +591,65 @@ footer code{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;color:va
           <div class="cap">Light — Revit light theme, GitHub light README, panel light</div>
         </div>
 
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 300 PX, BOTH CONTEXTS ================= -->
+  <section>
+    <div class="margin">
+      <h2>At README scale</h2>
+      <p>The same mark at 300&nbsp;px &mdash; the size it ships at in the README
+         lockup &mdash; in both contexts, with no annotation over it.</p>
+      <p>Large is where the proportion between the apex and the span gets judged,
+         and where the gap between the apex base and the deck is a decision
+         rather than a rounding error. It is deliberate: the apex reads as
+         sitting above the span, not standing on it.</p>
+      <p>The dimensioned drawing at the top of this sheet is this same mark at
+         this same size.</p>
+    </div>
+    <div class="body">
+      <div class="chips wide">
+        <div class="chip dark">
+          <div class="sizes" style="justify-content:center">
+            <div class="spec">
+              <svg class="mark" viewBox="0 0 100 100" width="300" height="300"
+                   role="img" aria-label="The Span at 300 pixels, dark context">
+                <polygon class="w-brand" points="50,8.5 67,43 33,43"/>
+                <circle class="w-ink" cx="19" cy="72.5" r="14"/>
+                <circle class="w-ink" cx="81" cy="72.5" r="14"/>
+                <g class="s" stroke-width="6">
+                  <line class="ink" x1="33" y1="72.5" x2="67" y2="72.5"/>
+                  <circle class="ink" cx="19" cy="72.5" r="14"/>
+                  <circle class="ink" cx="81" cy="72.5" r="14"/>
+                  <polygon class="br" points="50,8.5 67,43 33,43"/>
+                </g>
+              </svg>
+              <span class="px">300</span>
+            </div>
+          </div>
+          <div class="cap">Dark &mdash; GitHub dark README, dark docs</div>
+        </div>
+        <div class="chip light">
+          <div class="sizes" style="justify-content:center">
+            <div class="spec">
+              <svg class="mark" viewBox="0 0 100 100" width="300" height="300"
+                   role="img" aria-label="The Span at 300 pixels, light context">
+                <polygon class="w-brand" points="50,8.5 67,43 33,43"/>
+                <circle class="w-ink" cx="19" cy="72.5" r="14"/>
+                <circle class="w-ink" cx="81" cy="72.5" r="14"/>
+                <g class="s" stroke-width="6">
+                  <line class="ink" x1="33" y1="72.5" x2="67" y2="72.5"/>
+                  <circle class="ink" cx="19" cy="72.5" r="14"/>
+                  <circle class="ink" cx="81" cy="72.5" r="14"/>
+                  <polygon class="br" points="50,8.5 67,43 33,43"/>
+                </g>
+              </svg>
+              <span class="px">300</span>
+            </div>
+          </div>
+          <div class="cap">Light &mdash; GitHub light README, light docs</div>
+        </div>
       </div>
     </div>
   </section>
