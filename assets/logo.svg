@@ -1,32 +1,57 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 280" width="300" height="280">
-  <defs>
-    <style>
-      .cube-front { fill: #60a5fa; }
-      .cube-top { fill: #93c5fd; }
-      .cube-side { fill: #3b82f6; }
-      .cube-edge { stroke: #1e293b; stroke-width: 1.5; }
-      .text-aec { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, sans-serif; font-weight: 700; font-size: 56px; fill: #60a5fa; }
-      .text-bridge { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, sans-serif; font-weight: 500; font-size: 20px; fill: #94a3b8; letter-spacing: 2px; }
-      .accent-line { stroke: #60a5fa; stroke-width: 2; }
-    </style>
-  </defs>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 168">
+  <style>
+    /* Mark colors — light theme */
+    .amb-logo-svg .mk-wash-ink { fill: rgba(24,32,44,0.12); }
+    .amb-logo-svg .mk-wash-brand { fill: rgba(0,145,167,0.20); }
+    .amb-logo-svg .mk-ink { stroke: #18202C; fill: none; }
+    .amb-logo-svg .mk-brand { stroke: #0091A7; fill: none; }
+    .amb-logo-svg .mk-stroke { stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
 
-  <!-- 3D Isometric Cube -->
-  <!-- Front face (bright blue) -->
-  <polygon points="50,80 110,80 110,140 50,140" class="cube-front cube-edge"/>
-  
-  <!-- Top face (light blue) -->
-  <polygon points="50,80 80,50 140,50 110,80" class="cube-top cube-edge"/>
-  
-  <!-- Right side face (medium blue) -->
-  <polygon points="110,80 140,50 140,110 110,140" class="cube-side cube-edge"/>
+    /* Wordmark text — light theme */
+    .amb-logo-svg .mk-text-main { font-family: "Segoe UI", system-ui, sans-serif; font-weight: 600; font-size: 46; letter-spacing: 0; fill: #18202C; }
+    .amb-logo-svg .mk-text-sub { font-family: "Segoe UI", system-ui, sans-serif; font-weight: 400; font-size: 19; letter-spacing: 0.2; fill: #5B6676; }
 
-  <!-- Decorative accent line -->
-  <line x1="30" y1="160" x2="150" y2="160" class="accent-line"/>
+    /* Dark theme overrides */
+    @media (prefers-color-scheme: dark) {
+      .amb-logo-svg .mk-wash-ink { fill: rgba(233,238,245,0.16); }
+      .amb-logo-svg .mk-wash-brand { fill: rgba(63,195,214,0.20); }
+      .amb-logo-svg .mk-ink { stroke: #E9EEF5; }
+      .amb-logo-svg .mk-brand { stroke: #3FC3D6; }
+      .amb-logo-svg .mk-text-main { fill: #E9EEF5; }
+      .amb-logo-svg .mk-text-sub { fill: #9BA8B9; }
+    }
+  </style>
 
-  <!-- Main Text: AEC -->
-  <text x="160" y="120" class="text-aec">AEC</text>
+  <g class="amb-logo-svg">
+    <!-- Mark: 120×120 at (24, 24) -->
+    <g transform="translate(24, 24)">
+      <!-- 1. Apex wash -->
+      <polygon class="mk-wash-brand" points="60,10.2 80.4,51.6 39.6,51.6"/>
 
-  <!-- Subtitle: Bridge -->
-  <text x="160" y="155" class="text-bridge">BRIDGE</text>
+      <!-- 2. Node wash, left -->
+      <circle class="mk-wash-ink" cx="22.8" cy="87" r="16.8"/>
+
+      <!-- 3. Node wash, right -->
+      <circle class="mk-wash-ink" cx="97.2" cy="87" r="16.8"/>
+
+      <!-- 4-7. Stroked elements -->
+      <g class="mk-stroke">
+        <!-- 4. Deck -->
+        <line class="mk-ink" x1="39.6" y1="87" x2="80.4" y2="87"/>
+
+        <!-- 5. Node, left -->
+        <circle class="mk-ink" cx="22.8" cy="87" r="16.8"/>
+
+        <!-- 6. Node, right -->
+        <circle class="mk-ink" cx="97.2" cy="87" r="16.8"/>
+
+        <!-- 7. Apex -->
+        <polygon class="mk-brand" points="60,10.2 80.4,51.6 39.6,51.6"/>
+      </g>
+    </g>
+
+    <!-- Wordmark text -->
+    <text class="mk-text-main" x="188" y="88" dominant-baseline="alphabetic">AEC Model Bridge</text>
+    <text class="mk-text-sub" x="190" y="120" dominant-baseline="alphabetic">Model context for Revit</text>
+  </g>
 </svg>
