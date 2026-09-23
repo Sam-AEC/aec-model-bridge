@@ -280,7 +280,8 @@ def test_agent_chat_no_provider_available_returns_error_without_dispatch(running
 
     assert body == {
         "ok": False,
-        "error": "No AI provider is available. Add an Anthropic API key in Settings, or install and sign in to the claude/codex CLI.",
+        "error": "No AI provider is available. Set the MCP_REVIT_ANTHROPIC_API_KEY environment variable "
+                 "and restart Revit, or install and sign in to the claude/codex CLI.",
     }
     native_mock.assert_not_called()
     bridge_mock.assert_not_called()

@@ -23,7 +23,7 @@ _SECRET_KEYS = {
 }
 
 _SECRET_VALUE_RE = re.compile(
-    r"(?i)(?:^|[^a-z0-9])(api[_-]?key|token|session[_-]?token|secret|password|passwd|session|authorization|rhinocomputekey)\b\s*[:=]\s*([^\s,;]+)"
+    r"(?i)(?<![a-z0-9])(api[_-]?key|token|session[_-]?token|secret|password|passwd|session|authorization|rhinocomputekey)\b\s*[:=]\s*([^\s,;]+)"
 )
 _WINDOWS_PATH_RE = re.compile(r"(?<!\w)(?:[A-Za-z]:[\\/](?:[^\s\"'<>|]+[\\/])*[^\s\"'<>|]+)")
 _POSIX_PATH_RE = re.compile(r"(?:(?<=^)|(?<=[\s\"'(<\[]))(/(?:[^/\s]+/)*[^/\s]+)")

@@ -75,6 +75,15 @@ def test_redact_text_redacts_prefixed_api_key_in_free_text():
     assert "<redacted>" in redacted
 
 
+def test_redact_text_does_not_mangle_the_prefixed_key_label():
+    # The boundary before the keyword is a zero-width lookbehind, so the
+    # separator character ("_" here) is checked but not consumed/dropped:
+    # the label text around the redacted value must survive intact.
+    assert _redact_text("anthropic_api_key: sk-ant-real-secret-value") == "anthropic_api_key=<redacted>"
+    assert _redact_text("config anthropic_api_key=sk-ant-x rest") == "config anthropic_api_key=<redacted> rest"
+    assert _redact_text("github-token: ghp_abc") == "github-token=<redacted>"
+
+
 def test_redact_text_still_redacts_existing_plain_keyword_cases():
     # These are the pre-existing free-text patterns the regex already
     # handled (keyword at token start, not as a suffix) - must not regress.
