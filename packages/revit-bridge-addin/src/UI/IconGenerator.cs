@@ -24,7 +24,7 @@ namespace RevitBridge.UI
                 Math.Round(size * scale * 2, MidpointRounding.AwayFromZero) / 2);
         }
 
-        private static bool IsDarkTheme()
+        internal static bool IsDarkTheme()
         {
             try
             {

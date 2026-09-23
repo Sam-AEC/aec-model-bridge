@@ -272,7 +272,8 @@ namespace RevitBridge.UI
                 revitVersion = App.RevitVersion,
                 activeDocument = App.ActiveDocumentName,
                 dirtyElementCount = dirtyCount,
-                snapshotStale = dirtyCount > 0
+                snapshotStale = dirtyCount > 0,
+                isDarkTheme = IconGenerator.IsDarkTheme()
             });
 
             Browser.CoreWebView2?.PostWebMessageAsJson(payload);

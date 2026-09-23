@@ -1,17 +1,92 @@
 :root {
   color-scheme: light dark;
   font-family: "Segoe UI", system-ui, sans-serif;
-  --bg: #f4f6f8;
-  --surface: #ffffff;
-  --surface-alt: #eef2f7;
-  --line: #d7dde6;
-  --text: #18202c;
-  --muted: #5b6676;
-  --blue: #2563eb;
-  --green: #0f8a5f;
-  --amber: #b7791f;
-  --red: #c2413a;
-  --shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+  /* keep in sync with docs/design/tokens.md */
+  --amb-ink: #18202C;
+  --amb-ink-muted: #5B6676;
+  --amb-bg: #F2F5F8;
+  --amb-surface: #FFFFFF;
+  --amb-surface-raised: #E9EEF4;
+  --amb-line: #D3DAE3;
+  --amb-rail: #141B24;
+  --amb-rail-ink: #C9D4E2;
+  --amb-brand: #0091A7;
+  --amb-brand-strong: #046B80;
+  --amb-brand-wash: rgba(0, 145, 167, 0.14);
+  --amb-danger: #C23B2E;
+  --amb-danger-wash: rgba(194, 59, 46, 0.14);
+  --amb-warning: #A45F0B;
+  --amb-info: #2457C5;
+  --amb-success: #127A4B;
+  --amb-pending: #6D3FB8;
+  --amb-idle: #5B6676;
+  --amb-on-brand: #FFFFFF;
+  --amb-glass: rgba(255, 255, 255, 0.72);
+  --amb-glass-line: rgba(16, 24, 40, 0.08);
+  --amb-glass-filter: blur(14px) saturate(120%);
+  --amb-shadow-1: 0 1px 2px rgba(16, 24, 40, 0.08);
+  --amb-shadow-2: 0 6px 16px rgba(16, 24, 40, 0.10);
+}
+
+:root[data-theme="dark"] {
+  /* keep in sync with docs/design/tokens.md */
+  --amb-ink: #E9EEF5;
+  --amb-ink-muted: #9BA8B9;
+  --amb-bg: #14181E;
+  --amb-surface: #1C222B;
+  --amb-surface-raised: #232A34;
+  --amb-line: #2F3945;
+  --amb-brand: #3FC3D6;
+  --amb-brand-strong: #6FD8E6;
+  --amb-brand-wash: rgba(63, 195, 214, 0.14);
+  --amb-danger: #F0796B;
+  --amb-danger-wash: rgba(240, 121, 107, 0.14);
+  --amb-warning: #F2A63C;
+  --amb-info: #7FA6F5;
+  --amb-success: #3FCB8B;
+  --amb-pending: #B79AF0;
+  --amb-idle: #9BA8B9;
+  --amb-on-brand: #06222A;
+  --amb-glass: rgba(28, 34, 43, 0.72);
+  --amb-glass-line: rgba(255, 255, 255, 0.07);
+  --amb-glass-filter: blur(14px) saturate(140%);
+  --amb-shadow-1: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  --amb-shadow-2: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 10px 28px rgba(0, 0, 0, 0.45);
+  /* --amb-rail / --amb-rail-ink are intentionally absent here: tokens.md
+     §3.2 states they are dark in BOTH themes, same value as the base :root. */
+}
+
+@media (prefers-color-scheme: dark) {
+  /* Pre-hydration fallback ONLY: applies before host.status has told us
+     Revit's real theme. Same values as :root[data-theme="dark"] above,
+     duplicated per tokens.md's no-sync-tool convention. The
+     :not([data-theme="light"]) guard means once app.js sets
+     data-theme="light" explicitly (Revit is light even though the OS is
+     dark), this block stops applying and the base :root light values win. */
+  :root:not([data-theme="light"]) {
+    --amb-ink: #E9EEF5;
+    --amb-ink-muted: #9BA8B9;
+    --amb-bg: #14181E;
+    --amb-surface: #1C222B;
+    --amb-surface-raised: #232A34;
+    --amb-line: #2F3945;
+    --amb-brand: #3FC3D6;
+    --amb-brand-strong: #6FD8E6;
+    --amb-brand-wash: rgba(63, 195, 214, 0.14);
+    --amb-danger: #F0796B;
+    --amb-danger-wash: rgba(240, 121, 107, 0.14);
+    --amb-warning: #F2A63C;
+    --amb-info: #7FA6F5;
+    --amb-success: #3FCB8B;
+    --amb-pending: #B79AF0;
+    --amb-idle: #9BA8B9;
+    --amb-on-brand: #06222A;
+    --amb-glass: rgba(28, 34, 43, 0.72);
+    --amb-glass-line: rgba(255, 255, 255, 0.07);
+    --amb-glass-filter: blur(14px) saturate(140%);
+    --amb-shadow-1: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+    --amb-shadow-2: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 10px 28px rgba(0, 0, 0, 0.45);
+  }
 }
 
 * {
@@ -24,8 +99,8 @@ body {
   min-height: 100vh;
   display: grid;
   grid-template-columns: 58px minmax(0, 1fr);
-  background: var(--bg);
-  color: var(--text);
+  background: var(--amb-bg);
+  color: var(--amb-ink);
 }
 
 button,
@@ -35,17 +110,18 @@ select {
 }
 
 button {
-  border: 1px solid var(--line);
+  border: 1px solid var(--amb-line);
   border-radius: 6px;
-  background: var(--surface);
-  color: var(--text);
+  background: var(--amb-surface);
+  color: var(--amb-ink);
   min-height: 34px;
   padding: 0 12px;
   cursor: pointer;
 }
 
-button:hover {
-  border-color: var(--blue);
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--amb-bg), 0 0 0 4px var(--amb-brand);
 }
 
 button:disabled,
@@ -59,11 +135,11 @@ input,
 select {
   min-height: 36px;
   width: 100%;
-  border: 1px solid var(--line);
+  border: 1px solid var(--amb-line);
   border-radius: 6px;
   padding: 0 10px;
-  background: var(--surface);
-  color: var(--text);
+  background: var(--amb-surface);
+  color: var(--amb-ink);
 }
 
 .rail {
@@ -71,8 +147,9 @@ select {
   grid-template-rows: 58px repeat(6, 44px) 1fr;
   gap: 6px;
   padding: 8px;
-  border-right: 1px solid var(--line);
-  background: #18202c;
+  border-right: 1px solid var(--amb-line);
+  background: var(--amb-rail);
+  backdrop-filter: var(--amb-glass-filter);
   color: white;
 }
 
@@ -85,29 +162,40 @@ select {
 }
 
 .brand-mark {
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
-  background:
-    linear-gradient(135deg, #14b8a6 0 48%, transparent 49%),
-    linear-gradient(225deg, #2563eb 0 48%, transparent 49%),
-    linear-gradient(45deg, #8b5cf6 0 48%, transparent 49%);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+  display: block;
 }
 
 .nav {
+  position: relative;
   width: 42px;
   min-height: 40px;
   padding: 0;
   border-color: transparent;
   background: transparent;
-  color: #dbeafe;
+  color: var(--amb-rail-ink);
+  font-weight: 600;
+  font-size: 13px;
 }
 
-.nav.is-active,
 .nav:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: white;
+  background: rgba(255, 255, 255, 0.08);
+  color: #E9EEF5;
+}
+
+.nav.is-active {
+  background: rgba(63, 195, 214, 0.14);
+  color: #E9EEF5;
+}
+
+.nav.is-active::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: -8px;
+  width: 2px;
+  height: 100%;
+  background: var(--amb-brand);
+  border-radius: 0 2px 2px 0;
 }
 
 .app {
@@ -122,8 +210,9 @@ select {
   justify-content: space-between;
   gap: 12px;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface);
+  border-bottom: 1px solid var(--amb-glass-line);
+  background: var(--amb-glass);
+  backdrop-filter: var(--amb-glass-filter);
 }
 
 h1 {
@@ -135,7 +224,7 @@ h1 {
 
 p {
   margin: 4px 0 0;
-  color: var(--muted);
+  color: var(--amb-ink-muted);
   font-size: 12px;
 }
 
@@ -145,10 +234,10 @@ p {
   gap: 8px;
   min-height: 30px;
   padding: 0 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--amb-line);
   border-radius: 999px;
-  background: var(--surface-alt);
-  color: var(--muted);
+  background: var(--amb-surface-raised);
+  color: var(--amb-ink-muted);
   font-size: 12px;
   white-space: nowrap;
 }
@@ -157,15 +246,15 @@ p {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--amber);
+  background: var(--amb-warning);
 }
 
 .status-pill.is-online .dot {
-  background: var(--green);
+  background: var(--amb-success);
 }
 
 .status-pill.is-offline .dot {
-  background: var(--red);
+  background: var(--amb-danger);
 }
 
 .alerts {
@@ -180,10 +269,10 @@ p {
 
 .alert,
 .empty {
-  border: 1px solid var(--line);
+  border: 1px solid var(--amb-line);
   border-radius: 8px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
+  background: var(--amb-surface);
+  box-shadow: var(--amb-shadow-1);
 }
 
 .alert {
@@ -198,11 +287,11 @@ p {
   height: 9px;
   margin-top: 5px;
   border-radius: 50%;
-  background: var(--amber);
+  background: var(--amb-warning);
 }
 
 .alert.error .alert-marker {
-  background: var(--red);
+  background: var(--amb-danger);
 }
 
 .alert strong,
@@ -257,10 +346,10 @@ p {
 .message,
 .item,
 .event {
-  border: 1px solid var(--line);
+  border: 1px solid var(--amb-line);
   border-radius: 8px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
+  background: var(--amb-surface);
+  box-shadow: var(--amb-shadow-1);
 }
 
 .message {
@@ -270,24 +359,24 @@ p {
 
 .message.user {
   justify-self: end;
-  border-color: #bfdbfe;
-  background: #eff6ff;
+  background: var(--amb-brand-wash);
+  border-color: var(--amb-brand);
 }
 
 .message.pending {
-  color: var(--muted);
+  color: var(--amb-ink-muted);
   font-style: italic;
 }
 
 .message.error {
-  border-color: #f3b4ae;
-  background: #fef2f2;
-  color: var(--red);
+  background: var(--amb-danger-wash);
+  border-color: var(--amb-danger);
+  color: var(--amb-danger);
 }
 
 .message .meta,
 .event .meta {
-  color: var(--muted);
+  color: var(--amb-ink-muted);
   font-size: 11px;
   margin-bottom: 4px;
 }
@@ -306,9 +395,9 @@ p {
 .composer button,
 .settings button,
 [data-action="approve-selected"] {
-  border-color: var(--blue);
-  background: var(--blue);
-  color: white;
+  border-color: var(--amb-brand);
+  background: var(--amb-brand);
+  color: var(--amb-on-brand);
 }
 
 .item {
@@ -335,26 +424,35 @@ p {
 
 .badge {
   border-radius: 999px;
-  padding: 3px 8px;
-  color: white;
+  padding: 3px 9px;
   font-size: 11px;
-  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: capitalize;
+  color: #fff;
+  border: 1px solid transparent;
 }
+.badge.error   { background: var(--amb-danger); }
+.badge.warning { background: var(--amb-warning); }
+.badge.info    { background: var(--amb-info); }
+.badge.success { background: var(--amb-success); }
+.badge.pending { background: var(--amb-pending); }
+.badge.idle    { background: var(--amb-idle); }
 
-.badge.error {
-  background: var(--red);
-}
+:root[data-theme="dark"] .badge.error   { background: rgba(240,121,107,.14); border-color: rgba(240,121,107,.40); color: #F0796B; }
+:root[data-theme="dark"] .badge.warning { background: rgba(242,166, 60,.14); border-color: rgba(242,166, 60,.40); color: #F2A63C; }
+:root[data-theme="dark"] .badge.info    { background: rgba(127,166,245,.14); border-color: rgba(127,166,245,.40); color: #7FA6F5; }
+:root[data-theme="dark"] .badge.success { background: rgba( 63,203,139,.14); border-color: rgba( 63,203,139,.40); color: #3FCB8B; }
+:root[data-theme="dark"] .badge.pending { background: rgba(183,154,240,.14); border-color: rgba(183,154,240,.40); color: #B79AF0; }
+:root[data-theme="dark"] .badge.idle    { background: rgba(155,168,185,.14); border-color: rgba(155,168,185,.40); color: #9BA8B9; }
 
-.badge.warning {
-  background: var(--amber);
-}
-
-.badge.info {
-  background: var(--blue);
-}
-
-.badge.pending {
-  background: #64748b;
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .badge.error   { background: rgba(240,121,107,.14); border-color: rgba(240,121,107,.40); color: #F0796B; }
+  :root:not([data-theme="light"]) .badge.warning { background: rgba(242,166, 60,.14); border-color: rgba(242,166, 60,.40); color: #F2A63C; }
+  :root:not([data-theme="light"]) .badge.info    { background: rgba(127,166,245,.14); border-color: rgba(127,166,245,.40); color: #7FA6F5; }
+  :root:not([data-theme="light"]) .badge.success { background: rgba( 63,203,139,.14); border-color: rgba( 63,203,139,.40); color: #3FCB8B; }
+  :root:not([data-theme="light"]) .badge.pending { background: rgba(183,154,240,.14); border-color: rgba(183,154,240,.40); color: #B79AF0; }
+  :root:not([data-theme="light"]) .badge.idle    { background: rgba(155,168,185,.14); border-color: rgba(155,168,185,.40); color: #9BA8B9; }
 }
 
 .item p {
@@ -382,28 +480,6 @@ p {
 .settings label {
   display: grid;
   gap: 6px;
-  color: var(--muted);
+  color: var(--amb-ink-muted);
   font-size: 12px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #202124;
-    --surface: #2a2d33;
-    --surface-alt: #343942;
-    --line: #414753;
-    --text: #f4f6f8;
-    --muted: #b7c0cc;
-    --shadow: none;
-  }
-
-  .message.user {
-    background: #172554;
-    border-color: #1d4ed8;
-  }
-
-  .message.error {
-    background: #3f1d1d;
-    border-color: #7f1d1d;
-  }
 }
