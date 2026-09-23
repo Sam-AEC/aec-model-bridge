@@ -18,8 +18,10 @@ import pytest
 from anthropic.types import TextBlock, ToolUseBlock
 
 from revit_mcp_server import agent_native
+from revit_mcp_server.providers.approval_provider import ApprovalProvider
 from revit_mcp_server.providers.base import AECProvider, ProviderTool
 from revit_mcp_server.providers.registry import ProviderRegistry
+from revit_mcp_server.security.workspace import WorkspaceMonitor
 
 
 class _FakeToolProvider(AECProvider):
@@ -102,8 +104,70 @@ def test_missing_api_key_returns_error_without_calling_api(monkeypatch, registry
 
     result = agent_native.run_native_turn("hello", None, registry, approval_provider)
 
-    assert result == {"ok": False, "error": "No Anthropic API key configured. Add one in Settings."}
+    assert result == {
+        "ok": False,
+        "error": "No Anthropic API key configured. Set the MCP_REVIT_ANTHROPIC_API_KEY "
+                 "environment variable and restart Revit.",
+    }
     client_ctor.assert_not_called()
+
+
+def test_build_tools_never_offers_plan_approval_tools_to_the_model(tmp_path):
+    """Load-bearing regression test for the self-approval bypass: with a real
+    ApprovalProvider registered, the model must never be handed approve_plan,
+    reject_plan or rollback_plan (otherwise it could plan_actions ->
+    approve_plan -> execute_plan with no human involved), while the tools it
+    legitimately needs to propose and run approved plans stay available."""
+    reg = ProviderRegistry()
+    reg.register(ApprovalProvider(workspace=WorkspaceMonitor([tmp_path]), registry=reg, approval_mode="required"))
+    reg.register(_FakeToolProvider())
+
+    registered = {t.name for t in reg.get_all_tools()}
+    # Guard against a vacuous pass: the excluded tools really are in the registry.
+    assert {"approve_plan", "reject_plan", "rollback_plan"} <= registered
+
+    offered = {t["name"] for t in agent_native._build_tools(reg)}
+
+    assert "approve_plan" not in offered
+    assert "reject_plan" not in offered
+    assert "rollback_plan" not in offered
+    assert {"plan_actions", "list_pending_plans", "execute_plan"} <= offered
+    assert {"revit_set_parameter_value", "revit_get_parameter_value"} <= offered
+
+
+def test_model_emitted_approve_plan_is_refused_and_never_executes(monkeypatch, tmp_path):
+    """Defense in depth: even if the model emits a tool_use for approve_plan
+    (a name it was never offered), the loop refuses it and the plan's state
+    is untouched."""
+    monkeypatch.setattr(agent_native.config, "anthropic_api_key", "test-key")
+    reg = ProviderRegistry()
+    approval = ApprovalProvider(workspace=WorkspaceMonitor([tmp_path]), registry=reg, approval_mode="required")
+    reg.register(approval)
+    reg.register(_FakeToolProvider())
+    plan = approval.gate.create_plan(
+        [{"tool": "revit_set_parameter_value", "arguments": {"element_id": 1, "parameter_name": "Mark", "value": "X"}}],
+        [{}],
+    )
+
+    create = Mock(side_effect=[
+        _tool_use_response("approve_plan", {"plan_id": plan["plan_id"]}),
+        _text_response("I can't approve plans myself."),
+    ])
+    _install_fake_client(monkeypatch, create)
+
+    result = agent_native.run_native_turn("approve it", None, reg, approval)
+
+    assert result["ok"] is True
+    assert approval.gate.load_plan(plan["plan_id"])["state"] != "approved"
+    tool_result = agent_native._sessions[result["session_id"]][2]["content"][0]
+    assert tool_result["is_error"] is True
+    assert "not available to the chat assistant" in tool_result["content"]
+
+
+def test_tools_carry_a_single_cache_breakpoint_on_the_last_tool(registry):
+    tools = agent_native._build_tools(registry)
+    assert tools[-1]["cache_control"] == {"type": "ephemeral"}
+    assert all("cache_control" not in t for t in tools[:-1])
 
 
 def test_successful_single_turn_returns_text_and_session_id(monkeypatch, registry, approval_provider):
@@ -150,6 +214,66 @@ def test_mutating_tool_call_goes_through_approval_gate_before_executing(monkeypa
     assert result["response"] == "Updated Mark to D-1"
     approval_provider.gate.check_tool_execution.assert_called_once_with("revit_set_parameter_value", tool_args)
     assert call_order == [("gate", "revit_set_parameter_value"), ("execute", "revit_set_parameter_value")]
+
+
+def test_gate_rejected_tool_call_surfaces_to_model_as_error_result_without_rollback(
+    monkeypatch, registry, approval_provider
+):
+    """A per-tool-call failure (here: the approval gate rejecting a mutating
+    call) must NOT abort the turn. It comes back to the model as a
+    tool_result with is_error=True, the model gets to explain it, and the
+    session history keeps the whole exchange - including a sibling call in
+    the same turn that already succeeded."""
+    monkeypatch.setattr(agent_native.config, "anthropic_api_key", "test-key")
+    approval_provider.gate.check_tool_execution.side_effect = RuntimeError(
+        "Mutating tool 'revit_set_parameter_value' requires a valid 'plan_id' parameter."
+    )
+
+    read_args = {"element_id": 1, "parameter_name": "FireRating"}
+    write_args = {"element_id": 1, "parameter_name": "FireRating", "value": "90"}
+    two_calls = SimpleNamespace(content=[
+        ToolUseBlock(type="tool_use", id="tu_read", name="revit_get_parameter_value", input=read_args),
+        ToolUseBlock(type="tool_use", id="tu_write", name="revit_set_parameter_value", input=write_args),
+    ])
+    create = Mock(side_effect=[two_calls, _text_response("That change needs an approved plan - review it in the panel.")])
+    _install_fake_client(monkeypatch, create)
+
+    result = agent_native.run_native_turn("set fire rating to 90", None, registry, approval_provider)
+
+    assert result["ok"] is True
+    assert result["response"] == "That change needs an approved plan - review it in the panel."
+    assert create.call_count == 2
+
+    history = agent_native._sessions[result["session_id"]]
+    # user, assistant(tool_use x2), user(tool_results), assistant(text) - nothing rolled back.
+    assert [m["role"] for m in history] == ["user", "assistant", "user", "assistant"]
+    read_result, write_result = history[2]["content"]
+    assert read_result["tool_use_id"] == "tu_read"
+    assert "is_error" not in read_result
+    assert write_result["tool_use_id"] == "tu_write"
+    assert write_result["is_error"] is True
+    assert "requires a valid 'plan_id'" in write_result["content"]
+
+    # The rejected mutation never ran; the sibling read did.
+    fake_provider = registry.lookup_tool_provider("revit_set_parameter_value")
+    assert fake_provider.calls == [("revit_get_parameter_value", read_args)]
+
+
+def test_api_failure_after_tool_calls_still_rolls_back_whole_turn(monkeypatch, registry, approval_provider):
+    """The outer rollback is now reserved for transport/API-level failures:
+    if messages.create itself fails mid-turn, the session is restored to its
+    pre-turn state so no dangling tool_use/tool_result pair is left behind."""
+    monkeypatch.setattr(agent_native.config, "anthropic_api_key", "test-key")
+    create = Mock(side_effect=[
+        _tool_use_response("revit_get_parameter_value", {"element_id": 1, "parameter_name": "FireRating"}),
+        ConnectionError("network down"),
+    ])
+    _install_fake_client(monkeypatch, create)
+
+    result = agent_native.run_native_turn("what's the fire rating?", None, registry, approval_provider)
+
+    assert result == {"ok": False, "error": "network down"}
+    assert all(len(h) == 0 for h in agent_native._sessions.values())
 
 
 def test_non_mutating_tool_call_does_not_require_gate_check(monkeypatch, registry, approval_provider):

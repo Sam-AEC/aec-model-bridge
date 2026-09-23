@@ -57,16 +57,34 @@ _TURN_CAP_ERROR = (
     "without a final response."
 )
 
-_MISSING_KEY_ERROR = "No Anthropic API key configured. Add one in Settings."
+_MISSING_KEY_ERROR = (
+    "No Anthropic API key configured. Set the MCP_REVIT_ANTHROPIC_API_KEY "
+    "environment variable and restart Revit."
+)
 
 _SYSTEM_PROMPT = (
     "You are the AI assistant embedded in the AEC Model Bridge Revit panel. "
     "You can call the provided tools to inspect and modify the open Revit "
-    "model. Mutating tools require an approved plan (plan_actions, then a "
-    "human approves it via approve_plan) before they will execute; if a "
-    "mutating call is rejected because no approved plan backs it, explain "
-    "that to the user rather than retrying blindly."
+    "model. Mutating tools require an approved plan: call plan_actions to "
+    "propose one; a human then reviews and approves it in the panel's Plans "
+    "view - you cannot approve your own plans. Once a plan is approved, call "
+    "execute_plan to run it. If a mutating call is rejected because no "
+    "approved plan backs it, tell the user to review the plan in the panel "
+    "rather than retrying blindly. If any tool call returns an error, explain "
+    "the failure to the user."
 )
+
+# Plan-lifecycle tools the model must never be able to call. The approval
+# workflow's entire guarantee is that a HUMAN moves a plan to "approved":
+# execute_plan only checks the plan's state flag, and approve_plan is what
+# sets that flag, with no gate of its own (none of these are is_mutating).
+# If the model could call approve_plan it could propose, approve and execute
+# its own plan with no human involved. Approve/reject happen only through
+# the panel's Plans view (BridgePanel's plan.approve / plan.reject relay,
+# which calls the hub's /execute endpoint directly, outside this loop).
+# rollback_plan is excluded for the same reason: it writes to the model
+# without any plan approval of its own.
+_MODEL_EXCLUDED_TOOLS = frozenset({"approve_plan", "reject_plan", "rollback_plan"})
 
 # session_id -> running message list (user/assistant/tool_result turns so
 # far). In-memory only - see module docstring.
@@ -76,11 +94,21 @@ _sessions: Dict[str, List[Dict[str, Any]]] = {}
 def _build_tools(registry) -> List[Dict[str, Any]]:
     """Builds the Anthropic `tools=[...]` parameter directly from the
     registry's ProviderTool objects - .input_schema is already valid JSON
-    Schema, no translation needed."""
-    return [
+    Schema, no translation needed. Tools in _MODEL_EXCLUDED_TOOLS are never
+    offered to the model (see that constant for why).
+
+    The last tool carries an ephemeral cache_control breakpoint: the full
+    tool list is large (~200 tools, tens of KB of schema) and identical on
+    every one of up to _MAX_TURNS model calls per turn, so caching the tools
+    prefix avoids re-processing it uncached on each call."""
+    tools: List[Dict[str, Any]] = [
         {"name": tool.name, "description": tool.description, "input_schema": tool.input_schema}
         for tool in registry.get_all_tools()
+        if tool.name not in _MODEL_EXCLUDED_TOOLS
     ]
+    if tools:
+        tools[-1]["cache_control"] = {"type": "ephemeral"}
+    return tools
 
 
 async def _execute_tool_call(registry, approval_provider, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
@@ -88,6 +116,14 @@ async def _execute_tool_call(registry, approval_provider, name: str, arguments: 
     _run_tool_sync: mutating tools must pass ApprovalGate.check_tool_execution
     before they run. This is the safety boundary every tool-calling path in
     this codebase shares - do not skip it and do not add a bypass."""
+    # Defense in depth: _build_tools never offers these, but refuse them here
+    # too in case the model emits a tool_use for a name it was not given.
+    if name in _MODEL_EXCLUDED_TOOLS:
+        raise PermissionError(
+            f"Tool '{name}' is not available to the chat assistant; plans are "
+            "approved, rejected and rolled back by a human in the panel's Plans view."
+        )
+
     provider = registry.lookup_tool_provider(name)
     if not provider:
         raise ValueError(f"Unknown tool '{name}'")
@@ -111,17 +147,30 @@ async def _execute_tool_call(registry, approval_provider, name: str, arguments: 
     return result
 
 
-async def _execute_tool_calls(registry, approval_provider, tool_use_blocks: List[Any]) -> List[Tuple[str, Dict[str, Any]]]:
+async def _execute_tool_calls(
+    registry, approval_provider, tool_use_blocks: List[Any]
+) -> List[Tuple[str, Dict[str, Any], bool]]:
     """Runs every tool_use block requested in one model turn, sequentially.
+
+    Returns (tool_use_id, result, is_error) per block. A failing tool call
+    (approval-gate rejection, unknown tool, Revit-side error, ...) does NOT
+    raise: it becomes an {"error": ...} result with is_error=True, so the
+    model sees the failure and can explain it, and any earlier call in the
+    same turn that already succeeded (possibly a mutation) stays recorded in
+    session history instead of being rolled back and later re-applied.
 
     Sequential (not asyncio.gather) is deliberate: ApprovalGate reads and
     writes plan state as plain JSON files on disk, so mutating tool calls
     within the same turn must not race each other against that state.
     """
-    results = []
+    results: List[Tuple[str, Dict[str, Any], bool]] = []
     for block in tool_use_blocks:
-        result = await _execute_tool_call(registry, approval_provider, block.name, block.input)
-        results.append((block.id, result))
+        try:
+            result = await _execute_tool_call(registry, approval_provider, block.name, block.input)
+            results.append((block.id, result, False))
+        except Exception as e:
+            logger.info("Native chat tool call '%s' failed: %s", block.name, e)
+            results.append((block.id, {"error": str(e)}, True))
     return results
 
 
@@ -144,10 +193,11 @@ def run_native_turn(
 
     Returns {"ok": True, "response": str, "session_id": str} on success, or
     {"ok": False, "error": str} - never raises for expected failure modes
-    (missing API key, Anthropic API error, tool execution failure, hitting
-    the turn cap) so a later HTTP layer can pass this straight through as
-    the response body, exactly like agent_bridge.run_agent_turn already
-    does today.
+    (missing API key, Anthropic API error, hitting the turn cap) so a later
+    HTTP layer can pass this straight through as the response body, exactly
+    like agent_bridge.run_agent_turn already does today. An individual tool
+    call failing is NOT a turn failure: it is returned to the model as an
+    is_error tool_result and the conversation continues.
 
     Sync by design: this matches agent_bridge.run_agent_turn's signature,
     which is what the HTTP layer (panel_server.py, a synchronous
@@ -200,21 +250,28 @@ def run_native_turn(
 
             executed = asyncio.run(_execute_tool_calls(registry, approval_provider, tool_use_blocks))
             tool_result_blocks = [
-                {"type": "tool_result", "tool_use_id": tool_use_id, "content": json.dumps(result, default=str)}
-                for tool_use_id, result in executed
+                {
+                    "type": "tool_result",
+                    "tool_use_id": tool_use_id,
+                    "content": json.dumps(result, default=str),
+                    **({"is_error": True} if is_error else {}),
+                }
+                for tool_use_id, result, is_error in executed
             ]
             history.append({"role": "user", "content": tool_result_blocks})
 
         return {"ok": False, "error": _TURN_CAP_ERROR}
     except Exception as e:
-        # Roll back everything this call added to the session. Without
-        # this, a failure partway through a turn (e.g. an approval-gate
-        # rejection) could leave a dangling tool_use block in history with
-        # no matching tool_result - which the Anthropic API rejects with a
-        # 400 on every subsequent turn, permanently breaking this
-        # session_id. Rolling back leaves the session exactly as it was
-        # before this failed call, so a retry (or a different message)
-        # still works.
+        # Reserved for genuine transport/API-level failures (e.g. a network
+        # error or 4xx/5xx from client.messages.create) - per-tool-call
+        # failures never reach here, they become is_error tool_results in
+        # _execute_tool_calls. Roll back everything this call added to the
+        # session: a failure partway through could otherwise leave a
+        # dangling tool_use block in history with no matching tool_result,
+        # which the Anthropic API rejects with a 400 on every subsequent
+        # turn, permanently breaking this session_id. Rolling back leaves
+        # the session exactly as it was before this failed call, so a retry
+        # (or a different message) still works.
         del history[snapshot_len:]
         logger.warning("Native chat turn failed: %s", e)
         return {"ok": False, "error": str(e)}

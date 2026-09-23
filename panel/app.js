@@ -129,7 +129,7 @@ function renderAlerts() {
       alerts.push(["warning", "LLM offline", "Chat and natural-language tools are unavailable."]);
     }
     if (state.providers && !state.providers.claude && !state.providers.codex) {
-      alerts.push(["warning", "No AI provider available", "Add an Anthropic API key in Settings, or install and sign in to the claude/codex CLI."]);
+      alerts.push(["warning", "No AI provider available", "Set the MCP_REVIT_ANTHROPIC_API_KEY environment variable and restart Revit, or install and sign in to the claude/codex CLI."]);
     }
   }
 
@@ -391,8 +391,7 @@ settingsForm.addEventListener("submit", (event) => {
   event.preventDefault();
   postToHost("settings.save", {
     hubUrl: hubUrl.value,
-    approvalMode: document.getElementById("approval-mode").value,
-    anthropicApiKey: document.getElementById("anthropic-api-key").value
+    approvalMode: document.getElementById("approval-mode").value
   });
   addLog("Settings saved", hubUrl.value);
 });

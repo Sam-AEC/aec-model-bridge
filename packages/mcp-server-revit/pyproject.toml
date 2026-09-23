@@ -21,7 +21,10 @@ dependencies = [
     "specklepy>=3,<4",
     "pyyaml>=6.0",
     "openpyxl>=3.1",
-    "anthropic>=0.34",
+    # agent_native.py replays response.content (incl. thinking blocks, which
+    # Claude Opus 5 emits by default) back into history, and marks the tools
+    # list with cache_control - pinned to the SDK version verified against both.
+    "anthropic>=0.99",
 ]
 
 [project.scripts]
