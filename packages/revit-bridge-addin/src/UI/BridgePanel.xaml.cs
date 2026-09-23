@@ -167,6 +167,19 @@ namespace RevitBridge.UI
                     break;
                 }
 
+                case "providers.refresh":
+                {
+                    var providers = await HubClient.GetProvidersAsync();
+                    if (!providers.Ok)
+                    {
+                        PostToPanel(new { type = "tool.error", action = type, message = providers.Error });
+                        break;
+                    }
+
+                    PostToPanel(new { type = "providers.updated", providers = new { claude = providers.Claude, codex = providers.Codex } });
+                    break;
+                }
+
                 case "reports.open":
                 {
                     var path = root.TryGetProperty("reportId", out var pathEl) ? pathEl.GetString() : null;
@@ -261,6 +274,32 @@ namespace RevitBridge.UI
             }
         }
 
+        /// <summary>
+        /// Called when Revit's UI theme changes mid-session (subscribed in
+        /// BridgePanelProvider.Register) so the panel re-themes live via a fresh
+        /// host.status. Only the panel updates live - ribbon icons are generated
+        /// once at startup (see App.CreateModernRibbonInterface).
+        /// </summary>
+        internal void OnRevitThemeChanged()
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (!_pageReady)
+                {
+                    return;
+                }
+
+                try
+                {
+                    PostHostStatus();
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Failed to post host status after Revit theme change");
+                }
+            }));
+        }
+
         private void PostHostStatus()
         {
             var dirtyCount = DocumentDirtyTracker.GetDirtyUniqueIds().Count;
@@ -272,7 +311,8 @@ namespace RevitBridge.UI
                 revitVersion = App.RevitVersion,
                 activeDocument = App.ActiveDocumentName,
                 dirtyElementCount = dirtyCount,
-                snapshotStale = dirtyCount > 0
+                snapshotStale = dirtyCount > 0,
+                isDarkTheme = IconGenerator.IsDarkTheme()
             });
 
             Browser.CoreWebView2?.PostWebMessageAsJson(payload);

@@ -16,6 +16,27 @@ namespace RevitBridge.UI
         {
             application.RegisterDockablePane(PaneId, "AEC Model Bridge", new BridgePanelProvider());
             Log.Information("AEC Model Bridge dockable pane registered");
+
+            // Guarded like IconGenerator.IsDarkTheme(): ThemeChanged only exists on
+            // Revit 2024+. The reference lives in its own non-inlined method so a
+            // missing event surfaces as a catchable MissingMemberException here
+            // rather than a JIT failure of Register itself.
+            try
+            {
+                SubscribeToThemeChanged(application);
+            }
+            catch (Exception ex)
+            {
+                Log.Information(ex, "Revit theme-change event unavailable; panel theme syncs on next host status only");
+            }
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private static void SubscribeToThemeChanged(UIControlledApplication application)
+        {
+            // Push a fresh host.status (which carries isDarkTheme) the moment the
+            // user toggles Revit's theme, instead of waiting for their next click.
+            application.ThemeChanged += (_, _) => _panel?.OnRevitThemeChanged();
         }
 
         public static bool Show(UIApplication application, out string error, string view = "", string action = "")

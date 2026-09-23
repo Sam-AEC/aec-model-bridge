@@ -1,0 +1,548 @@
+# AEC Model Bridge — design tokens
+
+Status: **approved**.
+Scope: the brand mark, the color system, typography, and the ribbon icon
+grammar for `assets/logo.svg`, `packages/revit-bridge-addin/src/UI/IconGenerator.cs`,
+and `panel/styles.css`.
+
+This file is the single source of truth. There is **no codegen and no token
+sync tool** — that is deliberate (ADR-free decision for a solo maintainer with
+no bundler in `panel/`). Every value below is hand-copied into the three
+renderers, and each copy site carries the comment:
+
+```
+// keep in sync with docs/design/tokens.md
+```
+
+Companion file: `docs/design/review.html` — open it in a browser to see every
+token on this page rendered at real size.
+
+---
+
+## 1. What is being replaced
+
+| Today | Problem |
+| --- | --- |
+| `assets/logo.svg` — isometric cube + "AEC / BRIDGE" text | Cube #1 |
+| `IconGenerator.CreateBrandIcon()` — a *different* isometric cube, gradient-shaded | Cube #2, disagrees with cube #1 |
+| `panel/styles.css` `.brand-mark` — a 3-color gradient square | Not a cube at all; disagrees with both |
+| 9 ribbon icons, 8 unrelated accent hues | No system; nothing means anything |
+| `pending` = violet on the ribbon, grey in `.badge.pending` | Same concept, two colors |
+
+All five are replaced by **one mark** and **one palette** below.
+
+---
+
+## 2. The mark — "the Span"
+
+### 2.1 Concept
+
+A span, drawn flat: **two anchor nodes joined by a deck, and the bridge itself
+standing above them.** It is the existing `CreateConnectIcon()` motif promoted
+to primary mark — the same three parts, reproportioned and resolved.
+
+- **Two anchor nodes** joined by a **deck** — the model and the agent, the two
+  things being connected.
+- **One apex** above them — the bridge process.
+
+Four shapes: one line, two circles, one triangle. No gradients, no shading, no
+3D. That is what makes it reproducible to the pixel in SVG, WPF
+`DrawingVisual` and CSS, which the cube never was.
+
+**The apex is not tied to the nodes by drawn lines.** It is tied to them by
+alignment: the apex's base edge and the deck are both exactly `0.340` wide and
+sit on the same two vertical axes, `x = 0.330` and `x = 0.670`. One module,
+stated twice. Drawn connector lines were tried in five variants and every one
+of them turned the mark into a capital **A** — the connector continues the
+apex's own leg, and the deck becomes the crossbar. Alignment says the same
+thing and stays a mark.
+
+### 2.2 Geometry — exact
+
+All coordinates are fractions of a `size × size` box, same convention as
+`IconGenerator.cs` (multiply by `size`). Origin top-left, y grows downward.
+
+| # | Element | Geometry | Stroke | Fill |
+| --- | --- | --- | --- | --- |
+| 1 | Apex wash | closed polygon `(0.500, 0.085)` → `(0.670, 0.430)` → `(0.330, 0.430)` | none | brand wash |
+| 2 | Node wash, left | circle center `(0.190, 0.725)`, r `0.140` | none | ink wash |
+| 3 | Node wash, right | circle center `(0.810, 0.725)`, r `0.140` | none | ink wash |
+| 4 | Deck | line `(0.330, 0.725)` → `(0.670, 0.725)` | **ink** | — |
+| 5 | Node, left | circle center `(0.190, 0.725)`, r `0.140` | **ink** | none |
+| 6 | Node, right | circle center `(0.810, 0.725)`, r `0.140` | **ink** | none |
+| 7 | Apex | closed polygon `(0.500, 0.085)` → `(0.670, 0.430)` → `(0.330, 0.430)` | **brand** | none |
+
+Draw in the order given (1 → 7). Rows 1–3 are unstroked fills painted first;
+rows 4–7 are unfilled strokes painted on top. Rows 1 and 7 are the same
+polygon, once filled and once stroked — in SVG that is a single `<polygon>`
+with both `fill` and `stroke`; the two rows are split here only because WPF
+`DrawGeometry(fill, pen, geo)` and CSS take them separately.
+
+The same geometry is used at **every** size, 16 px to 300 px. There is no
+optical-size variant to keep in sync across three renderers.
+
+Relationships worth preserving if anyone ever nudges this:
+
+- Node edge `0.190 + 0.140 = 0.330` — the deck starts exactly where the left
+  node ends, and ends exactly where the right node begins.
+- Apex base spans `0.330 → 0.670`, the same `0.340` module as the deck.
+- Ink extents: `x 0.020 → 0.980`, `y 0.055 → 0.895` at `stroke = 0.06`. Optical
+  center `y ≈ 0.475`, deliberately a touch above the box center because the
+  figure is top-heavy.
+
+### 2.3 Stroke
+
+```
+stroke = clamp( round(size × 0.06 × 2) / 2 , min 1.5 , ∞ )
+```
+
+Snapped to half a pixel, floor 1.5 px. This is exactly the existing
+`IconGenerator.StrokeWidth(size, 0.06)` contract — do not change that helper.
+
+| size | stroke |
+| --- | --- |
+| 16 | 1.5 |
+| 24 | 1.5 |
+| 32 | 2.0 |
+| 48 | 3.0 |
+| 96 | 6.0 |
+| 300 | 18.0 |
+
+Caps: **round**. Joins: **round**. (Same as today.)
+
+### 2.4 Paint
+
+Two-tone. The **deck and nodes are ink** — the model and the agent, the things
+that already exist. The **apex is brand** — the bridge, the only thing this
+product adds. That split is the reason the mark is not just a triangle, and it
+is what tells the brand mark apart from the monochrome Connect icon two
+buttons away on the same ribbon.
+
+| Part | Light theme | Dark theme |
+| --- | --- | --- |
+| Deck, node strokes | `--amb-ink` `#18202C` | `--amb-ink` `#E9EEF5` |
+| Node wash fill | `rgba(24, 32, 44, 0.12)` | `rgba(233, 238, 245, 0.16)` |
+| Apex stroke | `--amb-brand` `#0091A7` | `--amb-brand` `#3FC3D6` |
+| Apex wash fill | `rgba(0, 145, 167, 0.20)` | `rgba(63, 195, 214, 0.20)` |
+
+The ink wash is lighter than the accent wash on purpose. A near-white fill at
+`0.20` over a dark surface turns the nodes into solid discs and the deck reads
+as a strike-through; a near-black fill at `0.20` over white is just as heavy.
+Accent hues are mid-luminance and take `0.20` in both themes.
+
+**Monochrome variant** (favicon, disabled state, single-color print, and the
+Connect / Disconnect icons): every stroke in one color, every wash in that
+color at `0.20`.
+
+### 2.5 Wordmark lockup — for `assets/logo.svg` and the README
+
+```
+viewBox="0 0 560 168"
+```
+
+| Item | Placement |
+| --- | --- |
+| Mark | `size = 120`, translated to `(24, 24)` — i.e. mark box occupies `x 24…144`, `y 24…144` |
+| "AEC Model Bridge" | Segoe UI, weight 600, `font-size: 46`, `letter-spacing: 0`, `fill: #18202C`, baseline at `x = 188, y = 88` |
+| "Model context for Revit" | Segoe UI, weight 400, `font-size: 19`, `letter-spacing: 0.2`, `fill: #5B6676`, baseline at `x = 190, y = 120` |
+
+- Sentence case. No tracked-out caps, no em-dash fragments.
+- Clear space on all sides: **≥ 0.25 × mark size** (30 px at the lockup scale).
+- Minimum reproduction size of the mark alone: **16 px**. Minimum for the full
+  lockup: **180 px** wide.
+- `assets/logo.svg` ships the **light-theme** paint and adds
+  `@media (prefers-color-scheme: dark)` inside its `<style>` block so it also
+  reads on GitHub's dark README.
+- The isometric cube polygons and the `AEC` / `BRIDGE` text in the current file
+  are deleted outright — not recolored.
+
+### 2.6 Panel rail mark (`panel/styles.css` `.brand-mark`)
+
+Replace the three stacked `linear-gradient()`s with the mark as an inline
+`<svg>` in `panel/index.html` (26 × 26, two-tone, dark-rail paint).
+Do **not** try to rebuild the mark out of CSS gradients — that is how the
+third inconsistent mark happened.
+
+---
+
+## 3. Color
+
+### 3.1 Reading the table
+
+Every token resolves to one value under the light theme and one under the dark
+theme, exactly like the existing `@media (prefers-color-scheme: dark)` block in
+`panel/styles.css`. On the ribbon, `IconGenerator.IsDarkTheme()` already makes
+the same choice.
+
+Contrast figures are measured against that theme's `--amb-surface`
+(`#FFFFFF` / `#1C222B`), or against white for the solid badge fills.
+
+### 3.2 Neutrals — the structure
+
+| Token | Light | Dark | Role |
+| --- | --- | --- | --- |
+| `--amb-ink` | `#18202C` | `#E9EEF5` | Primary text; every icon's structural stroke |
+| `--amb-ink-muted` | `#5B6676` | `#9BA8B9` | Secondary text, metadata, inactive icon |
+| `--amb-bg` | `#F2F5F8` | `#14181E` | App background |
+| `--amb-surface` | `#FFFFFF` | `#1C222B` | Cards, topbar, inputs |
+| `--amb-surface-raised` | `#E9EEF4` | `#232A34` | Pills, hovered rows, segmented controls |
+| `--amb-line` | `#D3DAE3` | `#2F3945` | 1 px borders and dividers |
+| `--amb-rail` | `#141B24` | `#141B24` | Nav rail — **dark in both themes**, as today |
+| `--amb-rail-ink` | `#C9D4E2` | `#C9D4E2` | Nav rail label and inactive glyph |
+
+Measured: ink 16.4:1 light / 13.7:1 dark. Muted 5.8:1 light / 6.7:1 dark.
+
+`--amb-ink` light is `#18202C`, the value already in `panel/styles.css`.
+Kept on purpose — it is correct, and continuity beats novelty for neutrals.
+
+### 3.3 Brand
+
+| Token | Light | Dark | Role |
+| --- | --- | --- | --- |
+| `--amb-brand` | `#0091A7` | `#3FC3D6` | Mark apex; focus ring; active nav indicator |
+| `--amb-brand-strong` | `#046B80` | `#6FD8E6` | Brand-colored **text** and links; primary button hover |
+| `--amb-brand-wash` | `rgba(0, 145, 167, 0.14)` | `rgba(63, 195, 214, 0.14)` | Tinted brand surfaces |
+
+Measured: `--amb-brand` 3.8:1 on white, 4.2:1 on `#1C222B` — above the 3:1
+floor for graphics in both themes, which is why one hue serves both.
+`--amb-brand-strong` 5.6:1 / 9.7:1 — safe for text.
+
+**Why this hue.** It is the one saturated family that no semantic token below
+occupies, so the brand never gets read as a status. It is also the color of an
+instrument readout — displacement plots, point-cloud intensity, total-station
+displays — which is the vernacular this product actually lives in. It is
+deliberately *not* Autodesk's `#0696D7`: the panel is a guest inside Revit, not
+a part of it.
+
+**Primary buttons.** `panel/styles.css` currently paints the submit/save
+buttons with `--blue` (`#2563eb`), which is now the *info* token. Repaint them
+with `--amb-brand` (light) / `--amb-brand` (dark) and white / `#06222A` label
+respectively.
+
+### 3.4 Semantic — shared by ribbon icons and panel badges
+
+| Token | Light | Dark | Meaning |
+| --- | --- | --- | --- |
+| `--amb-danger` | `#C23B2E` | `#F0796B` | Error finding; disconnected; destructive action |
+| `--amb-warning` | `#A45F0B` | `#F2A63C` | Warning finding; health check; degraded |
+| `--amb-info` | `#2457C5` | `#7FA6F5` | Info finding; status readout; report |
+| `--amb-success` | `#127A4B` | `#3FCB8B` | Connected; passed; approved |
+| `--amb-pending` | `#6D3FB8` | `#B79AF0` | Awaiting a human decision |
+| `--amb-idle` | `#5B6676` | `#9BA8B9` | Inert: not run yet, disabled, n/a |
+
+Measured against white (the solid badge label color), light column:
+danger 5.3:1, warning 5.0:1, info 6.5:1, success 5.4:1, pending 6.8:1,
+idle 5.8:1. All pass AA for 11 px text.
+Measured against `#1C222B`, dark column: 5.8 / 7.9 / 6.6 / 7.7 / 6.8 / 6.7.
+
+> The current `.badge.warning` uses `#b7791f`, which is **3.6:1 against its own
+> white label** — it fails AA today. `#A45F0B` is the fix, not a restyle.
+
+### 3.5 The `pending` mismatch — resolved
+
+**`pending` is violet. `#6D3FB8` light, `#B79AF0` dark. Both surfaces.**
+
+- `IconGenerator.CreatePendingIcon()`: `#7B1FA2` → `--amb-pending`.
+- `panel/styles.css` `.badge.pending`: `#64748b` → `--amb-pending`.
+
+The ribbon was right and the panel was wrong. `pending` in this product means
+"a plan is sitting in the approval queue and nothing moves until you act"
+(ADR 0008). That is the single most action-required state in the app, and grey
+is the universal signal for *ignore me*. A grey approval queue is a queue
+nobody empties.
+
+Violet, not amber or red, because nothing is wrong — it is held, not failing.
+Violet is also the only semantic hue with no other job in this palette.
+
+The vacated grey is **not** deleted. It becomes `--amb-idle` and now has a real
+job: states that genuinely are inert — a health check that has never run, a
+disabled nav item, an unavailable provider.
+
+**Implementer note for Task 7:** `panel/app.js` `renderPlans()` hardcodes
+`class="badge pending"` while printing `plan.status` as the label, so a plan
+whose status is `approved` currently renders a violet "approved" badge. Map the
+status string to a token class (`approved` → `success`, `rejected` → `error`,
+`pending`/anything else → `pending`) at the same time. The rejected class is
+`error`, not `danger`: badge classes follow the severity-badge naming
+(`.badge.error` is the one painted with `--amb-danger`), and there is no
+`.badge.danger` class.
+
+### 3.6 Badge treatment
+
+Light theme — solid fill, white label:
+
+```css
+.badge            { border-radius: 999px; padding: 3px 9px; font-size: 11px;
+                    font-weight: 600; letter-spacing: 0.01em;
+                    text-transform: capitalize; color: #fff; }
+.badge.error      { background: #C23B2E; }
+.badge.warning    { background: #A45F0B; }
+.badge.info       { background: #2457C5; }
+.badge.success    { background: #127A4B; }
+.badge.pending    { background: #6D3FB8; }
+.badge.idle       { background: #5B6676; }
+```
+
+Dark theme — 14 % tint, 40 % hairline, lifted label:
+
+```css
+.badge.error   { background: rgba(240,121,107,.14); border: 1px solid rgba(240,121,107,.40); color: #F0796B; }
+.badge.warning { background: rgba(242,166, 60,.14); border: 1px solid rgba(242,166, 60,.40); color: #F2A63C; }
+.badge.info    { background: rgba(127,166,245,.14); border: 1px solid rgba(127,166,245,.40); color: #7FA6F5; }
+.badge.success { background: rgba( 63,203,139,.14); border: 1px solid rgba( 63,203,139,.40); color: #3FCB8B; }
+.badge.pending { background: rgba(183,154,240,.14); border: 1px solid rgba(183,154,240,.40); color: #B79AF0; }
+.badge.idle    { background: rgba(155,168,185,.14); border: 1px solid rgba(155,168,185,.40); color: #9BA8B9; }
+```
+
+The 14 % tint is the largest value that still leaves the lifted label at
+≥ 4.5:1 over the tinted surface (measured 4.7:1 for the tightest case, danger).
+Do not raise it.
+
+Add `border: 1px solid transparent` to the base `.badge` rule so the box does
+not resize between themes.
+
+`text-transform` changes from `uppercase` to `capitalize`. Uppercase at 11 px
+costs real legibility on words like "warning" and buys nothing; the pill shape
+already marks it as a status.
+
+### 3.6.1 Alpha washes
+
+| Name | Alpha | Hex byte (WPF `Color.FromArgb`) | Used for |
+| --- | --- | --- | --- |
+| wash | `0.14` | `0x24` (36) | Badge tints, tinted panel surfaces |
+| wash-strong | `0.20` | `0x33` (51) | Accent interior fills in icons and the mark |
+| wash-ink | `0.12` light / `0.16` dark | `0x1F` (31) / `0x29` (41) | Ink interior fills in icons and the mark |
+
+Only these two. The current icons use four different alphas (`32`, `64`, `90`,
+and opaque) — that is part of what makes the ribbon look assembled rather than
+designed.
+
+### 3.7 Surface treatment — the glassmorphism the ADR promised
+
+ADR 0011 §4 committed to "sleek dark mode default, subtle micro-animations,
+glassmorphism card layouts". Delivering that means exactly two translucent
+surfaces — the rail and the topbar — not translucent everything.
+
+```css
+/* dark */
+--amb-glass:        rgba(28, 34, 43, 0.72);
+--amb-glass-line:   rgba(255, 255, 255, 0.07);
+--amb-glass-filter: blur(14px) saturate(140%);
+
+/* light */
+--amb-glass:        rgba(255, 255, 255, 0.72);
+--amb-glass-line:   rgba(16, 24, 40, 0.08);
+--amb-glass-filter: blur(14px) saturate(120%);
+```
+
+Applied to `.rail` and `.topbar` only. Cards, inputs and list rows stay opaque
+— glass behind body text is a legibility tax with no benefit.
+
+Elevation:
+
+```css
+/* light */ --amb-shadow-1: 0 1px 2px rgba(16,24,40,.08);
+            --amb-shadow-2: 0 6px 16px rgba(16,24,40,.10);
+/* dark  */ --amb-shadow-1: 0 1px 0 rgba(255,255,255,.04) inset;
+            --amb-shadow-2: 0 1px 0 rgba(255,255,255,.04) inset, 0 10px 28px rgba(0,0,0,.45);
+```
+
+Radius: `4` chips · `6` buttons, inputs, selects · `8` cards, alerts, messages ·
+`10` the rail mark plate · `999` pills and badges.
+
+Spacing scale (px): `4 · 6 · 8 · 12 · 16 · 24 · 32`.
+
+Focus ring — one rule, everywhere, replacing the current
+`button:hover { border-color: … }` as the only visible affordance:
+
+```css
+:focus-visible { outline: none;
+                 box-shadow: 0 0 0 2px var(--amb-bg), 0 0 0 4px var(--amb-brand); }
+```
+
+Motion:
+
+```css
+--amb-motion-fast: 120ms cubic-bezier(.4, 0, .2, 1);   /* hover, press */
+--amb-motion-view: 180ms cubic-bezier(.2, .7, .3, 1);  /* view switch */
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+```
+
+---
+
+## 4. Typography
+
+**Decision: keep `"Segoe UI", system-ui, sans-serif` for everything.**
+Recorded explicitly so it stops being an accident.
+
+One family, no display face, no webfont. The panel is a docked pane inside
+Revit; a loaded webfont would flash on every panel open and would make the app
+look like a web page embedded in Revit rather than a part of it. Distinctiveness
+is spent on the mark and the icon grammar instead.
+
+| Role | Size | Weight | Line height | Notes |
+| --- | --- | --- | --- | --- |
+| View title (`h1`) | 18 px | 650 | 1.2 | Unchanged from today |
+| Card title (`h2`) | 14 px | 600 | 1.3 | |
+| Body | 13 px | 400 | 1.45 | |
+| Secondary / detail | 12 px | 400 | 1.45 | `--amb-ink-muted` |
+| Metadata, timestamps | 11 px | 400 | 1.4 | `--amb-ink-muted` |
+| Badge | 11 px | 600 | 1 | `letter-spacing: .01em`, capitalize |
+| Rail label ("AMB") | 10 px | 600 | 1 | `letter-spacing: .06em` |
+
+Additional rules:
+
+- Sentence case for all UI strings. No tracked-out all-caps eyebrow labels.
+- `font-variant-numeric: tabular-nums` on the run log, finding counts, and any
+  timestamp, so columns of numbers stop shifting.
+- Body copy caps at ~72 characters per line; the panel is narrow enough that
+  this only affects the settings view.
+- The wordmark is the same family at weight 600 — the mark carries the
+  identity, the wordmark just says the name.
+
+---
+
+## 5. Icon system
+
+### 5.1 The grammar — one rule for all nine
+
+> **Structure is ink. One accent, and only if the icon reports a state.**
+
+Every icon is drawn with `--amb-ink` strokes. Then:
+
+- **State icons** — the icon reports a condition the user should scan for —
+  get exactly one element in a semantic color.
+- **Action icons** — the icon is a verb with no condition attached — get
+  **no accent at all**. Ink only, with interiors filled at wash-ink.
+
+That is the whole system. It is why the ribbon currently looks like eight
+unrelated stickers: eight icons, eight hues, none of them meaning anything. A
+ribbon where only the five state icons are colored is scannable at a glance.
+
+Brand cyan appears on the brand mark and nowhere else in the ribbon, which is
+what makes the brand button findable.
+
+Shared across all icons: stroke per §2.3 (`size × 0.06`), round caps, round
+joins, interiors at wash-strong / wash-ink (§3.6.1), `IsDarkTheme()` picks the
+theme column.
+
+### 5.2 Re-targeting table — Task 6 follows this directly
+
+| # | `IconGenerator` method | Tier | Structure | Accent token | Accent light / dark | Was |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | `CreateConnectIcon` | state | *mono — accent* | `--amb-success` | `#127A4B` / `#3FCB8B` | `#2E7D32` emerald |
+| 2 | `CreateDisconnectIcon` | state | *mono — accent* | `--amb-danger` | `#C23B2E` / `#F0796B` | `#D32F2F` crimson |
+| 3 | `CreateStatusIcon` | state | `--amb-ink` | `--amb-info` | `#2457C5` / `#7FA6F5` | `#0288D1` "Autodesk blue" |
+| 4 | `CreateSettingsIcon` | action | `--amb-ink` | **none** | — | already ink-only |
+| 5 | `CreateHelpIcon` | action | `--amb-ink` | **none** | — | `#009688` teal — dropped |
+| 6 | `CreatePanelIcon` | action | `--amb-ink` | **none** | — | `#3F51B5` indigo — dropped |
+| 7 | `CreateHealthIcon` | state | `--amb-ink` | `--amb-warning` | `#A45F0B` / `#F2A63C` | `#F57C00` amber |
+| 8 | `CreatePendingIcon` | state | `--amb-ink` | `--amb-pending` | `#6D3FB8` / `#B79AF0` | `#7B1FA2` violet |
+| 9 | `CreateReportsIcon` | action | `--amb-ink` | **none** | — | `#1976D2` blue — dropped |
+| — | `CreateBrandIcon` | mark | `--amb-ink` | `--amb-brand` | `#0091A7` / `#3FC3D6` | gradient cube — deleted |
+
+Nine icons, nine explicit assignments, no gaps.
+
+### 5.3 Per-icon notes
+
+**1 · Connect** — becomes the mark of §2.2, drawn **monochrome in
+`--amb-success`**: every stroke green, both washes green at `0.20`. Being
+monochrome is what keeps it distinct from the two-tone brand mark sitting a
+few buttons away on the same ribbon.
+
+**2 · Disconnect** — identical to Connect but monochrome in `--amb-danger`,
+plus a **single** cancel slash `(0.300, 0.290) → (0.700, 0.690)`, stroke
+`size × 0.08`, round caps, same danger color. One slash, not a cross — a cross
+over a triangle is mush at 16 px, and the single diagonal already reads as
+“not connected”. Drop the broken-connector treatment; the slash is the signal.
+
+**3 · Status** — geometry unchanged. Frame, both grid lines and the outer ring
+go to `--amb-ink`; the inner pulse dot (`r = 0.055`, filled) and its `r = 0.14`
+ring stay accented, now `--amb-info`, ring fill at wash-strong.
+
+**4 · Settings** — geometry and paint unchanged. It was already correct; it is
+the reference for the action tier.
+
+**5 · Help** — remove the teal balloon fill and the teal stroke. Circle stroked
+in ink, filled at wash-ink; the `?` glyph in ink. Segoe UI Bold at
+`size × 0.54`, as today.
+
+**6 · Panel** — remove the indigo. Frame and content rows in ink; the docked
+right-hand strip filled at wash-ink with an ink stroke.
+
+**7 · Health** — clipboard body, clip tab and rows in ink; **the checkmark** is
+the accent, `--amb-warning`. Warning rather than success because the tool's job
+is to surface problems, and a permanently green check implies a result the
+button has not produced yet.
+
+**8 · Pending** — the three queue rows in ink; **the clock badge** (ring, fill,
+both hands) in `--amb-pending`, fill at wash-strong. This is the ribbon half of
+the §3.5 fix.
+
+While you are in there, fix the clipping: the badge is currently centred at
+`(0.74, 0.76)` with `r = 0.23`, so its bottom edge lands at `0.99` and the
+stroke is cut off by the bitmap boundary at every size. Move it to
+`(0.730, 0.740)` with `r = 0.210`; hands then run to `(0.730, 0.6245)` and
+`(0.825, 0.761)`.
+
+**9 · Reports** — remove the blue. All three bars filled at wash-ink with ink
+strokes, baseline in ink. The tinted fills keep it from reading hollow.
+
+**Brand** — the two-tone mark of §2.2/§2.4, identical at every size. Delete
+the gradient-cube code entirely.
+
+### 5.4 Panel nav rail glyphs
+
+`panel/index.html` renders the six nav items as single letters
+(`C P F R L S`). Leave them as letters — swapping in six new glyphs is a
+separate piece of work and is not covered by this token set. Style only:
+
+- inactive: `--amb-rail-ink`, weight 600, 13 px
+- hover: `--amb-ink` `#E9EEF5` on `rgba(255,255,255,.08)`
+- active: `--amb-ink` `#E9EEF5` on `rgba(63,195,214,.14)` plus a 2 px
+  `--amb-brand` bar on the rail's inner edge, radius 0 2px 2px 0
+
+---
+
+## 6. Copy-site checklist for Tasks 5–7
+
+| Task | File | Uses |
+| --- | --- | --- |
+| 5 | `assets/logo.svg` | §2.2 geometry, §2.4 light paint + dark media query, §2.5 lockup |
+| 6 | `packages/revit-bridge-addin/src/UI/IconGenerator.cs` | §2.2–2.4 for `CreateBrandIcon`/`CreateConnectIcon`/`CreateDisconnectIcon`, §3.2–3.4 hexes, §3.6.1 alpha bytes, §5.2 table, §5.3 notes |
+| 7 | `panel/styles.css`, `panel/index.html`, `panel/app.js` | §2.6 inline rail mark, §3.2–3.7 all tokens, §3.5 badge fix + `renderPlans()` status mapping, §4 type scale, §5.4 rail glyph styling |
+
+Each of the three files gets a `// keep in sync with docs/design/tokens.md`
+comment at the top of the block that carries copied values.
+
+---
+
+## 7. Full value index
+
+```
+--amb-ink              #18202C   #E9EEF5
+--amb-ink-muted        #5B6676   #9BA8B9
+--amb-bg               #F2F5F8   #14181E
+--amb-surface          #FFFFFF   #1C222B
+--amb-surface-raised   #E9EEF4   #232A34
+--amb-line             #D3DAE3   #2F3945
+--amb-rail             #141B24   #141B24
+--amb-rail-ink         #C9D4E2   #C9D4E2
+--amb-brand            #0091A7   #3FC3D6
+--amb-brand-strong     #046B80   #6FD8E6
+--amb-danger           #C23B2E   #F0796B
+--amb-warning          #A45F0B   #F2A63C
+--amb-info             #2457C5   #7FA6F5
+--amb-success          #127A4B   #3FCB8B
+--amb-pending          #6D3FB8   #B79AF0
+--amb-idle             #5B6676   #9BA8B9
+--amb-on-brand         #FFFFFF   #06222A
+wash        0.14  (0x24)
+wash-strong 0.20  (0x33)   accent fills
+wash-ink    0.12 / 0.16    (0x1F / 0x29)  ink fills
+```
+
+Seventeen tokens. Retired: `#2E7D32`, `#D32F2F`, `#0288D1`, `#009688`, `#3F51B5`,
+`#F57C00`, `#7B1FA2`, `#1976D2`, `#00BCD4`, `#2196F3`, `#1565C0`, `#00695C`,
+`#64748b`, `#b7791f`, `#c2413a`, `#0f8a5f`, `#2563eb`, `#14b8a6`, `#8b5cf6`,
+`#60a5fa`, `#93c5fd`, `#3b82f6`.
