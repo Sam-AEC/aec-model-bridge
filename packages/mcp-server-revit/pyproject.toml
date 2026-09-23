@@ -1,6 +1,6 @@
 [project]
 name = "aec-model-bridge"
-version = "1.2.0"
+version = "1.2.1"
 description = "Independent Model Context Protocol integration for Autodesk Revit software"
 readme = "README.md"
 requires-python = ">=3.11"

@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.2.1 - 2026-09-23
+
+- Add the Plugin Module Registry with discovery, I/O verification, and validate/on_result hooks.
+- Add the Semantic BIM Data Layer: snapshot/delta models, a DSL query engine, a diff engine, and three-way conflict reconciliation.
+- Add the Model Inspector, Selection Tools, Parameter Manager, FamilyType Mapper, QA/QC Checker (13-rule engine), Report Generator, and Recipe Runner modules.
+- Add ApprovalGate middleware and ActionPlan tools across all providers, and named transactions with action_id, DocumentDirtyTracker, and snapshot delta commands.
+- Rewrite the dockable WebView2 panel to run on real hub tools instead of fixture data, and migrate its CSS/HTML/JS to the amb-* design token system with live Revit theme sync.
+- Add a native Anthropic tool-calling chat loop in the panel, alongside the existing Codex CLI path.
+- Add multi-Revit-version host switching support.
+- Introduce the Span brand mark, palette, and icon grammar across the Revit ribbon and panel.
+- Add a double-click Windows installer with bundled Python, MCP client configuration, and a WebView2 preflight check.
+- Build rhino-bridge-addin in CI for the first time, and stop letting Navisworks' unbuildable-in-CI status fail the whole addin matrix.
+- Close approval-gate coverage gaps across all providers, fix a silent rollback no-op, and stop swallowing workspace-sandbox violations.
+- Catch prefixed secret keys/values in data redaction, and fix a codex CLI argument-injection issue via dash-prefixed chat messages.
+- Fix a WebView2 Access-Denied panel issue and downgrade WebView2 to resolve DLL conflicts on Revit 2027.
+- Remove internal planning docs, AI-agent instruction files, personal-machine paths, orphaned scratch scripts, and stale build artifacts from the public repo.
+
 ## 1.2.0 - 2026-06-13
 
 - Implement Phase B Switch Contract v2 with ADR 0002 specification.
