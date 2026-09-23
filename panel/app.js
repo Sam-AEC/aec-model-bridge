@@ -187,6 +187,12 @@ function resolvePendingChatMessage(text, isError) {
   chatFeed.scrollTop = chatFeed.scrollHeight;
 }
 
+function planStatusBadgeClass(status) {
+  if (status === "approved") return "success";
+  if (status === "rejected") return "error";
+  return "pending";
+}
+
 function renderPlans() {
   planList.innerHTML = "";
   if (state.plans.length === 0) {
@@ -200,7 +206,7 @@ function renderPlans() {
     item.innerHTML = `
       <div class="item-head">
         <h2>${escapeHtml(plan.title)}</h2>
-        <span class="badge pending">${escapeHtml(plan.status)}</span>
+        <span class="badge ${planStatusBadgeClass(plan.status)}">${escapeHtml(plan.status)}</span>
       </div>
       <p>${escapeHtml(plan.detail)}</p>
       <div class="item-actions">
@@ -419,6 +425,7 @@ if (window.chrome && window.chrome.webview) {
   window.chrome.webview.addEventListener("message", (event) => {
     if (event.data?.type === "host.status") {
       state.host = event.data;
+      document.documentElement.dataset.theme = event.data.isDarkTheme ? "dark" : "light";
       renderSystemState();
       addLog("Host status updated", state.host.activeDocument || "No active document");
     }
