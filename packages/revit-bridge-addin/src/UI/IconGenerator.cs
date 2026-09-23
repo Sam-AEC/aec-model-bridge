@@ -11,6 +11,7 @@ namespace RevitBridge.UI
     /// </summary>
     public static class IconGenerator
     {
+        // keep in sync with docs/design/tokens.md
         private static double StrokeWidth(int size, double scale)
         {
             if (size <= 16)
@@ -38,74 +39,72 @@ namespace RevitBridge.UI
         }
 
         /// <summary>
-        /// Creates a Connect icon (network node bridge fully accented in emerald green)
+        /// Creates a Connect icon (the Span mark, monochrome in the success accent)
         /// </summary>
         public static BitmapSource CreateConnectIcon(int size = 32)
         {
             var visual = new DrawingVisual();
             using (var context = visual.RenderOpen())
             {
-                var accentBrush = new SolidColorBrush(Color.FromRgb(46, 125, 50)); // Emerald Green
-                var softFillBrush = new SolidColorBrush(Color.FromArgb(64, 46, 125, 50)); // Semi-transparent green
-                var accentPen = new Pen(accentBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
+                bool isDark = IsDarkTheme();
+                var successRgb = isDark ? Color.FromRgb(63, 203, 139) : Color.FromRgb(18, 122, 75); // amb-success
+                var washBrush = new SolidColorBrush(Color.FromArgb(51, successRgb.R, successRgb.G, successRgb.B));
+                var strokeBrush = new SolidColorBrush(successRgb);
+                var pen = new Pen(strokeBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
 
-                // Left node
-                context.DrawEllipse(softFillBrush, accentPen, new Point(size * 0.19, size * 0.72), size * 0.14, size * 0.14);
-                // Right node
-                context.DrawEllipse(softFillBrush, accentPen, new Point(size * 0.81, size * 0.72), size * 0.14, size * 0.14);
+                // Node, left (wash + stroke)
+                context.DrawEllipse(washBrush, pen, new Point(size * 0.190, size * 0.725), size * 0.140, size * 0.140);
+                // Node, right (wash + stroke)
+                context.DrawEllipse(washBrush, pen, new Point(size * 0.810, size * 0.725), size * 0.140, size * 0.140);
 
-                // Connecting bridge lines
-                context.DrawLine(accentPen, new Point(size * 0.33, size * 0.72), new Point(size * 0.67, size * 0.72));
+                // Deck
+                context.DrawLine(pen, new Point(size * 0.330, size * 0.725), new Point(size * 0.670, size * 0.725));
 
-                // Server/AI node (Top center)
-                var geometry = new PathGeometry();
-                var figure = new PathFigure { StartPoint = new Point(size * 0.5, size * 0.07), IsClosed = true };
-                figure.Segments.Add(new LineSegment(new Point(size * 0.68, size * 0.42), true));
-                figure.Segments.Add(new LineSegment(new Point(size * 0.32, size * 0.42), true));
-                geometry.Figures.Add(figure);
-                context.DrawGeometry(softFillBrush, accentPen, geometry);
-
-                // Connector lines from bottom nodes to top server node
-                context.DrawLine(accentPen, new Point(size * 0.27, size * 0.61), new Point(size * 0.38, size * 0.40));
-                context.DrawLine(accentPen, new Point(size * 0.73, size * 0.61), new Point(size * 0.62, size * 0.40));
+                // Apex (wash + stroke)
+                var apexGeometry = new PathGeometry();
+                var apexFigure = new PathFigure { StartPoint = new Point(size * 0.500, size * 0.085), IsClosed = true };
+                apexFigure.Segments.Add(new LineSegment(new Point(size * 0.670, size * 0.430), true));
+                apexFigure.Segments.Add(new LineSegment(new Point(size * 0.330, size * 0.430), true));
+                apexGeometry.Figures.Add(apexFigure);
+                context.DrawGeometry(washBrush, pen, apexGeometry);
             }
 
             return RenderVisual(visual, size, size);
         }
 
         /// <summary>
-        /// Creates a Disconnect icon (network node bridge fully accented in crimson red with cancel slash)
+        /// Creates a Disconnect icon (the Span mark, monochrome in the danger accent, with a single cancel slash)
         /// </summary>
         public static BitmapSource CreateDisconnectIcon(int size = 32)
         {
             var visual = new DrawingVisual();
             using (var context = visual.RenderOpen())
             {
-                var accentBrush = new SolidColorBrush(Color.FromRgb(211, 47, 47)); // Crimson Red
-                var softFillBrush = new SolidColorBrush(Color.FromArgb(32, 211, 47, 47)); // Very transparent red for nodes
-                var accentPen = new Pen(accentBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
+                bool isDark = IsDarkTheme();
+                var dangerRgb = isDark ? Color.FromRgb(240, 121, 107) : Color.FromRgb(194, 59, 46); // amb-danger
+                var washBrush = new SolidColorBrush(Color.FromArgb(51, dangerRgb.R, dangerRgb.G, dangerRgb.B));
+                var strokeBrush = new SolidColorBrush(dangerRgb);
+                var pen = new Pen(strokeBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
 
-                // Left node
-                context.DrawEllipse(softFillBrush, accentPen, new Point(size * 0.19, size * 0.72), size * 0.14, size * 0.14);
-                // Right node
-                context.DrawEllipse(softFillBrush, accentPen, new Point(size * 0.81, size * 0.72), size * 0.14, size * 0.14);
+                // Node, left (wash + stroke)
+                context.DrawEllipse(washBrush, pen, new Point(size * 0.190, size * 0.725), size * 0.140, size * 0.140);
+                // Node, right (wash + stroke)
+                context.DrawEllipse(washBrush, pen, new Point(size * 0.810, size * 0.725), size * 0.140, size * 0.140);
 
-                // Top server node
-                var geometry = new PathGeometry();
-                var figure = new PathFigure { StartPoint = new Point(size * 0.5, size * 0.07), IsClosed = true };
-                figure.Segments.Add(new LineSegment(new Point(size * 0.68, size * 0.42), true));
-                figure.Segments.Add(new LineSegment(new Point(size * 0.32, size * 0.42), true));
-                geometry.Figures.Add(figure);
-                context.DrawGeometry(softFillBrush, accentPen, geometry);
+                // Deck
+                context.DrawLine(pen, new Point(size * 0.330, size * 0.725), new Point(size * 0.670, size * 0.725));
 
-                // Broken connections
-                context.DrawLine(accentPen, new Point(size * 0.27, size * 0.61), new Point(size * 0.36, size * 0.44));
-                context.DrawLine(accentPen, new Point(size * 0.73, size * 0.61), new Point(size * 0.64, size * 0.44));
+                // Apex (wash + stroke)
+                var apexGeometry = new PathGeometry();
+                var apexFigure = new PathFigure { StartPoint = new Point(size * 0.500, size * 0.085), IsClosed = true };
+                apexFigure.Segments.Add(new LineSegment(new Point(size * 0.670, size * 0.430), true));
+                apexFigure.Segments.Add(new LineSegment(new Point(size * 0.330, size * 0.430), true));
+                apexGeometry.Figures.Add(apexFigure);
+                context.DrawGeometry(washBrush, pen, apexGeometry);
 
-                // Crimson cancel slash
-                var slashPen = new Pen(accentBrush, StrokeWidth(size, 0.08)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
-                context.DrawLine(slashPen, new Point(size * 0.36, size * 0.32), new Point(size * 0.64, size * 0.60));
-                context.DrawLine(slashPen, new Point(size * 0.64, size * 0.32), new Point(size * 0.36, size * 0.60));
+                // Cancel slash — a single diagonal, not a cross
+                var slashPen = new Pen(strokeBrush, StrokeWidth(size, 0.08)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
+                context.DrawLine(slashPen, new Point(size * 0.300, size * 0.290), new Point(size * 0.700, size * 0.690));
             }
 
             return RenderVisual(visual, size, size);
@@ -120,9 +119,10 @@ namespace RevitBridge.UI
             using (var context = visual.RenderOpen())
             {
                 bool isDark = IsDarkTheme();
-                var primaryBrush = isDark ? Brushes.White : new SolidColorBrush(Color.FromRgb(30, 41, 59));
-                var accentBrush = new SolidColorBrush(Color.FromRgb(2, 136, 209)); // Autodesk Blue
-                var softFillBrush = new SolidColorBrush(Color.FromArgb(64, 2, 136, 209)); // Semi-transparent blue
+                var primaryBrush = isDark ? new SolidColorBrush(Color.FromRgb(233, 238, 245)) : new SolidColorBrush(Color.FromRgb(24, 32, 44)); // amb-ink
+                var infoRgb = isDark ? Color.FromRgb(127, 166, 245) : Color.FromRgb(36, 87, 197); // amb-info
+                var accentBrush = new SolidColorBrush(infoRgb);
+                var softFillBrush = new SolidColorBrush(Color.FromArgb(51, infoRgb.R, infoRgb.G, infoRgb.B));
                 var pen = new Pen(primaryBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
                 var accentPen = new Pen(accentBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
 
@@ -193,9 +193,9 @@ namespace RevitBridge.UI
             using (var context = visual.RenderOpen())
             {
                 bool isDark = IsDarkTheme();
-                var primaryBrush = isDark ? Brushes.White : new SolidColorBrush(Color.FromRgb(30, 41, 59));
-                var accentBrush = new SolidColorBrush(Color.FromRgb(0, 150, 136)); // Teal
-                var softFillBrush = new SolidColorBrush(Color.FromArgb(64, 0, 150, 136)); // Semi-transparent teal
+                var inkRgb = isDark ? Color.FromRgb(233, 238, 245) : Color.FromRgb(24, 32, 44); // amb-ink
+                var primaryBrush = new SolidColorBrush(inkRgb);
+                var softFillBrush = new SolidColorBrush(Color.FromArgb(isDark ? (byte)41 : (byte)31, inkRgb.R, inkRgb.G, inkRgb.B));
                 var pen = new Pen(primaryBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
 
                 // Balloon outline
@@ -226,11 +226,11 @@ namespace RevitBridge.UI
             using (var context = visual.RenderOpen())
             {
                 bool isDark = IsDarkTheme();
-                var primaryBrush = isDark ? Brushes.White : new SolidColorBrush(Color.FromRgb(30, 41, 59));
-                var accentBrush = new SolidColorBrush(Color.FromRgb(63, 81, 181)); // Indigo
-                var softFillBrush = new SolidColorBrush(Color.FromArgb(90, 63, 81, 181)); // Semi-transparent indigo
+                var inkRgb = isDark ? Color.FromRgb(233, 238, 245) : Color.FromRgb(24, 32, 44); // amb-ink
+                var primaryBrush = new SolidColorBrush(inkRgb);
+                var softFillBrush = new SolidColorBrush(Color.FromArgb(isDark ? (byte)41 : (byte)31, inkRgb.R, inkRgb.G, inkRgb.B));
                 var pen = new Pen(primaryBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
-                var accentPen = new Pen(accentBrush, StrokeWidth(size, 0.05)) { LineJoin = PenLineJoin.Round };
+                var accentPen = new Pen(primaryBrush, StrokeWidth(size, 0.05)) { LineJoin = PenLineJoin.Round };
 
                 // Outer window frame
                 context.DrawRoundedRectangle(null, pen, new Rect(size * 0.07, size * 0.07, size * 0.86, size * 0.86), size * 0.09, size * 0.09);
@@ -255,8 +255,8 @@ namespace RevitBridge.UI
             using (var context = visual.RenderOpen())
             {
                 bool isDark = IsDarkTheme();
-                var primaryBrush = isDark ? Brushes.White : new SolidColorBrush(Color.FromRgb(30, 41, 59));
-                var accentBrush = new SolidColorBrush(Color.FromRgb(245, 124, 0)); // Amber
+                var primaryBrush = isDark ? new SolidColorBrush(Color.FromRgb(233, 238, 245)) : new SolidColorBrush(Color.FromRgb(24, 32, 44)); // amb-ink
+                var accentBrush = new SolidColorBrush(isDark ? Color.FromRgb(242, 166, 60) : Color.FromRgb(164, 95, 11)); // amb-warning
                 var pen = new Pen(primaryBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
                 var accentPen = new Pen(accentBrush, StrokeWidth(size, 0.09)) { StartLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
 
@@ -287,9 +287,10 @@ namespace RevitBridge.UI
             using (var context = visual.RenderOpen())
             {
                 bool isDark = IsDarkTheme();
-                var primaryBrush = isDark ? Brushes.White : new SolidColorBrush(Color.FromRgb(30, 41, 59));
-                var accentBrush = new SolidColorBrush(Color.FromRgb(123, 31, 162)); // Violet
-                var softFillBrush = new SolidColorBrush(Color.FromArgb(64, 123, 31, 162));
+                var primaryBrush = isDark ? new SolidColorBrush(Color.FromRgb(233, 238, 245)) : new SolidColorBrush(Color.FromRgb(24, 32, 44)); // amb-ink
+                var accentRgb = isDark ? Color.FromRgb(183, 154, 240) : Color.FromRgb(109, 63, 184); // amb-pending
+                var accentBrush = new SolidColorBrush(accentRgb);
+                var softFillBrush = new SolidColorBrush(Color.FromArgb(51, accentRgb.R, accentRgb.G, accentRgb.B));
                 var pen = new Pen(primaryBrush, StrokeWidth(size, 0.07)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
                 var accentPen = new Pen(accentBrush, StrokeWidth(size, 0.055)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
 
@@ -299,11 +300,11 @@ namespace RevitBridge.UI
                 context.DrawLine(pen, new Point(size * 0.10, size * 0.62), new Point(size * 0.42, size * 0.62));
 
                 // Clock badge (bottom-right) — the "pending/awaiting" marker
-                var badgeCenter = new Point(size * 0.74, size * 0.76);
-                double badgeR = size * 0.23;
+                var badgeCenter = new Point(size * 0.730, size * 0.740);
+                double badgeR = size * 0.210;
                 context.DrawEllipse(softFillBrush, accentPen, badgeCenter, badgeR, badgeR);
-                context.DrawLine(accentPen, badgeCenter, new Point(badgeCenter.X, badgeCenter.Y - badgeR * 0.55));
-                context.DrawLine(accentPen, badgeCenter, new Point(badgeCenter.X + badgeR * 0.45, badgeCenter.Y + badgeR * 0.1));
+                context.DrawLine(accentPen, badgeCenter, new Point(size * 0.730, size * 0.6245));
+                context.DrawLine(accentPen, badgeCenter, new Point(size * 0.825, size * 0.761));
             }
 
             return RenderVisual(visual, size, size);
@@ -318,11 +319,11 @@ namespace RevitBridge.UI
             using (var context = visual.RenderOpen())
             {
                 bool isDark = IsDarkTheme();
-                var primaryBrush = isDark ? Brushes.White : new SolidColorBrush(Color.FromRgb(30, 41, 59));
-                var accentBrush = new SolidColorBrush(Color.FromRgb(25, 118, 210)); // Blue
-                var softFillBrush = new SolidColorBrush(Color.FromArgb(90, 25, 118, 210));
+                var inkRgb = isDark ? Color.FromRgb(233, 238, 245) : Color.FromRgb(24, 32, 44); // amb-ink
+                var primaryBrush = new SolidColorBrush(inkRgb);
+                var softFillBrush = new SolidColorBrush(Color.FromArgb(isDark ? (byte)41 : (byte)31, inkRgb.R, inkRgb.G, inkRgb.B));
                 var pen = new Pen(primaryBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
-                var accentPen = new Pen(accentBrush, StrokeWidth(size, 0.05)) { LineJoin = PenLineJoin.Round };
+                var accentPen = new Pen(primaryBrush, StrokeWidth(size, 0.05)) { LineJoin = PenLineJoin.Round };
 
                 double baseline = size * 0.86;
                 double barWidth = size * 0.17;
@@ -339,57 +340,38 @@ namespace RevitBridge.UI
         }
 
         /// <summary>
-        /// Creates the generic AEC Model Bridge icon.
+        /// Creates the AEC Model Bridge brand icon (the Span mark, two-tone: ink structure, brand apex).
         /// </summary>
         public static BitmapSource CreateBrandIcon(int size = 32)
         {
             var visual = new DrawingVisual();
             using (var context = visual.RenderOpen())
             {
-                double cX = size / 2.0;
+                bool isDark = IsDarkTheme();
+                var inkRgb = isDark ? Color.FromRgb(233, 238, 245) : Color.FromRgb(24, 32, 44); // amb-ink
+                var brandRgb = isDark ? Color.FromRgb(63, 195, 214) : Color.FromRgb(0, 145, 167); // amb-brand
 
-                // Gradient faces for a generic building-model cube.
-                var topBrush = new LinearGradientBrush(Color.FromRgb(0, 188, 212), Color.FromRgb(0, 150, 136), 45); // Cyan to Teal
-                var leftBrush = new LinearGradientBrush(Color.FromRgb(33, 150, 243), Color.FromRgb(21, 101, 192), 90); // Blue to Dark Blue
-                var rightBrush = new LinearGradientBrush(Color.FromRgb(0, 150, 136), Color.FromRgb(0, 105, 92), 90); // Dark Teal
+                var inkWashBrush = new SolidColorBrush(Color.FromArgb(isDark ? (byte)41 : (byte)31, inkRgb.R, inkRgb.G, inkRgb.B));
+                var inkPen = new Pen(new SolidColorBrush(inkRgb), StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
 
-                var pen = new Pen(Brushes.White, StrokeWidth(size, 0.04)) { LineJoin = PenLineJoin.Round };
+                var brandWashBrush = new SolidColorBrush(Color.FromArgb(51, brandRgb.R, brandRgb.G, brandRgb.B));
+                var brandPen = new Pen(new SolidColorBrush(brandRgb), StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
 
-                // Isometric vertices
-                Point topPt = new Point(cX, size * 0.07);
-                Point leftPt = new Point(size * 0.08, size * 0.34);
-                Point rightPt = new Point(size * 0.92, size * 0.34);
-                Point centerPt = new Point(cX, size * 0.56);
-                Point botLeftPt = new Point(size * 0.08, size * 0.76);
-                Point botRightPt = new Point(size * 0.92, size * 0.76);
-                Point bottomPt = new Point(cX, size * 0.94);
+                // Node, left (ink wash + ink stroke)
+                context.DrawEllipse(inkWashBrush, inkPen, new Point(size * 0.190, size * 0.725), size * 0.140, size * 0.140);
+                // Node, right (ink wash + ink stroke)
+                context.DrawEllipse(inkWashBrush, inkPen, new Point(size * 0.810, size * 0.725), size * 0.140, size * 0.140);
 
-                // Top Face
-                var topGeo = new PathGeometry();
-                var topFig = new PathFigure { StartPoint = topPt, IsClosed = true };
-                topFig.Segments.Add(new LineSegment(leftPt, true));
-                topFig.Segments.Add(new LineSegment(centerPt, true));
-                topFig.Segments.Add(new LineSegment(rightPt, true));
-                topGeo.Figures.Add(topFig);
-                context.DrawGeometry(topBrush, pen, topGeo);
+                // Deck (ink)
+                context.DrawLine(inkPen, new Point(size * 0.330, size * 0.725), new Point(size * 0.670, size * 0.725));
 
-                // Left Face
-                var leftGeo = new PathGeometry();
-                var leftFig = new PathFigure { StartPoint = leftPt, IsClosed = true };
-                leftFig.Segments.Add(new LineSegment(botLeftPt, true));
-                leftFig.Segments.Add(new LineSegment(bottomPt, true));
-                leftFig.Segments.Add(new LineSegment(centerPt, true));
-                leftGeo.Figures.Add(leftFig);
-                context.DrawGeometry(leftBrush, pen, leftGeo);
-
-                // Right Face
-                var rightGeo = new PathGeometry();
-                var rightFig = new PathFigure { StartPoint = rightPt, IsClosed = true };
-                rightFig.Segments.Add(new LineSegment(centerPt, true));
-                rightFig.Segments.Add(new LineSegment(bottomPt, true));
-                rightFig.Segments.Add(new LineSegment(botRightPt, true));
-                rightGeo.Figures.Add(rightFig);
-                context.DrawGeometry(rightBrush, pen, rightGeo);
+                // Apex (brand wash + brand stroke)
+                var apexGeometry = new PathGeometry();
+                var apexFigure = new PathFigure { StartPoint = new Point(size * 0.500, size * 0.085), IsClosed = true };
+                apexFigure.Segments.Add(new LineSegment(new Point(size * 0.670, size * 0.430), true));
+                apexFigure.Segments.Add(new LineSegment(new Point(size * 0.330, size * 0.430), true));
+                apexGeometry.Figures.Add(apexFigure);
+                context.DrawGeometry(brandWashBrush, brandPen, apexGeometry);
             }
 
             return RenderVisual(visual, size, size);
