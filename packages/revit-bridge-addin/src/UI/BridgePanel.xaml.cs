@@ -167,6 +167,19 @@ namespace RevitBridge.UI
                     break;
                 }
 
+                case "providers.refresh":
+                {
+                    var providers = await HubClient.GetProvidersAsync();
+                    if (!providers.Ok)
+                    {
+                        PostToPanel(new { type = "tool.error", action = type, message = providers.Error });
+                        break;
+                    }
+
+                    PostToPanel(new { type = "providers.updated", providers = new { claude = providers.Claude, codex = providers.Codex } });
+                    break;
+                }
+
                 case "reports.open":
                 {
                     var path = root.TryGetProperty("reportId", out var pathEl) ? pathEl.GetString() : null;

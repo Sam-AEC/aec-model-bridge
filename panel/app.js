@@ -15,6 +15,7 @@ const state = {
   host: null,
   snapshot: null,
   llm: null,
+  providers: null,
   plans: [],
   findings: [],
   reports: [],
@@ -127,6 +128,9 @@ function renderAlerts() {
     if (llmIsOffline()) {
       alerts.push(["warning", "LLM offline", "Chat and natural-language tools are unavailable."]);
     }
+    if (state.providers && !state.providers.claude && !state.providers.codex) {
+      alerts.push(["warning", "No AI provider available", "Add an Anthropic API key in Settings, or install and sign in to the claude/codex CLI."]);
+    }
   }
 
   systemAlerts.hidden = alerts.length === 0;
@@ -148,6 +152,24 @@ function updateToolAvailability() {
   });
   chatInput.disabled = chatBlocked;
   chatForm.querySelector("button").disabled = chatBlocked;
+}
+
+function applyProviderAvailability() {
+  if (!state.providers) {
+    return;
+  }
+  Array.from(chatProvider.options).forEach((option) => {
+    option.dataset.baseLabel = option.dataset.baseLabel || option.textContent;
+    const available = !!state.providers[option.value];
+    option.disabled = !available;
+    option.textContent = available ? option.dataset.baseLabel : `${option.dataset.baseLabel} (unavailable)`;
+  });
+  if (chatProvider.selectedOptions[0]?.disabled) {
+    const firstAvailable = Array.from(chatProvider.options).find((option) => !option.disabled);
+    if (firstAvailable) {
+      chatProvider.value = firstAvailable.value;
+    }
+  }
 }
 
 function renderSystemState() {
@@ -369,7 +391,8 @@ settingsForm.addEventListener("submit", (event) => {
   event.preventDefault();
   postToHost("settings.save", {
     hubUrl: hubUrl.value,
-    approvalMode: document.getElementById("approval-mode").value
+    approvalMode: document.getElementById("approval-mode").value,
+    anthropicApiKey: document.getElementById("anthropic-api-key").value
   });
   addLog("Settings saved", hubUrl.value);
 });
@@ -437,6 +460,11 @@ if (window.chrome && window.chrome.webview) {
       state.llm = event.data;
       renderSystemState();
     }
+    if (event.data?.type === "providers.updated") {
+      state.providers = event.data.providers;
+      applyProviderAvailability();
+      renderSystemState();
+    }
     if (event.data?.type === "findings.updated") {
       state.findings = mapFindings(event.data.result);
       renderFindings();
@@ -498,3 +526,4 @@ renderReports();
 renderLog();
 renderSystemState();
 postToHost("panel.loaded");
+postToHost("providers.refresh");
