@@ -53,3 +53,11 @@ markers = [
     "e2e: marks Revit bridge end-to-end tests (opt in with AEC_MODEL_BRIDGE_E2E=1)",
     "perf: marks tests as performance benchmarks (deselect with '-m \"not perf\"')"
 ]
+
+[tool.ruff.lint]
+# Pin explicitly to ruff's own classic default rule set (pyflakes + basic
+# pycodestyle). Newer ruff releases have changed what "default" means, and
+# with the dependency unpinned (ruff>=0.0) that silently pulled in dozens of
+# new rule categories (pyupgrade, bugbear, security, perf, ...) that were
+# never adopted, breaking CI on every push without any code change.
+select = ["E4", "E7", "E9", "F"]
