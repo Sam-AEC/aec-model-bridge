@@ -19,6 +19,7 @@ The server supports two runtime modes:
 | `MCP_REVIT_ALLOWED_DIRECTORIES` | Yes | none | Semicolon-separated directories the server may access. |
 | `MCP_REVIT_WORKSPACE_DIR` | Yes | none | Root directory for generated files and workspace-backed tools. |
 | `MCP_REVIT_AUDIT_LOG` | No | `workspace/audit.jsonl` | Audit log path used by the security layer. |
+| `MCP_REVIT_ANTHROPIC_API_KEY` | No | unset | Anthropic API key for the panel's native Claude chat (`agent_native.py`, ADR 0012). If you don't set it, "Claude" chat falls back to the `claude` CLI when that's on PATH. Otherwise no AI provider is available. You can also put it in a `.env` file. The hub reads it only at startup, so restart Revit after you set or change it. The panel's Settings view can't set it. |
 | `REVIT_SDK` | Build only | unset | Optional path used by the add-in build scripts. |
 
 ## Package and Registry Metadata

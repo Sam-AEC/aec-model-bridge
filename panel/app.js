@@ -15,6 +15,7 @@ const state = {
   host: null,
   snapshot: null,
   llm: null,
+  providers: null,
   plans: [],
   findings: [],
   reports: [],
@@ -127,6 +128,9 @@ function renderAlerts() {
     if (llmIsOffline()) {
       alerts.push(["warning", "LLM offline", "Chat and natural-language tools are unavailable."]);
     }
+    if (state.providers && !state.providers.claude && !state.providers.codex) {
+      alerts.push(["warning", "No AI provider available", "Set the MCP_REVIT_ANTHROPIC_API_KEY environment variable and restart Revit, or install and sign in to the claude/codex CLI."]);
+    }
   }
 
   systemAlerts.hidden = alerts.length === 0;
@@ -148,6 +152,24 @@ function updateToolAvailability() {
   });
   chatInput.disabled = chatBlocked;
   chatForm.querySelector("button").disabled = chatBlocked;
+}
+
+function applyProviderAvailability() {
+  if (!state.providers) {
+    return;
+  }
+  Array.from(chatProvider.options).forEach((option) => {
+    option.dataset.baseLabel = option.dataset.baseLabel || option.textContent;
+    const available = !!state.providers[option.value];
+    option.disabled = !available;
+    option.textContent = available ? option.dataset.baseLabel : `${option.dataset.baseLabel} (unavailable)`;
+  });
+  if (chatProvider.selectedOptions[0]?.disabled) {
+    const firstAvailable = Array.from(chatProvider.options).find((option) => !option.disabled);
+    if (firstAvailable) {
+      chatProvider.value = firstAvailable.value;
+    }
+  }
 }
 
 function renderSystemState() {
@@ -187,6 +209,12 @@ function resolvePendingChatMessage(text, isError) {
   chatFeed.scrollTop = chatFeed.scrollHeight;
 }
 
+function planStatusBadgeClass(status) {
+  if (status === "approved") return "success";
+  if (status === "rejected") return "error";
+  return "pending";
+}
+
 function renderPlans() {
   planList.innerHTML = "";
   if (state.plans.length === 0) {
@@ -200,7 +228,7 @@ function renderPlans() {
     item.innerHTML = `
       <div class="item-head">
         <h2>${escapeHtml(plan.title)}</h2>
-        <span class="badge pending">${escapeHtml(plan.status)}</span>
+        <span class="badge ${planStatusBadgeClass(plan.status)}">${escapeHtml(plan.status)}</span>
       </div>
       <p>${escapeHtml(plan.detail)}</p>
       <div class="item-actions">
@@ -419,6 +447,7 @@ if (window.chrome && window.chrome.webview) {
   window.chrome.webview.addEventListener("message", (event) => {
     if (event.data?.type === "host.status") {
       state.host = event.data;
+      document.documentElement.dataset.theme = event.data.isDarkTheme ? "dark" : "light";
       renderSystemState();
       addLog("Host status updated", state.host.activeDocument || "No active document");
     }
@@ -428,6 +457,11 @@ if (window.chrome && window.chrome.webview) {
     }
     if (event.data?.type === "llm.status") {
       state.llm = event.data;
+      renderSystemState();
+    }
+    if (event.data?.type === "providers.updated") {
+      state.providers = event.data.providers;
+      applyProviderAvailability();
       renderSystemState();
     }
     if (event.data?.type === "findings.updated") {
@@ -491,3 +525,4 @@ renderReports();
 renderLog();
 renderSystemState();
 postToHost("panel.loaded");
+postToHost("providers.refresh");

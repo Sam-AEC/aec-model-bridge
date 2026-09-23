@@ -137,6 +137,10 @@ namespace RevitBridge.Bridge
             string reportsIconPath32 = Path.Combine(iconPath, "reports_32.png");
 
             // Generate theme-adaptive icons, then retain in-memory fallbacks if file I/O fails.
+            // Known, accepted limitation: ribbon icons reflect the Revit theme at session
+            // start only. The dockable panel re-themes live on ThemeChanged
+            // (BridgePanelProvider), but the ribbon needs a full Revit restart (not just a
+            // panel reload) to pick up a theme change.
             try
             {
                 IconGenerator.GenerateAllIcons(iconPath);

@@ -1,0 +1,1596 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AEC Model Bridge — design review</title>
+<style>
+/* ------------------------------------------------------------------ *
+   This sheet is painted with the tokens it documents.
+   Every hex below also appears in docs/design/tokens.md.
+ * ------------------------------------------------------------------ */
+:root{
+  --sheet-bg:#0F1319;
+  --sheet:#161B22;
+  --sheet-2:#1C222B;
+  --rule:#242D39;
+  --rule-soft:#1D242E;
+  --ink:#E9EEF5;
+  --muted:#8D9BAD;
+  --faint:#67758A;
+  --brand:#3FC3D6;
+  --brand-2:#6FD8E6;
+
+  /* mark paint, dark context (default for this sheet) */
+  --mk-ink:#E9EEF5;
+  --mk-brand:#3FC3D6;
+  --mk-ink-wash:rgba(233,238,245,.16);
+  --mk-brand-wash:rgba(63,195,214,.20);
+}
+
+*{box-sizing:border-box}
+
+svg{max-width:100%;height:auto}
+
+html{-webkit-text-size-adjust:100%}
+
+body{
+  margin:0;
+  background:var(--sheet-bg);
+  color:var(--ink);
+  font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+  font-size:14px;
+  line-height:1.55;
+}
+
+.sheet{
+  max-width:1120px;
+  margin:0 auto;
+  padding:0 16px 96px;
+}
+
+/* ---------- title block ---------- */
+
+.titleblock{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px 28px;
+  align-items:baseline;
+  padding:22px 0 18px;
+  border-bottom:1px solid var(--rule);
+}
+.titleblock .doc{font-size:13px;font-weight:600;letter-spacing:.01em}
+.titleblock .bit{font-size:12px;color:var(--faint)}
+.titleblock .bit b{font-weight:600;color:var(--muted)}
+
+/* ---------- hero ---------- */
+
+.hero{
+  display:grid;
+  grid-template-columns:minmax(320px,480px) minmax(0,1fr);
+  gap:40px 56px;
+  align-items:center;
+  padding:56px 0 64px;
+  border-bottom:1px solid var(--rule);
+}
+.hero svg{width:100%;height:auto;max-width:480px}
+.hero h1{
+  margin:0;
+  font-size:clamp(30px,4.4vw,46px);
+  font-weight:600;
+  line-height:1.1;
+  letter-spacing:-.012em;
+}
+.hero .tag{margin:10px 0 0;font-size:17px;color:var(--muted);font-weight:400}
+.hero p.lede{margin:26px 0 0;max-width:46ch;color:var(--muted);font-size:14.5px}
+.hero p.lede b{color:var(--ink);font-weight:600}
+.herocap{
+  margin:8px 0 0;text-align:center;font-size:11px;color:var(--faint);
+  font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+
+/* annotation layer on the hero mark */
+.annot line{stroke:rgba(141,155,173,.42);stroke-width:.55;stroke-dasharray:2.4 2.6}
+.annot .tick{stroke:rgba(141,155,173,.75);stroke-dasharray:none;stroke-width:.6}
+.annot circle{fill:rgba(141,155,173,.85)}
+.annot text{
+  fill:#8D9BAD;font-size:4.1px;
+  font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;
+  letter-spacing:-.03em;
+}
+
+/* ---------- section scaffold: drawing-sheet margin column ---------- */
+
+section{
+  display:grid;
+  grid-template-columns:186px minmax(0,1fr);
+  gap:24px 40px;
+  padding:44px 0;
+  border-bottom:1px solid var(--rule-soft);
+}
+section > .margin h2{
+  margin:0;
+  font-size:16px;
+  font-weight:600;
+  line-height:1.25;
+  letter-spacing:-.005em;
+}
+section > .margin p{
+  margin:10px 0 0;
+  font-size:12.5px;
+  line-height:1.5;
+  color:var(--faint);
+}
+section > .margin p + p{margin-top:9px}
+section > .body{min-width:0}
+
+/* ---------- chips: a light context and a dark context ---------- */
+
+.chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.chips.wide{grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
+
+.chip{
+  border-radius:12px;
+  padding:26px 22px 20px;
+  border:1px solid transparent;
+}
+.chip .cap{
+  margin-top:20px;
+  font-size:11.5px;
+  color:inherit;
+  opacity:.62;
+}
+.chip.dark{
+  background:#1C222B;border-color:#2F3945;color:#E9EEF5;
+  --mk-ink:#E9EEF5;--mk-brand:#3FC3D6;
+  --mk-ink-wash:rgba(233,238,245,.16);--mk-brand-wash:rgba(63,195,214,.20);
+}
+.chip.light{
+  background:#FFFFFF;border-color:#D3DAE3;color:#18202C;
+  --mk-ink:#18202C;--mk-brand:#0091A7;
+  --mk-ink-wash:rgba(24,32,44,.12);--mk-brand-wash:rgba(0,145,167,.20);
+}
+
+/* ---------- the mark ---------- */
+
+.mark{display:block}
+.mark .w-ink{fill:var(--mk-ink-wash);stroke:none}
+.mark .w-brand{fill:var(--mk-brand-wash);stroke:none}
+.mark .s{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.mark .s .ink{stroke:var(--mk-ink)}
+.mark .s .br{stroke:var(--mk-brand)}
+
+/* size row */
+.sizes{display:flex;flex-wrap:wrap;align-items:flex-end;gap:34px}
+.spec{display:flex;flex-direction:column;align-items:center;gap:12px}
+.spec .px{
+  font-size:11px;color:var(--muted);
+  font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+.chip.light .spec .px{color:#5B6676}
+.chip.dark  .spec .px{color:#9BA8B9}
+.rule-under{border-top:1px solid currentColor;opacity:.16;width:100%;margin-top:2px}
+
+/* ---------- lockup ---------- */
+
+.lockup{display:flex;align-items:center;gap:20px}
+.lockup .name{font-size:26px;font-weight:600;line-height:1.1;letter-spacing:-.01em}
+.lockup .sub{font-size:13px;line-height:1.3;opacity:.62;margin-top:3px}
+
+/* ---------- panel mock ---------- */
+
+.mocks{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px}
+
+.panel{
+  border-radius:12px;
+  overflow:hidden;
+  display:grid;
+  grid-template-columns:58px minmax(0,1fr);
+  font-size:13px;
+  border:1px solid;
+  min-height:400px;
+}
+.panel.dark{
+  background:#14181E;border-color:#2F3945;color:#E9EEF5;
+  --p-surface:#1C222B;--p-line:#2F3945;--p-muted:#9BA8B9;--p-raised:#232A34;
+  --p-brand:#3FC3D6;--p-glass:rgba(28,34,43,.72);--p-glass-line:rgba(255,255,255,.07);
+  --mk-ink:#E9EEF5;--mk-brand:#3FC3D6;
+  --mk-ink-wash:rgba(233,238,245,.16);--mk-brand-wash:rgba(63,195,214,.20);
+}
+.panel.light{
+  background:#F2F5F8;border-color:#D3DAE3;color:#18202C;
+  --p-surface:#FFFFFF;--p-line:#D3DAE3;--p-muted:#5B6676;--p-raised:#E9EEF4;
+  --p-brand:#0091A7;--p-glass:rgba(255,255,255,.72);--p-glass-line:rgba(16,24,40,.08);
+  --mk-ink:#E9EEF5;--mk-brand:#3FC3D6;
+  --mk-ink-wash:rgba(233,238,245,.16);--mk-brand-wash:rgba(63,195,214,.20);
+}
+
+/* the rail is dark in both themes */
+.rail{
+  background:#141B24;
+  display:grid;
+  grid-template-rows:58px repeat(6,44px) 1fr;
+  gap:6px;
+  padding:8px;
+  border-right:1px solid rgba(255,255,255,.07);
+}
+.rail .brandcell{display:grid;place-items:center;gap:4px}
+.rail .amb{font-size:10px;font-weight:600;letter-spacing:.06em;color:#C9D4E2}
+.rail .nav{
+  position:relative;
+  display:grid;place-items:center;
+  border-radius:8px;
+  font-size:13px;font-weight:600;
+  color:#C9D4E2;
+  background:transparent;
+  border:0;
+  font-family:inherit;
+}
+.rail .nav.on{background:rgba(63,195,214,.14);color:#E9EEF5}
+.rail .nav.on::before{
+  content:"";position:absolute;left:-8px;top:9px;bottom:9px;width:2px;
+  background:#3FC3D6;border-radius:0 2px 2px 0;
+}
+
+.appcol{display:grid;grid-template-rows:auto minmax(0,1fr);min-width:0}
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:12px 14px;
+  background:var(--p-glass);
+  border-bottom:1px solid var(--p-line);
+  backdrop-filter:blur(14px) saturate(140%);
+  -webkit-backdrop-filter:blur(14px) saturate(140%);
+}
+.topbar h3{margin:0;font-size:18px;font-weight:650;line-height:1.2}
+.topbar .sub{margin:3px 0 0;font-size:12px;color:var(--p-muted)}
+.pill{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:5px 11px;border-radius:999px;
+  background:var(--p-raised);border:1px solid var(--p-line);
+  font-size:12px;color:var(--p-muted);white-space:nowrap;
+}
+.pill .dot{width:8px;height:8px;border-radius:50%;background:#3FCB8B}
+.panel.light .pill .dot{background:#127A4B}
+
+.cards{display:grid;gap:10px;align-content:start;padding:14px}
+.card{
+  background:var(--p-surface);
+  border:1px solid var(--p-line);
+  border-radius:8px;
+  padding:11px 12px;
+}
+.panel.light .card{box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.card .head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.card h4{margin:0;font-size:14px;font-weight:600;line-height:1.3}
+.card p{margin:6px 0 0;font-size:12.5px;line-height:1.45;color:var(--p-muted)}
+.card .acts{display:flex;gap:8px;margin-top:10px}
+.btn{
+  font-family:inherit;font-size:12.5px;
+  padding:6px 11px;border-radius:6px;
+  border:1px solid var(--p-line);
+  background:var(--p-surface);color:inherit;
+}
+.btn.primary{background:var(--p-brand);border-color:var(--p-brand);color:#06222A;font-weight:600}
+.panel.light .btn.primary{color:#FFFFFF}
+
+/* ---------- badges ---------- */
+
+.badge{
+  display:inline-block;
+  border-radius:999px;
+  padding:3px 9px;
+  font-size:11px;font-weight:600;letter-spacing:.01em;
+  text-transform:capitalize;
+  border:1px solid transparent;
+  white-space:nowrap;
+}
+.badgerow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+
+.on-light .badge{color:#fff}
+.on-light .badge.error{background:#C23B2E}
+.on-light .badge.warning{background:#A45F0B}
+.on-light .badge.info{background:#2457C5}
+.on-light .badge.success{background:#127A4B}
+.on-light .badge.pending{background:#6D3FB8}
+.on-light .badge.idle{background:#5B6676}
+
+.on-dark .badge.error{background:rgba(240,121,107,.14);border-color:rgba(240,121,107,.40);color:#F0796B}
+.on-dark .badge.warning{background:rgba(242,166,60,.14);border-color:rgba(242,166,60,.40);color:#F2A63C}
+.on-dark .badge.info{background:rgba(127,166,245,.14);border-color:rgba(127,166,245,.40);color:#7FA6F5}
+.on-dark .badge.success{background:rgba(63,203,139,.14);border-color:rgba(63,203,139,.40);color:#3FCB8B}
+.on-dark .badge.pending{background:rgba(183,154,240,.14);border-color:rgba(183,154,240,.40);color:#B79AF0}
+.on-dark .badge.idle{background:rgba(155,168,185,.14);border-color:rgba(155,168,185,.40);color:#9BA8B9}
+
+/* the pending fix, shown as it was vs as it is */
+.fix{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+  gap:14px;margin-top:20px;
+}
+.fix .col{border:1px solid var(--rule);border-radius:10px;padding:14px 15px}
+.fix .col h5{margin:0 0 4px;font-size:12.5px;font-weight:600}
+.fix .col small{display:block;color:var(--faint);font-size:11.5px;line-height:1.45;margin-bottom:12px}
+.fix .was{background:#64748b;color:#fff;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:600;display:inline-block}
+.fix .col.now{border-color:rgba(63,195,214,.35)}
+
+/* ---------- tool icons ---------- */
+
+.ico{display:block}
+.ico .fi{fill:var(--ic-ink-wash);stroke:none}
+.ico .fa{fill:var(--ic-wash);stroke:none}
+.ico .sa{fill:var(--ic);stroke:none}
+.ico .st{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.ico .st.k{stroke:var(--ic-ink)}
+.ico .st.a{stroke:var(--ic)}
+
+.iconwall{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px}
+.icell{display:flex;flex-direction:column;align-items:center;gap:11px;padding:16px 8px;border-radius:10px}
+.icell .pair{display:flex;align-items:flex-end;gap:14px;min-height:34px}
+.icell .nm{font-size:12px;font-weight:600;text-align:center}
+.icell .tk{
+  font-size:10.5px;opacity:.6;text-align:center;
+  font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+.ribbon.dark{background:#2F3338;border:1px solid #3C4249}
+.ribbon.light{background:#F0F0F0;border:1px solid #D8D8D8;color:#18202C}
+
+.tier{margin:0 0 14px;font-size:12.5px;color:var(--faint)}
+
+/* ---------- token table ---------- */
+
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;min-width:480px;font-size:12.5px}
+thead th{
+  text-align:left;font-weight:600;font-size:11.5px;color:var(--faint);
+  padding:0 10px 9px 0;border-bottom:1px solid var(--rule);
+}
+tbody td{padding:9px 10px 9px 0;border-bottom:1px solid var(--rule-soft);vertical-align:middle}
+tbody tr:last-child td{border-bottom:0}
+.tname{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-size:11.5px;white-space:nowrap}
+.sw{display:inline-flex;align-items:center;gap:9px;white-space:nowrap}
+.sw i{width:17px;height:17px;border-radius:5px;display:inline-block;border:1px solid rgba(255,255,255,.14);flex:none}
+.sw code{
+  font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;
+  font-size:11.5px;color:var(--muted);font-style:normal;
+}
+td.role{color:var(--faint)}
+
+/* ---------- type ---------- */
+.typerow{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 22px;align-items:baseline}
+.typerow .lab{
+  font-size:11px;color:var(--faint);white-space:nowrap;
+  font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+
+footer{padding:38px 0 0;color:var(--faint);font-size:12.5px;max-width:64ch}
+footer code{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;color:var(--muted)}
+
+@media (max-width:760px){
+  .hero{grid-template-columns:minmax(0,1fr);gap:32px;padding:36px 0 44px}
+  .hero svg{max-width:100%}
+  section{grid-template-columns:minmax(0,1fr);gap:18px;padding:34px 0}
+  .mocks{grid-template-columns:minmax(0,1fr)}
+  .iconwall{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
+  .sizes{gap:22px}
+}
+@media (max-width:420px){
+  .sheet{padding:0 14px 72px}
+  .chips{grid-template-columns:minmax(0,1fr)}
+  .fix{grid-template-columns:minmax(0,1fr)}
+  .titleblock{gap:6px 18px}
+}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <div class="titleblock">
+    <span class="doc">AEC Model Bridge — design review</span>
+    <span class="bit"><b>Sheet</b> 1 of 1</span>
+    <span class="bit"><b>Spec</b> docs/design/tokens.md</span>
+    <span class="bit"><b>Status</b> proposed, awaiting approval</span>
+  </div>
+
+  <!-- ================= HERO ================= -->
+  <div class="hero">
+    <div>
+    <svg class="mark" viewBox="-26 -10 152 116" width="456" height="348" role="img"
+         aria-label="The Span: two nodes joined by a deck, with a triangular apex above them">
+      <g class="annot">
+        <line x1="-20" y1="72.5" x2="120" y2="72.5"/>
+        <line x1="50" y1="0" x2="50" y2="82"/>
+        <line x1="33" y1="45" x2="33" y2="70"/>
+        <line x1="67" y1="45" x2="67" y2="70"/>
+        <line class="tick" x1="36.5" y1="57.8" x2="44" y2="57.8"/>
+        <line class="tick" x1="56" y1="57.8" x2="63.5" y2="57.8"/>
+        <line class="tick" x1="19" y1="72.5" x2="28.9" y2="82.4"/>
+        <circle cx="50" cy="8.5" r="1.15"/>
+        <circle cx="81" cy="72.5" r="1.15"/>
+        <text x="-24" y="69.2">y 0.725</text>
+        <text x="-24" y="63.5">deck</text>
+        <text x="52.2" y="-1.4">x 0.500</text>
+        <text x="33.5" y="91.6">r 0.140</text>
+        <text x="122" y="99" text-anchor="end">node 0.810, 0.725</text>
+        <text x="55.5" y="7.4">apex 0.500, 0.085</text>
+        <text x="50" y="59.6" text-anchor="middle">0.340</text>
+      </g>
+      <polygon class="w-brand" points="50,8.5 67,43 33,43"/>
+              <circle class="w-ink" cx="19" cy="72.5" r="14"/>
+              <circle class="w-ink" cx="81" cy="72.5" r="14"/>
+              <g class="s" stroke-width="6">
+                <line class="ink" x1="33" y1="72.5" x2="67" y2="72.5"/>
+                <circle class="ink" cx="19" cy="72.5" r="14"/>
+                <circle class="ink" cx="81" cy="72.5" r="14"/>
+                <polygon class="br" points="50,8.5 67,43 33,43"/>
+              </g>
+    </svg>
+    <p class="herocap">300 px &#183; construction dimensions</p>
+    </div>
+
+    <div>
+      <h1>The Span</h1>
+      <p class="tag">One mark, sixteen colors, one icon grammar.</p>
+      <p class="lede">
+        A span, drawn flat. The <b>two nodes are the model and the agent</b>;
+        the <b>apex above them is this product</b>. Deck and nodes are drawn in
+        ink because they already exist — the apex is the only thing painted in
+        brand color, because it is the only thing the bridge adds.
+      </p>
+      <p class="lede">
+        Nothing draws a line from the nodes up to the apex. They are tied
+        together by <b>alignment</b>: the apex base and the deck are both
+        exactly 0.340 wide and sit on the same two axes. Connector lines were
+        drawn five different ways and every one of them turned the mark into a
+        capital A.
+      </p>
+      <p class="lede">
+        It is the <b>Connect</b> icon already shipping in the ribbon,
+        reproportioned and promoted. Circles and straight lines only, which is
+        what lets SVG, WPF and CSS each reproduce it exactly — something the
+        three different shaded cubes it replaces never managed.
+      </p>
+    </div>
+  </div>
+
+  <!-- ================= SIZES ================= -->
+  <section>
+    <div class="margin">
+      <h2>The sizes it ships at</h2>
+      <p>16 and 32 px on the Revit ribbon, 26 px in the panel nav rail,
+         ~300 px in the README lockup.</p>
+      <p>One geometry at every size. Nothing is dropped or re-tuned for small
+         sizes, so there is no optical-size variant to keep in sync across three
+         renderers by hand.</p>
+      <p>Only the stroke changes: <code>size × 0.06</code>, snapped to half a
+         pixel, floor 1.5 px — the arithmetic
+         <code>IconGenerator.StrokeWidth</code> already does.</p>
+    </div>
+    <div class="body">
+      <div class="chips">
+
+        <div class="chip dark">
+          <div class="sizes">
+            <div class="spec">
+              <svg class="mark" viewBox="0 0 100 100" width="16" height="16" aria-hidden="true">
+                <polygon class="w-brand" points="50,8.5 67,43 33,43"/>
+              <circle class="w-ink" cx="19" cy="72.5" r="14"/>
+              <circle class="w-ink" cx="81" cy="72.5" r="14"/>
+              <g class="s" stroke-width="9.4">
+                <line class="ink" x1="33" y1="72.5" x2="67" y2="72.5"/>
+                <circle class="ink" cx="19" cy="72.5" r="14"/>
+                <circle class="ink" cx="81" cy="72.5" r="14"/>
+                <polygon class="br" points="50,8.5 67,43 33,43"/>
+              </g>
+              </svg>
+              <span class="px">16</span>
+            </div>
+            <div class="spec">
+              <svg class="mark" viewBox="0 0 100 100" width="26" height="26" aria-hidden="true">
+                <polygon class="w-brand" points="50,8.5 67,43 33,43"/>
+              <circle class="w-ink" cx="19" cy="72.5" r="14"/>
+              <circle class="w-ink" cx="81" cy="72.5" r="14"/>
+              <g class="s" stroke-width="5.8">
+                <line class="ink" x1="33" y1="72.5" x2="67" y2="72.5"/>
+                <circle class="ink" cx="19" cy="72.5" r="14"/>
+                <circle class="ink" cx="81" cy="72.5" r="14"/>
+                <polygon class="br" points="50,8.5 67,43 33,43"/>
+              </g>
+              </svg>
+              <span class="px">26</span>
+            </div>
+            <div class="spec">
+              <svg class="mark" viewBox="0 0 100 100" width="32" height="32" aria-hidden="true">
+                <polygon class="w-brand" points="50,8.5 67,43 33,43"/>
+              <circle class="w-ink" cx="19" cy="72.5" r="14"/>
+              <circle class="w-ink" cx="81" cy="72.5" r="14"/>
+              <g class="s" stroke-width="6.25">
+                <line class="ink" x1="33" y1="72.5" x2="67" y2="72.5"/>
+                <circle class="ink" cx="19" cy="72.5" r="14"/>
+                <circle class="ink" cx="81" cy="72.5" r="14"/>
+                <polygon class="br" points="50,8.5 67,43 33,43"/>
+              </g>
+              </svg>
+              <span class="px">32</span>
+            </div>
+            <div class="spec">
+              <svg class="mark" viewBox="0 0 100 100" width="96" height="96" aria-hidden="true">
+                <polygon class="w-brand" points="50,8.5 67,43 33,43"/>
+              <circle class="w-ink" cx="19" cy="72.5" r="14"/>
+              <circle class="w-ink" cx="81" cy="72.5" r="14"/>
+              <g class="s" stroke-width="6.25">
+                <line class="ink" x1="33" y1="72.5" x2="67" y2="72.5"/>
+                <circle class="ink" cx="19" cy="72.5" r="14"/>
+                <circle class="ink" cx="81" cy="72.5" r="14"/>
+                <polygon class="br" points="50,8.5 67,43 33,43"/>
+              </g>
+              </svg>
+              <span class="px">96</span>
+            </div>
+          </div>
+          <div class="cap">Dark — Revit dark theme, GitHub dark README, panel dark</div>
+        </div>
+
+        <div class="chip light">
+          <div class="sizes">
+            <div class="spec">
+              <svg class="mark" viewBox="0 0 100 100" width="16" height="16" aria-hidden="true">
+                <polygon class="w-brand" points="50,8.5 67,43 33,43"/>
+              <circle class="w-ink" cx="19" cy="72.5" r="14"/>
+              <circle class="w-ink" cx="81" cy="72.5" r="14"/>
+              <g class="s" stroke-width="9.4">
+                <line class="ink" x1="33" y1="72.5" x2="67" y2="72.5"/>
+                <circle class="ink" cx="19" cy="72.5" r="14"/>
+                <circle class="ink" cx="81" cy="72.5" r="14"/>
+                <polygon class="br" points="50,8.5 67,43 33,43"/>
+              </g>
+              </svg>
+              <span class="px">16</span>
+            </div>
+            <div class="spec">
+              <svg class="mark" viewBox="0 0 100 100" width="26" height="26" aria-hidden="true">
+                <polygon class="w-brand" points="50,8.5 67,43 33,43"/>
+              <circle class="w-ink" cx="19" cy="72.5" r="14"/>
+              <circle class="w-ink" cx="81" cy="72.5" r="14"/>
+              <g class="s" stroke-width="5.8">
+                <line class="ink" x1="33" y1="72.5" x2="67" y2="72.5"/>
+                <circle class="ink" cx="19" cy="72.5" r="14"/>
+                <circle class="ink" cx="81" cy="72.5" r="14"/>
+                <polygon class="br" points="50,8.5 67,43 33,43"/>
+              </g>
+              </svg>
+              <span class="px">26</span>
+            </div>
+            <div class="spec">
+              <svg class="mark" viewBox="0 0 100 100" width="32" height="32" aria-hidden="true">
+                <polygon class="w-brand" points="50,8.5 67,43 33,43"/>
+              <circle class="w-ink" cx="19" cy="72.5" r="14"/>
+              <circle class="w-ink" cx="81" cy="72.5" r="14"/>
+              <g class="s" stroke-width="6.25">
+                <line class="ink" x1="33" y1="72.5" x2="67" y2="72.5"/>
+                <circle class="ink" cx="19" cy="72.5" r="14"/>
+                <circle class="ink" cx="81" cy="72.5" r="14"/>
+                <polygon class="br" points="50,8.5 67,43 33,43"/>
+              </g>
+              </svg>
+              <span class="px">32</span>
+            </div>
+            <div class="spec">
+              <svg class="mark" viewBox="0 0 100 100" width="96" height="96" aria-hidden="true">
+                <polygon class="w-brand" points="50,8.5 67,43 33,43"/>
+              <circle class="w-ink" cx="19" cy="72.5" r="14"/>
+              <circle class="w-ink" cx="81" cy="72.5" r="14"/>
+              <g class="s" stroke-width="6.25">
+                <line class="ink" x1="33" y1="72.5" x2="67" y2="72.5"/>
+                <circle class="ink" cx="19" cy="72.5" r="14"/>
+                <circle class="ink" cx="81" cy="72.5" r="14"/>
+                <polygon class="br" points="50,8.5 67,43 33,43"/>
+              </g>
+              </svg>
+              <span class="px">96</span>
+            </div>
+          </div>
+          <div class="cap">Light — Revit light theme, GitHub light README, panel light</div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 300 PX, BOTH CONTEXTS ================= -->
+  <section>
+    <div class="margin">
+      <h2>At README scale</h2>
+      <p>The same mark at 300&nbsp;px &mdash; the size it ships at in the README
+         lockup &mdash; in both contexts, with no annotation over it.</p>
+      <p>Large is where the proportion between the apex and the span gets judged,
+         and where the gap between the apex base and the deck is a decision
+         rather than a rounding error. It is deliberate: the apex reads as
+         sitting above the span, not standing on it.</p>
+      <p>The dimensioned drawing at the top of this sheet is this same mark at
+         this same size.</p>
+    </div>
+    <div class="body">
+      <div class="chips wide">
+        <div class="chip dark">
+          <div class="sizes" style="justify-content:center">
+            <div class="spec">
+              <svg class="mark" viewBox="0 0 100 100" width="300" height="300"
+                   role="img" aria-label="The Span at 300 pixels, dark context">
+                <polygon class="w-brand" points="50,8.5 67,43 33,43"/>
+                <circle class="w-ink" cx="19" cy="72.5" r="14"/>
+                <circle class="w-ink" cx="81" cy="72.5" r="14"/>
+                <g class="s" stroke-width="6">
+                  <line class="ink" x1="33" y1="72.5" x2="67" y2="72.5"/>
+                  <circle class="ink" cx="19" cy="72.5" r="14"/>
+                  <circle class="ink" cx="81" cy="72.5" r="14"/>
+                  <polygon class="br" points="50,8.5 67,43 33,43"/>
+                </g>
+              </svg>
+              <span class="px">300</span>
+            </div>
+          </div>
+          <div class="cap">Dark &mdash; GitHub dark README, dark docs</div>
+        </div>
+        <div class="chip light">
+          <div class="sizes" style="justify-content:center">
+            <div class="spec">
+              <svg class="mark" viewBox="0 0 100 100" width="300" height="300"
+                   role="img" aria-label="The Span at 300 pixels, light context">
+                <polygon class="w-brand" points="50,8.5 67,43 33,43"/>
+                <circle class="w-ink" cx="19" cy="72.5" r="14"/>
+                <circle class="w-ink" cx="81" cy="72.5" r="14"/>
+                <g class="s" stroke-width="6">
+                  <line class="ink" x1="33" y1="72.5" x2="67" y2="72.5"/>
+                  <circle class="ink" cx="19" cy="72.5" r="14"/>
+                  <circle class="ink" cx="81" cy="72.5" r="14"/>
+                  <polygon class="br" points="50,8.5 67,43 33,43"/>
+                </g>
+              </svg>
+              <span class="px">300</span>
+            </div>
+          </div>
+          <div class="cap">Light &mdash; GitHub light README, light docs</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= WHY NO CONNECTORS ================= -->
+  <section>
+    <div class="margin">
+      <h2>Why nothing connects the apex</h2>
+      <p>The brief's motif has lines running from each node up to the apex. Drawn
+         literally, they extend the apex's own legs and the deck becomes a
+         crossbar.</p>
+      <p>Five variants, all the same outcome. The alignment of the apex base to
+         the deck says “these belong together” without spelling the letter.</p>
+    </div>
+    <div class="body">
+      <div class="chips">
+        <div class="chip dark" style="--mk-brand:#F0796B;--mk-brand-wash:rgba(240,121,107,.20)">
+          <div class="sizes">
+            <div class="spec">
+              <svg class="mark" viewBox="0 0 100 100" width="96" height="96" aria-hidden="true">
+                <polygon class="w-brand" points="50,8.5 65.5,43 34.5,43"/>
+                <circle class="w-ink" cx="19" cy="72.5" r="13"/>
+                <circle class="w-ink" cx="81" cy="72.5" r="13"/>
+                <g class="s" stroke-width="6.25">
+                  <line class="ink" x1="32" y1="72.5" x2="68" y2="72.5"/>
+                  <circle class="ink" cx="19" cy="72.5" r="13"/>
+                  <circle class="ink" cx="81" cy="72.5" r="13"/>
+                  <line class="br" x1="25.1" y1="61" x2="34.5" y2="43"/>
+                  <line class="br" x1="74.9" y1="61" x2="65.5" y2="43"/>
+                  <polygon class="br" points="50,8.5 65.5,43 34.5,43"/>
+                </g>
+              </svg>
+              <span class="px">rejected</span>
+            </div>
+            <div class="spec">
+              <svg class="mark" viewBox="0 0 100 100" width="32" height="32" aria-hidden="true">
+                <polygon class="w-brand" points="50,8.5 65.5,43 34.5,43"/>
+                <circle class="w-ink" cx="19" cy="72.5" r="13"/>
+                <circle class="w-ink" cx="81" cy="72.5" r="13"/>
+                <g class="s" stroke-width="6.25">
+                  <line class="ink" x1="32" y1="72.5" x2="68" y2="72.5"/>
+                  <circle class="ink" cx="19" cy="72.5" r="13"/>
+                  <circle class="ink" cx="81" cy="72.5" r="13"/>
+                  <line class="br" x1="25.1" y1="61" x2="34.5" y2="43"/>
+                  <line class="br" x1="74.9" y1="61" x2="65.5" y2="43"/>
+                  <polygon class="br" points="50,8.5 65.5,43 34.5,43"/>
+                </g>
+              </svg>
+              <span class="px">32</span>
+            </div>
+          </div>
+          <div class="cap">With connectors — it is a letter, not a mark</div>
+        </div>
+
+        <div class="chip dark">
+          <div class="sizes">
+            <div class="spec">
+              <svg class="mark" viewBox="0 0 100 100" width="96" height="96" aria-hidden="true">
+                <polygon class="w-brand" points="50,8.5 67,43 33,43"/>
+                <circle class="w-ink" cx="19" cy="72.5" r="14"/>
+                <circle class="w-ink" cx="81" cy="72.5" r="14"/>
+                <g class="s" stroke-width="6.25">
+                  <line class="ink" x1="33" y1="72.5" x2="67" y2="72.5"/>
+                  <circle class="ink" cx="19" cy="72.5" r="14"/>
+                  <circle class="ink" cx="81" cy="72.5" r="14"/>
+                  <polygon class="br" points="50,8.5 67,43 33,43"/>
+                </g>
+              </svg>
+              <span class="px">adopted</span>
+            </div>
+            <div class="spec">
+              <svg class="mark" viewBox="0 0 100 100" width="32" height="32" aria-hidden="true">
+                <polygon class="w-brand" points="50,8.5 67,43 33,43"/>
+                <circle class="w-ink" cx="19" cy="72.5" r="14"/>
+                <circle class="w-ink" cx="81" cy="72.5" r="14"/>
+                <g class="s" stroke-width="6.25">
+                  <line class="ink" x1="33" y1="72.5" x2="67" y2="72.5"/>
+                  <circle class="ink" cx="19" cy="72.5" r="14"/>
+                  <circle class="ink" cx="81" cy="72.5" r="14"/>
+                  <polygon class="br" points="50,8.5 67,43 33,43"/>
+                </g>
+              </svg>
+              <span class="px">32</span>
+            </div>
+          </div>
+          <div class="cap">Tied by alignment — 0.340 shared by deck and apex base</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= LOCKUP ================= -->
+  <section>
+    <div class="margin">
+      <h2>The lockup</h2>
+      <p>What replaces the cube-plus-“AEC / BRIDGE” in <code>assets/logo.svg</code>.</p>
+      <p>Segoe UI at weight 600, sentence case, no tracking. The mark carries the
+         identity; the wordmark only says the name.</p>
+    </div>
+    <div class="body">
+      <div class="chips">
+        <div class="chip dark">
+          <div class="lockup">
+            <svg class="mark" viewBox="0 0 100 100" width="72" height="72" aria-hidden="true">
+              <polygon class="w-brand" points="50,8.5 67,43 33,43"/>
+              <circle class="w-ink" cx="19" cy="72.5" r="14"/>
+              <circle class="w-ink" cx="81" cy="72.5" r="14"/>
+              <g class="s" stroke-width="6.25">
+                <line class="ink" x1="33" y1="72.5" x2="67" y2="72.5"/>
+                <circle class="ink" cx="19" cy="72.5" r="14"/>
+                <circle class="ink" cx="81" cy="72.5" r="14"/>
+                <polygon class="br" points="50,8.5 67,43 33,43"/>
+              </g>
+            </svg>
+            <div>
+              <div class="name">AEC Model Bridge</div>
+              <div class="sub">Model context for Revit</div>
+            </div>
+          </div>
+          <div class="cap">Dark README</div>
+        </div>
+        <div class="chip light">
+          <div class="lockup">
+            <svg class="mark" viewBox="0 0 100 100" width="72" height="72" aria-hidden="true">
+              <polygon class="w-brand" points="50,8.5 67,43 33,43"/>
+              <circle class="w-ink" cx="19" cy="72.5" r="14"/>
+              <circle class="w-ink" cx="81" cy="72.5" r="14"/>
+              <g class="s" stroke-width="6.25">
+                <line class="ink" x1="33" y1="72.5" x2="67" y2="72.5"/>
+                <circle class="ink" cx="19" cy="72.5" r="14"/>
+                <circle class="ink" cx="81" cy="72.5" r="14"/>
+                <polygon class="br" points="50,8.5 67,43 33,43"/>
+              </g>
+            </svg>
+            <div>
+              <div class="name">AEC Model Bridge</div>
+              <div class="sub">Model context for Revit</div>
+            </div>
+          </div>
+          <div class="cap">Light README</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PANEL MOCK ================= -->
+  <section>
+    <div class="margin">
+      <h2>The panel</h2>
+      <p>Same markup the panel ships today — 58 px rail, 64 px topbar, card list —
+         repainted with these tokens and the mark dropped into the rail in place
+         of the gradient square.</p>
+      <p>The rail stays dark in both themes. It is the product's spine, and it is
+         the one place the brand indicator lives.</p>
+      <p>Rail and topbar are the only translucent surfaces. Cards stay opaque —
+         glass behind body text is a legibility tax.</p>
+    </div>
+    <div class="body">
+      <div class="mocks">
+
+        <!-- dark -->
+        <div class="panel dark on-dark">
+          <div class="rail">
+            <div class="brandcell">
+              <svg class="mark" viewBox="0 0 100 100" width="26" height="26" aria-hidden="true">
+                <polygon class="w-brand" points="50,8.5 67,43 33,43"/>
+              <circle class="w-ink" cx="19" cy="72.5" r="14"/>
+              <circle class="w-ink" cx="81" cy="72.5" r="14"/>
+              <g class="s" stroke-width="5.8">
+                <line class="ink" x1="33" y1="72.5" x2="67" y2="72.5"/>
+                <circle class="ink" cx="19" cy="72.5" r="14"/>
+                <circle class="ink" cx="81" cy="72.5" r="14"/>
+                <polygon class="br" points="50,8.5 67,43 33,43"/>
+              </g>
+              </svg>
+              <span class="amb">AMB</span>
+            </div>
+            <div class="nav">C</div>
+            <div class="nav">P</div>
+            <div class="nav on">F</div>
+            <div class="nav">R</div>
+            <div class="nav">L</div>
+            <div class="nav">S</div>
+          </div>
+          <div class="appcol">
+            <div class="topbar">
+              <div>
+                <h3>Findings</h3>
+                <p class="sub">4 findings in Level 2 — Structure</p>
+              </div>
+              <span class="pill"><span class="dot"></span>Hub connected</span>
+            </div>
+            <div class="cards">
+              <div class="card">
+                <div class="head">
+                  <h4>Wall joins unmitred</h4>
+                  <span class="badge error">error</span>
+                </div>
+                <p>Six walls on grid C meet without a mitre. Corners will render open in section.</p>
+                <div class="acts"><button class="btn">Select in Revit</button></div>
+              </div>
+              <div class="card">
+                <div class="head">
+                  <h4>Rooms unbounded</h4>
+                  <span class="badge warning">warning</span>
+                </div>
+                <p>Two rooms on Level 2 have no bounding element and report zero area.</p>
+              </div>
+              <div class="card">
+                <div class="head">
+                  <h4>Rename 14 door types</h4>
+                  <span class="badge pending">pending</span>
+                </div>
+                <p>Waiting on your approval before anything is written to the model.</p>
+                <div class="acts">
+                  <button class="btn primary">Approve</button>
+                  <button class="btn">Reject</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- light -->
+        <div class="panel light on-light">
+          <div class="rail">
+            <div class="brandcell">
+              <svg class="mark" viewBox="0 0 100 100" width="26" height="26" aria-hidden="true">
+                <polygon class="w-brand" points="50,8.5 67,43 33,43"/>
+              <circle class="w-ink" cx="19" cy="72.5" r="14"/>
+              <circle class="w-ink" cx="81" cy="72.5" r="14"/>
+              <g class="s" stroke-width="5.8">
+                <line class="ink" x1="33" y1="72.5" x2="67" y2="72.5"/>
+                <circle class="ink" cx="19" cy="72.5" r="14"/>
+                <circle class="ink" cx="81" cy="72.5" r="14"/>
+                <polygon class="br" points="50,8.5 67,43 33,43"/>
+              </g>
+              </svg>
+              <span class="amb">AMB</span>
+            </div>
+            <div class="nav">C</div>
+            <div class="nav">P</div>
+            <div class="nav on">F</div>
+            <div class="nav">R</div>
+            <div class="nav">L</div>
+            <div class="nav">S</div>
+          </div>
+          <div class="appcol">
+            <div class="topbar">
+              <div>
+                <h3>Findings</h3>
+                <p class="sub">4 findings in Level 2 — Structure</p>
+              </div>
+              <span class="pill"><span class="dot"></span>Hub connected</span>
+            </div>
+            <div class="cards">
+              <div class="card">
+                <div class="head">
+                  <h4>Wall joins unmitred</h4>
+                  <span class="badge error">error</span>
+                </div>
+                <p>Six walls on grid C meet without a mitre. Corners will render open in section.</p>
+                <div class="acts"><button class="btn">Select in Revit</button></div>
+              </div>
+              <div class="card">
+                <div class="head">
+                  <h4>Rooms unbounded</h4>
+                  <span class="badge warning">warning</span>
+                </div>
+                <p>Two rooms on Level 2 have no bounding element and report zero area.</p>
+              </div>
+              <div class="card">
+                <div class="head">
+                  <h4>Rename 14 door types</h4>
+                  <span class="badge pending">pending</span>
+                </div>
+                <p>Waiting on your approval before anything is written to the model.</p>
+                <div class="acts">
+                  <button class="btn primary">Approve</button>
+                  <button class="btn">Reject</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= BADGES ================= -->
+  <section>
+    <div class="margin">
+      <h2>Severity</h2>
+      <p>One set of six, shared by the ribbon icons and the panel badges. Solid
+         fill on light, 14 % tint with a hairline on dark.</p>
+      <p>Every light fill clears 4.5:1 against its own white label. The amber
+         shipping today does not — it measures 3.6:1.</p>
+      <p>Sentence case, not caps. Uppercase at 11 px costs legibility on a word
+         like “warning” and the pill shape already says “status”.</p>
+    </div>
+    <div class="body">
+      <div class="chips">
+        <div class="chip light on-light">
+          <div class="badgerow">
+            <span class="badge error">error</span>
+            <span class="badge warning">warning</span>
+            <span class="badge info">info</span>
+            <span class="badge success">success</span>
+            <span class="badge pending">pending</span>
+            <span class="badge idle">idle</span>
+          </div>
+          <div class="cap">Light</div>
+        </div>
+        <div class="chip dark on-dark">
+          <div class="badgerow">
+            <span class="badge error">error</span>
+            <span class="badge warning">warning</span>
+            <span class="badge info">info</span>
+            <span class="badge success">success</span>
+            <span class="badge pending">pending</span>
+            <span class="badge idle">idle</span>
+          </div>
+          <div class="cap">Dark</div>
+        </div>
+      </div>
+
+      <div class="fix">
+        <div class="col">
+          <h5>Pending today, in the panel</h5>
+          <small>Slate grey <code>#64748b</code>. Grey is the universal signal
+            for “nothing to do here”, on the one state that blocks everything
+            until you act.</small>
+          <span class="was">PENDING</span>
+        </div>
+        <div class="col">
+          <h5>Pending today, on the ribbon</h5>
+          <small>Violet <code>#7B1FA2</code>. Same concept, unrelated colour,
+            drawn by a different file.</small>
+          <span class="badge" style="background:#7B1FA2;color:#fff;border-color:#7B1FA2">pending</span>
+        </div>
+        <div class="col now">
+          <h5>Resolved: violet, both surfaces</h5>
+          <small>The ribbon was right. <code>--amb-pending</code> is
+            <code>#6D3FB8</code> light and <code>#B79AF0</code> dark, and the
+            grey moves to <code>--amb-idle</code> for states that really are
+            inert.</small>
+          <span class="badgerow on-dark" style="display:inline-flex">
+            <span class="badge pending">pending</span>
+            <span class="badge idle">idle</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ICONS ================= -->
+  <section>
+    <div class="margin">
+      <h2>Icon grammar</h2>
+      <p>Structure is ink. One accent, and only if the icon reports a state.</p>
+      <p>Five state icons carry a semantic colour. Four action icons carry none —
+         ink strokes, ink-tinted interiors. That is what makes a ribbon scannable
+         instead of eight unrelated stickers.</p>
+      <p>Brand cyan appears on the mark and nowhere else in the ribbon, which is
+         what makes the brand button findable.</p>
+    </div>
+    <div class="body">
+
+      <p class="tier">State — the icon reports a condition</p>
+      <div class="iconwall">
+
+        <!-- Connect: monochrome success -->
+        <div class="icell ribbon dark" style="--ic:#3FCB8B;--ic-ink:#3FCB8B;--ic-wash:rgba(63,203,139,.20);--ic-ink-wash:rgba(63,203,139,.20)">
+          <div class="pair">
+            <svg class="ico" viewBox="0 0 100 100" width="16" height="16" aria-hidden="true">
+              <polygon class="fa" points="50,8.5 67,43 33,43"/>
+              <circle class="fi" cx="19" cy="72.5" r="14"/>
+              <circle class="fi" cx="81" cy="72.5" r="14"/>
+              <g class="st a" stroke-width="9.4">
+                <line x1="33" y1="72.5" x2="67" y2="72.5"/>
+                <circle cx="19" cy="72.5" r="14"/>
+                <circle cx="81" cy="72.5" r="14"/>
+                <polygon points="50,8.5 67,43 33,43"/>
+              </g>
+            </svg>
+            <svg class="ico" viewBox="0 0 100 100" width="32" height="32" aria-hidden="true">
+              <polygon class="fa" points="50,8.5 67,43 33,43"/>
+              <circle class="fi" cx="19" cy="72.5" r="14"/>
+              <circle class="fi" cx="81" cy="72.5" r="14"/>
+              <g class="st a" stroke-width="6.25">
+                <line x1="33" y1="72.5" x2="67" y2="72.5"/>
+                <circle cx="19" cy="72.5" r="14"/>
+                <circle cx="81" cy="72.5" r="14"/>
+                <polygon points="50,8.5 67,43 33,43"/>
+              </g>
+            </svg>
+          </div>
+          <div class="nm">Connect</div>
+          <div class="tk">--amb-success</div>
+        </div>
+
+        <!-- Disconnect: monochrome danger + slash -->
+        <div class="icell ribbon dark" style="--ic:#F0796B;--ic-ink:#F0796B;--ic-wash:rgba(240,121,107,.20);--ic-ink-wash:rgba(240,121,107,.20)">
+          <div class="pair">
+            <svg class="ico" viewBox="0 0 100 100" width="16" height="16" aria-hidden="true">
+              <polygon class="fa" points="50,8.5 67,43 33,43"/>
+              <circle class="fi" cx="19" cy="72.5" r="14"/>
+              <circle class="fi" cx="81" cy="72.5" r="14"/>
+              <g class="st a" stroke-width="9.4">
+                <line x1="33" y1="72.5" x2="67" y2="72.5"/>
+                <circle cx="19" cy="72.5" r="14"/>
+                <circle cx="81" cy="72.5" r="14"/>
+                <polygon points="50,8.5 67,43 33,43"/>
+              </g>
+              <g class="st a" stroke-width="12.5">
+                <line x1="30" y1="29" x2="70" y2="69"/>
+              </g>
+            </svg>
+            <svg class="ico" viewBox="0 0 100 100" width="32" height="32" aria-hidden="true">
+              <polygon class="fa" points="50,8.5 67,43 33,43"/>
+              <circle class="fi" cx="19" cy="72.5" r="14"/>
+              <circle class="fi" cx="81" cy="72.5" r="14"/>
+              <g class="st a" stroke-width="6.25">
+                <line x1="33" y1="72.5" x2="67" y2="72.5"/>
+                <circle cx="19" cy="72.5" r="14"/>
+                <circle cx="81" cy="72.5" r="14"/>
+                <polygon points="50,8.5 67,43 33,43"/>
+              </g>
+              <g class="st a" stroke-width="7.8">
+                <line x1="30" y1="29" x2="70" y2="69"/>
+              </g>
+            </svg>
+          </div>
+          <div class="nm">Disconnect</div>
+          <div class="tk">--amb-danger</div>
+        </div>
+
+        <!-- Status: ink + info -->
+        <div class="icell ribbon dark" style="--ic:#7FA6F5;--ic-ink:#E9EEF5;--ic-wash:rgba(127,166,245,.20);--ic-ink-wash:rgba(233,238,245,.16)">
+          <div class="pair">
+            <svg class="ico" viewBox="0 0 100 100" width="16" height="16" aria-hidden="true">
+              <circle class="fa" cx="73" cy="72" r="14"/>
+              <g class="st k" stroke-width="9.4">
+                <rect x="7" y="7" width="86" height="86" rx="9"/>
+                <line x1="19" y1="32" x2="58" y2="32"/>
+                <line x1="19" y1="53" x2="50" y2="53"/>
+              </g>
+              <g class="st a" stroke-width="9.4"><circle cx="73" cy="72" r="14"/></g>
+              <circle class="sa" cx="73" cy="72" r="5.5"/>
+            </svg>
+            <svg class="ico" viewBox="0 0 100 100" width="32" height="32" aria-hidden="true">
+              <circle class="fa" cx="73" cy="72" r="14"/>
+              <g class="st k" stroke-width="6.25">
+                <rect x="7" y="7" width="86" height="86" rx="9"/>
+                <line x1="19" y1="32" x2="58" y2="32"/>
+                <line x1="19" y1="53" x2="50" y2="53"/>
+              </g>
+              <g class="st a" stroke-width="6.25"><circle cx="73" cy="72" r="14"/></g>
+              <circle class="sa" cx="73" cy="72" r="5.5"/>
+            </svg>
+          </div>
+          <div class="nm">Status</div>
+          <div class="tk">--amb-info</div>
+        </div>
+
+        <!-- Health: ink + warning -->
+        <div class="icell ribbon dark" style="--ic:#F2A63C;--ic-ink:#E9EEF5;--ic-wash:rgba(242,166,60,.20);--ic-ink-wash:rgba(233,238,245,.16)">
+          <div class="pair">
+            <svg class="ico" viewBox="0 0 100 100" width="16" height="16" aria-hidden="true">
+              <g class="st k" stroke-width="9.4">
+                <rect x="20" y="12" width="60" height="78" rx="6"/>
+                <rect x="38" y="5" width="24" height="11" rx="3"/>
+              </g>
+              <g class="st a" stroke-width="11"><polyline points="32,53 45,66 70,36"/></g>
+            </svg>
+            <svg class="ico" viewBox="0 0 100 100" width="32" height="32" aria-hidden="true">
+              <g class="st k" stroke-width="6.25">
+                <rect x="20" y="12" width="60" height="78" rx="6"/>
+                <rect x="38" y="5" width="24" height="11" rx="3"/>
+              </g>
+              <g class="st a" stroke-width="9"><polyline points="32,53 45,66 70,36"/></g>
+            </svg>
+          </div>
+          <div class="nm">Health</div>
+          <div class="tk">--amb-warning</div>
+        </div>
+
+        <!-- Pending: ink + pending -->
+        <div class="icell ribbon dark" style="--ic:#B79AF0;--ic-ink:#E9EEF5;--ic-wash:rgba(183,154,240,.20);--ic-ink-wash:rgba(233,238,245,.16)">
+          <div class="pair">
+            <svg class="ico" viewBox="0 0 100 100" width="16" height="16" aria-hidden="true">
+              <circle class="fa" cx="73" cy="74" r="21"/>
+              <g class="st k" stroke-width="10">
+                <line x1="10" y1="22" x2="62" y2="22"/>
+                <line x1="10" y1="42" x2="54" y2="42"/>
+                <line x1="10" y1="62" x2="42" y2="62"/>
+              </g>
+              <g class="st a" stroke-width="8.6">
+                <circle cx="73" cy="74" r="21"/>
+                <line x1="73" y1="74" x2="73" y2="62.5"/>
+                <line x1="73" y1="74" x2="82.5" y2="76.1"/>
+              </g>
+            </svg>
+            <svg class="ico" viewBox="0 0 100 100" width="32" height="32" aria-hidden="true">
+              <circle class="fa" cx="73" cy="74" r="21"/>
+              <g class="st k" stroke-width="7">
+                <line x1="10" y1="22" x2="62" y2="22"/>
+                <line x1="10" y1="42" x2="54" y2="42"/>
+                <line x1="10" y1="62" x2="42" y2="62"/>
+              </g>
+              <g class="st a" stroke-width="5.5">
+                <circle cx="73" cy="74" r="21"/>
+                <line x1="73" y1="74" x2="73" y2="62.5"/>
+                <line x1="73" y1="74" x2="82.5" y2="76.1"/>
+              </g>
+            </svg>
+          </div>
+          <div class="nm">Pending</div>
+          <div class="tk">--amb-pending</div>
+        </div>
+
+      </div>
+
+      <p class="tier" style="margin-top:26px">Action — no condition, so no accent</p>
+      <div class="iconwall">
+
+        <!-- Settings: ink only -->
+        <div class="icell ribbon dark" style="--ic:#E9EEF5;--ic-ink:#E9EEF5;--ic-wash:rgba(233,238,245,.16);--ic-ink-wash:rgba(233,238,245,.16)">
+          <div class="pair">
+            <svg class="ico" viewBox="0 0 100 100" width="16" height="16" aria-hidden="true">
+              <g class="st k" stroke-width="9.4">
+                <circle cx="50" cy="50" r="12"/>
+                <circle cx="50" cy="50" r="30"/>
+              </g>
+              <g class="st k" stroke-width="11">
+                <line x1="80" y1="50" x2="91" y2="50"/>
+                <line x1="65" y1="75.98" x2="70.5" y2="85.51"/>
+                <line x1="35" y1="75.98" x2="29.5" y2="85.51"/>
+                <line x1="20" y1="50" x2="9" y2="50"/>
+                <line x1="35" y1="24.02" x2="29.5" y2="14.49"/>
+                <line x1="65" y1="24.02" x2="70.5" y2="14.49"/>
+              </g>
+            </svg>
+            <svg class="ico" viewBox="0 0 100 100" width="32" height="32" aria-hidden="true">
+              <g class="st k" stroke-width="6.25">
+                <circle cx="50" cy="50" r="12"/>
+                <circle cx="50" cy="50" r="30"/>
+              </g>
+              <g class="st k" stroke-width="8">
+                <line x1="80" y1="50" x2="91" y2="50"/>
+                <line x1="65" y1="75.98" x2="70.5" y2="85.51"/>
+                <line x1="35" y1="75.98" x2="29.5" y2="85.51"/>
+                <line x1="20" y1="50" x2="9" y2="50"/>
+                <line x1="35" y1="24.02" x2="29.5" y2="14.49"/>
+                <line x1="65" y1="24.02" x2="70.5" y2="14.49"/>
+              </g>
+            </svg>
+          </div>
+          <div class="nm">Settings</div>
+          <div class="tk">ink only</div>
+        </div>
+
+        <!-- Panel: ink only -->
+        <div class="icell ribbon dark" style="--ic:#E9EEF5;--ic-ink:#E9EEF5;--ic-wash:rgba(233,238,245,.16);--ic-ink-wash:rgba(233,238,245,.16)">
+          <div class="pair">
+            <svg class="ico" viewBox="0 0 100 100" width="16" height="16" aria-hidden="true">
+              <rect class="fi" x="63" y="9" width="28" height="82"/>
+              <g class="st k" stroke-width="9.4">
+                <rect x="7" y="7" width="86" height="86" rx="9"/>
+                <line x1="17" y1="30" x2="53" y2="30"/>
+                <line x1="17" y1="50" x2="46" y2="50"/>
+              </g>
+            </svg>
+            <svg class="ico" viewBox="0 0 100 100" width="32" height="32" aria-hidden="true">
+              <rect class="fi" x="63" y="9" width="28" height="82"/>
+              <g class="st k" stroke-width="6.25">
+                <rect x="7" y="7" width="86" height="86" rx="9"/>
+                <line x1="17" y1="30" x2="53" y2="30"/>
+                <line x1="17" y1="50" x2="46" y2="50"/>
+              </g>
+            </svg>
+          </div>
+          <div class="nm">Panel</div>
+          <div class="tk">ink only</div>
+        </div>
+
+        <!-- Reports: ink only -->
+        <div class="icell ribbon dark" style="--ic:#E9EEF5;--ic-ink:#E9EEF5;--ic-wash:rgba(233,238,245,.16);--ic-ink-wash:rgba(233,238,245,.16)">
+          <div class="pair">
+            <svg class="ico" viewBox="0 0 100 100" width="16" height="16" aria-hidden="true">
+              <g class="fi">
+                <rect x="15" y="58" width="17" height="28"/>
+                <rect x="41.5" y="40" width="17" height="46"/>
+                <rect x="68" y="22" width="17" height="64"/>
+              </g>
+              <g class="st k" stroke-width="9.4">
+                <rect x="15" y="58" width="17" height="28"/>
+                <rect x="41.5" y="40" width="17" height="46"/>
+                <rect x="68" y="22" width="17" height="64"/>
+              </g>
+            </svg>
+            <svg class="ico" viewBox="0 0 100 100" width="32" height="32" aria-hidden="true">
+              <g class="fi">
+                <rect x="15" y="58" width="17" height="28"/>
+                <rect x="41.5" y="40" width="17" height="46"/>
+                <rect x="68" y="22" width="17" height="64"/>
+              </g>
+              <g class="st k" stroke-width="5">
+                <rect x="15" y="58" width="17" height="28"/>
+                <rect x="41.5" y="40" width="17" height="46"/>
+                <rect x="68" y="22" width="17" height="64"/>
+              </g>
+              <g class="st k" stroke-width="6.25"><line x1="10" y1="86" x2="90" y2="86"/></g>
+            </svg>
+          </div>
+          <div class="nm">Reports</div>
+          <div class="tk">ink only</div>
+        </div>
+
+
+      </div>
+
+      <p class="tier" style="margin-top:26px">The mark &#8212; brand cyan, and nothing else in the ribbon has it</p>
+      <div class="iconwall">
+        <div class="icell ribbon dark" style="--mk-ink:#E9EEF5;--mk-brand:#3FC3D6;--mk-ink-wash:rgba(233,238,245,.16);--mk-brand-wash:rgba(63,195,214,.20)">
+          <div class="pair">
+            <svg class="mark" viewBox="0 0 100 100" width="16" height="16" aria-hidden="true">
+              <polygon class="w-brand" points="50,8.5 67,43 33,43"/>
+              <circle class="w-ink" cx="19" cy="72.5" r="14"/>
+              <circle class="w-ink" cx="81" cy="72.5" r="14"/>
+              <g class="s" stroke-width="9.4">
+                <line class="ink" x1="33" y1="72.5" x2="67" y2="72.5"/>
+                <circle class="ink" cx="19" cy="72.5" r="14"/>
+                <circle class="ink" cx="81" cy="72.5" r="14"/>
+                <polygon class="br" points="50,8.5 67,43 33,43"/>
+              </g>
+            </svg>
+            <svg class="mark" viewBox="0 0 100 100" width="32" height="32" aria-hidden="true">
+              <polygon class="w-brand" points="50,8.5 67,43 33,43"/>
+              <circle class="w-ink" cx="19" cy="72.5" r="14"/>
+              <circle class="w-ink" cx="81" cy="72.5" r="14"/>
+              <g class="s" stroke-width="6.25">
+                <line class="ink" x1="33" y1="72.5" x2="67" y2="72.5"/>
+                <circle class="ink" cx="19" cy="72.5" r="14"/>
+                <circle class="ink" cx="81" cy="72.5" r="14"/>
+                <polygon class="br" points="50,8.5 67,43 33,43"/>
+              </g>
+            </svg>
+          </div>
+          <div class="nm">Brand</div>
+          <div class="tk">--amb-brand</div>
+        </div>
+
+      </div>
+
+      <p class="tier" style="margin-top:26px">The same five state icons on a light Revit ribbon</p>
+      <div class="iconwall">
+        <div class="icell ribbon light" style="--ic:#127A4B;--ic-ink:#127A4B;--ic-wash:rgba(18,122,75,.20);--ic-ink-wash:rgba(18,122,75,.20)">
+          <div class="pair">
+            <svg class="ico" viewBox="0 0 100 100" width="16" height="16" aria-hidden="true">
+              <polygon class="fa" points="50,8.5 67,43 33,43"/>
+              <circle class="fi" cx="19" cy="72.5" r="14"/>
+              <circle class="fi" cx="81" cy="72.5" r="14"/>
+              <g class="st a" stroke-width="9.4">
+                <line x1="33" y1="72.5" x2="67" y2="72.5"/>
+                <circle cx="19" cy="72.5" r="14"/>
+                <circle cx="81" cy="72.5" r="14"/>
+                <polygon points="50,8.5 67,43 33,43"/>
+              </g>
+            </svg>
+            <svg class="ico" viewBox="0 0 100 100" width="32" height="32" aria-hidden="true">
+              <polygon class="fa" points="50,8.5 67,43 33,43"/>
+              <circle class="fi" cx="19" cy="72.5" r="14"/>
+              <circle class="fi" cx="81" cy="72.5" r="14"/>
+              <g class="st a" stroke-width="6.25">
+                <line x1="33" y1="72.5" x2="67" y2="72.5"/>
+                <circle cx="19" cy="72.5" r="14"/>
+                <circle cx="81" cy="72.5" r="14"/>
+                <polygon points="50,8.5 67,43 33,43"/>
+              </g>
+            </svg>
+          </div>
+          <div class="nm">Connect</div>
+          <div class="tk">#127A4B</div>
+        </div>
+
+        <div class="icell ribbon light" style="--ic:#C23B2E;--ic-ink:#C23B2E;--ic-wash:rgba(194,59,46,.20);--ic-ink-wash:rgba(194,59,46,.20)">
+          <div class="pair">
+            <svg class="ico" viewBox="0 0 100 100" width="16" height="16" aria-hidden="true">
+              <polygon class="fa" points="50,8.5 67,43 33,43"/>
+              <circle class="fi" cx="19" cy="72.5" r="14"/>
+              <circle class="fi" cx="81" cy="72.5" r="14"/>
+              <g class="st a" stroke-width="9.4">
+                <line x1="33" y1="72.5" x2="67" y2="72.5"/>
+                <circle cx="19" cy="72.5" r="14"/>
+                <circle cx="81" cy="72.5" r="14"/>
+                <polygon points="50,8.5 67,43 33,43"/>
+              </g>
+              <g class="st a" stroke-width="12.5">
+                <line x1="30" y1="29" x2="70" y2="69"/>
+              </g>
+            </svg>
+            <svg class="ico" viewBox="0 0 100 100" width="32" height="32" aria-hidden="true">
+              <polygon class="fa" points="50,8.5 67,43 33,43"/>
+              <circle class="fi" cx="19" cy="72.5" r="14"/>
+              <circle class="fi" cx="81" cy="72.5" r="14"/>
+              <g class="st a" stroke-width="6.25">
+                <line x1="33" y1="72.5" x2="67" y2="72.5"/>
+                <circle cx="19" cy="72.5" r="14"/>
+                <circle cx="81" cy="72.5" r="14"/>
+                <polygon points="50,8.5 67,43 33,43"/>
+              </g>
+              <g class="st a" stroke-width="7.8">
+                <line x1="30" y1="29" x2="70" y2="69"/>
+              </g>
+            </svg>
+          </div>
+          <div class="nm">Disconnect</div>
+          <div class="tk">#C23B2E</div>
+        </div>
+
+        <div class="icell ribbon light" style="--ic:#2457C5;--ic-ink:#18202C;--ic-wash:rgba(36,87,197,.20);--ic-ink-wash:rgba(24,32,44,.12)">
+          <div class="pair">
+            <svg class="ico" viewBox="0 0 100 100" width="16" height="16" aria-hidden="true">
+              <circle class="fa" cx="73" cy="72" r="14"/>
+              <g class="st k" stroke-width="9.4">
+                <rect x="7" y="7" width="86" height="86" rx="9"/>
+                <line x1="19" y1="32" x2="58" y2="32"/>
+                <line x1="19" y1="53" x2="50" y2="53"/>
+              </g>
+              <g class="st a" stroke-width="9.4"><circle cx="73" cy="72" r="14"/></g>
+              <circle class="sa" cx="73" cy="72" r="5.5"/>
+            </svg>
+            <svg class="ico" viewBox="0 0 100 100" width="32" height="32" aria-hidden="true">
+              <circle class="fa" cx="73" cy="72" r="14"/>
+              <g class="st k" stroke-width="6.25">
+                <rect x="7" y="7" width="86" height="86" rx="9"/>
+                <line x1="19" y1="32" x2="58" y2="32"/>
+                <line x1="19" y1="53" x2="50" y2="53"/>
+              </g>
+              <g class="st a" stroke-width="6.25"><circle cx="73" cy="72" r="14"/></g>
+              <circle class="sa" cx="73" cy="72" r="5.5"/>
+            </svg>
+          </div>
+          <div class="nm">Status</div>
+          <div class="tk">#2457C5</div>
+        </div>
+
+        <div class="icell ribbon light" style="--ic:#A45F0B;--ic-ink:#18202C;--ic-wash:rgba(164,95,11,.20);--ic-ink-wash:rgba(24,32,44,.12)">
+          <div class="pair">
+            <svg class="ico" viewBox="0 0 100 100" width="16" height="16" aria-hidden="true">
+              <g class="st k" stroke-width="9.4">
+                <rect x="20" y="12" width="60" height="78" rx="6"/>
+                <rect x="38" y="5" width="24" height="11" rx="3"/>
+              </g>
+              <g class="st a" stroke-width="11"><polyline points="32,53 45,66 70,36"/></g>
+            </svg>
+            <svg class="ico" viewBox="0 0 100 100" width="32" height="32" aria-hidden="true">
+              <g class="st k" stroke-width="6.25">
+                <rect x="20" y="12" width="60" height="78" rx="6"/>
+                <rect x="38" y="5" width="24" height="11" rx="3"/>
+              </g>
+              <g class="st a" stroke-width="9"><polyline points="32,53 45,66 70,36"/></g>
+            </svg>
+          </div>
+          <div class="nm">Health</div>
+          <div class="tk">#A45F0B</div>
+        </div>
+
+        <div class="icell ribbon light" style="--ic:#6D3FB8;--ic-ink:#18202C;--ic-wash:rgba(109,63,184,.20);--ic-ink-wash:rgba(24,32,44,.12)">
+          <div class="pair">
+            <svg class="ico" viewBox="0 0 100 100" width="16" height="16" aria-hidden="true">
+              <circle class="fa" cx="73" cy="74" r="21"/>
+              <g class="st k" stroke-width="10">
+                <line x1="10" y1="22" x2="62" y2="22"/>
+                <line x1="10" y1="42" x2="54" y2="42"/>
+                <line x1="10" y1="62" x2="42" y2="62"/>
+              </g>
+              <g class="st a" stroke-width="8.6">
+                <circle cx="73" cy="74" r="21"/>
+                <line x1="73" y1="74" x2="73" y2="62.5"/>
+                <line x1="73" y1="74" x2="82.5" y2="76.1"/>
+              </g>
+            </svg>
+            <svg class="ico" viewBox="0 0 100 100" width="32" height="32" aria-hidden="true">
+              <circle class="fa" cx="73" cy="74" r="21"/>
+              <g class="st k" stroke-width="7">
+                <line x1="10" y1="22" x2="62" y2="22"/>
+                <line x1="10" y1="42" x2="54" y2="42"/>
+                <line x1="10" y1="62" x2="42" y2="62"/>
+              </g>
+              <g class="st a" stroke-width="5.5">
+                <circle cx="73" cy="74" r="21"/>
+                <line x1="73" y1="74" x2="73" y2="62.5"/>
+                <line x1="73" y1="74" x2="82.5" y2="76.1"/>
+              </g>
+            </svg>
+          </div>
+          <div class="nm">Pending</div>
+          <div class="tk">#6D3FB8</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ================= COLOR ================= -->
+  <section>
+    <div class="margin">
+      <h2>Sixteen tokens</h2>
+      <p>Down from the twenty-two unrelated hexes spread across
+         <code>logo.svg</code>, <code>IconGenerator.cs</code> and
+         <code>styles.css</code> today.</p>
+      <p>Brand cyan is the one saturated family no semantic token occupies, so
+         the brand can never be misread as a status. It is deliberately not
+         Autodesk's <code>#0696D7</code> — the panel is a guest inside Revit,
+         not a part of it.</p>
+    </div>
+    <div class="body">
+      <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Token</th><th>Light</th><th>Dark</th><th>Role</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="tname">--amb-ink</td>
+              <td><span class="sw"><i style="background:#18202C"></i><code>#18202C</code></span></td>
+              <td><span class="sw"><i style="background:#E9EEF5"></i><code>#E9EEF5</code></span></td>
+              <td class="role">Text; every icon's structural stroke</td></tr>
+          <tr><td class="tname">--amb-ink-muted</td>
+              <td><span class="sw"><i style="background:#5B6676"></i><code>#5B6676</code></span></td>
+              <td><span class="sw"><i style="background:#9BA8B9"></i><code>#9BA8B9</code></span></td>
+              <td class="role">Secondary text, metadata</td></tr>
+          <tr><td class="tname">--amb-bg</td>
+              <td><span class="sw"><i style="background:#F2F5F8"></i><code>#F2F5F8</code></span></td>
+              <td><span class="sw"><i style="background:#14181E"></i><code>#14181E</code></span></td>
+              <td class="role">App background</td></tr>
+          <tr><td class="tname">--amb-surface</td>
+              <td><span class="sw"><i style="background:#FFFFFF"></i><code>#FFFFFF</code></span></td>
+              <td><span class="sw"><i style="background:#1C222B"></i><code>#1C222B</code></span></td>
+              <td class="role">Cards, topbar, inputs</td></tr>
+          <tr><td class="tname">--amb-surface-raised</td>
+              <td><span class="sw"><i style="background:#E9EEF4"></i><code>#E9EEF4</code></span></td>
+              <td><span class="sw"><i style="background:#232A34"></i><code>#232A34</code></span></td>
+              <td class="role">Pills, hovered rows</td></tr>
+          <tr><td class="tname">--amb-line</td>
+              <td><span class="sw"><i style="background:#D3DAE3"></i><code>#D3DAE3</code></span></td>
+              <td><span class="sw"><i style="background:#2F3945"></i><code>#2F3945</code></span></td>
+              <td class="role">1 px borders and dividers</td></tr>
+          <tr><td class="tname">--amb-rail</td>
+              <td><span class="sw"><i style="background:#141B24"></i><code>#141B24</code></span></td>
+              <td><span class="sw"><i style="background:#141B24"></i><code>#141B24</code></span></td>
+              <td class="role">Nav rail — dark in both themes</td></tr>
+          <tr><td class="tname">--amb-rail-ink</td>
+              <td><span class="sw"><i style="background:#C9D4E2"></i><code>#C9D4E2</code></span></td>
+              <td><span class="sw"><i style="background:#C9D4E2"></i><code>#C9D4E2</code></span></td>
+              <td class="role">Rail label and inactive glyph</td></tr>
+          <tr><td class="tname">--amb-brand</td>
+              <td><span class="sw"><i style="background:#0091A7"></i><code>#0091A7</code></span></td>
+              <td><span class="sw"><i style="background:#3FC3D6"></i><code>#3FC3D6</code></span></td>
+              <td class="role">Mark apex; focus ring; active nav</td></tr>
+          <tr><td class="tname">--amb-brand-strong</td>
+              <td><span class="sw"><i style="background:#046B80"></i><code>#046B80</code></span></td>
+              <td><span class="sw"><i style="background:#6FD8E6"></i><code>#6FD8E6</code></span></td>
+              <td class="role">Brand-coloured text and links</td></tr>
+          <tr><td class="tname">--amb-danger</td>
+              <td><span class="sw"><i style="background:#C23B2E"></i><code>#C23B2E</code></span></td>
+              <td><span class="sw"><i style="background:#F0796B"></i><code>#F0796B</code></span></td>
+              <td class="role">Error finding; disconnected</td></tr>
+          <tr><td class="tname">--amb-warning</td>
+              <td><span class="sw"><i style="background:#A45F0B"></i><code>#A45F0B</code></span></td>
+              <td><span class="sw"><i style="background:#F2A63C"></i><code>#F2A63C</code></span></td>
+              <td class="role">Warning finding; health check</td></tr>
+          <tr><td class="tname">--amb-info</td>
+              <td><span class="sw"><i style="background:#2457C5"></i><code>#2457C5</code></span></td>
+              <td><span class="sw"><i style="background:#7FA6F5"></i><code>#7FA6F5</code></span></td>
+              <td class="role">Info finding; status readout</td></tr>
+          <tr><td class="tname">--amb-success</td>
+              <td><span class="sw"><i style="background:#127A4B"></i><code>#127A4B</code></span></td>
+              <td><span class="sw"><i style="background:#3FCB8B"></i><code>#3FCB8B</code></span></td>
+              <td class="role">Connected; passed; approved</td></tr>
+          <tr><td class="tname">--amb-pending</td>
+              <td><span class="sw"><i style="background:#6D3FB8"></i><code>#6D3FB8</code></span></td>
+              <td><span class="sw"><i style="background:#B79AF0"></i><code>#B79AF0</code></span></td>
+              <td class="role">Awaiting a human decision</td></tr>
+          <tr><td class="tname">--amb-idle</td>
+              <td><span class="sw"><i style="background:#5B6676"></i><code>#5B6676</code></span></td>
+              <td><span class="sw"><i style="background:#9BA8B9"></i><code>#9BA8B9</code></span></td>
+              <td class="role">Inert: not run yet, disabled, n/a</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= TYPE ================= -->
+  <section>
+    <div class="margin">
+      <h2>Type</h2>
+      <p>Segoe UI stays, for everything, and this is now a decision rather than
+         an accident.</p>
+      <p>The panel is a docked pane inside Revit. A webfont would flash on every
+         open and would make the product look like a web page embedded in Revit
+         instead of a part of it. The distinctiveness budget is spent on the mark
+         and the icon grammar.</p>
+    </div>
+    <div class="body">
+      <div class="typerow">
+        <span class="lab">18 / 650</span>
+        <span style="font-size:18px;font-weight:650;line-height:1.2">Findings</span>
+        <span class="lab">14 / 600</span>
+        <span style="font-size:14px;font-weight:600;line-height:1.3">Wall joins unmitred</span>
+        <span class="lab">13 / 400</span>
+        <span style="font-size:13px;line-height:1.45">Six walls on grid C meet without a mitre. Corners will render open in section.</span>
+        <span class="lab">12 / 400</span>
+        <span style="font-size:12px;line-height:1.45;color:var(--muted)">4 findings in Level 2 — Structure</span>
+        <span class="lab">11 / 400</span>
+        <span style="font-size:11px;line-height:1.4;color:var(--faint);font-variant-numeric:tabular-nums">14:02:11 · health check complete</span>
+        <span class="lab">11 / 600</span>
+        <span class="on-dark"><span class="badge pending">pending</span></span>
+        <span class="lab">10 / 600</span>
+        <span style="font-size:10px;font-weight:600;letter-spacing:.06em;color:var(--muted)">AMB</span>
+      </div>
+      <p style="margin:22px 0 0;font-size:12.5px;color:var(--faint);max-width:62ch">
+        Sentence case for all UI strings. <code style="font-family:ui-monospace,Consolas,monospace">font-variant-numeric: tabular-nums</code>
+        on the run log, finding counts and timestamps, so columns of numbers stop
+        shifting as they update.
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    Every value on this sheet is written out in <code>docs/design/tokens.md</code>
+    and hand-copied from there into <code>assets/logo.svg</code>,
+    <code>packages/revit-bridge-addin/src/UI/IconGenerator.cs</code> and
+    <code>panel/styles.css</code>, each under a
+    <code>// keep in sync with docs/design/tokens.md</code> comment. There is no
+    token build step, on purpose.
+  </footer>
+
+</div>
+</body>
+</html>
