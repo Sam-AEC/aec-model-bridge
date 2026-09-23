@@ -26,10 +26,19 @@
   --amb-glass-filter: blur(14px) saturate(120%);
   --amb-shadow-1: 0 1px 2px rgba(16, 24, 40, 0.08);
   --amb-shadow-2: 0 6px 16px rgba(16, 24, 40, 0.10);
+  --amb-motion-fast: 120ms cubic-bezier(.4, 0, .2, 1);   /* hover, press */
+  --amb-motion-view: 180ms cubic-bezier(.2, .7, .3, 1);  /* view switch */
+}
+
+/* Narrow color-scheme once Revit's theme is known, so native controls
+   (select popups, scrollbars) follow Revit rather than the OS. */
+:root[data-theme="light"] {
+  color-scheme: light;
 }
 
 :root[data-theme="dark"] {
   /* keep in sync with docs/design/tokens.md */
+  color-scheme: dark;
   --amb-ink: #E9EEF5;
   --amb-ink-muted: #9BA8B9;
   --amb-bg: #14181E;
@@ -88,6 +97,8 @@
     --amb-shadow-2: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 10px 28px rgba(0, 0, 0, 0.45);
   }
 }
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 
 * {
   box-sizing: border-box;
@@ -158,7 +169,7 @@ select {
   place-items: center;
   gap: 3px;
   font-size: 10px;
-  letter-spacing: 0;
+  letter-spacing: 0.06em;
 }
 
 .brand-mark {
@@ -381,6 +392,11 @@ p {
   margin-bottom: 4px;
 }
 
+/* Run-log timestamps: tabular figures so the column doesn't shift (tokens.md §4). */
+.event .meta {
+  font-variant-numeric: tabular-nums;
+}
+
 .composer {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto auto;
@@ -398,6 +414,14 @@ p {
   border-color: var(--amb-brand);
   background: var(--amb-brand);
   color: var(--amb-on-brand);
+  transition: background-color var(--amb-motion-fast), border-color var(--amb-motion-fast);
+}
+
+.composer button:hover:not(:disabled),
+.settings button:hover:not(:disabled),
+[data-action="approve-selected"]:hover:not(:disabled) {
+  border-color: var(--amb-brand-strong);
+  background: var(--amb-brand-strong);
 }
 
 .item {

@@ -274,6 +274,32 @@ namespace RevitBridge.UI
             }
         }
 
+        /// <summary>
+        /// Called when Revit's UI theme changes mid-session (subscribed in
+        /// BridgePanelProvider.Register) so the panel re-themes live via a fresh
+        /// host.status. Only the panel updates live - ribbon icons are generated
+        /// once at startup (see App.CreateModernRibbonInterface).
+        /// </summary>
+        internal void OnRevitThemeChanged()
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (!_pageReady)
+                {
+                    return;
+                }
+
+                try
+                {
+                    PostHostStatus();
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Failed to post host status after Revit theme change");
+                }
+            }));
+        }
+
         private void PostHostStatus()
         {
             var dirtyCount = DocumentDirtyTracker.GetDirtyUniqueIds().Count;

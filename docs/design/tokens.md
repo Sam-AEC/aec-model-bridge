@@ -1,6 +1,6 @@
 # AEC Model Bridge — design tokens
 
-Status: **proposed**, pending maintainer approval.
+Status: **approved**.
 Scope: the brand mark, the color system, typography, and the ribbon icon
 grammar for `assets/logo.svg`, `packages/revit-bridge-addin/src/UI/IconGenerator.cs`,
 and `panel/styles.css`.
@@ -261,8 +261,11 @@ disabled nav item, an unavailable provider.
 **Implementer note for Task 7:** `panel/app.js` `renderPlans()` hardcodes
 `class="badge pending"` while printing `plan.status` as the label, so a plan
 whose status is `approved` currently renders a violet "approved" badge. Map the
-status string to a token class (`approved` → `success`, `rejected` → `danger`,
-`pending`/anything else → `pending`) at the same time.
+status string to a token class (`approved` → `success`, `rejected` → `error`,
+`pending`/anything else → `pending`) at the same time. The rejected class is
+`error`, not `danger`: badge classes follow the severity-badge naming
+(`.badge.error` is the one painted with `--amb-danger`), and there is no
+`.badge.danger` class.
 
 ### 3.6 Badge treatment
 
