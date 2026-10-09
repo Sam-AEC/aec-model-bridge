@@ -259,13 +259,20 @@ jobs:
         with:
           persist-credentials: false
 
-      # rhysd/actionlint 1.7.12, image pinned by digest (includes shellcheck and
-      # pyflakes). Dependabot does not track this reference; bump it by hand.
+      # rhysd/actionlint from its GitHub release, checked against a SHA-256, so the
+      # job does not depend on Docker Hub (its token endpoint timed out and failed
+      # CI). The runner already has shellcheck. Dependabot does not track this
+      # version; bump ACTIONLINT_VERSION and the checksum together, by hand.
       - name: Lint workflows with actionlint
-        run: >
-          docker run --rm -v "$PWD:/repo" --workdir /repo
-          rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
-          -color
+        env:
+          ACTIONLINT_VERSION: "1.7.12"
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          curl -sSfL --retry 4 --retry-delay 5 -o "$RUNNER_TEMP/actionlint.tar.gz" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "${ACTIONLINT_SHA256}  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -color
 
   # One stable name for branch protection: require "ci-success" instead of each
   # matrix leg, so adding or renaming a job never silently drops a required check.
