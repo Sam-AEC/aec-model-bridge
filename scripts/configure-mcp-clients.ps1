@@ -49,6 +49,45 @@ function Add-RevitServers {
     }
 }
 
+# Writes a config file safely: skips the write when nothing changes, keeps a timestamped
+# backup of the existing file next to it, writes UTF-8 without BOM, and replaces the file
+# in one step (temp file + move) so a crash never leaves a half-written config.
+function Write-ConfigFile {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)]$Object
+    )
+
+    # Depth 100 so nested values in an existing file (for example VS Code settings) are not flattened.
+    $json = ($Object | ConvertTo-Json -Depth 100) + [Environment]::NewLine
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+
+    if (Test-Path -LiteralPath $Path) {
+        $current = [System.IO.File]::ReadAllText($Path)
+        if ($current -eq $json) {
+            Write-Host "  Already up to date: $Path" -ForegroundColor Gray
+            return
+        }
+        $backup = "$Path.aec-backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+        Copy-Item -LiteralPath $Path -Destination $backup -Force
+        Write-Host "  Backup: $backup" -ForegroundColor Gray
+    }
+
+    $temp = "$Path.aec-tmp"
+    try {
+        [System.IO.File]::WriteAllText($temp, $json, $utf8NoBom)
+        Move-Item -LiteralPath $temp -Destination $Path -Force
+    }
+    finally {
+        if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp -Force -ErrorAction SilentlyContinue }
+    }
+}
+
+if (-not (Test-Path -LiteralPath $PythonPath)) {
+    Write-Warning "Python not found at $PythonPath. No client configuration was changed."
+    exit 1
+}
+
 # 1. Configure Claude Desktop (%APPDATA%\Claude\claude_desktop_config.json)
 $claudeDir = Join-Path $env:APPDATA "Claude"
 $claudeConfigFile = Join-Path $claudeDir "claude_desktop_config.json"
@@ -81,7 +120,7 @@ try {
     }
 
     Add-RevitServers -Servers $claudeConfig["mcpServers"]
-    $claudeConfig | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $claudeConfigFile -Force
+    Write-ConfigFile -Path $claudeConfigFile -Object $claudeConfig
     Write-Host "  Configured Claude Desktop: $claudeConfigFile" -ForegroundColor Green
 }
 catch {
@@ -112,7 +151,7 @@ if (Test-Path $codeUserDir) {
             }
         }
         Add-RevitServers -Servers $vscConfig["servers"] -VSCode
-        $vscConfig | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $vscMcpFile -Force
+        Write-ConfigFile -Path $vscMcpFile -Object $vscConfig
         Write-Host "  Configured VS Code MCP file: $vscMcpFile" -ForegroundColor Green
     }
     catch {
@@ -137,7 +176,7 @@ if (Test-Path $codeUserDir) {
             }
         }
         Add-RevitServers -Servers $userConfig["servers"] -VSCode
-        $userConfig | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $userMcpFile -Force
+        Write-ConfigFile -Path $userMcpFile -Object $userConfig
         Write-Host "  Configured VS Code User mcp.json: $userMcpFile" -ForegroundColor Green
     }
     catch {
@@ -152,6 +191,11 @@ if (Test-Path $codeUserDir) {
             $raw = Get-Content -LiteralPath $settingsFile -Raw -ErrorAction SilentlyContinue
             if ($raw) {
                 $cleanRaw = ($raw -split "`r?`n" | Where-Object { $_ -notmatch '^\s*//' }) -join "`n"
+                # settings.json is JSON with comments. Rewriting it would drop the comments,
+                # so leave a commented file alone (the other MCP files above are enough).
+                if ($cleanRaw -ne $raw -or $raw -match '/\*') {
+                    throw "settings.json contains comments; not rewriting it (add the servers by hand if you need them there)."
+                }
                 $parsed = $cleanRaw | ConvertFrom-Json
                 if ($parsed) {
                     foreach ($prop in $parsed.PSObject.Properties) {
@@ -168,7 +212,7 @@ if (Test-Path $codeUserDir) {
         }
         Add-RevitServers -Servers $mcpServersObj
         $settingsConfig["mcp.servers"] = $mcpServersObj
-        $settingsConfig | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $settingsFile -Force
+        Write-ConfigFile -Path $settingsFile -Object $settingsConfig
         Write-Host "  Configured VS Code settings.json: $settingsFile" -ForegroundColor Green
     }
     catch {
