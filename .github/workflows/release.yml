@@ -68,12 +68,33 @@ jobs:
         shell: pwsh
         run: python -m pytest packages/mcp-server-revit/tests
 
+      - name: Set up Node for the VS Code extension
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: extensions/vscode/package-lock.json
+
+      - name: Build and test the VS Code extension
+        working-directory: extensions/vscode
+        shell: pwsh
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) { throw "Extension dependency install failed" }
+          npm run compile
+          if ($LASTEXITCODE -ne 0) { throw "Extension compile failed" }
+          npm test
+          if ($LASTEXITCODE -ne 0) { throw "Extension tests failed" }
+          npm run package
+          if ($LASTEXITCODE -ne 0) { throw "Extension packaging failed" }
+
       - name: Build release artifacts
         shell: pwsh
         run: >
           ./scripts/build-release.ps1
           -Version "${{ steps.tag.outputs.version }}"
           -RevitVersion "${{ inputs.revit_version || 'All' }}"
+          -VSCodePackage "extensions/vscode/aec-model-bridge-${{ steps.tag.outputs.version }}.vsix"
 
       - name: Write release notes from CHANGELOG
         shell: pwsh

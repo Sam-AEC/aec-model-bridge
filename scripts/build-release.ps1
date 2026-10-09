@@ -1,6 +1,7 @@
 param(
     [string]$Version = (Get-Content (Join-Path $PSScriptRoot '..\VERSION') -Raw).Trim(),
     [string]$RevitVersion = "All",
+    [string]$VSCodePackage,
     [switch]$UpdateServerMetadata
 )
 
@@ -14,6 +15,13 @@ $mcpbStage = Join-Path $distRoot "mcpb-stage"
 $zipStageRoot = Join-Path $distRoot "zip-stage"
 $supportedYears = @("2024", "2025", "2026", "2027")
 $years = if ($RevitVersion -eq "All") { $supportedYears } else { @($RevitVersion) }
+
+if ($VSCodePackage) {
+    $vsixPath = (Resolve-Path -LiteralPath $VSCodePackage -ErrorAction Stop).Path
+    if ((Split-Path -Leaf $vsixPath) -ne "aec-model-bridge-$Version.vsix") {
+        throw "VS Code package must match release version: aec-model-bridge-$Version.vsix"
+    }
+}
 
 function Remove-WorkspaceDirectory {
     param([string]$Path)
@@ -123,6 +131,10 @@ if ($UpdateServerMetadata) {
         $serverJson,
         [System.Text.UTF8Encoding]::new($false)
     )
+}
+
+if ($VSCodePackage) {
+    Copy-Item -LiteralPath $vsixPath -Destination $releaseDir -Force
 }
 
 $checksums = Get-ChildItem -Path $releaseDir -File |

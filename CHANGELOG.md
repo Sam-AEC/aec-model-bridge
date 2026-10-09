@@ -2,7 +2,11 @@
 
 ## Unreleased
 
-- README: plainer opening, live CI and release badges, and the long licence and trademark paragraphs reduced to one line each (full text stays in `LICENSING.md` and `TRADEMARKS.md`). The MIT-licensed 0.1.x and 1.0.x releases were withdrawn from the GitHub releases page.
+- VS Code: add the local MCP extension, connection status, mock mode and Revit year selection. Correct local-host execution, settings overrides and auto-approval warnings; add provider/command regression tests. Marketplace publishing and live app verification remain pending.
+- Release: build and test the VS Code package before attaching its `.vsix` to future GitHub releases, include it in checksums, and synchronize extension manifest and lockfile versions.
+- README: lead with BIM coordinator workflows, simplify badges and licensing text, remove endorsement boilerplate and ecosystem artwork, and use local paths for technical diagrams. Document the snapshot handoff limitation and coordinator adoption priorities.
+- Design: add a Claude Design brief for README artwork, workflow images, a social preview and a synthetic-model demo cover.
+- Release audit: the reviewed public releases contain GPL licenses; no MIT-era deletion candidates were found. Record the inventory and future retirement procedure in `docs/release-retirement.md`; no remote releases were changed during this review.
 - Dependabot: security updates are grouped into one pull request per ecosystem instead of one per package. The pinned lock-file versions of `ujson`, `anyio`, `starlette`, `cryptography`, `pydantic-settings` and `mcp` were refreshed after testing them together.
 - Docs: the README opens with an ecosystem image (AEC Model Bridge at the centre, AI clients, BIM apps and protocol tools orbiting it) in place of the demo placeholder. `scripts/make_ecosystem_image.py` regenerates it from the pinned Simple Icons set; brands whose icons were removed from that set are shown as text tiles.
 - Dependabot: routine updates are now monthly and grouped into one pull request for Python and one for GitHub Actions; routine .NET package PRs are off (the add-in dependencies are pinned on purpose). Security updates are unaffected.
