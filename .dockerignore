@@ -1,0 +1,16 @@
+**/__pycache__
+**/*.pyc
+.git
+.github
+.claude
+.venv
+**/.pytest_cache
+**/.ruff_cache
+packages/revit-bridge-addin
+packages/navisworks-bridge-addin
+packages/powerbi-bridge-tool
+packages/rhino-bridge-addin
+panel
+assets
+docs
+fixtures

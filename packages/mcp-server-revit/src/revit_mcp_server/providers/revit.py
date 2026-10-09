@@ -175,7 +175,7 @@ class RevitProvider(AECProvider):
             handler = TOOL_HANDLERS.get(legacy_dot_name)
             if handler:
                 try:
-                    handler(payload, self.workspace)
+                    handler({"request_id": "mcp-bridge", **payload}, self.workspace)
                 except WorkspaceViolation:
                     # A workspace-sandbox escape must always block the call — swallowing
                     # this as a warning would let a path-outside-workspace request reach
@@ -195,7 +195,11 @@ class RevitProvider(AECProvider):
             legacy_dot_name = bridge_tool
             handler = TOOL_HANDLERS.get(legacy_dot_name)
             if handler:
-                return handler(payload, self.workspace)
+                # The legacy handlers' models require a request_id, which the MCP
+                # tool schemas do not expose. Supply one for the handler only, so a
+                # plain tool call (for example from a registry introspecting the
+                # server in mock mode) does not fail validation.
+                return handler({"request_id": "mcp-mock", **payload}, self.workspace)
 
             # Fallback to general mock response
             return self._bridge.send_tool(bridge_tool, payload)

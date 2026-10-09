@@ -3,6 +3,11 @@
 ## Unreleased
 
 - Release: the MCP Registry publish now starts automatically after each stable release and reads the version from `VERSION`, so the bundle hash is no longer left stale.
+- Fix install: `mcp` is now pinned `>=1.10,<2`. An unpinned install on Python 3.12+ resolved mcp 2.x, which removed the `Server.list_tools()` decorators this server uses, so the server crashed at import. `uv.lock` was also stale (missing `anthropic`) and is refreshed.
+- Fix packaging: module manifests, QA/QC rules and recipes were missing from the wheel, so a pip or uvx install lacked the 34 module tools. They are now package data.
+- Tools: every tool now lists a full description, a described input schema, a title and MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), derived from the existing approval-gate flags. The server reports its own version and usage instructions at initialize. No tool behaviour changed.
+- Mock mode: tools backed by a legacy handler (for example `revit_health`) no longer fail with a missing `request_id`, so directories can call them without Revit.
+- Directories: add a root `Dockerfile` (mock mode), `glama.json` and `smithery.yaml` so listing sites can build and introspect the server without Revit. README gains a quick start, a tool table and a demo placeholder; `server.json` and `manifest.json` document more environment variables and keywords.
 
 ## 1.3.1 - 2026-10-09
 

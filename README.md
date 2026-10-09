@@ -25,6 +25,69 @@ It does not edit your model on its own. Any tool that changes the model goes
 through a plan that you review and approve first. See
 [How approval works](#how-approval-works).
 
+**License:** GPL-3.0-or-later with a Revit linking exception, or a separate
+commercial license ([details](LICENSING.md)). Independent project, not
+affiliated with Autodesk.
+
+## Quick start
+
+For live Revit automation you need Windows, a licensed Revit 2024 to 2027,
+Python 3.11 or newer, and the Revit add-in
+([install steps](#install-the-revit-add-in)). Then add this to your
+`claude_desktop_config.json` (Codex, Cursor and VS Code use the same values):
+
+```json
+{
+  "mcpServers": {
+    "aec-model-bridge": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/Sam-AEC/aec-model-bridge#subdirectory=packages/mcp-server-revit",
+        "aec-model-bridge"
+      ],
+      "env": {
+        "MCP_REVIT_MODE": "bridge",
+        "MCP_REVIT_WORKSPACE_DIR": "C:\\RevitProjects",
+        "MCP_REVIT_ALLOWED_DIRECTORIES": "C:\\RevitProjects"
+      }
+    }
+  }
+}
+```
+
+Want to look at the tools first, without Revit? Set `"MCP_REVIT_MODE": "mock"`.
+The server then starts anywhere, lists every tool with its schema and returns
+canned responses instead of touching a model. A `Dockerfile` for the same mock
+mode is in the repository root (`docker build -t aec-model-bridge .`, then
+`docker run -i --rm aec-model-bridge`).
+
+### Tools at a glance
+
+| Area | Tools | What they do |
+| --- | --- | --- |
+| Revit | 103 | Read the model, create and edit elements, parameters, views, sheets, schedules, exports, worksharing |
+| Approval | 6 | Plan, review, approve, execute and roll back model changes |
+| Modules | 34 | Snapshot inspection, parameter grids, QA/QC checks, recipes, reports, selections |
+| Rhino and Grasshopper | 19 | Geometry, layers, materials, boolean operations |
+| Speckle | 17 | Projects, models, versions, send and receive |
+| Navisworks | 15 | Model tree, viewpoints, clash tests (in progress) |
+| IFC | 7 | Read IFC files without Revit: structure, properties, validation |
+| Graph, snapshots, exports, jobs | 18 | Semantic graph audits, snapshot diffs, SQLite export, background jobs |
+
+219 tools are listed in the default setup (counts from the 1.3.1 server in mock
+mode). The Autodesk Data tools appear when APS credentials are configured. The
+[tool reference](docs/tools-generated.md) lists every tool. Each tool carries
+MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`,
+`openWorldHint`), so clients can tell reads from writes.
+
+### Demo
+
+> TODO (owner): add a 30 to 60 second screen recording here as
+> `assets/demo.gif` (or a linked video): ask Claude for a change, the plan
+> appears in the Revit panel, you approve it, the model updates. No demo is
+> shown until a real recording exists.
+
 ## What can the AI do in Revit?
 
 The server exposes more than 200 tools across all providers. The full list is
