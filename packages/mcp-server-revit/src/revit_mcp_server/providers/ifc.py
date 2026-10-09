@@ -427,13 +427,20 @@ class IfcProvider(AECProvider):
         # Try as int Express ID
         try:
             return ifc_file.by_id(int(element_id))
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, RuntimeError):
             pass
         # Try as GlobalId/GUID
+        guid = str(element_id)
         try:
-            return ifc_file.by_guid(str(element_id))
+            return ifc_file.by_guid(guid)
         except Exception:
             pass
+        # ifcopenshell 0.9 resolves GUIDs through a validated index, so files
+        # with a malformed GlobalId (wrong length/charset, seen in exports from
+        # other tools) are no longer found by by_guid. Scan for the raw string.
+        for root in ifc_file.by_type("IfcRoot"):
+            if getattr(root, "GlobalId", None) == guid:
+                return root
         return None
 
     def _get_bounding_box(self, ifc_file, arguments: Dict[str, Any]) -> Dict[str, Any]:
