@@ -24,11 +24,12 @@ def _el(uid, category="Doors", mark="D1", **extra):
     return el
 
 
-def _write(ws, sid, elements, taken_at):
+def _write(ws, sid, elements, taken_at, source=None):
     d = ws.allowed_directories[0] / "snapshots"
     d.mkdir(parents=True, exist_ok=True)
     (d / f"{sid}.json").write_text(json.dumps({
         "schema": "amb.snapshot/1", "snapshot_id": sid, "taken_at": taken_at, "elements": elements,
+        **({"source": source} if source is not None else {}),
     }), encoding="utf-8")
 
 
@@ -135,3 +136,56 @@ def test_large_snapshot_performance(mod, ws):
     assert r["totals"]["added"] == 300 and r["totals"]["removed"] == 500
     assert r["totals"]["modified"] == sum(1 for i in range(n - 500) if i % 10 == 0 and str(i) != "chg")
     assert elapsed < 10
+
+
+def _nl(uid):
+    el = _el(uid)
+    el.pop("location")
+    return el
+
+
+def test_different_documents_refused(mod, ws):
+    _write(ws, "a", [_el("x")], "2026-10-08T00:00:00Z", {"doc_guid": "G1", "doc_title": "Tower"})
+    _write(ws, "b", [_el("y")], "2026-10-09T00:00:00Z", {"doc_guid": "G2", "doc_title": "Annex"})
+    with pytest.raises(ValueError, match="different Revit models"):
+        mod.compare_snapshots("a", "b", workspace=ws)
+    with pytest.raises(ValueError, match="different Revit models"):
+        mod.compare_snapshots("previous", "latest", workspace=ws)
+
+
+def test_same_document_ok_and_missing_guid_warns(mod, ws):
+    src = {"doc_guid": "G1"}
+    _write(ws, "a", [_el("x")], "2026-10-08T00:00:00Z", src)
+    _write(ws, "b", [_el("x")], "2026-10-09T00:00:00Z", src)
+    assert mod.compare_snapshots("a", "b", workspace=ws)["warnings"] == []
+    _write(ws, "c", [_el("x")], "2026-10-10T00:00:00Z")
+    r = mod.compare_snapshots("a", "c", workspace=ws)
+    assert "same Revit model" in r["warnings"][0]
+
+
+def test_rotation_change_is_a_location_change(mod, ws):
+    def rot(r):
+        return {"kind": "point", "xyz": [0.0, 0.0, 0.0], "rotation": r}
+
+    _write(ws, "o", [_el("a", location=rot(0.0))], "2026-10-08T00:00:00Z")
+    _write(ws, "n", [_el("a", location=rot(1.57))], "2026-10-09T00:00:00Z")
+    r = mod.compare_snapshots("o", "n", workspace=ws)
+    assert r["totals"]["modified"] == 1 and r["totals"]["unchanged"] == 0
+    assert r["modified"][0]["other_changes"] == ["location"]
+
+
+def test_missing_location_is_not_enough_data(mod, ws):
+    _write(ws, "o", [_nl("a")], "2026-10-08T00:00:00Z")
+    _write(ws, "n", [_nl("a")], "2026-10-09T00:00:00Z")
+    r = mod.compare_snapshots("o", "n", workspace=ws)
+    assert r["location_checked"] is False
+    assert r["not_enough_data"][0]["check"] == "location"
+    assert "Not enough data" in r["summary"]
+    assert "location" in r["not_enough_data"][0]["reason"]
+
+
+def test_location_present_has_no_caveat(mod, ws):
+    _write(ws, "o", [_el("a")], "2026-10-08T00:00:00Z")
+    _write(ws, "n", [_el("a")], "2026-10-09T00:00:00Z")
+    r = mod.compare_snapshots("o", "n", workspace=ws)
+    assert r["location_checked"] is True and r["not_enough_data"] == []
