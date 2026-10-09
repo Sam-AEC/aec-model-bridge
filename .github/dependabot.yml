@@ -1,0 +1,37 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /packages/mcp-server-revit
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: nuget
+    directory: /packages/revit-bridge-addin
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2
+
+  - package-ecosystem: nuget
+    directory: /packages/rhino-bridge-addin
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2
+
+  - package-ecosystem: nuget
+    directory: /packages/navisworks-bridge-addin
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2
+
+  - package-ecosystem: nuget
+    directory: /packages/powerbi-bridge-tool
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3

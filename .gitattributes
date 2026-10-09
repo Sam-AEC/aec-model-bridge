@@ -1,2 +1,16 @@
-# Auto detect text files and perform LF normalization
+# Text files are stored with LF in the repository.
 * text=auto
+
+# Binary assets: never converted.
+*.png binary
+*.ico binary
+*.bmp binary
+
+# Windows-native formats keep CRLF in the working tree.
+*.sln text eol=crlf
+
+# Stay LF on every checkout (run in containers and CI).
+Dockerfile text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
