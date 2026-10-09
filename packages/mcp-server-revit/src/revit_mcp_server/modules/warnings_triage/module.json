@@ -1,0 +1,46 @@
+{
+  "id": "warnings_triage",
+  "name": "Warnings Triage",
+  "version": "1.0.0",
+  "schema_version": 1,
+  "min_hub_version": "1.2.0",
+  "description": "Read-only triage of the warnings Revit shows for the open project: groups them by type, ranks them by how many elements they touch, flags the ones a BIM coordinator should chase, and suggests a plain next step for each group.",
+  "author": "AEC Model Bridge",
+  "license": "GPL-3.0-or-later",
+  "requires_providers": ["revit"],
+  "permissions": ["model.read"],
+  "commands": [
+    {
+      "id": "review_warnings",
+      "title": "Review Revit Warnings (grouped, ranked, with next steps)",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "description": "Optional snapshot ID. Used only to turn Revit element ids into element UniqueIds."
+          },
+          "coordinator_only": {
+            "type": "boolean",
+            "description": "If true, only return the warning groups a BIM coordinator should chase (duplicate marks, overlapping elements, rooms not enclosed).",
+            "default": false
+          },
+          "top": {
+            "type": "integer",
+            "description": "Maximum number of groups to return, biggest first.",
+            "default": 25
+          },
+          "max_elements_per_group": {
+            "type": "integer",
+            "description": "Maximum number of element ids listed per group (the full count is always reported).",
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    }
+  ]
+}

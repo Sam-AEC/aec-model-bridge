@@ -73,9 +73,14 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
+| `bcf_exchange_export_bcf` | Save issues (your own list and/or the recorded QA/QC issues) to a BCF 2. | No | sync |
+| `bcf_exchange_import_bcf` | Read a BCF. | No | sync |
+| `clash_triage_list_clash_issues` | List the clash issues recorded by clash triage, optionally filtered by status and match confidence. | No | sync |
+| `clash_triage_match_clashes` | Match each clash from a Navisworks clash test to the Revit elements it involves, by UniqueId or IFC GUID, and say how sure each match is (exact, ambiguous or unmatched). | No | sync |
 | `familytype_mapper_audit_families` | Audit the families in a saved snapshot and report problems such as unmapped or inconsistent family types. | No | sync |
 | `familytype_mapper_list_type_mappings` | List family-type mappings found in a saved snapshot, optionally for one category. | No | sync |
 | `hello_world_say_hello` | Example module command that returns a greeting; use it to confirm the module system works. | No | sync |
+| `links_worksets_audit_audit` | Check linked models and worksets for problems (unloaded or missing links, links not pinned or placed Origin to Origin, empty or default-named worksets, worksets owned by someone else, elements on the wrong workset) and give plain next steps. | No | sync |
 | `model_changes_compare_snapshots` | Say what changed between two saved snapshots: elements added, removed or modified, parameter values before and after, and counts per category. | No | sync |
 | `model_changes_list_snapshots` | List the saved model snapshots with their timestamps, newest first, so you can pick the latest and previous ones to compare. | No | sync |
 | `model_inspector_ask` | Answer a question about a saved snapshot by filtering its element records with the filter DSL. | No | sync |
@@ -99,6 +104,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `recipe_runner_list_recipes` | List the available automation recipes. | No | sync |
 | `recipe_runner_list_runs` | List past recipe runs, optionally for one recipe. | No | sync |
 | `recipe_runner_run_recipe` | Run a named automation recipe (a YAML-defined sequence of tool calls) with arguments; set dry_run to list the steps without executing them. | No | sync |
+| `report_generator_build_review_pack` | Build one Excel 'Model review' workbook from a snapshot: cover, findings from the QA/QC rules, counts by category and what to do next. | No | sync |
 | `report_generator_export_excel` | Export a snapshot (optionally filtered, with chosen parameters and QA/QC findings) to an Excel workbook in the workspace. | No | sync |
 | `report_generator_export_sqlite_summary` | Export a summary of a snapshot to a SQLite database file in the workspace. | No | sync |
 | `selection_tools_group_convert_to_detail` | Convert a model group into a detail group. | Yes | sync |
@@ -109,6 +115,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `selection_tools_save_selection` | Save a set of element UniqueIds under a name for later restore. | No | sync |
 | `selection_tools_select_by_query` | Select in Revit the elements of a snapshot that match a filter query. | Yes | sync |
 | `selection_tools_set_selection` | Select the given elements (by UniqueId) in the Revit UI. | Yes | sync |
+| `warnings_triage_review_warnings` | Group the open project's Revit warnings by type, rank them by how many elements they touch, flag duplicate marks, overlapping elements and rooms not enclosed for the coordinator, and suggest a next step for each group. | No | sync |
 
 ## Navisworks Provider
 

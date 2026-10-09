@@ -23,7 +23,13 @@ Servidor MCP de código aberto e add-in nativo para Revit 2024 – 2027. Funcion
   <img src="../images/readme/demo.gif" alt="Demonstração: um assistente de IA encontra 12 portas sem Mark e prepara um plano. O plano espera no painel do Revit até você aprovar, depois os valores são lidos de volta para conferência. Valores de exemplo, sessão simulada." width="900">
 </p>
 
-Conecte o Claude, o Codex ou outro cliente MCP ao modelo do Revit que você tem aberto. O AEC Model Bridge combina um servidor MCP em Python com um add-in nativo do Revit: as ferramentas somente leitura inspecionam o modelo na hora e, por padrão, qualquer alteração no modelo exige um plano aprovado. [Veja o fluxo de aprovação](#como-funciona-a-aprovação).
+O AEC Model Bridge é o servidor MCP de código aberto para Revit que permite ao Claude, ao Codex, ao Cursor e a outros assistentes de IA ler e editar o modelo do Revit que você tem aberto, com cada alteração aprovada antes por você. Ele combina um servidor MCP em Python com um add-in nativo do Revit: as ferramentas somente leitura inspecionam o modelo na hora e, por padrão, qualquer alteração no modelo exige um plano aprovado. [Veja o fluxo de aprovação](#como-funciona-a-aprovação).
+
+<p align="center">
+  <img src="../images/readme/works-with.svg" alt="Funciona com: Claude Desktop, VS Code com GitHub Copilot, Cursor e Codex têm configuração documentada. Outros clientes MCP, como Claude Code, Windsurf, Cline, Continue, Zed e Gemini CLI, também devem funcionar. Aplicativos: Revit 2024 a 2027, Rhino, Grasshopper, Navisworks (em desenvolvimento). Dados: IFC, Speckle, Excel, SQLite. Protocolo: MCP sobre stdio com uma barreira de aprovação." width="900">
+</p>
+
+A configuração está documentada para Claude Desktop, VS Code com GitHub Copilot, Cursor e Codex. É um servidor MCP stdio padrão, então outros clientes, como Claude Code, Windsurf, Cline, Continue, Zed e Gemini CLI, também devem funcionar. Veja a [compatibilidade](../compatibility.md) para saber o que está documentado e o que não foi testado.
 
 O mesmo servidor inclui inspeção de IFC, automação do Rhino e do Grasshopper e integração com o Speckle. O [status das integrações](#outras-integrações) separa os provedores disponíveis dos que ainda estão em desenvolvimento.
 
@@ -53,9 +59,9 @@ Comments to "Coordination reviewed" for the elements I choose. After I approve
 the plan in Revit, apply it and read the values back to confirm the result.
 ```
 
-Nas edições, o assistente cria um plano com `plan_actions`; você o revisa no painel do Revit antes de o `execute_plan` aplicá-lo. A revisão de IFC funciona sem o Revit.
+Para alterações no modelo, o assistente cria um plano com `plan_actions`; você o revisa no painel do Revit antes de o `execute_plan` aplicá-lo. A revisão de IFC funciona sem o Revit.
 
-Os módulos de QA/QC e de relatórios baseados em snapshot exigem um snapshot salvo compatível. A passagem atual do snapshot do Revit para o módulo exige alinhamento entre o nome do arquivo e o workspace; se você omitir `snapshot_id`, podem ser retornados dados de exemplo gerados. Para inspeção ao vivo, use as ferramentas diretas do Revit acima. [Correções planejadas e demo](../roadmap.md).
+Os módulos de QA/QC e de relatórios baseados em snapshot exigem um snapshot salvo compatível. A passagem atual do snapshot do Revit para o módulo exige alinhamento entre o nome do arquivo e o workspace; se você omitir `snapshot_id`, podem ser retornados dados de exemplo gerados. Para inspeção em tempo real, use as ferramentas diretas do Revit acima. [Correções planejadas e demo](../roadmap.md).
 
 ## Início rápido
 
@@ -65,11 +71,11 @@ Os módulos de QA/QC e de relatórios baseados em snapshot exigem um snapshot sa
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
-Os botões só precisam do [uv](https://docs.astral.sh/uv/getting-started/installation/) e de nenhuma outra configuração: o servidor usa `~/Documents/AEC Model Bridge` como workspace, a menos que você defina o seu. Para o Claude Desktop, baixe o arquivo `.mcpb` da última versão e abra-o. O trabalho ao vivo no Revit ainda exige o Revit e [o add-in](#instalar-o-add-in-do-revit); o modo mock não exige nada.
+Os botões só precisam do [uv](https://docs.astral.sh/uv/getting-started/installation/) e de nenhuma outra configuração: o servidor usa `~/Documents/AEC Model Bridge` como workspace, a menos que você defina o seu. Para o Claude Desktop, baixe o arquivo `.mcpb` da última versão e abra-o. O trabalho com o Revit em execução ainda exige o Revit e [o add-in](#instalar-o-add-in-do-revit); o modo mock não exige nada.
 
 **Configuração manual**
 
-Para a automação ao vivo do Revit você precisa de Windows, Revit 2024 a 2027 licenciado, Python 3.11 ou superior, [uv](https://docs.astral.sh/uv/getting-started/installation/) e o add-in do Revit ([passos de instalação](#instalar-o-add-in-do-revit)). Depois adicione isto ao seu `claude_desktop_config.json` (Codex, Cursor e VS Code usam os mesmos valores; as duas variáveis de diretório são opcionais e, por padrão, apontam para o workspace acima):
+Para a automação do Revit em tempo real você precisa de Windows, Revit 2024 a 2027 licenciado, Python 3.11 ou superior, [uv](https://docs.astral.sh/uv/getting-started/installation/) e o add-in do Revit ([passos de instalação](#instalar-o-add-in-do-revit)). Depois adicione isto ao seu `claude_desktop_config.json` (Codex, Cursor e VS Code usam os mesmos valores; as duas variáveis de diretório são opcionais e, por padrão, apontam para o workspace acima):
 
 ```json
 {
@@ -153,7 +159,7 @@ O hub bloqueia qualquer chamada de ferramenta que altere o modelo, a menos que e
 
 Se um plano for aprovado e depois se mostrar errado, `rollback_plan` o reverte. A reversão usa o Desfazer do Revit na mesma sessão ou os valores de parâmetros inversos. Operações que não podem ser revertidas, como a gravação de arquivos, pedem uma segunda confirmação. O ciclo de vida está no [ADR 0008](../0008-approval-gate-lifecycle.md).
 
-Para pipelines sem supervisão, você pode definir `MCP_REVIT_APPROVAL_MODE=auto`. Isso desliga a verificação humana, então use apenas em um ambiente controlado.
+Para pipelines sem supervisão, você pode definir `MCP_REVIT_APPROVAL_MODE=auto`. Isso desliga a verificação feita por uma pessoa, então use apenas em um ambiente controlado.
 
 ## Versões do Revit compatíveis
 
@@ -178,11 +184,13 @@ Você também precisa de Windows 10 ou 11, Python 3.11 ou superior e uma instala
 | Power BI | Em desenvolvimento. O provedor e a ferramenta existem, mas não estão registrados no hub. |
 | Excel, Parquet e DuckDB | Planejado. |
 
+Os nomes de produtos e os logotipos pertencem aos seus respectivos donos. O banner os usa apenas para mostrar com o que este projeto funciona.
+
 ## Instalar o add-in do Revit
 
 **O jeito mais fácil (Windows):** baixe `AECModelBridge-Setup-<version>.exe` da [última versão](https://github.com/Sam-AEC/aec-model-bridge/releases/latest), dê um clique duplo, escolha suas versões do Revit e reinicie o Revit. Ele instala o add-in, o servidor Python incluído e, se você marcar a opção, as configurações do Claude Desktop e do VS Code, com backup das configurações atuais. Desinstale pelas Configurações do Windows. Os passos abaixo são para compilar a partir do código-fonte.
 
-Você instala duas partes: o servidor MCP em Python e o add-in do Revit. A automação ao vivo do Revit precisa das duas.
+Você instala duas partes: o servidor MCP em Python e o add-in do Revit. A automação do Revit em tempo real precisa das duas.
 
 ### 1. Instalar o servidor MCP
 
@@ -278,10 +286,10 @@ A resposta deve indicar `healthy` e a versão do Revit em execução. No Revit, 
 
 ## Segurança
 
-- A ponte do Revit escuta apenas em localhost.
+- A ponte do Revit só é acessível por localhost.
 - O servidor lê e grava somente dentro das pastas listadas em `MCP_REVIT_ALLOWED_DIRECTORIES`.
 - Ferramentas que alteram o modelo exigem um plano aprovado, a menos que você desative a aprovação.
-- As chamadas de ferramentas são gravadas em um log de auditoria, e os segredos são ocultados.
+- As chamadas de ferramentas são gravadas em um log de auditoria, e os segredos são mascarados.
 
 Os detalhes estão em [docs/security.md](../security.md). Para relatar uma vulnerabilidade, siga [SECURITY.md](../../SECURITY.md).
 
@@ -293,7 +301,7 @@ O Model Context Protocol (MCP) é um padrão aberto que permite a assistentes de
 
 ### Quais assistentes de IA funcionam com ele?
 
-Qualquer cliente MCP capaz de iniciar um servidor stdio local. Documentamos o Claude Desktop, o VS Code com GitHub Copilot e clientes que leem uma configuração `mcpServers` padrão. O chat do painel também pode usar uma chave de API da Anthropic ou as ferramentas de linha de comando `claude` ou `codex`, se estiverem instaladas. Veja o [ADR 0012](../0012-native-agent-chat-backend.md).
+Qualquer cliente MCP capaz de iniciar um servidor stdio local. Documentamos o Claude Desktop, o VS Code com GitHub Copilot, o Cursor e o Codex, além de clientes que leem uma configuração `mcpServers` padrão. Windsurf, Cline, Roo Code, Continue, Zed, Claude Code e Gemini CLI devem funcionar da mesma forma, mas não foram testados. Veja a [compatibilidade](../compatibility.md). O chat do painel também pode usar uma chave de API da Anthropic ou as ferramentas de linha de comando `claude` ou `codex`, se estiverem instaladas. Veja o [ADR 0012](../0012-native-agent-chat-backend.md).
 
 ### A IA pode alterar meu modelo sem pedir?
 
@@ -301,7 +309,7 @@ Não no modo padrão. As ferramentas que alteram o modelo ficam bloqueadas até 
 
 ### Ele envia meu modelo para a nuvem?
 
-O servidor e o add-in rodam na sua máquina, e a ponte escuta em localhost. O que o assistente de IA enxerga depende do cliente que você usa: os resultados das ferramentas vão para o provedor de modelo desse cliente. Provedores voltados à nuvem, como o Speckle, só rodam quando você os configura e chama as ferramentas deles.
+O servidor e o add-in rodam na sua máquina, e a ponte só é acessível por localhost. O que o assistente de IA enxerga depende do cliente que você usa: os resultados das ferramentas vão para o provedor de modelo desse cliente. Provedores voltados à nuvem, como o Speckle, só rodam quando você os configura e chama as ferramentas deles.
 
 ### Funciona com arquivos IFC sem o Revit?
 
@@ -309,7 +317,7 @@ Sim. O provedor de IFC lê arquivos com o IfcOpenShell. Ele pode retornar metada
 
 ### Posso usar sem o Revit instalado?
 
-Você pode executar o servidor em modo mock para desenvolvimento e testes. O trabalho ao vivo com o modelo exige o Revit 2024 a 2027 e o add-in.
+Você pode executar o servidor em modo mock para desenvolvimento e testes. O trabalho em tempo real com o modelo exige o Revit 2024 a 2027 e o add-in.
 
 ## Versões e lançamentos
 

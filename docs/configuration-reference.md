@@ -1,40 +1,43 @@
-# Configuration Reference
+# Configuration reference
 
-This page documents the main environment variables, package metadata, and runtime settings used by the Revit MCP bridge.
+This page lists the environment variables, package files and runtime modes of the Revit MCP server.
 
-## Runtime Modes
+## Runtime modes
 
-The server supports two runtime modes:
+The server has two modes. Set the mode with `MCP_REVIT_MODE`.
 
-- `mock`: uses the built-in mock bridge for CI, development, and tests.
-- `bridge`: connects to a live Revit add-in over its local registry entry or an explicit bridge URL.
+- `mock`: uses built-in sample data. Use it for tests, development and trying the tools without Revit. This is the default.
+- `bridge`: connects to a running Revit add-in. The server finds the add-in through its local registry entry, or through an explicit bridge URL.
 
-## Environment Variables
+## Environment variables
 
 | Variable | Required | Default | Description |
 |---|---:|---|---|
-| `MCP_REVIT_MODE` | Yes | `mock` | Selects the active bridge mode. |
-| `MCP_REVIT_BRIDGE_URL` | No | auto-discovered | Explicit URL of the Revit bridge listener. Overrides registry discovery. |
-| `MCP_REVIT_HOST_VERSION` | No | newest live Revit | Revit year to select from the local registry, such as `2024` or `2026`. |
-| `MCP_REVIT_ALLOWED_DIRECTORIES` | No | the workspace directory | Semicolon-separated directories the server may access. Path-traversal protection applies to exactly this list. An explicit value always wins. |
-| `MCP_REVIT_WORKSPACE_DIR` | No | `~/Documents/AEC Model Bridge` | Root directory for generated files and workspace-backed tools. The default folder is created the first time the server needs it (never at import), so a one-click install works with no configuration. |
-| `MCP_REVIT_AUDIT_LOG` | No | `workspace/audit.jsonl` | Audit log path used by the security layer. |
-| `MCP_REVIT_ANTHROPIC_API_KEY` | No | unset | Anthropic API key for the panel's native Claude chat (`agent_native.py`, ADR 0012). If you don't set it, "Claude" chat falls back to the `claude` CLI when that's on PATH. Otherwise no AI provider is available. You can also put it in a `.env` file. The hub reads it only at startup, so restart Revit after you set or change it. The panel's Settings view can't set it. |
+| `MCP_REVIT_MODE` | No | `mock` | Selects `mock` or `bridge`. Set `bridge` for live Revit. |
+| `MCP_REVIT_BRIDGE_URL` | No | auto-discovered | Explicit URL of the Revit bridge. Overrides registry discovery. |
+| `MCP_REVIT_HOST_VERSION` | No | newest live Revit | Revit year to pick from the local registry, such as `2024` or `2026`. |
+| `MCP_REVIT_ALLOWED_DIRECTORIES` | No | the workspace directory | Directories the server may read and write, separated by semicolons. The path guard checks against exactly this list. A value you set always wins. |
+| `MCP_REVIT_WORKSPACE_DIR` | No | `~/Documents/AEC Model Bridge` | Root folder for generated files and workspace-backed tools. The server creates the default folder the first time it needs it, so a one-click install works with no configuration. |
+| `MCP_REVIT_AUDIT_LOG` | No | `audit.log` | Path of the audit log. A relative path resolves against the working directory of the server process. See [Logging and audit](logging-and-audit.md). |
+| `MCP_REVIT_LOG_LEVEL` | No | `INFO` | Log level of the server. |
+| `MCP_REVIT_APPROVAL_MODE` | No | `required` | With `required`, a tool that changes the model needs a `plan_id` for an approved plan. Any other value turns this check off. Leave it at `required`. |
+| `MCP_REVIT_ENABLE_USER_MODULES` | No | `false` | Set to `true` to load modules from `%LOCALAPPDATA%\AECModelBridge\modules`. See [Module authoring](module-authoring.md). |
+| `MCP_REVIT_ALLOW_PYTHON_HOST` | No | `false` | Set to `true` to allow tools that run raw Python on the host, such as `revit_execute_python`. Leave it off unless you need it. |
+| `MCP_REVIT_ANTHROPIC_API_KEY` | No | unset | Anthropic API key for the panel's built-in Claude chat (`agent_native.py`, ADR 0012). If you do not set it, the Claude chat falls back to the `claude` command-line tool when that is on your PATH. If neither is available, no AI provider is available. You can also put the key in a `.env` file. The hub reads it only at startup, so restart Revit after you set or change it. The panel's Settings view cannot set it. |
+| `MCP_REVIT_LEGACY_PORT` | No | unset | Read by the Revit add-in, not the Python server. Set to `true` or `1` to bind the add-in to fixed port `3000` with no authentication. See [Security](security.md). |
 | `REVIT_SDK` | Build only | unset | Optional path used by the add-in build scripts. |
 
-## Package and Registry Metadata
+## Package and registry files
 
-The Python package and MCP registry metadata are defined in:
+These files define the Python package and the MCP registry entry:
 
 - `packages/mcp-server-revit/pyproject.toml`
 - `packages/mcp-server-revit/manifest.json`
 - `server.json`
 
-The current package name is `aec-model-bridge`, and the official repository URL is:
+The package name is `aec-model-bridge`. The official repository is https://github.com/Sam-AEC/aec-model-bridge.
 
-- https://github.com/Sam-AEC/aec-model-bridge
-
-## MCP Client Example
+## MCP client example
 
 ```json
 {
@@ -55,6 +58,6 @@ The current package name is `aec-model-bridge`, and the official repository URL 
 
 ## Notes
 
-- The server should be run from the repository root or an environment where the package is installed in editable mode.
-- For Revit integration, make sure the Revit add-in is installed and the requested Revit version is running before testing.
-- Configure separate MCP client entries with different `MCP_REVIT_HOST_VERSION` values to target multiple open Revit versions side by side.
+- Run the server from the repository root, or from an environment where you installed the package in editable mode.
+- For live Revit, install the add-in and start the Revit version you want before you test.
+- To use several open Revit versions side by side, add one MCP client entry for each version. Give each entry its own `MCP_REVIT_HOST_VERSION`.

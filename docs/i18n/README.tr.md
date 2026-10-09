@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="../../assets/logo.svg" alt="AEC Model Bridge logo: an isometric model cube with a bridge arch" height="120">
+<img src="../../assets/logo.svg" alt="AEC Model Bridge logosu: köprü kemerli izometrik bir model küpü" height="120">
 
 [English](../../README.md) | [简体中文](README.zh-CN.md) | [Español](README.es.md) | [हिन्दी](README.hi.md) | [العربية](README.ar.md) | [Português (BR)](README.pt-BR.md) | [Русский](README.ru.md) | [日本語](README.ja.md) | [Deutsch](README.de.md) | [Français](README.fr.md) | [Bahasa Indonesia](README.id.md) | **Türkçe** | [한국어](README.ko.md) | [Tiếng Việt](README.vi.md) | [Italiano](README.it.md) | [Polski](README.pl.md) | [繁體中文](README.zh-TW.md)
 
-> Bu çeviri yapay zeka desteğiyle hazırlanmıştır. Esas kaynak İngilizce [README](../../README.md) dosyasıdır; düzeltmeler için pull request göndermekten çekinmeyin (bkz. [CONTRIBUTING.md](../../CONTRIBUTING.md)).
+> Bu çeviri yapay zekâ desteğiyle hazırlanmıştır. Esas kaynak İngilizce [README](../../README.md) dosyasıdır; düzeltmeler için pull request göndermekten çekinmeyin (bkz. [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
 **Açık Revit modelinizi yapay zekâya sorun. Varsayılan olarak siz onaylamadan hiçbir şey değişmez.**
 
@@ -20,10 +20,16 @@ Revit 2024 – 2027 için açık kaynaklı MCP sunucusu ve yerel eklenti. Claude
 </div>
 
 <p align="center">
-  <img src="../images/readme/demo.gif" alt="Demo: Bir yapay zekâ asistanı Mark değeri olmayan 12 kapıyı bulur ve bir plan hazırlar. Plan, siz onaylayana kadar Revit panelinde bekler; ardından değerler doğrulama için geri okunur. Örnek değerler, simüle edilmiş oturum." width="900">
+  <img src="../images/readme/demo.gif" alt="Demo: Bir binanın 3B modeli Revit panelinin yanında durur. Bir yapay zekâ asistanı Mark değeri olmayan 12 kapıyı bulur ve bir plan hazırlar. Plan, siz onaylayana kadar Revit panelinde bekler; ardından değerler doğrulama için geri okunur. Örnek değerler, simüle edilmiş oturum." width="900">
 </p>
 
-Claude, Codex veya başka bir MCP istemcisini açık olan Revit modelinize bağlayın. AEC Model Bridge, Python tabanlı bir MCP sunucusunu yerel bir Revit eklentisiyle birleştirir: salt okunur araçlar modeli hemen inceler, model değişiklikleri ise varsayılan olarak onaylanmış bir plan gerektirir. [Onay akışına bakın](#onay-nasıl-çalışır).
+AEC Model Bridge, Claude, Codex, Cursor ve diğer yapay zekâ asistanlarının açık Revit modelinizi okumasını ve düzenlemesini sağlayan açık kaynaklı Revit MCP sunucusudur; her değişikliği önce siz onaylarsınız. Python tabanlı bir MCP sunucusunu yerel bir Revit eklentisiyle birleştirir: salt okunur araçlar modeli hemen inceler, model değişiklikleri ise varsayılan olarak onaylanmış bir plan gerektirir. [Onay akışına bakın](#onay-nasıl-çalışır).
+
+<p align="center">
+  <img src="../images/readme/works-with.svg" alt="Birlikte çalışır: Claude Desktop, GitHub Copilot'lı VS Code, Cursor ve Codex için kurulum belgelenmiştir. Claude Code, Windsurf, Cline, Continue, Zed ve Gemini CLI gibi diğer MCP istemcileri de çalışmalıdır. Uygulamalar: Revit 2024–2027, Rhino, Grasshopper, Navisworks (geliştirme sürüyor). Veri: IFC, Speckle, Excel, SQLite. Protokol: onay kapısıyla stdio üzerinden MCP." width="900">
+</p>
+
+Kurulum Claude Desktop, GitHub Copilot'lı VS Code, Cursor ve Codex için belgelenmiştir. Standart bir MCP stdio sunucusu olduğundan Claude Code, Windsurf, Cline, Continue, Zed ve Gemini CLI gibi diğer istemciler de çalışmalıdır. Nelerin belgelendiğini ve nelerin test edilmediğini [uyumluluk](../compatibility.md) sayfasında bulabilirsiniz.
 
 Aynı sunucu IFC incelemesini, Rhino ve Grasshopper otomasyonunu ve Speckle entegrasyonunu da içerir. [Entegrasyon durumu](#diğer-entegrasyonlar), hazır sağlayıcıları üzerinde çalışılanlardan ayırır.
 
@@ -38,7 +44,7 @@ BIM koordinatörleri için: model kalitesini inceleyin, etkilenen elemanları g�
 | Çizim üretimi | "Bu CSV'den bir pafta (sheet) listesi hazırla, ardından paftaları oluşturmayı ve görünümleri yerleştirmeyi öner." | `revit_batch_create_sheets_from_csv`, `revit_place_viewport_on_sheet` |
 | IFC incelemesi | "Bu IFC dosyasının katlarını göster, duvar özelliklerini incele ve şema doğrulama sorunlarını raporla." | `ifc_get_spatial_structure`, `ifc_get_properties`, `ifc_validate` |
 
-Revit'te ilk denemeniz için şunu deneyin:
+Revit'te ilk denemeniz için şunu yazın:
 
 ```text
 Read the active model's warnings. Group them by description and show the
@@ -65,7 +71,7 @@ Snapshot tabanlı QA/QC ve rapor modülleri, uyumlu ve kaydedilmiş bir snapshot
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
-Düğmeler yalnızca [uv](https://docs.astral.sh/uv/getting-started/installation/) gerektirir, başka bir kurulum gerekmez: kendi çalışma alanınızı belirlemediğiniz sürece sunucu `~/Documents/AEC Model Bridge` klasörünü çalışma alanı olarak kullanır. Claude Desktop için en son sürümden `.mcpb` dosyasını indirip açın. Canlı Revit çalışması için yine Revit ve [eklenti](#revit-eklentisini-kurma) gerekir; mock modu hiçbir şey gerektirmez.
+Düğmeler yalnızca [uv](https://docs.astral.sh/uv/getting-started/installation/) gerektirir, başka bir kurulum gerekmez: kendi çalışma alanınızı belirlemediğiniz sürece sunucu `~/Documents/AEC Model Bridge` klasörünü çalışma alanı olarak kullanır. Claude Desktop için en son yayından `.mcpb` dosyasını indirip açın. Canlı Revit çalışması için yine Revit ve [eklenti](#revit-eklentisini-kurma) gerekir; mock modu hiçbir şey gerektirmez.
 
 **Elle kurulum**
 
@@ -99,20 +105,20 @@ VS Code mu kullanıyorsunuz? [Eklenti kaynağı ve yerel kurulum adımları](../
 
 | Alan | Araçlar | Ne yaparlar |
 | --- | --- | --- |
-| Revit | 103 | Modeli okuma; eleman, parametre, görünüm, pafta, tablo oluşturma ve düzenleme; dışa aktarma; çalışma paylaşımı (worksharing) |
+| Revit | 103 | Modeli okuma; eleman, parametre, görünüm, pafta, çizelge oluşturma ve düzenleme; dışa aktarma; çalışma paylaşımı (worksharing) |
 | Onay | 6 | Model değişikliklerini planlama, inceleme, onaylama, çalıştırma ve geri alma |
-| Modüller | 34 | Snapshot incelemesi, parametre ızgaraları, QA/QC kontrolleri, tarifler, raporlar, seçimler |
+| Modüller | 34 | Snapshot incelemesi, parametre ızgaraları, QA/QC kontrolleri, reçeteler, raporlar, seçimler |
 | Rhino ve Grasshopper | 19 | Geometri, katmanlar, malzemeler, boolean işlemleri |
 | Speckle | 17 | Projeler, modeller, sürümler, gönderme ve alma |
 | Navisworks | 15 | Model ağacı, bakış noktaları, çakışma testleri (geliştirme sürüyor) |
 | IFC | 7 | IFC dosyalarını Revit olmadan okuma: yapı, özellikler, doğrulama |
 | Grafik, snapshot'lar, dışa aktarmalar, işler | 18 | Anlamsal grafik denetimleri, snapshot farkları, SQLite dışa aktarma, arka plan işleri |
 
-Varsayılan kurulumda 219 araç listelenir (mock modundaki mevcut sunucudan sayılmıştır). Autodesk Data araçları, APS kimlik bilgileri yapılandırıldığında görünür. [Araç başvurusu](../tools-generated.md) tüm araçları listeler. Her araç, istemcilerin okuma ile yazmayı ayırt edebilmesi için MCP açıklamaları (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) taşır.
+Varsayılan kurulumda 219 araç listelenir (mock modundaki mevcut sunucudan sayılmıştır). Autodesk Data araçları, APS kimlik bilgileri yapılandırıldığında görünür. [Araç başvurusu](../tools-generated.md) tüm araçları listeler. Her araç, istemcilerin okuma ile yazmayı ayırt edebilmesi için MCP ek açıklamaları (annotations; `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) taşır.
 
 ### Gelişmiş Revit otomasyonu
 
-Model sorguları ve parametre güncellemelerinin yanı sıra Revit araçları yapı elemanları, görünümler, paftalar, tablolar, etiketler ve ölçüler oluşturur; IFC, DWG, görüntü ve Navisworks dosyaları dışa aktarır. Desteklenen işlemler ve girdiler için [araç başvurusuna](../tools-generated.md) bakın.
+Model sorguları ve parametre güncellemelerinin yanı sıra Revit araçları yapı elemanları, görünümler, paftalar, çizelgeler, etiketler ve ölçüler oluşturur; IFC, DWG, görüntü ve Navisworks dosyaları dışa aktarır. Desteklenen işlemler ve girdiler için [araç başvurusuna](../tools-generated.md) bakın.
 
 Araç kataloğunun kapsamadığı durumlar için `revit_invoke_method`, `revit_reflect_get` ve `revit_reflect_set` genel Revit API üyeleriyle çalışır, `revit_execute_python` ise Revit içinde IronPython çalıştırır. Bu gelişmiş araçlar Revit işlemiyle aynı izinlere sahiptir. Yalnızca güvendiğiniz MCP istemcileri ve prompt'larla kullanın.
 
@@ -123,7 +129,7 @@ MCP istemcisi tek bir Python hub'ıyla konuşur. Hub her çağrıyı o araca sah
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/architecture-dark.png">
-    <img src="../images/architecture-light.png" alt="Architecture of AEC Model Bridge: an MCP client such as Claude or Codex calls the Python MCP hub, which routes tool calls to the Revit, Rhino, Navisworks, IFC and Speckle providers. The Revit and Rhino providers talk to add-ins over localhost HTTP, the IFC provider reads IFC files with IfcOpenShell, and Navisworks is still in progress." width="900">
+    <img src="../images/architecture-light.png" alt="AEC Model Bridge mimarisi: Claude veya Codex gibi bir MCP istemcisi Python MCP hub'ını çağırır; hub, araç çağrılarını Revit, Rhino, Navisworks, IFC ve Speckle sağlayıcılarına yönlendirir. Revit ve Rhino sağlayıcıları eklentilerle localhost HTTP üzerinden konuşur, IFC sağlayıcısı IFC dosyalarını IfcOpenShell ile okur ve Navisworks üzerinde hâlâ çalışılmaktadır." width="900">
   </picture>
 </p>
 
@@ -138,20 +144,20 @@ Hub, onaylanmış bir plan taşımayan ve modeli değiştiren her araç çağrı
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-dark.png">
-    <img src="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-light.png" alt="Inspect, Propose, Approve, Verify. Four steps: inspect finds an empty Mark, propose drafts a change, approve is a human decision, verify reads the value back. Example values are illustrative." width="900">
+    <img src="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-light.png" alt="İncele, öner, onayla, doğrula. Dört adım: inceleme boş bir Mark değerini bulur, öneri bir değişiklik taslağı hazırlar, onay insan kararıdır, doğrulama değeri geri okur. Örnek değerler açıklayıcıdır." width="900">
   </picture>
 </p>
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant proposes a plan, the MCP hub and ApprovalGate show it in the Revit side panel, and only after you approve does execute_plan forward the commands to the Revit add-in, which runs them in one named transaction. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
+    <img src="../images/approval-flow-light.png" alt="Onay akışı: yapay zekâ asistanı bir plan önerir, MCP hub'ı ve ApprovalGate bunu Revit yan panelinde gösterir ve yalnızca siz onayladıktan sonra execute_plan komutları, tek bir adlandırılmış transaction içinde çalıştıran Revit eklentisine iletir. Planı reddederseniz veya hiç onaylamazsanız çağrı engellenir ve model olduğu gibi kalır." width="900">
   </picture>
 </p>
 
 <sub>Diyagram kaynağı: [approval-flow.mmd](../diagrams/approval-flow.mmd). Görselleri `python scripts/render_diagrams.py` ile yeniden oluşturun.</sub>
 
-Onaylanan bir plan sonradan hatalı çıkarsa `rollback_plan` onu geri alır. Geri alma, aynı oturumda Revit Undo'yu veya ters parametre değerlerini kullanır. Dosya çıktısı gibi geri alınamayan işlemler ikinci bir onay ister. Yaşam döngüsü [ADR 0008](../0008-approval-gate-lifecycle.md) belgesindedir.
+Onaylanan bir plan sonradan hatalı çıkarsa `rollback_plan` onu geri alır. Geri alma, aynı oturumda Revit'in Geri Al komutunu veya ters parametre değerlerini kullanır. Dosya çıktısı gibi geri alınamayan işlemler ikinci bir onay ister. Yaşam döngüsü [ADR 0008](../0008-approval-gate-lifecycle.md) belgesindedir.
 
 Gözetimsiz pipeline'lar için `MCP_REVIT_APPROVAL_MODE=auto` ayarlayabilirsiniz. Bu, insan denetimini kapatır; bu yüzden yalnızca kontrollü bir ortamda kullanın.
 
@@ -178,9 +184,11 @@ Ayrıca Windows 10 veya 11, Python 3.11 veya üzeri ve kullandığınız sürüm
 | Power BI | Geliştirme sürüyor. Sağlayıcı ve araç mevcut ama hub'a kayıtlı değil. |
 | Excel, Parquet ve DuckDB | Planlandı. |
 
+Ürün adları ve logolar sahiplerine aittir. Banner bunları yalnızca bu projenin hangi araçlarla çalıştığını göstermek için kullanır.
+
 ## Revit eklentisini kurma
 
-**En kolayı (Windows):** [son sürümden](https://github.com/Sam-AEC/aec-model-bridge/releases/latest) `AECModelBridge-Setup-<version>.exe` dosyasını indirin, çift tıklayın, Revit sürümlerinizi seçin ve Revit'i yeniden başlatın. Eklentiyi, birlikte gelen Python sunucusunu ve kutuyu işaretlerseniz Claude Desktop ile VS Code ayarlarını kurar; mevcut ayarlarınızın yedeğini de alır. Windows Ayarları'ndan kaldırabilirsiniz. Aşağıdaki adımlar kaynaktan derleme içindir.
+**En kolayı (Windows):** [son yayından](https://github.com/Sam-AEC/aec-model-bridge/releases/latest) `AECModelBridge-Setup-<version>.exe` dosyasını indirin, çift tıklayın, Revit sürümlerinizi seçin ve Revit'i yeniden başlatın. Eklentiyi, birlikte gelen Python sunucusunu ve kutuyu işaretlerseniz Claude Desktop ile VS Code ayarlarını kurar; mevcut ayarlarınızın yedeğini de alır. Windows Ayarları'ndan kaldırabilirsiniz. Aşağıdaki adımlar kaynaktan derleme içindir.
 
 İki parça kurarsınız: Python MCP sunucusu ve Revit eklentisi. Canlı Revit otomasyonu ikisine de ihtiyaç duyar.
 
@@ -206,7 +214,7 @@ $RevitVersion = Read-Host "Revit year (2024, 2025, 2026, or 2027)"
 .\scripts\install.ps1 -RevitVersion $RevitVersion
 ```
 
-Kurulum, sürüme özel ikili dosyaları şuraya yerleştirir:
+Kurulum betiği, sürüme özel ikili dosyaları şuraya yerleştirir:
 
 ```text
 C:\ProgramData\AECModelBridge\bin\<year>
@@ -226,7 +234,7 @@ Desteklenen tüm sürümler için ikili dosyaları tek seferde hazırlamak için
 .\scripts\package.ps1 -RevitVersion All
 ```
 
-Her [GitHub sürümünde](https://github.com/Sam-AEC/aec-model-bridge/releases/latest) her Revit yılı için hazır bir paket bulunur; örneğin `aec-model-bridge-revit-2026-<version>.zip`. Kaynaktan derlemek yerine arşivi açıp `.\install.ps1 -RevitVersion 2026` çalıştırın. Çift tıklayarak kurulan bir Windows yükleyicisi için `scripts/build-installer.ps1` Inno Setup ile bir tane oluşturur. Sorun giderme dahil tam kılavuz [docs/install.md](../install.md) içindedir.
+Her [GitHub yayınında](https://github.com/Sam-AEC/aec-model-bridge/releases/latest) her Revit yılı için hazır bir paket bulunur; örneğin `aec-model-bridge-revit-2026-<version>.zip`. Kaynaktan derlemek yerine arşivi açıp `.\install.ps1 -RevitVersion 2026` çalıştırın. Çift tıklayarak kurulan bir Windows yükleyicisi için `scripts/build-installer.ps1` Inno Setup ile bir tane oluşturur. Sorun giderme dahil tam kılavuz [docs/install.md](../install.md) içindedir.
 
 ## Claude Desktop'ı Revit'e bağlama
 
@@ -262,7 +270,7 @@ Sanal ortamınızdaki Python çalıştırılabilir dosyasını kullanın ve sunu
 
 En yeni açık Revit örneğini hedeflemek için `MCP_REVIT_HOST_VERSION` değerini boş bırakın. Bir istemci girdisini belirli bir Revit sürümüne sabitlemek için `2024` veya `2026` gibi bir yıl girin. `MCP_REVIT_BRIDGE_URL`, gelişmiş kurulumlar için uç noktayı değiştirir.
 
-VS Code kullanıcıları [`.vscode/mcp.json`](../../.vscode/mcp.json) dosyasından başlayabilir. Hermes Desktop kullanıcıları yer tutucu Python yolunu değiştirdikten sonra [`docs/examples/hermes-desktop.json`](../examples/hermes-desktop.json) dosyasından başlayabilir. MCP Bundles destekleyen istemciler `.mcpb` dosyasını [son sürümden](https://github.com/Sam-AEC/aec-model-bridge/releases/latest) kurabilir. Sunucu çalışan masaüstü uygulamasıyla konuştuğu için Revit eklentisi yine de gereklidir.
+VS Code kullanıcıları [`.vscode/mcp.json`](../../.vscode/mcp.json) dosyasından başlayabilir. Hermes Desktop kullanıcıları yer tutucu Python yolunu değiştirdikten sonra [`docs/examples/hermes-desktop.json`](../examples/hermes-desktop.json) dosyasından başlayabilir. MCP Bundles destekleyen istemciler `.mcpb` dosyasını [son yayından](https://github.com/Sam-AEC/aec-model-bridge/releases/latest) kurabilir. Sunucu çalışan masaüstü uygulamasıyla konuştuğu için Revit eklentisi yine de gereklidir.
 
 ### Bağlantıyı kontrol etme
 
@@ -293,7 +301,7 @@ Model Context Protocol (MCP), yapay zekâ asistanlarının başka yazılımlarda
 
 ### Hangi yapay zekâ asistanlarıyla çalışır?
 
-Yerel bir stdio sunucusu başlatabilen her MCP istemcisiyle. Claude Desktop'ı, GitHub Copilot'lı VS Code'u ve standart bir `mcpServers` yapılandırması okuyan istemcileri belgeliyoruz. Panel sohbeti ayrıca bir Anthropic API anahtarını veya kuruluysa `claude` ya da `codex` komut satırı araçlarını kullanabilir. Bkz. [ADR 0012](../0012-native-agent-chat-backend.md).
+Yerel bir stdio sunucusu başlatabilen her MCP istemcisiyle. Claude Desktop'ı, GitHub Copilot'lı VS Code'u, Cursor'ı, Codex'i ve standart bir `mcpServers` yapılandırması okuyan istemcileri belgeliyoruz. Windsurf, Cline, Roo Code, Continue, Zed, Claude Code ve Gemini CLI'ın da aynı şekilde çalışması beklenir, ancak test edilmemiştir. Bkz. [uyumluluk](../compatibility.md). Panel sohbeti ayrıca bir Anthropic API anahtarını veya kuruluysa `claude` ya da `codex` komut satırı araçlarını kullanabilir. Bkz. [ADR 0012](../0012-native-agent-chat-backend.md).
 
 ### Yapay zekâ modelimi sormadan değiştirebilir mi?
 
@@ -311,9 +319,9 @@ Evet. IFC sağlayıcısı dosyaları IfcOpenShell ile okur. Dosya meta verilerin
 
 Sunucuyu geliştirme ve testler için mock modunda çalıştırabilirsiniz. Canlı model çalışması için Revit 2024–2027 ve eklenti gerekir.
 
-## Sürümler
+## Yayınlar ve sürümleme
 
-AEC Model Bridge, Anlamsal Sürümleme'yi (Semantic Versioning) izler. Sürümler GitHub'da `vX.Y.Z` olarak etiketlenir ve kök dizindeki `VERSION` dosyası sürüm numarasını tutar. Sürüm süreci için [docs/versioning.md](../versioning.md), her sürümdeki değişiklikler için [CHANGELOG.md](../../CHANGELOG.md) belgesine bakın.
+AEC Model Bridge, Anlamsal Sürümleme'yi (Semantic Versioning) izler. Yayınlar GitHub'da `vX.Y.Z` olarak etiketlenir ve kök dizindeki `VERSION` dosyası sürüm numarasını tutar. Yayın süreci için [docs/versioning.md](../versioning.md), her sürümdeki değişiklikler için [CHANGELOG.md](../../CHANGELOG.md) belgesine bakın.
 
 ## Geliştirme
 

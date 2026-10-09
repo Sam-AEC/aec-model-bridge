@@ -1,14 +1,14 @@
 <div align="center">
 
-<img src="../../assets/logo.svg" alt="AEC Model Bridge logo: an isometric model cube with a bridge arch" height="120">
+<img src="../../assets/logo.svg" alt="Логотип AEC Model Bridge: изометрический куб модели с аркой моста" height="120">
 
 [English](../../README.md) | [简体中文](README.zh-CN.md) | [Español](README.es.md) | [हिन्दी](README.hi.md) | [العربية](README.ar.md) | [Português (BR)](README.pt-BR.md) | **Русский** | [日本語](README.ja.md) | [Deutsch](README.de.md) | [Français](README.fr.md) | [Bahasa Indonesia](README.id.md) | [Türkçe](README.tr.md) | [한국어](README.ko.md) | [Tiếng Việt](README.vi.md) | [Italiano](README.it.md) | [Polski](README.pl.md) | [繁體中文](README.zh-TW.md)
 
 > Этот перевод выполнен с помощью ИИ. Основным источником остаётся английский [README](../../README.md); исправления приветствуются через pull request (см. [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
-**Задавайте ИИ вопросы об открытой модели Revit. По умолчанию ничего не изменится, пока вы не подтвердите.**
+**Задавайте ИИ вопросы об открытой модели Revit. По умолчанию ничего не изменится, пока вы не согласуете.**
 
-Открытый MCP-сервер и нативный плагин для Revit 2024 – 2027. Работает с Claude, Codex и другими MCP-клиентами.
+MCP-сервер с открытым исходным кодом и нативный плагин для Revit 2024 – 2027. Работает с Claude, Codex и другими MCP-клиентами.
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Sam-AEC/aec-model-bridge/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Sam-AEC/aec-model-bridge/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
@@ -20,16 +20,22 @@
 </div>
 
 <p align="center">
-  <img src="../images/readme/demo.gif" alt="Демонстрация: ИИ-ассистент находит 12 дверей без Mark и составляет план. План ждёт в панели Revit, пока вы его не подтвердите, затем значения считываются обратно для проверки. Примерные значения, имитация сессии." width="900">
+  <img src="../images/readme/demo.gif" alt="Демонстрация: трёхмерная модель здания рядом с панелью Revit. ИИ-ассистент находит 12 дверей без Mark и составляет план. План ждёт в панели Revit, пока вы его не согласуете, затем значения считываются обратно для проверки. Значения условные, сеанс смоделирован." width="900">
 </p>
 
-Подключите Claude, Codex или другой MCP-клиент к открытой модели Revit. AEC Model Bridge объединяет MCP-сервер на Python и нативный плагин для Revit: инструменты только для чтения сразу изучают модель, а любые изменения модели по умолчанию требуют утверждённого плана. [Как устроено утверждение](#как-работает-утверждение).
+AEC Model Bridge — это MCP-сервер для Revit с открытым исходным кодом: он позволяет Claude, Codex, Cursor и другим ИИ-ассистентам читать и редактировать открытую модель Revit, причём каждое изменение сначала согласуете вы. Он объединяет MCP-сервер на Python и нативный плагин для Revit: инструменты только для чтения сразу изучают модель, а изменения модели по умолчанию требуют согласованного плана. [Как устроено согласование](#как-работает-согласование).
+
+<p align="center">
+  <img src="../images/readme/works-with.svg" alt="Работает с: для Claude Desktop, VS Code с GitHub Copilot, Cursor и Codex есть описанная настройка. Другие MCP-клиенты, такие как Claude Code, Windsurf, Cline, Continue, Zed и Gemini CLI, тоже должны работать. Приложения: Revit 2024–2027, Rhino, Grasshopper, Navisworks (в разработке). Данные: IFC, Speckle, Excel, SQLite. Протокол: MCP через stdio со шлюзом согласования." width="900">
+</p>
+
+Настройка описана для Claude Desktop, VS Code с GitHub Copilot, Cursor и Codex. Это стандартный MCP-сервер со stdio, поэтому другие клиенты, такие как Claude Code, Windsurf, Cline, Continue, Zed и Gemini CLI, тоже должны работать. В разделе [совместимость](../compatibility.md) указано, что описано, а что не проверялось.
 
 В тот же сервер входят проверка IFC, автоматизация Rhino и Grasshopper и интеграция со Speckle. В разделе [Статус интеграций](#другие-интеграции) указано, какие провайдеры уже доступны, а какие ещё в разработке.
 
 ## Примеры рабочих процессов
 
-Для BIM-координаторов: проверить качество модели, просмотреть затронутые элементы, утвердить исправление параметров, затем проверить результат и выгрузить отчёт. В примерах используются инструменты из [текущего каталога](../tools-generated.md).
+Для BIM-координаторов: проверить качество модели, просмотреть затронутые элементы, согласовать исправление параметров, затем проверить результат и выгрузить отчёт. В примерах используются инструменты из [текущего каталога](../tools-generated.md).
 
 | Процесс | Пример запроса | Используемые инструменты |
 | --- | --- | --- |
@@ -55,7 +61,7 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 Для правок ассистент составляет план через `plan_actions`; вы просматриваете его на панели Revit, и только потом `execute_plan` его применяет. Проверка IFC работает без Revit.
 
-Модули QA/QC и отчётов на основе снимков (snapshot) требуют совместимого сохранённого снимка. Сейчас передача снимка из Revit в модуль требует согласованности имени файла и рабочей области; если не указать `snapshot_id`, могут вернуться сгенерированные демонстрационные данные. Для работы с живой моделью используйте прямые инструменты Revit выше. [Запланированные исправления и демо](../roadmap.md).
+Модули QA/QC и отчётов на основе снимков (snapshot) требуют совместимого сохранённого снимка. Сейчас передача снимка из Revit в модуль требует, чтобы совпадали имя файла и рабочая папка; если не указать `snapshot_id`, могут вернуться сгенерированные демонстрационные данные. Для проверки открытой модели используйте прямые инструменты Revit, описанные выше. [Запланированные исправления и демо](../roadmap.md).
 
 ## Быстрый старт
 
@@ -65,11 +71,11 @@ the plan in Revit, apply it and read the values back to confirm the result.
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
-Кнопкам нужен только [uv](https://docs.astral.sh/uv/getting-started/installation/), другая настройка не требуется: сервер использует `~/Documents/AEC Model Bridge` как рабочую папку, если вы не задали свою. Для Claude Desktop скачайте файл `.mcpb` из последнего релиза и откройте его. Для работы с живым Revit по-прежнему нужны Revit и [плагин](#установка-плагина-revit); режиму mock ничего не нужно.
+Кнопкам нужен только [uv](https://docs.astral.sh/uv/getting-started/installation/), другая настройка не требуется: сервер использует `~/Documents/AEC Model Bridge` как рабочую папку, если вы не задали свою. Для Claude Desktop скачайте файл `.mcpb` из последнего релиза и откройте его. Для работы в запущенном Revit по-прежнему нужны Revit и [плагин](#установка-плагина-revit); режиму mock ничего не нужно.
 
 **Ручная настройка**
 
-Для автоматизации живого Revit нужны Windows, лицензионный Revit 2024–2027, Python 3.11 или новее, [uv](https://docs.astral.sh/uv/getting-started/installation/) и плагин Revit ([шаги установки](#установка-плагина-revit)). Затем добавьте это в `claude_desktop_config.json` (Codex, Cursor и VS Code используют те же значения; две переменные с каталогами необязательны, по умолчанию берётся рабочая папка, указанная выше):
+Для автоматизации запущенного Revit нужны Windows, лицензионный Revit 2024–2027, Python 3.11 или новее, [uv](https://docs.astral.sh/uv/getting-started/installation/) и плагин Revit ([шаги установки](#установка-плагина-revit)). Затем добавьте это в `claude_desktop_config.json` (Codex, Cursor и VS Code используют те же значения; две переменные с каталогами необязательны, по умолчанию берётся рабочая папка, указанная выше):
 
 ```json
 {
@@ -100,7 +106,7 @@ the plan in Revit, apply it and read the values back to confirm the result.
 | Область | Инструменты | Что делают |
 | --- | --- | --- |
 | Revit | 103 | Чтение модели, создание и правка элементов, параметров, видов, листов, спецификаций, экспорт, совместная работа |
-| Утверждение | 6 | Планирование, проверка, утверждение, выполнение и откат изменений модели |
+| Согласование | 6 | Планирование, проверка, согласование, выполнение и откат изменений модели |
 | Модули | 34 | Анализ снимков, таблицы параметров, проверки QA/QC, рецепты, отчёты, выборки |
 | Rhino и Grasshopper | 19 | Геометрия, слои, материалы, булевы операции |
 | Speckle | 17 | Проекты, модели, версии, отправка и получение |
@@ -123,7 +129,7 @@ MCP-клиент обращается к одному Python-хабу. Хаб п
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/architecture-dark.png">
-    <img src="../images/architecture-light.png" alt="Architecture of AEC Model Bridge: an MCP client such as Claude or Codex calls the Python MCP hub, which routes tool calls to the Revit, Rhino, Navisworks, IFC and Speckle providers. The Revit and Rhino providers talk to add-ins over localhost HTTP, the IFC provider reads IFC files with IfcOpenShell, and Navisworks is still in progress." width="900">
+    <img src="../images/architecture-light.png" alt="Архитектура AEC Model Bridge: MCP-клиент, например Claude или Codex, обращается к Python-хабу MCP, который направляет вызовы инструментов провайдерам Revit, Rhino, Navisworks, IFC и Speckle. Провайдеры Revit и Rhino общаются с плагинами по HTTP через localhost, провайдер IFC читает файлы IFC с помощью IfcOpenShell, а Navisworks пока в разработке." width="900">
   </picture>
 </p>
 
@@ -131,27 +137,27 @@ MCP-клиент обращается к одному Python-хабу. Хаб п
 
 Бирюзовые блоки работают уже сейчас. Янтарные блоки с пунктиром ещё в разработке. Индиго обозначает данные и внешние сервисы.
 
-### Как работает утверждение
+### Как работает согласование
 
-Хаб останавливает любой вызов инструмента, меняющий модель, если с ним не передан утверждённый план. Режим по умолчанию — `required`. ИИ предлагает план, вы просматриваете его на боковой панели Revit, а плагин выполняет его в основном потоке Revit в именованной транзакции.
+Хаб останавливает любой вызов инструмента, меняющий модель, если с ним не передан согласованный план. Режим по умолчанию — `required`. ИИ предлагает план, вы просматриваете его на боковой панели Revit, а плагин выполняет его в основном потоке Revit в именованной транзакции.
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-dark.png">
-    <img src="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-light.png" alt="Inspect, Propose, Approve, Verify. Four steps: inspect finds an empty Mark, propose drafts a change, approve is a human decision, verify reads the value back. Example values are illustrative." width="900">
+    <img src="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-light.png" alt="Проверить, предложить, согласовать, сверить. Четыре шага: проверка находит пустое значение Mark, предложение составляет изменение, согласование — решение человека, сверка считывает значение обратно. Значения приведены для примера." width="900">
   </picture>
 </p>
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant proposes a plan, the MCP hub and ApprovalGate show it in the Revit side panel, and only after you approve does execute_plan forward the commands to the Revit add-in, which runs them in one named transaction. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
+    <img src="../images/approval-flow-light.png" alt="Схема согласования: ИИ-ассистент предлагает план, хаб MCP и ApprovalGate показывают его на боковой панели Revit, и только после вашего согласования execute_plan передаёт команды плагину Revit, который выполняет их в одной именованной транзакции. Если вы отклонили план или не согласовали его, вызов блокируется, а модель остаётся нетронутой." width="900">
   </picture>
 </p>
 
 <sub>Исходник диаграммы: [approval-flow.mmd](../diagrams/approval-flow.mmd). Пересоздать изображения можно командой `python scripts/render_diagrams.py`.</sub>
 
-Если утверждённый план позже оказался ошибочным, `rollback_plan` отменяет его. Откат использует «Отмену» Revit в том же сеансе или обратные значения параметров. Операции, которые нельзя отменить, например запись файлов, запрашивают повторное подтверждение. Жизненный цикл описан в [ADR 0008](../0008-approval-gate-lifecycle.md).
+Если согласованный план позже оказался ошибочным, `rollback_plan` отменяет его. Откат использует команду Revit «Отменить» в том же сеансе или обратные значения параметров. Операции, которые нельзя отменить, например запись файлов, запрашивают повторное подтверждение. Жизненный цикл описан в [ADR 0008](../0008-approval-gate-lifecycle.md).
 
 Для конвейеров без участия человека можно задать `MCP_REVIT_APPROVAL_MODE=auto`. Это отключает проверку человеком, поэтому используйте режим только в контролируемой среде.
 
@@ -173,16 +179,18 @@ MCP-клиент обращается к одному Python-хабу. Хаб п
 | Revit | Доступно. Нативный плагин на C#. |
 | IFC (IfcOpenShell) | Доступно. Читает IFC-файлы без запущенного Revit. |
 | Rhino и Grasshopper | Доступно. Подключается к плагину Rhino на `localhost:3004`. |
-| Speckle | Доступно. Нужен идентификатор клиента Speckle в вашем окружении. |
-| Navisworks Manage | В разработке. Провайдер и его инструменты зарегистрированы. Плагин для Navisworks не закончен. |
+| Speckle | Доступно. Нужен идентификатор клиента Speckle в вашей среде. |
+| Navisworks Manage | В разработке. Провайдер и его инструменты зарегистрированы. Плагин для Navisworks не завершён. |
 | Power BI | В разработке. Провайдер и инструмент есть, но не зарегистрированы в хабе. |
 | Excel, Parquet и DuckDB | Запланировано. |
 
+Названия продуктов и логотипы принадлежат их владельцам. Баннер использует их только для того, чтобы показать, с чем работает этот проект.
+
 ## Установка плагина Revit
 
-**Проще всего (Windows):** скачайте `AECModelBridge-Setup-<version>.exe` из [последнего релиза](https://github.com/Sam-AEC/aec-model-bridge/releases/latest), запустите его двойным щелчком, выберите версии Revit и перезапустите Revit. Он установит плагин, встроенный сервер Python и, если отметить галочку, настройки Claude Desktop и VS Code с резервной копией текущих настроек. Удалить программу можно в параметрах Windows. Шаги ниже нужны для сборки из исходников.
+**Проще всего (Windows):** скачайте `AECModelBridge-Setup-<version>.exe` из [последнего релиза](https://github.com/Sam-AEC/aec-model-bridge/releases/latest), запустите его двойным щелчком, выберите версии Revit и перезапустите Revit. Он установит плагин, входящий в комплект сервер Python и, если отметить галочку, настройки Claude Desktop и VS Code с резервной копией текущих настроек. Удалить программу можно в параметрах Windows. Шаги ниже нужны для сборки из исходников.
 
-Устанавливаются две части: MCP-сервер на Python и плагин Revit. Для работы с живым Revit нужны обе.
+Устанавливаются две части: MCP-сервер на Python и плагин Revit. Для работы с запущенным Revit нужны обе.
 
 ### 1. Установка MCP-сервера
 
@@ -262,7 +270,7 @@ C:\ProgramData\AECModelBridge\bin\<year>
 
 Если не указывать `MCP_REVIT_HOST_VERSION`, будет выбран самый новый из открытых экземпляров Revit. Задайте год, например `2024` или `2026`, чтобы закрепить запись клиента за этой версией Revit. `MCP_REVIT_BRIDGE_URL` переопределяет адрес в сложных конфигурациях.
 
-Пользователи VS Code могут взять за основу [`.vscode/mcp.json`](../../.vscode/mcp.json). Пользователи Hermes Desktop могут взять [`docs/examples/hermes-desktop.json`](../examples/hermes-desktop.json), заменив путь к Python-заглушке. Клиенты с поддержкой MCP Bundles могут установить файл `.mcpb` из [последнего релиза](https://github.com/Sam-AEC/aec-model-bridge/releases/latest). Плагин Revit по-прежнему обязателен, потому что сервер обращается к запущенному настольному приложению.
+Пользователи VS Code могут взять за основу [`.vscode/mcp.json`](../../.vscode/mcp.json). Пользователи Hermes Desktop могут взять [`docs/examples/hermes-desktop.json`](../examples/hermes-desktop.json), заменив путь-заполнитель к Python. Клиенты с поддержкой MCP Bundles могут установить файл `.mcpb` из [последнего релиза](https://github.com/Sam-AEC/aec-model-bridge/releases/latest). Плагин Revit по-прежнему обязателен, потому что сервер обращается к запущенному настольному приложению.
 
 ### Проверка подключения
 
@@ -280,7 +288,7 @@ Invoke-RestMethod "$($switch.endpoint)/health"
 
 - Мост Revit слушает только localhost.
 - Сервер читает и записывает данные только в папках из `MCP_REVIT_ALLOWED_DIRECTORIES`.
-- Инструментам, изменяющим модель, нужен утверждённый план, если вы не отключили утверждение.
+- Инструментам, изменяющим модель, нужен согласованный план, если вы не отключили согласование.
 - Вызовы инструментов записываются в журнал аудита, секреты скрываются.
 
 Подробности — в [docs/security.md](../security.md). О найденной уязвимости сообщайте по правилам из [SECURITY.md](../../SECURITY.md).
@@ -293,11 +301,11 @@ Model Context Protocol (MCP) — открытый стандарт, позвол
 
 ### С какими ИИ-ассистентами это работает?
 
-С любым MCP-клиентом, который умеет запускать локальный stdio-сервер. Мы описываем Claude Desktop, VS Code с GitHub Copilot и клиенты, читающие стандартную конфигурацию `mcpServers`. Чат на панели может также использовать ключ Anthropic API или консольные утилиты `claude` и `codex`, если они установлены. См. [ADR 0012](../0012-native-agent-chat-backend.md).
+С любым MCP-клиентом, который умеет запускать локальный stdio-сервер. Мы документируем Claude Desktop, VS Code с GitHub Copilot, Cursor и Codex, а также клиенты, читающие стандартную конфигурацию `mcpServers`. Windsurf, Cline, Roo Code, Continue, Zed, Claude Code и Gemini CLI должны работать так же, но не проверялись. См. [совместимость](../compatibility.md). Чат на панели может также использовать ключ Anthropic API или консольные утилиты `claude` и `codex`, если они установлены. См. [ADR 0012](../0012-native-agent-chat-backend.md).
 
 ### Может ли ИИ изменить мою модель без спроса?
 
-В режиме по умолчанию нет. Инструменты, меняющие модель, блокируются, пока план не утверждён на панели Revit. Инструменты только для чтения работают без утверждения. Если задать `MCP_REVIT_APPROVAL_MODE=auto`, утверждение пропускается.
+В режиме по умолчанию нет. Инструменты, меняющие модель, блокируются, пока план не согласован на панели Revit. Инструменты только для чтения работают без согласования. Если задать `MCP_REVIT_APPROVAL_MODE=auto`, согласование пропускается.
 
 ### Отправляется ли моя модель в облако?
 
@@ -309,7 +317,7 @@ Model Context Protocol (MCP) — открытый стандарт, позвол
 
 ### Можно ли использовать без установленного Revit?
 
-Сервер можно запускать в режиме mock для разработки и тестов. Для работы с живой моделью нужны Revit 2024–2027 и плагин.
+Сервер можно запускать в режиме mock для разработки и тестов. Для работы с открытой моделью нужны Revit 2024–2027 и плагин.
 
 ## Релизы и версии
 
