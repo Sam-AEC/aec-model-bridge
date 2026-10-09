@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Ribbon: Workflows and Tools now use one large button plus stacked 16 px buttons, every button gets the brand tooltip image and F1 help, and icons redraw live when Revit's theme changes.
+- Dialogs: semantic vector status glyphs replace emoji, link/panel errors use the branded dialog instead of native MessageBox/TaskDialog, and the dialog window carries the app icon.
+- Panel: empty states and assistant messages carry icons, nav exposes `aria-current`.
+- Add `assets/icon.ico`, `assets/logo-mark-512.png`, Inno Setup wizard images and `scripts/make_brand_assets.py`; the MCP registry icon now points at the square mark.
+
+- Unify the side panel and popup dialogs on one design: the panel gets an icon rail (same icon language as the ribbon) with labels, a view-icon header and primary/secondary buttons; dialogs now use the panel's colour tokens, a dark header with a teal rule and the Pier mark, vector status glyphs instead of emoji, and the same card and button shapes.
+- Replace the Span brand mark with the Pier mark: an isometric model cube with a bridge arch through each face, on a dark app tile. Applied to `assets/logo.svg` (new `assets/logo-mark.svg`), the panel rail, the dialog header, the About/status brand card, the ribbon brand icon and the Power BI tool icon.
+- Redraw all ribbon icons in the Autodesk-style flat grammar: 32 px grid, charcoal outline, light teal fill, one teal accent and a state badge (green run/pass, red stop, amber waiting). Adds an About icon.
+
 ## 1.2.1 - 2026-09-23
 
 - Add the Plugin Module Registry with discovery, I/O verification, and validate/on_result hooks.

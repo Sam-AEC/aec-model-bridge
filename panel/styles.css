@@ -26,6 +26,9 @@
   --amb-glass-filter: blur(14px) saturate(120%);
   --amb-shadow-1: 0 1px 2px rgba(16, 24, 40, 0.08);
   --amb-shadow-2: 0 6px 16px rgba(16, 24, 40, 0.10);
+  --amb-ico-fill: rgba(0, 145, 167, 0.16);
+  --amb-ico-ring: #FFFFFF;
+  --amb-radius: 10px;
   --amb-motion-fast: 120ms cubic-bezier(.4, 0, .2, 1);   /* hover, press */
   --amb-motion-view: 180ms cubic-bezier(.2, .7, .3, 1);  /* view switch */
 }
@@ -56,6 +59,8 @@
   --amb-pending: #B79AF0;
   --amb-idle: #9BA8B9;
   --amb-on-brand: #06222A;
+  --amb-ico-fill: rgba(63, 195, 214, 0.18);
+  --amb-ico-ring: #1C222B;
   --amb-glass: rgba(28, 34, 43, 0.72);
   --amb-glass-line: rgba(255, 255, 255, 0.07);
   --amb-glass-filter: blur(14px) saturate(140%);
@@ -90,7 +95,9 @@
     --amb-pending: #B79AF0;
     --amb-idle: #9BA8B9;
     --amb-on-brand: #06222A;
-    --amb-glass: rgba(28, 34, 43, 0.72);
+    --amb-ico-fill: rgba(63, 195, 214, 0.18);
+  --amb-ico-ring: #1C222B;
+  --amb-glass: rgba(28, 34, 43, 0.72);
     --amb-glass-line: rgba(255, 255, 255, 0.07);
     --amb-glass-filter: blur(14px) saturate(140%);
     --amb-shadow-1: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
@@ -109,7 +116,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr);
+  grid-template-columns: 64px minmax(0, 1fr);
   background: var(--amb-bg);
   color: var(--amb-ink);
 }
@@ -122,12 +129,30 @@ select {
 
 button {
   border: 1px solid var(--amb-line);
-  border-radius: 6px;
+  border-radius: 8px;
   background: var(--amb-surface);
   color: var(--amb-ink);
   min-height: 34px;
-  padding: 0 12px;
+  padding: 0 14px;
+  font-weight: 600;
   cursor: pointer;
+  transition: background-color var(--amb-motion-fast), border-color var(--amb-motion-fast);
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--amb-brand);
+  background: var(--amb-brand-wash);
+}
+
+button.primary {
+  border-color: var(--amb-brand);
+  background: var(--amb-brand);
+  color: var(--amb-on-brand);
+}
+
+button.primary:hover:not(:disabled) {
+  border-color: var(--amb-brand-strong);
+  background: var(--amb-brand-strong);
 }
 
 :focus-visible {
@@ -147,29 +172,49 @@ select {
   min-height: 36px;
   width: 100%;
   border: 1px solid var(--amb-line);
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 0 10px;
   background: var(--amb-surface);
   color: var(--amb-ink);
 }
 
+input:focus,
+select:focus {
+  border-color: var(--amb-brand);
+}
+
+/* Icon language: shared with the ribbon icons (docs/design/tokens.md section 5).
+   Charcoal/ink outline, light teal fill, one teal accent, round joins. */
+.ico {
+  display: block;
+  width: 22px;
+  height: 22px;
+  --amb-ico-ring: var(--amb-surface);
+}
+symbol .o { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+symbol .f { fill: var(--amb-ico-fill); }
+symbol .a { fill: none; stroke: var(--amb-brand); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+symbol .b { fill: var(--amb-success); stroke: var(--amb-ico-ring); stroke-width: 1.5; }
+symbol .c { fill: none; stroke: var(--amb-on-brand); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+symbol .fa { fill: var(--amb-brand); }
+symbol .fi { fill: currentColor; }
+
 .rail {
-  display: grid;
-  grid-template-rows: 58px repeat(6, 44px) 1fr;
-  gap: 6px;
-  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 6px;
   border-right: 1px solid var(--amb-line);
   background: var(--amb-rail);
-  backdrop-filter: var(--amb-glass-filter);
-  color: white;
+  color: var(--amb-rail-ink);
 }
 
 .brand {
   display: grid;
   place-items: center;
-  gap: 3px;
-  font-size: 10px;
-  letter-spacing: 0.06em;
+  height: 52px;
+  margin-bottom: 6px;
 }
 
 .brand-mark {
@@ -178,35 +223,52 @@ select {
 
 .nav {
   position: relative;
-  width: 42px;
-  min-height: 40px;
-  padding: 0;
+  width: 52px;
+  min-height: 52px;
+  padding: 6px 0 4px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 3px;
   border-color: transparent;
+  border-radius: 10px;
   background: transparent;
   color: var(--amb-rail-ink);
   font-weight: 600;
-  font-size: 13px;
 }
 
-.nav:hover {
+.nav .ico {
+  --amb-ico-ring: var(--amb-rail);
+  --amb-ico-fill: rgba(255, 255, 255, 0.07);
+  --amb-brand: #3FC3D6;
+}
+
+.nav-label {
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.nav:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.08);
+  border-color: transparent;
   color: #E9EEF5;
 }
 
 .nav.is-active {
-  background: rgba(63, 195, 214, 0.14);
-  color: #E9EEF5;
+  background: rgba(63, 195, 214, 0.16);
+  color: #FFFFFF;
 }
 
-.nav.is-active::after {
+.nav.is-active::before {
   content: "";
   position: absolute;
-  top: 0;
-  right: -8px;
-  width: 2px;
-  height: 100%;
-  background: var(--amb-brand);
-  border-radius: 0 2px 2px 0;
+  left: -6px;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  background: #3FC3D6;
+  border-radius: 0 3px 3px 0;
 }
 
 .app {
@@ -224,6 +286,25 @@ select {
   border-bottom: 1px solid var(--amb-glass-line);
   background: var(--amb-glass);
   backdrop-filter: var(--amb-glass-filter);
+}
+
+.titleblock {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.view-tile {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid var(--amb-line);
+  background: var(--amb-brand-wash);
+  color: var(--amb-ink);
 }
 
 h1 {
@@ -258,10 +339,12 @@ p {
   height: 8px;
   border-radius: 50%;
   background: var(--amb-warning);
+  box-shadow: 0 0 0 3px transparent;
 }
 
 .status-pill.is-online .dot {
   background: var(--amb-success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--amb-success) 22%, transparent);
 }
 
 .status-pill.is-offline .dot {
@@ -281,7 +364,7 @@ p {
 .alert,
 .empty {
   border: 1px solid var(--amb-line);
-  border-radius: 8px;
+  border-radius: var(--amb-radius);
   background: var(--amb-surface);
   box-shadow: var(--amb-shadow-1);
 }
@@ -358,7 +441,7 @@ p {
 .item,
 .event {
   border: 1px solid var(--amb-line);
-  border-radius: 8px;
+  border-radius: var(--amb-radius);
   background: var(--amb-surface);
   box-shadow: var(--amb-shadow-1);
 }
@@ -408,20 +491,8 @@ p {
   max-width: 110px;
 }
 
-.composer button,
-.settings button,
-[data-action="approve-selected"] {
-  border-color: var(--amb-brand);
-  background: var(--amb-brand);
-  color: var(--amb-on-brand);
-  transition: background-color var(--amb-motion-fast), border-color var(--amb-motion-fast);
-}
-
-.composer button:hover:not(:disabled),
-.settings button:hover:not(:disabled),
-[data-action="approve-selected"]:hover:not(:disabled) {
-  border-color: var(--amb-brand-strong);
-  background: var(--amb-brand-strong);
+.composer #chat-reset {
+  font-weight: 500;
 }
 
 .item {
@@ -506,4 +577,26 @@ p {
   gap: 6px;
   color: var(--amb-ink-muted);
   font-size: 12px;
+}
+
+.empty-tile {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  background: var(--amb-brand-wash);
+  color: var(--amb-ink);
+}
+
+.empty-tile .ico {
+  width: 24px;
+  height: 24px;
+}
+
+.mini-mark {
+  display: inline-block;
+  vertical-align: -3px;
+  margin-right: 4px;
 }

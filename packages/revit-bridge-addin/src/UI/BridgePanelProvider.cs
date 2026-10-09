@@ -36,7 +36,11 @@ namespace RevitBridge.UI
         {
             // Push a fresh host.status (which carries isDarkTheme) the moment the
             // user toggles Revit's theme, instead of waiting for their next click.
-            application.ThemeChanged += (_, _) => _panel?.OnRevitThemeChanged();
+            application.ThemeChanged += (_, _) =>
+            {
+                _panel?.OnRevitThemeChanged();
+                RevitBridge.Bridge.App.RefreshRibbonIcons();
+            };
         }
 
         public static bool Show(UIApplication application, out string error, string view = "", string action = "")

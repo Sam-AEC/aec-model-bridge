@@ -7,48 +7,94 @@
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
-  <aside class="rail" aria-label="Primary">
-    <div class="brand" aria-label="AEC Model Bridge">
-      <svg class="brand-mark" viewBox="0 0 26 26" width="26" height="26" aria-hidden="true">
-        <polygon points="13,2.21 17.42,11.18 8.58,11.18" fill="rgba(63,195,214,0.20)"/>
-        <circle cx="4.94" cy="18.85" r="3.64" fill="rgba(233,238,245,0.16)"/>
-        <circle cx="21.06" cy="18.85" r="3.64" fill="rgba(233,238,245,0.16)"/>
-        <g fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="8.58" y1="18.85" x2="17.42" y2="18.85" stroke="#E9EEF5"/>
-          <circle cx="4.94" cy="18.85" r="3.64" stroke="#E9EEF5"/>
-          <circle cx="21.06" cy="18.85" r="3.64" stroke="#E9EEF5"/>
-          <polygon points="13,2.21 17.42,11.18 8.58,11.18" stroke="#3FC3D6"/>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <symbol id="brand-mark" viewBox="0 0 96 96">
+        <rect width="96" height="96" rx="20" fill="#111923"/>
+        <g stroke="#111923" stroke-width="2.5" stroke-linejoin="round">
+          <polygon fill="#1CB5CA" points="48,16 76,32 48,48 20,32"/>
+          <polygon fill="#FFFFFF" points="20,32 48,48 48,80 20,64"/>
+          <polygon fill="#AEBCCB" points="48,48 76,32 76,64 48,80"/>
         </g>
-      </svg>
-      <span>AMB</span>
+        <path fill="#111923" transform="matrix(28,16,0,32,20,32)" d="M0.24,1.02 V0.66 A0.26,0.26 0 0 1 0.76,0.66 V1.02 Z"/>
+        <path fill="#111923" transform="matrix(28,-16,0,32,48,48)" d="M0.24,1.02 V0.66 A0.26,0.26 0 0 1 0.76,0.66 V1.02 Z"/>
+        <rect x="0.5" y="0.5" width="95" height="95" rx="19.5" fill="none" stroke="rgba(255,255,255,0.16)"/>
+      </symbol>
+      <symbol id="nav-chat" viewBox="0 0 32 32">
+        <path class="o f" d="M5 5h22a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H15l-6 5v-5H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/>
+        <path class="a" d="M9 11h14M9 16h8"/>
+      </symbol>
+      <symbol id="nav-plans" viewBox="0 0 32 32">
+        <rect class="o f" x="6" y="3" width="20" height="26" rx="2"/>
+        <path class="o" d="M10.5 9.5h11M10.5 14.5h11"/>
+        <path class="a" d="M10.5 20h6"/>
+      </symbol>
+      <symbol id="nav-findings" viewBox="0 0 32 32">
+        <path class="o f" d="M14 2l11 6-11 6-11-6z"/>
+        <path class="o" d="M3 8l11 6v12L3 20zM14 14l11-6v12l-11 6z"/>
+        <circle class="b" cx="23" cy="23" r="7"/>
+        <path class="c" d="M19.6 23l2.4 2.4 4.2-4.6"/>
+      </symbol>
+      <symbol id="nav-reports" viewBox="0 0 32 32">
+        <rect class="o f" x="6" y="3" width="20" height="26" rx="2"/>
+        <path class="o" d="M10.5 8.5h11"/>
+        <rect class="fa" x="10.5" y="18" width="3.4" height="7" rx=".5"/>
+        <rect class="fa" x="15.3" y="14" width="3.4" height="11" rx=".5"/>
+        <rect class="fi" x="20.1" y="11" width="3.4" height="14" rx=".5"/>
+      </symbol>
+      <symbol id="nav-log" viewBox="0 0 32 32">
+        <rect class="o f" x="3" y="5" width="26" height="22" rx="2"/>
+        <path class="a" d="M8.5 12l5 4-5 4"/>
+        <path class="o" d="M16.5 21h7"/>
+      </symbol>
+      <symbol id="nav-settings" viewBox="0 0 32 32">
+        <path class="o" stroke-width="3.2" d="M16 3v5M16 24v5M3 16h5M24 16h5M6.8 6.8l3.5 3.5M21.7 21.7l3.5 3.5M25.2 6.8l-3.5 3.5M10.3 21.7l-3.5 3.5"/>
+        <circle class="o f" cx="16" cy="16" r="9"/>
+        <circle class="a" cx="16" cy="16" r="3.4"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <aside class="rail" aria-label="Primary">
+    <div class="brand" title="AEC Model Bridge" aria-label="AEC Model Bridge">
+      <svg class="brand-mark" width="36" height="36" aria-hidden="true"><use href="#brand-mark"/></svg>
     </div>
-    <button class="nav is-active" type="button" data-view="chat" title="Chat" aria-label="Chat">
-      <span aria-hidden="true">C</span>
+    <button class="nav is-active" aria-current="page" type="button" data-view="chat" title="Chat" aria-label="Chat">
+      <svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><use href="#nav-chat"/></svg>
+      <span class="nav-label">Chat</span>
     </button>
     <button class="nav" type="button" data-view="plans" title="Plans" aria-label="Plans">
-      <span aria-hidden="true">P</span>
+      <svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><use href="#nav-plans"/></svg>
+      <span class="nav-label">Plans</span>
     </button>
     <button class="nav" type="button" data-view="findings" title="Findings" aria-label="Findings">
-      <span aria-hidden="true">F</span>
+      <svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><use href="#nav-findings"/></svg>
+      <span class="nav-label">Findings</span>
     </button>
     <button class="nav" type="button" data-view="reports" title="Reports" aria-label="Reports">
-      <span aria-hidden="true">R</span>
+      <svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><use href="#nav-reports"/></svg>
+      <span class="nav-label">Reports</span>
     </button>
     <button class="nav" type="button" data-view="log" title="Run Log" aria-label="Run Log">
-      <span aria-hidden="true">L</span>
+      <svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><use href="#nav-log"/></svg>
+      <span class="nav-label">Log</span>
     </button>
     <button class="nav" type="button" data-view="settings" title="Settings" aria-label="Settings">
-      <span aria-hidden="true">S</span>
+      <svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><use href="#nav-settings"/></svg>
+      <span class="nav-label">Settings</span>
     </button>
   </aside>
 
   <main class="app">
     <header class="topbar">
-      <div>
-        <h1 id="view-title">Chat</h1>
-        <p id="view-subtitle">AEC Model Bridge</p>
+      <div class="titleblock">
+        <span class="view-tile" aria-hidden="true"><svg class="ico" viewBox="0 0 32 32"><use id="view-icon" href="#nav-chat"/></svg></span>
+        <div>
+          <h1 id="view-title">Chat</h1>
+          <p id="view-subtitle">AEC Model Bridge</p>
+        </div>
       </div>
-      <div class="status-pill" id="host-status">
+      <div class="status-pill" role="status" id="host-status">
         <span class="dot"></span>
         <span>Host pending</span>
       </div>
@@ -63,7 +109,7 @@
           <option value="codex">Codex</option>
         </select>
         <input id="chat-input" name="message" autocomplete="off" placeholder="Ask about the active model">
-        <button type="submit">Send</button>
+        <button type="submit" class="primary">Send</button>
         <button type="button" id="chat-reset" title="Start a new conversation">New</button>
       </form>
     </section>
@@ -71,14 +117,14 @@
     <section class="view" id="view-plans" aria-labelledby="view-title">
       <div class="toolbar">
         <button type="button" data-action="refresh-plans">Refresh</button>
-        <button type="button" data-action="approve-selected">Approve Selected</button>
+        <button type="button" class="primary" data-action="approve-selected">Approve Selected</button>
       </div>
       <div class="list" id="plan-list"></div>
     </section>
 
     <section class="view" id="view-findings" aria-labelledby="view-title">
       <div class="toolbar">
-        <button type="button" data-action="run-health">Run Health Check</button>
+        <button type="button" class="primary" data-action="run-health">Run Health Check</button>
         <select id="severity-filter" aria-label="Severity">
           <option value="all">All severities</option>
           <option value="error">Errors</option>
@@ -91,7 +137,7 @@
 
     <section class="view" id="view-reports" aria-labelledby="view-title">
       <div class="toolbar">
-        <button type="button" data-action="export-excel">Export Excel</button>
+        <button type="button" class="primary" data-action="export-excel">Export Excel</button>
         <button type="button" data-action="refresh-reports">Refresh</button>
       </div>
       <div class="list" id="report-list"></div>
@@ -114,7 +160,7 @@
             <option value="auto">Auto</option>
           </select>
         </label>
-        <button type="submit">Save</button>
+        <button type="submit" class="primary">Save</button>
       </form>
     </section>
   </main>
