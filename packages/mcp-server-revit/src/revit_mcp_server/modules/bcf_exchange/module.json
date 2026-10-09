@@ -1,0 +1,67 @@
+{
+  "id": "bcf_exchange",
+  "name": "BCF Issue Exchange",
+  "version": "1.0.0",
+  "schema_version": 1,
+  "min_hub_version": "1.2.0",
+  "description": "Write issues (for example QA/QC findings) to a BCF 2.1 .bcfzip file and read a .bcfzip back into a plain issue list. Never changes the Revit model. UNVERIFIED for interop with other BCF tools.",
+  "author": "AEC Model Bridge",
+  "license": "GPL-3.0-or-later",
+  "requires_providers": [],
+  "permissions": ["files.write"],
+  "commands": [
+    {
+      "id": "export_bcf",
+      "title": "Export Issues to BCF",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "output_path": {
+            "type": "string",
+            "description": "Where to save the .bcfzip file. Must end in .bcfzip and be inside the allowed workspace directories. A relative path is placed in the workspace folder."
+          },
+          "issues": {
+            "type": "array",
+            "description": "Issues to export. Each issue may have title, description, status, priority, element_uids (Revit UniqueIds), ifc_guids, author and assigned_to.",
+            "items": {"type": "object"}
+          },
+          "use_qaqc_issues": {
+            "type": "boolean",
+            "description": "Also export the issues recorded by the QA/QC checker for this workspace.",
+            "default": false
+          },
+          "project_name": {
+            "type": "string",
+            "description": "Optional project name stored in the file."
+          },
+          "overwrite": {
+            "type": "boolean",
+            "description": "Replace the file if it already exists.",
+            "default": false
+          }
+        },
+        "required": ["output_path"]
+      }
+    },
+    {
+      "id": "import_bcf",
+      "title": "Import Issues from BCF",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "bcf_path": {
+            "type": "string",
+            "description": "The .bcfzip file to read. Must be inside the allowed workspace directories."
+          }
+        },
+        "required": ["bcf_path"]
+      }
+    }
+  ]
+}
