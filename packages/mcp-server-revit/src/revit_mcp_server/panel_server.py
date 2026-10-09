@@ -65,7 +65,13 @@ def _run_tool_sync(registry, approval_provider, name: str, arguments: Dict[str, 
             try:
                 approval_provider.gate.update_plan_state(arguments["plan_id"], "executed")
             except Exception:
-                pass
+                # The tool has already run, so don't fail the call and invite a
+                # retry of a completed mutation; make the stale plan visible instead.
+                logger.exception(
+                    "Tool '%s' executed but plan '%s' could not be marked executed",
+                    name,
+                    arguments["plan_id"],
+                )
 
         return result
 
