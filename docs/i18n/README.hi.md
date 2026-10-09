@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="../../assets/logo.svg" alt="AEC Model Bridge logo: an isometric model cube with a bridge arch" height="120">
+<img src="../../assets/logo.svg" alt="AEC Model Bridge का लोगो: ब्रिज आर्च वाला आइसोमेट्रिक मॉडल क्यूब" height="120">
 
 [English](../../README.md) | [简体中文](README.zh-CN.md) | [Español](README.es.md) | **हिन्दी** | [العربية](README.ar.md) | [Português (BR)](README.pt-BR.md) | [Русский](README.ru.md) | [日本語](README.ja.md) | [Deutsch](README.de.md) | [Français](README.fr.md) | [Bahasa Indonesia](README.id.md) | [Türkçe](README.tr.md) | [한국어](README.ko.md) | [Tiếng Việt](README.vi.md) | [Italiano](README.it.md) | [Polski](README.pl.md) | [繁體中文](README.zh-TW.md)
 
@@ -20,10 +20,16 @@ Revit 2024 – 2027 के लिए ओपन-सोर्स MCP सर्व�
 </div>
 
 <p align="center">
-  <img src="../images/readme/demo.gif" alt="डेमो: AI असिस्टेंट बिना Mark वाले 12 दरवाज़े ढूँढता है और एक योजना बनाता है। योजना Revit पैनल में आपकी मंज़ूरी का इंतज़ार करती है, फिर मान वापस पढ़कर जाँचे जाते हैं। उदाहरण के मान, नकली सत्र।" width="900">
+  <img src="../images/readme/demo.gif" alt="डेमो: किसी इमारत का 3D मॉडल Revit पैनल के बगल में दिखता है। AI असिस्टेंट बिना Mark वाले 12 दरवाज़े ढूँढता है और एक योजना बनाता है। योजना Revit पैनल में आपकी मंज़ूरी का इंतज़ार करती है, फिर मान वापस पढ़कर जाँचे जाते हैं। मान उदाहरण के लिए हैं और सत्र सिम्युलेटेड है।" width="900">
 </p>
 
-Claude, Codex या किसी अन्य MCP क्लाइंट को अपने खुले Revit मॉडल से जोड़ें। AEC Model Bridge में Python MCP सर्वर और नेटिव Revit ऐड-इन साथ आते हैं: रीड-ओनली टूल मॉडल को तुरंत जाँच लेते हैं, और मॉडल में किसी भी बदलाव के लिए डिफ़ॉल्ट रूप से मंज़ूर की हुई योजना ज़रूरी है। [मंज़ूरी की प्रक्रिया देखें](#मंज़ूरी-कैसे-काम-करती-है)।
+AEC Model Bridge ओपन-सोर्स Revit MCP सर्वर है, जिससे Claude, Codex, Cursor और अन्य AI असिस्टेंट आपके खुले Revit मॉडल को पढ़ और बदल सकते हैं, और हर बदलाव पहले आपकी मंज़ूरी से गुज़रता है। इसमें Python MCP सर्वर और नेटिव Revit ऐड-इन साथ आते हैं: रीड-ओनली टूल मॉडल को तुरंत जाँच लेते हैं, और मॉडल में किसी भी बदलाव के लिए डिफ़ॉल्ट रूप से मंज़ूर की हुई योजना ज़रूरी है। [मंज़ूरी की प्रक्रिया देखें](#मंज़ूरी-कैसे-काम-करती-है)।
+
+<p align="center">
+  <img src="../images/readme/works-with.svg" alt="इनके साथ काम करता है: Claude Desktop, GitHub Copilot वाले VS Code, Cursor और Codex के लिए सेटअप दस्तावेज़ में दिया गया है। Claude Code, Windsurf, Cline, Continue, Zed और Gemini CLI जैसे अन्य MCP क्लाइंट भी काम करने चाहिए। एप्लिकेशन: Revit 2024 से 2027, Rhino, Grasshopper, Navisworks (विकास जारी)। डेटा: IFC, Speckle, Excel, SQLite। प्रोटोकॉल: मंज़ूरी गेट के साथ stdio पर MCP।" width="900">
+</p>
+
+सेटअप Claude Desktop, GitHub Copilot वाले VS Code, Cursor और Codex के लिए दस्तावेज़ में दिया गया है। यह एक मानक MCP stdio सर्वर है, इसलिए Claude Code, Windsurf, Cline, Continue, Zed और Gemini CLI जैसे अन्य क्लाइंट भी काम करने चाहिए। क्या दस्तावेज़ में है और क्या अभी परखा नहीं गया, यह जानने के लिए [संगतता](../compatibility.md) देखें।
 
 इसी सर्वर में IFC जाँच, Rhino और Grasshopper ऑटोमेशन तथा Speckle इंटीग्रेशन भी शामिल हैं। [इंटीग्रेशन की स्थिति](#अन्य-इंटीग्रेशन) बताती है कि कौन-से प्रोवाइडर उपलब्ध हैं और कौन-से अभी बन रहे हैं।
 
@@ -36,7 +42,7 @@ BIM समन्वयकों के लिए: मॉडल की गुण�
 | मॉडल समीक्षा | "सक्रिय दस्तावेज़ दिखाओ, उसकी चेतावनियाँ सूचीबद्ध करो और प्रभावित एलिमेंट खोजो।" | `revit_get_document_info`, `revit_get_warnings`, `revit_get_elements_by_type` |
 | पैरामीटर अपडेट | "Level 02 की दीवारें खोजो, उनके Comments के मान दिखाओ और बैच अपडेट का प्रस्ताव दो।" | `revit_get_elements_by_type`, `revit_get_element_parameters`, `revit_batch_set_parameters` |
 | ड्रॉइंग तैयार करना | "इस CSV से शीट सूची तैयार करो, फिर शीट बनाने और व्यू रखने का प्रस्ताव दो।" | `revit_batch_create_sheets_from_csv`, `revit_place_viewport_on_sheet` |
-| IFC समीक्षा | "इस IFC फ़ाइल की मंज़िलें दिखाओ, दीवारों के प्रॉपर्टी जाँचो और स्कीमा वैलिडेशन की समस्याएँ बताओ।" | `ifc_get_spatial_structure`, `ifc_get_properties`, `ifc_validate` |
+| IFC समीक्षा | "इस IFC फ़ाइल की मंज़िलें दिखाओ, दीवारों की प्रॉपर्टी जाँचो और स्कीमा वैलिडेशन की समस्याएँ बताओ।" | `ifc_get_spatial_structure`, `ifc_get_properties`, `ifc_validate` |
 
 Revit में पहली बार आज़माने के लिए, यह लिखें:
 
@@ -55,7 +61,7 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 बदलावों के लिए असिस्टेंट `plan_actions` से योजना बनाता है; `execute_plan` उसे लागू करे, इससे पहले आप Revit पैनल में उसकी समीक्षा करते हैं। IFC समीक्षा Revit के बिना चलती है।
 
-स्नैपशॉट आधारित QA/QC और रिपोर्ट मॉड्यूल के लिए एक संगत सेव किया हुआ स्नैपशॉट ज़रूरी है। फ़िलहाल Revit से मॉड्यूल तक स्नैपशॉट पहुँचाने में फ़ाइल नाम और वर्कस्पेस का मेल होना ज़रूरी है; `snapshot_id` छोड़ने पर बनाया हुआ नमूना डेटा लौट सकता है। लाइव जाँच के लिए ऊपर दिए Revit टूल सीधे इस्तेमाल करें। [प्रस्तावित सुधार और डेमो](../roadmap.md)।
+स्नैपशॉट आधारित QA/QC और रिपोर्ट मॉड्यूल के लिए एक संगत सेव किया हुआ स्नैपशॉट ज़रूरी है। फ़िलहाल Revit से मॉड्यूल तक स्नैपशॉट पहुँचाने में फ़ाइल नाम और वर्कस्पेस का मेल होना ज़रूरी है; `snapshot_id` छोड़ने पर बनाया हुआ नमूना डेटा लौट सकता है। लाइव जाँच के लिए ऊपर दिए Revit टूल सीधे इस्तेमाल करें। [नियोजित सुधार और डेमो](../roadmap.md)।
 
 ## क्विक स्टार्ट
 
@@ -123,7 +129,7 @@ MCP क्लाइंट एक Python हब से बात करता ह
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/architecture-dark.png">
-    <img src="../images/architecture-light.png" alt="Architecture of AEC Model Bridge: an MCP client such as Claude or Codex calls the Python MCP hub, which routes tool calls to the Revit, Rhino, Navisworks, IFC and Speckle providers. The Revit and Rhino providers talk to add-ins over localhost HTTP, the IFC provider reads IFC files with IfcOpenShell, and Navisworks is still in progress." width="900">
+    <img src="../images/architecture-light.png" alt="AEC Model Bridge का आर्किटेक्चर: Claude या Codex जैसा MCP क्लाइंट Python MCP हब को कॉल करता है, जो टूल कॉल को Revit, Rhino, Navisworks, IFC और Speckle प्रोवाइडर तक पहुँचाता है। Revit और Rhino प्रोवाइडर localhost HTTP के ज़रिए ऐड-इन से बात करते हैं, IFC प्रोवाइडर IfcOpenShell से IFC फ़ाइलें पढ़ता है, और Navisworks अभी विकास में है।" width="900">
   </picture>
 </p>
 
@@ -138,14 +144,14 @@ MCP क्लाइंट एक Python हब से बात करता ह
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-dark.png">
-    <img src="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-light.png" alt="Inspect, Propose, Approve, Verify. Four steps: inspect finds an empty Mark, propose drafts a change, approve is a human decision, verify reads the value back. Example values are illustrative." width="900">
+    <img src="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-light.png" alt="जाँचें, प्रस्ताव दें, मंज़ूर करें, सत्यापित करें। चार चरण: जाँच में खाली Mark मिलता है, प्रस्ताव में बदलाव का मसौदा बनता है, मंज़ूरी इंसान का फ़ैसला है, और सत्यापन में मान वापस पढ़ा जाता है। दिखाए गए मान उदाहरण के लिए हैं।" width="900">
   </picture>
 </p>
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant proposes a plan, the MCP hub and ApprovalGate show it in the Revit side panel, and only after you approve does execute_plan forward the commands to the Revit add-in, which runs them in one named transaction. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
+    <img src="../images/approval-flow-light.png" alt="मंज़ूरी का प्रवाह: AI असिस्टेंट योजना सुझाता है, MCP हब और ApprovalGate उसे Revit साइड पैनल में दिखाते हैं, और आपकी मंज़ूरी के बाद ही execute_plan कमांड को Revit ऐड-इन तक भेजता है, जो उन्हें एक नामित ट्रांज़ैक्शन में चलाता है। अगर आप अस्वीकार करें या कभी मंज़ूर न करें, तो कॉल रुक जाती है और मॉडल अछूता रहता है।" width="900">
   </picture>
 </p>
 
@@ -153,7 +159,7 @@ MCP क्लाइंट एक Python हब से बात करता ह
 
 अगर मंज़ूर की गई योजना बाद में ग़लत निकले, तो `rollback_plan` उसे पलट देता है। रोलबैक उसी सेशन में Revit Undo या उलटे पैरामीटर मानों का इस्तेमाल करता है। जिन ऑपरेशनों को पलटा नहीं जा सकता, जैसे फ़ाइल आउटपुट, उनके लिए दूसरी बार पुष्टि माँगी जाती है। पूरा जीवनचक्र [ADR 0008](../0008-approval-gate-lifecycle.md) में है।
 
-बिना निगरानी वाली पाइपलाइनों के लिए आप `MCP_REVIT_APPROVAL_MODE=auto` सेट कर सकते हैं। इससे इंसानी जाँच बंद हो जाती है, इसलिए इसे सिर्फ़ नियंत्रित वातावरण में इस्तेमाल करें।
+बिना निगरानी वाली पाइपलाइनों के लिए आप `MCP_REVIT_APPROVAL_MODE=auto` सेट कर सकते हैं। इससे इंसान द्वारा की जाने वाली जाँच बंद हो जाती है, इसलिए इसे सिर्फ़ नियंत्रित एनवायरनमेंट में इस्तेमाल करें।
 
 ## समर्थित Revit वर्ज़न
 
@@ -176,7 +182,9 @@ MCP क्लाइंट एक Python हब से बात करता ह
 | Speckle | उपलब्ध। आपके एनवायरनमेंट में Speckle क्लाइंट ID चाहिए। |
 | Navisworks Manage | विकास जारी। प्रोवाइडर और उसके टूल रजिस्टर हैं। Navisworks ऐड-इन अधूरा है। |
 | Power BI | विकास जारी। प्रोवाइडर और टूल मौजूद हैं, पर हब में रजिस्टर नहीं हैं। |
-| Excel, Parquet और DuckDB | योजना में। |
+| Excel, Parquet और DuckDB | नियोजित। |
+
+उत्पादों के नाम और लोगो उनके मालिकों के हैं। बैनर में इनका उपयोग सिर्फ़ यह दिखाने के लिए है कि यह प्रोजेक्ट किनके साथ काम करता है।
 
 ## Revit ऐड-इन इंस्टॉल करें
 
@@ -212,7 +220,7 @@ $RevitVersion = Read-Host "Revit year (2024, 2025, 2026, or 2027)"
 C:\ProgramData\AECModelBridge\bin\<year>
 ```
 
-ऐड-इन मैनिफ़ेस्ट प्रति उपयोगकर्ता यहाँ इंस्टॉल होता है:
+ऐड-इन मैनिफ़ेस्ट हर उपयोगकर्ता के लिए अलग से यहाँ इंस्टॉल होता है:
 
 ```text
 %APPDATA%\Autodesk\Revit\Addins\<year>
@@ -293,7 +301,7 @@ Model Context Protocol (MCP) एक ओपन स्टैंडर्ड है
 
 ### कौन-से AI असिस्टेंट इसके साथ काम करते हैं?
 
-कोई भी MCP क्लाइंट जो लोकल stdio सर्वर शुरू कर सके। हमने Claude Desktop, GitHub Copilot वाले VS Code, और मानक `mcpServers` कॉन्फ़िगरेशन पढ़ने वाले क्लाइंट के लिए दस्तावेज़ दिए हैं। पैनल चैट Anthropic API कुंजी, या इंस्टॉल होने पर `claude` या `codex` कमांड-लाइन टूल भी इस्तेमाल कर सकती है। [ADR 0012](../0012-native-agent-chat-backend.md) देखें।
+कोई भी MCP क्लाइंट जो लोकल stdio सर्वर शुरू कर सके। हमने Claude Desktop, GitHub Copilot वाले VS Code, Cursor और Codex, तथा मानक `mcpServers` कॉन्फ़िगरेशन पढ़ने वाले क्लाइंट के सेटअप का दस्तावेज़ तैयार किया है। Windsurf, Cline, Roo Code, Continue, Zed, Claude Code और Gemini CLI को भी इसी तरह काम करना चाहिए, पर इन्हें परखा नहीं गया है। [संगतता](../compatibility.md) देखें। पैनल चैट Anthropic API कुंजी, या इंस्टॉल होने पर `claude` या `codex` कमांड-लाइन टूल भी इस्तेमाल कर सकती है। [ADR 0012](../0012-native-agent-chat-backend.md) देखें।
 
 ### क्या AI बिना पूछे मेरा मॉडल बदल सकता है?
 

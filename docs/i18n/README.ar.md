@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="../../assets/logo.svg" alt="AEC Model Bridge logo: an isometric model cube with a bridge arch" height="120">
+<img src="../../assets/logo.svg" alt="شعار AEC Model Bridge: مكعب نموذج أيزومتري يعلوه قوس جسر" height="120">
 
 [English](../../README.md) | [简体中文](README.zh-CN.md) | [Español](README.es.md) | [हिन्दी](README.hi.md) | **العربية** | [Português (BR)](README.pt-BR.md) | [Русский](README.ru.md) | [日本語](README.ja.md) | [Deutsch](README.de.md) | [Français](README.fr.md) | [Bahasa Indonesia](README.id.md) | [Türkçe](README.tr.md) | [한국어](README.ko.md) | [Tiếng Việt](README.vi.md) | [Italiano](README.it.md) | [Polski](README.pl.md) | [繁體中文](README.zh-TW.md)
 
@@ -26,10 +26,16 @@
 <div dir="rtl">
 
 <p align="center">
-  <img src="../images/readme/demo.gif" alt="عرض توضيحي: يعثر مساعد الذكاء الاصطناعي على 12 بابًا بلا Mark ويُعدّ خطة. تنتظر الخطة في لوحة Revit حتى توافق عليها، ثم تُقرأ القيم للتحقق منها. قيم تجريبية وجلسة محاكاة." width="900">
+  <img src="../images/readme/demo.gif" alt="عرض توضيحي: يظهر نموذج ثلاثي الأبعاد لمبنى بجانب لوحة Revit. يعثر مساعد الذكاء الاصطناعي على 12 بابًا بلا Mark ويُعدّ خطة. تنتظر الخطة في لوحة Revit حتى توافق عليها، ثم تُقرأ القيم للتحقق منها. القيم أمثلة توضيحية والجلسة محاكاة." width="900">
 </p>
 
-اربط Claude أو Codex أو أي عميل MCP آخر بنموذج Revit المفتوح لديك. يجمع AEC Model Bridge بين خادم MCP مكتوب بلغة Python وإضافة Revit أصلية: الأدوات للقراءة فقط تفحص النموذج فورًا، أما أي تغيير في النموذج فيتطلب افتراضيًا خطة معتمدة. [اطّلع على آلية الموافقة](#كيف-تعمل-الموافقة).
+AEC Model Bridge هو خادم MCP مفتوح المصدر لبرنامج Revit، يتيح لـ Claude وCodex وCursor وغيرها من مساعدي الذكاء الاصطناعي قراءة نموذج Revit المفتوح لديك وتعديله، على أن توافق أنت أولًا على كل تغيير. يجمع بين خادم MCP مكتوب بلغة Python وإضافة Revit أصلية: تفحص الأدوات المخصصة للقراءة فقط النموذج فورًا، أما أي تغيير في النموذج فيتطلب افتراضيًا خطة معتمدة. [اطّلع على آلية الموافقة](#كيف-تعمل-الموافقة).
+
+<p align="center">
+  <img src="../images/readme/works-with.svg" alt="يعمل مع: إعداد Claude Desktop وVS Code مع GitHub Copilot وCursor وCodex موثّق. ويُتوقع أن تعمل عملاء MCP الأخرى أيضًا، مثل Claude Code وWindsurf وCline وContinue وZed وGemini CLI. التطبيقات: Revit من 2024 إلى 2027، وRhino، وGrasshopper، وNavisworks (قيد التطوير). البيانات: IFC وSpeckle وExcel وSQLite. البروتوكول: MCP عبر stdio مع بوابة موافقة." width="900">
+</p>
+
+إعداد الاتصال موثّق لـ Claude Desktop وVS Code مع GitHub Copilot وCursor وCodex. وبما أنه خادم MCP قياسي يعمل عبر stdio، فمن المتوقع أن تعمل معه عملاء أخرى مثل Claude Code وWindsurf وCline وContinue وZed وGemini CLI. راجع [التوافق](../compatibility.md) لمعرفة ما هو موثّق وما لم يُختبر بعد.
 
 يتضمن الخادم نفسه فحص ملفات IFC وأتمتة Rhino وGrasshopper والتكامل مع Speckle. يبيّن [حالة التكاملات](#تكاملات-أخرى) المزوّدات المتاحة وتلك التي ما زالت قيد التطوير.
 
@@ -39,10 +45,10 @@
 
 | سير العمل | مثال على الطلب | الأدوات المستخدمة |
 | --- | --- | --- |
-| مراجعة النموذج | "اعرض المستند النشط، وأدرج تحذيراته، وابحث عن العناصر المتأثرة." | `revit_get_document_info`, `revit_get_warnings`, `revit_get_elements_by_type` |
-| تحديث المعاملات | "ابحث عن الجدران في Level 02، واعرض قيم Comments الخاصة بها، واقترح تحديثًا دفعيًا." | `revit_get_elements_by_type`, `revit_get_element_parameters`, `revit_batch_set_parameters` |
-| إنتاج المخططات | "جهّز قائمة لوحات (sheets) من ملف CSV هذا، ثم اقترح إنشاء اللوحات ووضع المناظير (views)." | `revit_batch_create_sheets_from_csv`, `revit_place_viewport_on_sheet` |
-| مراجعة IFC | "اعرض طوابق ملف IFC هذا، وافحص خصائص الجدران، وأبلغ عن مشكلات التحقق من المخطط." | `ifc_get_spatial_structure`, `ifc_get_properties`, `ifc_validate` |
+| مراجعة النموذج | "اعرض المستند النشط، وأدرج تحذيراته، وابحث عن العناصر المتأثرة." | `revit_get_document_info`، `revit_get_warnings`، `revit_get_elements_by_type` |
+| تحديث المعاملات | "ابحث عن الجدران في Level 02، واعرض قيم Comments الخاصة بها، واقترح تحديثًا دفعيًا." | `revit_get_elements_by_type`، `revit_get_element_parameters`، `revit_batch_set_parameters` |
+| إنتاج المخططات | "جهّز قائمة لوحات (sheets) من ملف CSV هذا، ثم اقترح إنشاء اللوحات ووضع المناظير (views)." | `revit_batch_create_sheets_from_csv`، `revit_place_viewport_on_sheet` |
+| مراجعة IFC | "اعرض طوابق ملف IFC هذا، وافحص خصائص الجدران، وأبلغ عن مشكلات التحقق من المخطط." | `ifc_get_spatial_structure`، `ifc_get_properties`، `ifc_validate` |
 
 لتجربة أولى داخل Revit، جرّب ما يلي:
 
@@ -141,29 +147,29 @@ the plan in Revit, apply it and read the values back to confirm the result.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/architecture-dark.png">
-    <img src="../images/architecture-light.png" alt="Architecture of AEC Model Bridge: an MCP client such as Claude or Codex calls the Python MCP hub, which routes tool calls to the Revit, Rhino, Navisworks, IFC and Speckle providers. The Revit and Rhino providers talk to add-ins over localhost HTTP, the IFC provider reads IFC files with IfcOpenShell, and Navisworks is still in progress." width="900">
+    <img src="../images/architecture-light.png" alt="بنية AEC Model Bridge: يستدعي عميل MCP، مثل Claude أو Codex، موزّع MCP المكتوب بلغة Python، فيوجّه الموزّع استدعاءات الأدوات إلى مزوّدات Revit وRhino وNavisworks وIFC وSpeckle. يتصل مزوّدا Revit وRhino بالإضافات عبر HTTP على localhost، ويقرأ مزوّد IFC ملفات IFC باستخدام IfcOpenShell، أما Navisworks فما زال قيد التطوير." width="900">
   </picture>
 </p>
 
 <sub>مصدر المخطط: [architecture.mmd](../diagrams/architecture.mmd). أعد توليد الصور بالأمر `python scripts/render_diagrams.py`.</sub>
 
-الصناديق ذات اللون الأخضر المزرق تعمل اليوم. الصناديق ذات الحدود المتقطعة بلون العنبر قيد التطوير. أما الأشكال النيلية فهي البيانات والخدمات الخارجية.
+المربعات ذات اللون الأخضر المزرق تعمل اليوم. المربعات ذات الحدود المتقطعة بلون العنبر قيد التطوير. أما الأشكال النيلية فتمثّل البيانات والخدمات الخارجية.
 
 ### كيف تعمل الموافقة
 
-يوقف الموزّع أي استدعاء لأداة يغيّر النموذج ما لم يحمل خطة معتمدة. الوضع الافتراضي هو `required`. يقترح الذكاء الاصطناعي خطة، وتراجعها أنت في اللوحة الجانبية في Revit، ثم تنفّذها الإضافة على الخيط الرئيسي في Revit ضمن معاملة (transaction) مسمّاة.
+يوقف الموزّع أي استدعاء لأداة يغيّر النموذج ما لم يحمل خطة معتمدة. الوضع الافتراضي هو `required`. يقترح الذكاء الاصطناعي خطة، وتراجعها أنت في اللوحة الجانبية في Revit، ثم تنفّذها الإضافة على الخيط الرئيسي (main thread) في Revit ضمن معاملة (transaction) مسمّاة.
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-dark.png">
-    <img src="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-light.png" alt="Inspect, Propose, Approve, Verify. Four steps: inspect finds an empty Mark, propose drafts a change, approve is a human decision, verify reads the value back. Example values are illustrative." width="900">
+    <img src="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-light.png" alt="فحص، اقتراح، موافقة، تحقق. أربع خطوات: يعثر الفحص على قيمة Mark فارغة، ويصوغ الاقتراح تغييرًا، والموافقة قرار بشري، ويقرأ التحقق القيمة مجددًا. القيم المعروضة أمثلة توضيحية." width="900">
   </picture>
 </p>
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant proposes a plan, the MCP hub and ApprovalGate show it in the Revit side panel, and only after you approve does execute_plan forward the commands to the Revit add-in, which runs them in one named transaction. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
+    <img src="../images/approval-flow-light.png" alt="مخطط تدفق الموافقة: يقترح مساعد الذكاء الاصطناعي خطة، ويعرضها موزّع MCP وApprovalGate في اللوحة الجانبية في Revit، ولا يمرّر execute_plan الأوامر إلى إضافة Revit، التي تنفّذها في معاملة مسمّاة واحدة، إلا بعد موافقتك. وإذا رفضتَ أو لم توافق أبدًا، يُحجب الاستدعاء ويبقى النموذج دون أي تغيير." width="900">
   </picture>
 </p>
 
@@ -171,7 +177,7 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 إذا اعتُمدت خطة ثم تبيّن لاحقًا أنها خاطئة، فإن `rollback_plan` يعكسها. يستخدم التراجع أمر Undo في Revit ضمن الجلسة نفسها أو القيم العكسية للمعاملات. أما العمليات التي لا يمكن عكسها، مثل كتابة الملفات، فتطلب تأكيدًا ثانيًا. دورة الحياة موضحة في [ADR 0008](../0008-approval-gate-lifecycle.md).
 
-لخطوط المعالجة غير المراقبة يمكنك ضبط `MCP_REVIT_APPROVAL_MODE=auto`. يؤدي ذلك إلى إيقاف المراجعة البشرية، لذا استخدمه في بيئة خاضعة للتحكم فقط.
+في خطوط المعالجة الآلية غير المراقَبة يمكنك ضبط `MCP_REVIT_APPROVAL_MODE=auto`. يؤدي ذلك إلى إيقاف المراجعة البشرية، لذا استخدمه في بيئة خاضعة للتحكم فقط.
 
 ## إصدارات Revit المدعومة
 
@@ -195,6 +201,8 @@ the plan in Revit, apply it and read the values back to confirm the result.
 | Navisworks Manage | قيد التطوير. المزوّد وأدواته مسجّلان، لكن إضافة Navisworks لم تكتمل. |
 | Power BI | قيد التطوير. المزوّد والأداة موجودان لكنهما غير مسجّلين في الموزّع. |
 | Excel وParquet وDuckDB | مخطط له. |
+
+أسماء المنتجات والشعارات مملوكة لأصحابها. تُستخدم في اللافتة العلوية فقط لبيان ما يعمل معه هذا المشروع.
 
 ## تثبيت إضافة Revit
 
@@ -264,7 +272,7 @@ C:\ProgramData\AECModelBridge\bin\<year>
 
 <div dir="rtl">
 
-يتضمن كل [إصدار على GitHub](https://github.com/Sam-AEC/aec-model-bridge/releases/latest) حزمة جاهزة لكل سنة من Revit، مثل `aec-model-bridge-revit-2026-<version>.zip`. فك ضغطها ثم شغّل `.\install.ps1 -RevitVersion 2026` بدلًا من البناء من المصدر. ولإنشاء مثبّت Windows بنقرة مزدوجة، يبنيه السكربت `scripts/build-installer.ps1` باستخدام Inno Setup. الدليل الكامل، مع استكشاف الأخطاء، في [docs/install.md](../install.md).
+يتضمن كل [إصدار على GitHub](https://github.com/Sam-AEC/aec-model-bridge/releases/latest) حزمة جاهزة لكل سنة من Revit، مثل `aec-model-bridge-revit-2026-<version>.zip`. فك ضغطها ثم شغّل `.\install.ps1 -RevitVersion 2026` بدلًا من البناء من المصدر. ولإنشاء مثبّت Windows بنقرة مزدوجة، يبنيه السكربت `scripts/build-installer.ps1` باستخدام Inno Setup. الدليل الكامل، مع استكشاف الأخطاء وإصلاحها، في [docs/install.md](../install.md).
 
 ## ربط Claude Desktop بـ Revit
 
@@ -327,7 +335,7 @@ Invoke-RestMethod "$($switch.endpoint)/health"
 - يستمع جسر Revit على localhost فقط.
 - يقرأ الخادم ويكتب داخل المجلدات المذكورة في `MCP_REVIT_ALLOWED_DIRECTORIES` فقط.
 - تحتاج الأدوات التي تغيّر النموذج إلى خطة معتمدة ما لم توقف الموافقة.
-- تُسجَّل استدعاءات الأدوات في سجل تدقيق، وتُحجب الأسرار.
+- تُسجَّل استدعاءات الأدوات في سجل تدقيق، وتُخفى القيم السرية.
 
 التفاصيل في [docs/security.md](../security.md). للإبلاغ عن ثغرة أمنية، اتبع [SECURITY.md](../../SECURITY.md).
 
@@ -339,7 +347,7 @@ Invoke-RestMethod "$($switch.endpoint)/health"
 
 ### ما مساعدو الذكاء الاصطناعي الذين يعملون معه؟
 
-أي عميل MCP قادر على تشغيل خادم stdio محلي. نوثّق Claude Desktop وVS Code مع GitHub Copilot والعملاء الذين يقرؤون إعداد `mcpServers` القياسي. ويمكن لمحادثة اللوحة أيضًا استخدام مفتاح Anthropic API أو أداتي سطر الأوامر `claude` أو `codex` إذا كانتا مثبّتتين. راجع [ADR 0012](../0012-native-agent-chat-backend.md).
+أي عميل MCP قادر على تشغيل خادم stdio محلي. نوثّق إعداد Claude Desktop وVS Code مع GitHub Copilot وCursor وCodex، والعملاء الذين يقرؤون إعداد `mcpServers` القياسي. ويُتوقع أن تعمل Windsurf وCline وRoo Code وContinue وZed وClaude Code وGemini CLI بالطريقة نفسها، لكنها لم تُختبر. راجع [التوافق](../compatibility.md). ويمكن لمحادثة اللوحة أيضًا استخدام مفتاح Anthropic API أو أداتي سطر الأوامر `claude` أو `codex` إذا كانتا مثبّتتين. راجع [ADR 0012](../0012-native-agent-chat-backend.md).
 
 ### هل يستطيع الذكاء الاصطناعي تغيير نموذجي دون أن يسأل؟
 
@@ -359,7 +367,7 @@ Invoke-RestMethod "$($switch.endpoint)/health"
 
 ## الإصدارات والنسخ
 
-يتبع AEC Model Bridge نظام الإصدارات الدلالي. توسم الإصدارات على GitHub بالصيغة `vX.Y.Z`، ويحمل ملف `VERSION` في الجذر رقم الإصدار. راجع [docs/versioning.md](../versioning.md) لعملية الإصدار، و[CHANGELOG.md](../../CHANGELOG.md) لما تغيّر في كل إصدار.
+يتبع AEC Model Bridge نظام الإصدارات الدلالي. تُوسَم الإصدارات على GitHub بالصيغة `vX.Y.Z`، ويحتوي ملف `VERSION` في الجذر على رقم الإصدار. راجع [docs/versioning.md](../versioning.md) لعملية الإصدار، و[CHANGELOG.md](../../CHANGELOG.md) لما تغيّر في كل إصدار.
 
 ## التطوير
 
