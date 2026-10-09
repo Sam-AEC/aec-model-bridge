@@ -6,7 +6,7 @@
 
 > 本文为 AI 辅助翻译。内容以英文版 [README](../../README.md) 为准；发现错误或有改进建议，欢迎通过 Pull Request 提交，详见 [CONTRIBUTING.md](../../CONTRIBUTING.md)。
 
-**向 AI 询问你正在打开的 Revit 模型。默认情况下，在你批准之前，模型不会有任何改动。**
+**就你当前打开的 Revit 模型向 AI 提问。默认情况下，在你批准之前，不会有任何改动。**
 
 面向 Revit 2024 – 2027 的开源 MCP 服务器和原生插件，可与 Claude、Codex 及其他 MCP 客户端配合使用。
 
@@ -20,12 +20,16 @@
 </div>
 
 <p align="center">
-  <img src="../images/readme/demo.gif" alt="演示：AI 助手找出 12 个没有标记（Mark）的门并起草计划。计划会在 Revit 面板中等待你批准，批准后再读回数值进行核对。示例数值，模拟会话。" width="900">
+  <img src="../images/readme/demo.gif" alt="演示：建筑的 3D 模型位于 Revit 面板旁。AI 助手找出 12 个没有标记（Mark）的门并起草计划。计划会在 Revit 面板中等待你批准，批准后再读回数值进行核对。示例数值，模拟会话。" width="900">
 </p>
 
-将 Claude、Codex 或其他 MCP 客户端连接到你正在打开的 Revit 模型。
-AEC Model Bridge 由 Python MCP 服务器和原生 Revit 插件组成：
-只读工具可立即检查模型，而默认情况下，任何模型变更都必须先获得批准的计划。[查看审批流程](#审批如何运作)。
+AEC Model Bridge 是开源的 Revit MCP 服务器，让 Claude、Codex、Cursor 等 AI 助手读取并编辑你正在打开的 Revit 模型，且每一项变更都须先经你批准。它由 Python MCP 服务器和原生 Revit 插件组成：只读工具可立即检查模型，而默认情况下，模型变更必须有已批准的计划。[查看审批流程](#审批如何运作)。
+
+<p align="center">
+  <img src="../images/readme/works-with.svg" alt="兼容：Claude Desktop、搭配 GitHub Copilot 的 VS Code、Cursor 和 Codex 已有设置文档。Claude Code、Windsurf、Cline、Continue、Zed 和 Gemini CLI 等其他 MCP 客户端应当也能使用。应用程序：Revit 2024 至 2027、Rhino、Grasshopper、Navisworks（开发中）。数据：IFC、Speckle、Excel、SQLite。协议：带审批关卡的 stdio MCP。" width="900">
+</p>
+
+已提供 Claude Desktop、搭配 GitHub Copilot 的 VS Code、Cursor 和 Codex 的设置文档。它是标准的 MCP stdio 服务器，因此 Claude Code、Windsurf、Cline、Continue、Zed 和 Gemini CLI 等其他客户端应当也能使用。哪些已有文档、哪些尚未测试，请参阅[兼容性说明](../compatibility.md)。
 
 同一个服务器还包含 IFC 检查、Rhino 与 Grasshopper 自动化以及 Speckle 集成。[集成状态](#其他集成)区分了已可用的提供程序和仍在开发中的部分。
 
@@ -68,11 +72,11 @@ the plan in Revit, apply it and read the values back to confirm the result.
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
-这些按钮只需要 [uv](https://docs.astral.sh/uv/getting-started/installation/)，无需其他设置：除非你另行指定，服务器会使用 `~/Documents/AEC Model Bridge` 作为工作区。使用 Claude Desktop 时，请从最新发布版本下载 `.mcpb` 文件并打开。实际操作 Revit 仍需安装 Revit 和[插件](#安装-revit-插件);mock 模式则无需任何依赖。
+这些按钮只需要 [uv](https://docs.astral.sh/uv/getting-started/installation/)，无需其他设置：除非你另行指定，服务器会使用 `~/Documents/AEC Model Bridge` 作为工作区。使用 Claude Desktop 时，请从最新发布版本下载 `.mcpb` 文件并打开。实际操作 Revit 仍需安装 Revit 和[插件](#安装-revit-插件)；mock 模式则无需任何依赖。
 
 **手动设置**
 
-要进行实时 Revit 自动化，你需要 Windows、已授权的 Revit 2024 至 2027、Python 3.11 或更新版本、[uv](https://docs.astral.sh/uv/getting-started/installation/)以及 Revit 插件([安装步骤](#安装-revit-插件))。然后将以下内容添加到 `claude_desktop_config.json`（Codex、Cursor 和 VS Code 使用相同的值；两个目录变量是可选的，默认使用上述工作区）:
+要进行实时 Revit 自动化，你需要 Windows、已授权的 Revit 2024 至 2027、Python 3.11 或更新版本、[uv](https://docs.astral.sh/uv/getting-started/installation/)以及 Revit 插件（[安装步骤](#安装-revit-插件)）。然后将以下内容添加到 `claude_desktop_config.json`（Codex、Cursor 和 VS Code 使用相同的值；两个目录变量是可选的，默认使用上述工作区）：
 
 ```json
 {
@@ -94,9 +98,9 @@ the plan in Revit, apply it and read the values back to confirm the result.
 }
 ```
 
-想先在没有 Revit 的情况下看看这些工具?请设置 `"MCP_REVIT_MODE": "mock"`。服务器可在任何机器上启动，列出所有工具及其 schema，并返回预设的响应，而不会触碰任何模型。仓库根目录提供了同样用于 mock 模式的 `Dockerfile`（`docker build -t aec-model-bridge .`，然后 `docker run -i --rm aec-model-bridge`）。
+想先在没有 Revit 的情况下看看这些工具？请设置 `"MCP_REVIT_MODE": "mock"`。服务器可在任何机器上启动，列出所有工具及其 schema，并返回预设的响应，而不会触碰任何模型。仓库根目录提供了同样用于 mock 模式的 `Dockerfile`（`docker build -t aec-model-bridge .`，然后 `docker run -i --rm aec-model-bridge`）。
 
-使用 VS Code?[扩展源码和本地安装步骤](../../extensions/vscode/README.md)会注册 MCP 服务器并显示 Revit 连接状态。该扩展尚未发布到 Marketplace。
+使用 VS Code？[扩展源码和本地安装步骤](../../extensions/vscode/README.md)会注册 MCP 服务器并显示 Revit 连接状态。该扩展尚未发布到 Marketplace。
 
 ### 工具一览
 
@@ -109,7 +113,7 @@ the plan in Revit, apply it and read the values back to confirm the result.
 | Speckle | 17 | 项目、模型、版本、发送与接收 |
 | Navisworks | 15 | 模型树、视点、碰撞测试（开发中） |
 | IFC | 7 | 无需 Revit 即可读取 IFC 文件：结构、属性、校验 |
-| 图、快照、导出、作业 | 18 | 语义图审计、快照差异比对、SQLite 导出、后台作业 |
+| 图谱、快照、导出、作业 | 18 | 语义图谱审计、快照差异比对、SQLite 导出、后台作业 |
 
 默认配置下共列出 219 个工具（在 mock 模式下统计自当前服务器）。配置 APS 凭据后会出现 Autodesk Data 工具。[工具参考](../tools-generated.md)列出了所有工具。每个工具都带有 MCP 注解（`readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`），客户端据此区分读取和写入。
 
@@ -136,7 +140,7 @@ MCP 客户端与一个 Python hub 通信。hub 将每次调用转发给拥有该
 
 ### 审批如何运作
 
-hub 会拦截任何会修改模型的工具调用，除非它附带已批准的计划。默认模式为 `required`。AI 提出计划，你在 Revit 侧边面板中审阅，然后插件在 Revit 主线程中以命名事务(transaction)执行。
+hub 会拦截任何会修改模型的工具调用，除非它附带已批准的计划。默认模式为 `required`。AI 提出计划，你在 Revit 侧边面板中审阅，然后插件在 Revit 主线程中以命名事务（transaction）执行。
 
 <p align="center">
   <picture>
@@ -181,9 +185,11 @@ hub 会拦截任何会修改模型的工具调用，除非它附带已批准的�
 | Power BI | 开发中。提供程序和工具已存在，但尚未在 hub 中注册。 |
 | Excel、Parquet 与 DuckDB | 计划中。 |
 
+产品名称和徽标归其各自所有者所有。横幅使用它们，仅用于说明本项目可配合哪些产品使用。
+
 ## 安装 Revit 插件
 
-**最简单的方式(Windows):**从[最新发布版本](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)下载 `AECModelBridge-Setup-<version>.exe`，双击运行，选择你的 Revit 版本并重启 Revit。它会安装插件、内置的 Python 服务器，如果勾选相应选项，还会写入 Claude Desktop 和 VS Code 设置，并备份你当前的设置。可在 Windows 设置中卸载。以下步骤用于从源码构建。
+**最简单的方式（Windows）：**从[最新发布版本](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)下载 `AECModelBridge-Setup-<version>.exe`，双击运行，选择你的 Revit 版本并重启 Revit。它会安装插件、内置的 Python 服务器，如果勾选相应选项，还会写入 Claude Desktop 和 VS Code 设置，并备份你当前的设置。可在 Windows 设置中卸载。以下步骤用于从源码构建。
 
 需要安装两部分：Python MCP 服务器和 Revit 插件。实时 Revit 自动化两者缺一不可。
 
@@ -277,7 +283,7 @@ $switch = Get-Content $registry.FullName -Raw | ConvertFrom-Json
 Invoke-RestMethod "$($switch.endpoint)/health"
 ```
 
-响应应报告 `healthy` 以及正在运行的 Revit 版本。在 Revit 中查找 `AEC Bridge` 功能区选项卡。其 Workflows 面板包含 Open Panel、Health Check、Pending Actions 和 Reports;Tools 面板包含 Config、Help 和 About。
+响应应报告 `healthy` 以及正在运行的 Revit 版本。在 Revit 中查找 `AEC Bridge` 功能区选项卡。其 Workflows 面板包含 Open Panel、Health Check、Pending Actions 和 Reports；Tools 面板包含 Config、Help 和 About。
 
 ## 安全
 
@@ -290,33 +296,33 @@ Invoke-RestMethod "$($switch.endpoint)/health"
 
 ## 常见问题
 
-### Revit 的 MCP 服务器是什么?
+### Revit 的 MCP 服务器是什么？
 
-Model Context Protocol(MCP)是一项开放标准，让 AI 助手能够调用其他软件中的工具。Revit 的 MCP 服务器将 Revit 的操作发布为工具。助手选择工具，插件在 Revit 内运行它们。
+Model Context Protocol（MCP）是一项开放标准，让 AI 助手能够调用其他软件中的工具。Revit 的 MCP 服务器将 Revit 的操作发布为工具。助手选择工具，插件在 Revit 内运行它们。
 
-### 哪些 AI 助手可以使用?
+### 哪些 AI 助手可以使用？
 
-任何能够启动本地 stdio 服务器的 MCP 客户端。我们提供了 Claude Desktop、搭配 GitHub Copilot 的 VS Code，以及读取标准 `mcpServers` 配置的客户端的文档。面板聊天也可以使用 Anthropic API 密钥，或已安装的 `claude` 或 `codex` 命令行工具。参见 [ADR 0012](../0012-native-agent-chat-backend.md)。
+任何能够启动本地 stdio 服务器的 MCP 客户端。我们为 Claude Desktop、搭配 GitHub Copilot 的 VS Code、Cursor 和 Codex，以及读取标准 `mcpServers` 配置的客户端提供了文档。Windsurf、Cline、Roo Code、Continue、Zed、Claude Code 和 Gemini CLI 应当也能以同样方式工作，但尚未测试。参见[兼容性说明](../compatibility.md)。面板聊天也可以使用 Anthropic API 密钥，或已安装的 `claude` 或 `codex` 命令行工具。参见 [ADR 0012](../0012-native-agent-chat-backend.md)。
 
-### AI 会未经询问就修改我的模型吗?
+### AI 会未经询问就修改我的模型吗？
 
 默认模式下不会。修改模型的工具会被阻止，直到计划在 Revit 面板中获得批准。只读工具无需批准即可运行。如果设置 `MCP_REVIT_APPROVAL_MODE=auto`，则会跳过审批。
 
-### 它会把我的模型发送到云端吗?
+### 它会把我的模型发送到云端吗？
 
 服务器和插件都在你的机器上运行，桥接仅监听 localhost。AI 助手能看到什么取决于你使用的客户端：工具结果会发送给该客户端的模型提供方。面向云端的提供程序（如 Speckle）只有在你配置并调用其工具时才会运行。
 
-### 没有 Revit 也能处理 IFC 文件吗?
+### 没有 Revit 也能处理 IFC 文件吗？
 
 可以。IFC 提供程序使用 IfcOpenShell 读取文件。它可以返回文件元数据、空间结构、构件属性和包围盒，按类、GUID、名称或属性执行查询，并校验模式。它不会编辑 IFC 文件。
 
-### 没有安装 Revit 可以使用吗?
+### 没有安装 Revit 可以使用吗？
 
 你可以在 mock 模式下运行服务器，用于开发和测试。实际的模型操作需要 Revit 2024 至 2027 和插件。
 
 ## 发布与版本
 
-AEC Model Bridge 遵循语义化版本(Semantic Versioning)。发布版本在 GitHub 上以 `vX.Y.Z` 打标签，根目录的 `VERSION` 文件保存版本号。发布流程见 [docs/versioning.md](../versioning.md)，各版本的变更见 [CHANGELOG.md](../../CHANGELOG.md)。
+AEC Model Bridge 遵循语义化版本（Semantic Versioning）。发布版本在 GitHub 上以 `vX.Y.Z` 打标签，根目录的 `VERSION` 文件保存版本号。发布流程见 [docs/versioning.md](../versioning.md)，各版本的变更见 [CHANGELOG.md](../../CHANGELOG.md)。
 
 ## 开发
 
