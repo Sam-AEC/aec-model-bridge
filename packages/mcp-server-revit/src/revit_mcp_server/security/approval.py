@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 from ..config import config
 from ..errors import BridgeError
+from . import proof as proof_mod
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,14 @@ class ApprovalGate:
         except Exception as e:
             logger.error("Failed to save plan %s: %s", plan_id, e)
 
-    def create_plan(self, actions: List[Dict[str, Any]], before_states: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def create_plan(
+        self,
+        actions: List[Dict[str, Any]],
+        before_states: List[Dict[str, Any]],
+        snapshot_id: Optional[str] = None,
+        skipped: Optional[List[Dict[str, Any]]] = None,
+        extra: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         plan_id = f"plan_{uuid.uuid4().hex[:12]}"
         plan_actions = []
         for i, action in enumerate(actions):
@@ -69,6 +77,12 @@ class ApprovalGate:
             "is_reversible": True,
             "reversible_strategy": "inverse"
         }
+        if snapshot_id:
+            plan["snapshot_id"] = snapshot_id
+        if skipped:
+            plan["skipped"] = skipped
+        if extra:
+            plan.update(extra)
         self.save_plan(plan)
         return plan
 
@@ -84,13 +98,41 @@ class ApprovalGate:
                 continue
         return plans
 
-    def update_plan_state(self, plan_id: str, state: str) -> Dict[str, Any]:
+    def update_plan_state(self, plan_id: str, state: str, approver: Optional[str] = None) -> Dict[str, Any]:
         plan = self.load_plan(plan_id)
         if not plan:
             raise ValueError(f"Plan {plan_id} not found")
         plan["state"] = state
+        now = datetime.now(timezone.utc).isoformat()
+        if state == "approved":
+            plan["approved_at"] = now
+            if approver:
+                plan["approved_by"] = str(approver)
+        fill_proof = False
+        if state == "executed":
+            plan["executed_at"] = now
+            # execute_plan writes a richer proof itself; only fill in for direct tool calls.
+            try:
+                fill_proof = proof_mod.read_proof(self.workspace_dir, plan_id) is None
+            except ValueError:
+                fill_proof = False
         self.save_plan(plan)
+        if fill_proof:
+            try:
+                self.record_proof(plan)
+            except Exception:
+                logger.exception("Failed to write proof bundle for plan %s", plan_id)
         return plan
+
+    def record_proof(self, plan: Dict[str, Any], results: Optional[List[Dict[str, Any]]] = None,
+                     outcome: Optional[str] = None) -> Dict[str, Any]:
+        """Write proofs/<plan_id>.json for a finished (success / partial / failed) plan."""
+        bundle = proof_mod.build_proof(plan, self.workspace_dir, results=results, outcome=outcome)
+        proof_mod.write_proof(self.workspace_dir, bundle)
+        return bundle
+
+    def load_proof(self, plan_id: str) -> Optional[Dict[str, Any]]:
+        return proof_mod.read_proof(self.workspace_dir, plan_id)
 
     def check_tool_execution(self, tool_name: str, arguments: Dict[str, Any]) -> None:
         """
