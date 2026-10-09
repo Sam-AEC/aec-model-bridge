@@ -160,6 +160,7 @@ DESCRIPTIONS: dict[str, str] = {
     "parameter_manager_plan_set_params": "Create a draft ActionPlan that sets parameter values on the elements of a snapshot matching a filter. Review and approve the plan before it runs.",
     "parameter_manager_export_params_csv": "Export parameters of the matching snapshot elements to a CSV file in the workspace. Writes a file; does not change the model.",
     "parameter_manager_import_params_csv": "Import parameter values from a CSV file in the workspace and apply them to elements. Write operation.",
+    "links_worksets_audit_audit": "Check linked models and worksets for problems (unloaded or missing links, links not pinned or placed Origin to Origin, empty or default-named worksets, worksets owned by someone else, elements on the wrong workset) and give plain next steps. Read-only.",
     "qaqc_checker_run_check": "Run a QA/QC rule pack against a saved snapshot and record the issues it finds.",
     "qaqc_checker_list_issues": "List recorded QA/QC issues for a document, optionally filtered by status and severity. Read-only.",
     "qaqc_checker_resolve_issue": "Mark one recorded QA/QC issue as resolved.",
