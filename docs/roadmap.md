@@ -1,19 +1,12 @@
-# Adoption priorities for BIM coordinators
+# Roadmap: adoption priorities for BIM coordinators
 
-Prepared 2026-10-09. These are proposed priorities, not shipped-feature or
-traction claims. The initial audience is BIM coordinators who need to find
-missing model data and approve parameter fixes.
+Prepared 2026-10-09. These are proposed priorities. They are not claims about shipped features or users. The first audience is BIM coordinators who need to find missing model data and approve parameter fixes.
 
-The first useful result is a repeatable **find missing parameters → review
-exact changes → approve → verify** workflow on a synthetic model in a real
-Revit session. Missing door Marks are the smallest first case; inconsistent
-values follow once coordinator rules and expected values are explicit. Existing
-QA rules, parameter planning and the approval gate provide the foundation.
-Effort labels below are relative estimates, not delivery dates.
+The first goal is a repeatable workflow on a synthetic model in a real Revit session: **find missing parameters → preview the exact changes → approve → verify**. Missing door Marks are the smallest first case. Inconsistent values come later, once coordinators set the rules and expected values. The existing QA rules, parameter planning and approval gate are the base. Effort labels are relative estimates, not delivery dates.
 
 | Priority | Deliverable and rationale | Effort | Verification criteria |
 | --- | --- | --- | --- |
-| 0 | Require explicit real snapshots in the live QA and parameter workflow, and fail clearly when one is absent. Today these modules generate mock data when `snapshot_id` is omitted, even if Revit is connected. Removing that ambiguity is a prerequisite for a credible demo and reliable model fixes. | Small to medium | The live path rejects absent snapshots with an actionable instruction, validates the snapshot document identity, and identifies its source/time in findings and previews. Explicit mock mode remains labelled. The after check uses a newly captured snapshot of the same document; synthetic snapshot data cannot be presented as a live result. |
+| 0 | Require a real snapshot in the live QA and parameter workflow, and fail with a clear message when none is given. **Partly done:** in bridge mode, the QA checker and parameter manager now reject an empty `snapshot_id` (`require_snapshot_or_mock`) instead of using generated mock data. Still open: check that the snapshot belongs to the open document, and show its source and time in findings and previews. | Small | The live path rejects a missing snapshot with a clear instruction (done). It also checks the snapshot's document identity and shows its source and time in findings and previews (open). Mock mode stays labelled. The after check uses a newly captured snapshot of the same document, so sample data cannot pass as a live result. |
 | 1 | A short real Revit demo and repeatable runbook. Show missing door Marks, select affected elements, review proposed values, approve once and rerun the check. This makes the existing product understandable and provides evidence of a complete coordinator task. | Small, with live Revit access | Rebuild the fixture and obtain the same rule counts on two runs. Before the door fix, the intended baseline is 12 missing Marks and 3 missing room Numbers; after it, 0 missing Marks and 3 unchanged room findings. Capture actual counts, Revit version, commit and before/after evidence. A rejected plan must leave parameters unchanged. Publish a recording only after the live result is verified. |
 | 2 | Make the parameter fix review dependable. Use explicit element IDs, parameter names, old/new values, warnings and skipped elements; use user-confirmed numbering rules. Coordinators need to know exactly which model data will change and why. | Medium | Only selected missing values change. Existing populated Marks remain intact. Read-only or owned elements surface actionable failures/skips. A fresh read checks final values and reruns QA; failed or partial execution cannot appear as a completed fix. Cover stale-document/changed-value handling and document the supported rollback path. |
 | 3 | An install-to-first-check diagnostic path. Explain the Revit version, add-in connection, active document, hub/client state and next action in one place. The source/install instructions currently require several components, so reducing setup failures helps new users reach the demo. | Small to medium | A fresh Windows account installs one supported Revit package and completes the read-only check without source editing. Missing Python, wrong Revit package, stopped bridge and no open document each produce a specific recovery step. Test each advertised Revit version before claiming equivalent live support. |
@@ -21,14 +14,14 @@ Effort labels below are relative estimates, not delivery dates.
 
 ## First demo scope
 
-The snapshot contract needs repair first. The add-in used to write
-`snapshots/snapshot-{GUID}.json` while returning a bare GUID, and the Python
-modules load `snapshots/{snapshot_id}.json`; the add-in now writes
-`snapshots/{GUID}.json` (compile and verify against live Revit before relying
-on it). The add-in also uses its own workspace environment, which can differ
-from the Python server's workspace. Confirm the workspace matches, and verify the
-snapshot covers the categories required by the QA rules. Never silently replace
-a failed live extraction with generated mock data.
+Fix the snapshot contract first. The add-in used to write
+`snapshots/snapshot-{GUID}.json` but return a bare GUID. The Python modules load
+`snapshots/{snapshot_id}.json`. The add-in now writes `snapshots/{GUID}.json`.
+Compile it and test it against live Revit before you rely on it. The add-in also
+reads its own `MCP_REVIT_WORKSPACE_DIR`, which can differ from the Python
+server's workspace. Check that both use the same folder. Check that the snapshot
+covers the categories the QA rules need. Never replace a failed live extraction
+with generated mock data.
 
 Use a disposable copy of the [canonical model](../fixtures/canonical-model/README.md).
 The [seeded defect manifest](../fixtures/canonical-model/seeded-defects.json)
@@ -40,10 +33,11 @@ the approved change.
 
 Capture a real snapshot from that open synthetic Revit document and pass its
 explicit `snapshot_id` to every QA and parameter call. Record document identity
-and source/time. Capture a new snapshot after execution for verification. An
-omitted snapshot currently falls back to generated mock data in both modules;
-connected Revit alone does not establish that findings describe the open model.
-Complete priority 0 before treating the product's default workflow as live.
+and source/time. Capture a new snapshot after execution for verification. In
+mock mode, an omitted snapshot still falls back to generated mock data. In
+bridge mode it is now rejected. A connection to Revit alone does not show that
+findings describe the open model, so finish the open part of priority 0 before
+you treat the default workflow as live.
 
 Record the check result, affected element selection, parameter preview, human
 approval, execution result and a fresh check. Include a rejected-plan run and
@@ -69,12 +63,9 @@ demo; record missing coverage and verify the full sequence in the live client.
 ## Evidence and sequencing
 
 - [Core QA rule pack](../packages/mcp-server-revit/src/revit_mcp_server/modules/qaqc_checker/rules/core.yaml) already contains `door_missing_mark` and `room_missing_number`; [the checker](../packages/mcp-server-revit/src/revit_mcp_server/modules/qaqc_checker/module.py) tracks findings in a workspace SQLite store.
-- The checker's `_get_data` and the [parameter manager's](../packages/mcp-server-revit/src/revit_mcp_server/modules/parameter_manager/module.py) `_get_elements` call `generate_mock_snapshot()` when `snapshot_id` is empty. This observed fallback motivates priority 0; it is a proposed fix, not a claim that it has been implemented.
+- The checker's `_get_data` and the [parameter manager's](../packages/mcp-server-revit/src/revit_mcp_server/modules/parameter_manager/module.py) `_get_elements` call `require_snapshot_or_mock()` when `snapshot_id` is empty. In bridge mode this raises an error. In mock mode they still call `generate_mock_snapshot()`. This covers the first part of priority 0. Document identity checks are not implemented.
 - [Parameter manager](../packages/mcp-server-revit/src/revit_mcp_server/modules/parameter_manager/module.py) already produces planned changes with before values, validation errors and worksharing warnings. Validate those warnings against real Revit ownership before promising batch safety.
 - [Approval lifecycle](0008-approval-gate-lifecycle.md) and [native chat trust model](0012-native-agent-chat-backend.md) describe the human approval boundary. Acceptance criteria must verify the concrete client path used in the demo.
 - [Installation](install.md) documents the Python server and native add-in requirements; [audit logging](logging-and-audit.md) explains the two log layers needed to correlate a requested change with actual Revit execution.
 
-Complete the first demo before expanding the integration surface. Decide the
-next workflow from observed coordinator setup failures and repeated QA tasks.
-Keep Navisworks, Power BI and broader provider work behind this measured adoption
-loop unless a real pilot makes one of them a blocker.
+Finish the first demo before adding more integrations. Pick the next workflow from the setup failures and repeated QA tasks that coordinators actually hit. Keep Navisworks, Power BI and other provider work behind this until a real pilot shows one of them blocks users.
