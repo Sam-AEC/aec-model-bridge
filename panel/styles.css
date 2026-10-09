@@ -578,3 +578,25 @@ p {
   color: var(--amb-ink-muted);
   font-size: 12px;
 }
+
+.empty-tile {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  background: var(--amb-brand-wash);
+  color: var(--amb-ink);
+}
+
+.empty-tile .ico {
+  width: 24px;
+  height: 24px;
+}
+
+.mini-mark {
+  display: inline-block;
+  vertical-align: -3px;
+  margin-right: 4px;
+}

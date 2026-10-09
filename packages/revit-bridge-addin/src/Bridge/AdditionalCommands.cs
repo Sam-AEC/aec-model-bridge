@@ -55,7 +55,12 @@ namespace RevitBridge.Bridge
             }
 
             message = error;
-            TaskDialog.Show(ProductInfo.ProductName, "The AEC Model Bridge panel could not be opened.\n\n" + error);
+            var dialog = new ModernDialog();
+            dialog.SetTitle(ProductInfo.ProductName, "Panel unavailable");
+            dialog.AddStatusCard("error", "Panel", "The AEC Model Bridge panel could not be opened.");
+            dialog.AddInfoSection("Details", error);
+            dialog.SetActionButton("OK");
+            dialog.ShowDialog();
             return Result.Failed;
         }
     }

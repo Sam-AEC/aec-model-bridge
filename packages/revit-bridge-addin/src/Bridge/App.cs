@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Windows.Media.Imaging;
 using Autodesk.Revit.UI;
@@ -136,11 +137,8 @@ namespace RevitBridge.Bridge
             string reportsIconPath16 = Path.Combine(iconPath, "reports_16.png");
             string reportsIconPath32 = Path.Combine(iconPath, "reports_32.png");
 
-            // Generate theme-adaptive icons, then retain in-memory fallbacks if file I/O fails.
-            // Known, accepted limitation: ribbon icons reflect the Revit theme at session
-            // start only. The dockable panel re-themes live on ThemeChanged
-            // (BridgePanelProvider), but the ribbon needs a full Revit restart (not just a
-            // panel reload) to pick up a theme change.
+            // Generate theme-adaptive icons (rewritten each session so they never go stale), then retain
+            // in-memory fallbacks if file I/O fails. RefreshRibbonIcons re-skins the buttons when Revit's theme changes.
             try
             {
                 IconGenerator.GenerateAllIcons(iconPath);
@@ -184,7 +182,6 @@ namespace RevitBridge.Bridge
             connectBtnData.LongDescription = "Starts AEC Model Bridge to enable MCP automation for Revit software.";
             connectBtnData.Image = connectIcon16;
             connectBtnData.LargeImage = connectIcon32;
-            connectBtnData.ToolTipImage = brandIcon32;
 
             // Disconnect Button
             PushButtonData disconnectBtnData = new PushButtonData(
@@ -211,10 +208,10 @@ namespace RevitBridge.Bridge
             statusBtnData.LargeImage = statusIcon32;
 
             // Create stacked items for better layout
-            connectionPanel.AddItem(connectBtnData);
-            connectionPanel.AddItem(disconnectBtnData);
+            Track(connectionPanel.AddItem(connectBtnData), IconGenerator.CreateConnectIcon);
+            Track(connectionPanel.AddItem(disconnectBtnData), IconGenerator.CreateDisconnectIcon);
             connectionPanel.AddSeparator();
-            connectionPanel.AddItem(statusBtnData);
+            Track(connectionPanel.AddItem(statusBtnData), IconGenerator.CreateStatusIcon);
 
             // === TOOLS PANEL ===
 
@@ -300,18 +297,58 @@ namespace RevitBridge.Bridge
             aboutBtnData.Image = brandIcon16;
             aboutBtnData.LargeImage = brandIcon32;
 
-            workflowPanel.AddItem(panelBtnData);
-            workflowPanel.AddItem(healthBtnData);
-            workflowPanel.AddItem(pendingBtnData);
-            workflowPanel.AddSeparator();
-            workflowPanel.AddItem(reportsBtnData);
+            // Every button: brand tooltip image, F1 opens the docs.
+            foreach (var data in new[]
+            {
+                connectBtnData, disconnectBtnData, statusBtnData, panelBtnData, healthBtnData,
+                pendingBtnData, reportsBtnData, settingsBtnData, helpBtnData, aboutBtnData
+            })
+            {
+                data.ToolTipImage = brandIcon32;
+                data.SetContextualHelp(new ContextualHelp(ContextualHelpType.Url, ProductInfo.DocumentationUrl));
+            }
 
-            toolsPanel.AddItem(settingsBtnData);
-            toolsPanel.AddItem(helpBtnData);
-            toolsPanel.AddSeparator();
-            toolsPanel.AddItem(aboutBtnData);
+            // Workflows: one large primary action, the secondary ones stacked at 16 px (Revit's own pattern).
+            Track(workflowPanel.AddItem(panelBtnData), IconGenerator.CreatePanelIcon);
+            var workflowStack = workflowPanel.AddStackedItems(healthBtnData, pendingBtnData, reportsBtnData);
+            Track(workflowStack[0], IconGenerator.CreateHealthIcon);
+            Track(workflowStack[1], IconGenerator.CreatePendingIcon);
+            Track(workflowStack[2], IconGenerator.CreateReportsIcon);
+
+            var toolsStack = toolsPanel.AddStackedItems(settingsBtnData, helpBtnData, aboutBtnData);
+            Track(toolsStack[0], IconGenerator.CreateSettingsIcon);
+            Track(toolsStack[1], IconGenerator.CreateHelpIcon);
+            Track(toolsStack[2], IconGenerator.CreateBrandIcon);
 
             Log.Information("Modern ribbon interface created with icons");
+        }
+
+        private static readonly List<(PushButton Button, Func<int, BitmapSource> Factory)> ThemedButtons =
+            new List<(PushButton, Func<int, BitmapSource>)>();
+
+        private static void Track(RibbonItem? item, Func<int, BitmapSource> factory)
+        {
+            if (item is PushButton button)
+            {
+                ThemedButtons.Add((button, factory));
+            }
+        }
+
+        /// <summary>Redraws every ribbon icon for the current Revit theme (called from ThemeChanged).</summary>
+        internal static void RefreshRibbonIcons()
+        {
+            foreach (var (button, factory) in ThemedButtons)
+            {
+                try
+                {
+                    button.Image = factory(16);
+                    button.LargeImage = factory(32);
+                }
+                catch (Exception ex)
+                {
+                    Log.Debug(ex, "Could not refresh ribbon icon for {Button}", button.Name);
+                }
+            }
         }
 
         private static BitmapSource LoadIcon(
