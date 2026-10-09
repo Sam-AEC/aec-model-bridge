@@ -2,10 +2,12 @@
 
 <img src="assets/logo.svg" alt="AEC Model Bridge logo: an isometric model cube with a bridge arch" height="120">
 
+**English** | [简体中文](docs/i18n/README.zh-CN.md) | [Español](docs/i18n/README.es.md) | [हिन्दी](docs/i18n/README.hi.md) | [العربية](docs/i18n/README.ar.md) | [Português (BR)](docs/i18n/README.pt-BR.md) | [Русский](docs/i18n/README.ru.md) | [日本語](docs/i18n/README.ja.md) | [Deutsch](docs/i18n/README.de.md) | [Français](docs/i18n/README.fr.md) | [Bahasa Indonesia](docs/i18n/README.id.md) | [Türkçe](docs/i18n/README.tr.md) | [한국어](docs/i18n/README.ko.md) | [Tiếng Việt](docs/i18n/README.vi.md) | [Italiano](docs/i18n/README.it.md) | [Polski](docs/i18n/README.pl.md) | [繁體中文](docs/i18n/README.zh-TW.md)
 
-**Review model quality and fix Revit parameters with your AI assistant.**
 
-Revit automation through the Model Context Protocol. Review and approve model changes in Revit.
+**Ask your AI about the Revit model you have open. By default, nothing changes until you approve it.**
+
+Open-source MCP server and native add-in for Revit 2024 – 2027. Works with Claude, Codex and other MCP clients.
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Sam-AEC/aec-model-bridge/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Sam-AEC/aec-model-bridge/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
@@ -17,16 +19,24 @@ Revit automation through the Model Context Protocol. Review and approve model ch
 </div>
 
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-hero-dark.png">
-    <img src="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-hero-light.png" alt="Find parameter issues. Review the fixes. A BIM model with a door flagged for an empty Mark parameter and a callout showing the reviewed correction. Example values." width="900">
-  </picture>
+  <img src="docs/images/readme/demo.gif" alt="Demo: a 3D model of a building sits beside the Revit panel. An AI assistant finds 12 doors with no Mark and drafts a plan. The plan waits in the Revit panel until you approve it, then the values are read back. Example values, simulated session." width="900">
 </p>
 
-Connect Claude, Codex or another MCP client to the Revit model you have open.
-AEC Model Bridge combines a Python MCP server with a native Revit add-in:
-read-only tools inspect the model immediately, and model changes require an
-approved plan by default. [See the approval flow](#how-approval-works).
+AEC Model Bridge is the open-source Revit MCP server that lets Claude, Codex,
+Cursor and other AI assistants read and edit your open Revit model, with every
+change approved by you first. It combines a Python MCP server with a native
+Revit add-in: read-only tools inspect the model immediately, and model changes
+require an approved plan by default. [See the approval flow](#how-approval-works).
+
+<p align="center">
+  <img src="docs/images/readme/works-with.svg" alt="Works with: Claude Desktop, VS Code with GitHub Copilot, Cursor and Codex have documented setup. Other MCP clients such as Claude Code, Windsurf, Cline, Continue, Zed and Gemini CLI should work too. Applications: Revit 2024 to 2027, Rhino, Grasshopper, Navisworks (in progress). Data: IFC, Speckle, Excel, SQLite. Protocol: MCP over stdio with an approval gate." width="900">
+</p>
+
+Setup is documented for Claude Desktop, VS Code with GitHub Copilot, Cursor and
+Codex. It is a standard MCP stdio server, so other clients such as Claude Code,
+Windsurf, Cline, Continue, Zed and Gemini CLI should work too. See
+[compatibility](docs/compatibility.md) for what is documented and what is
+untested.
 
 The same server includes IFC inspection, Rhino and Grasshopper automation,
 and Speckle integration. [Integration status](#other-integrations) distinguishes
@@ -226,6 +236,8 @@ which is useful for development and tests.
 | Power BI | In progress. The provider and tool exist but are not registered in the hub. |
 | Excel, Parquet and DuckDB | Planned. |
 
+Product names and logos belong to their owners. The banner uses them only to show what this project works with.
+
 ## Install the Revit add-in
 
 **Easiest (Windows):** download `AECModelBridge-Setup-<version>.exe` from the [latest release](https://github.com/Sam-AEC/aec-model-bridge/releases/latest), double-click it, pick your Revit versions and restart Revit. It installs the add-in, the bundled Python server and, if you tick the box, the Claude Desktop and VS Code settings, with a backup of your current settings. Uninstall it from Windows Settings. The steps below are for building from source.
@@ -371,8 +383,10 @@ inside Revit.
 ### Which AI assistants work with it?
 
 Any MCP client that can start a local stdio server. We document Claude
-Desktop, VS Code with GitHub Copilot, and clients that read a standard
-`mcpServers` configuration. The panel chat can also use an Anthropic API key
+Desktop, VS Code with GitHub Copilot, Cursor and Codex, and clients that read a
+standard `mcpServers` configuration. Windsurf, Cline, Roo Code, Continue, Zed,
+Claude Code and Gemini CLI should work the same way but have not been tested.
+See [compatibility](docs/compatibility.md). The panel chat can also use an Anthropic API key
 or the `claude` or `codex` command-line tools if they are installed. See
 [ADR 0012](docs/0012-native-agent-chat-backend.md).
 

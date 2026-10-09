@@ -42,6 +42,27 @@ Supported Revit versions are 2024 (net48), 2025 and 2026 (net8.0-windows), and
 2027 (net10.0-windows). See
 [docs/target-frameworks-and-dependencies.md](docs/target-frameworks-and-dependencies.md).
 
+## Translations
+
+Translated READMEs live in `docs/i18n/` as `README.<language>.md` and are
+linked from the language bar at the top of `README.md`. The English
+`README.md` is canonical: when a translation differs from it, the English
+text wins, and README changes are made in English first. Current translations
+are AI-assisted drafts, so native-speaker corrections are especially welcome.
+
+To improve a translation, edit the file in `docs/i18n/` and open a pull
+request. Keep code blocks, commands, tool names, environment variable names,
+file paths, product names, counts and licence text exactly as in the English
+README, and use the standard AEC term for the language (for example parameter,
+sheet, view, family, worksharing).
+
+To add a language, copy an existing translation, translate the prose, add the
+language to the bar in `README.md` and in every file in `docs/i18n/`, and add
+it to the list in `packages/mcp-server-revit/tests/test_i18n_readmes.py`.
+That test checks that code blocks match the English README, headings line up,
+the language bar is present and relative links resolve. Run it with
+`python -m pytest packages/mcp-server-revit/tests/test_i18n_readmes.py`.
+
 ## Releases and versions
 
 The project uses Semantic Versioning, and the root `VERSION` file is the
