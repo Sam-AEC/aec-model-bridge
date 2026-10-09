@@ -66,6 +66,38 @@ namespace RevitBridge.UI
             }
         }
 
+        // UNVERIFIED (not compiled): forwards GET /diagnostics for the panel's Setup check.
+        public static async Task<HubResult> GetDiagnosticsAsync()
+        {
+            try
+            {
+                using (var response = await Client.GetAsync($"http://127.0.0.1:{Port}/diagnostics").ConfigureAwait(false))
+                {
+                    var text = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    try
+                    {
+                        using (var doc = JsonDocument.Parse(text))
+                        {
+                            if (doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty("checks", out _))
+                            {
+                                // The whole payload is the result: {ok, checks:[...]}; ok=false is still a valid answer.
+                                return HubResult.Success(doc.RootElement.Clone());
+                            }
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                    }
+
+                    return HubResult.Failure($"Hub returned an unusable diagnostics response (HTTP {(int)response.StatusCode})");
+                }
+            }
+            catch (Exception ex)
+            {
+                return HubResult.Failure($"Could not reach the AEC Model Bridge hub on 127.0.0.1:{Port}: {ex.Message}");
+            }
+        }
+
         public static async Task<ProvidersResult> GetProvidersAsync()
         {
             try
