@@ -1,0 +1,36 @@
+# AEC Model Bridge
+
+> AEC Model Bridge is an open-source Revit MCP server and native Revit add-in. It lets AI assistants such as Claude, Codex and Cursor read and edit the Revit model you have open, and every change goes through a plan that you approve first. It supports Revit 2024 to 2027 and also reads IFC files, with Rhino, Grasshopper and Speckle integrations.
+
+Key facts:
+
+- Protocol: Model Context Protocol (MCP), stdio transport. Any MCP client that can start a local server can use it.
+- Tools: 219 in the default setup, counted in mock mode. Revit has 103 of them.
+- Safety: tools that change the model are blocked until a plan is approved. This is the default; an unattended mode is opt-in.
+- Platform: live Revit work needs Windows and a licensed Revit. Mock mode needs neither.
+- Licence: GPL-3.0 with a commercial option.
+- Maintainer: A. Sam Mohammad.
+
+## Start here
+
+- [README](https://github.com/Sam-AEC/aec-model-bridge/blob/main/README.md): what it does, quick start, FAQ.
+- [Install guide](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/install.md): installer and source install.
+- [Compatibility](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/compatibility.md): AI clients, agent frameworks, applications and formats.
+- [Tool catalog](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/tools-generated.md): every tool with its read or write flag.
+
+## How it works
+
+- [Approval gate](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/0008-approval-gate-lifecycle.md): plan, review, approve, execute, roll back.
+- [Security](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/security.md)
+- [Logging and audit](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/logging-and-audit.md)
+- [Configuration reference](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/configuration-reference.md)
+
+## Project
+
+- [Roadmap](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/roadmap.md)
+- [Changelog](https://github.com/Sam-AEC/aec-model-bridge/blob/main/CHANGELOG.md)
+- [Licensing](https://github.com/Sam-AEC/aec-model-bridge/blob/main/LICENSING.md)
+
+## Optional
+
+- [Translations](https://github.com/Sam-AEC/aec-model-bridge/tree/main/docs/i18n): README in 16 languages. The English README is the source of truth.
