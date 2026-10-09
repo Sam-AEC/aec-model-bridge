@@ -38,7 +38,14 @@ MAX_COMPONENTS_PER_TOPIC = 10000
 QAQC_DB = "qaqc_issues.db"
 
 _IFC_GUID_RE = re.compile(r"^[0-9A-Za-z_$]{22}$")
-_BAD_XML_CHARS = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff￾￿]")
+def _is_bad_xml_char(ch: str) -> bool:
+    """True for characters that are not allowed in XML 1.0 text."""
+    code = ord(ch)
+    return (
+        code < 0x20 and code not in (0x09, 0x0A, 0x0D)
+        or 0xD800 <= code <= 0xDFFF
+        or code in (0xFFFE, 0xFFFF)
+    )
 _GUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
 
@@ -70,7 +77,7 @@ def _resolve_in_workspace(path_str: str, workspace: Any) -> Path:
 # ---------------------------------------------------------------------------
 
 def _clean(text: Any) -> str:
-    return _BAD_XML_CHARS.sub("", "" if text is None else str(text))
+    return "".join(ch for ch in ("" if text is None else str(text)) if not _is_bad_xml_char(ch))
 
 
 def _now() -> str:
@@ -140,10 +147,10 @@ def _xml_bytes(root: ET.Element) -> bytes:
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
 
-def _build_markup(issue: Dict[str, Any]) -> bytes:
+def _build_markup(issue: Dict[str, Any], viewpoint_guid: str) -> bytes:
     root = ET.Element("Markup")
     header = ET.SubElement(root, "Header")
-    ET.SubElement(header, "File", {"IsExternal": "false"})
+    ET.SubElement(header, "File", {"isExternal": "false"})
     topic = ET.SubElement(root, "Topic", {"Guid": issue["id"], "TopicType": "Issue", "TopicStatus": issue["status"]})
     ET.SubElement(topic, "Title").text = issue["title"]
     if issue["priority"]:
@@ -155,13 +162,13 @@ def _build_markup(issue: Dict[str, Any]) -> bytes:
     if issue["description"]:
         ET.SubElement(topic, "Description").text = issue["description"]
     if issue["element_uids"] or issue["ifc_guids"]:
-        vp = ET.SubElement(root, "Viewpoints", {"Guid": str(uuid.uuid4())})
+        vp = ET.SubElement(root, "Viewpoints", {"Guid": viewpoint_guid})
         ET.SubElement(vp, "Viewpoint").text = "viewpoint.bcfv"
     return _xml_bytes(root)
 
 
-def _build_viewpoint(issue: Dict[str, Any]) -> bytes:
-    root = ET.Element("VisualizationInfo", {"Guid": str(uuid.uuid4())})
+def _build_viewpoint(issue: Dict[str, Any], viewpoint_guid: str) -> bytes:
+    root = ET.Element("VisualizationInfo", {"Guid": viewpoint_guid})
     comps = ET.SubElement(root, "Components")
     sel = ET.SubElement(comps, "Selection")
     for guid in issue["ifc_guids"]:
@@ -171,8 +178,11 @@ def _build_viewpoint(issue: Dict[str, Any]) -> bytes:
             ET.SubElement(sel, "Component", {"IfcGuid": uid})
         else:
             # Revit UniqueIds are not IFC GUIDs; keep them as the authoring-tool id.
-            comp = ET.SubElement(sel, "Component", {"OriginatingSystem": "Revit"})
+            comp = ET.SubElement(sel, "Component")
+            ET.SubElement(comp, "OriginatingSystem").text = "Revit"
             ET.SubElement(comp, "AuthoringToolId").text = uid
+    # BCF 2.1 requires Visibility after Selection.
+    ET.SubElement(comps, "Visibility", {"DefaultVisibility": "true"})
     return _xml_bytes(root)
 
 
@@ -188,11 +198,15 @@ def _write_bcf(path: Path, issues: List[Dict[str, Any]], project_name: str) -> N
                 proj = ET.Element("ProjectExtension")
                 p = ET.SubElement(proj, "Project", {"ProjectId": str(uuid.uuid4())})
                 ET.SubElement(p, "Name").text = project_name
+                ET.SubElement(proj, "ExtensionSchema")
                 zf.writestr("project.bcfp", _xml_bytes(proj))
             for issue in issues:
-                zf.writestr(f"{issue['id']}/markup.bcf", _build_markup(issue))
+                # BCF 2.1 expects an explicit directory entry per topic.
+                zf.writestr(zipfile.ZipInfo(f"{issue['id']}/"), b"")
+                vp_guid = str(uuid.uuid4())
+                zf.writestr(f"{issue['id']}/markup.bcf", _build_markup(issue, vp_guid))
                 if issue["element_uids"] or issue["ifc_guids"]:
-                    zf.writestr(f"{issue['id']}/viewpoint.bcfv", _build_viewpoint(issue))
+                    zf.writestr(f"{issue['id']}/viewpoint.bcfv", _build_viewpoint(issue, vp_guid))
         os.replace(tmp, path)
     finally:
         if os.path.exists(tmp):

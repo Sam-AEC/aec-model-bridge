@@ -201,3 +201,63 @@ def test_tools_listed_via_registry(tmp_path):
     reg.discover_and_load()
     m = reg.get_module("bcf_exchange")
     assert m is not None and not any(c.is_mutating for c in m.manifest.commands)
+
+
+# --- BCF 2.1 schema-shape regressions (review findings) ---
+
+def _exported(mod, ws, project_name=""):
+    issues = [{"title": "T", "element_uids": ["abc-uid-1", "2O2Fr$t4X7Zf8NOew3FLOH"]}]
+    out = mod.export_bcf("s.bcfzip", issues=issues, project_name=project_name, workspace=ws)
+    return zipfile.ZipFile(out["path"])
+
+
+def test_file_attribute_is_isExternal(mod, ws):
+    zf = _exported(mod, ws)
+    name = next(n for n in zf.namelist() if n.endswith("markup.bcf"))
+    data = zf.read(name).decode()
+    assert 'isExternal="false"' in data and "IsExternal" not in data
+
+
+def test_viewpoint_guid_shared_between_markup_and_visinfo(mod, ws):
+    import xml.etree.ElementTree as ET
+    zf = _exported(mod, ws)
+    markup = ET.fromstring(zf.read(next(n for n in zf.namelist() if n.endswith("markup.bcf"))))
+    vis = ET.fromstring(zf.read(next(n for n in zf.namelist() if n.endswith(".bcfv"))))
+    assert markup.find("Viewpoints").attrib["Guid"] == vis.attrib["Guid"]
+
+
+def test_components_have_visibility_and_child_originating_system(mod, ws):
+    import xml.etree.ElementTree as ET
+    zf = _exported(mod, ws)
+    vis = ET.fromstring(zf.read(next(n for n in zf.namelist() if n.endswith(".bcfv"))))
+    comps = vis.find("Components")
+    assert [c.tag for c in comps] == ["Selection", "Visibility"]
+    revit = [c for c in comps.find("Selection") if "IfcGuid" not in c.attrib]
+    assert revit and all("OriginatingSystem" not in c.attrib for c in revit)
+    assert [ch.tag for ch in revit[0]] == ["OriginatingSystem", "AuthoringToolId"]
+
+
+def test_project_file_has_extension_schema(mod, ws):
+    import xml.etree.ElementTree as ET
+    zf = _exported(mod, ws, project_name="P")
+    proj = ET.fromstring(zf.read("project.bcfp"))
+    assert [c.tag for c in proj] == ["Project", "ExtensionSchema"]
+
+
+def test_topic_directory_entries_present(mod, ws):
+    zf = _exported(mod, ws)
+    folder = next(n for n in zf.namelist() if n.endswith("markup.bcf")).split("/")[0]
+    names = zf.namelist()
+    assert f"{folder}/" in names
+    assert names.index(f"{folder}/") < names.index(f"{folder}/markup.bcf")
+
+
+def test_round_trip_still_reads_revit_ids_after_schema_fix(mod, ws):
+    _exported(mod, ws)
+    res = mod.import_bcf("s.bcfzip", workspace=ws)
+    assert res["issues"][0]["element_uids"] == ["abc-uid-1"]
+
+
+def test_clean_strips_invalid_xml_chars():
+    assert bcf._clean("a\x00b\x0bc￾d\x1fe\ud800f") == "abcdef"
+    assert bcf._clean("tab\tnl\n ok") == "tab\tnl\n ok"
