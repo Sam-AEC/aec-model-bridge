@@ -38,7 +38,7 @@ jobs:
           "prerelease=$($tag.Contains('-').ToString().ToLower())" >> $env:GITHUB_OUTPUT
 
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: ${{ steps.tag.outputs.tag }}
 

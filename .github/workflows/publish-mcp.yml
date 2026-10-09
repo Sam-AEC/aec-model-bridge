@@ -15,7 +15,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       # The version comes from the VERSION file at the checked-out ref, not from
       # the ref name, so this works for a release event, a manual run on main,
