@@ -22,6 +22,7 @@ namespace RevitBridge.UI
         public BridgePanel()
         {
             InitializeComponent();
+            FallbackLogo.Source = BrandMark.CreateImageSource();
             Loaded += async (_, _) => await InitializeWebViewAsync();
         }
 

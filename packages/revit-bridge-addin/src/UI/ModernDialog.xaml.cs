@@ -19,6 +19,12 @@ namespace RevitBridge.UI
         private readonly Brush _headerBrush;
         private readonly Brush _footerBgBrush;
         private readonly Brush _footerBorderBrush;
+        private readonly Brush _accentBrush;
+        private readonly Brush _accentTextBrush;
+        private readonly Brush _onAccentBrush;
+        private readonly Color _accentColor;
+        private readonly Color _successColor;
+        private readonly Color _dangerColor;
 
         public ModernDialog()
         {
@@ -33,29 +39,44 @@ namespace RevitBridge.UI
                 // Fallback if UIThemeManager is not available
             }
 
-            // Establish professional, Revit-aligned color system
+            // Same tokens as the panel (panel/styles.css, docs/design/tokens.md): one design across ribbon, panel and dialogs.
+            SolidColorBrush Rgb(byte r, byte g, byte b) => new SolidColorBrush(Color.FromRgb(r, g, b));
+            SolidColorBrush accent;
             if (isDark)
             {
-                _bgBrush = new SolidColorBrush(Color.FromRgb(43, 43, 43)); // Dark charcoal
-                _cardBgBrush = new SolidColorBrush(Color.FromRgb(51, 51, 51)); // Medium charcoal
-                _textPrimaryBrush = new SolidColorBrush(Color.FromRgb(224, 224, 224)); // Soft white
-                _textSecondaryBrush = new SolidColorBrush(Color.FromRgb(170, 170, 170)); // Slate gray
-                _borderBrush = new SolidColorBrush(Color.FromRgb(68, 68, 68)); // Charcoal border
-                _headerBrush = new SolidColorBrush(Color.FromRgb(31, 31, 31)); // Rich near-black header
-                _footerBgBrush = new SolidColorBrush(Color.FromRgb(37, 37, 37)); // Footer background
-                _footerBorderBrush = new SolidColorBrush(Color.FromRgb(48, 48, 48)); // Footer border
+                _bgBrush = Rgb(0x14, 0x18, 0x1E);
+                _cardBgBrush = Rgb(0x1C, 0x22, 0x2B);
+                _textPrimaryBrush = Rgb(0xE9, 0xEE, 0xF5);
+                _textSecondaryBrush = Rgb(0x9B, 0xA8, 0xB9);
+                _borderBrush = Rgb(0x2F, 0x39, 0x45);
+                _headerBrush = Rgb(0x14, 0x1B, 0x24);
+                _footerBgBrush = Rgb(0x1C, 0x22, 0x2B);
+                _footerBorderBrush = Rgb(0x2F, 0x39, 0x45);
+                accent = Rgb(0x3F, 0xC3, 0xD6);
+                _accentTextBrush = accent;
+                _onAccentBrush = Rgb(0x06, 0x22, 0x2A);
+                _successColor = Color.FromRgb(0x3F, 0xCB, 0x8B);
+                _dangerColor = Color.FromRgb(0xF0, 0x79, 0x6B);
             }
             else
             {
-                _bgBrush = new SolidColorBrush(Color.FromRgb(240, 240, 240)); // Professional light gray
-                _cardBgBrush = new SolidColorBrush(Color.FromRgb(255, 255, 255)); // Flawless white
-                _textPrimaryBrush = new SolidColorBrush(Color.FromRgb(34, 34, 34)); // Dark charcoal text
-                _textSecondaryBrush = new SolidColorBrush(Color.FromRgb(85, 85, 85)); // Muted slate text
-                _borderBrush = new SolidColorBrush(Color.FromRgb(208, 208, 208)); // Professional border gray
-                _headerBrush = new SolidColorBrush(Color.FromRgb(29, 58, 86)); // Sleek corporate Revit Blue/Slate
-                _footerBgBrush = new SolidColorBrush(Color.FromRgb(245, 245, 245)); // Off-white footer
-                _footerBorderBrush = new SolidColorBrush(Color.FromRgb(224, 224, 224)); // Footer separator
+                _bgBrush = Rgb(0xF2, 0xF5, 0xF8);
+                _cardBgBrush = Rgb(0xFF, 0xFF, 0xFF);
+                _textPrimaryBrush = Rgb(0x18, 0x20, 0x2C);
+                _textSecondaryBrush = Rgb(0x5B, 0x66, 0x76);
+                _borderBrush = Rgb(0xD3, 0xDA, 0xE3);
+                _headerBrush = Rgb(0x14, 0x1B, 0x24);
+                _footerBgBrush = Rgb(0xE9, 0xEE, 0xF4);
+                _footerBorderBrush = Rgb(0xD3, 0xDA, 0xE3);
+                accent = Rgb(0x00, 0x91, 0xA7);
+                _accentTextBrush = Rgb(0x04, 0x6B, 0x80);
+                _onAccentBrush = Rgb(0xFF, 0xFF, 0xFF);
+                _successColor = Color.FromRgb(0x12, 0x7A, 0x4B);
+                _dangerColor = Color.FromRgb(0xC2, 0x3B, 0x2E);
             }
+
+            _accentBrush = accent;
+            _accentColor = accent.Color;
 
             // Expose as DynamicResources before initializing components so XAML bindings compile and evaluate perfectly
             Resources["BgBrush"] = _bgBrush;
@@ -66,6 +87,9 @@ namespace RevitBridge.UI
             Resources["HeaderBrush"] = _headerBrush;
             Resources["FooterBgBrush"] = _footerBgBrush;
             Resources["FooterBorderBrush"] = _footerBorderBrush;
+            Resources["AccentBrush"] = _accentBrush;
+            Resources["AccentTextBrush"] = _accentTextBrush;
+            Resources["OnAccentBrush"] = _onAccentBrush;
 
             InitializeComponent();
             HeaderLogo.Source = BrandMark.CreateImageSource();
@@ -111,6 +135,62 @@ namespace RevitBridge.UI
             }
         }
 
+        // Glyphs are drawn in a 24 x 24 box: stroke only, round caps, like the ribbon and panel icons.
+        private FrameworkElement CreateGlyphTile(string icon, double tile)
+        {
+            string? data = null;
+            Color kind = _accentColor;
+            if (icon.Contains("\u2705")) { data = "M5,12.5 L10,17.5 L19,7.5"; kind = _successColor; }
+            else if (icon.Contains("\U0001F6D1")) { data = "M7,7 H17 V17 H7 Z"; kind = _dangerColor; }
+            else if (icon.Contains("\u2139")) { data = "M12,10.5 V17 M12,6.6 V6.5"; }
+            else if (icon.Contains("\U0001F50C")) { data = "M8,4 V9 M16,4 V9 M6,9 H18 V12 A6,6 0 0 1 6,12 Z M12,18 V21"; }
+            else if (icon.Contains("\U0001F4CA")) { data = "M6,19 V12 M12,19 V6 M18,19 V10"; }
+            else if (icon.Contains("\u23F1")) { data = "M12,4 A8,8 0 1 0 12,20 A8,8 0 1 0 12,4 M12,8 V12.5 L15,14.5"; }
+
+            var border = new Border
+            {
+                Width = tile,
+                Height = tile,
+                CornerRadius = new CornerRadius(10),
+                Background = new SolidColorBrush(Color.FromArgb(0x29, kind.R, kind.G, kind.B)),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            if (data != null)
+            {
+                var canvas = new Canvas { Width = 24, Height = 24 };
+                canvas.Children.Add(new System.Windows.Shapes.Path
+                {
+                    Data = Geometry.Parse(data),
+                    Stroke = new SolidColorBrush(kind),
+                    StrokeThickness = 2.4,
+                    StrokeStartLineCap = PenLineCap.Round,
+                    StrokeEndLineCap = PenLineCap.Round,
+                    StrokeLineJoin = PenLineJoin.Round
+                });
+                border.Child = new Viewbox { Width = tile * 0.55, Height = tile * 0.55, Child = canvas };
+            }
+            else
+            {
+                border.Width = double.NaN;
+                border.MinWidth = tile;
+                border.Padding = new Thickness(8, 0, 8, 0);
+                border.Child = new TextBlock
+                {
+                    Text = icon,
+                    FontSize = 11,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = (Brush)FindResource("AccentTextBrush"),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+            }
+
+            return border;
+        }
+
+        /// <param name="iconColor">Legacy; the tile colour is now derived from the icon so every dialog uses the same palette.</param>
         public void AddStatusCard(string icon, string label, string value, Brush? iconColor = null)
         {
             var card = new Border
@@ -123,15 +203,8 @@ namespace RevitBridge.UI
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-            // Icon
-            var iconText = new TextBlock
-            {
-                Text = icon,
-                FontSize = 32,
-                VerticalAlignment = VerticalAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Foreground = iconColor ?? new SolidColorBrush(Color.FromRgb(33, 150, 243)) // Blue
-            };
+            // Icon tile (vector glyph in the shared icon language; colour follows the glyph kind)
+            var iconText = CreateGlyphTile(icon, 44);
             Grid.SetColumn(iconText, 0);
             grid.Children.Add(iconText);
 
@@ -235,8 +308,8 @@ namespace RevitBridge.UI
 
             var contentBorder = new Border
             {
-                Background = (Brush)FindResource("BgBrush"),
-                CornerRadius = new CornerRadius(6),
+                Background = (Brush)FindResource("CardBgBrush"),
+                CornerRadius = new CornerRadius(8),
                 Padding = new Thickness(14),
                 BorderBrush = (Brush)FindResource("BorderBrush"),
                 BorderThickness = new Thickness(1)
@@ -294,13 +367,8 @@ namespace RevitBridge.UI
 
             var stack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
 
-            var iconText = new TextBlock
-            {
-                Text = icon,
-                FontSize = 28,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 0, 0, 8)
-            };
+            var iconText = CreateGlyphTile(icon, 36);
+            iconText.Margin = new Thickness(0, 0, 0, 10);
 
             var valueText = new TextBlock
             {
@@ -310,7 +378,7 @@ namespace RevitBridge.UI
                 HorizontalAlignment = HorizontalAlignment.Center,
                 TextAlignment = TextAlignment.Center,
                 TextWrapping = TextWrapping.Wrap,
-                Foreground = new SolidColorBrush(Color.FromRgb(33, 150, 243)), // Autodesk Blue
+                Foreground = (Brush)FindResource("AccentTextBrush"),
                 Margin = new Thickness(0, 0, 0, 4)
             };
 
@@ -403,13 +471,13 @@ namespace RevitBridge.UI
                 Width = 46,
                 Height = 46,
                 CornerRadius = new CornerRadius(23),
-                Background = (Brush)FindResource("HeaderBrush"),
+                Background = (Brush)FindResource("AccentBrush"),
                 VerticalAlignment = VerticalAlignment.Top
             };
             initials.Child = new TextBlock
             {
                 Text = "SM",
-                Foreground = Brushes.White,
+                Foreground = (Brush)FindResource("OnAccentBrush"),
                 FontSize = 15,
                 FontWeight = FontWeights.Bold,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -448,15 +516,15 @@ namespace RevitBridge.UI
             buttons.Children.Add(CreateProfileButton(
                 "Email",
                 $"mailto:{email}",
-                Color.FromRgb(69, 90, 100)));
+                Colors.Transparent));
             buttons.Children.Add(CreateProfileButton(
                 "GitHub",
                 gitHubUrl,
-                Color.FromRgb(36, 41, 46)));
+                Colors.Transparent));
             buttons.Children.Add(CreateProfileButton(
                 "LinkedIn",
                 linkedInUrl,
-                Color.FromRgb(10, 102, 194)));
+                Colors.Transparent));
             details.Children.Add(buttons);
 
             layout.Children.Add(details);
@@ -469,9 +537,7 @@ namespace RevitBridge.UI
             var button = new Button
             {
                 Content = label,
-                Style = (Style)FindResource("ModernButton"),
-                Background = new SolidColorBrush(background),
-                Foreground = Brushes.White,
+                Style = (Style)FindResource("SecondaryButton"),
                 Padding = new Thickness(14, 7, 14, 7),
                 Margin = new Thickness(0, 0, 8, 8),
                 ToolTip = url
