@@ -1,57 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 168">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 168" role="img" aria-label="AEC Model Bridge">
   <style>
-    /* Mark colors — light theme */
-    .amb-logo-svg .mk-wash-ink { fill: rgba(24,32,44,0.12); }
-    .amb-logo-svg .mk-wash-brand { fill: rgba(0,145,167,0.20); }
-    .amb-logo-svg .mk-ink { stroke: #18202C; fill: none; }
-    .amb-logo-svg .mk-brand { stroke: #0091A7; fill: none; }
-    .amb-logo-svg .mk-stroke { stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
-
-    /* Wordmark text — light theme */
-    .amb-logo-svg .mk-text-main { font-family: "Segoe UI", system-ui, sans-serif; font-weight: 600; font-size: 46; letter-spacing: 0; fill: #18202C; }
-    .amb-logo-svg .mk-text-sub { font-family: "Segoe UI", system-ui, sans-serif; font-weight: 400; font-size: 19; letter-spacing: 0.2; fill: #5B6676; }
-
-    /* Dark theme overrides */
+    .amb-logo-svg .t-main { font-family: "Segoe UI", system-ui, sans-serif; font-weight: 700; font-size: 46px; letter-spacing: -1px; fill: #18202C; }
+    .amb-logo-svg .t-aec { fill: #0091A7; }
+    .amb-logo-svg .t-sub { font-family: "Segoe UI", system-ui, sans-serif; font-weight: 400; font-size: 19px; letter-spacing: 0.2px; fill: #5B6676; }
     @media (prefers-color-scheme: dark) {
-      .amb-logo-svg .mk-wash-ink { fill: rgba(233,238,245,0.16); }
-      .amb-logo-svg .mk-wash-brand { fill: rgba(63,195,214,0.20); }
-      .amb-logo-svg .mk-ink { stroke: #E9EEF5; }
-      .amb-logo-svg .mk-brand { stroke: #3FC3D6; }
-      .amb-logo-svg .mk-text-main { fill: #E9EEF5; }
-      .amb-logo-svg .mk-text-sub { fill: #9BA8B9; }
+      .amb-logo-svg .t-main { fill: #E9EEF5; }
+      .amb-logo-svg .t-aec { fill: #3FC3D6; }
+      .amb-logo-svg .t-sub { fill: #9BA8B9; }
     }
   </style>
-
   <g class="amb-logo-svg">
-    <!-- Mark: 120×120 at (24, 24) -->
     <g transform="translate(24, 24)">
-      <!-- 1. Apex wash -->
-      <polygon class="mk-wash-brand" points="60,10.2 80.4,51.6 39.6,51.6"/>
-
-      <!-- 2. Node wash, left -->
-      <circle class="mk-wash-ink" cx="22.8" cy="87" r="16.8"/>
-
-      <!-- 3. Node wash, right -->
-      <circle class="mk-wash-ink" cx="97.2" cy="87" r="16.8"/>
-
-      <!-- 4-7. Stroked elements -->
-      <g class="mk-stroke">
-        <!-- 4. Deck -->
-        <line class="mk-ink" x1="39.6" y1="87" x2="80.4" y2="87"/>
-
-        <!-- 5. Node, left -->
-        <circle class="mk-ink" cx="22.8" cy="87" r="16.8"/>
-
-        <!-- 6. Node, right -->
-        <circle class="mk-ink" cx="97.2" cy="87" r="16.8"/>
-
-        <!-- 7. Apex -->
-        <polygon class="mk-brand" points="60,10.2 80.4,51.6 39.6,51.6"/>
-      </g>
+      <rect width="96" height="96" rx="20" fill="#111923"/>
+  <g stroke="#111923" stroke-width="2.5" stroke-linejoin="round">
+    <polygon fill="#1CB5CA" points="48,16 76,32 48,48 20,32"/>
+    <polygon fill="#FFFFFF" points="20,32 48,48 48,80 20,64"/>
+    <polygon fill="#AEBCCB" points="48,48 76,32 76,64 48,80"/>
+  </g>
+  <path fill="#111923" transform="matrix(28,16,0,32,20,32)" d="M0.24,1.02 V0.66 A0.26,0.26 0 0 1 0.76,0.66 V1.02 Z"/>
+  <path fill="#111923" transform="matrix(28,-16,0,32,48,48)" d="M0.24,1.02 V0.66 A0.26,0.26 0 0 1 0.76,0.66 V1.02 Z"/>
     </g>
-
-    <!-- Wordmark text -->
-    <text class="mk-text-main" x="188" y="88" dominant-baseline="alphabetic">AEC Model Bridge</text>
-    <text class="mk-text-sub" x="190" y="120" dominant-baseline="alphabetic">Model context for Revit</text>
+    <text class="t-main" x="164" y="88"><tspan class="t-aec">AEC</tspan> Model Bridge</text>
+    <text class="t-sub" x="166" y="120">Model context for Revit</text>
   </g>
 </svg>

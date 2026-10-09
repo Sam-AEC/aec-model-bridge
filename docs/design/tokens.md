@@ -1,6 +1,15 @@
 # AEC Model Bridge — design tokens
 
 Status: **approved**.
+
+> **Update — Pier mark and Autodesk-style ribbon icons.** The brand mark is now
+> the "Pier" (isometric model cube with a bridge arch through each side face, on
+> a `#111923` tile; faces `#1CB5CA` / `#FFFFFF` / `#AEBCCB`) in
+> `assets/logo-mark.svg`, `assets/logo.svg`, `panel/index.html`,
+> `UI/BrandMark.cs` (dialog header, brand card, ribbon brand icon). Ribbon icons
+> in `IconGenerator.cs` use a 32 px grid, 2 px charcoal outline, light teal fill,
+> one `amb-brand` accent and a lower-right state badge. Sections 2 and 5 below
+> describe the earlier Span mark and are superseded where they conflict.
 Scope: the brand mark, the color system, typography, and the ribbon icon
 grammar for `assets/logo.svg`, `packages/revit-bridge-addin/src/UI/IconGenerator.cs`,
 and `panel/styles.css`.
