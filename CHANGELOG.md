@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Replace the Span brand mark with the Pier mark: an isometric model cube with a bridge arch through each face, on a dark app tile. Applied to `assets/logo.svg` (new `assets/logo-mark.svg`), the panel rail, the dialog header, the About/status brand card, the ribbon brand icon and the Power BI tool icon.
+- Redraw all ribbon icons in the Autodesk-style flat grammar: 32 px grid, charcoal outline, light teal fill, one teal accent and a state badge (green run/pass, red stop, amber waiting). Adds an About icon.
+
 ## 1.2.1 - 2026-09-23
 
 - Add the Plugin Module Registry with discovery, I/O verification, and validate/on_result hooks.

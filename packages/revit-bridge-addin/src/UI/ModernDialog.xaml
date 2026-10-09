@@ -128,16 +128,7 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <Viewbox Grid.Column="0" Width="36" Height="36" Margin="15,0,10,0">
-                        <Canvas Width="200" Height="200">
-                            <!-- Top face (light blue) -->
-                            <Polygon Points="50,80 80,50 140,50 110,80" Fill="#93c5fd" Stroke="#1e293b" StrokeThickness="3" />
-                            <!-- Front face (bright blue) -->
-                            <Polygon Points="50,80 110,80 110,140 50,140" Fill="#60a5fa" Stroke="#1e293b" StrokeThickness="3" />
-                            <!-- Right side face (medium blue) -->
-                            <Polygon Points="110,80 140,50 140,110 110,140" Fill="#3b82f6" Stroke="#1e293b" StrokeThickness="3" />
-                        </Canvas>
-                    </Viewbox>
+                    <Image x:Name="HeaderLogo" Grid.Column="0" Width="36" Height="36" Margin="15,0,10,0" Stretch="Uniform" SnapsToDevicePixels="True" AutomationProperties.Name="AEC Model Bridge logo"/>
 
                     <!-- Title -->
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">

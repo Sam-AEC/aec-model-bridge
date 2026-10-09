@@ -12,18 +12,6 @@ namespace RevitBridge.UI
     public static class IconGenerator
     {
         // keep in sync with docs/design/tokens.md
-        private static double StrokeWidth(int size, double scale)
-        {
-            if (size <= 16)
-            {
-                return scale >= 0.075 ? 2.0 : 1.5;
-            }
-
-            return Math.Max(
-                1.5,
-                Math.Round(size * scale * 2, MidpointRounding.AwayFromZero) / 2);
-        }
-
         internal static bool IsDarkTheme()
         {
             try
@@ -38,340 +26,227 @@ namespace RevitBridge.UI
             }
         }
 
-        /// <summary>
-        /// Creates a Connect icon (the Span mark, monochrome in the success accent)
-        /// </summary>
+        // ---- Palette (32 px design grid; see docs/design/tokens.md section 5) ----
+        private sealed class Palette
+        {
+            public Brush Ink, Fill, Surface, Face, Accent, Mid, Green, Red, Amber, Ring, OnBadge;
+        }
+
+        private static Brush Hex(string hex)
+        {
+            var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
+            brush.Freeze();
+            return brush;
+        }
+
+        private static Palette GetPalette(bool dark)
+        {
+            return dark
+                ? new Palette
+                {
+                    Ink = Hex("#E9EEF5"), Fill = Hex("#1F4A55"), Surface = Hex("#252E3A"), Face = Hex("#323D4B"),
+                    Accent = Hex("#3FC3D6"), Mid = Hex("#7B8794"), Green = Hex("#3FCB8B"), Red = Hex("#F0796B"),
+                    Amber = Hex("#F2A63C"), Ring = Hex("#2B323B"), OnBadge = Hex("#0B1118")
+                }
+                : new Palette
+                {
+                    Ink = Hex("#2F3A47"), Fill = Hex("#CFEAF0"), Surface = Hex("#FFFFFF"), Face = Hex("#DDE3E9"),
+                    Accent = Hex("#0091A7"), Mid = Hex("#9AA6B2"), Green = Hex("#2E9E4F"), Red = Hex("#D64535"),
+                    Amber = Hex("#E39B1B"), Ring = Hex("#FFFFFF"), OnBadge = Hex("#FFFFFF")
+                };
+        }
+
+        private static Pen P(Brush brush, double width, bool round = true)
+        {
+            return new Pen(brush, width)
+            {
+                StartLineCap = round ? PenLineCap.Round : PenLineCap.Flat,
+                EndLineCap = round ? PenLineCap.Round : PenLineCap.Flat,
+                LineJoin = PenLineJoin.Round
+            };
+        }
+
+        private static void Shape(DrawingContext c, Brush fill, Pen pen, string path)
+        {
+            c.DrawGeometry(fill, pen, Geometry.Parse(path));
+        }
+
+        /// <summary>Draws in a 32 x 32 grid scaled to the requested pixel size.</summary>
+        private static BitmapSource Render32(int size, Action<DrawingContext, Palette> draw)
+        {
+            var visual = new DrawingVisual();
+            using (var context = visual.RenderOpen())
+            {
+                double scale = size / 32.0;
+                context.PushTransform(new ScaleTransform(scale, scale));
+                draw(context, GetPalette(IsDarkTheme()));
+                context.Pop();
+            }
+
+            return RenderVisual(visual, size, size);
+        }
+
+        /// <summary>State badge, lower right: 14 px circle with a ring.</summary>
+        private static void Badge(DrawingContext c, Palette p, Brush color)
+        {
+            c.DrawEllipse(color, P(p.Ring, 1.5), new Point(23, 23), 7, 7);
+        }
+
+        // ---- Ribbon icons ----
+
+        /// <summary>Connect: two model blocks joined by the accent link, green "run" badge.</summary>
         public static BitmapSource CreateConnectIcon(int size = 32)
         {
-            var visual = new DrawingVisual();
-            using (var context = visual.RenderOpen())
+            return Render32(size, (c, p) =>
             {
-                bool isDark = IsDarkTheme();
-                var successRgb = isDark ? Color.FromRgb(63, 203, 139) : Color.FromRgb(18, 122, 75); // amb-success
-                var washBrush = new SolidColorBrush(Color.FromArgb(51, successRgb.R, successRgb.G, successRgb.B));
-                var strokeBrush = new SolidColorBrush(successRgb);
-                var pen = new Pen(strokeBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
-
-                // Node, left (wash + stroke)
-                context.DrawEllipse(washBrush, pen, new Point(size * 0.190, size * 0.725), size * 0.140, size * 0.140);
-                // Node, right (wash + stroke)
-                context.DrawEllipse(washBrush, pen, new Point(size * 0.810, size * 0.725), size * 0.140, size * 0.140);
-
-                // Deck
-                context.DrawLine(pen, new Point(size * 0.330, size * 0.725), new Point(size * 0.670, size * 0.725));
-
-                // Apex (wash + stroke)
-                var apexGeometry = new PathGeometry();
-                var apexFigure = new PathFigure { StartPoint = new Point(size * 0.500, size * 0.085), IsClosed = true };
-                apexFigure.Segments.Add(new LineSegment(new Point(size * 0.670, size * 0.430), true));
-                apexFigure.Segments.Add(new LineSegment(new Point(size * 0.330, size * 0.430), true));
-                apexGeometry.Figures.Add(apexFigure);
-                context.DrawGeometry(washBrush, pen, apexGeometry);
-            }
-
-            return RenderVisual(visual, size, size);
+                var ink = P(p.Ink, 2);
+                Shape(c, p.Fill, ink, "M4.5,5 H10.5 A1.5,1.5 0 0 1 12,6.5 V14.5 A1.5,1.5 0 0 1 10.5,16 H4.5 A1.5,1.5 0 0 1 3,14.5 V6.5 A1.5,1.5 0 0 1 4.5,5 Z");
+                Shape(c, p.Fill, ink, "M21.5,5 H27.5 A1.5,1.5 0 0 1 29,6.5 V14.5 A1.5,1.5 0 0 1 27.5,16 H21.5 A1.5,1.5 0 0 1 20,14.5 V6.5 A1.5,1.5 0 0 1 21.5,5 Z");
+                c.DrawLine(P(p.Accent, 3), new Point(12, 10.5), new Point(20, 10.5));
+                Badge(c, p, p.Green);
+                Shape(c, p.OnBadge, null, "M21.2,19.8 L26.2,23 L21.2,26.2 Z");
+            });
         }
 
-        /// <summary>
-        /// Creates a Disconnect icon (the Span mark, monochrome in the danger accent, with a single cancel slash)
-        /// </summary>
+        /// <summary>Disconnect: the same blocks with a broken link and a red "stop" badge.</summary>
         public static BitmapSource CreateDisconnectIcon(int size = 32)
         {
-            var visual = new DrawingVisual();
-            using (var context = visual.RenderOpen())
+            return Render32(size, (c, p) =>
             {
-                bool isDark = IsDarkTheme();
-                var dangerRgb = isDark ? Color.FromRgb(240, 121, 107) : Color.FromRgb(194, 59, 46); // amb-danger
-                var washBrush = new SolidColorBrush(Color.FromArgb(51, dangerRgb.R, dangerRgb.G, dangerRgb.B));
-                var strokeBrush = new SolidColorBrush(dangerRgb);
-                var pen = new Pen(strokeBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
-
-                // Node, left (wash + stroke)
-                context.DrawEllipse(washBrush, pen, new Point(size * 0.190, size * 0.725), size * 0.140, size * 0.140);
-                // Node, right (wash + stroke)
-                context.DrawEllipse(washBrush, pen, new Point(size * 0.810, size * 0.725), size * 0.140, size * 0.140);
-
-                // Deck
-                context.DrawLine(pen, new Point(size * 0.330, size * 0.725), new Point(size * 0.670, size * 0.725));
-
-                // Apex (wash + stroke)
-                var apexGeometry = new PathGeometry();
-                var apexFigure = new PathFigure { StartPoint = new Point(size * 0.500, size * 0.085), IsClosed = true };
-                apexFigure.Segments.Add(new LineSegment(new Point(size * 0.670, size * 0.430), true));
-                apexFigure.Segments.Add(new LineSegment(new Point(size * 0.330, size * 0.430), true));
-                apexGeometry.Figures.Add(apexFigure);
-                context.DrawGeometry(washBrush, pen, apexGeometry);
-
-                // Cancel slash — a single diagonal, not a cross
-                var slashPen = new Pen(strokeBrush, StrokeWidth(size, 0.08)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
-                context.DrawLine(slashPen, new Point(size * 0.300, size * 0.290), new Point(size * 0.700, size * 0.690));
-            }
-
-            return RenderVisual(visual, size, size);
+                var ink = P(p.Ink, 2);
+                Shape(c, p.Face, ink, "M4.5,5 H10.5 A1.5,1.5 0 0 1 12,6.5 V14.5 A1.5,1.5 0 0 1 10.5,16 H4.5 A1.5,1.5 0 0 1 3,14.5 V6.5 A1.5,1.5 0 0 1 4.5,5 Z");
+                Shape(c, p.Face, ink, "M21.5,5 H27.5 A1.5,1.5 0 0 1 29,6.5 V14.5 A1.5,1.5 0 0 1 27.5,16 H21.5 A1.5,1.5 0 0 1 20,14.5 V6.5 A1.5,1.5 0 0 1 21.5,5 Z");
+                var link = P(p.Mid, 3);
+                c.DrawLine(link, new Point(12, 10.5), new Point(14, 10.5));
+                c.DrawLine(link, new Point(18, 10.5), new Point(20, 10.5));
+                Badge(c, p, p.Red);
+                c.DrawRoundedRectangle(p.OnBadge, null, new Rect(19.8, 19.8, 6.4, 6.4), 1, 1);
+            });
         }
 
-        /// <summary>
-        /// Creates a Status icon (sleek dashboard grid with active blue communication indicator)
-        /// </summary>
+        /// <summary>Status: monitor with an accent pulse line.</summary>
         public static BitmapSource CreateStatusIcon(int size = 32)
         {
-            var visual = new DrawingVisual();
-            using (var context = visual.RenderOpen())
+            return Render32(size, (c, p) =>
             {
-                bool isDark = IsDarkTheme();
-                var primaryBrush = isDark ? new SolidColorBrush(Color.FromRgb(233, 238, 245)) : new SolidColorBrush(Color.FromRgb(24, 32, 44)); // amb-ink
-                var infoRgb = isDark ? Color.FromRgb(127, 166, 245) : Color.FromRgb(36, 87, 197); // amb-info
-                var accentBrush = new SolidColorBrush(infoRgb);
-                var softFillBrush = new SolidColorBrush(Color.FromArgb(51, infoRgb.R, infoRgb.G, infoRgb.B));
-                var pen = new Pen(primaryBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
-                var accentPen = new Pen(accentBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
-
-                // Outer dashboard window
-                context.DrawRoundedRectangle(null, pen, new Rect(size * 0.07, size * 0.07, size * 0.86, size * 0.86), size * 0.09, size * 0.09);
-
-                // Grid lines inside status card
-                context.DrawLine(pen, new Point(size * 0.19, size * 0.32), new Point(size * 0.58, size * 0.32));
-                context.DrawLine(pen, new Point(size * 0.19, size * 0.53), new Point(size * 0.50, size * 0.53));
-
-                // Glowing blue pulse/indicator dot
-                context.DrawEllipse(softFillBrush, accentPen, new Point(size * 0.73, size * 0.72), size * 0.14, size * 0.14);
-                context.DrawEllipse(accentBrush, null, new Point(size * 0.73, size * 0.72), size * 0.055, size * 0.055);
-            }
-
-            return RenderVisual(visual, size, size);
+                var ink = P(p.Ink, 2);
+                c.DrawRoundedRectangle(p.Surface, ink, new Rect(3, 4, 26, 18), 2, 2);
+                c.DrawLine(ink, new Point(16, 22), new Point(16, 27));
+                c.DrawLine(ink, new Point(10, 27), new Point(22, 27));
+                Shape(c, null, P(p.Accent, 2.4), "M6.5,14 H11.5 L14,8 L18,19 L20.5,14 H25.5");
+            });
         }
 
-        /// <summary>
-        /// Creates a Settings icon (geometrical gear wheel)
-        /// </summary>
+        /// <summary>Settings: gear with an accent hub.</summary>
         public static BitmapSource CreateSettingsIcon(int size = 32)
         {
-            var visual = new DrawingVisual();
-            using (var context = visual.RenderOpen())
+            return Render32(size, (c, p) =>
             {
-                bool isDark = IsDarkTheme();
-                var primaryBrush = isDark ? Brushes.White : new SolidColorBrush(Color.FromRgb(30, 41, 59));
-                var pen = new Pen(primaryBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
-
-                double cX = size / 2.0;
-                double cY = size / 2.0;
-                double rOuter = size * 0.30;
-                double rInner = size * 0.12;
-
-                // Center shaft circle
-                context.DrawEllipse(null, pen, new Point(cX, cY), rInner, rInner);
-
-                // Gear teeth
-                int teeth = 6;
-                double toothHeight = size * 0.11;
-                for (int i = 0; i < teeth; i++)
+                for (int i = 0; i < 4; i++)
                 {
-                    double angle = (Math.PI * 2 * i) / teeth;
-                    double cos = Math.Cos(angle);
-                    double sin = Math.Sin(angle);
-
-                    Point pStart = new Point(cX + rOuter * cos, cY + rOuter * sin);
-                    Point pEnd = new Point(cX + (rOuter + toothHeight) * cos, cY + (rOuter + toothHeight) * sin);
-
-                    var toothPen = new Pen(primaryBrush, StrokeWidth(size, 0.08)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
-                    context.DrawLine(toothPen, pStart, pEnd);
+                    c.PushTransform(new RotateTransform(i * 45, 16, 16));
+                    c.DrawRoundedRectangle(p.Ink, null, new Rect(14, 2.5, 4, 6), 1, 1);
+                    c.DrawRoundedRectangle(p.Ink, null, new Rect(14, 23.5, 4, 6), 1, 1);
+                    c.Pop();
                 }
 
-                // Outer gear ring
-                context.DrawEllipse(null, pen, new Point(cX, cY), rOuter, rOuter);
-            }
-
-            return RenderVisual(visual, size, size);
+                c.DrawEllipse(p.Surface, P(p.Ink, 2), new Point(16, 16), 9, 9);
+                c.DrawEllipse(p.Fill, P(p.Accent, 2.2), new Point(16, 16), 3.6, 3.6);
+            });
         }
 
-        /// <summary>
-        /// Creates a Help icon (question mark inside a circular balloon)
-        /// </summary>
+        /// <summary>Help: filled round with an accent question mark.</summary>
         public static BitmapSource CreateHelpIcon(int size = 32)
         {
-            var visual = new DrawingVisual();
-            using (var context = visual.RenderOpen())
+            return Render32(size, (c, p) =>
             {
-                bool isDark = IsDarkTheme();
-                var inkRgb = isDark ? Color.FromRgb(233, 238, 245) : Color.FromRgb(24, 32, 44); // amb-ink
-                var primaryBrush = new SolidColorBrush(inkRgb);
-                var softFillBrush = new SolidColorBrush(Color.FromArgb(isDark ? (byte)41 : (byte)31, inkRgb.R, inkRgb.G, inkRgb.B));
-                var pen = new Pen(primaryBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
-
-                // Balloon outline
-                context.DrawEllipse(softFillBrush, pen, new Point(size / 2.0, size / 2.0), size * 0.42, size * 0.42);
-
-                // Question mark text drawing
-                var formattedText = new FormattedText(
-                    "?",
-                    System.Globalization.CultureInfo.InvariantCulture,
-                    FlowDirection.LeftToRight,
-                    new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal),
-                    size * 0.54,
-                    primaryBrush,
-                    96);
-
-                context.DrawText(formattedText, new Point(size * 0.35, size * 0.11));
-            }
-
-            return RenderVisual(visual, size, size);
+                c.DrawEllipse(p.Fill, P(p.Ink, 2), new Point(16, 16), 12.5, 12.5);
+                Shape(c, null, P(p.Accent, 2.6), "M12.4,12.6 A3.7,3.7 0 1 1 17.8,15.9 C16.5,16.6 16,17.3 16,18.6");
+                c.DrawEllipse(p.Accent, null, new Point(16, 22.6), 1.7, 1.7);
+            });
         }
 
-        /// <summary>
-        /// Creates a dockable-panel icon (frame with a filled docked side panel) for Open Panel.
-        /// </summary>
+        /// <summary>About: filled round with an accent "i".</summary>
+        public static BitmapSource CreateAboutIcon(int size = 32)
+        {
+            return Render32(size, (c, p) =>
+            {
+                c.DrawEllipse(p.Fill, P(p.Ink, 2), new Point(16, 16), 12.5, 12.5);
+                c.DrawEllipse(p.Accent, null, new Point(16, 10.4), 1.8, 1.8);
+                c.DrawLine(P(p.Accent, 2.8), new Point(16, 14.6), new Point(16, 22.6));
+            });
+        }
+
+        /// <summary>Open Panel: window with an accent docked side panel.</summary>
         public static BitmapSource CreatePanelIcon(int size = 32)
         {
-            var visual = new DrawingVisual();
-            using (var context = visual.RenderOpen())
+            return Render32(size, (c, p) =>
             {
-                bool isDark = IsDarkTheme();
-                var inkRgb = isDark ? Color.FromRgb(233, 238, 245) : Color.FromRgb(24, 32, 44); // amb-ink
-                var primaryBrush = new SolidColorBrush(inkRgb);
-                var softFillBrush = new SolidColorBrush(Color.FromArgb(isDark ? (byte)41 : (byte)31, inkRgb.R, inkRgb.G, inkRgb.B));
-                var pen = new Pen(primaryBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
-                var accentPen = new Pen(primaryBrush, StrokeWidth(size, 0.05)) { LineJoin = PenLineJoin.Round };
-
-                // Outer window frame
-                context.DrawRoundedRectangle(null, pen, new Rect(size * 0.07, size * 0.07, size * 0.86, size * 0.86), size * 0.09, size * 0.09);
-
-                // Docked side panel (filled, right third)
-                context.DrawRectangle(softFillBrush, accentPen, new Rect(size * 0.63, size * 0.09, size * 0.28, size * 0.82));
-
-                // Content rows in the main area
-                context.DrawLine(pen, new Point(size * 0.17, size * 0.30), new Point(size * 0.53, size * 0.30));
-                context.DrawLine(pen, new Point(size * 0.17, size * 0.50), new Point(size * 0.46, size * 0.50));
-            }
-
-            return RenderVisual(visual, size, size);
+                var ink = P(p.Ink, 2);
+                c.DrawRoundedRectangle(p.Surface, ink, new Rect(3, 4, 26, 24), 2, 2);
+                Shape(c, p.Accent, ink, "M5,4 H13 V28 H5 A2,2 0 0 1 3,26 V6 A2,2 0 0 1 5,4 Z");
+                c.DrawLine(ink, new Point(13, 10), new Point(29, 10));
+                var line = P(p.Mid, 2);
+                c.DrawLine(line, new Point(17.5, 15.5), new Point(25.5, 15.5));
+                c.DrawLine(line, new Point(17.5, 20), new Point(23, 20));
+            });
         }
 
-        /// <summary>
-        /// Creates a health-check icon (clipboard with a checkmark) for QA/QC model health checks.
-        /// </summary>
+        /// <summary>Health Check: isometric model cube with a green check badge.</summary>
         public static BitmapSource CreateHealthIcon(int size = 32)
         {
-            var visual = new DrawingVisual();
-            using (var context = visual.RenderOpen())
+            return Render32(size, (c, p) =>
             {
-                bool isDark = IsDarkTheme();
-                var primaryBrush = isDark ? new SolidColorBrush(Color.FromRgb(233, 238, 245)) : new SolidColorBrush(Color.FromRgb(24, 32, 44)); // amb-ink
-                var accentBrush = new SolidColorBrush(isDark ? Color.FromRgb(242, 166, 60) : Color.FromRgb(164, 95, 11)); // amb-warning
-                var pen = new Pen(primaryBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
-                var accentPen = new Pen(accentBrush, StrokeWidth(size, 0.09)) { StartLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
-
-                // Clipboard body
-                context.DrawRoundedRectangle(null, pen, new Rect(size * 0.20, size * 0.12, size * 0.60, size * 0.78), size * 0.06, size * 0.06);
-
-                // Clip tab
-                context.DrawRoundedRectangle(isDark ? Brushes.Black : Brushes.White, pen, new Rect(size * 0.38, size * 0.05, size * 0.24, size * 0.11), size * 0.03, size * 0.03);
-
-                // Checkmark
-                var check = new PathGeometry();
-                var checkFig = new PathFigure { StartPoint = new Point(size * 0.32, size * 0.53), IsClosed = false };
-                checkFig.Segments.Add(new LineSegment(new Point(size * 0.45, size * 0.66), true));
-                checkFig.Segments.Add(new LineSegment(new Point(size * 0.70, size * 0.36), true));
-                check.Figures.Add(checkFig);
-                context.DrawGeometry(null, accentPen, check);
-            }
-
-            return RenderVisual(visual, size, size);
+                var ink = P(p.Ink, 1.8);
+                Shape(c, p.Fill, ink, "M14,2 L25,8 L14,14 L3,8 Z");
+                Shape(c, p.Surface, ink, "M3,8 L14,14 L14,26 L3,20 Z");
+                Shape(c, p.Face, ink, "M14,14 L25,8 L25,20 L14,26 Z");
+                Badge(c, p, p.Green);
+                Shape(c, null, P(p.OnBadge, 2.2), "M19.6,23 L22,25.4 L26.2,20.8");
+            });
         }
 
-        /// <summary>
-        /// Creates a pending-actions icon (list rows with a clock badge) for the approval queue.
-        /// </summary>
+        /// <summary>Pending Actions: checklist page with an amber clock badge.</summary>
         public static BitmapSource CreatePendingIcon(int size = 32)
         {
-            var visual = new DrawingVisual();
-            using (var context = visual.RenderOpen())
+            return Render32(size, (c, p) =>
             {
-                bool isDark = IsDarkTheme();
-                var primaryBrush = isDark ? new SolidColorBrush(Color.FromRgb(233, 238, 245)) : new SolidColorBrush(Color.FromRgb(24, 32, 44)); // amb-ink
-                var accentRgb = isDark ? Color.FromRgb(183, 154, 240) : Color.FromRgb(109, 63, 184); // amb-pending
-                var accentBrush = new SolidColorBrush(accentRgb);
-                var softFillBrush = new SolidColorBrush(Color.FromArgb(51, accentRgb.R, accentRgb.G, accentRgb.B));
-                var pen = new Pen(primaryBrush, StrokeWidth(size, 0.07)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
-                var accentPen = new Pen(accentBrush, StrokeWidth(size, 0.055)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
-
-                // Queued list rows (descending widths, top-left)
-                context.DrawLine(pen, new Point(size * 0.10, size * 0.22), new Point(size * 0.62, size * 0.22));
-                context.DrawLine(pen, new Point(size * 0.10, size * 0.42), new Point(size * 0.54, size * 0.42));
-                context.DrawLine(pen, new Point(size * 0.10, size * 0.62), new Point(size * 0.42, size * 0.62));
-
-                // Clock badge (bottom-right) — the "pending/awaiting" marker
-                var badgeCenter = new Point(size * 0.730, size * 0.740);
-                double badgeR = size * 0.210;
-                context.DrawEllipse(softFillBrush, accentPen, badgeCenter, badgeR, badgeR);
-                context.DrawLine(accentPen, badgeCenter, new Point(size * 0.730, size * 0.6245));
-                context.DrawLine(accentPen, badgeCenter, new Point(size * 0.825, size * 0.761));
-            }
-
-            return RenderVisual(visual, size, size);
+                var ink = P(p.Ink, 2);
+                c.DrawRoundedRectangle(p.Surface, ink, new Rect(4, 3, 19, 25), 2, 2);
+                c.DrawLine(ink, new Point(8.5, 9), new Point(18.5, 9));
+                c.DrawLine(ink, new Point(8.5, 14), new Point(18.5, 14));
+                c.DrawLine(ink, new Point(8.5, 19), new Point(13.5, 19));
+                Badge(c, p, p.Amber);
+                Shape(c, null, P(p.OnBadge, 2), "M23,19 V23.4 L26,25");
+            });
         }
 
-        /// <summary>
-        /// Creates a reports icon (ascending bar chart) for report export tools.
-        /// </summary>
+        /// <summary>Reports: document with an accent bar chart.</summary>
         public static BitmapSource CreateReportsIcon(int size = 32)
         {
-            var visual = new DrawingVisual();
-            using (var context = visual.RenderOpen())
+            return Render32(size, (c, p) =>
             {
-                bool isDark = IsDarkTheme();
-                var inkRgb = isDark ? Color.FromRgb(233, 238, 245) : Color.FromRgb(24, 32, 44); // amb-ink
-                var primaryBrush = new SolidColorBrush(inkRgb);
-                var softFillBrush = new SolidColorBrush(Color.FromArgb(isDark ? (byte)41 : (byte)31, inkRgb.R, inkRgb.G, inkRgb.B));
-                var pen = new Pen(primaryBrush, StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
-                var accentPen = new Pen(primaryBrush, StrokeWidth(size, 0.05)) { LineJoin = PenLineJoin.Round };
-
-                double baseline = size * 0.86;
-                double barWidth = size * 0.17;
-
-                context.DrawRectangle(softFillBrush, accentPen, new Rect(size * 0.15, size * 0.58, barWidth, baseline - size * 0.58));
-                context.DrawRectangle(softFillBrush, accentPen, new Rect(size * 0.415, size * 0.40, barWidth, baseline - size * 0.40));
-                context.DrawRectangle(softFillBrush, accentPen, new Rect(size * 0.68, size * 0.22, barWidth, baseline - size * 0.22));
-
-                // Baseline
-                context.DrawLine(pen, new Point(size * 0.10, baseline), new Point(size * 0.90, baseline));
-            }
-
-            return RenderVisual(visual, size, size);
+                c.DrawRoundedRectangle(p.Surface, P(p.Ink, 2), new Rect(6, 3, 20, 26), 2, 2);
+                c.DrawLine(P(p.Mid, 2), new Point(10.5, 8.5), new Point(21.5, 8.5));
+                c.DrawRoundedRectangle(p.Accent, null, new Rect(10.5, 18, 3.4, 7), 0.5, 0.5);
+                c.DrawRoundedRectangle(p.Accent, null, new Rect(15.3, 14, 3.4, 11), 0.5, 0.5);
+                c.DrawRoundedRectangle(p.Ink, null, new Rect(20.1, 11, 3.4, 14), 0.5, 0.5);
+            });
         }
 
         /// <summary>
-        /// Creates the AEC Model Bridge brand icon (the Span mark, two-tone: ink structure, brand apex).
+        /// The AEC Model Bridge app tile (the Pier mark). The brand artwork is fixed in both
+        /// themes, so it is not palette-driven; at 16 px the arches drop out for legibility.
         /// </summary>
         public static BitmapSource CreateBrandIcon(int size = 32)
         {
             var visual = new DrawingVisual();
             using (var context = visual.RenderOpen())
             {
-                bool isDark = IsDarkTheme();
-                var inkRgb = isDark ? Color.FromRgb(233, 238, 245) : Color.FromRgb(24, 32, 44); // amb-ink
-                var brandRgb = isDark ? Color.FromRgb(63, 195, 214) : Color.FromRgb(0, 145, 167); // amb-brand
-
-                var inkWashBrush = new SolidColorBrush(Color.FromArgb(isDark ? (byte)41 : (byte)31, inkRgb.R, inkRgb.G, inkRgb.B));
-                var inkPen = new Pen(new SolidColorBrush(inkRgb), StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
-
-                var brandWashBrush = new SolidColorBrush(Color.FromArgb(51, brandRgb.R, brandRgb.G, brandRgb.B));
-                var brandPen = new Pen(new SolidColorBrush(brandRgb), StrokeWidth(size, 0.06)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
-
-                // Node, left (ink wash + ink stroke)
-                context.DrawEllipse(inkWashBrush, inkPen, new Point(size * 0.190, size * 0.725), size * 0.140, size * 0.140);
-                // Node, right (ink wash + ink stroke)
-                context.DrawEllipse(inkWashBrush, inkPen, new Point(size * 0.810, size * 0.725), size * 0.140, size * 0.140);
-
-                // Deck (ink)
-                context.DrawLine(inkPen, new Point(size * 0.330, size * 0.725), new Point(size * 0.670, size * 0.725));
-
-                // Apex (brand wash + brand stroke)
-                var apexGeometry = new PathGeometry();
-                var apexFigure = new PathFigure { StartPoint = new Point(size * 0.500, size * 0.085), IsClosed = true };
-                apexFigure.Segments.Add(new LineSegment(new Point(size * 0.670, size * 0.430), true));
-                apexFigure.Segments.Add(new LineSegment(new Point(size * 0.330, size * 0.430), true));
-                apexGeometry.Figures.Add(apexFigure);
-                context.DrawGeometry(brandWashBrush, brandPen, apexGeometry);
+                double scale = size / 96.0;
+                context.PushTransform(new ScaleTransform(scale, scale));
+                BrandMark.Draw(context, size > 20);
+                context.Pop();
             }
 
             return RenderVisual(visual, size, size);
@@ -427,6 +302,7 @@ namespace RevitBridge.UI
             SaveIcon(CreatePendingIcon(32), Path.Combine(iconDir, "pending.png"));
             SaveIcon(CreateReportsIcon(32), Path.Combine(iconDir, "reports_32.png"));
             SaveIcon(CreateReportsIcon(32), Path.Combine(iconDir, "reports.png"));
+            SaveIcon(CreateAboutIcon(32), Path.Combine(iconDir, "about_32.png"));
 
             // 16x16 icons for Revit small buttons and stacked items.
             SaveIcon(CreateConnectIcon(16), Path.Combine(iconDir, "connect_16.png"));
@@ -439,6 +315,7 @@ namespace RevitBridge.UI
             SaveIcon(CreateHealthIcon(16), Path.Combine(iconDir, "healthcheck_16.png"));
             SaveIcon(CreatePendingIcon(16), Path.Combine(iconDir, "pending_16.png"));
             SaveIcon(CreateReportsIcon(16), Path.Combine(iconDir, "reports_16.png"));
+            SaveIcon(CreateAboutIcon(16), Path.Combine(iconDir, "about_16.png"));
         }
     }
 }
