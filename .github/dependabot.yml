@@ -34,12 +34,22 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 1
+    # Wait two weeks after a release before proposing it: a compromised or broken
+    # release is usually caught within days.
+    cooldown:
+      default-days: 14
     groups:
       github-actions:
+        update-types: ["minor", "patch"]
         patterns: ["*"]
       github-actions-security:
         applies-to: security-updates
         patterns: ["*"]
+    ignore:
+      # Actions are pinned by commit SHA. Major bumps (new Node runtime, changed inputs)
+      # are reviewed by hand, and the grouped PR must never move a pin backwards.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   # The .NET add-ins compile against Revit, Rhino and Navisworks SDKs and ship
   # deliberate pins (IronPython 2.7 on net48, WebView2, RhinoCommon 7). Routine
