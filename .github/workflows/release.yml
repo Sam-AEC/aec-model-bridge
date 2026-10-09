@@ -52,7 +52,7 @@ jobs:
         run: python scripts/version.py check --tag "${{ steps.tag.outputs.tag }}"
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: |
             8.0.x
