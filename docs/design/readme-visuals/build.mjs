@@ -1,10 +1,16 @@
 // Builds the README visual set: editable SVG sources + PNG exports.
 //
-//   NODE_PATH=$(npm root -g) node docs/design/readme-visuals/build.mjs
+//   bash:        NODE_PATH=$(npm root -g) node docs/design/readme-visuals/build.mjs
+//   PowerShell:  $env:NODE_PATH = (npm root -g); node docs/design/readme-visuals/build.mjs
 //
-// Needs Playwright with Chromium and the Inter font installed. Colours come from
-// docs/design/tokens.md (keep in sync with docs/design/tokens.md). The Pier logo is
-// embedded verbatim from assets/logo-mark.svg and is never redrawn.
+// Needs Playwright with Chromium and the Inter font installed (the build stops if Inter
+// is missing). ImageMagick 7 (`magick`) is optional and only shrinks the PNGs.
+// Env: PNG_DIR = output folder (default docs/images/readme),
+//      WITH_PLACEHOLDER=1 also renders the demo-cover placeholder PNG.
+// PALETTE NOTE: the values in THEMES are derived from docs/design/tokens.md but have
+// drifted from it (dark bg/surface/raised, light brand accent). Aligning them needs a
+// rebuild on a machine with Playwright and Inter. The Pier logo is embedded verbatim
+// from assets/logo-mark.svg and is never redrawn.
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -18,7 +24,6 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '../../..');
 const srcDir = path.join(here, 'src');
 const pngDir = process.env.PNG_DIR || path.join(root, 'docs/images/readme');
-const extraDir = process.env.EXTRA_DIR || null; // proposal sketches, not shipped
 fs.mkdirSync(srcDir, { recursive: true });
 fs.mkdirSync(pngDir, { recursive: true });
 
@@ -66,9 +71,6 @@ const arrow = (x1, y, x2, color, w = 3) =>
   line(x1, y, x2 - 4, y, color, w) +
   `<path d="M${x2 - 14} ${y - 9} L${x2} ${y} L${x2 - 14} ${y + 9}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
 
-const arrowDown = (x, y1, y2, color, w = 3) =>
-  line(x, y1, x, y2 - 4, color, w) +
-  `<path d="M${x - 9} ${y2 - 14} L${x} ${y2} L${x + 9} ${y2 - 14}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
 
 // Pier logo: the inner markup of assets/logo-mark.svg, untouched.
 const logoInner = fs
@@ -165,23 +167,13 @@ function model(T, { s, ox, oy, door = 'issue', grid = true }) {
   o += poly([P(x0 + 0.3, y1, z0 + 0.3), P(x1 - 0.3, y1, z0 + 0.3), P(x1 - 0.3, y1, z1 - 0.25), P(x0 + 0.3, y1, z1 - 0.25)], T.glass, T.stroke, thin);
 
   o += `</g>`;
-  const d = P(X, 0.5 + 0.275 + 0.0, 0.46);
-  const dd = P(X, 0.275, 0.46); // flagged door centre (u = 0.5 span is on L face; see below)
-  return { svg: o, door: P(X, 0.5 + 0.275, 0.46), dd, d };
+  return { svg: o, door: P(X, 0.5 + 0.275, 0.46) };
 }
 
 // ---------------------------------------------------------------- cards
 function card(T, x, y, w, h, { fill, stroke } = {}) {
   return rect(x, y, w, h, 14, { fill: fill ?? T.surface, stroke: stroke ?? T.line, sw: 2 });
 }
-function chip(T, x, y, label, color, bg, { size = 22, pad = 16, h = 36 } = {}) {
-  const w = Math.round(label.length * size * 0.56 + pad * 2);
-  return {
-    w,
-    svg: rect(x, y, w, h, h / 2, { fill: bg, stroke: color, sw: 1.5 }) + text(x + pad, y + h / 2 + size * 0.35, label, { size, weight: 600, fill: color }),
-  };
-}
-
 // ================================================================= HERO
 function hero(name) {
   const T = THEMES[name];
@@ -281,36 +273,6 @@ function cover() {
   return svgDoc(W, H, T, 'Fix missing parameters in Revit.', 'Demo cover with title, subtitle and a large labelled screenshot placeholder.', b);
 }
 
-// ================================================================= PROPOSAL SKETCHES (not shipped)
-function sketch(which) {
-  const T = THEMES.light;
-  const W = 800, H = 350;
-  let b = rect(0, 0, W, H, 0, { fill: T.bg }) + rect(8, 8, W - 16, H - 16, 0, { stroke: T.line, sw: 1.5 });
-  const blk = (x, y, w, h, label, o = {}) =>
-    rect(x, y, w, h, 8, { fill: o.fill ?? T.surface, stroke: o.stroke ?? T.line, sw: 2, dash: o.dash }) +
-    (label ? text(x + w / 2, y + h / 2 + 7, label, { size: 20, weight: 600, fill: o.color ?? T.muted, anchor: 'middle' }) : '');
-  if (which === 'A') {
-    b += text(40, 90, 'Find parameter issues.', { size: 30, weight: 700, fill: T.ink });
-    b += text(40, 130, 'Review the fixes.', { size: 30, weight: 700, fill: T.brandText });
-    b += rect(42, 150, 48, 4, 2, { fill: T.brand });
-    b += text(40, 190, 'AI-assisted BIM coordination', { size: 16, weight: 500, fill: T.muted });
-    b += text(40, 212, 'with human approval.', { size: 16, weight: 500, fill: T.muted });
-    b += blk(380, 70, 190, 220, 'Model', {});
-    b += blk(610, 56, 160, 80, 'Issue', { stroke: T.warn, color: T.warn, dash: '6 4' });
-    b += blk(610, 190, 160, 100, 'Reviewed fix', { stroke: T.brand, color: T.brandText });
-    b += `<polyline points="540,150 590,150 590,96 610,96" fill="none" stroke="${T.warn}" stroke-width="2.5"/>`;
-    b += arrowDown(690, 138, 188, T.muted, 2.5);
-  } else {
-    b += text(40, 64, 'Find parameter issues. Review the fixes.', { size: 28, weight: 700, fill: T.ink });
-    b += text(40, 92, 'AI-assisted BIM coordination with human approval.', { size: 16, weight: 500, fill: T.muted });
-    b += blk(40, 130, 220, 180, 'Model');
-    b += blk(290, 130, 220, 180, 'Issue', { stroke: T.warn, color: T.warn, dash: '6 4' });
-    b += blk(540, 130, 220, 180, 'Reviewed fix', { stroke: T.brand, color: T.brandText });
-    b += arrow(262, 220, 288, T.muted, 2.5) + arrow(512, 220, 538, T.muted, 2.5);
-  }
-  return svgDoc(W, H, T, 'Composition ' + which, 'Wireframe', b);
-}
-
 // ---------------------------------------------------------------- output
 const outputs = [
   ['readme-hero-light', hero('light'), 1600, 700],
@@ -321,6 +283,8 @@ const outputs = [
   ['demo-cover', cover(), 1600, 900],
 ];
 for (const [n, svg] of outputs) fs.writeFileSync(path.join(srcDir, `${n}.svg`), svg);
+// demo-cover is a placeholder (no real capture yet), so its PNG is not rendered unless asked.
+const pngOutputs = outputs.filter(([n]) => n !== 'demo-cover' || process.env.WITH_PLACEHOLDER === '1');
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ deviceScaleFactor: 1 });
@@ -328,17 +292,23 @@ async function render(svg, w, h, file) {
   await page.setViewportSize({ width: w, height: h });
   await page.setContent(`<!doctype html><body style="margin:0">${svg}</body>`);
   await page.evaluate(() => document.fonts.ready);
+  const hasInter = await page.evaluate(() => document.fonts.check('16px Inter'));
+  if (!hasInter) throw new Error('The Inter font is not installed; the layout uses fixed offsets, so output would differ. Install Inter and rebuild.');
   await page.screenshot({ path: file, clip: { x: 0, y: 0, width: w, height: h } });
 }
-for (const [n, svg, w, h] of outputs) await render(svg, w, h, path.join(pngDir, `${n}.png`));
-if (extraDir) {
-  fs.mkdirSync(extraDir, { recursive: true });
-  for (const k of ['A', 'B']) await render(sketch(k), 800, 350, path.join(extraDir, `composition-${k}.png`));
-}
+for (const [n, svg, w, h] of pngOutputs) await render(svg, w, h, path.join(pngDir, `${n}.png`));
 await browser.close();
-// Palette-reduce the flat graphics (needs ImageMagick `convert`; skipped if absent).
-for (const [n] of outputs) {
+// Palette-reduce the flat graphics with ImageMagick 7 (`magick`). Never `convert`: on Windows
+// that name is System32\convert.exe, a disk tool. If magick is missing the PNGs stay full colour.
+let reduced = 0;
+for (const [n] of pngOutputs) {
   const f = path.join(pngDir, `${n}.png`);
-  try { execFileSync('convert', [f, '-colors', '128', '-dither', 'None', '-define', 'png:compression-level=9', '-strip', `PNG8:${f}`]); } catch { /* keep the full-colour PNG */ }
+  try {
+    execFileSync('magick', [f, '-colors', '128', '-dither', 'None', '-define', 'png:compression-level=9', '-strip', `PNG8:${f}`], { stdio: 'pipe' });
+    reduced++;
+  } catch (e) {
+    if (e.code === 'ENOENT') { console.warn('ImageMagick (magick) not found: PNGs left full-colour and larger.'); break; }
+    console.warn(`Palette reduction failed for ${n}: ${String(e.message).split('\n')[0]}`);
+  }
 }
-console.log('built', outputs.map((o) => o[0]).join(', '));
+console.log(`built ${pngOutputs.map((o) => o[0]).join(', ')} (${reduced}/${pngOutputs.length} palette-reduced)`);

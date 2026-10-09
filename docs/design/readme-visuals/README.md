@@ -1,11 +1,41 @@
 # README visual set
 
 Editable SVG sources are in `src/`; optimized PNGs are in `docs/images/readme/`.
-Rebuild with `NODE_PATH=$(npm root -g) node docs/design/readme-visuals/build.mjs`
-(needs Playwright + Chromium and the Inter font). Text stays live `<text>` in the SVGs.
-Palette is taken from `docs/design/tokens.md`. The Pier logo is embedded verbatim from
-`assets/logo-mark.svg` and is not redrawn. Pixel sizes are exact; PNGs are palette-reduced
-(128 colours, no dither) for size.
+`build.mjs` is the single source of truth: it writes the SVGs, renders the PNGs and holds the
+text (title and `<desc>`) that doubles as alt text.
+
+## Rebuild
+
+Needs Playwright with Chromium and the **Inter** font (the build stops if Inter is missing).
+ImageMagick 7 (`magick`) is optional and only shrinks the PNGs.
+
+```bash
+# bash
+NODE_PATH=$(npm root -g) node docs/design/readme-visuals/build.mjs
+```
+
+```powershell
+# PowerShell
+$env:NODE_PATH = (npm root -g); node docs/design/readme-visuals/build.mjs
+```
+
+| Variable | Effect |
+|---|---|
+| `PNG_DIR` | Output folder for the PNGs (default `docs/images/readme`). |
+| `WITH_PLACEHOLDER=1` | Also render `demo-cover.png`, the placeholder cover. Off by default. |
+
+Text stays live `<text>` in the SVGs. The Pier logo is embedded verbatim from
+`assets/logo-mark.svg` and is not redrawn. Pixel sizes are exact. When `magick` is found the
+PNGs are palette-reduced (128 colours, no dither); the build prints how many were reduced.
+
+## Known gap: palette drift
+
+The colours in `build.mjs` are derived from `docs/design/tokens.md` but no longer match it
+(dark background, surface and raised values, and the light-theme brand accent). The panel and
+dialogs follow `tokens.md`, so these images are slightly off-palette in dark mode. Fixing it
+changes every PNG, so it needs a rebuild on a machine that has Playwright and Inter.
+
+## Assets
 
 | Asset | PNG (docs/images/readme/) | Source (src/) | Size |
 |---|---|---|---|
@@ -14,25 +44,30 @@ Palette is taken from `docs/design/tokens.md`. The Pier logo is embedded verbati
 | Workflow, light | `readme-workflow-light.png` | `readme-workflow-light.svg` | 1600 × 500 |
 | Workflow, dark | `readme-workflow-dark.png` | `readme-workflow-dark.svg` | 1600 × 500 |
 | Social preview | `social-preview.png` | `social-preview.svg` | 1280 × 640 |
-| Demo cover | `demo-cover.png` | `demo-cover.svg` | 1600 × 900 |
+| Demo cover (placeholder) | not shipped | `demo-cover.svg` | 1600 × 900 |
+
+The demo cover is only a template with a dashed "screenshot placeholder" box. Do not publish a
+PNG of it. Add the PNG only after you have a real capture from live Revit (mock mode returns
+canned responses and is not a live demonstration).
 
 ## Alt text
 
-- **Hero:** "Find parameter issues. Review the fixes. A BIM model with one door flagged for an empty Mark value and a callout showing the reviewed correction. Example values."
-- **Workflow:** "Four steps: Inspect finds an empty Mark, Propose drafts a change, Approve is a human decision, Verify reads the value back. Example values are illustrative."
-- **Social preview:** "AEC Model Bridge: AI-assisted BIM coordination, with the Pier logo and an isometric building model."
-- **Demo cover:** "Fix missing parameters in Revit. Inspect. Review. Approve. Verify. A placeholder reserves space for a screenshot from the synthetic test model."
+Use the SVG title followed by its `<desc>`, exactly as written in `build.mjs`:
 
-## README embed (light/dark)
+- **Hero:** "Find parameter issues. Review the fixes. A BIM model with a door flagged for an empty Mark parameter and a callout showing the reviewed correction. Example values."
+- **Workflow:** "Inspect, Propose, Approve, Verify. Four steps: inspect finds an empty Mark, propose drafts a change, approve is a human decision, verify reads the value back. Example values are illustrative."
+- **Social preview:** "AEC Model Bridge. AEC Model Bridge with the Pier logo, an architectural model illustration and the line AI-assisted BIM coordination."
+
+## README embed (light and dark)
+
+Use absolute URLs. Relative paths break on directory sites that mirror the README.
 
 ```html
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/readme/readme-hero-dark.png">
-  <img src="docs/images/readme/readme-hero-light.png" alt="Find parameter issues. Review the fixes. A BIM model with one door flagged for an empty Mark value and a callout showing the reviewed correction. Example values." width="900">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-hero-dark.png">
+  <img src="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-hero-light.png" alt="Find parameter issues. Review the fixes. A BIM model with a door flagged for an empty Mark parameter and a callout showing the reviewed correction. Example values." width="900">
 </picture>
 ```
 
 Use the same pattern for `readme-workflow-*.png`. Upload `social-preview.png` under
-Settings > Social preview. Swap `demo-cover.png` for a real capture from live Revit
-(synthetic test model) before publishing; mock mode returns canned responses and is not
-a live Revit demonstration.
+Settings > Social preview.
