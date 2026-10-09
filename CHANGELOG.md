@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Fix install: `mcp` is now pinned `>=1.10,<2`. An unpinned install on Python 3.12+ resolved mcp 2.x, which removed the `Server.list_tools()` decorators this server uses, so the server crashed at import. `uv.lock` was also stale (missing `anthropic`) and is refreshed.
+- Fix packaging: module manifests, QA/QC rules and recipes were missing from the wheel, so a pip or uvx install lacked the 34 module tools. They are now package data.
+- Tools: every tool now lists a full description, a described input schema, a title and MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), derived from the existing approval-gate flags. The server reports its own version and usage instructions at initialize. No tool behaviour changed.
+- Mock mode: tools backed by a legacy handler (for example `revit_health`) no longer fail with a missing `request_id`, so directories can call them without Revit.
+- Directories: add a root `Dockerfile` (mock mode), `glama.json` and `smithery.yaml` so listing sites can build and introspect the server without Revit. README gains a quick start, a tool table and a demo placeholder; `server.json` and `manifest.json` document more environment variables and keywords.
+- Release: `publish-mcp.yml` also runs after the release workflow completes. Releases created with the workflow token do not fire `release: published`, which is why the MCP Registry stayed on 1.1.0 after 1.2.1 and 1.3.0 were released.
+
 ## 1.3.1 - 2026-10-09
 
 - Release: every GitHub release now ships one ready-to-install package per supported Revit year (`aec-model-bridge-revit-2024-X.Y.Z.zip` through `-2027-`). 1.3.0 only shipped the Revit 2027 package. `build-release.ps1` defaults to all years, and the release workflow installs the .NET 8 SDK that the 2024-2026 builds need.

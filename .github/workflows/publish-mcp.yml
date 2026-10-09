@@ -4,28 +4,48 @@ on:
   release:
     types:
       - published
+  # Releases created by release.yml use the workflow GITHUB_TOKEN, and GitHub does
+  # not fire `release: published` for events created that way. That is why the
+  # registry stayed on 1.1.0 while 1.2.1 and 1.3.0 were released. Chain off the
+  # release workflow instead.
+  workflow_run:
+    workflows:
+      - Build GitHub Release
+    types:
+      - completed
   workflow_dispatch:
 
 jobs:
   publish:
+    # For workflow_run only publish stable tags (vX.Y.Z) whose release build passed.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       startsWith(github.event.workflow_run.head_branch, 'v') &&
+       !contains(github.event.workflow_run.head_branch, '-'))
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
 
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name || github.event.workflow_run.head_branch }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Synchronize release artifact metadata
-        if: github.event_name == 'release'
+        if: github.event_name != 'workflow_dispatch'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${RELEASE_TAG#v}"
           asset="aec-model-bridge-${version}.mcpb"
-          gh release download "$GITHUB_REF_NAME" --pattern "$asset" --dir release
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "$asset" --dir release
           sha256="$(sha256sum "release/$asset" | cut -d' ' -f1)"
           python - "$version" "$sha256" <<'PY'
           import json
