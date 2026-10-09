@@ -17,6 +17,13 @@ Revit automation through the Model Context Protocol. Review and approve model ch
 
 </div>
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-hero-dark.png">
+    <img src="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-hero-light.png" alt="Find parameter issues. Review the fixes. A BIM model with a door flagged for an empty Mark parameter and a callout showing the reviewed correction. Example values." width="900">
+  </picture>
+</p>
+
 Connect Claude, Codex or another MCP client to the Revit model you have open.
 AEC Model Bridge combines a Python MCP server with a native Revit add-in:
 read-only tools inspect the model immediately, and model changes require an
@@ -154,6 +161,13 @@ The hub stops any tool call that changes the model unless it carries an
 approved plan. The default mode is `required`. The AI proposes a plan, you
 review it in the Revit side panel, and the add-in runs it on Revit's main
 thread in a named transaction.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-dark.png">
+    <img src="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-light.png" alt="Inspect, Propose, Approve, Verify. Four steps: inspect finds an empty Mark, propose drafts a change, approve is a human decision, verify reads the value back. Example values are illustrative." width="900">
+  </picture>
+</p>
 
 <p align="center">
   <picture>
