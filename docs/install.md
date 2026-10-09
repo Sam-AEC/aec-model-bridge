@@ -25,6 +25,39 @@ General requirements:
 - Git
 - A licensed Revit installation for live bridge mode
 
+## Download the installer
+
+The easiest way to install on Windows. No Python, Git or build tools needed.
+
+1. Open the [latest release](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
+   and download `AECModelBridge-Setup-<version>.exe`.
+2. Close Revit, then double-click the file. Windows SmartScreen may warn that the
+   publisher is unknown, because the installer is not code-signed yet. Choose
+   **More info**, then **Run anyway**. The checksum is in `SHA256SUMS.txt` on the
+   same page.
+3. On the *Revit versions* page, the Revit years found on your computer are already
+   ticked. Change them if you like. Optionally tick *Set up Claude Desktop and VS Code*;
+   your current settings are copied to a `.aec-backup-<date>` file first.
+4. Start Revit and look for the **AEC Bridge** tab.
+
+The installer needs no administrator rights. It puts the add-in in
+`C:\ProgramData\AECModelBridge\bin\<year>`, the bundled Python and MCP server in
+`C:\ProgramData\AECModelBridge\python`, and a per-user manifest in
+`%APPDATA%\Autodesk\Revit\Addins\<year>`. Installing again upgrades in place.
+To remove everything, use *Apps > Installed apps > AEC Model Bridge > Uninstall*.
+Close Revit first; both Setup and the uninstaller stop if Revit is running.
+
+For a silent install (IT deployment):
+
+```powershell
+.\AECModelBridge-Setup-<version>.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /COMPONENTS="y2025,y2026"
+```
+
+`/COMPONENTS` takes `y2024`, `y2025`, `y2026`, `y2027`; leave it out to use the
+detected Revit versions. Add `/TASKS="mcpclients"` to set up Claude Desktop and VS Code,
+and `/LOG="setup.log"` to keep a log. To build the installer yourself, see
+[build and install scripts](build-and-install-scripts.md).
+
 ## Install From Source
 
 Clone the repository and create a virtual environment:

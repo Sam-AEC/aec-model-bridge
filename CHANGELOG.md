@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Release: every stable release now also attaches a double-click Windows installer, `AECModelBridge-Setup-<version>.exe` (listed in `SHA256SUMS.txt`). It picks the installed Revit years, needs no admin rights, can set up Claude Desktop and VS Code (with a backup first) and uninstalls cleanly. The release workflow builds it with Inno Setup, smoke-tests a silent install, upgrade, failure and uninstall, and has a new `dry_run` input that builds everything without publishing. The old `AECModelBridge.iss` copied the package onto itself, always installed every year and ran the client setup without asking; it was reworked. `configure-mcp-clients.ps1` now backs up each config, writes UTF-8 and leaves a commented VS Code `settings.json` alone.
 - VS Code: add the local MCP extension, connection status, mock mode and Revit year selection. Correct local-host execution, settings overrides and auto-approval warnings; add provider/command regression tests. Marketplace publishing and live app verification remain pending.
 - Release: build and test the VS Code package before attaching its `.vsix` to future GitHub releases, include it in checksums, and synchronize extension manifest and lockfile versions.
 - README: lead with BIM coordinator workflows, simplify badges and licensing text, remove endorsement boilerplate and ecosystem artwork, and use local paths for technical diagrams. Document the snapshot handoff limitation and coordinator adoption priorities.
