@@ -39,7 +39,12 @@ def mod():
 def _zip(path, entries):
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
         for name, data in entries:
-            zf.writestr(name, data)
+            # ZipInfo normalises os.sep to '/' on Windows; set the raw name afterwards
+            # so entry names containing a backslash reach the reader unchanged.
+            info = zipfile.ZipInfo("placeholder")
+            info.filename = name
+            info.compress_type = zipfile.ZIP_DEFLATED
+            zf.writestr(info, data)
     return path
 
 
