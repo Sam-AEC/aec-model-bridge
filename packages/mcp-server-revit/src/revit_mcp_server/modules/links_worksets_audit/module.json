@@ -25,7 +25,7 @@
           },
           "category_workset_map": {
             "type": "object",
-            "description": "Optional. Which workset each category belongs on, for example {\"Walls\": \"Shared Architecture\"}. Elements on a different workset are reported.",
+            "description": "Optional. Which workset each category belongs on, for example {\"Walls\": \"Shared Architecture\"} (Revit names such as OST_Walls are also accepted). Elements on a different workset are reported.",
             "additionalProperties": {"type": "string"}
           },
           "current_user": {

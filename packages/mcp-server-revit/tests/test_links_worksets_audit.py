@@ -171,3 +171,38 @@ def test_manifest_is_read_only():
     assert m["id"] == "links_worksets_audit"
     assert all(c["is_mutating"] is False for c in m["commands"])
     assert m["permissions"] == ["model.read"]
+
+
+def _snap(tmp_path, elements, name="s1"):
+    snap_dir = tmp_path / "snapshots"
+    snap_dir.mkdir(exist_ok=True)
+    (snap_dir / f"{name}.json").write_text(json.dumps({"elements": elements}), encoding="utf-8")
+
+
+def test_snapshot_without_workset_data_infers_nothing(tmp_path):
+    # Live snapshots carry no 'workset' field: no empty-workset or wrong-workset findings.
+    _snap(tmp_path, [{"uid": "w1", "category": "OST_Walls"}, {"uid": "d1", "category": "OST_Doors"}])
+    r = Audit().audit(
+        snapshot_id="s1", worksets=WORKSETS, workspace=WS(tmp_path),
+        category_workset_map={"Walls": "Architecture"},
+    )
+    assert not [f for f in r["findings"] if f["rule"] in ("workset_empty", "wrong_workset")]
+    assert any("workset" in n.lower() and "snapshot" in n.lower() for n in r["notes"])
+
+
+def test_category_map_matches_live_ost_names(tmp_path):
+    _snap(tmp_path, [
+        {"uid": "w1", "category": "OST_Walls", "workset": "Workset1"},
+        {"uid": "w2", "category": "OST_Walls", "workset": "Architecture"},
+    ])
+    r = Audit().audit(
+        snapshot_id="s1", worksets=WORKSETS, workspace=WS(tmp_path),
+        category_workset_map={"Walls": "Architecture"},
+    )
+    wrong = [f for f in r["findings"] if f["rule"] == "wrong_workset"]
+    assert len(wrong) == 1 and wrong[0]["count"] == 1 and wrong[0]["sample_uids"] == ["w1"]
+    r2 = Audit().audit(
+        snapshot_id="s1", worksets=WORKSETS, workspace=WS(tmp_path),
+        category_workset_map={"OST_Walls": "Architecture"},
+    )
+    assert [f for f in r2["findings"] if f["rule"] == "wrong_workset"]

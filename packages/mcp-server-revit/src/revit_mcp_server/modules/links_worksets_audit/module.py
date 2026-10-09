@@ -171,16 +171,30 @@ def check_worksets(
     return findings
 
 
+def _norm_category(name: Any) -> str:
+    """'OST_Walls', 'Walls' and 'walls' all compare equal."""
+    text = str(name or "").strip().lower()
+    if text.startswith("ost_"):
+        text = text[4:]
+    return re.sub(r"[\s_]+", "", text)
+
+
 def check_element_worksets(elements: List[Dict[str, Any]], category_map: Dict[str, str]) -> List[Dict[str, Any]]:
+    norm_map = {_norm_category(k): v for k, v in category_map.items()}
     wrong: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    expected_by_cat: Dict[str, str] = {}
     for el in elements:
         cat = el.get("category")
-        expected = category_map.get(cat) if cat else None
-        if expected is not None and (el.get("workset") or "") != expected:
+        expected = norm_map.get(_norm_category(cat)) if cat else None
+        ws_name = el.get("workset")
+        if expected is None or not ws_name:
+            continue  # no mapping, or the snapshot has no workset data for this element
+        if ws_name != expected:
             wrong[cat].append(el)
+            expected_by_cat[cat] = expected
     findings = []
     for cat, els in sorted(wrong.items()):
-        expected = category_map[cat]
+        expected = expected_by_cat[cat]
         found_on = sorted({str(e.get("workset") or "(none)") for e in els})
         findings.append(_finding(
             "warning", "element_workset", "wrong_workset", cat,
@@ -240,7 +254,13 @@ class LinksWorksetsAuditModule:
             notes.append("No link data available, so links were not checked.")
 
         counts: Optional[Dict[str, int]] = None
-        if elements:
+        has_workset_data = any(el.get("workset") for el in elements)
+        if elements and not has_workset_data:
+            notes.append(
+                "The snapshot has no workset information on its elements, so empty worksets "
+                "and elements on the wrong workset could not be checked."
+            )
+        if has_workset_data:
             counts = defaultdict(int)
             for el in elements:
                 if el.get("workset"):
@@ -252,8 +272,10 @@ class LinksWorksetsAuditModule:
             notes.append("No workset data available, so worksets were not checked.")
 
         if category_workset_map:
-            if elements:
+            if has_workset_data:
                 findings += check_element_worksets(elements, category_workset_map)
+            elif elements:
+                pass  # already noted above
             else:
                 notes.append("A workset mapping was given but no snapshot_id, so element worksets were not checked.")
 
