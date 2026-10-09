@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Security: log and error redaction now also covers UNC network paths (`\\server\share\model.rvt`, the usual way central models are shared) and backslash paths without a drive letter. Before, a server or share name could appear in audit logs and error messages. This also fixes `test_redaction_in_server` on Linux.
 ## 1.4.0 - 2026-10-09
 
 - Release: every stable release now also attaches a double-click Windows installer, `AECModelBridge-Setup-<version>.exe` (listed in `SHA256SUMS.txt`). It picks the installed Revit years, needs no admin rights, can set up Claude Desktop and VS Code (with a backup first) and uninstalls cleanly. The release workflow builds it with Inno Setup, smoke-tests a silent install, upgrade, failure and uninstall, and has a new `dry_run` input that builds everything without publishing. The old `AECModelBridge.iss` copied the package onto itself, always installed every year and ran the client setup without asking; it was reworked. `configure-mcp-clients.ps1` now backs up each config, writes UTF-8 and leaves a commented VS Code `settings.json` alone.
