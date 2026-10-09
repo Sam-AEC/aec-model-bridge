@@ -19,10 +19,10 @@ dependencies = [
     # tool_metadata.py sets on every listed tool. Capped below 2: mcp 2.x (Python
     # 3.12+) removed the low-level `Server.list_tools()` decorators this server is
     # built on, so an unpinned install crashed at import time.
-    "mcp>=1.10,<2",
+    "mcp>=1.10,<3",
     "ifcopenshell>=0.7.0",
     "networkx>=3.0",
-    "specklepy>=3,<4",
+    "specklepy>=3,<2027",
     "pyyaml>=6.0",
     "openpyxl>=3.1",
     # agent_native.py replays response.content (incl. thinking blocks, which
