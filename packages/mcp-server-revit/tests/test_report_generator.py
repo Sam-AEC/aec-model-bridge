@@ -116,3 +116,66 @@ def test_export_excel_has_summary_sheet_first(tmp_path):
     values = {row[0].value: row[1].value for row in wb["Summary"].iter_rows(min_row=2)}
     assert values["Snapshot ID"] == "(mock)"
     assert "mock" in values["Document"].lower()
+
+
+# --- build_review_pack (one-file coordinator review) ---
+
+def test_review_pack_sheets_columns_and_mock_label(tmp_path):
+    import openpyxl
+    from types import SimpleNamespace
+
+    ws = SimpleNamespace(allowed_directories=[tmp_path])
+    result = ReportGeneratorModule().build_review_pack(workspace=ws)
+    assert result["data_source"] == "mock"
+    wb = openpyxl.load_workbook(result["output_file"])
+    assert wb.sheetnames == ["Cover", "Findings", "Counts by category", "What to do next"]
+    cover = {r[0].value: r[1].value for r in wb["Cover"].iter_rows(min_row=2)}
+    assert cover["Data source"] == "mock"
+    assert "mock" in cover["Data source note"].lower()
+    assert cover["Snapshot ID"]
+    headers = [c.value for c in wb["Findings"][1]]
+    assert headers == ["Severity", "Rule", "Category", "What is wrong", "Elements affected", "UniqueIds", "Next step"]
+    assert [c.value for c in wb["Counts by category"][1]] == ["Category", "Elements", "Flagged by rules"]
+    assert [c.value for c in wb["What to do next"][1]][:2] == ["Priority", "Action"]
+
+
+def test_review_pack_real_snapshot_labelled_real(tmp_path):
+    import json
+    import openpyxl
+    from types import SimpleNamespace
+
+    (tmp_path / "snapshots").mkdir()
+    snap = {
+        "snapshot_id": "snap1", "taken_at": "2026-01-01T00:00:00Z",
+        "source": {"doc_title": "Tower A", "doc_guid": "g-1"},
+        "elements": [{"uid": "u1", "category": "OST_Rooms", "type_name": "Office", "params": {}}],
+        "types": [],
+    }
+    (tmp_path / "snapshots" / "snap1.json").write_text(json.dumps(snap), encoding="utf-8")
+    ws = SimpleNamespace(allowed_directories=[tmp_path])
+    result = ReportGeneratorModule().build_review_pack(snapshot_id="snap1", workspace=ws)
+    assert result["data_source"] == "real"
+    wb = openpyxl.load_workbook(result["output_file"])
+    cover = {r[0].value: r[1].value for r in wb["Cover"].iter_rows(min_row=2)}
+    assert cover["Document"] == "Tower A"
+    assert cover["Data source"] == "real"
+    findings = list(wb["Findings"].iter_rows(min_row=2, values_only=True))
+    assert any("u1" in (row[5] or "") for row in findings)
+
+
+def test_review_pack_rejects_missing_snapshot_in_bridge_mode(tmp_path, monkeypatch):
+    from revit_mcp_server.config import BridgeMode, config
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(config, "mode", BridgeMode.bridge)
+    ws = SimpleNamespace(allowed_directories=[tmp_path])
+    with pytest.raises(ValueError, match="requires a snapshot_id"):
+        ReportGeneratorModule().build_review_pack(snapshot_id="", workspace=ws)
+
+
+def test_review_pack_rejects_path_outside_workspace(tmp_path):
+    from types import SimpleNamespace
+
+    ws = SimpleNamespace(allowed_directories=[tmp_path])
+    with pytest.raises(Exception, match="outside the allowed workspace"):
+        ReportGeneratorModule().build_review_pack(output_filename="../escape.xlsx", workspace=ws)

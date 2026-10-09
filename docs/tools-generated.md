@@ -95,6 +95,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `recipe_runner_list_recipes` | List the available automation recipes. | No | sync |
 | `recipe_runner_list_runs` | List past recipe runs, optionally for one recipe. | No | sync |
 | `recipe_runner_run_recipe` | Run a named automation recipe (a YAML-defined sequence of tool calls) with arguments; set dry_run to list the steps without executing them. | No | sync |
+| `report_generator_build_review_pack` | Build one Excel 'Model review' workbook from a snapshot: cover, findings from the QA/QC rules, counts by category and what to do next. | No | sync |
 | `report_generator_export_excel` | Export a snapshot (optionally filtered, with chosen parameters and QA/QC findings) to an Excel workbook in the workspace. | No | sync |
 | `report_generator_export_sqlite_summary` | Export a summary of a snapshot to a SQLite database file in the workspace. | No | sync |
 | `selection_tools_group_convert_to_detail` | Convert a model group into a detail group. | Yes | sync |
