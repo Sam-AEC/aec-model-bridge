@@ -76,9 +76,11 @@ python scripts/version.py notes [X.Y.Z]      print one changelog section (used f
 
 Add `--no-changelog` to `set` or `bump` if you do not want the changelog touched.
 
-## Choosing the Revit year for a release
+## Revit years in a release
 
-The release workflow packages one Revit year, `2027` by default. When you run it by hand you can choose another year in the `revit_version` input. For local testing of a single year, build it directly:
+Every release ships one package per supported Revit year: `aec-model-bridge-revit-2024-1.3.1.zip` through `aec-model-bridge-revit-2027-1.3.1.zip`. Each zip holds only that year's add-in binaries plus the installer scripts. The `.mcpb` bundle and the Python wheel are shared by all years.
+
+To rebuild a single year by hand, run **Build GitHub Release** and set `revit_version` to that year instead of `All`. For local testing of one year, build it directly:
 
 ```powershell
 ./scripts/build-addin.ps1 -RevitVersion 2026 -Configuration Release

@@ -301,8 +301,10 @@ To prepare binaries for every supported version in one pass:
 .\scripts\package.ps1 -RevitVersion All
 ```
 
-Prebuilt packages are attached to GitHub releases when available. The source
-installation above works for all supported Revit versions. For a double-click
+Each [GitHub release](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
+has a ready-made package per Revit year, for example
+`aec-model-bridge-revit-2026-<version>.zip`. Unzip it and run
+`.\install.ps1 -RevitVersion 2026` instead of building from source. For a double-click
 Windows installer, `scripts/build-installer.ps1` builds one with Inno Setup.
 The full guide, with troubleshooting, is in [docs/install.md](docs/install.md).
 
