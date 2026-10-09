@@ -122,6 +122,10 @@ def _make_action_plan(tool_name: str, args: Dict[str, Any], preview: Dict[str, A
         "preview": preview,
         "requires_approval": True,
         "actions": _actions_from_planned(preview.get("planned", [])),
+        # Hand these to plan_actions (snapshot_id, skipped) so the proof bundle names the
+        # source document and lists what was left out and why.
+        "skipped": preview.get("blocked", []),
+        "snapshot_id": args.get("snapshot_id", ""),
     }
 
 
@@ -264,7 +268,12 @@ class ParameterManagerModule:
                         "storage": pinfo.get("storage"),
                     }
                 else:
-                    el_blocked.append({"param": pname, "reason": reason})
+                    el_blocked.append({
+                        "uid": el.get("uid"),
+                        "element_id": el.get("element_id"),
+                        "param": pname,
+                        "reason": reason,
+                    })
             
             if el_updates:
                 planned.append({
@@ -288,7 +297,7 @@ class ParameterManagerModule:
         
         return _make_action_plan(
             "plan_set_params",
-            {"element_filter": element_filter, "param_updates": param_updates},
+            {"element_filter": element_filter, "param_updates": param_updates, "snapshot_id": snapshot_id},
             {**preview, "planned": planned},
         )
 

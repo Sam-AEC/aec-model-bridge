@@ -22,8 +22,10 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | --- | --- | --- | --- |
 | `approve_plan` | Approve a pending ActionPlan so that its actions may be executed. | No | sync |
 | `execute_plan` | Run every action in an approved ActionPlan. | No | sync |
+| `get_proof_bundle` | Return the proof bundle (plan hash, approver, document, per-element before and new values, skipped elements and execution outcome) of a finished ActionPlan. | No | sync |
 | `list_pending_plans` | List all ActionPlans that are waiting for review. | No | sync |
 | `plan_actions` | Create a draft ActionPlan describing the model changes you want to make, capturing the before-state of each. | No | sync |
+| `plan_revert` | Draft a new ActionPlan that sets each parameter back to the before value recorded in an executed plan's proof bundle. | No | sync |
 | `reject_plan` | Reject and archive a pending ActionPlan so that it can never be executed. | No | sync |
 | `rollback_plan` | Undo an already executed ActionPlan by applying the inverse of each recorded change, in reverse order. | No | sync |
 
