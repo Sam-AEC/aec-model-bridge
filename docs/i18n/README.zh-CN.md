@@ -20,7 +20,7 @@
 </div>
 
 <p align="center">
-  <img src="../images/readme/banner.png" alt="AEC Model Bridge:在 Revit 中审阅并批准 AI 提出的修改" width="900">
+  <img src="../images/readme/demo.gif" alt="演示：AI 助手找出 12 个没有标记（Mark）的门并起草计划。计划会在 Revit 面板中等待你批准，批准后再读回数值进行核对。示例数值，模拟会话。" width="900">
 </p>
 
 将 Claude、Codex 或其他 MCP 客户端连接到你正在打开的 Revit 模型。

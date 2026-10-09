@@ -20,7 +20,7 @@ Servidor MCP de código aberto e add-in nativo para Revit 2024 – 2027. Funcion
 </div>
 
 <p align="center">
-  <img src="../images/readme/banner.png" alt="AEC Model Bridge: revise e aprove no Revit as alterações propostas pela IA" width="900">
+  <img src="../images/readme/demo.gif" alt="Demonstração: um assistente de IA encontra 12 portas sem Mark e prepara um plano. O plano espera no painel do Revit até você aprovar, depois os valores são lidos de volta para conferência. Valores de exemplo, sessão simulada." width="900">
 </p>
 
 Conecte o Claude, o Codex ou outro cliente MCP ao modelo do Revit que você tem aberto. O AEC Model Bridge combina um servidor MCP em Python com um add-in nativo do Revit: as ferramentas somente leitura inspecionam o modelo na hora e, por padrão, qualquer alteração no modelo exige um plano aprovado. [Veja o fluxo de aprovação](#como-funciona-a-aprovação).

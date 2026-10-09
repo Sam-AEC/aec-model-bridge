@@ -20,7 +20,7 @@ Revit 2024 – 2027 için açık kaynaklı MCP sunucusu ve yerel eklenti. Claude
 </div>
 
 <p align="center">
-  <img src="../images/readme/banner.png" alt="AEC Model Bridge: Yapay zekânın önerdiği değişiklikleri Revit'te inceleyin ve onaylayın" width="900">
+  <img src="../images/readme/demo.gif" alt="Demo: Bir yapay zekâ asistanı Mark değeri olmayan 12 kapıyı bulur ve bir plan hazırlar. Plan, siz onaylayana kadar Revit panelinde bekler; ardından değerler doğrulama için geri okunur. Örnek değerler, simüle edilmiş oturum." width="900">
 </p>
 
 Claude, Codex veya başka bir MCP istemcisini açık olan Revit modelinize bağlayın. AEC Model Bridge, Python tabanlı bir MCP sunucusunu yerel bir Revit eklentisiyle birleştirir: salt okunur araçlar modeli hemen inceler, model değişiklikleri ise varsayılan olarak onaylanmış bir plan gerektirir. [Onay akışına bakın](#onay-nasıl-çalışır).

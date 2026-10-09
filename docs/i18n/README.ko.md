@@ -20,7 +20,7 @@ Revit 2024 – 2027용 오픈소스 MCP 서버와 네이티브 애드인. Claude
 </div>
 
 <p align="center">
-  <img src="../images/readme/banner.png" alt="AEC Model Bridge: AI가 제안한 변경을 Revit에서 검토하고 승인" width="900">
+  <img src="../images/readme/demo.gif" alt="데모: AI 어시스턴트가 Mark가 없는 문 12개를 찾아 계획을 작성합니다. 계획은 승인할 때까지 Revit 패널에서 대기하고, 승인 후 값을 다시 읽어 확인합니다. 예시 값, 시뮬레이션된 세션입니다." width="900">
 </p>
 
 Claude, Codex 또는 다른 MCP 클라이언트를 현재 열려 있는 Revit 모델에 연결하세요. AEC Model Bridge는 Python MCP 서버와 네이티브 Revit 애드인으로 구성됩니다. 읽기 전용 도구는 모델을 즉시 조회하며, 모델 변경에는 기본적으로 승인된 계획이 필요합니다. [승인 흐름 보기](#승인-방식).

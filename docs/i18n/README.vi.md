@@ -20,7 +20,7 @@ Máy chủ MCP mã nguồn mở và add-in gốc cho Revit 2024 – 2027. Hoạt
 </div>
 
 <p align="center">
-  <img src="../images/readme/banner.png" alt="AEC Model Bridge: xem xét và phê duyệt trong Revit các thay đổi do AI đề xuất" width="900">
+  <img src="../images/readme/demo.gif" alt="Demo: trợ lý AI tìm 12 cửa không có Mark và soạn một kế hoạch. Kế hoạch chờ trong bảng Revit cho đến khi bạn phê duyệt, sau đó các giá trị được đọc lại để kiểm tra. Giá trị minh họa, phiên mô phỏng." width="900">
 </p>
 
 Kết nối Claude, Codex hoặc ứng dụng khách MCP khác với mô hình Revit bạn đang mở. AEC Model Bridge kết hợp máy chủ MCP viết bằng Python với add-in Revit gốc: các công cụ chỉ đọc kiểm tra mô hình ngay lập tức, còn mọi thay đổi trên mô hình mặc định đều cần một kế hoạch đã được phê duyệt. [Xem luồng phê duyệt](#cách-phê-duyệt-hoạt-động).
