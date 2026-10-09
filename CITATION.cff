@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "If you use AEC Model Bridge in your work, please cite it as below."
+title: "AEC Model Bridge"
+abstract: "An open-source Model Context Protocol server and native Revit add-in that lets AI assistants read and edit BIM models, with the user approving every change."
+type: software
+authors:
+  - family-names: Mohammad
+    given-names: A. Sam
+repository-code: "https://github.com/Sam-AEC/aec-model-bridge"
+url: "https://github.com/Sam-AEC/aec-model-bridge"
+license: GPL-3.0-or-later
+keywords:
+  - mcp
+  - revit
+  - bim
+  - ai

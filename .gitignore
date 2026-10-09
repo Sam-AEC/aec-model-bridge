@@ -242,3 +242,34 @@ fixtures/canonical-model/generated/
 
 
 
+# Scratch, backups and OS/sync clutter
+scratch/
+*.bak
+*.orig
+*.rej
+*.disabled
+*.disabled-*
+*~
+~$*
+Thumbs.db
+desktop.ini
+.OneDrive*
+
+# Packaging output
+*.egg
+.eggs/
+*.whl
+*.mcpb
+*.nupkg
+
+# Python virtual environments and tooling caches
+.venv*/
+.uv-cache/
+.pytest_cache/
+
+# JetBrains Rider
+.idea_modules/
+riderModule.iml
+
+# Claude Code worktrees
+.claude/worktrees/
