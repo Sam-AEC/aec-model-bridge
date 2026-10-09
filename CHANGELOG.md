@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- README: plainer opening, live CI and release badges, and the long licence and trademark paragraphs reduced to one line each (full text stays in `LICENSING.md` and `TRADEMARKS.md`). The MIT-licensed 0.1.x and 1.0.x releases were withdrawn from the GitHub releases page.
 - Dependabot: security updates are grouped into one pull request per ecosystem instead of one per package. The pinned lock-file versions of `ujson`, `anyio`, `starlette`, `cryptography`, `pydantic-settings` and `mcp` were refreshed after testing them together.
 - Docs: the README opens with an ecosystem image (AEC Model Bridge at the centre, AI clients, BIM apps and protocol tools orbiting it) in place of the demo placeholder. `scripts/make_ecosystem_image.py` regenerates it from the pinned Simple Icons set; brands whose icons were removed from that set are shown as text tiles.
 - Dependabot: routine updates are now monthly and grouped into one pull request for Python and one for GitHub Actions; routine .NET package PRs are off (the add-in dependencies are pinned on purpose). Security updates are unaffected.
