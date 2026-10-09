@@ -2,7 +2,7 @@
 
 AEC Model Bridge is a standard MCP server. It speaks the Model Context Protocol over stdio, so any AI client that can start a local MCP server can use it with the Revit model you have open.
 
-This page separates what is documented and set up in this repository from what should work because it is standard MCP. Nothing marked "not tested" has been tried by the maintainers.
+This page separates two groups. The first is what this repository documents and sets up. The second is what should work because it is standard MCP. The maintainers have not tried anything marked "not tested".
 
 ## AI assistants and MCP clients
 
@@ -22,9 +22,9 @@ Any framework with an MCP stdio client can launch the server and call its tools.
 
 ## What will not work directly
 
-A client that only accepts a remote MCP server over HTTP cannot start a local stdio server. That includes many browser-based chat apps. A local proxy that exposes a stdio server over HTTP can bridge the gap, but you would be opening the model to whatever can reach that proxy, so read [Security](security.md) first. The server is designed for a single machine, with the Revit add-in on loopback.
+A client that accepts only a remote MCP server over HTTP cannot start a local stdio server. Many browser-based chat apps work this way. A local proxy can expose a stdio server over HTTP. That opens your model to anything that can reach the proxy, so read [Security](security.md) first. The server is designed for a single machine, with the Revit add-in on loopback.
 
-The Revit add-in is always required for live work. The server talks to a running copy of Revit on Windows.
+Live work always needs the Revit add-in. The server talks to a running copy of Revit on Windows.
 
 ## Applications and formats
 
@@ -44,4 +44,4 @@ Registry files for the official MCP Registry (`server.json`), Smithery (`smither
 
 ## Try it without Revit
 
-Set `MCP_REVIT_MODE` to `mock` and any client above can browse the tools and get sample answers. Mock data is never used in live mode.
+Set `MCP_REVIT_MODE` to `mock`. Any client above can then browse the tools and get sample answers. Live mode does not use mock data.

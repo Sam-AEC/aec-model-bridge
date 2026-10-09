@@ -73,6 +73,8 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
+| `bcf_exchange_export_bcf` | Save issues (your own list and/or the recorded QA/QC issues) to a BCF 2. | No | sync |
+| `bcf_exchange_import_bcf` | Read a BCF. | No | sync |
 | `familytype_mapper_audit_families` | Audit the families in a saved snapshot and report problems such as unmapped or inconsistent family types. | No | sync |
 | `familytype_mapper_list_type_mappings` | List family-type mappings found in a saved snapshot, optionally for one category. | No | sync |
 | `hello_world_say_hello` | Example module command that returns a greeting; use it to confirm the module system works. | No | sync |
@@ -108,6 +110,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `selection_tools_save_selection` | Save a set of element UniqueIds under a name for later restore. | No | sync |
 | `selection_tools_select_by_query` | Select in Revit the elements of a snapshot that match a filter query. | Yes | sync |
 | `selection_tools_set_selection` | Select the given elements (by UniqueId) in the Revit UI. | Yes | sync |
+| `warnings_triage_review_warnings` | Group the open project's Revit warnings by type, rank them by how many elements they touch, flag duplicate marks, overlapping elements and rooms not enclosed for the coordinator, and suggest a next step for each group. | No | sync |
 
 ## Navisworks Provider
 
