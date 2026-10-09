@@ -141,6 +141,18 @@ def test_plan_set_params_blocks_readonly(pm, workspace):
     assert result["preview"]["planned_count"] == 0
 
 
+def test_plan_set_params_skipped_entries_identify_element(pm, workspace):
+    result = pm.plan_set_params(
+        element_filter={"category": "OST_Levels"},
+        param_updates={"Elevation": 10.0},
+        workspace=workspace,
+    )
+    skipped = result["skipped"]
+    assert skipped
+    assert all(b.get("uid") and b.get("element_id") is not None for b in skipped)
+    assert all(b["param"] == "Elevation" for b in skipped)
+
+
 def test_plan_set_params_blocks_wrong_storage_type(pm, workspace):
     result = pm.plan_set_params(
         element_filter={"category": "OST_Doors"},
