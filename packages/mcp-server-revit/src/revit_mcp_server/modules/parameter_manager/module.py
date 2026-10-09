@@ -392,7 +392,8 @@ class ParameterManagerModule:
 
     def _get_elements(self, snapshot_id: str, workspace: Any) -> List[Dict[str, Any]]:
         if not snapshot_id:
-            from revit_mcp_server.semantic.engine import generate_mock_snapshot
+            from revit_mcp_server.semantic.engine import generate_mock_snapshot, require_snapshot_or_mock
+            require_snapshot_or_mock(snapshot_id, "parameter_manager")
             snap = generate_mock_snapshot()
             return [el.model_dump(by_alias=True) for el in snap.elements]
         data = _load_snapshot(snapshot_id, workspace)

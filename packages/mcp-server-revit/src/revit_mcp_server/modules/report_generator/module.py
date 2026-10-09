@@ -34,7 +34,8 @@ def _ws_dir(workspace: Any) -> Path:
 
 def _get_data(snapshot_id: str, workspace: Any):
     if not snapshot_id:
-        from revit_mcp_server.semantic.engine import generate_mock_snapshot
+        from revit_mcp_server.semantic.engine import generate_mock_snapshot, require_snapshot_or_mock
+        require_snapshot_or_mock(snapshot_id, "report_generator")
         snap = generate_mock_snapshot()
         return (
             [el.model_dump(by_alias=True) for el in snap.elements],
@@ -60,6 +61,49 @@ def _match_element(el: Dict[str, Any], filter_dsl: Dict[str, Any]) -> bool:
         elif key == "type_name" and el.get("type_name") != val:
             return False
     return True
+
+def _load_source(snapshot_id: str, workspace: Any) -> Dict[str, Any]:
+    """Document identity of the snapshot, so a report says what it describes."""
+    if not snapshot_id:
+        return {"doc_title": "Generated mock data (not a live model)", "doc_guid": "mock-doc"}
+    path = _ws_dir(workspace) / "snapshots" / f"{snapshot_id}.json"
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    return data.get("source", {}) or {}
+
+
+def _write_summary_sheet(ws: Any, snapshot_id: str, source: Dict[str, Any], element_count: int, issues: List[Dict[str, Any]]) -> None:
+    from datetime import datetime, timezone
+
+    rows = [
+        ("Snapshot ID", snapshot_id or "(mock)"),
+        ("Document", source.get("doc_title") or source.get("title") or ""),
+        ("Document GUID", source.get("doc_guid", "")),
+        ("Report generated (UTC)", datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")),
+        ("Elements in report", element_count),
+        ("QA/QC issues", len(issues)),
+    ]
+    for label, count in sorted(_count_by(issues, "severity").items()):
+        rows.append((f"  {label or 'unspecified'} severity", count))
+    for label, count in sorted(_count_by(issues, "status").items()):
+        rows.append((f"  status: {label or 'unspecified'}", count))
+    _write_header(ws, ["Item", "Value"])
+    ws.column_dimensions["A"].width = 28
+    ws.column_dimensions["B"].width = 48
+    for row in rows:
+        ws.append(list(row))
+
+
+def _count_by(issues: List[Dict[str, Any]], key: str) -> Dict[str, int]:
+    counts: Dict[str, int] = {}
+    for issue in issues:
+        value = str(issue.get(key, "") or "")
+        counts[value] = counts.get(value, 0) + 1
+    return counts
+
 
 def _write_header(ws: Any, headers: List[str]) -> None:
     for col, title in enumerate(headers, 1):
@@ -99,10 +143,14 @@ class ReportGeneratorModule:
         matched = [el for el in elements if _match_element(el, filter_dsl)]
 
         wb = openpyxl.Workbook()
+        issues = _load_qaqc_issues(workspace) if include_qaqc else []
+
+        ws_summary = wb.active
+        ws_summary.title = "Summary"
+        _write_summary_sheet(ws_summary, snapshot_id, _load_source(snapshot_id, workspace), len(matched), issues)
 
         # --- Sheet 1: Elements ---
-        ws_el = wb.active
-        ws_el.title = "Elements"
+        ws_el = wb.create_sheet("Elements")
         el_headers = ["UID", "Element ID", "Category", "Family", "Type Name", "Level UID", "Workset"]
         _write_header(ws_el, el_headers)
         for r, el in enumerate(matched, 2):
@@ -144,7 +192,6 @@ class ReportGeneratorModule:
             ws_qa = wb.create_sheet("QA_QC Issues")
             qa_headers = ["Issue ID", "Rule ID", "Severity", "Element UID", "Label", "Message", "Status", "Created At"]
             _write_header(ws_qa, qa_headers)
-            issues = _load_qaqc_issues(workspace)
             for r, issue in enumerate(issues, 2):
                 ws_qa.append([
                     issue.get("id", ""),

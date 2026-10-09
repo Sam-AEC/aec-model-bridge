@@ -368,7 +368,8 @@ class QaqcCheckerModule:
 
     def _get_data(self, snapshot_id: str, workspace: Any):
         if not snapshot_id:
-            from revit_mcp_server.semantic.engine import generate_mock_snapshot
+            from revit_mcp_server.semantic.engine import generate_mock_snapshot, require_snapshot_or_mock
+            require_snapshot_or_mock(snapshot_id, "qaqc_checker")
             snap = generate_mock_snapshot()
             return (
                 [el.model_dump(by_alias=True) for el in snap.elements],
