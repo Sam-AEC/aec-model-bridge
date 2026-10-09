@@ -1,7 +1,7 @@
 # Install buttons
 
-How the one-click install links in the README are built. Regenerate every
-link with:
+This page explains how the one-click install links in the README are built. To
+regenerate every link, run:
 
 ```text
 python scripts/make_install_links.py          # print them
@@ -68,8 +68,9 @@ cursor://anysphere.cursor-deeplink/mcp/install?name=aec-model-bridge&config=eyJj
 The README badge uses the https form that other MCP projects use because
 GitHub strips `cursor:` links:
 `https://cursor.com/en/install-mcp?name=<name>&config=<same base64>`. That
-https form is not in the Cursor docs I could reach and was not reachable from
-the machine used to build it, so check the button once in a browser.
+https form is UNVERIFIED. It is not in the Cursor docs, and it could not be
+reached from the machine used to build it. Open the button once in a browser
+to check it.
 
 ## Claude Desktop
 

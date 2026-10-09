@@ -1,13 +1,13 @@
-# Developer Guide: Module Authoring
+# Developer guide: module authoring
 
-Modules in AEC Model Bridge allow developers and firms to package commands, workflows, schemas, and QA rules.
+A module packages commands, workflows, schemas and QA rules. Developers and firms can add their own.
 
-## 1. Directory Structure
+## 1. Directory structure
 
-A module folder must reside either:
+A module folder goes in one of these places:
 - **Built-in**: `packages/mcp-server-revit/src/revit_mcp_server/modules/<module_id>/`
-- **User/Firm Folder** (if `enable_user_modules` is `True`): `%LOCALAPPDATA%\AECModelBridge\modules\<module_id>\`
-- **Installed Package**: Declared as `aec_model_bridge.modules` entry points.
+- **User or firm folder**: `%LOCALAPPDATA%\AECModelBridge\modules\<module_id>\`. The server loads it only when `enable_user_modules` is `True`. Set this with the environment variable `MCP_REVIT_ENABLE_USER_MODULES`.
+- **Installed package**: the package declares an `aec_model_bridge.modules` entry point.
 
 ```
 <module_id>/
@@ -17,7 +17,7 @@ A module folder must reside either:
 └── ui/              # HTML panel components (optional)
 ```
 
-## 2. Manifest Schema (`module.json`)
+## 2. Manifest schema (`module.json`)
 
 ```json
 {
@@ -56,15 +56,15 @@ A module folder must reside either:
 
 ## 3. Permissions
 
-Permissions declared in the manifest are verified at dispatch time:
-- `model.read`: Standard read tools.
-- `model.write`: Mutating tools (always checked against the ActionPlan approval gate).
-- `model.delete`: Destructive operations.
-- `workspace.write`: Restricted sandboxed files output.
-- `net.local` / `net.cloud`: Local connection vs cloud synchronizations.
-- `python.host`: Raw python escapes (e.g. `revit_execute_python`). Disabled unless `allow_python_host` is explicitly `True`.
+The server checks the permissions in the manifest each time a command runs:
+- `model.read`: standard read tools.
+- `model.write`: tools that change the model. The server always checks these against the action plan approval gate.
+- `model.delete`: destructive operations.
+- `workspace.write`: writing files inside the sandboxed workspace.
+- `net.local` and `net.cloud`: local connections and cloud sync.
+- `python.host`: raw Python on the host, such as `revit_execute_python`. It stays off unless `allow_python_host` is `True`. Set this with `MCP_REVIT_ALLOW_PYTHON_HOST`.
 
-## 4. Hook Evaluation
+## 4. Hooks
 
-- **`validate` hook**: Called before execution. Returns `{"ok": true}` or `{"blockers": ["Details"]}` to reject execution.
-- **`on_result` hook**: Called after execution asynchronously.
+- **`validate` hook**: runs before the command. Return `{"ok": true}` to continue. Return `{"blockers": ["Details"]}` to stop the command.
+- **`on_result` hook**: runs after the command, asynchronously.
