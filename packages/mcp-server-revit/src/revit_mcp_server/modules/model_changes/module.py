@@ -102,9 +102,53 @@ def _pval(el: Dict[str, Any], name: str) -> Any:
     return p.get("v") if isinstance(p, dict) else None
 
 
+_LOC_TOL = 1e-6
+
+LOCATION_MISSING_REASON = (
+    "These snapshots do not record where elements are, so moved or rotated elements "
+    "could not be detected. The Revit add-in needs to save each element's `location` "
+    "(`xyz` and `rotation`) in the snapshot."
+)
+
+
+def _num_list(value: Any) -> Optional[List[float]]:
+    if not isinstance(value, (list, tuple)):
+        return None
+    try:
+        return [float(v) for v in value]
+    except (TypeError, ValueError):
+        return None
+
+
 def _loc(el: Dict[str, Any]) -> Any:
+    """Normalised location (xyz + rotation), or None when the element has none."""
     loc = el.get("location")
-    return loc.get("xyz") if isinstance(loc, dict) else loc
+    if loc is None:
+        return None
+    if isinstance(loc, dict):
+        xyz = _num_list(loc.get("xyz"))
+        rot = loc.get("rotation")
+        try:
+            rot = float(rot) if rot is not None else None
+        except (TypeError, ValueError):
+            rot = None
+        if xyz is None and rot is None:
+            return None
+        return {"xyz": xyz, "rotation": rot}
+    xyz = _num_list(loc)
+    return {"xyz": xyz, "rotation": None} if xyz is not None else None
+
+
+def _loc_differs(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
+    ax, bx = a["xyz"], b["xyz"]
+    if (ax is None) != (bx is None):
+        return True
+    if ax is not None and (len(ax) != len(bx) or any(abs(x - y) > _LOC_TOL for x, y in zip(ax, bx))):
+        return True
+    ar, br = a["rotation"], b["rotation"]
+    if (ar is None) != (br is None):
+        return True
+    return ar is not None and abs(ar - br) > _LOC_TOL
 
 
 def _plural(n: int, word: str) -> str:
@@ -122,6 +166,7 @@ def compare_snapshot_data(snap_a: Dict[str, Any], snap_b: Dict[str, Any], max_it
     modified: List[Dict[str, Any]] = []
     param_changes: List[Dict[str, Any]] = []
     unchanged = 0
+    location_compared = 0
     for uid, new in els_b.items():
         old = els_a.get(uid)
         if old is None:
@@ -137,8 +182,11 @@ def compare_snapshot_data(snap_a: Dict[str, Any], snap_b: Dict[str, Any], max_it
             other.append("type")
         if old.get("level_uid") != new.get("level_uid"):
             other.append("level")
-        if _loc(old) != _loc(new):
-            other.append("location")
+        lo, ln = _loc(old), _loc(new)
+        if lo is not None and ln is not None:
+            location_compared += 1
+            if _loc_differs(lo, ln):
+                other.append("location")
         if not changes and not other:
             unchanged += 1
             continue
@@ -175,21 +223,31 @@ def compare_snapshot_data(snap_a: Dict[str, Any], snap_b: Dict[str, Any], max_it
         "added": len(added), "removed": len(removed), "modified": len(modified),
         "unchanged": unchanged, "parameter_changes": len(param_changes),
     }
+    not_enough_data: List[Dict[str, str]] = []
+    if (els_a or els_b) and location_compared == 0:
+        not_enough_data.append({"check": "location", "reason": LOCATION_MISSING_REASON})
+    summary = _summary(totals, per_category, len(els_a), len(els_b))
+    if not_enough_data:
+        summary += (" Not enough data to tell whether anything moved or rotated: "
+                    + LOCATION_MISSING_REASON)
     return {
         "totals": totals,
+        "location_checked": location_compared > 0,
+        "elements_compared_on_location": location_compared,
+        "not_enough_data": not_enough_data,
         "counts_per_category": per_category,
         "added": [brief(e) for e in added[:cap]],
         "removed": [brief(e) for e in removed[:cap]],
         "modified": modified[:cap],
         "parameter_changes": param_changes[:cap],
         "truncated": any(n > cap for n in (len(added), len(removed), len(modified), len(param_changes))),
-        "summary": _summary(totals, per_category, len(els_a), len(els_b)),
+        "summary": summary,
     }
 
 
 def _summary(totals: Dict[str, int], per_cat: Dict[str, Dict[str, int]], before: int, after: int) -> str:
     if not (totals["added"] or totals["removed"] or totals["modified"]):
-        return f"No changes. All {_plural(after, 'element')} are the same as before."
+        return (f"No changes found in parameters, type or level across {_plural(after, 'element')}.")
     bits = []
     if totals["added"]:
         bits.append(f"{_plural(totals['added'], 'element')} added")
@@ -252,7 +310,24 @@ class ModelChangesModule:
         newer_id = _resolve(newer_snapshot_id, workspace)
         snap_a = _load(older_id, workspace)
         snap_b = _load(newer_id, workspace)
+        guid_a = (snap_a.get("source") or {}).get("doc_guid")
+        guid_b = (snap_b.get("source") or {}).get("doc_guid")
+        if guid_a and guid_b and guid_a != guid_b:
+            raise ValueError(
+                f"Snapshots '{older_id}' and '{newer_id}' come from different Revit models "
+                f"({(snap_a.get('source') or {}).get('doc_title') or guid_a} and "
+                f"{(snap_b.get('source') or {}).get('doc_title') or guid_b}), so comparing them "
+                "would show almost every element as added or removed. Pick two snapshots of "
+                "the same model; list_snapshots shows the model of each."
+            )
         result = compare_snapshot_data(snap_a, snap_b, max_items)
+        warnings: List[str] = []
+        if not (guid_a and guid_b):
+            warnings.append(
+                "Could not confirm both snapshots are of the same Revit model (a snapshot has no "
+                "document id). If they are from different models the delta below is meaningless."
+            )
+        result["warnings"] = warnings
         result.update({
             "mock": False,
             "data_source": "Saved snapshots",
