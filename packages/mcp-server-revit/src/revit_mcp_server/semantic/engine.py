@@ -182,27 +182,61 @@ def generate_mock_snapshot() -> Snapshot:
         counts=counts
     )
 
+def _store_snapshot_file(workspace: Any, snapshot_id: str, source_path: Any) -> None:
+    """Make sure ``snapshots/{snapshot_id}.json`` exists in the Python workspace.
+
+    The add-in writes under its own workspace environment, which can differ from
+    this process's; copy the file across when they do.
+    """
+    import shutil
+    from pathlib import Path
+
+    snapshots_dir = workspace.allowed_directories[0] / "snapshots"
+    snapshots_dir.mkdir(parents=True, exist_ok=True)
+    target = snapshots_dir / f"{snapshot_id}.json"
+    if source_path and Path(source_path).resolve() != target.resolve() and not target.exists():
+        shutil.copyfile(source_path, target)
+
+
 async def snapshot_take(workspace: Any, bridge_client_or_provider: Any = None) -> Snapshot:
-    # Check if we should execute a real snapshot or generate a mock
+    from revit_mcp_server.config import BridgeMode, config
+
+    live = config.mode != BridgeMode.mock
     if bridge_client_or_provider and hasattr(bridge_client_or_provider, "execute_tool"):
         try:
-            # Call C# execute snapshot
             res = await bridge_client_or_provider.execute_tool("revit_extract_snapshot", {})
             if isinstance(res, dict) and "snapshot" in res:
                 return Snapshot(**res["snapshot"])
+            if isinstance(res, dict) and res.get("snapshot_id") and res.get("path"):
+                # Add-in result: the snapshot was written to disk, not returned inline.
+                import json
+
+                with open(res["path"], encoding="utf-8") as f:
+                    snapshot = Snapshot(**json.load(f))
+                _store_snapshot_file(workspace, snapshot.snapshot_id, res["path"])
+                return snapshot
+            if live:
+                raise RuntimeError(f"Unexpected result from Revit snapshot extraction: {sorted(res) if isinstance(res, dict) else type(res).__name__}")
         except Exception as e:
+            if live:
+                raise RuntimeError(
+                    f"Could not capture a live snapshot from Revit: {e}. "
+                    "No mock data is substituted in bridge mode."
+                ) from e
             logger.warning(f"Failed to extract snapshot from Revit host: {e}. Falling back to mock snapshot.")
-            
+    elif live:
+        raise RuntimeError("No Revit provider is available to capture a live snapshot; no mock data is substituted in bridge mode.")
+
     snapshot = generate_mock_snapshot()
-    
+
     # Store snapshot in workspace/snapshots folder
     snapshots_dir = workspace.allowed_directories[0] / "snapshots"
     snapshots_dir.mkdir(parents=True, exist_ok=True)
     snapshot_path = snapshots_dir / f"{snapshot.snapshot_id}.json"
-    
+
     with open(snapshot_path, "w", encoding="utf-8") as f:
         f.write(snapshot.model_dump_json(by_alias=True, indent=2))
-        
+
     return snapshot
 
 def snapshot_query(snapshot: Snapshot, filter_dsl: Dict[str, Any]) -> List[ElementRecord]:
