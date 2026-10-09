@@ -9,13 +9,14 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       id-token: write
       contents: read
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # The version comes from the VERSION file at the checked-out ref, not from
       # the ref name, so this works for a release event, a manual run on main,
