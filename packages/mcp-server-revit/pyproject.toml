@@ -39,6 +39,10 @@ aec-model-bridge-panel-server = "revit_mcp_server.panel_server:run_panel_server"
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "pytest-timeout>=2.3",
+    # The wheel-contents test builds the package; CI also uses it for the sdist.
+    "build>=1.2",
     "ruff>=0.0",
     "mypy>=1.8",
 ]
@@ -63,9 +67,47 @@ revit_mcp_server = [
 ]
 
 [tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+# -ra: summarise every non-passing outcome; --strict-markers: a typo'd marker
+# fails instead of silently selecting nothing. Coverage is opt-in (--cov) so the
+# stdio smoke test can also run against an installed wheel without pytest-cov.
+addopts = ["-ra", "--strict-markers"]
+# A hung subprocess or event loop must fail the test, not stall CI for hours
+# (needs pytest-timeout from the dev extra; without it the key is only warned about).
+timeout = 120
 markers = [
+    "timeout(seconds): per-test time limit (provided by pytest-timeout; registered so --strict-markers works without it)",
     "e2e: marks Revit bridge end-to-end tests (opt in with AEC_MODEL_BRIDGE_E2E=1)",
-    "perf: marks tests as performance benchmarks (deselect with '-m \"not perf\"')"
+    "perf: marks tests as performance benchmarks (deselect with '-m \"not perf\"')",
+]
+# Later entries win. Warnings are errors, except: third-party deprecations (not
+# ours to fix; they must not break CI), and resource leaks (unclosed files,
+# sockets, sqlite handles) that predate this setting and are cleanup work.
+# Deprecations raised from our own package stay errors.
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    "error::DeprecationWarning:revit_mcp_server",
+    "ignore::ResourceWarning",
+    "ignore::pytest.PytestUnraisableExceptionWarning",
+]
+
+[tool.coverage.run]
+branch = true
+source_pkgs = ["revit_mcp_server"]
+omit = ["*/tests/*", "*/_version.py"]
+
+[tool.coverage.report]
+# Measured at 59% (line + branch) when this gate was introduced; the floor sits a
+# few points below so noise does not break CI but a real drop does.
+fail_under = 55
+skip_covered = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
 ]
 
 [tool.ruff.lint]
