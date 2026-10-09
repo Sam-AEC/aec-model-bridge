@@ -1,10 +1,10 @@
-# Security Model
+# Security model
 
-AEC Model Bridge implements a defense-in-depth security model to protect local models and filesystems from unauthorized or destructive actions by AI agents. The security posture relies on strict trust boundaries, local loopback restrictions, workspace sandboxing, input schema validation, and structured audit logs.
+AEC Model Bridge uses several layers to protect your models and files from unwanted or destructive actions by AI agents. The layers are: clear trust boundaries, loopback-only connections, a workspace sandbox, input checks, an approval step for changes, and audit logs.
 
 ---
 
-## 1. Trust Boundaries & Architecture
+## 1. Trust boundaries and architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -30,45 +30,47 @@ AEC Model Bridge implements a defense-in-depth security model to protect local m
 └──────────┘└─────────┘└─────────┘└─────────┘└──────────┘
 ```
 
-The system coordinates several platform providers:
-1. **Unified Python MCP Server**: The central gateway. Runs locally, communicates via standard input/output (stdio) with the LLM host.
-2. **Revit Add-in**: Runs in-process inside Revit. Exposes a local HTTP port.
-3. **Rhino Bridge Add-in**: Runs in-process inside Rhino. Exposes HTTP port 3004.
-4. **IFC Parsing**: Executed in-process via `IfcOpenShell` (headless Python).
-5. **Speckle & APS Cloud Connections**: Connect to external APIs over HTTPS using OAuth-PKCE.
+The Revit add-in listens on port `3000` only in legacy mode. In the default mode it picks a dynamic port (see section 2).
+
+The system has these parts:
+1. **Unified Python MCP server**: the central gateway. It runs on your machine and talks to the AI client over standard input and output (stdio).
+2. **Revit add-in**: runs inside Revit and opens a local HTTP port.
+3. **Rhino bridge add-in**: runs inside Rhino and opens HTTP port 3004.
+4. **IFC parsing**: runs inside the Python server with `IfcOpenShell`. Revit is not needed.
+5. **Speckle and APS cloud connections**: call external APIs over HTTPS with OAuth-PKCE.
 
 ---
 
-## 2. Network Security & Local Boundary
+## 2. Network security and the local boundary
 
-To prevent remote exploitation, all desktop bridges bind strictly to the loopback address.
+All desktop bridges listen on the loopback address only.
 
-### Localhost Boundary
-- Add-ins bind exclusively to `127.0.0.1` (localhost).
-- They will reject external incoming connections.
-- They must **never** be exposed via public reverse proxies or port-forwarding.
+### Localhost boundary
+- Add-ins bind to `127.0.0.1` (localhost) only.
+- They reject connections from other machines.
+- Never expose them through a public reverse proxy or port forwarding.
 
-### Authentication Modes (Revit Add-in)
-The C# Revit bridge supports two runtime modes:
-1. **Legacy Mode (Default)**: Binds to fixed port `3000` with no authentication (relies entirely on the localhost boundary). Enabled by default unless configured otherwise.
-2. **Contract v2 Mode**: Runs with dynamic loopback ports and bearer token authorization. A random per-session bearer token (nonce) is generated at startup and written to local registry files. The Python MCP provider reads the registry file, obtains the port and token, and uses authorization headers for subsequent requests.
+### Authentication modes (Revit add-in)
+The C# Revit bridge has two modes:
+1. **Contract v2 mode (default)**: the add-in picks a dynamic loopback port and creates a random bearer token each session. It writes both to a local registry file. The Python MCP server reads that file and sends the token with every request.
+2. **Legacy mode (opt-in)**: set the add-in's environment variable `MCP_REVIT_LEGACY_PORT` to `true` or `1`. The add-in then binds to fixed port `3000` with no authentication and relies only on the localhost boundary. Use it only if an older client needs it.
 
 ---
 
-## 3. Workspace Sandboxing
+## 3. Workspace sandboxing
 
-All local filesystem activities (file reads, database exports, sheet prints) are sandboxed to explicitly configured directories.
+All local file work (file reads, database exports, sheet prints) stays inside the configured directories.
 
 ### Configuration
-The sandboxing behavior is driven by the following environment variables:
+Two environment variables control the sandbox:
 
-| Environment Variable | Python Config Field | Description |
+| Environment variable | Python config field | Description |
 |---|---|---|
-| `MCP_REVIT_WORKSPACE_DIR` | `workspace_dir` | The default directory for writing outputs and log files. |
-| `MCP_REVIT_ALLOWED_DIRECTORIES` | `allowed_directories` | A semicolon-delimited (`;`) list of allowed directories. |
+| `MCP_REVIT_WORKSPACE_DIR` | `workspace_dir` | The default directory for generated files. Defaults to `~/Documents/AEC Model Bridge`. |
+| `MCP_REVIT_ALLOWED_DIRECTORIES` | `allowed_directories` | A list of allowed directories, separated by semicolons (`;`). Defaults to the workspace directory only. |
 
 ### Enforcement
-The `WorkspaceMonitor` class validates every path candidate before any filesystem operation:
+The `WorkspaceMonitor` class checks every path before any file operation:
 
 ```python
 from pathlib import Path
@@ -84,36 +86,36 @@ safe_path = monitor.assert_in_workspace(Path("C:\\RevitProjects\\model.rvt"))  #
 unsafe_path = monitor.assert_in_workspace(Path("C:\\Windows\\System32\\cmd.exe"))
 ```
 
-### Path Traversal Guard
-The `WorkspaceMonitor` resolves candidate paths to absolute, canonical paths:
-- Resolves all symbolic links.
-- Evaluates relative path elements (`..`, `.`).
-- Asserts that the target resolved path is relative to one of the configured allowed directories (`path.is_relative_to(allowed_dir)`).
+### Path traversal guard
+The `WorkspaceMonitor` turns each path into an absolute, canonical path. It then:
+- Follows all symbolic links.
+- Resolves relative parts (`..`, `.`).
+- Checks that the result sits inside one of the allowed directories (`path.is_relative_to(allowed_dir)`).
 
 ---
 
-## 4. Input Validation & Schema Integrity
+## 4. Input validation and schema integrity
 
-All tool arguments are validated before passing them to backend providers.
-- **Pydantic Validation**: Every MCP tool has an associated Pydantic schema defining required parameters, strict data types, and value constraints.
-- **Malformed Input Rejection**: Inputs violating schemas are rejected immediately by the Python server, preventing malformed inputs from reaching the C# API thread.
+The server checks all tool arguments before it passes them to a provider.
+- **Pydantic validation**: every MCP tool has a Pydantic schema. It sets the required parameters, data types and value limits.
+- **Rejecting bad input**: the Python server rejects input that breaks the schema. Bad input does not reach the C# API thread.
 
 ---
 
-## 5. Audit Logging & Sensitive Data Redaction
+## 5. Audit logging and sensitive data redaction
 
-Every tool call (successful or failed) is recorded chronologically to an append-only audit trail.
+The audit recorder writes one line per tool call to an append-only file. See [Logging and audit](logging-and-audit.md) for what each log covers and for a caveat about which server writes the file.
 
-### Log Configuration
-- Configured via `MCP_REVIT_AUDIT_LOG` (defaults to `audit.log` in the working directory).
-- Controlled by `MCP_REVIT_LOG_LEVEL` (defaults to `INFO`).
+### Log configuration
+- Set the file with `MCP_REVIT_AUDIT_LOG`. The default is `audit.log` in the working directory of the server process.
+- Set the level with `MCP_REVIT_LOG_LEVEL`. The default is `INFO`.
 
-### Redaction Rules
-To prevent sensitive tokens, OAuth codes, and local directories from leaking into log files or LLM context windows, the `AuditRecorder` runs a recursive redaction step:
-- **Sensitive Keys**: Fields matching password, token, api_key, authorization, secret, client_secret, or auth codes are replaced with `<redacted>`.
-- **System Paths**: File path strings (both Windows and POSIX) are matched against regex patterns and replaced with `<redacted-path>`.
+### Redaction rules
+Audit entries and tool responses pass through a redaction step. It keeps tokens, OAuth codes and local directories out of log files and out of the AI's context:
+- **Sensitive keys**: fields such as password, token, api_key, authorization, secret, client_secret and auth codes become `<redacted>`.
+- **System paths**: Windows, UNC and POSIX file paths become `<redacted-path>`.
 
-Example serialized log entry:
+Example log entry:
 ```json
 {
   "timestamp": "2026-07-08T18:02:10.123456Z",
@@ -133,20 +135,21 @@ Example serialized log entry:
 
 ---
 
-## 6. Threat Model & Safety Checklist
+## 6. Threat model and safety checklist
 
-### In-Scope Guards
-- Path traversal exploits trying to read sensitive configuration or files.
-- Unauthorized cloud calls (credentials stored out-of-band in env vars/keyrings).
-- Malformed C# call execution leading to Revit process crashes (prevented by process boundary and input schema validation).
+### What the design guards against
+- Path traversal that tries to read sensitive files or settings.
+- Unauthorized cloud calls. Credentials stay outside the tool arguments, in environment variables or keyrings.
+- Malformed input that could crash Revit. The process boundary and input schemas prevent it.
 
-### Out-of-Scope (Host Machine Security)
-- Local network compromises (e.g. malicious software running on the same loopback).
-- Unauthorized physical access or user-level malware.
-- Vendor API bugs (Autodesk Revit, Rhino).
+### What is out of scope (host machine security)
+- Other software on the same machine that can reach the loopback port.
+- Physical access to the machine, and malware running as your user.
+- Bugs in vendor APIs (Autodesk Revit, Rhino).
 
-### Safety Checklist
-- [ ] Ensure `MCP_REVIT_WORKSPACE_DIR` is set to a dedicated folder.
-- [ ] Limit `MCP_REVIT_ALLOWED_DIRECTORIES` to only the required assets.
-- [ ] Confirm no bridge is configured to bind to `0.0.0.0` or shared port-forward.
-- [ ] Secure access permissions for the audit log path (`audit.log`).
+### Safety checklist
+- [ ] Set `MCP_REVIT_WORKSPACE_DIR` to a dedicated folder.
+- [ ] Limit `MCP_REVIT_ALLOWED_DIRECTORIES` to the folders you need.
+- [ ] Confirm no bridge listens on `0.0.0.0` or sits behind a port forward.
+- [ ] Restrict access to the audit log file (`audit.log` by default).
+- [ ] Keep `MCP_REVIT_APPROVAL_MODE` at `required`, so every model change needs an approved plan.
