@@ -78,3 +78,7 @@ Complete the first demo before expanding the integration surface. Decide the
 next workflow from observed coordinator setup failures and repeated QA tasks.
 Keep Navisworks, Power BI and broader provider work behind this measured adoption
 loop unless a real pilot makes one of them a blocker.
+
+The [pilot validation plan](pilot-validation-plan.md) describes how to test the
+safety, interop and client-reach assumptions with five non-scripting BIM
+coordinators. No pilot has been run.
