@@ -47,6 +47,7 @@ class ApprovalGate:
         snapshot_id: Optional[str] = None,
         skipped: Optional[List[Dict[str, Any]]] = None,
         extra: Optional[Dict[str, Any]] = None,
+        before_storage_types: Optional[List[Optional[str]]] = None,
     ) -> Dict[str, Any]:
         plan_id = f"plan_{uuid.uuid4().hex[:12]}"
         plan_actions = []
@@ -61,6 +62,10 @@ class ApprovalGate:
                 "after": arguments,
                 "element_count": 1
             }
+            if before_storage_types and i < len(before_storage_types) and before_storage_types[i]:
+                # Revit StorageType of the parameter when the before value was captured, so a
+                # revert can rebuild a correctly typed value (the live read returns strings).
+                diff["before_storage_type"] = before_storage_types[i]
             plan_actions.append({
                 "action_id": act_id,
                 "tool": action.get("tool"),

@@ -1,12 +1,83 @@
 import logging
+import math
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 from ..security.workspace import WorkspaceMonitor
 from ..security.approval import ApprovalGate
 from .base import AECProvider, ProviderTool
 from ..config import config
 
 logger = logging.getLogger(__name__)
+
+_TRUE = {"true", "yes"}
+_FALSE = {"false", "no"}
+
+
+def _as_number(v: Any) -> Optional[float]:
+    """Return a float for numbers, bools (1/0), numeric strings and yes/no strings; else None."""
+    if isinstance(v, bool):
+        return 1.0 if v else 0.0
+    if isinstance(v, (int, float)):
+        return float(v)
+    if isinstance(v, str):
+        t = v.strip()
+        if t.lower() in _TRUE:
+            return 1.0
+        if t.lower() in _FALSE:
+            return 0.0
+        try:
+            f = float(t)
+        except ValueError:
+            return None
+        return f if math.isfinite(f) else None
+    return None
+
+
+def _values_equal(current: Any, expected: Any) -> bool:
+    """Compare a live parameter value (a string) with a recorded one (any JSON type)."""
+    if current is None or expected is None:
+        return current is None and expected is None
+    a, b = _as_number(current), _as_number(expected)
+    if a is not None and b is not None:
+        return math.isclose(a, b, rel_tol=1e-9, abs_tol=1e-9)
+    return str(current).strip() == str(expected).strip()
+
+
+def _typed_revert_value(before: Any, storage_type: Any, new: Any) -> Tuple[Any, Optional[str]]:
+    """Rebuild the JSON value for a revert from the recorded before value.
+
+    The live read returns every value as text, but the add-in's set command needs a JSON
+    number for Integer/Double/ElementId parameters. Returns (value, note); note is set when
+    the type had to be guessed or the value could not be converted.
+    """
+    if not isinstance(before, str):
+        return before, None  # already a typed JSON value
+    st = storage_type.lower() if isinstance(storage_type, str) else None
+    text = before.strip()
+    if st == "string":
+        return before, None
+    if st in ("integer", "elementid"):
+        f = _as_number(text)
+        if f is not None and f == int(f):
+            return int(f), None
+        return before, f"before value {before!r} is not an integer for {storage_type} storage; drafted as text"
+    if st == "double":
+        f = _as_number(text)
+        if f is not None:
+            return f, None
+        return before, f"before value {before!r} is not a number for Double storage; drafted as text"
+    if st == "boolean":
+        f = _as_number(text)
+        if f is not None:
+            return bool(f), None
+    # Unknown storage type (older proof, or a reader that does not report it): only turn
+    # numeric text into a number when the value the plan wrote was numeric.
+    if isinstance(new, (int, float)) and not isinstance(new, bool):
+        f = _as_number(text)
+        if f is not None:
+            value = int(f) if f == int(f) and isinstance(new, int) else f
+            return value, "storage type not recorded; before value converted to a number because the plan wrote a number"
+    return before, "storage type not recorded; before value kept as text"
 
 class ApprovalProvider(AECProvider):
     def __init__(self, workspace: WorkspaceMonitor, registry: Any, approval_mode: str = config.approval_mode) -> None:
@@ -32,10 +103,12 @@ class ApprovalProvider(AECProvider):
         if name == "plan_actions":
             actions = arguments.get("actions", [])
             before_states = []
+            before_types: List[Optional[str]] = []
             for action in actions:
                 tool = action.get("tool")
                 args = action.get("arguments", {})
                 before_val = {}
+                storage_type = None
                 if tool == "revit_set_parameter_value":
                     elem_id = args.get("element_id")
                     param_name = args.get("parameter_name")
@@ -49,15 +122,19 @@ class ApprovalProvider(AECProvider):
                             })
                             val = res.get("value")
                             before_val = {str(elem_id): {param_name: val}}
+                            st = res.get("storage_type")
+                            storage_type = st if isinstance(st, str) else None
                     except Exception as e:
                         logger.warning("Failed to get before-state for plan: %s", e)
                 before_states.append(before_val)
+                before_types.append(storage_type)
 
             plan = self.gate.create_plan(
                 actions,
                 before_states,
                 snapshot_id=arguments.get("snapshot_id") or None,
                 skipped=arguments.get("skipped") or None,
+                before_storage_types=before_types,
             )
             return plan
 
@@ -185,7 +262,7 @@ class ApprovalProvider(AECProvider):
         if not provider:
             raise ValueError(f"Cannot revert plan {plan_id}: cannot verify current values ({read_tool} unavailable).")
 
-        actions, before_states, conflicts = [], [], []
+        actions, before_states, conflicts, notes = [], [], [], []
         for e in elements:
             eid, pname = e["element_id"], e["parameter"]
             try:
@@ -193,14 +270,17 @@ class ApprovalProvider(AECProvider):
             except Exception as exc:
                 raise ValueError(f"Cannot revert plan {plan_id}: failed to read current value of {eid}/{pname}: {exc}")
             current = res.get("value")
-            if current != e.get("new"):
+            if not _values_equal(current, e.get("new")):
                 conflicts.append({"element_id": eid, "parameter": pname,
                                   "expected_current": e.get("new"), "actual_current": current,
                                   "revert_to": e.get("before")})
                 if not allow_conflicts:
                     continue
+            value, note = _typed_revert_value(e.get("before"), e.get("before_storage_type"), e.get("new"))
+            if note:
+                notes.append(f"{eid}/{pname}: {note}")
             actions.append({"tool": "revit_set_parameter_value",
-                            "arguments": {"element_id": eid, "parameter_name": pname, "value": e["before"]}})
+                            "arguments": {"element_id": eid, "parameter_name": pname, "value": value}})
             before_states.append({str(eid): {pname: current}})
 
         if conflicts and not allow_conflicts:
@@ -216,6 +296,8 @@ class ApprovalProvider(AECProvider):
         extra: Dict[str, Any] = {"reverts_plan_id": plan_id}
         if conflicts:
             extra["conflicts"] = conflicts
+        if notes:
+            extra["notes"] = notes
         unreverted = [a for a in bundle.get("other_actions", []) if a.get("status") == "executed"]
         if unreverted:
             extra["warnings"] = [

@@ -117,6 +117,7 @@ def build_proof(
                 "parameter": pname,
                 "before": before_map.get(pname),
                 "before_recorded": before_map.get(pname) is not None,
+                "before_storage_type": (action.get("diff") or {}).get("before_storage_type"),
                 "new": args.get("value"),
                 "status": "executed" if ok else "failed",
             }

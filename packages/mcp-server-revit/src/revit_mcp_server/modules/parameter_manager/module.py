@@ -252,7 +252,12 @@ class ParameterManagerModule:
                         "storage": pinfo.get("storage"),
                     }
                 else:
-                    el_blocked.append({"param": pname, "reason": reason})
+                    el_blocked.append({
+                        "uid": el.get("uid"),
+                        "element_id": el.get("element_id"),
+                        "param": pname,
+                        "reason": reason,
+                    })
             
             if el_updates:
                 planned.append({

@@ -208,3 +208,92 @@ async def test_plan_revert_tool_metadata(env):
     # Like plan_actions, drafting is not itself gated; execution of the draft is.
     assert caps["plan_revert"].is_mutating is False
     assert "plan_revert" in caps and "get_proof_bundle" in caps
+
+
+class TypedStore(FakeParamStore):
+    """Like the live add-in: values are read back as text, with the Revit storage type."""
+
+    def __init__(self, values, types):
+        super().__init__(values)
+        self.types = types
+
+    async def execute_tool(self, name, arguments):
+        res = await super().execute_tool(name, arguments)
+        if name == "revit_get_parameter_value":
+            v = res["value"]
+            res = {"value": None if v is None else str(v),
+                   "storage_type": self.types.get(arguments.get("parameter_name"))}
+        return res
+
+
+def _typed_env(tmp_path, values, types):
+    registry = ProviderRegistry()
+    approval = ApprovalProvider(WorkspaceMonitor([tmp_path]), registry, approval_mode="required")
+    registry.register(approval)
+    store = TypedStore(values, types)
+    registry.register(store)
+    return approval, store
+
+
+def _set(eid, pname, value):
+    return {"tool": "revit_set_parameter_value",
+            "arguments": {"element_id": eid, "parameter_name": pname, "value": value}}
+
+
+@pytest.mark.anyio
+async def test_revert_numeric_string_vs_number_is_not_a_conflict(tmp_path):
+    approval, store = _typed_env(tmp_path, {1: {"Rating": 30}}, {"Rating": "Integer"})
+    pid, _ = await _run(approval, [_set(1, "Rating", 60)])
+    assert store.values[1]["Rating"] == 60  # live read returns "60", the proof holds 60
+    revert = await approval.execute_tool("plan_revert", {"plan_id": pid})
+    assert "conflicts" not in revert
+
+
+@pytest.mark.anyio
+async def test_revert_numeric_real_conflict_still_refused(tmp_path):
+    approval, store = _typed_env(tmp_path, {1: {"Rating": 30}}, {"Rating": "Integer"})
+    pid, _ = await _run(approval, [_set(1, "Rating", 60)])
+    store.values[1]["Rating"] = 61
+    with pytest.raises(ValueError, match="changed since"):
+        await approval.execute_tool("plan_revert", {"plan_id": pid})
+    revert = await approval.execute_tool("plan_revert", {"plan_id": pid, "allow_conflicts": True})
+    assert revert["conflicts"][0]["actual_current"] == "61"
+
+
+@pytest.mark.anyio
+async def test_revert_drafts_typed_values(tmp_path):
+    approval, _ = _typed_env(
+        tmp_path,
+        {1: {"Rating": 30, "Width": 0.5, "Mark": "A-1", "Fixed": 1, "Host": 12},
+         },
+        {"Rating": "Integer", "Width": "Double", "Mark": "String", "Fixed": "Integer", "Host": "ElementId"},
+    )
+    pid, _ = await _run(approval, [_set(1, "Rating", 60), _set(1, "Width", 1.25), _set(1, "Mark", "B-2"),
+                                   _set(1, "Fixed", 0), _set(1, "Host", 99)])
+    revert = await approval.execute_tool("plan_revert", {"plan_id": pid})
+    got = {a["arguments"]["parameter_name"]: a["arguments"]["value"] for a in revert["actions"]}
+    assert got == {"Rating": 30, "Width": 0.5, "Mark": "A-1", "Fixed": 1, "Host": 12}
+    assert type(got["Rating"]) is int and type(got["Width"]) is float and type(got["Mark"]) is str
+    assert type(got["Fixed"]) is int and type(got["Host"]) is int
+    assert "notes" not in revert
+    assert _proof_file(tmp_path, pid)["elements"][0]["before_storage_type"] == "Integer"
+
+
+@pytest.mark.anyio
+async def test_revert_string_that_looks_numeric_stays_string(tmp_path):
+    approval, _ = _typed_env(tmp_path, {1: {"Mark": "007"}}, {"Mark": "String"})
+    pid, _ = await _run(approval, [_set(1, "Mark", "008")])
+    revert = await approval.execute_tool("plan_revert", {"plan_id": pid})
+    assert revert["actions"][0]["arguments"]["value"] == "007"
+
+
+@pytest.mark.anyio
+async def test_revert_unknown_storage_type_coerces_conservatively_with_note(tmp_path):
+    # No storage_type reported (older reader / older plan): numeric new value -> number, noted.
+    approval, _ = _typed_env(tmp_path, {1: {"Rating": 30, "Mark": "12"}}, {})
+    pid, _ = await _run(approval, [_set(1, "Rating", 60), _set(1, "Mark", "13")])
+    revert = await approval.execute_tool("plan_revert", {"plan_id": pid})
+    got = {a["arguments"]["parameter_name"]: a["arguments"]["value"] for a in revert["actions"]}
+    assert got["Rating"] == 30 and type(got["Rating"]) is int
+    assert got["Mark"] == "12"  # new value was text, so stays text
+    assert len(revert["notes"]) == 2 and all("storage type not recorded" in n for n in revert["notes"])

@@ -13,8 +13,8 @@ When `execute_plan` finishes (or a mutating tool marks a plan executed), the ser
 | `approved_by` | Name passed as `approver` to `approve_plan`. Self-reported and not authenticated; `null` if none was given. |
 | `document` | `snapshot_id`, `doc_guid`, `doc_title` of the snapshot the plan was drafted from. `null` if the plan has no `snapshot_id`. |
 | `plan_hash` | SHA-256 of the plan content (actions, arguments, before values, skipped list). |
-| `elements` | Applied changes: `element_id`, `uid` (when a snapshot is known), `parameter`, `before`, `new`. |
-| `skipped` | Elements left out, each with a `reason` (blocked at planning time, or failed at execution). |
+| `elements` | Applied changes: `element_id`, `uid` (when a snapshot is known), `parameter`, `before`, `before_storage_type` (Revit storage type reported when `before` was captured; `null` if unknown), `new`. |
+| `skipped` | Elements left out, each with a `reason` (blocked at planning time, or failed at execution). Entries from `parameter_manager_plan_set_params` carry `uid`, `element_id` and `param`. |
 | `outcome` | `success`, `partial` or `failed`. Only `success` means every action ran. |
 
 To get the document identity and the skipped list, pass `snapshot_id` (and `skipped`, which `parameter_manager_plan_set_params` returns as its blocked list) to `plan_actions`.
@@ -29,6 +29,8 @@ It refuses, with a message, when:
 - the plan state is not `executed`;
 - an element has no recorded `before` value (an empty value counts as not recorded);
 - the current model value differs from the value the plan wrote. With `allow_conflicts=true` the draft is created anyway and lists those elements under `conflicts` for explicit review.
+
+Values are compared and drafted by type. The live read returns every value as text, so the staleness check compares numerically when both sides are numbers (`"60"` equals `60`, `"61"` does not) and as text otherwise. The drafted `value` is rebuilt from `before_storage_type`: integer for Integer and ElementId, float for Double, text for String. When the storage type was not recorded (proofs written before this field existed), a numeric-looking `before` becomes a number only if the value the plan wrote was numeric; the draft's `notes` list each such guess.
 
 Like `plan_actions`, drafting a revert is not itself gated; changing the model is.
 
