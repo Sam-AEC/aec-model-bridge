@@ -4,6 +4,7 @@ MCP Server for AEC - Dynamic multi-provider automation server.
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 import logging
 from typing import Any
@@ -15,11 +16,42 @@ from mcp.types import Tool, TextContent
 from .errors import BridgeError
 from .registry_factory import build_registry
 from .security.audit import redact_data
+from .tool_metadata import enrich_tool
 
 logger = logging.getLogger(__name__)
 
+SERVER_INSTRUCTIONS = (
+    "AEC Model Bridge exposes Autodesk Revit (and Navisworks, Rhino, IFC, Speckle) as MCP tools. "
+    "Read-only tools run immediately. Every tool that changes a model requires an approved plan: "
+    "call plan_actions with the proposed changes, have the human approve it (approve_plan or the Revit panel), "
+    "then call execute_plan or pass the plan_id to the write tool. Revit lengths are in feet. "
+    "In MCP_REVIT_MODE=mock the server returns canned responses and needs no Revit."
+)
+
+
+def _package_version() -> str:
+    try:
+        from importlib.metadata import version
+
+        return version("aec-model-bridge")
+    except Exception:
+        return "0.0.0"
+
+
+def _make_server() -> Server:
+    # Report this package's version (not the MCP SDK's) and, where the installed
+    # SDK supports them, the usage instructions and website.
+    wanted = {
+        "version": _package_version(),
+        "instructions": SERVER_INSTRUCTIONS,
+        "website_url": "https://github.com/Sam-AEC/aec-model-bridge",
+    }
+    accepted = inspect.signature(Server.__init__).parameters
+    return Server("aec-model-bridge", **{k: v for k, v in wanted.items() if k in accepted})
+
+
 # Initialize the MCP server
-app = Server("aec-model-bridge")
+app = _make_server()
 
 # Registry components — populated in main() so importing this module never
 # triggers provider construction (Rhino health probes, Speckle OAuth, SQLite
@@ -32,13 +64,12 @@ job_manager = None
 @app.list_tools()
 async def list_tools() -> list[Tool]:
     """List all available AEC tools from registered providers."""
+    # enrich_tool adds parameter docs and behaviour annotations (readOnlyHint,
+    # destructiveHint, idempotentHint, openWorldHint) without changing behaviour.
     return [
-        Tool(
-            name=t.name,
-            description=t.description,
-            inputSchema=t.input_schema
-        )
-        for t in registry.get_all_tools()
+        enrich_tool(provider.get_identity(), t)
+        for provider in registry.get_all_providers()
+        for t in provider.get_capabilities()
     ]
 
 @app.call_tool()
