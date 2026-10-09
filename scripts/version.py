@@ -50,6 +50,7 @@ TARGETS: list[tuple[str, str, object]] = [
     ("extensions/vscode/package-lock.json", r'(?m)^  "version": "(?P<v>[^"]+)"', str),
     ("extensions/vscode/package-lock.json", r'(?m)^    "": \{\s*\n      "name": "aec-model-bridge",\s*\n      "version": "(?P<v>[^"]+)"', str),
     ("packages/mcp-server-revit/pyproject.toml", r'(?m)^version = "(?P<v>[^"]+)"', str),
+    ("packages/mcp-server-revit/uv.lock", r'(?m)^name = "aec-model-bridge"\r?\nversion = "(?P<v>[^"]+)"', str),
     ("packages/mcp-server-revit/manifest.json", r'(?m)^  "version": "(?P<v>[^"]+)"', str),
     ("server.json", r'(?m)^    "version":  "(?P<v>[^"]+)"', str),
     ("server.json", r'(?m)^ +"version":  "(?P<v>[^"]+)",\s*\n\s*"transport"', str),
