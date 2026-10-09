@@ -284,7 +284,6 @@ PARAM_DESCRIPTIONS: dict[str, str] = {
     "offset": "Number of items to skip (for paging).",
     "idempotency_key": "Optional unique key; repeating a call with the same key does not repeat the write.",
     "plan_id": "ID of an ActionPlan (from plan_actions).",
-    "snapshot_id": "ID of a saved snapshot the plan was drafted from; recorded so the proof bundle can name the source document.",
     "skipped": "Elements or parameters excluded when drafting (for example the blocked list of a parameter plan), each with a reason.",
     "approver": "Name of the person approving the plan; recorded in the proof bundle but not authenticated.",
     "allow_conflicts": "If true, draft the revert even where the model's current value differs from the value the plan wrote, listing those elements as conflicts for explicit review.",
