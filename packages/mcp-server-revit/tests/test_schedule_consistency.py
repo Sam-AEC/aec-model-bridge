@@ -1,17 +1,12 @@
 """Tests for the door/room schedule consistency module (F8)."""
-import importlib.util
 import json
 from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[3]
-_p = Path(__file__).parent.parent / "src/revit_mcp_server/modules/schedule_consistency/module.py"
-_spec = importlib.util.spec_from_file_location("_sched_impl", _p)
-_mod = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_mod)
-Mod = _mod.ScheduleConsistencyModule
+from revit_mcp_server.modules.schedule_consistency.module import ScheduleConsistencyModule as Mod
 
+ROOT = Path(__file__).resolve().parents[3]
 SEEDED = json.loads((ROOT / "fixtures/canonical-model/seeded-defects.json").read_text(encoding="utf-8"))
 SEEDED_COUNTS = {f["rule_id"]: f["expected_count"] for f in SEEDED["expected_findings"]}
 
@@ -141,3 +136,37 @@ def test_mock_snapshot_runs():
 def test_missing_snapshot(tmp_path):
     with pytest.raises(ValueError, match="not found"):
         Mod().check_doors_and_rooms(snapshot_id="nope", workspace=WS(tmp_path))
+
+
+def test_total_findings_counts_elements_not_groups(tmp_path):
+    els = [door(i, f"D-{i:03d}" if i < 48 else None, False) for i in range(60)]
+    els += [room(i, f"{100 + i}" if i < 22 else None) for i in range(25)]
+    res = run(tmp_path, els)
+    assert res["total_findings"] == 15 == sum(res["counts"].values())
+    assert res["finding_groups"] == 2
+
+
+def test_blank_level_uid_is_not_placed(tmp_path):
+    placed = room(1, "101", area=0)
+    unplaced = room(2, "102", area=0)
+    unplaced["level_uid"] = ""
+    res = run(tmp_path, [placed, unplaced])
+    by = {a["unique_id"]: a["placed"] for f in res["findings"] if f["check_id"] == "room_zero_area" for a in f["affected"]}
+    assert by == {"r1": True, "r2": False}
+
+
+def test_placement_unknown_when_no_room_has_level(tmp_path):
+    r = room(1, "101", area=0)
+    r["level_uid"] = ""
+    res = run(tmp_path, [r])
+    f = next(f for f in res["findings"] if f["check_id"] == "room_zero_area")
+    assert f["affected"][0]["placed"] is None
+    assert any(s["check_id"] == "room_placement_status" for s in res["skipped"])
+    assert "unknown" in res["summary"]
+
+
+def test_missing_room_data_is_not_a_clean_pass(tmp_path):
+    res = run(tmp_path, [door(1, "A", False)])
+    assert res["total_findings"] == 0
+    assert "NOT run" in res["summary"] and "not enough data" in res["summary"]
+    assert all("Not enough data" in s["reason"] for s in res["skipped"] if s["check_id"].startswith("door_") and s["check_id"] != "door_mark_pattern_mismatch")

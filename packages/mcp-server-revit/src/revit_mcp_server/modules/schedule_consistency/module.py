@@ -34,7 +34,21 @@ def _pv(el: Dict[str, Any], name: str) -> Any:
     return p
 
 
+PLACEMENT_UNKNOWN_REASON = (
+    "Not enough data to say whether zero-area rooms are placed or unplaced: this snapshot "
+    "has no room level or location. The Revit add-in needs to save each room's level and "
+    "placement."
+)
+ROOM_DATA_MISSING_REASON = (
+    "Not enough data: this snapshot has no From Room / To Room for doors, so this check "
+    "could not be run (it is NOT a pass). The Revit add-in needs to save each door's "
+    "FromRoom and ToRoom."
+)
+
+
 def _blank(v: Any) -> bool:
+    if isinstance(v, (dict, list, tuple)):
+        return len(v) == 0
     return v is None or (isinstance(v, str) and v.strip() == "")
 
 
@@ -164,12 +178,21 @@ class ScheduleConsistencyModule:
                     f"{len(group)} rooms share the Number '{n}'.",
                     [_affected(r, Number=n) for r in group])
 
+        # A blank level_uid ("") is not a placement. If no room in the snapshot
+        # carries a level or a location, placement is unknown (not "placed").
+        def _has_placement(r: Dict[str, Any]) -> bool:
+            return not _blank(r.get("level_uid")) or not _blank(r.get("location"))
+
+        placement_known = any(_has_placement(r) for r in rooms)
         zero = []
         for r in rooms:
             if "Area" in (r.get("params") or {}) and _is_zero(_pv(r, "Area")):
                 a = _affected(r, Area=_pv(r, "Area"))
-                a["placed"] = r.get("level_uid") is not None or r.get("location") is not None
+                a["placed"] = _has_placement(r) if placement_known else None
                 zero.append(a)
+        if zero and not placement_known:
+            skipped.append({"check_id": "room_placement_status",
+                            "reason": PLACEMENT_UNKNOWN_REASON})
         add("room_zero_area", "error",
             "Room has zero area (not enclosed, too small, or not placed).", zero)
 
@@ -180,7 +203,7 @@ class ScheduleConsistencyModule:
         if not have_room_data:
             for cid in ("door_missing_room", "door_same_room", "door_in_unnumbered_room"):
                 skipped.append({"check_id": cid,
-                                "reason": "This snapshot has no From Room / To Room data for doors."})
+                                "reason": ROOM_DATA_MISSING_REASON})
         else:
             no_room, same, in_unnum = [], [], []
             for d in doors:
@@ -203,12 +226,26 @@ class ScheduleConsistencyModule:
         for f in findings:
             counts[f["check_id"]] = counts.get(f["check_id"], 0) + len(f["affected"])
 
+        total = sum(counts.values())
+        room_checks_skipped = [x["check_id"] for x in skipped if x["check_id"].startswith("door_") and x["check_id"] != "door_mark_pattern_mismatch"]
+        if total:
+            summary = f"{total} problem(s) found across {len(findings)} kind(s) of check."
+        else:
+            summary = "No problems found by the checks that could run."
+        if room_checks_skipped:
+            summary += (" The door-to-room checks were NOT run (not enough data: no From Room / To Room "
+                        "in this snapshot), so door/room problems may exist that are not shown here.")
+        if any(x["check_id"] == "room_placement_status" for x in skipped):
+            summary += " Whether zero-area rooms are placed is unknown (no room level or location saved)."
+
         return {
             "read_only": True,
             "snapshot_id": snapshot_id or "(mock)",
             "doors_checked": len(doors),
             "rooms_checked": len(rooms),
-            "total_findings": len(findings),
+            "total_findings": total,
+            "finding_groups": len(findings),
+            "summary": summary,
             "counts": counts,
             "skipped": skipped,
             "findings": findings,
