@@ -80,6 +80,60 @@ def _run_tool_sync(registry, approval_provider, name: str, arguments: Dict[str, 
     return asyncio.run(_run())
 
 
+def collect_diagnostics(workspace_dir: Path) -> Dict[str, Any]:
+    """Install-to-first-check status: one entry per thing that can block a first run.
+
+    Each check carries a ``next_step`` so the panel can show a specific recovery
+    action instead of a generic connection error.
+    """
+    from .bridge.discovery import available_host_versions
+    from .config import BridgeMode
+
+    checks = []
+
+    def add(check_id: str, ok: bool, detail: str, next_step: str = "") -> None:
+        checks.append({"id": check_id, "ok": ok, "detail": detail, "next_step": "" if ok else next_step})
+
+    add("hub", True, "Panel hub is running.")
+
+    if config.mode == BridgeMode.mock:
+        add(
+            "mode", False,
+            "Hub is in mock mode: tools return generated sample data, not your Revit model.",
+            "Set MCP_REVIT_MODE=bridge and restart the hub.",
+        )
+    else:
+        add("mode", True, f"Hub mode is '{config.mode.value}'.")
+        versions = available_host_versions("revit")
+        add(
+            "revit_bridge", bool(versions),
+            f"Live Revit bridge(s): {', '.join(versions)}." if versions else "No live Revit bridge found.",
+            "Open Revit with the AEC Model Bridge add-in loaded and an active project, then refresh. "
+            "If Revit is open, check that the add-in matches your Revit version (docs/install.md).",
+        )
+
+    try:
+        workspace_dir.mkdir(parents=True, exist_ok=True)
+        probe = workspace_dir / ".diagnostics-write-test"
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink()
+        add("workspace", True, f"Workspace is writable: {workspace_dir}")
+    except OSError as e:
+        add(
+            "workspace", False, f"Workspace is not writable: {workspace_dir} ({e.strerror or e})",
+            "Set MCP_REVIT_WORKSPACE_DIR to a folder you can write to and restart the hub.",
+        )
+
+    claude_ok = bool(config.anthropic_api_key) or shutil.which("claude") is not None
+    add(
+        "ai_provider", claude_ok,
+        "An AI provider is available for panel chat." if claude_ok else "No AI provider for panel chat.",
+        "Set MCP_REVIT_ANTHROPIC_API_KEY, or install and sign in to the claude CLI, then restart Revit.",
+    )
+
+    return {"ok": all(c["ok"] for c in checks), "checks": checks}
+
+
 class PanelRequestHandler(BaseHTTPRequestHandler):
     registry = None
     approval_provider = None
@@ -99,6 +153,9 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         if self.path == "/health":
             self._send_json(200, {"status": "healthy", "tools": len(self.registry.get_all_tools())})
+            return
+        if self.path == "/diagnostics":
+            self._send_json(200, collect_diagnostics(self.workspace.allowed_directories[0]))
             return
         if self.path == "/reports":
             self._handle_list_reports()

@@ -310,3 +310,24 @@ def test_configure_file_logging_tolerates_unwritable_path(tmp_path):
     blocker = tmp_path / "file"
     blocker.write_text("x")
     assert panel_server.configure_file_logging(blocker / "sub" / "panel-hub.log") is None
+
+
+def test_diagnostics_flags_mock_mode_with_next_step(running_server):
+    status, body = _get(running_server, "/diagnostics")
+    assert status == 200
+    checks = {c["id"]: c for c in body["checks"]}
+    assert checks["hub"]["ok"] is True
+    assert checks["workspace"]["ok"] is True
+    assert checks["mode"]["ok"] is False and "MCP_REVIT_MODE=bridge" in checks["mode"]["next_step"]
+    assert body["ok"] is False
+
+
+def test_diagnostics_reports_missing_revit_bridge(running_server, monkeypatch):
+    from revit_mcp_server.config import BridgeMode
+
+    monkeypatch.setattr(panel_server.config, "mode", BridgeMode.bridge)
+    monkeypatch.setattr("revit_mcp_server.bridge.discovery.available_host_versions", lambda *_a, **_k: [])
+    status, body = _get(running_server, "/diagnostics")
+    checks = {c["id"]: c for c in body["checks"]}
+    assert checks["revit_bridge"]["ok"] is False
+    assert "add-in" in checks["revit_bridge"]["next_step"]
