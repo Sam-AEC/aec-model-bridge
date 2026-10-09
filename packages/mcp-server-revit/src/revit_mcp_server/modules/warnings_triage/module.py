@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import re
 from collections import OrderedDict
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 # (family key, label, regex on lowercase description, plain next step)
@@ -74,19 +75,37 @@ def _classify(description: str) -> Tuple[str, str, str, bool]:
     return "other", "", _DEFAULT_STEP, False
 
 
-def _snapshot_id_map(snapshot_id: str, workspace: Any) -> Dict[int, str]:
-    if not snapshot_id or workspace is None:
-        return {}
-    path = workspace.allowed_directories[0] / "snapshots" / f"{snapshot_id}.json"
+def _load_snapshot(snapshot_id: str, workspace: Any) -> Dict[str, Any]:
+    snap_dir = (Path(workspace.allowed_directories[0]) / "snapshots").resolve()
+    path = (snap_dir / f"{snapshot_id}.json").resolve()
+    if path.parent != snap_dir:
+        raise ValueError("snapshot_id must be a plain snapshot name inside the workspace snapshots folder.")
     if not path.exists():
         raise ValueError(f"Snapshot '{snapshot_id}' not found.")
     with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+        return json.load(f)
+
+
+def _snapshot_id_map(data: Dict[str, Any]) -> Dict[int, str]:
     return {
         int(el["element_id"]): el["uid"]
         for el in data.get("elements", [])
         if el.get("uid") is not None and el.get("element_id") is not None
     }
+
+
+def _active_title(tool_executor: Any) -> str:
+    """Title of the open Revit document, or '' when it cannot be read."""
+    if tool_executor is None:
+        return ""
+    try:
+        raw = tool_executor("revit_get_document_info", {})
+    except Exception:
+        return ""
+    if isinstance(raw, dict) and isinstance(raw.get("data"), dict) and "title" not in raw:
+        raw = raw["data"]
+    title = (raw or {}).get("title") if isinstance(raw, dict) else ""
+    return str(title or "").strip()
 
 
 def group_warnings(
@@ -136,7 +155,7 @@ def group_warnings(
             "warning_count": g["warning_count"],
             "elements_affected": len(g["ids"]),
             "element_unique_ids": uids[:max_elements_per_group],
-            "element_ids_without_unique_id": unmapped[:max_elements_per_group],
+            "element_ids_without_unique_id": unmapped[: max(0, max_elements_per_group - len(uids[:max_elements_per_group]))],
             "element_list_truncated": len(g["ids"]) > max_elements_per_group,
             "next_step": step,
         })
@@ -175,13 +194,26 @@ class WarningsTriageModule:
             if isinstance(raw, dict) and isinstance(raw.get("data"), dict) and "warnings" not in raw:
                 raw = raw["data"]
             warnings = (raw or {}).get("warnings") or []
-        id_to_uid = _snapshot_id_map(snapshot_id, workspace)
+        id_to_uid: Dict[int, str] = {}
+        if snapshot_id and workspace is not None:
+            data = _load_snapshot(snapshot_id, workspace)
+            snap_title = str((data.get("source") or {}).get("doc_title") or "").strip()
+            active = _active_title(tool_executor)
+            if snap_title and active and snap_title.lower() == active.lower():
+                id_to_uid = _snapshot_id_map(data)
+            else:
+                notes.append(
+                    "The snapshot could not be confirmed as the open Revit document "
+                    f"(snapshot: '{snap_title or 'unknown'}', open document: '{active or 'unknown'}'), "
+                    "or it is from a different document, so elements are listed by Revit id. "
+                    "Take a snapshot of the open document."
+                )
         if not snapshot_id:
             notes.append(
                 "No snapshot_id given, so elements are listed by Revit element id. "
                 "Pass a snapshot_id to get UniqueIds."
             )
-        elif warnings and not id_to_uid:
+        elif warnings and not id_to_uid and not notes:
             notes.append("The snapshot has no elements to match against.")
 
         all_groups = group_warnings(warnings, id_to_uid, max(1, int(max_elements_per_group)))

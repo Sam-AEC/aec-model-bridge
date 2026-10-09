@@ -43,8 +43,14 @@ FIXTURE = {
 }
 
 
+def _default_executor(name, args):
+    if name == "revit_get_document_info":
+        return {"title": "Mock_Project.rvt"}
+    return FIXTURE
+
+
 def run(**kw):
-    ex = kw.pop("tool_executor", lambda name, args: FIXTURE)
+    ex = kw.pop("tool_executor", _default_executor)
     return WarningsTriageModule().review_warnings(tool_executor=ex, **kw)
 
 
@@ -89,6 +95,48 @@ def test_unique_ids_from_snapshot(tmp_path):
     ov = next(g for g in r["groups"] if g["description"] == "Highlighted walls overlap.")
     assert set(ov["element_unique_ids"]) == {uid[300], uid[400], uid[401]}
     assert ov["element_ids_without_unique_id"] == [9999]
+
+
+def _write_snapshot(tmp_path):
+    snap = generate_mock_snapshot()
+    d = tmp_path / "snapshots"
+    d.mkdir(exist_ok=True)
+    (d / f"{snap.snapshot_id}.json").write_text(snap.model_dump_json(by_alias=True), encoding="utf-8")
+    return snap
+
+
+def test_snapshot_id_cannot_escape_snapshots_dir(tmp_path):
+    outside = tmp_path / "outside.json"
+    outside.write_text('{"elements": [{"element_id": 100, "uid": "LEAK"}]}', encoding="utf-8")
+    (tmp_path / "snapshots").mkdir()
+    for bad in ("../outside", str(tmp_path / "outside"), "..\\outside"):
+        with pytest.raises(ValueError):
+            run(snapshot_id=bad, workspace=WS(tmp_path))
+
+
+def test_snapshot_from_other_document_is_not_mapped(tmp_path):
+    snap = _write_snapshot(tmp_path)
+    other = lambda n, a: {"title": "Other_Project.rvt"} if n == "revit_get_document_info" else FIXTURE  # noqa: E731
+    r = run(snapshot_id=snap.snapshot_id, workspace=WS(tmp_path), tool_executor=other)
+    assert not r["unique_ids_available"]
+    assert all(g["element_unique_ids"] == [] for g in r["groups"])
+    assert any("different" in n.lower() for n in r["notes"])
+
+
+def test_unverifiable_document_identity_is_not_mapped(tmp_path):
+    snap = _write_snapshot(tmp_path)
+    nodoc = lambda n, a: FIXTURE  # noqa: E731
+    r = run(snapshot_id=snap.snapshot_id, workspace=WS(tmp_path), tool_executor=nodoc)
+    assert not r["unique_ids_available"]
+
+
+def test_element_cap_is_shared_across_both_lists(tmp_path):
+    snap = _write_snapshot(tmp_path)
+    r = run(snapshot_id=snap.snapshot_id, workspace=WS(tmp_path), max_elements_per_group=2)
+    for g in r["groups"]:
+        assert len(g["element_unique_ids"]) + len(g["element_ids_without_unique_id"]) <= 2
+    ov = next(g for g in r["groups"] if g["description"] == "Highlighted walls overlap.")
+    assert ov["element_list_truncated"]
 
 
 def test_without_snapshot_lists_revit_ids():
