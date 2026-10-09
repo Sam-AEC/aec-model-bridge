@@ -1,0 +1,57 @@
+{
+  "id": "links_worksets_audit",
+  "name": "Links and Worksets Audit",
+  "version": "1.0.0",
+  "schema_version": 1,
+  "min_hub_version": "1.2.0",
+  "description": "Read-only audit of linked models and worksets: unloaded or missing links, links that are not pinned, links placed Origin to Origin, empty or default-named worksets, worksets open by another user, and elements on the wrong workset for their category.",
+  "author": "AEC Model Bridge",
+  "license": "GPL-3.0-or-later",
+  "requires_providers": ["revit"],
+  "permissions": ["model.read"],
+  "commands": [
+    {
+      "id": "audit",
+      "title": "Audit Links and Worksets",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "description": "Optional saved snapshot. Used to count elements per workset and to check categories against the workset mapping."
+          },
+          "category_workset_map": {
+            "type": "object",
+            "description": "Optional. Which workset each category belongs on, for example {\"Walls\": \"Shared Architecture\"} (Revit names such as OST_Walls are also accepted). Elements on a different workset are reported.",
+            "additionalProperties": {"type": "string"}
+          },
+          "current_user": {
+            "type": "string",
+            "description": "Your Revit username, so worksets you own are not reported as open by someone else."
+          },
+          "expect_shared_coordinates": {
+            "type": "boolean",
+            "description": "Report links placed 'Auto - Origin to Origin' as a warning. Default true.",
+            "default": true
+          },
+          "links": {
+            "type": ["object", "array"],
+            "description": "Optional. Link data to audit instead of reading it live from Revit (output of revit_get_rvt_links)."
+          },
+          "link_instances": {
+            "type": ["object", "array"],
+            "description": "Optional. Link placement data (output of revit_get_link_instances)."
+          },
+          "worksets": {
+            "type": ["object", "array"],
+            "description": "Optional. Workset data (output of revit_get_worksets)."
+          }
+        },
+        "required": []
+      }
+    }
+  ]
+}

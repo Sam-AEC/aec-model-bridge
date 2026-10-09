@@ -6,7 +6,7 @@
 
 > 이 문서는 AI의 도움으로 번역되었습니다. 영문 [README](../../README.md)가 기준 문서이며, 오류나 개선 사항은 Pull Request로 알려 주세요. 자세한 내용은 [CONTRIBUTING.md](../../CONTRIBUTING.md)를 참고하세요.
 
-**열려 있는 Revit 모델에 대해 AI에게 물어보세요. 기본 설정에서는 승인하기 전에는 아무것도 바뀌지 않습니다.**
+**열려 있는 Revit 모델에 대해 AI에게 물어보세요. 기본 설정에서는 사용자가 승인하기 전까지 아무것도 바뀌지 않습니다.**
 
 Revit 2024 – 2027용 오픈소스 MCP 서버와 네이티브 애드인. Claude, Codex 및 다른 MCP 클라이언트와 함께 사용할 수 있습니다.
 
@@ -20,10 +20,16 @@ Revit 2024 – 2027용 오픈소스 MCP 서버와 네이티브 애드인. Claude
 </div>
 
 <p align="center">
-  <img src="../images/readme/demo.gif" alt="데모: AI 어시스턴트가 Mark가 없는 문 12개를 찾아 계획을 작성합니다. 계획은 승인할 때까지 Revit 패널에서 대기하고, 승인 후 값을 다시 읽어 확인합니다. 예시 값, 시뮬레이션된 세션입니다." width="900">
+  <img src="../images/readme/demo.gif" alt="데모: Revit 패널 옆에 건물의 3D 모델이 놓여 있습니다. AI 어시스턴트가 Mark가 없는 문 12개를 찾아 계획을 작성합니다. 계획은 승인할 때까지 Revit 패널에서 대기하고, 승인 후 값을 다시 읽어 확인합니다. 예시 값, 시뮬레이션된 세션입니다." width="900">
 </p>
 
-Claude, Codex 또는 다른 MCP 클라이언트를 현재 열려 있는 Revit 모델에 연결하세요. AEC Model Bridge는 Python MCP 서버와 네이티브 Revit 애드인으로 구성됩니다. 읽기 전용 도구는 모델을 즉시 조회하며, 모델 변경에는 기본적으로 승인된 계획이 필요합니다. [승인 흐름 보기](#승인-방식).
+AEC Model Bridge는 Claude, Codex, Cursor 등의 AI 어시스턴트가 현재 열려 있는 Revit 모델을 읽고 편집할 수 있게 해 주는 오픈소스 Revit MCP 서버이며, 모든 변경은 먼저 사용자가 승인해야 적용됩니다. Python MCP 서버와 네이티브 Revit 애드인으로 구성됩니다. 읽기 전용 도구는 모델을 즉시 조회하며, 모델 변경에는 기본적으로 승인된 계획이 필요합니다. [승인 흐름 보기](#승인-방식).
+
+<p align="center">
+  <img src="../images/readme/works-with.svg" alt="호환: Claude Desktop, GitHub Copilot과 함께 쓰는 VS Code, Cursor, Codex는 설정 문서가 있습니다. Claude Code, Windsurf, Cline, Continue, Zed, Gemini CLI 같은 다른 MCP 클라이언트도 동작할 것으로 예상됩니다. 애플리케이션: Revit 2024~2027, Rhino, Grasshopper, Navisworks(개발 중). 데이터: IFC, Speckle, Excel, SQLite. 프로토콜: 승인 게이트가 있는 stdio 기반 MCP." width="900">
+</p>
+
+Claude Desktop, GitHub Copilot과 함께 쓰는 VS Code, Cursor, Codex에 대한 설정 문서를 제공합니다. 표준 MCP stdio 서버이므로 Claude Code, Windsurf, Cline, Continue, Zed, Gemini CLI 같은 다른 클라이언트에서도 동작할 것으로 예상됩니다. 문서화된 범위와 테스트되지 않은 범위는 [호환성](../compatibility.md)을 참고하세요.
 
 같은 서버에 IFC 검사, Rhino 및 Grasshopper 자동화, Speckle 연동도 포함되어 있습니다. [연동 현황](#기타-연동)에서 사용 가능한 프로바이더와 개발 중인 항목을 구분해 보여 줍니다.
 
@@ -33,10 +39,10 @@ BIM 코디네이터를 위한 흐름입니다. 모델 품질을 점검하고, �
 
 | 워크플로 | 요청 예시 | 사용하는 도구 |
 | --- | --- | --- |
-| 모델 검토 | "활성 문서를 보여 주고, 경고를 나열하고, 영향받는 요소를 찾아 줘." | `revit_get_document_info`, `revit_get_warnings`, `revit_get_elements_by_type` |
-| 매개변수 업데이트 | "Level 02의 벽을 찾아 Comments 값을 보여 주고, 일괄 업데이트를 제안해 줘." | `revit_get_elements_by_type`, `revit_get_element_parameters`, `revit_batch_set_parameters` |
-| 도면 작성 | "이 CSV로 시트 목록을 준비하고, 시트 생성과 뷰 배치를 제안해 줘." | `revit_batch_create_sheets_from_csv`, `revit_place_viewport_on_sheet` |
-| IFC 검토 | "이 IFC 파일의 층을 보여 주고, 벽 속성을 확인하고, 스키마 검증 문제를 보고해 줘." | `ifc_get_spatial_structure`, `ifc_get_properties`, `ifc_validate` |
+| 모델 검토 | "활성 문서를 보여 주고, 경고를 나열하고, 영향받는 요소를 찾아 주세요." | `revit_get_document_info`, `revit_get_warnings`, `revit_get_elements_by_type` |
+| 매개변수 업데이트 | "Level 02의 벽을 찾아 Comments 값을 보여 주고, 일괄 업데이트를 제안해 주세요." | `revit_get_elements_by_type`, `revit_get_element_parameters`, `revit_batch_set_parameters` |
+| 도면 작성 | "이 CSV로 시트 목록을 준비하고, 시트 생성과 뷰 배치를 제안해 주세요." | `revit_batch_create_sheets_from_csv`, `revit_place_viewport_on_sheet` |
+| IFC 검토 | "이 IFC 파일의 층을 보여 주고, 벽 속성을 확인하고, 스키마 검증 문제를 보고해 주세요." | `ifc_get_spatial_structure`, `ifc_get_properties`, `ifc_validate` |
 
 Revit에서 처음 사용해 본다면 이렇게 요청해 보세요.
 
@@ -65,7 +71,7 @@ the plan in Revit, apply it and read the values back to confirm the result.
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
-버튼에는 [uv](https://docs.astral.sh/uv/getting-started/installation/)만 있으면 되며 다른 설정은 필요 없습니다. 별도로 지정하지 않으면 서버는 `~/Documents/AEC Model Bridge`를 작업 공간으로 사용합니다. Claude Desktop은 최신 릴리스에서 `.mcpb` 파일을 내려받아 열면 됩니다. 실제 Revit 작업에는 여전히 Revit과 [애드인](#revit-애드인-설치)이 필요하며, mock 모드는 아무것도 필요하지 않습니다.
+버튼에는 [uv](https://docs.astral.sh/uv/getting-started/installation/)만 있으면 되며 다른 설정은 필요 없습니다. 별도로 지정하지 않으면 서버는 `~/Documents/AEC Model Bridge`를 작업 공간으로 사용합니다. Claude Desktop은 최신 릴리스에서 `.mcpb` 파일을 내려받아 열면 됩니다. 실제 Revit 작업에는 여전히 Revit과 [애드인](#revit-애드인-설치)이 필요하며, mock 모드에는 아무것도 필요하지 않습니다.
 
 **수동 설정**
 
@@ -151,7 +157,7 @@ MCP 클라이언트는 하나의 Python 허브와 통신합니다. 허브는 각
 
 <sub>다이어그램 소스: [approval-flow.mmd](../diagrams/approval-flow.mmd). 이미지는 `python scripts/render_diagrams.py`로 다시 생성합니다.</sub>
 
-승인한 계획이 나중에 잘못된 것으로 드러나면 `rollback_plan`으로 되돌릴 수 있습니다. 롤백은 같은 세션에서는 Revit 실행 취소를, 그렇지 않으면 반대 매개변수 값을 사용합니다. 파일 출력처럼 되돌릴 수 없는 작업은 한 번 더 확인을 요청합니다. 전체 수명 주기는 [ADR 0008](../0008-approval-gate-lifecycle.md)에 있습니다.
+승인한 계획이 나중에 잘못된 것으로 드러나면 `rollback_plan`으로 되돌릴 수 있습니다. 롤백은 같은 세션에서는 Revit의 실행 취소를 사용하거나, 반대 매개변수 값을 적용합니다. 파일 출력처럼 되돌릴 수 없는 작업은 한 번 더 확인을 요청합니다. 전체 수명 주기는 [ADR 0008](../0008-approval-gate-lifecycle.md)에 있습니다.
 
 무인 파이프라인에서는 `MCP_REVIT_APPROVAL_MODE=auto`를 설정할 수 있습니다. 사람의 확인을 끄는 설정이므로 통제된 환경에서만 사용하세요.
 
@@ -176,7 +182,9 @@ MCP 클라이언트는 하나의 Python 허브와 통신합니다. 허브는 각
 | Speckle | 사용 가능. 환경에 Speckle 클라이언트 ID가 필요합니다. |
 | Navisworks Manage | 개발 중. 프로바이더와 도구는 등록되어 있지만 Navisworks 애드인은 완성되지 않았습니다. |
 | Power BI | 개발 중. 프로바이더와 도구는 있으나 허브에 등록되어 있지 않습니다. |
-| Excel, Parquet 및 DuckDB | 계획됨. |
+| Excel, Parquet 및 DuckDB | 예정. |
+
+제품 이름과 로고는 각 소유자에게 귀속됩니다. 배너는 이 프로젝트가 함께 동작하는 대상을 보여 주기 위한 용도로만 사용합니다.
 
 ## Revit 애드인 설치
 
@@ -281,7 +289,7 @@ Invoke-RestMethod "$($switch.endpoint)/health"
 - Revit 브리지는 localhost에서만 수신합니다.
 - 서버는 `MCP_REVIT_ALLOWED_DIRECTORIES`에 지정된 폴더 안에서만 읽고 씁니다.
 - 승인을 끄지 않는 한, 모델을 변경하는 도구에는 승인된 계획이 필요합니다.
-- 도구 호출은 감사 로그에 기록되며, 비밀 정보는 마스킹됩니다.
+- 도구 호출은 감사 로그에 기록되며, 시크릿은 마스킹됩니다.
 
 자세한 내용은 [docs/security.md](../security.md)에 있습니다. 취약점을 신고하려면 [SECURITY.md](../../SECURITY.md)를 따르세요.
 
@@ -293,7 +301,7 @@ Model Context Protocol(MCP)은 AI 어시스턴트가 다른 소프트웨어의 �
 
 ### 어떤 AI 어시스턴트와 함께 쓸 수 있나요?
 
-로컬 stdio 서버를 시작할 수 있는 모든 MCP 클라이언트에서 사용할 수 있습니다. Claude Desktop, GitHub Copilot과 함께 쓰는 VS Code, 표준 `mcpServers` 설정을 읽는 클라이언트에 대한 문서를 제공합니다. 패널 채팅은 Anthropic API 키나, 설치되어 있다면 `claude` 또는 `codex` 명령줄 도구도 사용할 수 있습니다. [ADR 0012](../0012-native-agent-chat-backend.md)를 참고하세요.
+로컬 stdio 서버를 시작할 수 있는 모든 MCP 클라이언트에서 사용할 수 있습니다. Claude Desktop, GitHub Copilot과 함께 쓰는 VS Code, Cursor, Codex, 그리고 표준 `mcpServers` 설정을 읽는 클라이언트에 대한 문서를 제공합니다. Windsurf, Cline, Roo Code, Continue, Zed, Claude Code, Gemini CLI도 같은 방식으로 동작할 것으로 예상되지만 테스트되지 않았습니다. [호환성](../compatibility.md)을 참고하세요. 패널 채팅은 Anthropic API 키나, 설치되어 있다면 `claude` 또는 `codex` 명령줄 도구도 사용할 수 있습니다. [ADR 0012](../0012-native-agent-chat-backend.md)를 참고하세요.
 
 ### AI가 묻지 않고 모델을 변경할 수 있나요?
 
@@ -345,7 +353,7 @@ CI는 Python 서버와 Revit 2024~2027용 애드인 대상을 빌드합니다. P
 
 ## 프로젝트와 라이선스
 
-관리자: [A. Sam Mohammad](https://github.com/Sam-AEC).
+메인테이너: [A. Sam Mohammad](https://github.com/Sam-AEC).
 [LinkedIn](https://www.linkedin.com/in/a-sam-mohammad-92790416b) |
 [Issues](https://github.com/Sam-AEC/aec-model-bridge/issues)
 

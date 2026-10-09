@@ -51,6 +51,22 @@
         },
         "required": []
       }
+    },
+    {
+      "id": "build_review_pack",
+      "title": "Build Model Review Workbook",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {"type": "string", "description": "Snapshot to review. Required when connected to Revit."},
+          "rule_pack": {"type": "string", "default": "core", "description": "QA/QC rule pack to apply."},
+          "output_filename": {"type": "string", "default": "model_review.xlsx"}
+        },
+        "required": []
+      }
     }
   ]
 }
