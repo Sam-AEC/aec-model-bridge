@@ -3,8 +3,9 @@
 
     python3 docs/design/readme-visuals/demo/build_demo.py [--chromium PATH]
 
-Needs Pillow and a Chromium or Chrome binary. The left pane (chat.html) and the
-bottom strip (steps.html) are drawn here. The right pane is the real
+Needs Pillow and a Chromium or Chrome binary. The left pane (model.html) is a 3D
+view of the model with the assistant chat on top, and the bottom strip
+(steps.html) shows the step. Both are drawn here. The right pane is the real
 panel/index.html and panel/app.js, fed example messages through a stub of the
 WebView2 host, so what you see is the shipped panel with example data. The
 values are illustrative and the session is simulated; the GIF says so.
@@ -12,6 +13,7 @@ values are illustrative and the session is simulated; the GIF says so.
 import argparse
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -23,6 +25,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parents[3]
 OUT = ROOT / "docs" / "images" / "readme" / "demo.gif"
 PANEL = ROOT / "panel"
+BUILDING_SVG = ROOT / "docs" / "design" / "readme-visuals" / "src" / "readme-hero-light.svg"
 
 LEFT_W, PANE_H, RIGHT_W, STRIP_H = 760, 584, 520, 56
 W, H = LEFT_W + RIGHT_W, PANE_H + STRIP_H
@@ -88,9 +91,14 @@ def main():
     panel_page = tmp / "panel.html"
     panel_page.write_text(html, encoding="utf-8")
 
+    # the 3D pane: model.html with the isometric building from the hero artwork injected
+    building = re.search(r'<g id="model-illustration">.*?</g>', BUILDING_SVG.read_text(encoding="utf-8"), re.S).group(0)
+    model_page = tmp / "model.html"
+    model_page.write_text((HERE / "model.html").read_text(encoding="utf-8").replace("<!--BUILDING-->", building), encoding="utf-8")
+
     frames, durations = [], []
     for n, (ms, step) in FRAMES.items():
-        left = shoot(chromium, (HERE / "chat.html").as_uri() + f"#f{n}", LEFT_W, PANE_H, tmp / f"l{n}.png")
+        left = shoot(chromium, model_page.as_uri() + f"#f{n}", LEFT_W, PANE_H, tmp / f"l{n}.png")
         right = shoot(chromium, panel_page.as_uri() + f"#f{n}", RIGHT_W, PANE_H, tmp / f"r{n}.png")
         strip = shoot(chromium, (HERE / "steps.html").as_uri() + f"#s{step}", W, STRIP_H, tmp / f"s{n}.png")
         canvas = Image.new("RGB", (W, H), (238, 242, 246))
@@ -103,7 +111,7 @@ def main():
         frames.append(canvas)
         durations.append(ms)
 
-    palettes = [f.quantize(colors=96, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE) for f in frames]
+    palettes = [f.quantize(colors=256, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE) for f in frames]
     OUT.parent.mkdir(parents=True, exist_ok=True)
     palettes[0].save(OUT, save_all=True, append_images=palettes[1:], duration=durations, loop=0, optimize=True, disposal=1)
     print(f"wrote {OUT} ({OUT.stat().st_size // 1024} KB, {len(frames)} frames)")
