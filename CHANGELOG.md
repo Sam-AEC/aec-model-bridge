@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Release: the MCP Registry publish now starts automatically after each stable release and reads the version from `VERSION`, so the bundle hash is no longer left stale.
+
 ## 1.3.1 - 2026-10-09
 
 - Release: every GitHub release now ships one ready-to-install package per supported Revit year (`aec-model-bridge-revit-2024-X.Y.Z.zip` through `-2027-`). 1.3.0 only shipped the Revit 2027 package. `build-release.ps1` defaults to all years, and the release workflow installs the .NET 8 SDK that the 2024-2026 builds need.
