@@ -144,3 +144,11 @@ def test_resolve_nonexistent_issue_raises(module, workspace):
     module.run_check(workspace=workspace)
     with pytest.raises(ValueError, match="not found"):
         module.resolve_issue(issue_id="does-not-exist", workspace=workspace)
+
+
+def test_run_check_without_snapshot_rejected_in_bridge_mode(module, workspace, monkeypatch):
+    from revit_mcp_server.config import BridgeMode, config
+
+    monkeypatch.setattr(config, "mode", BridgeMode.bridge)
+    with pytest.raises(ValueError, match="requires a snapshot_id"):
+        module.run_check(snapshot_id="", workspace=workspace)

@@ -4442,7 +4442,7 @@ public static class BridgeCommandFactory
         var workspaceDir = Environment.GetEnvironmentVariable("MCP_REVIT_WORKSPACE_DIR") ?? Path.GetTempPath();
         var snapshotDir = Path.Combine(workspaceDir, "snapshots");
         Directory.CreateDirectory(snapshotDir);
-        var snapshotPath = Path.Combine(snapshotDir, $"snapshot-{snapshotId}.json");
+        var snapshotPath = Path.Combine(snapshotDir, $"{snapshotId}.json");
 
         var elementsToExtract = new List<Element>();
         var dirtyIds = DocumentDirtyTracker.GetDirtyUniqueIds();

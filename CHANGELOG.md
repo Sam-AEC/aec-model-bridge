@@ -2,17 +2,20 @@
 
 ## Unreleased
 
+- Security: log and error redaction now also covers UNC network paths (`\\server\share\model.rvt`, the usual way central models are shared) and backslash paths without a drive letter. Before, a server or share name could appear in audit logs and error messages. This also fixes `test_redaction_in_server` on Linux.
+## 1.4.0 - 2026-10-09
+
 - Release: every stable release now also attaches a double-click Windows installer, `AECModelBridge-Setup-<version>.exe` (listed in `SHA256SUMS.txt`). It picks the installed Revit years, needs no admin rights, can set up Claude Desktop and VS Code (with a backup first) and uninstalls cleanly. The release workflow builds it with Inno Setup, smoke-tests a silent install, upgrade, failure and uninstall, and has a new `dry_run` input that builds everything without publishing. The old `AECModelBridge.iss` copied the package onto itself, always installed every year and ran the client setup without asking; it was reworked. `configure-mcp-clients.ps1` now backs up each config, writes UTF-8 and leaves a commented VS Code `settings.json` alone.
 - VS Code: add the local MCP extension, connection status, mock mode and Revit year selection. Correct local-host execution, settings overrides and auto-approval warnings; add provider/command regression tests. Marketplace publishing and live app verification remain pending.
 - Release: build and test the VS Code package before attaching its `.vsix` to future GitHub releases, include it in checksums, and synchronize extension manifest and lockfile versions.
 - README: lead with BIM coordinator workflows, simplify badges and licensing text, remove endorsement boilerplate and ecosystem artwork, and use local paths for technical diagrams. Document the snapshot handoff limitation and coordinator adoption priorities.
 - Design: add a Claude Design brief for README artwork, workflow images, a social preview and a synthetic-model demo cover.
-- Release audit: the reviewed public releases contain GPL licenses; no MIT-era deletion candidates were found. Record the inventory and future retirement procedure in `docs/release-retirement.md`; no remote releases were changed during this review.
+- Release audit: the MIT-licensed 0.1.x and 1.0.x releases and v1.1.0 (whose LICENSE file was PolyForm Small Business, contradicting the docs) were withdrawn from GitHub releases together with their tags. `docs/release-retirement.md` records the inventory of the releases that remain (all GPL-3.0-or-later) and the procedure for future retirements.
 - Dependabot: security updates are grouped into one pull request per ecosystem instead of one per package. The pinned lock-file versions of `ujson`, `anyio`, `starlette`, `cryptography`, `pydantic-settings` and `mcp` were refreshed after testing them together.
-- Docs: the README opens with an ecosystem image (AEC Model Bridge at the centre, AI clients, BIM apps and protocol tools orbiting it) in place of the demo placeholder. `scripts/make_ecosystem_image.py` regenerates it from the pinned Simple Icons set; brands whose icons were removed from that set are shown as text tiles.
 - Dependabot: routine updates are now monthly and grouped into one pull request for Python and one for GitHub Actions; routine .NET package PRs are off (the add-in dependencies are pinned on purpose). Security updates are unaffected.
 - Security: update `System.Text.Json` from 8.0.0 to the patched 8.0.5 in the Rhino, Navisworks and Power BI projects (clears the NU1903 advisories).
 - Dependabot: leave `mcp` and `specklepy` majors, IronPython majors and the pinned WebView2 alone, so it cannot propose changes that would break installs or Revit scripting.
+
 
 ## 1.3.3 - 2026-10-09
 

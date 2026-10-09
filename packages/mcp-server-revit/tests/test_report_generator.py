@@ -103,3 +103,16 @@ def test_export_excel_custom_filename(module, workspace, tmp_path):
         workspace=workspace,
     )
     assert Path(result["output_file"]).name == "custom_report.xlsx"
+
+
+def test_export_excel_has_summary_sheet_first(tmp_path):
+    import openpyxl
+    from types import SimpleNamespace
+
+    ws = SimpleNamespace(allowed_directories=[tmp_path])
+    result = ReportGeneratorModule().export_excel(workspace=ws)
+    wb = openpyxl.load_workbook(result["output_file"])
+    assert wb.sheetnames[0] == "Summary"
+    values = {row[0].value: row[1].value for row in wb["Summary"].iter_rows(min_row=2)}
+    assert values["Snapshot ID"] == "(mock)"
+    assert "mock" in values["Document"].lower()
