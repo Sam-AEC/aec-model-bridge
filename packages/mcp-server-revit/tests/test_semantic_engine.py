@@ -124,3 +124,54 @@ async def test_semantic_provider_and_mapper_registration(tmp_path):
     assert trans_res["translated_id"] is not None
     # door-uid-0001 is a GUID prefix-based UID, so it maps deterministically
     assert len(trans_res["translated_id"]) == 22  # IFC compressed GUID length
+
+
+class _FakeRevit:
+    def __init__(self, result=None, error=None):
+        self.result, self.error = result, error
+
+    async def execute_tool(self, name, arguments):
+        if self.error:
+            raise self.error
+        return self.result
+
+
+def _bridge_mode(monkeypatch):
+    from revit_mcp_server.config import BridgeMode, config
+
+    monkeypatch.setattr(config, "mode", BridgeMode.bridge)
+
+
+def test_snapshot_take_bridge_mode_never_substitutes_mock(tmp_path, monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+    from revit_mcp_server.semantic import engine
+
+    _bridge_mode(monkeypatch)
+    ws = SimpleNamespace(allowed_directories=[tmp_path])
+    with pytest.raises(RuntimeError, match="No mock data"):
+        asyncio.run(engine.snapshot_take(ws, _FakeRevit(error=ConnectionError("down"))))
+    with pytest.raises(RuntimeError, match="No Revit provider"):
+        asyncio.run(engine.snapshot_take(ws, None))
+    assert not (tmp_path / "snapshots").exists()
+
+
+def test_snapshot_take_ingests_addin_file_into_workspace(tmp_path, monkeypatch):
+    import asyncio
+    import json
+    from types import SimpleNamespace
+    from revit_mcp_server.semantic import engine
+
+    _bridge_mode(monkeypatch)
+    addin_dir = tmp_path / "addin"
+    addin_dir.mkdir()
+    written = addin_dir / "abc123.json"
+    written.write_text(json.dumps({"schema": "amb.snapshot/1", "snapshot_id": "abc123", "elements": []}), encoding="utf-8")
+    workspace_dir = tmp_path / "ws"
+    workspace_dir.mkdir()
+    ws = SimpleNamespace(allowed_directories=[workspace_dir])
+
+    snap = asyncio.run(engine.snapshot_take(ws, _FakeRevit(result={"snapshot_id": "abc123", "path": str(written)})))
+
+    assert snap.snapshot_id == "abc123"
+    assert (workspace_dir / "snapshots" / "abc123.json").exists()
