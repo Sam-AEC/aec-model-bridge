@@ -35,10 +35,10 @@ def env(tmp_path, monkeypatch):
     ext_root = tmp_path / "exts"
     btn = ext_root / "Tools.extension" / "Arch.tab" / "Rooms.panel" / "Renumber Rooms.pushbutton"
     btn.mkdir(parents=True)
-    (btn / "script.py").write_text(WRITE_SCRIPT, encoding="utf-8")
+    (btn / "script.py").write_bytes(WRITE_SCRIPT.encode("utf-8"))
     btn2 = ext_root / "Tools.extension" / "Arch.tab" / "Rooms.panel" / "Count.pushbutton"
     btn2.mkdir(parents=True)
-    (btn2 / "script.py").write_text(READ_SCRIPT, encoding="utf-8")
+    (btn2 / "script.py").write_bytes(READ_SCRIPT.encode("utf-8"))
     (ext_root / "secret.py").write_text("x", encoding="utf-8")
     ws = tmp_path / "ws"
     (ws / "plans").mkdir(parents=True)
@@ -129,7 +129,7 @@ def test_run_refuses_unapproved_plan(env):
 def test_run_refuses_hash_mismatch(env):
     sha = hashlib.sha256(WRITE_SCRIPT.encode()).hexdigest()
     pid = _approved_plan(env, sha)
-    env["script"].write_text(WRITE_SCRIPT + "doc.Delete(2)\n", encoding="utf-8")
+    env["script"].write_bytes((WRITE_SCRIPT + "doc.Delete(2)\n").encode("utf-8"))
     calls = []
     with pytest.raises(BridgeError, match="SHA-256 mismatch"):
         _mod.PyrevitBridgeModule().run_pyrevit_script(
