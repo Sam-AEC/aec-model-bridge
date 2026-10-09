@@ -28,6 +28,7 @@ const hostStatus = document.getElementById("host-status");
 const systemAlerts = document.getElementById("system-alerts");
 const title = document.getElementById("view-title");
 const subtitle = document.getElementById("view-subtitle");
+const viewIcon = document.getElementById("view-icon");
 const chatFeed = document.getElementById("chat-feed");
 const chatForm = document.getElementById("chat-form");
 const chatInput = document.getElementById("chat-input");
@@ -89,13 +90,20 @@ function modelActionsBlocked() {
 
 function setView(viewName) {
   document.querySelectorAll(".nav").forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.view === viewName);
+    const active = button.dataset.view === viewName;
+    button.classList.toggle("is-active", active);
+    if (active) {
+      button.setAttribute("aria-current", "page");
+    } else {
+      button.removeAttribute("aria-current");
+    }
   });
   document.querySelectorAll(".view").forEach((view) => {
     view.classList.toggle("is-active", view.id === `view-${viewName}`);
   });
   title.textContent = views[viewName].title;
   subtitle.textContent = views[viewName].subtitle;
+  viewIcon.setAttribute("href", `#nav-${viewName}`);
 }
 
 function renderHostStatus() {
@@ -189,7 +197,7 @@ function renderChat() {
 function appendMessage(role, text) {
   const item = document.createElement("article");
   item.className = `message ${role === "user" ? "user" : "assistant"}`;
-  item.innerHTML = `<div class="meta">${role === "user" ? "You" : "AMB"}</div><div>${escapeHtml(text)}</div>`;
+  item.innerHTML = `<div class="meta">${role === "user" ? "You" : '<svg class="mini-mark" width="14" height="14" aria-hidden="true"><use href="#brand-mark"/></svg> AMB'}</div><div>${escapeHtml(text)}</div>`;
   chatFeed.appendChild(item);
   chatFeed.scrollTop = chatFeed.scrollHeight;
   return item;
@@ -232,7 +240,7 @@ function renderPlans() {
       </div>
       <p>${escapeHtml(plan.detail)}</p>
       <div class="item-actions">
-        <button type="button" data-plan="${escapeHtml(plan.id)}" data-decision="approve">Approve</button>
+        <button type="button" data-plan="${escapeHtml(plan.id)}" class="primary" data-decision="approve">Approve</button>
         <button type="button" data-plan="${escapeHtml(plan.id)}" data-decision="reject">Reject</button>
       </div>`;
     planList.appendChild(item);
@@ -308,7 +316,11 @@ function renderLog() {
 function renderEmpty(container, heading, detail) {
   const item = document.createElement("article");
   item.className = "empty";
-  item.innerHTML = `<strong>${escapeHtml(heading)}</strong><p>${escapeHtml(detail)}</p>`;
+  const iconView = { "plan-list": "plans", "finding-list": "findings", "report-list": "reports", "run-log": "log" }[container.id];
+  const icon = iconView
+    ? `<span class="empty-tile" aria-hidden="true"><svg class="ico" viewBox="0 0 32 32"><use href="#nav-${iconView}"/></svg></span>`
+    : "";
+  item.innerHTML = `${icon}<strong>${escapeHtml(heading)}</strong><p>${escapeHtml(detail)}</p>`;
   container.appendChild(item);
 }
 

@@ -17,8 +17,14 @@ SolidCompression=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
+SetupIconFile=..\..\assets\icon.ico
+UninstallDisplayIcon={app}\assets\icon.ico
+WizardImageFile=..\..\assets\installer\wizard-large.bmp
+WizardSmallImageFile=..\..\assets\installer\wizard-small.bmp
+WizardStyle=modern
 
 [Files]
+Source: "..\..\assets\icon.ico"; DestDir: "{app}\assets"; Flags: ignoreversion
 Source: "..\..\dist\AECModelBridge\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Run]

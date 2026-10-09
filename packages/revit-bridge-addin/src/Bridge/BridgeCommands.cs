@@ -4,8 +4,6 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using RevitBridge;
 using RevitBridge.UI;
-using MediaColor = System.Windows.Media.Color;
-using MediaBrush = System.Windows.Media.SolidColorBrush;
 
 namespace RevitBridge.Bridge
 {
@@ -35,10 +33,9 @@ namespace RevitBridge.Bridge
             dialog.SetTitle(title, "Success");
 
             dialog.AddStatusCard(
-                "✅",
+                "success",
                 "Status",
-                message,
-                new MediaBrush(MediaColor.FromRgb(76, 175, 80))
+                message
             );
 
             dialog.AddInfoSection("Server Address", App.Server != null ? $"http://127.0.0.1:{App.Server.Port}/" : "http://127.0.0.1:3000/");
@@ -53,10 +50,9 @@ namespace RevitBridge.Bridge
             dialog.SetTitle(title, "Information");
 
             dialog.AddStatusCard(
-                "ℹ️",
+                "info",
                 "Status",
-                message,
-                new MediaBrush(MediaColor.FromRgb(33, 150, 243))
+                message
             );
 
             dialog.SetActionButton("OK");
@@ -90,10 +86,9 @@ namespace RevitBridge.Bridge
             dialog.SetTitle("Server Disconnected", "Connection Closed");
 
             dialog.AddStatusCard(
-                "🛑",
+                "stop",
                 "Status",
-                "The MCP Bridge Server has been stopped.",
-                new MediaBrush(MediaColor.FromRgb(244, 67, 54))
+                "The MCP Bridge Server has been stopped."
             );
 
             dialog.AddInfoSection("Note", "You can restart the server anytime by clicking the Connect button.");
@@ -108,10 +103,9 @@ namespace RevitBridge.Bridge
             dialog.SetTitle(title, "Information");
 
             dialog.AddStatusCard(
-                "ℹ️",
+                "info",
                 "Status",
-                message,
-                new MediaBrush(MediaColor.FromRgb(33, 150, 243))
+                message
             );
 
             dialog.SetActionButton("OK");
@@ -145,19 +139,16 @@ namespace RevitBridge.Bridge
             );
 
             // Status indicator
-            string statusIcon = App.Server.IsRunning ? "✅" : "🛑";
+            string statusIcon = App.Server.IsRunning ? "success" : "stop";
             string statusText = App.Server.IsRunning ? "Running" : "Stopped";
-            var statusColor = App.Server.IsRunning
-                ? new MediaBrush(MediaColor.FromRgb(76, 175, 80))
-                : new MediaBrush(MediaColor.FromRgb(244, 67, 54));
 
-            dialog.AddStatusCard(statusIcon, "Server Status", statusText, statusColor);
+            dialog.AddStatusCard(statusIcon, "Server Status", statusText);
 
             // Statistics Grid
             dialog.AddStatsGrid(
-                ("🔌", "Connections", App.Server.ActiveConnections.ToString()),
-                ("📊", "Total Requests", App.Server.TotalRequests.ToString()),
-                ("⏱️", "Uptime", $"{App.Server.UptimeSeconds:F1}s")
+                ("plug", "Connections", App.Server.ActiveConnections.ToString()),
+                ("chart", "Total Requests", App.Server.TotalRequests.ToString()),
+                ("clock", "Uptime", $"{App.Server.UptimeSeconds:F1}s")
             );
 
             dialog.AddSeparator();
@@ -202,10 +193,9 @@ namespace RevitBridge.Bridge
             dialog.SetTitle("Error", "Server Not Initialized");
 
             dialog.AddStatusCard(
-                "❌",
+                "error",
                 "Error",
-                "Server not initialized properly. Please restart Revit.",
-                new MediaBrush(MediaColor.FromRgb(244, 67, 54))
+                "Server not initialized properly. Please restart Revit."
             );
 
             dialog.SetActionButton("OK");
