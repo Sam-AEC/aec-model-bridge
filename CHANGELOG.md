@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Security: update `System.Text.Json` from 8.0.0 to the patched 8.0.5 in the Rhino, Navisworks and Power BI projects (clears the NU1903 advisories).
+- Dependabot: leave `mcp` and `specklepy` majors, IronPython majors and the pinned WebView2 alone, so it cannot propose changes that would break installs or Revit scripting.
+
 ## 1.3.3 - 2026-10-09
 
 - Repo: add issue forms, a pull request template, a Code of Conduct, Dependabot config, `CITATION.cff` and `docs/README.md` (a one-line index of every doc); move the Hermes Desktop example to `docs/examples/hermes-desktop.json`; extend `.gitignore` and `.gitattributes`.
