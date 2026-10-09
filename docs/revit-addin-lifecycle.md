@@ -37,16 +37,11 @@ That pattern is what makes live Revit automation safe inside Autodesk's threadin
 `CreateModernRibbonInterface()` creates:
 
 - an `AEC Bridge` tab
-- a `Connection` panel
-- a `Tools` panel
+- a `Connection` panel with Connect, Disconnect and Status
+- a `Workflows` panel with one large Open Panel button and stacked Health Check, Pending Actions and Reports buttons
+- a `Tools` panel with stacked Config, Help and About buttons
 
-It wires button commands for:
-
-- connect
-- disconnect
-- status
-- settings
-- help
+Every button has a tooltip with the brand image, and F1 opens the documentation. The icons use the 32 px flat grammar from `docs/design/tokens.md`, with a state badge where a button reports status. They redraw when Revit's theme changes.
 
 The ribbon is more than cosmetic: it exposes operational status and provides a manual control surface for the bridge lifecycle.
 

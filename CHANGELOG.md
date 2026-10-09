@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 1.3.0 - 2026-10-09
+
+- Versioning: the root `VERSION` file is now the single source of truth (SemVer). `scripts/version.py` checks and sets the version across every manifest, CI fails on drift, and pushing a `vX.Y.Z` tag builds the GitHub release with notes taken from this changelog. See `docs/versioning.md`.
+- Docs: README rewritten for readers and search (plain-language intro, install and connect guides, FAQ, release pointers). Architecture, approval and ADR 0008 diagrams redrawn with a colour scheme that stays legible in light and dark mode.
+- Fix CI: the IFC provider could not find elements whose `GlobalId` is malformed (for example 24 characters instead of 22) once `ifcopenshell` 0.9 started resolving GUIDs through a validated index, which failed `test_ifc_provider_tools` on Python 3.11. Lookup now falls back to scanning `IfcRoot` and no longer crashes on an unknown Express ID.
 - Ribbon: Workflows and Tools now use one large button plus stacked 16 px buttons, every button gets the brand tooltip image and F1 help, and icons redraw live when Revit's theme changes.
 - Dialogs: semantic vector status glyphs replace emoji, link/panel errors use the branded dialog instead of native MessageBox/TaskDialog, and the dialog window carries the app icon.
 - Panel: empty states and assistant messages carry icons, nav exposes `aria-current`.
@@ -10,6 +15,7 @@
 - Unify the side panel and popup dialogs on one design: the panel gets an icon rail (same icon language as the ribbon) with labels, a view-icon header and primary/secondary buttons; dialogs now use the panel's colour tokens, a dark header with a teal rule and the Pier mark, vector status glyphs instead of emoji, and the same card and button shapes.
 - Replace the Span brand mark with the Pier mark: an isometric model cube with a bridge arch through each face, on a dark app tile. Applied to `assets/logo.svg` (new `assets/logo-mark.svg`), the panel rail, the dialog header, the About/status brand card, the ribbon brand icon and the Power BI tool icon.
 - Redraw all ribbon icons in the Autodesk-style flat grammar: 32 px grid, charcoal outline, light teal fill, one teal accent and a state badge (green run/pass, red stop, amber waiting). Adds an About icon.
+
 
 ## 1.2.1 - 2026-09-23
 
