@@ -1,10 +1,17 @@
+# Low-noise policy: routine version updates are monthly and grouped into ONE pull
+# request per ecosystem. Security updates are separate and still arrive immediately
+# (Settings -> Code security -> Dependabot security updates), so nothing important
+# is lost by keeping the routine ones quiet.
 version: 2
 updates:
   - package-ecosystem: pip
     directory: /packages/mcp-server-revit
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 3
+      interval: monthly
+    open-pull-requests-limit: 1
+    groups:
+      python-dependencies:
+        patterns: ["*"]
     ignore:
       # mcp 2.x removed the low-level Server decorators this server is built on,
       # so it crashes at import. Keep the cap in pyproject.toml until the server
@@ -15,53 +22,39 @@ updates:
       - dependency-name: specklepy
         update-types: ["version-update:semver-major"]
 
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  # The .NET add-ins compile against Revit, Rhino and Navisworks SDKs and ship
+  # deliberate pins (IronPython 2.7 on net48, WebView2, RhinoCommon 7). Routine
+  # version bumps here cost review time and carry real risk, so version updates
+  # are off (limit 0). Security advisories still open their own pull requests.
   - package-ecosystem: nuget
     directory: /packages/revit-bridge-addin
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 2
-    ignore:
-      # IronPython 2.7 is the net48 (Revit 2024) scripting engine, 3.x is used on
-      # newer Revit. A major bump changes scripting behaviour and must be manual.
-      - dependency-name: IronPython
-        update-types: ["version-update:semver-major"]
-      # Pinned deliberately: newer WebView2 builds caused DLL conflicts in Revit.
-      - dependency-name: Microsoft.Web.WebView2
+      interval: monthly
+    open-pull-requests-limit: 0
 
   - package-ecosystem: nuget
     directory: /packages/rhino-bridge-addin
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 2
-    ignore:
-      # RhinoCommon 8.x is the Rhino 8 SDK and would drop Rhino 7 support;
-      # moving to it is a product decision, not a routine update.
-      - dependency-name: RhinoCommon
-        update-types: ["version-update:semver-major"]
-      # Stay on the patched 8.x line that matches the net8 target; majors are manual.
-      - dependency-name: System.Text.Json
-        update-types: ["version-update:semver-major"]
+      interval: monthly
+    open-pull-requests-limit: 0
 
   - package-ecosystem: nuget
     directory: /packages/navisworks-bridge-addin
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 2
-    ignore:
-      - dependency-name: System.Text.Json
-        update-types: ["version-update:semver-major"]
+      interval: monthly
+    open-pull-requests-limit: 0
 
   - package-ecosystem: nuget
     directory: /packages/powerbi-bridge-tool
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 2
-    ignore:
-      - dependency-name: System.Text.Json
-        update-types: ["version-update:semver-major"]
-
-  - package-ecosystem: github-actions
-    directory: /
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 3
+      interval: monthly
+    open-pull-requests-limit: 0
