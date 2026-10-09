@@ -22,10 +22,21 @@ Open-source MCP server and native add-in for Revit 2024 – 2027. Works with Cla
   <img src="docs/images/readme/banner.png" alt="A floor plan with three doors circled in red revision clouds because their Mark tags are empty. The headline reads: your AI finds it, you approve the fix. A card shows the Mark changing from empty to D-101 after approval. Example values." width="900">
 </p>
 
-Connect Claude, Codex or another MCP client to the Revit model you have open.
-AEC Model Bridge combines a Python MCP server with a native Revit add-in:
-read-only tools inspect the model immediately, and model changes require an
-approved plan by default. [See the approval flow](#how-approval-works).
+AEC Model Bridge is the open-source Revit MCP server that lets Claude, Codex,
+Cursor and other AI assistants read and edit your open Revit model, with every
+change approved by you first. It combines a Python MCP server with a native
+Revit add-in: read-only tools inspect the model immediately, and model changes
+require an approved plan by default. [See the approval flow](#how-approval-works).
+
+<p align="center">
+  <img src="docs/images/readme/works-with.svg" alt="Works with: Claude Desktop, VS Code with GitHub Copilot, Cursor and Codex have documented setup. Other MCP clients such as Claude Code, Windsurf, Cline, Continue, Zed and Gemini CLI should work too. Applications: Revit 2024 to 2027, Rhino, Grasshopper, Navisworks (in progress). Data: IFC, Speckle, Excel, SQLite. Protocol: MCP over stdio with an approval gate." width="900">
+</p>
+
+Setup is documented for Claude Desktop, VS Code with GitHub Copilot, Cursor and
+Codex. It is a standard MCP stdio server, so other clients such as Claude Code,
+Windsurf, Cline, Continue, Zed and Gemini CLI should work too. See
+[compatibility](docs/compatibility.md) for what is documented and what is
+untested.
 
 The same server includes IFC inspection, Rhino and Grasshopper automation,
 and Speckle integration. [Integration status](#other-integrations) distinguishes
@@ -372,8 +383,10 @@ inside Revit.
 ### Which AI assistants work with it?
 
 Any MCP client that can start a local stdio server. We document Claude
-Desktop, VS Code with GitHub Copilot, and clients that read a standard
-`mcpServers` configuration. The panel chat can also use an Anthropic API key
+Desktop, VS Code with GitHub Copilot, Cursor and Codex, and clients that read a
+standard `mcpServers` configuration. Windsurf, Cline, Roo Code, Continue, Zed,
+Claude Code and Gemini CLI should work the same way but have not been tested.
+See [compatibility](docs/compatibility.md). The panel chat can also use an Anthropic API key
 or the `claude` or `codex` command-line tools if they are installed. See
 [ADR 0012](docs/0012-native-agent-chat-backend.md).
 
