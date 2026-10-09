@@ -5,6 +5,16 @@ verify, undo. It runs on a synthetic fixture with 12 doors that have no Mark
 and 3 rooms that have no Number. It also covers a run where the plan is
 rejected and nothing changes.
 
+**Writes are untested in a real Revit.** An architecture review found that
+`BridgeCommandFactory.CreateTransaction(Document, string)` in the add-in calls
+itself, so as written on `main` every model write (including
+`revit_set_parameter_value`) would recurse until Revit crashes. The fix is
+hotfix PR #95, which is open and not merged. Do not run Step 6 or the undo
+steps against anything you care about until #95 is merged and the add-in is
+rebuilt from it, and treat the first real write on a throwaway copy as a test
+in its own right. Steps 1 to 5 and the rejected-plan run do not write to the
+model.
+
 Nobody has run this end to end against live Revit yet. The expected counts come
 from the [seeded defect manifest](../fixtures/canonical-model/seeded-defects.json)
 and the rule pack, not from a recorded session. Record what you actually see
@@ -18,8 +28,10 @@ this is in the [roadmap](roadmap.md).
 - **UNVERIFIED (live Revit)**: it needs a running Revit session with the
   add-in. Nothing in this runbook has been confirmed that way.
 - **UNVERIFIED (unmerged)**: it depends on work that is not on `main`.
-  Preview in the model is in open PR #64 and proof/revert is in open PR #62.
-  Skip these steps, or do them by hand, until those PRs land.
+  Preview in the model is in open PR #64. Skip that step, or do it by hand,
+  until it lands. Proof bundles and `plan_revert` (#62) and the draft-plan gate
+  fix (#63) are merged, so they are tagged "checked in code" below, not
+  unmerged. The write-path crash fix is open PR #95 (see above).
 
 ## What you need
 
@@ -87,7 +99,11 @@ UNVERIFIED (live Revit).
 Ask: "Run the core QA check on that snapshot and list the issues."
 
 Tools: `qaqc_checker_run_check` (with `snapshot_id` and rule pack `core`), then
-`qaqc_checker_list_issues`.
+`qaqc_checker_list_issues`. Note the `doc_guid` that `run_check` returns and
+pass it to `list_issues` together with `status` set to `open`. The issue store
+is persistent and `list_issues` defaults to every document and every status, so
+an unscoped call on a repeated demo, or after the doors are fixed, also returns
+old and resolved findings and will not match the counts below.
 
 Expected counts, from the manifest:
 
@@ -119,6 +135,16 @@ pattern D-101 to D-112. Show me the exact values before anything is changed."
 Agree the numbering pattern yourself first. The demo only works if the
 coordinator chooses the rule; the assistant should not guess one.
 
+Before building actions, get the numeric element ids. The QA findings carry
+only `element_uid`, but `revit_set_parameter_value` needs the integer
+`element_id`, and `plan_actions` does not convert one to the other. Look them up
+in the snapshot: `parameter_manager_filter_params` (pass the snapshot id,
+`param_name` `Mark`, and a filter for doors with an empty Mark) returns each
+match with both `uid` and `element_id`; `model_inspector_ask` also returns
+`element_id`. Match them to the 12 `element_uid` values from Step 2 and do not
+guess ids. The add-in's snapshot writer includes `element_id`; that it comes
+through correctly is UNVERIFIED (live Revit).
+
 Tool: `plan_actions`, with one `revit_set_parameter_value` action per door
 (`element_id`, `parameter_name` = `Mark`, `value`). On `main`, `plan_actions`
 reads each door's current Mark and stores it as the plan's before-state.
@@ -131,7 +157,8 @@ empty before-state for each door.
 
 Things to check before going further:
 
-- Exactly 12 element ids, none of them rooms.
+- Exactly 12 element ids, none of them rooms, and each one matches a finding's
+  `element_uid` from Step 2.
 - No duplicate values within the plan, and none that clash with the 48 doors that
   already have a Mark. The code does not check uniqueness of the proposed values
   for you. This is on the human.
@@ -155,8 +182,12 @@ Two previews, different status:
   yourself.
 - **In the model (UNVERIFIED, unmerged, PR #64)**: showing the pending change on
   the actual elements in Revit is not on `main`. Skip it for now, or select the
-  12 doors with `selection_tools_select_by_query` and eyeball them.
-  Selecting is a Revit UI action. UNVERIFIED (live Revit).
+  12 doors and eyeball them. Use `revit_select_by_unique_ids` with the 12
+  `element_uid` values; it selects and zooms in the active view. Do not use
+  `selection_tools_select_by_query` for this: it only writes the matching UIDs to
+  `pending_selection.json` in the workspace, and nothing in the add-in reads that
+  file, so nothing would be selected in Revit. Selecting is a Revit UI action.
+  UNVERIFIED (live Revit).
 
 Expected: 1 pending plan, 12 actions.
 
@@ -166,10 +197,12 @@ In the panel's Plans tab, press Approve on the plan. The panel sends
 `approve_plan` through the hub. The assistant cannot approve its own plan: the
 approval tools are withheld from the native chat backend by design.
 
-Expected: the plan leaves the pending list. The panel's log records the decision.
-Nothing in the model has changed yet; approval only unlocks execution.
+Expected: the plan leaves the pending list. The Run Log gets a `Plan approve`
+entry as soon as you click, and a `Plans updated` entry after the refresh; both
+are normal and neither proves the hub accepted the call. Nothing in the model has changed yet; approval only unlocks execution.
 
-If it fails: an error toast or a Run Log entry means the hub rejected the call.
+If it fails: an `Error: plan.approve` entry in the Run Log (or an error toast)
+means the hub rejected the call. Any other Run Log entry is not a failure.
 Press Refresh and check the plan's state. Do not approve a plan you
 rejected; the code does not stop you from changing a plan's state, so check
 the state each time.
@@ -181,12 +214,16 @@ UNVERIFIED (live Revit).
 Ask the assistant: "The plan is approved. Run it." Tool: `execute_plan`.
 
 Expected: the result lists 12 actions, each executed. In the add-in each
-`revit_set_parameter_value` call runs in a transaction named
-`AMB: revit_set_parameter_value` (with an action id when one is passed), so expect Revit's Undo list to show separate entries for
-the doors, not one entry for the whole plan. UNVERIFIED (live Revit).
+`revit_set_parameter_value` call runs in its own transaction, which Revit's
+Undo list should show as `AMB: Set Parameter Value`, one entry per door, not one
+entry for the whole plan. The add-in only appends ` #<action id>` to the name
+when the call carries an `action_id`, and `execute_plan` does not pass one, so
+expect no suffix and 12 identical-looking entries. This is only reachable once
+#95 is merged (see the top of this page). UNVERIFIED (live Revit).
 
-If some actions fail: execution reports and continues. The plan is not marked as
-fully executed. Do not tell the audience it worked. Read which actions failed
+If some actions fail: execution reports and continues. The plan is marked
+`partial`, not `executed`, and the proof bundle's outcome is `partial` or
+`failed`. Do not tell the audience it worked. Read which actions failed
 (read-only or owned elements are the usual suspects), then go to Step 7 and look
 at what changed.
 
@@ -231,10 +268,20 @@ There are two ways back. Use whichever you can show honestly.
    the result and verify with a new snapshot. If it skipped them, use Ctrl+Z
    instead. UNVERIFIED (live Revit). The model-facing chat cannot call rollback;
    a person does it from the client.
+3. **`plan_revert` (checked in code, merged in #62)**. It drafts a new pending
+   plan from the proof bundle; you still approve and execute it. It refuses when
+   an element has no recorded before-value, and an empty value counts as not
+   recorded. These doors started with an empty Mark, so expect `plan_revert` to
+   refuse here. Treat that as the documented behaviour, not a bug, and fall back
+   to Ctrl+Z. It would work for a parameter that had a value before. Its
+   write-back is UNVERIFIED (live Revit) and subject to #95 like every write.
 
-Proof of the revert (a recorded before/after record of the undo) is in open
-PR #62. UNVERIFIED (unmerged). For now the evidence is two snapshots and the
-check counts.
+Proof of the change: `get_proof_bundle(plan_id)` returns the proof file written
+after `execute_plan` (see [proof and revert](proof-and-revert.md)). Pass
+`snapshot_id` to `plan_actions` if you want the document identity in it. The
+bundle is a server-side record, not an observation of the model, so the evidence
+that the model really changed or reverted is still the two snapshots and the
+check counts. UNVERIFIED (live Revit).
 
 ## Rejected-plan run
 
@@ -264,7 +311,8 @@ file, the audit log and both snapshot ids.
 | "requires a snapshot_id" | The tool is protecting us from sample data. | Take a snapshot, pass its id. |
 | Counts are not 12 and 3 | The baseline is off; I am not going to hide that. | Rebuild the fixture, retake the snapshot, record both runs. |
 | Error naming a missing or unapproved `plan_id` | The gate is blocking an unapproved write. | Create or approve the plan. |
-| Approve does nothing in the panel | I will confirm the plan state before going on. | Refresh, check the Run Log, check the plan state. |
+| Approve does nothing in the panel | I will confirm the plan state before going on. | Refresh, look for an `Error:` entry in the Run Log, check the plan state. |
+| Revit crashes or hangs on the first write | Known: write path is broken until #95. | Stop. Check that #95 is merged and the add-in rebuilt. |
 | Some actions failed on execute | This is a partial result, not a finished fix. | Read the per-action errors, verify with a new snapshot. |
 | Door count after is not 0 | Not everything was fixed. | List the remaining issues, match them to failed actions. |
 | Rollback skipped actions | Rollback could not restore empty values. | Use Revit Undo, then verify with a new snapshot. |
