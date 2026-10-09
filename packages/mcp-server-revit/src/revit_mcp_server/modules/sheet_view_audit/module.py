@@ -6,13 +6,21 @@ Command:
               sheets missing required parameters, default view names, and
               sheet counts per discipline prefix.
 
-Snapshot data contract (UNVERIFIED against live Revit; the add-in does not
-write this yet). The snapshot JSON may carry two optional top-level lists:
+Snapshot data. Two sources are understood:
+
+1. What the Revit add-in writes today: ordinary `elements` records. Sheets are
+   records of class "ViewSheet" (number/name in params "Sheet Number" and
+   "Sheet Name"); drafting views are class "ViewDrafting". There is NO record of
+   which views sit on which sheet, and model views (plans, sections, 3D) are not
+   extracted. From this the audit can only run: duplicate sheet numbers, missing
+   sheet parameters, and default names on drafting views. The other checks
+   report "not_enough_data" and the overall status is "partial".
+2. Optional top-level lists (not written by the add-in yet), which enable every check:
 
   "sheets": [{"uid", "number", "name", "view_uids": [...], "params": {name: value}}]
   "views":  [{"uid", "name", "view_type", "is_template", "sheet_uid", "discipline"}]
 
-When neither list is present the audit says so instead of guessing.
+When there is no sheet data at all the audit says so instead of guessing.
 """
 from __future__ import annotations
 
@@ -79,12 +87,50 @@ def _preview(names: List[str], limit: int = 5) -> str:
     return text + ("..." if len(names) > limit else "")
 
 
+ALL_CHECKS = (
+    "empty_sheets", "views_not_on_sheet", "duplicate_sheet_numbers",
+    "missing_sheet_parameter", "default_view_names",
+)
+
+
+def _param(rec: Dict[str, Any], *names: str) -> Any:
+    params = rec.get("params") or {}
+    for n in names:
+        v = params.get(n)
+        if isinstance(v, dict):
+            v = v.get("v")
+        if not _is_blank(v):
+            return v
+    return None
+
+
+def derive_from_elements(elements: List[Dict[str, Any]]):
+    """Build sheet and drafting-view records from a live snapshot's elements."""
+    sheets: List[Dict[str, Any]] = []
+    views: List[Dict[str, Any]] = []
+    for el in elements:
+        cls = el.get("class") or el.get("cls")
+        if cls == "ViewSheet":
+            sheets.append({
+                "uid": el.get("uid"), "number": _param(el, "Sheet Number"),
+                "name": _param(el, "Sheet Name"), "params": el.get("params") or {},
+            })
+        elif cls == "ViewDrafting":
+            views.append({
+                "uid": el.get("uid"), "name": _param(el, "View Name", "Name") or "",
+                "view_type": "DraftingView",
+            })
+    return sheets, views
+
+
 def audit_sheets_and_views(
     sheets: List[Dict[str, Any]],
     views: List[Dict[str, Any]],
     required_params: List[str],
+    checks: Optional[Any] = None,
 ) -> Dict[str, Any]:
     findings: List[Dict[str, Any]] = []
+    enabled = set(ALL_CHECKS if checks is None else checks)
 
     placed = set()
     for s in sheets:
@@ -94,7 +140,7 @@ def audit_sheets_and_views(
             placed.add(v.get("uid"))
 
     # 1. Empty sheets
-    empty = [
+    empty = [] if "empty_sheets" not in enabled else [
         s for s in sheets
         if not (s.get("view_uids") or [])
         and not any(v.get("sheet_uid") == s.get("uid") for v in views)
@@ -109,7 +155,7 @@ def audit_sheets_and_views(
         ))
 
     # 2. Views not on any sheet
-    unplaced = [
+    unplaced = [] if "views_not_on_sheet" not in enabled else [
         v for v in views
         if not v.get("is_template")
         and str(v.get("view_type", "")).replace(" ", "").lower() not in _UNPLACEABLE_TYPES
@@ -130,7 +176,7 @@ def audit_sheets_and_views(
         num = str(s.get("number") or "").strip()
         if num:
             by_number[num.lower()].append(s)
-    dupes = [group for group in by_number.values() if len(group) > 1]
+    dupes = [] if "duplicate_sheet_numbers" not in enabled else [group for group in by_number.values() if len(group) > 1]
     if dupes:
         findings.append(_finding(
             "duplicate_sheet_numbers", "error",
@@ -141,7 +187,7 @@ def audit_sheets_and_views(
         ))
 
     # 4. Missing required parameters
-    for param in required_params:
+    for param in required_params if "missing_sheet_parameter" in enabled else []:
         missing = [s for s in sheets if _is_blank(_sheet_value(s, param))]
         if missing:
             findings.append(_finding(
@@ -152,7 +198,9 @@ def audit_sheets_and_views(
             ))
 
     # 5. Default view names
-    bad = [v for v in views if not v.get("is_template") and _default_name_reason(str(v.get("name", "")))]
+    bad = [] if "default_view_names" not in enabled else [
+        v for v in views if not v.get("is_template") and _default_name_reason(str(v.get("name", "")))
+    ]
     if bad:
         findings.append(_finding(
             "default_view_names", "info",
@@ -201,19 +249,67 @@ class SheetViewAuditModule:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
 
-        if "sheets" not in data and "views" not in data:
+        explicit = "sheets" in data or "views" in data
+        if explicit:
+            sheets = data.get("sheets") or []
+            views = data.get("views") or []
+            source = "top-level sheets/views lists"
+        else:
+            sheets, views = derive_from_elements(data.get("elements") or [])
+            source = "ViewSheet / ViewDrafting element records"
+        if not sheets and not views:
             return {
                 "status": "no_sheet_view_data",
                 "message": (
-                    "This snapshot does not contain sheet or view data, so nothing was checked. "
-                    "The Revit add-in does not export sheets and views into snapshots yet."
+                    "This snapshot has no sheets or views in it, so nothing was checked "
+                    "(not even 'no problems found'). Take a snapshot of a project that has sheets."
                 ),
                 "total_findings": 0,
                 "findings": [],
             }
 
+        placement_known = bool(sheets) and all("view_uids" in s for s in sheets) if explicit else False
+        have_views_list = explicit and "views" in data
+        checks = {
+            "duplicate_sheet_numbers": (bool(sheets), "No sheets were found in the snapshot.", ["sheet records"]),
+            "missing_sheet_parameter": (bool(sheets), "No sheets were found in the snapshot.", ["sheet records"]),
+            "empty_sheets": (
+                placement_known and bool(sheets),
+                "The snapshot does not say which views are placed on which sheet, so empty sheets cannot be told apart.",
+                ["which views are on each sheet (view_uids per sheet)"],
+            ),
+            "views_not_on_sheet": (
+                placement_known and have_views_list,
+                "The snapshot has no full list of views and no record of which are placed on sheets "
+                "(only sheets and drafting views are extracted), so unplaced views cannot be found.",
+                ["all views (plans, sections, 3D, schedules)", "which views are on each sheet"],
+            ),
+            "default_view_names": (
+                bool(views),
+                "The snapshot has no views, so view names cannot be checked.",
+                ["view records"],
+            ),
+        }
+        enabled = [k for k, (ok, _, _) in checks.items() if ok]
+        report = {
+            k: ({"status": "ran"} if ok else {"status": "not_enough_data", "reason": why, "missing": miss})
+            for k, (ok, why, miss) in checks.items()
+        }
+        if "default_view_names" in enabled and not have_views_list:
+            report["default_view_names"]["note"] = "Only drafting views were in the snapshot; other views were not checked."
+
         required = DEFAULT_REQUIRED if required_sheet_parameters is None else list(required_sheet_parameters)
-        result = audit_sheets_and_views(data.get("sheets") or [], data.get("views") or [], required)
+        result = audit_sheets_and_views(sheets, views, required, enabled)
+        skipped = [k for k in report if report[k]["status"] != "ran"]
+        if skipped:
+            result["status"] = "partial"
+            result["message"] = (
+                "Not enough data in this snapshot for: " + ", ".join(skipped)
+                + ". Those checks were NOT run, so zero findings for them does not mean they are fine. "
+                + "Details are under 'checks'."
+            )
+        result["checks"] = report
+        result["data_source"] = source
         result["snapshot_id"] = snapshot_id
         result["required_sheet_parameters"] = required
         return result

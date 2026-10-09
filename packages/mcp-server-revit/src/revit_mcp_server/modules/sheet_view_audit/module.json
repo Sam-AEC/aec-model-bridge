@@ -29,7 +29,7 @@
             "description": "Sheet parameters that must be filled in. Defaults to Sheet Number and Sheet Name."
           }
         },
-        "required": []
+        "required": ["snapshot_id"]
       }
     }
   ]
