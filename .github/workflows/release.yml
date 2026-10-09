@@ -31,29 +31,37 @@ on:
 jobs:
   release:
     runs-on: windows-latest
+    timeout-minutes: 90
     permissions:
       contents: write
       actions: write
+      id-token: write       # build provenance attestation
+      attestations: write
 
     steps:
       - name: Resolve tag
         id: tag
         shell: pwsh
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_REF: ${{ inputs.ref }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
         run: |
-          $tag = if ($env:GITHUB_EVENT_NAME -eq 'push') { $env:GITHUB_REF_NAME } else { '${{ inputs.tag }}' }
+          $tag = if ($env:GITHUB_EVENT_NAME -eq 'push') { $env:GITHUB_REF_NAME } else { $env:INPUT_TAG }
           if ($tag -notmatch '^v\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') { throw "Tag '$tag' is not vMAJOR.MINOR.PATCH[-prerelease]" }
-          if ('${{ inputs.ref }}' -ne '' -and '${{ inputs.dry_run }}' -ne 'true') { throw "The ref input is only allowed together with dry_run, so a release is never built from an untagged ref." }
+          if ($env:INPUT_REF -ne '' -and $env:INPUT_DRY_RUN -ne 'true') { throw "The ref input is only allowed together with dry_run, so a release is never built from an untagged ref." }
           "tag=$tag" >> $env:GITHUB_OUTPUT
           "version=$($tag.Substring(1))" >> $env:GITHUB_OUTPUT
           "prerelease=$($tag.Contains('-').ToString().ToLower())" >> $env:GITHUB_OUTPUT
 
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || steps.tag.outputs.tag }}
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
 
@@ -62,7 +70,7 @@ jobs:
         run: python scripts/version.py check --tag "${{ steps.tag.outputs.tag }}"
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v6
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: |
             8.0.x
@@ -72,14 +80,14 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install --upgrade build pytest
-          python -m pip install -e packages/mcp-server-revit
+          python -m pip install -e "packages/mcp-server-revit[dev]"
 
       - name: Run Python tests
         shell: pwsh
         run: python -m pytest packages/mcp-server-revit/tests
 
       - name: Set up Node for the VS Code extension
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24   # npm 11; npm 10 cannot install the extension's dependencies
           cache: npm
@@ -146,13 +154,19 @@ jobs:
 
       - name: Upload artifacts (dry run)
         if: ${{ inputs.dry_run }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-dry-run-${{ steps.tag.outputs.version }}
           path: |
             dist/release/*
             release-notes.md
           if-no-files-found: error
+
+      - name: Attest build provenance
+        if: ${{ !inputs.dry_run }}
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/release/*
 
       - name: Create or update GitHub release
         if: ${{ !inputs.dry_run }}
