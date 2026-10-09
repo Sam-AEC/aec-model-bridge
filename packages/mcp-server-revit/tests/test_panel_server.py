@@ -285,3 +285,28 @@ def test_agent_chat_no_provider_available_returns_error_without_dispatch(running
     }
     native_mock.assert_not_called()
     bridge_mock.assert_not_called()
+
+
+def test_configure_file_logging_persists_package_logs(tmp_path):
+    import logging
+
+    log_file = tmp_path / "Logs" / "panel-hub.log"
+    path = panel_server.configure_file_logging(log_file)
+    pkg_logger = logging.getLogger("revit_mcp_server")
+    try:
+        assert path == log_file
+        logging.getLogger("revit_mcp_server.panel_server").error("stale plan boom")
+        for h in pkg_logger.handlers:
+            h.flush()
+        assert "stale plan boom" in log_file.read_text(encoding="utf-8")
+    finally:
+        for h in list(pkg_logger.handlers):
+            if getattr(h, "baseFilename", None) == str(log_file):
+                pkg_logger.removeHandler(h)
+                h.close()
+
+
+def test_configure_file_logging_tolerates_unwritable_path(tmp_path):
+    blocker = tmp_path / "file"
+    blocker.write_text("x")
+    assert panel_server.configure_file_logging(blocker / "sub" / "panel-hub.log") is None

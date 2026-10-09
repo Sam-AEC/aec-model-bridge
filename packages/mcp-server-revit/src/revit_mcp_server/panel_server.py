@@ -19,6 +19,8 @@ import json
 import logging
 import os
 import shutil
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict
 
@@ -230,8 +232,39 @@ def build_server(port: int | None = None, workspace: WorkspaceMonitor | None = N
     return server
 
 
+def default_log_path() -> Path:
+    """``%APPDATA%/AECModelBridge/Logs/panel-hub.log``, beside the add-in's bridge.jsonl."""
+    appdata = os.getenv("APPDATA")
+    base = Path(appdata) if appdata else Path.home() / ".local" / "share"
+    return base / "AECModelBridge" / "Logs" / "panel-hub.log"
+
+
+def configure_file_logging(log_path: Path | None = None) -> Path | None:
+    """Persist hub logs to a rotating file.
+
+    The add-in launches the hub without capturing stdout/stderr, so without a
+    file handler failures such as a stale plan state would be invisible.
+    Returns the log path, or None if the file could not be opened (logging to a
+    file must never stop the hub from starting).
+    """
+    path = log_path or default_log_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        handler = RotatingFileHandler(path, maxBytes=1_000_000, backupCount=3, encoding="utf-8")
+    except OSError:
+        logger.warning("Could not open panel hub log file %s", path, exc_info=True)
+        return None
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    package_logger = logging.getLogger(__name__.rsplit(".", 1)[0])
+    package_logger.addHandler(handler)
+    if package_logger.getEffectiveLevel() > logging.INFO:
+        package_logger.setLevel(logging.INFO)
+    return path
+
+
 def run_panel_server() -> None:
     """Entry point for running the panel HTTP shim as a standalone process."""
+    configure_file_logging()
     server = build_server()
     logger.info("Panel HTTP shim listening on http://127.0.0.1:%d", server.server_address[1])
     try:
