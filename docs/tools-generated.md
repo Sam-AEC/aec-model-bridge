@@ -20,12 +20,12 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
-| `approve_plan` | Approve a pending ActionPlan for execution. | No | sync |
+| `approve_plan` | Approve a pending ActionPlan so that its actions may be executed. | No | sync |
 | `execute_plan` | Run every action in an approved ActionPlan. | No | sync |
-| `list_pending_plans` | List all pending ActionPlans waiting for review. | No | sync |
-| `plan_actions` | Create a draft ActionPlan of proposed modifications, capturing their before-states. | No | sync |
-| `reject_plan` | Reject and archive a pending ActionPlan. | No | sync |
-| `rollback_plan` | Rollback an executed ActionPlan using inverse values. | No | sync |
+| `list_pending_plans` | List all ActionPlans that are waiting for review. | No | sync |
+| `plan_actions` | Create a draft ActionPlan describing the model changes you want to make, capturing the before-state of each. | No | sync |
+| `reject_plan` | Reject and archive a pending ActionPlan so that it can never be executed. | No | sync |
+| `rollback_plan` | Undo an already executed ActionPlan by applying the inverse of each recorded change, in reverse order. | No | sync |
 
 ## Autodesk Data Provider
 
@@ -61,7 +61,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
 | `job_cancel` | Cancel a running or queued background job. | No | sync |
-| `job_status` | Get the status, progress, results, or error details of a background job. | No | sync |
+| `job_status` | Return the status, progress, result or error of a background job started with run_async. | No | sync |
 
 ## Mcp Proxy Provider
 
@@ -71,168 +71,168 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
-| `familytype_mapper_audit_families` | Audit Families. | No | sync |
-| `familytype_mapper_list_type_mappings` | List Type Mappings. | No | sync |
-| `hello_world_say_hello` | Say Hello. | No | sync |
-| `model_inspector_ask` | Ask About Model. | No | sync |
-| `model_inspector_inspect_selection` | Inspect Selection. | No | sync |
-| `model_inspector_list_groups` | List Model Groups. | No | sync |
-| `model_inspector_list_saved_queries` | List Saved Queries. | No | sync |
-| `model_inspector_run_saved_query` | Run Saved Query. | No | sync |
-| `model_inspector_save_query` | Save Query. | No | sync |
-| `model_inspector_summarize_model` | Summarize Model. | No | sync |
-| `module_list_commands` | List all registered modules and their commands for dockable panels. | No | sync |
-| `parameter_manager_diff_params` | Diff Parameter Values. | No | sync |
-| `parameter_manager_export_params_csv` | Export Parameters to CSV. | No | sync |
-| `parameter_manager_filter_params` | Filter Parameter Grid. | No | sync |
-| `parameter_manager_import_params_csv` | Import Parameters from CSV. | Yes | sync |
-| `parameter_manager_plan_set_params` | Plan Parameter Set. | Yes | sync |
-| `qaqc_checker_list_issues` | List QA/QC Issues. | No | sync |
-| `qaqc_checker_list_rules` | List Available Rules. | No | sync |
-| `qaqc_checker_resolve_issue` | Resolve Issue. | No | sync |
-| `qaqc_checker_run_check` | Run QA/QC Check. | No | sync |
-| `recipe_runner_get_run_status` | Get Recipe Run Status. | No | sync |
-| `recipe_runner_list_recipes` | List Recipes. | No | sync |
-| `recipe_runner_list_runs` | List Recipe Runs. | No | sync |
-| `recipe_runner_run_recipe` | Run Recipe. | No | sync |
-| `report_generator_export_excel` | Export to Excel. | No | sync |
-| `report_generator_export_sqlite_summary` | Export SQLite Summary. | No | sync |
-| `selection_tools_group_convert_to_detail` | Convert Group to Detail Group. | Yes | sync |
-| `selection_tools_group_rename` | Rename Group. | Yes | sync |
-| `selection_tools_group_ungroup` | Ungroup Group. | Yes | sync |
-| `selection_tools_list_saved_selections` | List Saved Selections. | No | sync |
-| `selection_tools_restore_selection` | Restore Selection. | Yes | sync |
-| `selection_tools_save_selection` | Save Selection. | No | sync |
-| `selection_tools_select_by_query` | Select By Query. | Yes | sync |
-| `selection_tools_set_selection` | Set Selection. | Yes | sync |
+| `familytype_mapper_audit_families` | Audit the families in a saved snapshot and report problems such as unmapped or inconsistent family types. | No | sync |
+| `familytype_mapper_list_type_mappings` | List family-type mappings found in a saved snapshot, optionally for one category. | No | sync |
+| `hello_world_say_hello` | Example module command that returns a greeting; use it to confirm the module system works. | No | sync |
+| `model_inspector_ask` | Answer a question about a saved snapshot by filtering its element records with the filter DSL. | No | sync |
+| `model_inspector_inspect_selection` | Return the snapshot records of the given elements (by UniqueId). | No | sync |
+| `model_inspector_list_groups` | List the model groups found in a saved snapshot. | No | sync |
+| `model_inspector_list_saved_queries` | List the saved named queries. | No | sync |
+| `model_inspector_run_saved_query` | Run a previously saved named query against a saved snapshot. | No | sync |
+| `model_inspector_save_query` | Save a named filter query so it can be re-run later with model_inspector_run_saved_query. | No | sync |
+| `model_inspector_summarize_model` | Summarise a saved snapshot, for example element counts by category. | No | sync |
+| `module_list_commands` | List all registered modules and the commands they expose to the dockable Revit panel. | No | sync |
+| `parameter_manager_diff_params` | Compare parameter values between two saved snapshots and list the differences. | No | sync |
+| `parameter_manager_export_params_csv` | Export parameters of the matching snapshot elements to a CSV file in the workspace. | No | sync |
+| `parameter_manager_filter_params` | Return a parameter grid for the elements of a snapshot that match a filter, optionally including read-only parameters. | No | sync |
+| `parameter_manager_import_params_csv` | Import parameter values from a CSV file in the workspace and apply them to elements. | Yes | sync |
+| `parameter_manager_plan_set_params` | Create a draft ActionPlan that sets parameter values on the elements of a snapshot matching a filter. | Yes | sync |
+| `qaqc_checker_list_issues` | List recorded QA/QC issues for a document, optionally filtered by status and severity. | No | sync |
+| `qaqc_checker_list_rules` | List the QA/QC rules that are available, optionally for one rule pack. | No | sync |
+| `qaqc_checker_resolve_issue` | Mark one recorded QA/QC issue as resolved. | No | sync |
+| `qaqc_checker_run_check` | Run a QA/QC rule pack against a saved snapshot and record the issues it finds. | No | sync |
+| `recipe_runner_get_run_status` | Return the status and results of one recipe run. | No | sync |
+| `recipe_runner_list_recipes` | List the available automation recipes. | No | sync |
+| `recipe_runner_list_runs` | List past recipe runs, optionally for one recipe. | No | sync |
+| `recipe_runner_run_recipe` | Run a named automation recipe (a YAML-defined sequence of tool calls) with arguments; set dry_run to list the steps without executing them. | No | sync |
+| `report_generator_export_excel` | Export a snapshot (optionally filtered, with chosen parameters and QA/QC findings) to an Excel workbook in the workspace. | No | sync |
+| `report_generator_export_sqlite_summary` | Export a summary of a snapshot to a SQLite database file in the workspace. | No | sync |
+| `selection_tools_group_convert_to_detail` | Convert a model group into a detail group. | Yes | sync |
+| `selection_tools_group_rename` | Rename a model group identified by its UniqueId. | Yes | sync |
+| `selection_tools_group_ungroup` | Ungroup a model group identified by its UniqueId. | Yes | sync |
+| `selection_tools_list_saved_selections` | List the saved named selections. | No | sync |
+| `selection_tools_restore_selection` | Re-select a previously saved named selection in the Revit UI. | Yes | sync |
+| `selection_tools_save_selection` | Save a set of element UniqueIds under a name for later restore. | No | sync |
+| `selection_tools_select_by_query` | Select in Revit the elements of a snapshot that match a filter query. | Yes | sync |
+| `selection_tools_set_selection` | Select the given elements (by UniqueId) in the Revit UI. | Yes | sync |
 
 ## Navisworks Provider
 
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
-| `navisworks_activate_viewpoint` | Activate a saved viewpoint by Guid. | No | sync |
-| `navisworks_append_file` | Append a file (e. | No | sync |
-| `navisworks_create_viewpoint` | Create a new saved viewpoint from the current view. | Yes | sync |
-| `navisworks_get_clash_results` | Get results for a clash test by Guid. | No | sync |
-| `navisworks_get_document_info` | Get info about the active Navisworks document. | No | sync |
-| `navisworks_get_model_tree` | Get the model hierarchy tree in Navisworks. | No | sync |
-| `navisworks_get_selection` | Get active selection items in Navisworks. | No | sync |
-| `navisworks_health` | Check if Navisworks is running and get status information. | No | sync |
-| `navisworks_invoke_method` | Invoke a C# method in Navisworks via reflection. | Yes | sync |
-| `navisworks_list_clash_tests` | List clash tests defined in Clash Detective. | No | sync |
-| `navisworks_list_viewpoints` | List saved viewpoints. | No | sync |
-| `navisworks_reflect_get` | Get a C# property value from a Navisworks object via reflection. | No | sync |
-| `navisworks_reflect_set` | Set a C# property value on a Navisworks object via reflection. | Yes | sync |
-| `navisworks_refresh` | Refresh all updated files in the active document. | No | sync |
-| `navisworks_run_clash_test` | Run a clash test by Guid. | Yes | sync |
+| `navisworks_activate_viewpoint` | Switch the Navisworks view to a saved viewpoint identified by its Guid. | No | sync |
+| `navisworks_append_file` | Append a model file (for example NWD, NWC or IFC) from the allowed workspace to the active Navisworks document. | No | sync |
+| `navisworks_create_viewpoint` | Create a saved viewpoint with the given name from the current view. | Yes | sync |
+| `navisworks_get_clash_results` | Return the results of one clash test, with paging by skip and limit. | No | sync |
+| `navisworks_get_document_info` | Return metadata about the active Navisworks document. | No | sync |
+| `navisworks_get_model_tree` | Return the model hierarchy tree of the active Navisworks document down to a maximum depth. | No | sync |
+| `navisworks_get_selection` | Return the items currently selected in Navisworks. | No | sync |
+| `navisworks_health` | Check that the Navisworks bridge is reachable and return its status. | No | sync |
+| `navisworks_invoke_method` | Advanced escape hatch: call a public C# method in Navisworks through reflection. | Yes | sync |
+| `navisworks_list_clash_tests` | List the clash tests defined in Clash Detective. | No | sync |
+| `navisworks_list_viewpoints` | List the saved viewpoints of the active Navisworks document. | No | sync |
+| `navisworks_reflect_get` | Advanced: read a C# property of a Navisworks object through reflection. | No | sync |
+| `navisworks_reflect_set` | Advanced escape hatch: set a C# property of a Navisworks object through reflection. | Yes | sync |
+| `navisworks_refresh` | Refresh all appended files that changed on disk in the active Navisworks document. | No | sync |
+| `navisworks_run_clash_test` | Run one Clash Detective test, identified by Guid, and update its results. | Yes | sync |
 
 ## Revit Provider
 
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
-| `revit_apply_view_template` | Apply view template to a view. | Yes | sync |
-| `revit_batch_create_sheets_from_csv` | Create multiple sheets from a CSV file. | Yes | sync |
-| `revit_batch_set_parameters` | Set a parameter value for multiple elements. | Yes | sync |
+| `revit_apply_view_template` | Apply a view template to a view. | Yes | sync |
+| `revit_batch_create_sheets_from_csv` | Create many sheets from a CSV file inside the allowed workspace, using the named title block. | Yes | sync |
+| `revit_batch_set_parameters` | Set the same parameter to the same value on many elements, given by ElementId, in one Revit transaction. | Yes | sync |
 | `revit_batch_set_parameters_by_filter` | Set a parameter value on all elements matching a filter (category, type, level, or parameter value). | Yes | sync |
-| `revit_calculate_material_quantities` | Calculate material volumes for a category. | No | sync |
+| `revit_calculate_material_quantities` | Calculate material volumes and areas for all elements of a category. | No | sync |
 | `revit_change_element_type` | Swap all instances of one element type to another type. | Yes | sync |
-| `revit_check_clashes` | Check clashes between categories. | No | sync |
-| `revit_close_document` | Close active document. | Yes | sync |
-| `revit_convert_to_group` | Convert elements into a group. | Yes | sync |
-| `revit_copy_element` | Copy an element. | Yes | sync |
-| `revit_create_3d_view` | Create a new 3D view. | Yes | sync |
-| `revit_create_beam` | Create structural beam. | Yes | sync |
-| `revit_create_column` | Create structural column. | Yes | sync |
-| `revit_create_conduit` | Create electrical conduit. | Yes | sync |
-| `revit_create_dimension` | Create linear dimension between elements. | Yes | sync |
-| `revit_create_duct` | Create duct. | Yes | sync |
-| `revit_create_floor` | Create a floor in Revit with a rectangular or custom boundary. | Yes | sync |
-| `revit_create_floor_plan_view` | Create a floor plan view for a level. | Yes | sync |
-| `revit_create_foundation` | Create foundation. | Yes | sync |
-| `revit_create_grid` | Create a grid line in Revit. | Yes | sync |
-| `revit_create_group` | Create a group. | Yes | sync |
-| `revit_create_level` | Create a new level in Revit. | Yes | sync |
-| `revit_create_material` | Create a new material with color and properties. | Yes | sync |
-| `revit_create_new_document` | Create new project. | Yes | sync |
-| `revit_create_pipe` | Create pipe. | Yes | sync |
-| `revit_create_project_parameter` | Create a new project parameter. | Yes | sync |
-| `revit_create_roof` | Create a roof in Revit. | Yes | sync |
-| `revit_create_room` | Create a room at a specific point on a level. | Yes | sync |
-| `revit_create_schedule` | Create a schedule. | Yes | sync |
-| `revit_create_section_view` | Create a section view. | Yes | sync |
-| `revit_create_shared_parameter` | Create a new shared parameter. | Yes | sync |
-| `revit_create_sheet` | Create a new sheet. | Yes | sync |
-| `revit_create_tag` | Tag an element. | Yes | sync |
-| `revit_create_text_note` | Create a text note. | Yes | sync |
-| `revit_create_wall` | Create a wall in Revit between two points. | Yes | sync |
-| `revit_delete_element` | Delete an element by ID. | Yes | sync |
-| `revit_delete_sheet` | Delete a sheet. | Yes | sync |
-| `revit_duplicate_sheet` | Duplicate a sheet. | Yes | sync |
-| `revit_edit_family` | Open a family for editing. | Yes | sync |
+| `revit_check_clashes` | Check for geometric clashes between elements of two categories, within a tolerance (feet). | No | sync |
+| `revit_close_document` | Close the active Revit document, optionally saving changes first. | Yes | sync |
+| `revit_convert_to_group` | Convert a set of elements into a named model group. | Yes | sync |
+| `revit_copy_element` | Copy one element and place the copy at an offset vector in feet from the original. | Yes | sync |
+| `revit_create_3d_view` | Create a new 3D view with the given name in the active Revit document. | Yes | sync |
+| `revit_create_beam` | Create a structural beam of a given family type between two x/y points on a level. | Yes | sync |
+| `revit_create_column` | Create a structural column of a given family type at an x/y point on a level. | Yes | sync |
+| `revit_create_conduit` | Create an electrical conduit between two points at a given diameter on a level. | Yes | sync |
+| `revit_create_dimension` | Create a linear dimension between two points or two elements in the active view. | Yes | sync |
+| `revit_create_duct` | Create a duct between two points at an elevation on a level, with a mechanical system type and duct type. | Yes | sync |
+| `revit_create_floor` | Create a floor on a level from a closed boundary of points in the active Revit document. | Yes | sync |
+| `revit_create_floor_plan_view` | Create a floor plan view for the named level in the active Revit document. | Yes | sync |
+| `revit_create_foundation` | Create a foundation element of a given family type at a point on a level. | Yes | sync |
+| `revit_create_grid` | Create a straight grid line between two points in the active Revit document. | Yes | sync |
+| `revit_create_group` | Create a model group from a list of ElementIds, with a name. | Yes | sync |
+| `revit_create_level` | Create a new level with the given name at the given elevation (feet) in the active Revit document. | Yes | sync |
+| `revit_create_material` | Create a new material with a colour, transparency, shininess and smoothness. | Yes | sync |
+| `revit_create_new_document` | Create a new Revit project, optionally from a template file inside the allowed workspace. | Yes | sync |
+| `revit_create_pipe` | Create a pipe between two points at an elevation on a level, with a piping system type and pipe type. | Yes | sync |
+| `revit_create_project_parameter` | Create a new project parameter and bind it to a category in the active Revit document. | Yes | sync |
+| `revit_create_roof` | Create a roof on a level from a closed footprint of points, with an optional slope, in the active Revit document. | Yes | sync |
+| `revit_create_room` | Create a room at an x/y point on a level, with a name and number, in the active Revit document. | Yes | sync |
+| `revit_create_schedule` | Create a schedule view for a category with the given name. | Yes | sync |
+| `revit_create_section_view` | Create a section view between two points with the given height in the active Revit document. | Yes | sync |
+| `revit_create_shared_parameter` | Create a new shared parameter with a name, parameter group and data type in the active Revit document. | Yes | sync |
+| `revit_create_sheet` | Create a new sheet with a name, number and title block in the active Revit document. | Yes | sync |
+| `revit_create_tag` | Tag one element at an x/y position in a view. | Yes | sync |
+| `revit_create_text_note` | Create a text note at an x/y position in a view of the active Revit document. | Yes | sync |
+| `revit_create_wall` | Create a straight wall between two points on a level in the active Revit document. | Yes | sync |
+| `revit_delete_element` | Delete one element by its Revit ElementId from the active document. | Yes | sync |
+| `revit_delete_sheet` | Delete a sheet by ElementId. | Yes | sync |
+| `revit_duplicate_sheet` | Duplicate a sheet, optionally with its views, using one of Revit's duplicate options. | Yes | sync |
+| `revit_edit_family` | Open a family for editing in the Revit family editor. | Yes | sync |
 | `revit_execute_python` | Execute arbitrary Python/IronPython code inside Revit with broad access to the public Revit API. | Yes | sync |
-| `revit_export_dwg` | Export view to DWG. | No | sync |
-| `revit_export_ifc` | Export to IFC. | No | sync |
-| `revit_export_image` | Export view to Image. | No | sync |
-| `revit_export_navisworks` | Export to NWC. | No | sync |
+| `revit_export_dwg` | Export a view to a DWG file at a path inside the allowed workspace. | No | sync |
+| `revit_export_ifc` | Export the model to an IFC file at a path inside the allowed workspace. | No | sync |
+| `revit_export_image` | Export a view to an image file of the given pixel size at a path inside the allowed workspace. | No | sync |
+| `revit_export_navisworks` | Export the model to a Navisworks NWC file at a path inside the allowed workspace. | No | sync |
 | `revit_extract_snapshot` | Extract a semantic BIM snapshot of the active document. | No | sync |
-| `revit_get_categories` | List Revit categories. | No | sync |
-| `revit_get_design_options` | Get design options. | No | sync |
-| `revit_get_document_info` | Get information about the active Revit document. | No | sync |
-| `revit_get_element_bounding_box` | Get element bounding box. | No | sync |
+| `revit_get_categories` | List the Revit categories available in the active document. | No | sync |
+| `revit_get_design_options` | List the design option sets and options of the active Revit document. | No | sync |
+| `revit_get_document_info` | Return metadata about the active Revit document, such as its title, path and workshare status. | No | sync |
+| `revit_get_element_bounding_box` | Return the axis-aligned bounding box (min and max corner, feet) of an element. | No | sync |
 | `revit_get_element_geometry` | Get geometric data for an element: location point or curve endpoints, bounding box, level, area, volume, and length. | No | sync |
-| `revit_get_element_parameters` | Get all parameters of an element. | No | sync |
-| `revit_get_element_type` | Find element types/families. | No | sync |
+| `revit_get_element_parameters` | Return every instance parameter of one element (name, value, storage type and read-only flag). | No | sync |
+| `revit_get_element_type` | Find element types by category name and family name in the active document. | No | sync |
 | `revit_get_elements_by_type` | Get element IDs and key parameters, filtered by type, category, and/or level. | No | sync |
-| `revit_get_group_members` | Get group members. | No | sync |
-| `revit_get_link_instances` | Get link instances. | No | sync |
-| `revit_get_parameter_value` | Get a specific parameter value. | No | sync |
-| `revit_get_phase_filters` | Get phase filters. | No | sync |
-| `revit_get_phases` | Get project phases. | No | sync |
-| `revit_get_revision_sequences` | Get list of revision sequences. | No | sync |
-| `revit_get_rvt_links` | Get RVT links. | No | sync |
-| `revit_get_schedule_data` | Get schedule data. | No | sync |
-| `revit_get_selection` | Get currently selected element IDs. | No | sync |
-| `revit_get_sheet_info` | Get detailed information about a sheet. | No | sync |
+| `revit_get_group_members` | List the member elements of a model group. | No | sync |
+| `revit_get_link_instances` | List the placed instances of linked Revit models in the active document. | No | sync |
+| `revit_get_parameter_value` | Read the value of one named parameter on one element. | No | sync |
+| `revit_get_phase_filters` | List the phase filters of the active Revit document. | No | sync |
+| `revit_get_phases` | List the project phases of the active Revit document. | No | sync |
+| `revit_get_revision_sequences` | List the revision sequences defined in the active Revit document. | No | sync |
+| `revit_get_rvt_links` | List the linked Revit models (link types) in the active document. | No | sync |
+| `revit_get_schedule_data` | Return the rows and columns of an existing schedule. | No | sync |
+| `revit_get_selection` | Return the ElementIds of the elements currently selected in the Revit UI. | No | sync |
+| `revit_get_sheet_info` | Return detailed information about one sheet, such as its number, name, title block and placed views. | No | sync |
 | `revit_get_snapshot_delta` | Get lists of unique IDs for elements added, modified, or deleted during the active session. | No | sync |
-| `revit_get_type_parameters` | Get type parameters for an element. | No | sync |
-| `revit_get_view_templates` | Get list of view templates. | No | sync |
-| `revit_get_warnings` | Get current project warnings. | No | sync |
-| `revit_get_worksets` | Get all worksets. | No | sync |
-| `revit_health` | Check if Revit is running and get status information. | No | sync |
-| `revit_invoke_method` | Invoke any Revit API method dynamically using Reflection. | Yes | sync |
-| `revit_list_elements` | List elements by category (Walls, Floors, Roofs, Doors, Windows, etc. | No | sync |
-| `revit_list_families` | List all loaded families and their types. | No | sync |
-| `revit_list_levels` | List all levels in the Revit project. | No | sync |
-| `revit_list_project_parameters` | List project parameters. | No | sync |
-| `revit_list_shared_parameters` | List shared parameters in the document. | No | sync |
-| `revit_list_sheets` | List all sheets. | No | sync |
-| `revit_list_titleblocks` | List available titleblocks. | No | sync |
-| `revit_list_views` | List all views in the Revit project. | No | sync |
-| `revit_mirror_element` | Mirror an element. | Yes | sync |
-| `revit_move_element` | Move an element. | Yes | sync |
-| `revit_pin_element` | Pin an element. | Yes | sync |
-| `revit_place_door` | Place a door in a wall. | Yes | sync |
-| `revit_place_family_instance` | Place a family instance (e. | Yes | sync |
-| `revit_place_viewport_on_sheet` | Place a view on a sheet. | Yes | sync |
-| `revit_place_window` | Place a window in a wall. | Yes | sync |
-| `revit_populate_titleblock` | Populate titleblock parameters. | Yes | sync |
-| `revit_reflect_get` | Get any Revit property value dynamically. | No | sync |
-| `revit_reflect_set` | Set any Revit property value dynamically. | Yes | sync |
-| `revit_relinquish_all` | Relinquish all elements and worksets. | Yes | sync |
-| `revit_render_3d` | Render 3D view to image. | No | sync |
-| `revit_renumber_sheets` | Batch renumber sheets. | Yes | sync |
+| `revit_get_type_parameters` | Return the type parameters of the family type that an element belongs to. | No | sync |
+| `revit_get_view_templates` | List the view templates available in the active Revit document. | No | sync |
+| `revit_get_warnings` | Return the current warnings of the active Revit project (for example overlapping or duplicate elements). | No | sync |
+| `revit_get_worksets` | List the worksets of a workshared model with their owners and open state. | No | sync |
+| `revit_health` | Check that the Revit bridge is reachable and return its status information. | No | sync |
+| `revit_invoke_method` | Advanced escape hatch: call any public Revit API method by class and method name through reflection, optionally inside a transaction. | Yes | sync |
+| `revit_list_elements` | List the elements of one Revit category (for example Walls, Floors, Roofs, Doors or Windows) in the active document. | No | sync |
+| `revit_list_families` | List the families loaded in the active Revit document together with their types. | No | sync |
+| `revit_list_levels` | List all levels in the active Revit project with their names and elevations. | No | sync |
+| `revit_list_project_parameters` | List the project parameters defined in the active Revit document with the categories they are bound to. | No | sync |
+| `revit_list_shared_parameters` | List the shared parameters defined in the active Revit document. | No | sync |
+| `revit_list_sheets` | List all sheets in the active Revit project with their numbers, names and ids. | No | sync |
+| `revit_list_titleblocks` | List the title block family types available in the active Revit document. | No | sync |
+| `revit_list_views` | List all views in the active Revit project with their names, ids and view types. | No | sync |
+| `revit_mirror_element` | Mirror one element about a plane given by an origin point and a normal vector. | Yes | sync |
+| `revit_move_element` | Move one element by an offset vector in feet. | Yes | sync |
+| `revit_pin_element` | Pin an element so it cannot be moved by accident. | Yes | sync |
+| `revit_place_door` | Place a door of a given family and type in a host wall at a location. | Yes | sync |
+| `revit_place_family_instance` | Place an instance of a loaded family type (for example furniture or equipment) at a point on a level. | Yes | sync |
+| `revit_place_viewport_on_sheet` | Place a view on a sheet at an x/y position (feet on the sheet). | Yes | sync |
+| `revit_place_window` | Place a window of a given family and type in a host wall at a location. | Yes | sync |
+| `revit_populate_titleblock` | Write a set of parameter values into the title block of a sheet. | Yes | sync |
+| `revit_reflect_get` | Advanced: read any public Revit API property of an object identified by target_id, through reflection. | No | sync |
+| `revit_reflect_set` | Advanced escape hatch: set any writable Revit API property of an object identified by target_id, through reflection. | Yes | sync |
+| `revit_relinquish_all` | Relinquish every element and workset the current user owns in a workshared model. | Yes | sync |
+| `revit_render_3d` | Render a 3D view to an image file at a chosen quality level. | No | sync |
+| `revit_renumber_sheets` | Renumber all sheets in one batch using a prefix and a starting number. | Yes | sync |
 | `revit_replace_family_type` | Replace all instances of one family/type combination with another, identified by name. | Yes | sync |
-| `revit_rotate_element` | Rotate an element. | Yes | sync |
-| `revit_save_document` | Save the current Revit document. | Yes | sync |
-| `revit_select_by_unique_ids` | Select and zoom to elements in the active view by their UniqueId. | No | sync |
-| `revit_set_element_material` | Set material for an element or specific face. | Yes | sync |
-| `revit_set_parameter_value` | Set a parameter value for an element. | Yes | sync |
-| `revit_set_selection` | Set selection by element IDs. | Yes | sync |
-| `revit_set_type_parameter` | Set a type parameter value. | Yes | sync |
-| `revit_sync_to_central` | Sync to central model. | Yes | sync |
-| `revit_tag_all_in_view` | Tag all elements of a category in view. | Yes | sync |
-| `revit_ungroup` | Ungroup a group. | Yes | sync |
-| `revit_unpin_element` | Unpin an element. | Yes | sync |
+| `revit_rotate_element` | Rotate one element about a vertical axis through a centre point by an angle in radians. | Yes | sync |
+| `revit_save_document` | Save the active Revit document, optionally to a path inside the allowed workspace directories. | Yes | sync |
+| `revit_select_by_unique_ids` | Select elements by UniqueId and zoom to them in the active view. | No | sync |
+| `revit_set_element_material` | Assign a material, by name, to an element or to one of its faces. | Yes | sync |
+| `revit_set_parameter_value` | Set one instance parameter on one element to a new value in the active Revit document. | Yes | sync |
+| `revit_set_selection` | Replace the current Revit UI selection with the given ElementIds. | Yes | sync |
+| `revit_set_type_parameter` | Set one type parameter on the family type of an element. | Yes | sync |
+| `revit_sync_to_central` | Synchronise a workshared model with the central model with a comment, optionally relinquishing ownership. | Yes | sync |
+| `revit_tag_all_in_view` | Tag every element of a category in the active view. | Yes | sync |
+| `revit_ungroup` | Dissolve a model group into its member elements. | Yes | sync |
+| `revit_unpin_element` | Unpin a previously pinned element so it can be moved again. | Yes | sync |
 
 ## Rhino Provider
 
@@ -240,19 +240,19 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | --- | --- | --- | --- |
 | `rhino_boolean_difference` | Subtract cutter Breps from a base Brep; returns new object GUIDs. | Yes | sync |
 | `rhino_boolean_union` | Boolean union a list of Brep objects by GUID; returns new object GUIDs. | Yes | sync |
-| `rhino_clear_scene` | Delete all objects in the Rhino document, or only objects on a specific layer. | Yes | sync |
+| `rhino_clear_scene` | Delete all objects in the Rhino document, or only the objects on one layer. | Yes | sync |
 | `rhino_create_box` | Create a box (rectangular prism) from two corner points in metres. | Yes | sync |
 | `rhino_create_cylinder` | Create a capped cylinder from base point, height, and radius in metres. | Yes | sync |
 | `rhino_create_sphere` | Create a sphere by centre point and radius in metres. | Yes | sync |
 | `rhino_generate_diagrid_tower` | Generate a parametric diagrid skyscraper with aluminum mullion sweeps and glass panel solids. | No | sync |
-| `rhino_get_document_info` | Get the active Rhino document name, path, unit system, and object count. | No | sync |
-| `rhino_get_lines` | Get all curves/lines from the active Rhino document. | No | sync |
-| `rhino_get_scene` | Get all objects in the Rhino scene with their type, layer, and bounding box. | No | sync |
-| `rhino_health` | Check if the Rhino bridge is running and healthy. | No | sync |
-| `rhino_invoke_method` | Invoke a C# method on a Rhino object via reflection. | Yes | sync |
-| `rhino_list_layers` | List all layers in the Rhino document with name, color, visibility, and lock state. | No | sync |
-| `rhino_reflect_get` | Get a C# property value from a Rhino object via reflection. | No | sync |
-| `rhino_reflect_set` | Set a C# property value on a Rhino object via reflection. | Yes | sync |
+| `rhino_get_document_info` | Return the active Rhino document name, path, unit system and object count. | No | sync |
+| `rhino_get_lines` | Return all curves and lines in the active Rhino document. | No | sync |
+| `rhino_get_scene` | Return every object in the Rhino scene with its type, layer and bounding box. | No | sync |
+| `rhino_health` | Check that the Rhino bridge is reachable and healthy. | No | sync |
+| `rhino_invoke_method` | Advanced escape hatch: call a public C# method on a Rhino object through reflection. | Yes | sync |
+| `rhino_list_layers` | List all layers of the Rhino document with name, colour, visibility and lock state. | No | sync |
+| `rhino_reflect_get` | Advanced: read a C# property of a Rhino object through reflection. | No | sync |
+| `rhino_reflect_set` | Advanced escape hatch: set a C# property of a Rhino object through reflection. | Yes | sync |
 | `rhino_run_python` | Execute arbitrary IronPython code inside Rhino with full RhinoCommon access. | Yes | sync |
 | `rhino_set_material` | Apply a material to objects by GUID list or by layer name. | Yes | sync |
 | `rhino_set_view` | Set the active Rhino viewport display mode or projection. | Yes | sync |
@@ -274,19 +274,19 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
-| `speckle_auth_status` | Get Speckle OAuth authentication status. | No | sync |
-| `speckle_checkout_version` | Checkout Speckle version metadata. | No | sync |
+| `speckle_auth_status` | Report the current Speckle OAuth authentication status of this server (signed in or not). | No | sync |
+| `speckle_checkout_version` | Retrieve the metadata of one Speckle version by ID. | No | sync |
 | `speckle_create_branch` | Create an isolated Speckle branch for compatibility with model workflows. | Yes | sync |
 | `speckle_create_model` | Create an isolated Speckle model. | Yes | sync |
-| `speckle_get_version_metadata` | Read Speckle version metadata. | No | sync |
-| `speckle_health` | Check Speckle provider health. | No | sync |
+| `speckle_get_version_metadata` | Read the metadata of one Speckle version by project and version ID. | No | sync |
+| `speckle_health` | Check that the Speckle provider is configured and report whether it can reach the Speckle server. | No | sync |
 | `speckle_list_models` | List Speckle models for a project. | No | sync |
-| `speckle_list_projects` | List Speckle projects. | No | sync |
+| `speckle_list_projects` | List the Speckle projects the signed-in user can access, up to a limit. | No | sync |
 | `speckle_list_versions` | List Speckle versions for a model or branch. | No | sync |
 | `speckle_merge_branch` | Compatibility alias for merge_model. | Yes | sync |
 | `speckle_merge_model` | Merge one Speckle model or branch into another through GraphQL. | Yes | sync |
 | `speckle_oauth_exchange_code` | Exchange a Speckle OAuth authorization code. | No | sync |
-| `speckle_oauth_refresh` | Refresh the Speckle OAuth access token. | No | sync |
+| `speckle_oauth_refresh` | Refresh the Speckle OAuth access token so later Speckle calls keep working. | No | sync |
 | `speckle_oauth_start` | Generate a Speckle OAuth authorization URL using PKCE. | No | sync |
 | `speckle_publish_version` | Publish a Speckle version by creating a commit through GraphQL. | Yes | sync |
 | `speckle_receive_object` | Receives data from a Speckle stream/project using local credentials. | No | sync |

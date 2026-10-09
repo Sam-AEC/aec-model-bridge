@@ -30,6 +30,7 @@ from revit_mcp_server.providers import (
     ModuleProvider,
 )
 from revit_mcp_server.module_registry import ModuleRegistry
+from revit_mcp_server.tool_metadata import DESCRIPTIONS
 from revit_mcp_server.config import config
 
 try:
@@ -120,7 +121,7 @@ def main():
         output_lines.append("| Tool Name | Description | Mutating? | Execution Type |")
         output_lines.append("| --- | --- | --- | --- |")
         for t in sorted_tools:
-            desc = get_first_sentence(t.description)
+            desc = get_first_sentence(DESCRIPTIONS.get(t.name, t.description))
             mutating_str = "Yes" if t.is_mutating else "No"
             exec_str = t.execution_mode
             output_lines.append(f"| `{t.name}` | {desc} | {mutating_str} | {exec_str} |")
