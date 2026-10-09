@@ -148,7 +148,10 @@ def _load_review_snapshot(snapshot_id: str, workspace: Any) -> Dict[str, Any]:
             "types": [t.model_dump() for t in snap.types],
             "is_mock": True,
         }
-    path = _ws_dir(workspace) / "snapshots" / f"{snapshot_id}.json"
+    snap_dir = (_ws_dir(workspace) / "snapshots").resolve()
+    path = (snap_dir / f"{snapshot_id}.json").resolve()
+    if path.parent != snap_dir:
+        raise ValueError("snapshot_id must be a plain snapshot name inside the workspace snapshots folder.")
     if not path.exists():
         raise ValueError(f"Snapshot '{snapshot_id}' not found.")
     with open(path, encoding="utf-8") as f:
@@ -172,6 +175,26 @@ def _qaqc_rules_module() -> Any:
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
+
+_MAX_CELL_CHARS = 32000  # Excel's hard limit is 32,767
+
+
+def _chunk_uids(uids: List[str], limit: int = _MAX_CELL_CHARS) -> List[str]:
+    """Join UniqueIds with '; ' into strings that each fit in one Excel cell."""
+    chunks: List[str] = []
+    current: List[str] = []
+    size = 0
+    for uid in uids:
+        add = len(uid) + (2 if current else 0)
+        if current and size + add > limit:
+            chunks.append("; ".join(current))
+            current, size, add = [], 0, len(uid)
+        current.append(uid)
+        size += add
+    if current:
+        chunks.append("; ".join(current))
+    return chunks
 
 
 def _review_findings(elements: List[Dict[str, Any]], types: List[Dict[str, Any]], doc_guid: str, rule_pack: str) -> List[Dict[str, Any]]:
@@ -334,7 +357,8 @@ class ReportGeneratorModule:
         # --- Cover ---
         ws = wb.active
         ws.title = "Cover"
-        total_hits = sum(f["count"] for f in findings)
+        flagged_uids = {u for f in findings for u in f["uids"]}
+        total_hits = len(flagged_uids)
         label = "MOCK data - generated sample, not a live Revit model" if data["is_mock"] else "Snapshot taken from the model"
         rows = [
             ("Document", source.get("doc_title") or source.get("title") or ""),
@@ -361,18 +385,26 @@ class ReportGeneratorModule:
         _write_header(ws_f, f_headers)
         for width, col in zip((12, 24, 14, 50, 12, 60, 50), "ABCDEFG"):
             ws_f.column_dimensions[col].width = width
-        for r, f in enumerate(findings, 2):
-            ws_f.append([f["severity"], f["rule_id"], f["category"], f["message"], f["count"], "; ".join(f["uids"]), f["next_step"]])
-            color = SEVERITY_COLORS.get(f["severity"])
-            if color:
-                for col in range(1, len(f_headers) + 1):
-                    ws_f.cell(row=r, column=col).fill = PatternFill("solid", fgColor=color)
+        r = 1
+        for f in findings:
+            # An Excel cell holds at most 32,767 characters; continue long UniqueId
+            # lists on extra rows so no id is silently dropped.
+            chunks = _chunk_uids(f["uids"]) or [""]
+            for i, chunk in enumerate(chunks):
+                r += 1
+                if i == 0:
+                    ws_f.append([f["severity"], f["rule_id"], f["category"], f["message"], f["count"], chunk, f["next_step"]])
+                else:
+                    ws_f.append([f["severity"], f["rule_id"], f["category"], f["message"] + " (UniqueIds continued)", "", chunk, ""])
+                color = SEVERITY_COLORS.get(f["severity"])
+                if color:
+                    for col in range(1, len(f_headers) + 1):
+                        ws_f.cell(row=r, column=col).fill = PatternFill("solid", fgColor=color)
 
         # --- Counts by category ---
         ws_c = wb.create_sheet("Counts by category")
         _write_header(ws_c, ["Category", "Elements", "Flagged by rules"])
         ws_c.column_dimensions["A"].width = 30
-        flagged_uids = {u for f in findings for u in f["uids"]}
         cat_total: Dict[str, int] = {}
         cat_flagged: Dict[str, int] = {}
         for el in elements:
