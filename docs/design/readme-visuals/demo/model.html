@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Demo: 3D view pane</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Source for the left pane of docs/images/readme/demo.gif: a 3D view of the model with the
+   assistant chat on top. The building is the isometric model from
+   docs/design/readme-visuals/src/readme-hero-light.svg, injected by build_demo.py at
+   <!--BUILDING-->. Frame is chosen with the URL hash, for example model.html#f3. */
+:root{--bg:#EEF2F6;--card:#FFFFFF;--ink:#13202B;--mute:#5C6B79;--line:#D3DCE4;--accent:#0A7F93;--red:#C62F1B;--amber:#A45F0B;--ok:#127A4B}
+*{box-sizing:border-box}
+html,body{margin:0;width:760px;height:584px;position:relative;background:var(--bg);font-family:'IBM Plex Sans',system-ui,sans-serif;color:var(--ink);overflow:hidden}
+.view{position:absolute;left:0;top:0;right:0;bottom:0;background:linear-gradient(#F4F7FA,#E6ECF2)}
+.tab{position:absolute;left:20px;top:16px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600}
+.tab small{font-family:'IBM Plex Mono',monospace;font-weight:400;color:var(--mute);font-size:12px}
+.sim{position:absolute;right:18px;top:18px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--mute)}
+svg.model{position:absolute;left:70px;top:30px}
+.hide{display:none}
+.chat{position:absolute;left:20px;bottom:16px;width:430px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 30px -18px rgba(19,32,43,.45);overflow:hidden}
+.chat .bar{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--line);font-size:12.5px;font-weight:600}
+.chat .bar small{font-weight:400;color:var(--mute);font-family:'IBM Plex Mono',monospace;font-size:11px}
+.body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:9px}
+.user{align-self:flex-end;background:var(--ink);color:#fff;font-size:15px;line-height:1.35;padding:8px 13px;border-radius:12px 12px 3px 12px;max-width:400px}
+.bot{display:flex;flex-direction:column;gap:6px}
+.chip{align-self:flex-start;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--mute);border:1px solid var(--line);border-radius:6px;padding:2px 8px;background:#F6F8FA}
+.chip b{color:var(--ok);font-weight:600}
+.text{font-size:15px;line-height:1.4}
+</style>
+</head>
+<body>
+<div class="view">
+  <div class="tab">3D view <small>Example tower.rvt</small></div>
+  <div class="sim">Example values. Simulated session.</div>
+  <svg class="model" id="model" width="690" height="542" viewBox="860 96 560 440" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Isometric 3D model of a small office building">
+    <!--BUILDING-->
+    <!-- mask: doors look normal before the check finds the problem -->
+    <g id="mask">
+      <polygon points="1303.9,392.5 1285.8,403.0 1285.8,368.0 1303.9,357.5" fill="#FFFFFF" stroke="#18202C" stroke-width="1.65" stroke-linejoin="round"/>
+      <polygon points="1267.7,413.4 1249.6,423.9 1249.6,388.9 1267.7,378.4" fill="#FFFFFF" stroke="#18202C" stroke-width="1.65" stroke-linejoin="round"/>
+    </g>
+    <!-- flagged: red while the Mark is empty -->
+    <g id="flag">
+      <polygon points="1303.9,392.5 1285.8,403.0 1285.8,368.0 1303.9,357.5" fill="rgba(198,47,27,0.14)" stroke="#C62F1B" stroke-width="3" stroke-linejoin="round"/>
+      <polygon points="1267.7,413.4 1249.6,423.9 1249.6,388.9 1267.7,378.4" fill="rgba(198,47,27,0.14)" stroke="#C62F1B" stroke-width="3" stroke-linejoin="round"/>
+    </g>
+    <!-- fixed: green once the plan is applied -->
+    <g id="fixed">
+      <polygon points="1303.9,392.5 1285.8,403.0 1285.8,368.0 1303.9,357.5" fill="rgba(18,122,75,0.20)" stroke="#127A4B" stroke-width="3" stroke-linejoin="round"/>
+      <polygon points="1267.7,413.4 1249.6,423.9 1249.6,388.9 1267.7,378.4" fill="rgba(18,122,75,0.20)" stroke="#127A4B" stroke-width="3" stroke-linejoin="round"/>
+    </g>
+    <!-- tags -->
+    <g id="tags" font-family="'IBM Plex Mono',monospace" font-size="13" font-weight="600" text-anchor="middle">
+      <g id="q">
+        <polyline points="1304,372 1328,352" fill="none" stroke="#C62F1B" stroke-width="1.5"/>
+        <rect x="1326" y="338" width="56" height="24" rx="4" fill="#fff" stroke="#C62F1B" stroke-width="1.6" stroke-dasharray="4 3"/>
+        <text x="1354" y="355" fill="#C62F1B" stroke="none">?</text>
+        <polyline points="1268,412 1296,432" fill="none" stroke="#C62F1B" stroke-width="1.5"/>
+        <rect x="1294" y="420" width="56" height="24" rx="4" fill="#fff" stroke="#C62F1B" stroke-width="1.6" stroke-dasharray="4 3"/>
+        <text x="1322" y="437" fill="#C62F1B" stroke="none">?</text>
+      </g>
+      <g id="n">
+        <polyline points="1304,372 1328,352" fill="none" stroke="#127A4B" stroke-width="1.5"/>
+        <rect x="1326" y="338" width="56" height="24" rx="4" fill="#fff" stroke="#127A4B" stroke-width="1.6"/>
+        <text x="1354" y="355" fill="#046B80" stroke="none">D-101</text>
+        <polyline points="1268,412 1296,432" fill="none" stroke="#127A4B" stroke-width="1.5"/>
+        <rect x="1294" y="420" width="56" height="24" rx="4" fill="#fff" stroke="#127A4B" stroke-width="1.6"/>
+        <text x="1322" y="437" fill="#046B80" stroke="none">D-102</text>
+      </g>
+    </g>
+  </svg>
+  <div class="chat">
+    <div class="bar">AI assistant <small>any MCP client</small></div>
+    <div class="body" id="body"></div>
+  </div>
+</div>
+<script>
+var f = parseInt((location.hash || '#f1').slice(2), 10);
+function show(id, on){ var e=document.getElementById(id); if(e) e.style.display = on ? '' : 'none'; }
+// flagged doors appear once the check has run (frame 2); tags show "?" until the plan is applied (frame 5)
+show('mask', f < 2);
+show('q', f >= 2 && f < 5);
+show('flag', f >= 2 && f < 5);
+show('fixed', f >= 5);
+show('n', f >= 5);
+var steps = {
+  2: ['qaqc_checker_run_check', '12 doors have no Mark. Drafting a plan for D-101 to D-112.'],
+  3: ['plan_actions', 'Plan plan_7f3a is ready. Nothing changes until you approve it in Revit.'],
+  4: ['plan_actions', 'Plan plan_7f3a is ready. Nothing changes until you approve it in Revit.'],
+  5: ['execute_plan', 'Approved. Applied in one named transaction.'],
+  6: ['revit_get_parameter_value × 12', 'Verified: 12 of 12 Marks match.']
+};
+var html = '<div class="user">Find the doors with no Mark and propose unique values.</div>';
+if (steps[f]) {
+  html += '<div class="bot"><span class="chip">' + steps[f][0] + ' <b>done</b></span><div class="text">' + steps[f][1] + '</div></div>';
+}
+document.getElementById('body').innerHTML = html;
+</script>
+</body>
+</html>
