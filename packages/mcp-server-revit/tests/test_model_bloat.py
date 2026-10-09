@@ -1,15 +1,9 @@
 """Tests for the read-only model bloat audit module (fixture snapshots)."""
-import importlib.util
 import json
-from pathlib import Path
 
 import pytest
 
-_p = Path(__file__).parent.parent / "src/revit_mcp_server/modules/model_bloat/module.py"
-_spec = importlib.util.spec_from_file_location("_mb_impl", _p)
-_mod = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_mod)
-ModelBloatModule = _mod.ModelBloatModule
+from revit_mcp_server.modules.model_bloat.module import ModelBloatModule
 
 
 class WS:
@@ -27,10 +21,10 @@ def _ty(uid, family, name, source="loadable"):
             "family_source": source, "params": {}}
 
 
-def _write(tmp_path, elements, types, sid="snap1"):
+def _write(tmp_path, elements, types, sid="snap1", **extra):
     d = tmp_path / "snapshots"
     d.mkdir(exist_ok=True)
-    (d / f"{sid}.json").write_text(json.dumps({"elements": elements, "types": types}), encoding="utf-8")
+    (d / f"{sid}.json").write_text(json.dumps({"elements": elements, "types": types, **extra}), encoding="utf-8")
     return sid
 
 
@@ -88,14 +82,15 @@ def test_no_instance_data_is_reported_not_guessed(tmp_path):
     sid = _write(tmp_path, [], [_ty("t1", "Chair", "Std"), _ty("t2", "Blob", "B", "inplace")])
     r = ModelBloatModule().audit(snapshot_id=sid, workspace=WS(tmp_path))
     assert r["usage_counts_available"] is False
-    assert r["unused_families"]["total"] == 0 and r["unused_types"]["total"] == 0
+    assert r["unused_families"]["total"] is None and r["unused_types"]["items"] == []
+    assert r["cleanliness"]["score"] is None
     assert r["in_place_families"]["total"] == 1
     assert r["in_place_families"]["items"][0]["placed_instances"] is None
     assert "could not be worked out" in " ".join(r["notes"])
 
 
 def test_clean_model(tmp_path):
-    sid = _write(tmp_path, [_el(1, "Chair", "Std", "t1")], [_ty("t1", "Chair", "Std")])
+    sid = _write(tmp_path, [_el(1, "Chair", "Std", "t1")], [_ty("t1", "Chair", "Std")], cad_scanned=True)
     r = ModelBloatModule().audit(snapshot_id=sid, workspace=WS(tmp_path))
     assert r["cleanliness"]["score"] == 100 and r["headline_findings"] == []
 
@@ -122,3 +117,29 @@ def test_module_is_registered_as_read_only_tool(tmp_path):
     tools = {c.name: c for c in provider.get_capabilities()}
     assert "model_bloat_audit" in tools
     assert tools["model_bloat_audit"].is_mutating is False
+
+
+def test_live_snapshot_without_types_is_not_rated_not_100(tmp_path):
+    """A real extractor snapshot has elements only: no types, no CAD records."""
+    sid = _write(tmp_path, [_el(1, "Chair", "Std", "t1")], [])
+    r = ModelBloatModule().audit(snapshot_id=sid, workspace=WS(tmp_path))
+    assert r["cleanliness"]["score"] is None
+    assert r["cleanliness"]["label"] == "not rated"
+    assert "100/100" not in r["summary"] and "not enough data" in r["summary"]
+    assert r["checks"]["unused_families_and_types"]["status"] == "not_enough_data"
+    assert r["checks"]["in_place_families"]["status"] == "not_enough_data"
+    assert "type list" in r["checks"]["in_place_families"]["missing"][0]
+    for k in ("unused_families", "unused_types", "in_place_families", "families_with_very_many_types"):
+        assert r[k]["status"] == "not_enough_data" and r[k]["total"] is None
+
+
+def test_no_cad_records_is_unknown_unless_scan_declared(tmp_path):
+    types = [_ty("t1", "Chair", "Std")]
+    els = [_el(1, "Chair", "Std", "t1")]
+    r = ModelBloatModule().audit(snapshot_id=_write(tmp_path, els, types), workspace=WS(tmp_path))
+    assert r["checks"]["imported_cad"]["status"] == "not_enough_data"
+    assert r["imported_cad"]["total"] is None and r["cleanliness"]["score"] is None
+    assert r["checks"]["unused_families_and_types"]["status"] == "ran"
+    r2 = ModelBloatModule().audit(snapshot_id=_write(tmp_path, els, types, "s2", cad_scanned=True),
+                                  workspace=WS(tmp_path))
+    assert r2["checks"]["imported_cad"]["status"] == "ran" and r2["cleanliness"]["score"] == 100

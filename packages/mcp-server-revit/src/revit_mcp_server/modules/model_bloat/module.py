@@ -14,6 +14,11 @@ What the snapshot carries (see semantic/models.py):
   - Types: TypeRecord.family / type_name / family_source (system|loadable|inplace).
   - Imported CAD: there is no dedicated field. Detected from element records with
     class "ImportInstance" / "CADLinkType" or a .dwg/.dxf/.dgn name.
+  Honesty rule: a check whose data is missing reports "not_enough_data" (with
+  what is missing) and the cleanliness score is null ("not rated"), never 100.
+  Today's live snapshots carry no `types` list and no CAD records, so they are
+  not rated until the add-in extractor supplies them. CAD "none found" is only
+  trusted if the snapshot has a top-level `cad_scanned: true` or contains CAD.
   Not carried by the snapshot (not reported): nested/shared family usage, types
   used only by other types, file size, and anything Revit stores outside elements.
 """
@@ -49,7 +54,7 @@ def _load_snapshot(snapshot_id: str, workspace: Any) -> Dict[str, Any]:
         return json.load(f)
 
 
-def _get_data(snapshot_id: str, workspace: Any) -> Tuple[List[dict], List[dict]]:
+def _get_data(snapshot_id: str, workspace: Any) -> Tuple[List[dict], List[dict], bool]:
     if not snapshot_id:
         from revit_mcp_server.semantic.engine import generate_mock_snapshot
 
@@ -57,9 +62,10 @@ def _get_data(snapshot_id: str, workspace: Any) -> Tuple[List[dict], List[dict]]
         return (
             [el.model_dump(by_alias=True) for el in snap.elements],
             [t.model_dump() for t in snap.types],
+            False,
         )
     data = _load_snapshot(snapshot_id, workspace)
-    return data.get("elements", []), data.get("types", [])
+    return data.get("elements", []), data.get("types", []), data.get("cad_scanned") is True
 
 
 def _param_value(el: dict, *names: str) -> Any:
@@ -85,6 +91,13 @@ def _cad_kind(el: dict) -> Optional[str]:
     return "imported"
 
 
+def _check(ok: bool, reason: str, *missing: List[str]) -> Dict[str, Any]:
+    gaps = [m for group in missing for m in group]
+    if ok:
+        return {"status": "ran", "reason": None, "missing": []}
+    return {"status": "not_enough_data", "reason": reason, "missing": gaps}
+
+
 def _impact(weight: float) -> str:
     return "high" if weight >= 8 else "medium" if weight >= 3 else "low"
 
@@ -108,7 +121,7 @@ class ModelBloatModule:
     ) -> Dict[str, Any]:
         threshold = int(large_type_threshold or DEFAULT_LARGE_TYPE_THRESHOLD)
         limit = max(1, int(max_items or DEFAULT_MAX_ITEMS))
-        elements, types = _get_data(snapshot_id, workspace)
+        elements, types, cad_scanned = _get_data(snapshot_id, workspace)
 
         # Usage counting (derived; the snapshot has no instance-count field).
         by_uid: Dict[str, int] = defaultdict(int)
@@ -131,7 +144,12 @@ class ModelBloatModule:
                 by_name[(el["family"], el["type_name"])] += 1
                 placed_total += 1
 
-        usage_available = placed_total > 0 and bool(types)
+        types_available = bool(types)
+        usage_available = placed_total > 0 and types_available
+        # A CAD scan is trusted only if the snapshot says it looked for CAD
+        # (cad_scanned) or actually found some. "No CAD records" alone could just
+        # mean the extractor never collects them.
+        cad_available = cad_scanned or bool(cad_items)
 
         def used(t: dict) -> int:
             return by_uid.get(t.get("uid"), 0) + by_name.get((t.get("family"), t.get("type_name")), 0)
@@ -210,37 +228,90 @@ class ModelBloatModule:
         sections.sort(key=lambda s: -s[0])
         findings = [s[1] for s in sections if s[2] > 0]
 
-        score = max(0, round(100 - sum(s[0] for s in sections)))
-        label = "clean" if score >= 85 else "needs tidying" if score >= 60 else "heavy" if score >= 30 else "very heavy"
+        checks = {
+            "unused_families_and_types": _check(
+                usage_available,
+                "Unused families and types cannot be worked out from this snapshot.",
+                [] if types_available else ["a type list (the 'types' catalog of every loaded family type)"],
+                [] if placed_total > 0 else ["placed-instance records that point at their type"],
+            ),
+            "in_place_families": _check(
+                types_available,
+                "In-place families are identified from the type list, which this snapshot does not carry.",
+                ["a type list with family_source (system, loadable or inplace)"],
+            ),
+            "families_with_very_many_types": _check(
+                types_available,
+                "Type counts per family need the type list, which this snapshot does not carry.",
+                ["a type list (the 'types' catalog of every loaded family type)"],
+            ),
+            "imported_cad": _check(
+                cad_available,
+                "This snapshot has no CAD records, and does not say whether CAD was looked for, "
+                "so 'no CAD found' cannot be trusted.",
+                ["records for imported/linked CAD (ImportInstance and CADLinkType elements) or cad_scanned: true"],
+            ),
+        }
+        missing_checks = [k for k, c in checks.items() if c["status"] != "ran"]
+        rated = not missing_checks
+        if rated:
+            score: Optional[int] = max(0, round(100 - sum(s[0] for s in sections)))
+            label = "clean" if score >= 85 else "needs tidying" if score >= 60 else "heavy" if score >= 30 else "very heavy"
+        else:
+            score, label = None, "not rated"
+        if not types_available:
+            inplace, large, unused_families, unused_types = [], [], [], []
+        if not cad_available:
+            cad_items, imported_cad, linked_cad = [], [], []
 
         notes = [PURGE_NOTE]
         if usage_available:
             notes.append(COUNT_CAVEAT)
-        else:
+        elif types_available:
             notes.append(
                 "This snapshot has no placed-instance records that point at types "
                 "(no type_uid, or family and type_name, on any element), so unused "
-                "families and types could not be worked out and are not listed. "
-                "The in-place, many-types and CAD checks still ran."
+                "families and types could not be worked out and are not listed."
             )
+        for k in missing_checks:
+            notes.append(f"Not enough data for '{k}': {checks[k]['reason']}")
+
+        if rated:
+            summary = f"Model cleanliness: {score}/100 ({label}). " + (
+                "Biggest issues first: " + "; ".join(findings) + "." if findings else "Nothing to tidy was found."
+            )
+        else:
+            why = " ".join(checks[k]["reason"] for k in missing_checks)
+            summary = (
+                "Model cleanliness: not rated: not enough data in this snapshot. "
+                + why
+                + (" What was checked found: " + "; ".join(findings) + "." if findings else "")
+            )
+
+        def sect(name: str, items: List[dict]) -> Dict[str, Any]:
+            if checks[name]["status"] != "ran":
+                return {"status": "not_enough_data", "reason": checks[name]["reason"],
+                        "missing": checks[name]["missing"], "total": None, "shown": 0, "items": []}
+            return _cap(items, limit)
 
         return {
             "read_only": True,
-            "summary": (
-                f"Model cleanliness: {score}/100 ({label}). "
-                + ("Biggest issues first: " + "; ".join(findings) + "." if findings else "Nothing to tidy was found.")
-            ),
+            "summary": summary,
+            "checks": checks,
             "cleanliness": {
                 "score": score,
                 "label": label,
-                "note": "A rough estimate from the counts below, not an exact measure of file size or speed.",
+                "note": (
+                    "A rough estimate from the counts below, not an exact measure of file size or speed."
+                    if rated else "No score is given: at least one check could not run (see 'checks')."
+                ),
             },
             "usage_counts_available": usage_available,
             "headline_findings": findings,
-            "imported_cad": _cap(cad_items, limit),
-            "in_place_families": _cap(inplace, limit),
-            "families_with_very_many_types": _cap(large, limit),
-            "unused_families": _cap(unused_families, limit),
-            "unused_types": _cap(unused_types, limit),
+            "imported_cad": sect("imported_cad", cad_items),
+            "in_place_families": sect("in_place_families", inplace),
+            "families_with_very_many_types": sect("families_with_very_many_types", large),
+            "unused_families": sect("unused_families_and_types", unused_families),
+            "unused_types": sect("unused_families_and_types", unused_types),
             "notes": notes,
         }
