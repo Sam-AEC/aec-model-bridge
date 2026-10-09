@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Docs: the README diagrams are now images (light and dark, absolute URLs) so they show on directory sites that mirror the README but do not run Mermaid. The Mermaid sources live in `docs/diagrams/` and `scripts/render_diagrams.py` regenerates the PNGs.
+- Fix upgrade: `install.ps1` now removes the previous server package before copying the bundled Python, so old `aec_model_bridge-<version>.dist-info` folders no longer make the installed server report an old version.
+
 ## 1.3.2 - 2026-10-09
 
 - Release: the MCP Registry publish now starts automatically after each stable release and reads the version from `VERSION`, so the bundle hash is no longer left stale.

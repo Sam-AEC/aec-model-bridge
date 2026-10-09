@@ -119,88 +119,14 @@ The MCP client talks to one Python hub. The hub sends each call to the
 provider that owns the tool. Providers for desktop apps talk to a small add-in
 inside that app over localhost.
 
-```mermaid
----
-config:
-  look: neo
-  theme: base
-  themeVariables:
-    primaryColor: "#334155"
-    primaryTextColor: "#FFFFFF"
-    primaryBorderColor: "#1E293B"
-    secondaryColor: "#334155"
-    tertiaryColor: "#334155"
-    lineColor: "#6E7781"
-    textColor: "#6E7781"
-    titleColor: "#6E7781"
-    nodeTextColor: "#FFFFFF"
-    clusterBkg: "rgba(110,119,129,0.10)"
-    clusterBorder: "#6E7781"
-    edgeLabelBackground: "#334155"
-    actorBkg: "#334155"
-    actorTextColor: "#FFFFFF"
-    actorBorder: "#1E293B"
-    actorLineColor: "#6E7781"
-    signalColor: "#6E7781"
-    signalTextColor: "#6E7781"
-    labelBoxBkgColor: "#334155"
-    labelBoxBorderColor: "#6E7781"
-    labelTextColor: "#FFFFFF"
-    loopTextColor: "#6E7781"
-    sequenceNumberColor: "#FFFFFF"
-    noteBkgColor: "#F59E0B"
-    noteTextColor: "#1F1300"
-    noteBorderColor: "#92400E"
-    transitionColor: "#6E7781"
-    transitionLabelColor: "#FFFFFF"
-    stateLabelColor: "#FFFFFF"
-    stateBkg: "#334155"
-    labelBackgroundColor: "#334155"
-    compositeBackground: "#334155"
-    specialStateColor: "#6E7781"
----
-flowchart LR
-  subgraph clients["AI clients"]
-    client(["MCP client<br/>Claude, Codex, VS Code"])
-  end
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/architecture-dark.png">
+    <img src="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/architecture-light.png" alt="Architecture of AEC Model Bridge: an MCP client such as Claude or Codex calls the Python MCP hub, which routes tool calls to the Revit, Rhino, Navisworks, IFC and Speckle providers. The Revit and Rhino providers talk to add-ins over localhost HTTP, the IFC provider reads IFC files with IfcOpenShell, and Navisworks is still in progress." width="900">
+  </picture>
+</p>
 
-  subgraph hubzone["Python hub"]
-    hub["MCP hub<br/>routes every tool call"]
-    revitP["Revit provider"]
-    rhinoP["Rhino provider"]
-    navP["Navisworks provider"]
-    ifcP["IFC provider"]
-    speckleP["Speckle provider"]
-  end
-
-  subgraph apps["Desktop apps, add-ins on localhost"]
-    revitA["Revit add-in"]
-    rhinoA["Rhino add-in"]
-    navA["Navisworks<br/>add-in<br/>in progress"]
-  end
-
-  ifcLib[("IFC files<br/>read with IfcOpenShell")]
-  cloud(["Speckle server"])
-
-  client -->|"sends tool calls"| hub
-  hub -->|"routes Revit tools"| revitP
-  hub -->|"routes Rhino tools"| rhinoP
-  hub -.->|"routes Navisworks tools"| navP
-  hub -->|"routes IFC tools"| ifcP
-  hub -->|"routes Speckle tools"| speckleP
-  revitP -->|"HTTP"| revitA
-  rhinoP -->|"HTTP"| rhinoA
-  navP -.->|"local bridge"| navA
-  ifcP -->|"parses"| ifcLib
-  speckleP -->|"syncs"| cloud
-
-  classDef live fill:#0F766E,stroke:#0B4F4A,stroke-width:1.5px,color:#FFFFFF
-  classDef wip fill:#F59E0B,stroke:#92400E,stroke-width:1.5px,stroke-dasharray:4 3,color:#1F1300
-  classDef data fill:#4F46E5,stroke:#3730A3,stroke-width:1.5px,color:#FFFFFF
-  class hub,revitP,rhinoP,ifcP,speckleP,revitA,rhinoA live
-  class navP,navA wip
-  class ifcLib,cloud data
-```
+<sub>Diagram source: [architecture.mmd](docs/diagrams/architecture.mmd). Regenerate the images with `python scripts/render_diagrams.py`.</sub>
 
 Teal boxes work today. The amber dashed boxes are in progress. Indigo
 shapes are data and external services.
@@ -212,73 +138,14 @@ approved plan. The default mode is `required`. The AI proposes a plan, you
 review it in the Revit side panel, and the add-in runs it on Revit's main
 thread in a named transaction.
 
-```mermaid
----
-config:
-  look: neo
-  theme: base
-  themeVariables:
-    primaryColor: "#334155"
-    primaryTextColor: "#FFFFFF"
-    primaryBorderColor: "#1E293B"
-    secondaryColor: "#334155"
-    tertiaryColor: "#334155"
-    lineColor: "#6E7781"
-    textColor: "#6E7781"
-    titleColor: "#6E7781"
-    nodeTextColor: "#FFFFFF"
-    clusterBkg: "rgba(110,119,129,0.10)"
-    clusterBorder: "#6E7781"
-    edgeLabelBackground: "#334155"
-    actorBkg: "#334155"
-    actorTextColor: "#FFFFFF"
-    actorBorder: "#1E293B"
-    actorLineColor: "#6E7781"
-    signalColor: "#6E7781"
-    signalTextColor: "#6E7781"
-    labelBoxBkgColor: "#334155"
-    labelBoxBorderColor: "#6E7781"
-    labelTextColor: "#FFFFFF"
-    loopTextColor: "#6E7781"
-    sequenceNumberColor: "#FFFFFF"
-    noteBkgColor: "#F59E0B"
-    noteTextColor: "#1F1300"
-    noteBorderColor: "#92400E"
-    transitionColor: "#6E7781"
-    transitionLabelColor: "#FFFFFF"
-    stateLabelColor: "#FFFFFF"
-    stateBkg: "#334155"
-    labelBackgroundColor: "#334155"
-    compositeBackground: "#334155"
-    specialStateColor: "#6E7781"
----
-sequenceDiagram
-  autonumber
-  participant You
-  participant AI as AI assistant
-  participant Hub as MCP hub + ApprovalGate
-  participant Panel as Side panel (WebView2)
-  participant Addin as Revit add-in
-  participant Model as Revit model
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/approval-flow-dark.png">
+    <img src="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/approval-flow-light.png" alt="Approval flow: the AI assistant proposes a plan, the MCP hub and ApprovalGate show it in the Revit side panel, and only after you approve does execute_plan forward the commands to the Revit add-in, which runs them in one named transaction. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
+  </picture>
+</p>
 
-  AI->>Hub: plan_actions (proposed changes)
-  Hub->>Panel: show the pending plan
-  Panel->>You: review the plan
-  alt You approve
-    You->>Panel: Approve
-    Panel->>Hub: approved
-    AI->>Hub: execute_plan
-    Hub->>Addin: forward the commands
-    Addin->>Model: run in one named transaction
-    Model-->>Addin: done
-    Addin-->>AI: result (rollback_plan can reverse it)
-  else You reject, or never approve
-    You->>Panel: Reject
-    Panel->>Hub: rejected
-    AI->>Hub: execute_plan
-    Hub--xAI: blocked, the model is untouched
-  end
-```
+<sub>Diagram source: [approval-flow.mmd](docs/diagrams/approval-flow.mmd). Regenerate the images with `python scripts/render_diagrams.py`.</sub>
 
 If a plan is approved and later turns out wrong, `rollback_plan` reverses it.
 Rollback uses Revit Undo in the same session or inverse parameter values.

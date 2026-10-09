@@ -163,6 +163,23 @@ $targetPython = "C:\ProgramData\AECModelBridge\python"
 if (Test-Path $sourcePython) {
     Write-Host "`nInstalling bundled Python runtime..." -ForegroundColor Yellow
     New-Item -ItemType Directory -Path $targetPython -Force | Out-Null
+
+    # Drop the previous server package first. Copying over the top left old
+    # aec_model_bridge-<version>.dist-info folders behind, and Python then reports
+    # the oldest one as the installed version.
+    $targetSite = Join-Path $targetPython "Lib\site-packages"
+    if (Test-Path -LiteralPath $targetSite) {
+        try {
+            Get-ChildItem -LiteralPath $targetSite -Directory -Filter "aec_model_bridge-*.dist-info" |
+                ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force }
+            $oldServer = Join-Path $targetSite "revit_mcp_server"
+            if (Test-Path -LiteralPath $oldServer) { Remove-Item -LiteralPath $oldServer -Recurse -Force }
+        }
+        catch {
+            Write-Warning "Could not remove the previous server package (is an MCP client running it?): $($_.Exception.Message)"
+        }
+    }
+
     Copy-Item "$sourcePython\*" $targetPython -Recurse -Force
     Write-Host "  Installed to: $targetPython" -ForegroundColor Green
 }

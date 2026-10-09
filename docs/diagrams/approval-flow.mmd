@@ -1,0 +1,65 @@
+---
+config:
+  look: neo
+  theme: base
+  themeVariables:
+    primaryColor: "#334155"
+    primaryTextColor: "#FFFFFF"
+    primaryBorderColor: "#1E293B"
+    secondaryColor: "#334155"
+    tertiaryColor: "#334155"
+    lineColor: "#6E7781"
+    textColor: "#6E7781"
+    titleColor: "#6E7781"
+    nodeTextColor: "#FFFFFF"
+    clusterBkg: "rgba(110,119,129,0.10)"
+    clusterBorder: "#6E7781"
+    edgeLabelBackground: "#334155"
+    actorBkg: "#334155"
+    actorTextColor: "#FFFFFF"
+    actorBorder: "#1E293B"
+    actorLineColor: "#6E7781"
+    signalColor: "#6E7781"
+    signalTextColor: "#6E7781"
+    labelBoxBkgColor: "#334155"
+    labelBoxBorderColor: "#6E7781"
+    labelTextColor: "#FFFFFF"
+    loopTextColor: "#6E7781"
+    sequenceNumberColor: "#FFFFFF"
+    noteBkgColor: "#F59E0B"
+    noteTextColor: "#1F1300"
+    noteBorderColor: "#92400E"
+    transitionColor: "#6E7781"
+    transitionLabelColor: "#FFFFFF"
+    stateLabelColor: "#FFFFFF"
+    stateBkg: "#334155"
+    labelBackgroundColor: "#334155"
+    compositeBackground: "#334155"
+    specialStateColor: "#6E7781"
+---
+sequenceDiagram
+  autonumber
+  participant You
+  participant AI as AI assistant
+  participant Hub as MCP hub + ApprovalGate
+  participant Panel as Side panel (WebView2)
+  participant Addin as Revit add-in
+  participant Model as Revit model
+
+  AI->>Hub: plan_actions (proposed changes)
+  Hub->>Panel: show the pending plan
+  Panel->>You: review the plan
+  alt You approve
+    You->>Panel: Approve
+    Panel->>Hub: approved
+    AI->>Hub: execute_plan
+    Hub->>Addin: forward the commands
+    Addin->>Model: run in one named transaction
+    Model-->>Addin: done
+    Addin-->>AI: result (rollback_plan can reverse it)
+  else You reject, or never approve
+    You->>Panel: Reject
+    Panel->>Hub: rejected
+    AI->>Hub: execute_plan
+    Hub--xAI: blocked, the model is untouched
+  end
