@@ -12,6 +12,9 @@ updates:
     groups:
       python-dependencies:
         patterns: ["*"]
+      python-security:
+        applies-to: security-updates
+        patterns: ["*"]
     ignore:
       # mcp 2.x removed the low-level Server decorators this server is built on,
       # so it crashes at import. Keep the cap in pyproject.toml until the server
@@ -30,6 +33,9 @@ updates:
     groups:
       github-actions:
         patterns: ["*"]
+      github-actions-security:
+        applies-to: security-updates
+        patterns: ["*"]
 
   # The .NET add-ins compile against Revit, Rhino and Navisworks SDKs and ship
   # deliberate pins (IronPython 2.7 on net48, WebView2, RhinoCommon 7). Routine
@@ -40,21 +46,37 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 0
+    groups:
+      nuget-security:
+        applies-to: security-updates
+        patterns: ["*"]
 
   - package-ecosystem: nuget
     directory: /packages/rhino-bridge-addin
     schedule:
       interval: monthly
     open-pull-requests-limit: 0
+    groups:
+      nuget-security:
+        applies-to: security-updates
+        patterns: ["*"]
 
   - package-ecosystem: nuget
     directory: /packages/navisworks-bridge-addin
     schedule:
       interval: monthly
     open-pull-requests-limit: 0
+    groups:
+      nuget-security:
+        applies-to: security-updates
+        patterns: ["*"]
 
   - package-ecosystem: nuget
     directory: /packages/powerbi-bridge-tool
     schedule:
       interval: monthly
     open-pull-requests-limit: 0
+    groups:
+      nuget-security:
+        applies-to: security-updates
+        patterns: ["*"]
