@@ -54,19 +54,8 @@ foreach ($year in $years) {
     }
 }
 
-$prohibitedNames = @(
-    "RevitAPI.dll",
-    "RevitAPIUI.dll",
-    "AdWindows.dll",
-    "AdskLicensingSDK_*.dll"
-)
-$prohibitedFiles = foreach ($pattern in $prohibitedNames) {
-    Get-ChildItem -Path $packageDir -Recurse -File -Filter $pattern -ErrorAction SilentlyContinue
-}
-if ($prohibitedFiles) {
-    $paths = ($prohibitedFiles.FullName | Sort-Object -Unique) -join [Environment]::NewLine
-    throw "Release contains Autodesk assemblies and cannot be published:$([Environment]::NewLine)$paths"
-}
+# Shared with build-installer.ps1 so the zips and the installer use the same check.
+& (Join-Path $PSScriptRoot "assert-no-autodesk-assemblies.ps1") -Path $packageDir
 
 # One zip per Revit year: everything in the package except the other years' binaries,
 # so each user downloads only the build that matches their Revit.
