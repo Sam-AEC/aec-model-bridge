@@ -148,3 +148,20 @@ def test_module_declares_no_mutating_commands():
     manifest = json.loads(p.read_text(encoding="utf-8"))
     assert manifest["permissions"] == ["model.read"]
     assert all(c["is_mutating"] is False for c in manifest["commands"])
+
+
+def test_snapshot_id_cannot_escape_snapshots_dir(mod, ws, tmp_path):
+    outside = tmp_path / "outside.json"
+    outside.write_text(json.dumps({"elements": [{"uid": WALL}], "source": {"doc_guid": "x"}}), encoding="utf-8")
+    (tmp_path / "snapshots").mkdir(exist_ok=True)
+    res = [_clash("c1", _item("Wall", WALL), _item("Door", DOOR))]
+    for bad in ("../outside", str(tmp_path / "outside")):
+        with pytest.raises(ValueError):
+            mod.match_clashes(clash_results=res, snapshot_id=bad, workspace=ws)
+
+
+def test_list_clash_issues_does_not_create_the_database(mod, ws, tmp_path):
+    out = mod.list_clash_issues(workspace=ws)
+    assert out == {"total": 0, "issues": []}
+    assert not (tmp_path / "clash_triage.db").exists()
+

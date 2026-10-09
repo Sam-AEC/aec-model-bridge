@@ -128,6 +128,15 @@ def test_reports_excludes_internal_state_files(running_server, tmp_path):
     assert body["reports"] == []
 
 
+def test_reports_excludes_clash_triage_state_file(running_server, tmp_path):
+    (tmp_path / "clash_triage.db").write_bytes(b"x")
+
+    status, body = _get(running_server, "/reports")
+
+    assert status == 200
+    assert body["reports"] == []
+
+
 def test_reports_empty_workspace_returns_empty_list(running_server):
     status, body = _get(running_server, "/reports")
     assert status == 200

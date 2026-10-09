@@ -20,6 +20,7 @@ import json
 import sqlite3
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 DB_FILENAME = "clash_triage.db"
@@ -216,14 +217,23 @@ class ClashTriageModule:
         workspace: Any = None,
         **_,
     ) -> Dict[str, Any]:
-        conn = _conn(workspace)
+        db_path = Path(workspace.allowed_directories[0]) / DB_FILENAME
+        if not db_path.exists():
+            # Listing must not create the store.
+            return {"total": 0, "issues": []}
+        conn = sqlite3.connect(f"file:{db_path.as_posix()}?mode=ro", uri=True)
+        conn.row_factory = sqlite3.Row
         query, params = "SELECT * FROM clash_issues WHERE 1=1", []
         for col, val in (("doc_guid", doc_guid), ("status", status), ("match", match)):
             if val:
                 query += f" AND {col}=?"
                 params.append(val)
-        rows = [dict(r) for r in conn.execute(query + " ORDER BY created_at", params)]
-        conn.close()
+        try:
+            rows = [dict(r) for r in conn.execute(query + " ORDER BY created_at", params)]
+        except sqlite3.OperationalError:  # store exists but has no table yet
+            rows = []
+        finally:
+            conn.close()
         return {"total": len(rows), "issues": rows}
 
     # ------------------------------------------------------------------
@@ -277,7 +287,10 @@ class ClashTriageModule:
             require_snapshot_or_mock(snapshot_id, "clash_triage")
             snap = generate_mock_snapshot()
             return [el.model_dump(by_alias=True) for el in snap.elements], "mock-doc"
-        snap_path = workspace.allowed_directories[0] / "snapshots" / f"{snapshot_id}.json"
+        snap_dir = (Path(workspace.allowed_directories[0]) / "snapshots").resolve()
+        snap_path = (snap_dir / f"{snapshot_id}.json").resolve()
+        if snap_path.parent != snap_dir:
+            raise ValueError("snapshot_id must be a plain snapshot name inside the workspace snapshots folder.")
         if not snap_path.exists():
             raise ValueError(f"Snapshot '{snapshot_id}' not found.")
         with open(snap_path, encoding="utf-8") as f:
