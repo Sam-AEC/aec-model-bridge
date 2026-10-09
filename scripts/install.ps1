@@ -1,6 +1,6 @@
 param(
     [string]$RevitVersion = "2027",
-    [string]$Version = "1.1.0",
+    [string]$Version = $(if (Test-Path (Join-Path $PSScriptRoot '..\VERSION')) { (Get-Content (Join-Path $PSScriptRoot '..\VERSION') -Raw).Trim() } else { "" }),
     [switch]$AllUsers,
     [string]$DistPath
 )

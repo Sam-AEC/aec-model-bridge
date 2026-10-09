@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.1.0",
+    [string]$Version = (Get-Content (Join-Path $PSScriptRoot '..\VERSION') -Raw).Trim(),
     [string]$RevitVersion = "2027",
     [switch]$UpdateServerMetadata
 )
@@ -83,7 +83,9 @@ $mcpbPath = Join-Path $releaseDir "aec-model-bridge-$Version.mcpb"
 Compress-Archive -Path (Join-Path $mcpbStage "*") -DestinationPath $mcpbZip -CompressionLevel Optimal
 Move-Item -LiteralPath $mcpbZip -Destination $mcpbPath
 
-$wheel = Get-ChildItem -Path (Join-Path $packageDir "server") -Filter "aec_model_bridge-$Version-*.whl" |
+# Wheel file names use PEP 440 (1.3.0rc1); tags and VERSION use SemVer (1.3.0-rc.1).
+$wheelVersion = $Version -replace '-(alpha|a)\.?(\d+)$', 'a$2' -replace '-(beta|b)\.?(\d+)$', 'b$2' -replace '-rc\.?(\d+)$', 'rc$1'
+$wheel = Get-ChildItem -Path (Join-Path $packageDir "server") -Filter "aec_model_bridge-$wheelVersion-*.whl" |
     Select-Object -First 1
 if (-not $wheel) {
     throw "Python wheel for version $Version was not produced."
