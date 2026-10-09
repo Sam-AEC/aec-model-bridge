@@ -23,13 +23,19 @@ Serveur MCP open source et add-in natif pour Revit 2024 – 2027. Fonctionne ave
   <img src="../images/readme/demo.gif" alt="Démo : un assistant IA trouve 12 portes sans Mark et prépare un plan. Le plan attend dans le panneau Revit que vous l'approuviez, puis les valeurs sont relues pour vérification. Valeurs d'exemple, session simulée." width="900">
 </p>
 
-Connectez Claude, Codex ou un autre client MCP au modèle Revit que vous avez ouvert. AEC Model Bridge associe un serveur MCP en Python à un add-in Revit natif : les outils en lecture seule inspectent le modèle immédiatement, et les modifications du modèle exigent par défaut un plan approuvé. [Voir le processus d'approbation](#fonctionnement-de-lapprobation).
+AEC Model Bridge est le serveur MCP open source pour Revit qui permet à Claude, Codex, Cursor et à d'autres assistants IA de lire et de modifier le modèle Revit que vous avez ouvert, chaque modification étant d'abord approuvée par vous. Il associe un serveur MCP en Python à un add-in Revit natif : les outils en lecture seule inspectent le modèle immédiatement, et les modifications du modèle exigent par défaut un plan approuvé. [Voir le processus d'approbation](#fonctionnement-de-lapprobation).
+
+<p align="center">
+  <img src="../images/readme/works-with.svg" alt="Compatible avec : Claude Desktop, VS Code avec GitHub Copilot, Cursor et Codex disposent d'une configuration documentée. D'autres clients MCP, comme Claude Code, Windsurf, Cline, Continue, Zed et Gemini CLI, devraient aussi fonctionner. Applications : Revit 2024 à 2027, Rhino, Grasshopper, Navisworks (en cours). Données : IFC, Speckle, Excel, SQLite. Protocole : MCP sur stdio avec une porte d'approbation." width="900">
+</p>
+
+La configuration est documentée pour Claude Desktop, VS Code avec GitHub Copilot, Cursor et Codex. Il s'agit d'un serveur MCP stdio standard : d'autres clients, comme Claude Code, Windsurf, Cline, Continue, Zed et Gemini CLI, devraient donc fonctionner aussi. Consultez la [compatibilité](../compatibility.md) pour savoir ce qui est documenté et ce qui n'a pas été testé.
 
 Le même serveur inclut l'inspection IFC, l'automatisation de Rhino et Grasshopper, et l'intégration Speckle. L'[état des intégrations](#autres-intégrations) distingue les fournisseurs disponibles de ceux qui sont en cours de développement.
 
 ## Exemples de flux de travail
 
-Pour les BIM coordinateurs : contrôler la qualité du modèle, examiner les éléments concernés, approuver une correction de paramètres, puis vérifier les résultats et exporter un rapport. Ces exemples utilisent des outils du [catalogue actuel](../tools-generated.md).
+Pour les coordinateurs BIM : contrôler la qualité du modèle, examiner les éléments concernés, approuver une correction de paramètres, puis vérifier les résultats et exporter un rapport. Ces exemples utilisent des outils du [catalogue actuel](../tools-generated.md).
 
 | Flux de travail | Exemple de demande | Outils utilisés |
 | --- | --- | --- |
@@ -38,14 +44,14 @@ Pour les BIM coordinateurs : contrôler la qualité du modèle, examiner les él
 | Production de plans | "Prépare une liste de feuilles à partir de ce CSV, puis propose de créer les feuilles et de placer les vues." | `revit_batch_create_sheets_from_csv`, `revit_place_viewport_on_sheet` |
 | Contrôle IFC | "Affiche les niveaux de ce fichier IFC, inspecte les propriétés des murs et signale les problèmes de validation du schéma." | `ifc_get_spatial_structure`, `ifc_get_properties`, `ifc_validate` |
 
-Pour un premier essai dans Revit, essayez :
+Pour un premier essai dans Revit, testez ceci :
 
 ```text
 Read the active model's warnings. Group them by description and show the
 affected element IDs. Then suggest which issues to investigate first.
 ```
 
-Essayez ensuite une correction de paramètre, en remplaçant le niveau et la valeur par ceux de votre projet :
+Testez ensuite une correction de paramètre, en remplaçant le niveau et la valeur par ceux de votre projet :
 
 ```text
 Find walls on Level 02 and show their current Comments values. Propose setting
@@ -55,7 +61,7 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 Pour les modifications, l'assistant crée un plan avec `plan_actions` ; vous l'examinez dans le panneau Revit avant que `execute_plan` ne l'applique. Le contrôle IFC fonctionne sans Revit.
 
-Les modules de QA/QC et de rapports basés sur des instantanés (snapshots) nécessitent un snapshot enregistré compatible. Le transfert actuel du snapshot de Revit vers le module exige une cohérence entre le nom de fichier et l'espace de travail ; si vous omettez `snapshot_id`, des données d'exemple générées peuvent être renvoyées. Pour l'inspection en direct, utilisez les outils Revit directs ci-dessus. [Correctifs prévus et démo](../roadmap.md).
+Les modules de QA/QC et de rapports basés sur des snapshots nécessitent un snapshot enregistré compatible. Le transfert actuel du snapshot de Revit vers le module exige que le nom de fichier et l'espace de travail concordent ; si vous omettez `snapshot_id`, des données d'exemple générées peuvent être renvoyées. Pour l'inspection en direct, utilisez les outils Revit directs ci-dessus. [Correctifs prévus et démo](../roadmap.md).
 
 ## Démarrage rapide
 
@@ -153,7 +159,7 @@ Le hub bloque tout appel d'outil qui modifie le modèle s'il n'est pas accompagn
 
 Si un plan approuvé se révèle erroné par la suite, `rollback_plan` l'annule. L'annulation utilise la fonction Annuler de Revit dans la même session, ou les valeurs de paramètres inverses. Les opérations irréversibles, comme l'écriture de fichiers, demandent une seconde confirmation. Le cycle de vie est décrit dans l'[ADR 0008](../0008-approval-gate-lifecycle.md).
 
-Pour les pipelines sans surveillance, vous pouvez définir `MCP_REVIT_APPROVAL_MODE=auto`. Cela désactive la vérification humaine ; ne l'utilisez donc que dans un environnement maîtrisé.
+Pour les pipelines sans surveillance, vous pouvez définir `MCP_REVIT_APPROVAL_MODE=auto`. Cela désactive la vérification par un humain ; ne l'utilisez donc que dans un environnement maîtrisé.
 
 ## Versions de Revit prises en charge
 
@@ -177,6 +183,8 @@ Il vous faut aussi Windows 10 ou 11, Python 3.11 ou plus récent, et une install
 | Navisworks Manage | En cours. Le fournisseur et ses outils sont enregistrés. L'add-in Navisworks n'est pas terminé. |
 | Power BI | En cours. Le fournisseur et l'outil existent, mais ne sont pas enregistrés dans le hub. |
 | Excel, Parquet et DuckDB | Prévu. |
+
+Les noms de produits et les logos appartiennent à leurs propriétaires respectifs. La bannière ne les utilise que pour montrer avec quoi ce projet fonctionne.
 
 ## Installer l'add-in Revit
 
@@ -278,7 +286,7 @@ La réponse doit indiquer `healthy` et la version de Revit en cours d'exécution
 
 ## Sécurité
 
-- Le pont Revit écoute uniquement sur localhost.
+- Le pont Revit n'est accessible que via localhost.
 - Le serveur lit et écrit uniquement dans les dossiers listés dans `MCP_REVIT_ALLOWED_DIRECTORIES`.
 - Les outils qui modifient le modèle exigent un plan approuvé, sauf si vous désactivez l'approbation.
 - Les appels d'outils sont consignés dans un journal d'audit, et les secrets sont masqués.
@@ -293,7 +301,7 @@ Le Model Context Protocol (MCP) est un standard ouvert qui permet aux assistants
 
 ### Avec quels assistants IA cela fonctionne-t-il ?
 
-Avec tout client MCP capable de lancer un serveur stdio local. Nous documentons Claude Desktop, VS Code avec GitHub Copilot, et les clients qui lisent une configuration `mcpServers` standard. Le chat du panneau peut aussi utiliser une clé d'API Anthropic ou les outils en ligne de commande `claude` ou `codex`, s'ils sont installés. Voir l'[ADR 0012](../0012-native-agent-chat-backend.md).
+Avec tout client MCP capable de lancer un serveur stdio local. Nous documentons Claude Desktop, VS Code avec GitHub Copilot, Cursor et Codex, ainsi que les clients qui lisent une configuration `mcpServers` standard. Windsurf, Cline, Roo Code, Continue, Zed, Claude Code et Gemini CLI devraient fonctionner de la même façon, mais n'ont pas été testés. Voir la [compatibilité](../compatibility.md). Le chat du panneau peut aussi utiliser une clé d'API Anthropic ou les outils en ligne de commande `claude` ou `codex`, s'ils sont installés. Voir l'[ADR 0012](../0012-native-agent-chat-backend.md).
 
 ### L'IA peut-elle modifier mon modèle sans demander ?
 
@@ -301,7 +309,7 @@ Pas dans le mode par défaut. Les outils qui modifient le modèle sont bloqués 
 
 ### Mon modèle est-il envoyé dans le cloud ?
 
-Le serveur et l'add-in s'exécutent sur votre machine, et le pont écoute sur localhost. Ce que voit l'assistant IA dépend du client utilisé : les résultats des outils sont transmis au fournisseur de modèle de ce client. Les fournisseurs orientés cloud, comme Speckle, ne s'exécutent que lorsque vous les configurez et appelez leurs outils.
+Le serveur et l'add-in s'exécutent sur votre machine, et le pont n'est accessible que via localhost. Ce que voit l'assistant IA dépend du client utilisé : les résultats des outils sont transmis au fournisseur de modèle de ce client. Les fournisseurs orientés cloud, comme Speckle, ne s'exécutent que lorsque vous les configurez et appelez leurs outils.
 
 ### Cela fonctionne-t-il avec des fichiers IFC sans Revit ?
 
