@@ -15,9 +15,9 @@ on:
         description: Existing tag to rebuild, for example v1.3.0
         required: true
       revit_version:
-        description: Revit version to package
+        description: Revit version to package, or All for 2024-2027
         required: true
-        default: "2027"
+        default: "All"
 
 jobs:
   release:
@@ -53,7 +53,9 @@ jobs:
       - name: Set up .NET
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: "10.0.x"
+          dotnet-version: |
+            8.0.x
+            10.0.x
 
       - name: Install Python build tools
         shell: pwsh
@@ -70,7 +72,7 @@ jobs:
         run: >
           ./scripts/build-release.ps1
           -Version "${{ steps.tag.outputs.version }}"
-          -RevitVersion "${{ inputs.revit_version || '2027' }}"
+          -RevitVersion "${{ inputs.revit_version || 'All' }}"
 
       - name: Write release notes from CHANGELOG
         shell: pwsh

@@ -1,6 +1,6 @@
 param(
     [string]$Version = (Get-Content (Join-Path $PSScriptRoot '..\VERSION') -Raw).Trim(),
-    [string]$RevitVersion = "2027",
+    [string]$RevitVersion = "All",
     [switch]$UpdateServerMetadata
 )
 
@@ -11,6 +11,9 @@ $distRoot = Join-Path $repoRoot "dist"
 $packageDir = Join-Path $distRoot "AECModelBridge"
 $releaseDir = Join-Path $distRoot "release"
 $mcpbStage = Join-Path $distRoot "mcpb-stage"
+$zipStageRoot = Join-Path $distRoot "zip-stage"
+$supportedYears = @("2024", "2025", "2026", "2027")
+$years = if ($RevitVersion -eq "All") { $supportedYears } else { @($RevitVersion) }
 
 function Remove-WorkspaceDirectory {
     param([string]$Path)
@@ -28,6 +31,7 @@ function Remove-WorkspaceDirectory {
 Remove-WorkspaceDirectory $packageDir
 Remove-WorkspaceDirectory $releaseDir
 Remove-WorkspaceDirectory $mcpbStage
+Remove-WorkspaceDirectory $zipStageRoot
 New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
 
 & (Join-Path $PSScriptRoot "package.ps1") -Version $Version -RevitVersion $RevitVersion
@@ -35,9 +39,11 @@ if ($LASTEXITCODE -ne 0) {
     throw "Distribution packaging failed with exit code $LASTEXITCODE"
 }
 
-$bridgeDll = Join-Path $packageDir "bin\$RevitVersion\AECModelBridge.dll"
-if (-not (Test-Path -LiteralPath $bridgeDll)) {
-    throw "Expected bridge assembly was not produced: $bridgeDll"
+foreach ($year in $years) {
+    $bridgeDll = Join-Path $packageDir "bin\$year\AECModelBridge.dll"
+    if (-not (Test-Path -LiteralPath $bridgeDll)) {
+        throw "Expected bridge assembly was not produced: $bridgeDll"
+    }
 }
 
 $prohibitedNames = @(
@@ -54,8 +60,19 @@ if ($prohibitedFiles) {
     throw "Release contains Autodesk assemblies and cannot be published:$([Environment]::NewLine)$paths"
 }
 
-$distributionZip = Join-Path $releaseDir "aec-model-bridge-revit-$RevitVersion-$Version.zip"
-Compress-Archive -Path (Join-Path $packageDir "*") -DestinationPath $distributionZip -CompressionLevel Optimal
+# One zip per Revit year: everything in the package except the other years' binaries,
+# so each user downloads only the build that matches their Revit.
+foreach ($year in $years) {
+    $stage = Join-Path $zipStageRoot $year
+    New-Item -ItemType Directory -Path $stage -Force | Out-Null
+    Copy-Item -Path (Join-Path $packageDir "*") -Destination $stage -Recurse -Force
+    foreach ($other in ($supportedYears | Where-Object { $_ -ne $year })) {
+        Remove-WorkspaceDirectory (Join-Path $stage "bin\$other")
+    }
+    $distributionZip = Join-Path $releaseDir "aec-model-bridge-revit-$year-$Version.zip"
+    Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $distributionZip -CompressionLevel Optimal
+}
+Remove-WorkspaceDirectory $zipStageRoot
 
 New-Item -ItemType Directory -Path $mcpbStage -Force | Out-Null
 $pythonPackage = Join-Path $repoRoot "packages\mcp-server-revit"
