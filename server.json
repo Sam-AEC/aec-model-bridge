@@ -33,14 +33,14 @@
                                                           "name":  "MCP_REVIT_WORKSPACE_DIR",
                                                           "description":  "Workspace root directory for server file operations.",
                                                           "isSecret":  false,
-                                                          "isRequired":  true,
+                                                          "isRequired":  false,
                                                           "format":  "string"
                                                       },
                                                       {
                                                           "name":  "MCP_REVIT_ALLOWED_DIRECTORIES",
                                                           "description":  "Semicolon-delimited allow-list of directories the server can access.",
                                                           "isSecret":  false,
-                                                          "isRequired":  true,
+                                                          "isRequired":  false,
                                                           "format":  "string"
                                                       },
                                                       {

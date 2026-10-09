@@ -16,8 +16,8 @@ The server supports two runtime modes:
 | `MCP_REVIT_MODE` | Yes | `mock` | Selects the active bridge mode. |
 | `MCP_REVIT_BRIDGE_URL` | No | auto-discovered | Explicit URL of the Revit bridge listener. Overrides registry discovery. |
 | `MCP_REVIT_HOST_VERSION` | No | newest live Revit | Revit year to select from the local registry, such as `2024` or `2026`. |
-| `MCP_REVIT_ALLOWED_DIRECTORIES` | Yes | none | Semicolon-separated directories the server may access. |
-| `MCP_REVIT_WORKSPACE_DIR` | Yes | none | Root directory for generated files and workspace-backed tools. |
+| `MCP_REVIT_ALLOWED_DIRECTORIES` | No | the workspace directory | Semicolon-separated directories the server may access. Path-traversal protection applies to exactly this list. An explicit value always wins. |
+| `MCP_REVIT_WORKSPACE_DIR` | No | `~/Documents/AEC Model Bridge` | Root directory for generated files and workspace-backed tools. The default folder is created the first time the server needs it (never at import), so a one-click install works with no configuration. |
 | `MCP_REVIT_AUDIT_LOG` | No | `workspace/audit.jsonl` | Audit log path used by the security layer. |
 | `MCP_REVIT_ANTHROPIC_API_KEY` | No | unset | Anthropic API key for the panel's native Claude chat (`agent_native.py`, ADR 0012). If you don't set it, "Claude" chat falls back to the `claude` CLI when that's on PATH. Otherwise no AI provider is available. You can also put it in a `.env` file. The hub reads it only at startup, so restart Revit after you set or change it. The panel's Settings view can't set it. |
 | `REVIT_SDK` | Build only | unset | Optional path used by the add-in build scripts. |

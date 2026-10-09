@@ -50,6 +50,7 @@ def build_registry(
     test's plans/snapshots from being written into a shared directory.
     """
     if workspace is None:
+        config.ensure_workspace()  # creates the default workspace on first use only
         workspace = WorkspaceMonitor(config.allowed_directories)
 
     registry = ProviderRegistry()
