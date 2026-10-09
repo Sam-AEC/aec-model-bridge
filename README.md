@@ -71,10 +71,25 @@ direct Revit tools above for live inspection. [Planned fixes and demo](docs/road
 
 ## Quick start
 
+**One-click install**
+
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](docs/install-buttons.md#vs-code)
+[![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
+[![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
+
+The buttons need [uv](https://docs.astral.sh/uv/getting-started/installation/)
+and no other setup: the server uses `~/Documents/AEC Model Bridge` as its
+workspace unless you set your own. For Claude Desktop, download the `.mcpb`
+file from the latest release and open it. Live Revit work still needs Revit and
+[the add-in](#install-the-revit-add-in); mock mode needs nothing.
+
+**Manual setup**
+
 For live Revit automation you need Windows, a licensed Revit 2024 to 2027,
 Python 3.11 or newer, [uv](https://docs.astral.sh/uv/getting-started/installation/), and the Revit add-in
 ([install steps](#install-the-revit-add-in)). Then add this to your
-`claude_desktop_config.json` (Codex, Cursor and VS Code use the same values):
+`claude_desktop_config.json` (Codex, Cursor and VS Code use the same values;
+the two directory variables are optional and default to the workspace above):
 
 ```json
 {

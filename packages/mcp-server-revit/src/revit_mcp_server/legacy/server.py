@@ -51,6 +51,8 @@ class MCPServer:
             unexpected = ", ".join(kwargs)
             raise TypeError(f"Unexpected keyword argument(s): {unexpected}")
         self.config = config_obj if config_obj is not None else config
+        if hasattr(self.config, "ensure_workspace"):
+            self.config.ensure_workspace()
         self.workspace = WorkspaceMonitor(self.config.allowed_directories)
         self.audit = AuditRecorder(self.config.audit_log)
 

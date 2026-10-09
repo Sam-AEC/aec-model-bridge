@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List
 
 from dotenv import load_dotenv
-from pydantic import DirectoryPath, Field, field_validator
+from pydantic import DirectoryPath, Field, PrivateAttr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic_settings.sources.providers import env as env_source
 
@@ -45,9 +45,17 @@ class _RawEnvSource(env_source.EnvSettingsSource):
             return value
 
 
+def default_workspace_dir() -> Path:
+    """Zero-config workspace: ``~/Documents/AEC Model Bridge`` (not created here)."""
+    return Path.home() / "Documents" / "AEC Model Bridge"
+
+
 class Config(BaseSettings):
-    workspace_dir: Path = Field(...)
-    allowed_directories: List[DirectoryPath] = Field(...)
+    # Both default safely so a one-click install works with no configuration.
+    # An explicit MCP_REVIT_* value always wins. The default directory is only
+    # created on demand by ensure_workspace(), never at import time.
+    workspace_dir: Path = Field(default_factory=default_workspace_dir)
+    allowed_directories: List[DirectoryPath] = Field(default_factory=list)
     bridge_url: str | None = Field(default=None)
     host_version: str | None = Field(default=None)
     mode: BridgeMode = Field(default=BridgeMode.mock)
@@ -57,6 +65,8 @@ class Config(BaseSettings):
     enable_user_modules: bool = Field(default=False)
     allow_python_host: bool = Field(default=False)
     anthropic_api_key: str | None = Field(default=None)
+
+    _auto_dirs: List[Path] = PrivateAttr(default_factory=list)
 
     model_config = SettingsConfigDict(
         env_prefix="MCP_REVIT_",
@@ -69,6 +79,29 @@ class Config(BaseSettings):
         if isinstance(value, str):
             return [Path(p.strip()) for p in value.split(";") if p.strip()]
         return value
+
+    @model_validator(mode="after")
+    def _apply_defaults(self):
+        auto: List[Path] = []
+        if "workspace_dir" not in self.model_fields_set:
+            auto.append(self.workspace_dir)
+        if "allowed_directories" not in self.model_fields_set:
+            # Sandbox stays closed: only the workspace itself is allowed.
+            self.allowed_directories = [self.workspace_dir]
+            if self.workspace_dir not in auto:
+                auto.append(self.workspace_dir)
+        self._auto_dirs = auto
+        return self
+
+    def ensure_workspace(self) -> None:
+        """Create the defaulted workspace directory if it does not exist yet.
+
+        Only directories that came from defaults (the default workspace, or an
+        allowed list derived from the workspace) are created; an explicitly
+        configured allowed list is never created implicitly.
+        """
+        for directory in self._auto_dirs:
+            directory.mkdir(parents=True, exist_ok=True)
 
     @classmethod
     def settings_customise_sources(
