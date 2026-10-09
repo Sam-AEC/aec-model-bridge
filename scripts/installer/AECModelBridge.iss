@@ -94,8 +94,9 @@ Source: "{#Dist}\bin\2025\*"; DestDir: "{app}\bin\2025"; Components: y2025; Excl
 Source: "{#Dist}\bin\2026\*"; DestDir: "{app}\bin\2026"; Components: y2026; Excludes: "RevitAPI.dll,RevitAPIUI.dll,AdWindows.dll,AdskLicensingSDK_*.dll"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#Dist}\bin\2027\*"; DestDir: "{app}\bin\2027"; Components: y2027; Excludes: "RevitAPI.dll,RevitAPIUI.dll,AdWindows.dll,AdskLicensingSDK_*.dll"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-; Manifest template. The per-user manifests are written from it in [Code] (InstallManifests).
+; Manifest template. The per-user manifests are written from it in [Code] (StageManifests, SwitchManifests).
 Source: "{#Dist}\addin\AECModelBridge.addin"; DestDir: "{app}\addin"; Flags: ignoreversion
+Source: "{#Dist}\addin\AECModelBridge.addin"; Flags: dontcopy
 Source: "{#Dist}\config\default.json"; DestDir: "{app}\config"; Flags: ignoreversion
 
 ; Bundled Python runtime with the MCP server already installed in Lib\site-packages.
@@ -133,6 +134,15 @@ const
 
 function MoveFileExW(lpExistingFileName, lpNewFileName: String; dwFlags: Cardinal): Integer;
   external 'MoveFileExW@kernel32.dll stdcall';
+
+// Inno Setup exits with code 0 when a script raises an exception or calls Abort in an install
+// step, even under /VERYSILENT, so a late failure ends the process with a real exit code.
+procedure ExitProcess(uExitCode: Cardinal);
+  external 'ExitProcess@kernel32.dll stdcall';
+
+var
+  ManifestsStaged: Boolean;
+  ManifestsSwitched: Boolean;
 
 function YearAt(Index: Integer): String;
 begin
@@ -233,11 +243,16 @@ begin
   end;
 end;
 
-// Runs for silent installs too. A non-empty result aborts Setup before any file is written.
+// Forward declaration: StageManifests is defined below, after the helpers it uses.
+function StageManifests(var ErrorMsg: String): Boolean; forward;
+
+// Runs for silent installs too. A non-empty result aborts Setup before any file is written,
+// and Setup then exits with code 7 (never 0), so scripts and IT deployments can see it.
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   I: Integer;
   Any: Boolean;
+  Msg: String;
 begin
   Result := '';
   Any := False;
@@ -247,7 +262,10 @@ begin
   if not Any then
     Result := 'No Revit version is selected. Select at least one Revit version.'
   else if IsRevitRunning then
-    Result := 'Revit is running. Close Revit, then run Setup again.';
+    Result := 'Revit is running. Close Revit, then run Setup again.'
+  else if not StageManifests(Msg) then
+    Result := 'AEC Model Bridge could not prepare the Revit add-in manifest. ' + Msg +
+      ' Nothing was installed or changed.';
 end;
 
 // Replace the text between <Assembly> and </Assembly> in the manifest template.
@@ -263,60 +281,102 @@ begin
       Copy(Xml, ClosePos, Length(Xml));
 end;
 
-// Writes the per-user manifest for every selected year. Each manifest is written to
-// <name>.new first and then moved over the real file in one step, so Revit only ever sees
-// the old complete file or the new complete file. If any step fails, manifests already
-// switched are put back and the function reports the error; the caller then fails the
-// install and Setup rolls the copied files back.
-function InstallManifests(var ErrorMsg: String): Boolean;
+// Manifests are installed in two phases so a problem shows up BEFORE any file is copied:
+//   1. StageManifests (PrepareToInstall): write a complete <name>.new next to every manifest
+//      that will be replaced. If that fails Setup refuses to install (exit code 7) and
+//      nothing in the Revit Addins folders has changed.
+//   2. SwitchManifests (ssPostInstall): back up each existing manifest and move the staged
+//      file over it in one step, so Revit only ever sees the old complete file or the new
+//      complete file. If a step fails, manifests already switched are put back.
+
+function ManifestPath(const Year: String): String;
+begin
+  Result := UserAddinDir(Year) + '\AECModelBridge.addin';
+end;
+
+procedure DiscardStagedManifests;
 var
-  I, J, Done: Integer;
+  I: Integer;
+  Year: String;
+begin
+  for I := 0 to YearCount - 1 do
+  begin
+    Year := YearAt(I);
+    if IsComponentSelected('y' + Year) then
+      DeleteFile(ManifestPath(Year) + '.new');
+  end;
+end;
+
+function StageManifests(var ErrorMsg: String): Boolean;
+var
+  I: Integer;
   Year, Dir, Final, Xml, NewXml: String;
   Raw: AnsiString;
+begin
+  Result := False;
+  ErrorMsg := '';
+
+  ExtractTemporaryFile('AECModelBridge.addin');
+  if not LoadStringFromFile(ExpandConstant('{tmp}') + '\AECModelBridge.addin', Raw) then
+  begin
+    ErrorMsg := 'The add-in manifest template is missing from the installer.';
+    Exit;
+  end;
+  Xml := Raw;
+
+  for I := 0 to YearCount - 1 do
+  begin
+    Year := YearAt(I);
+    if (ErrorMsg = '') and IsComponentSelected('y' + Year) then
+    begin
+      Dir := UserAddinDir(Year);
+      Final := ManifestPath(Year);
+      if not ForceDirectories(Dir) then
+        ErrorMsg := 'Could not create ' + Dir + '.'
+      else if not RewriteAssembly(Xml,
+          ExpandConstant('{app}') + '\bin\' + Year + '\AECModelBridge.dll', NewXml) then
+        ErrorMsg := 'The add-in manifest template has no Assembly element.'
+      else if not SaveStringToFile(Final + '.new', NewXml, False) then
+        ErrorMsg := 'Could not write ' + Final + '.new.';
+    end;
+  end;
+
+  if ErrorMsg <> '' then
+    DiscardStagedManifests
+  else
+    ManifestsStaged := True;
+  Result := (ErrorMsg = '');
+end;
+
+function SwitchManifests(var ErrorMsg: String): Boolean;
+var
+  I, J, Done: Integer;
+  Year, Final: String;
   Temps, Finals, Backups: TStringList;
 begin
   Result := False;
   ErrorMsg := '';
   Done := 0;
 
-  if not LoadStringFromFile(ExpandConstant('{app}') + '\addin\AECModelBridge.addin', Raw) then
-  begin
-    ErrorMsg := 'The add-in manifest template is missing from the installed files.';
-    Exit;
-  end;
-  Xml := Raw;
-
   Temps := TStringList.Create;
   Finals := TStringList.Create;
   Backups := TStringList.Create;
   try
-    // 1. Stage a complete new manifest for every selected year.
     for I := 0 to YearCount - 1 do
     begin
       Year := YearAt(I);
-      if (ErrorMsg = '') and IsComponentSelected('y' + Year) then
+      if IsComponentSelected('y' + Year) then
       begin
-        Dir := UserAddinDir(Year);
-        Final := Dir + '\AECModelBridge.addin';
-        if not ForceDirectories(Dir) then
-          ErrorMsg := 'Could not create ' + Dir
-        else if not RewriteAssembly(Xml,
-            ExpandConstant('{app}') + '\bin\' + Year + '\AECModelBridge.dll', NewXml) then
-          ErrorMsg := 'The add-in manifest template has no Assembly element.'
-        else if not SaveStringToFile(Final + '.new', NewXml, False) then
-          ErrorMsg := 'Could not write ' + Final + '.new'
-        else
-        begin
-          Temps.Add(Final + '.new');
-          Finals.Add(Final);
-        end;
+        Final := ManifestPath(Year);
+        Finals.Add(Final);
+        Temps.Add(Final + '.new');
       end;
     end;
 
-    // 2. Keep a copy of every manifest that is about to be replaced.
-    if ErrorMsg = '' then
+    // 1. Keep a copy of every manifest that is about to be replaced.
+    for I := 0 to Finals.Count - 1 do
     begin
-      for I := 0 to Finals.Count - 1 do
+      if ErrorMsg = '' then
       begin
         if FileExists(Finals[I]) then
         begin
@@ -325,7 +385,7 @@ begin
           else
           begin
             Backups.Add('');
-            ErrorMsg := 'Could not back up ' + Finals[I];
+            ErrorMsg := 'Could not back up ' + Finals[I] + '.';
           end;
         end
         else
@@ -333,7 +393,7 @@ begin
       end;
     end;
 
-    // 3. Switch the new manifests in.
+    // 2. Switch the staged manifests in.
     if ErrorMsg = '' then
     begin
       for I := 0 to Finals.Count - 1 do
@@ -341,14 +401,14 @@ begin
         if ErrorMsg = '' then
         begin
           if MoveFileExW(Temps[I], Finals[I], MOVEFILE_REPLACE_EXISTING) = 0 then
-            ErrorMsg := 'Could not replace ' + Finals[I]
+            ErrorMsg := 'Could not replace ' + Finals[I] + '.'
           else
             Done := Done + 1;
         end;
       end;
     end;
 
-    // 4. On failure put the previous state back for everything already switched.
+    // 3. On failure put the previous state back for everything already switched.
     if ErrorMsg <> '' then
     begin
       for J := 0 to Done - 1 do
@@ -360,7 +420,7 @@ begin
       end;
     end;
 
-    // 5. Remove leftovers (staged files that were never switched in, and backups).
+    // 4. Remove leftovers (staged files that were never switched in, and backups).
     for I := 0 to Temps.Count - 1 do
       DeleteFile(Temps[I]);
     for I := 0 to Backups.Count - 1 do
@@ -369,7 +429,7 @@ begin
 
     Result := (ErrorMsg = '');
 
-    // 6. Old layouts: remove the legacy manifest name and duplicates in the all-users folder
+    // 5. Old layouts: remove the legacy manifest name and duplicates in the all-users folder
     //    (same clean-up as scripts/install.ps1). Failures here are not fatal.
     if Result then
     begin
@@ -394,10 +454,27 @@ var
 begin
   if CurStep = ssPostInstall then
   begin
-    if not InstallManifests(Msg) then
-      RaiseException('AEC Model Bridge could not write the Revit add-in manifest. ' + Msg +
-        ' Nothing was changed in your Revit Addins folder.');
+    if SwitchManifests(Msg) then
+      ManifestsSwitched := True
+    else
+    begin
+      // Rare: the staged files were written moments ago, so this means the folder changed
+      // under us. Manifests are already restored. Raising an exception would still exit 0.
+      Log('Manifest switch failed: ' + Msg);
+      if not WizardSilent then
+        MsgBox('AEC Model Bridge could not write the Revit add-in manifest. ' + Msg +
+          ' Your existing Revit add-in setup was restored.', mbCriticalError, MB_OK);
+      ExitProcess(4);
+    end;
   end;
+end;
+
+// Setup stopped after staging but before the switch (cancelled, or the file copy failed):
+// do not leave staged manifests behind.
+procedure DeinitializeSetup();
+begin
+  if ManifestsStaged and not ManifestsSwitched then
+    DiscardStagedManifests;
 end;
 
 function InitializeUninstall: Boolean;
