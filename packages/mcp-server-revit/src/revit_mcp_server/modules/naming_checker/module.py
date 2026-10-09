@@ -16,6 +16,7 @@ Read-only and pure Python: it works the same in mock mode and on a live snapshot
 """
 from __future__ import annotations
 
+import itertools
 import json
 import re
 import unicodedata
@@ -60,36 +61,69 @@ class _Convention:
         self.tokens = tokens
         self.field_order = [v for k, v in tokens if k == "field"]
         self.literals = [v for k, v in tokens if k == "lit"]
-        self._generic = self._build_regex(use_allowed=False)
-        self._strict = self._build_regex(use_allowed=True)
 
-    def _build_regex(self, use_allowed: bool) -> "re.Pattern[str]":
-        # Group names are f0, f1... because field names may contain unicode.
-        parts = []
-        for kind, value in self.tokens:
+    def _assignments(self, name: str, use_allowed: bool, validate: bool):
+        """Yield every way of splitting ``name`` over the pattern (shortest-first per field).
+
+        With ``validate`` set, only assignments whose every field passes its own
+        rules (allowed list, length, regex) are yielded.
+        """
+        tokens = self.tokens
+        n = len(name)
+
+        def candidates(field: str, pos: int):
+            spec = self.fields[field]
+            if use_allowed and spec["allowed"]:
+                for alt in sorted(spec["allowed"], key=len, reverse=True):
+                    end = pos + len(alt)
+                    piece = name[pos:end]
+                    if len(piece) == len(alt) and (
+                        piece.casefold() == alt.casefold() if spec["ignore_case"] else piece == alt
+                    ):
+                        yield end
+                return
+            if spec["length"] is not None:
+                if pos + spec["length"] <= n:
+                    yield pos + spec["length"]
+                return
+            lo = pos + (spec["min_length"] or 0)
+            hi = n if spec["max_length"] is None else min(n, pos + spec["max_length"])
+            yield from range(lo, hi + 1)
+
+        def walk(i: int, pos: int, acc: List[str]):
+            if i == len(tokens):
+                if pos == n:
+                    yield list(acc)
+                return
+            kind, value = tokens[i]
             if kind == "lit":
-                parts.append(re.escape(value))
-            else:
-                parts.append(self._field_rx_by_name(value, use_allowed))
-        return re.compile("".join(parts), re.DOTALL)
+                if name.startswith(value, pos):
+                    yield from walk(i + 1, pos + len(value), acc)
+                return
+            for end in candidates(value, pos):
+                piece = name[pos:end]
+                if validate and _check_field(value, self.fields[value], piece) is not None:
+                    continue
+                acc.append(piece)
+                yield from walk(i + 1, end, acc)
+                acc.pop()
 
-    def _field_rx_by_name(self, name: str, use_allowed: bool) -> str:
-        spec = self.fields[name]
-        group = f"f{self.field_order.index(name)}"
-        if use_allowed and spec["allowed"]:
-            alts = sorted(spec["allowed"], key=len, reverse=True)
-            prefix = "(?i:" if spec["ignore_case"] else "(?:"
-            return f"(?P<{group}>{prefix}" + "|".join(re.escape(a) for a in alts) + "))"
-        if spec["length"] is not None:
-            return f"(?P<{group}>.{{{spec['length']}}})"
-        return f"(?P<{group}>.*?)"
+        for values in walk(0, 0, []):
+            yield dict(zip(self.field_order, values))
 
     def split(self, name: str) -> Optional[Dict[str, str]]:
-        """Split a name into field values, or None if it does not fit the pattern."""
-        for rx in (self._strict, self._generic):
-            m = rx.fullmatch(name)
-            if m:
-                return {f: m.group(f"f{i}") for i, f in enumerate(self.field_order)}
+        """Split a name into field values, or None if it does not fit the pattern.
+
+        Prefers an assignment in which every field satisfies its own rules (so a
+        field may contain the separator when its regex/length says so). If none
+        exists, returns the first structural fit so the failing fields can be named.
+        """
+        for use_allowed in (True, False):
+            for values in itertools.islice(self._assignments(name, use_allowed, True), 1):
+                return values
+        for use_allowed in (True, False):
+            for values in itertools.islice(self._assignments(name, use_allowed, False), 1):
+                return values
         return None
 
     def structure_hint(self, name: str) -> str:
@@ -292,42 +326,101 @@ def _check_name(conv: _Convention, raw_name: Any) -> Dict[str, Any]:
 # Snapshot extraction
 # ---------------------------------------------------------------------------
 
+# Parameter labels are stored by Revit in the user's language. Known aliases
+# (best effort, not exhaustive); anything else is reported, never guessed.
+SHEET_NUMBER_KEYS = ("Sheet Number", "Number", "Blattnummer", "Numéro de feuille", "Numero foglio", "Número de plano")
+SHEET_NAME_KEYS = ("Sheet Name", "Name", "Blattname", "Nom de la feuille", "Nome foglio", "Nombre de plano")
+VIEW_NAME_KEYS = ("View Name", "Name", "Ansichtsname", "Nom de la vue", "Nome vista", "Nombre de vista")
+GENERIC_NAME_KEYS = ("Name", "Name (Bezeichnung)", "Nom", "Nome", "Nombre")
+
+VIEWS_INCOMPLETE_REASON = (
+    "Not enough data for view names: this snapshot may not contain every view in the model "
+    "(the Revit add-in currently saves only drafting views, not floor plans, sections, "
+    "elevations, 3D views or schedules). Views that were found are checked below, but a "
+    "pass here does NOT mean all views follow the convention."
+)
+VIEWS_MISSING_REASON = (
+    "Not enough data for view names: this snapshot contains no views at all (the Revit "
+    "add-in needs to save every view type), so view names could not be checked."
+)
+
+
 def _param_text(el: Dict[str, Any], *keys: str) -> Optional[str]:
     params = el.get("params") or {}
     for key in keys:
         p = params.get(key)
         if isinstance(p, dict) and p.get("v") not in (None, ""):
             return str(p["v"])
+    explicit = el.get("name")
+    if explicit not in (None, "") and "Name" in keys:
+        return str(explicit)
     return None
 
 
-def _names_from_snapshot(data: Dict[str, Any]) -> Dict[str, List[str]]:
+def _names_from_snapshot(data: Dict[str, Any]) -> Tuple[Dict[str, List[str]], Dict[str, Any]]:
     out: Dict[str, List[str]] = {k: [] for k in KINDS}
-    title = (data.get("source") or {}).get("doc_title")
+    # missing: elements with no name under any known label; typed: used type_name instead.
+    info: Dict[str, Any] = {"missing": {}, "typed": {}, "elements": {}}
+
+    def note(kind: str, key: str) -> None:
+        info[key][kind] = info[key].get(kind, 0) + 1
+
+    def pick(el, kind, keys, allow_type_name=True):
+        info["elements"][kind] = info["elements"].get(kind, 0) + 1
+        v = _param_text(el, *keys)
+        if v is None and allow_type_name and el.get("type_name"):
+            note(kind, "typed")
+            return str(el["type_name"])
+        if v is None:
+            note(kind, "missing")
+        return v
+
+    source = data.get("source") or {}
+    title = source.get("doc_title")
     if title:
         out["file_names"].append(str(title))
     for el in data.get("elements", []):
         cat = el.get("category")
         if cat == "OST_Sheets":
-            number = _param_text(el, "Sheet Number", "Number")
-            name = _param_text(el, "Sheet Name", "Name") or el.get("type_name")
+            number = pick(el, "sheet_numbers", SHEET_NUMBER_KEYS, allow_type_name=False)
+            name = pick(el, "sheet_names", SHEET_NAME_KEYS)
             if number:
                 out["sheet_numbers"].append(number)
             if name:
-                out["sheet_names"].append(str(name))
+                out["sheet_names"].append(name)
         elif cat == "OST_Views":
-            name = _param_text(el, "View Name", "Name") or el.get("type_name")
+            name = pick(el, "view_names", VIEW_NAME_KEYS)
             if name:
-                out["view_names"].append(str(name))
+                out["view_names"].append(name)
         elif cat == "OST_Levels":
-            name = _param_text(el, "Name") or el.get("type_name")
+            name = pick(el, "level_names", GENERIC_NAME_KEYS)
             if name:
-                out["level_names"].append(str(name))
+                out["level_names"].append(name)
         elif cat == "OST_Grids":
-            name = _param_text(el, "Name") or el.get("type_name")
+            name = pick(el, "grid_names", GENERIC_NAME_KEYS)
             if name:
-                out["grid_names"].append(str(name))
-    return out
+                out["grid_names"].append(name)
+    info["views_complete"] = source.get("views_complete") is True
+    return out, info
+
+
+def _lookup_notes(info: Dict[str, Any], selected: List[str]) -> List[Dict[str, str]]:
+    rows: List[Dict[str, str]] = []
+    for kind in selected:
+        miss = info["missing"].get(kind, 0)
+        typed = info["typed"].get(kind, 0)
+        label = kind.replace("_", " ")
+        if miss:
+            rows.append({"kind": kind, "reason": (
+                f"Not enough data: {miss} of {info['elements'].get(kind, 0)} {label} could not be read "
+                "because none of the known parameter labels (English, German, French, Italian, Spanish) "
+                "matched this snapshot, so they were not checked. The Revit add-in needs to save the "
+                "element name in a language-independent field.")})
+        if typed:
+            rows.append({"kind": kind, "reason": (
+                f"{typed} {label} had no readable name label, so the type name was checked instead "
+                "(it may not be the name you see in Revit).")})
+    return rows
 
 
 # ---------------------------------------------------------------------------
@@ -372,12 +465,21 @@ class NamingCheckerModule:
                 if not isinstance(values, (list, tuple)):
                     raise ValueError(f"'names.{kind}' must be a list of names.")
                 to_check[kind].extend(values)
+        selected = [k for k in KINDS if (kinds is None or k in kinds)]
+        incomplete: List[Dict[str, str]] = []
+        views_incomplete = False
         if snapshot_id:
             snap = self._load_snapshot(snapshot_id, workspace)
-            for kind, values in _names_from_snapshot(snap).items():
+            snap_names, info = _names_from_snapshot(snap)
+            for kind, values in snap_names.items():
                 to_check[kind].extend(values)
-
-        selected = [k for k in KINDS if (kinds is None or k in kinds)]
+            incomplete.extend(_lookup_notes(info, selected))
+            if "view_names" in selected and not info["views_complete"]:
+                views_incomplete = True
+                incomplete.append({
+                    "kind": "view_names",
+                    "reason": VIEWS_INCOMPLETE_REASON if snap_names["view_names"] else VIEWS_MISSING_REASON,
+                })
         results: List[Dict[str, Any]] = []
         by_kind: Dict[str, Dict[str, int]] = {}
         skipped: Dict[str, int] = {}
@@ -411,6 +513,11 @@ class NamingCheckerModule:
         for kind, n in skipped.items():
             notes.append(f"{n} {kind.replace('_', ' ')} not checked: your convention has no pattern for them.")
 
+        for row in incomplete:
+            notes.append(row["reason"])
+        if views_incomplete and "view_names" in by_kind:
+            by_kind["view_names"]["complete"] = False
+
         return {
             "summary": {
                 "checked": checked,
@@ -418,6 +525,8 @@ class NamingCheckerModule:
                 "failed": checked - passed,
                 "not_checked": sum(skipped.values()),
             },
+            "complete": not incomplete,
+            "not_enough_data": incomplete,
             "by_kind": by_kind,
             "failures_by_field": failed_fields,
             "results": results,

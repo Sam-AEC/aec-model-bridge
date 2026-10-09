@@ -1,23 +1,12 @@
 """Tests for the naming_checker module (checks names against a user-supplied convention)."""
-import importlib.util
 import json
 from pathlib import Path
 
 import pytest
 
+from revit_mcp_server.modules.naming_checker import module as _nc
+from revit_mcp_server.modules.naming_checker.module import NamingCheckerModule
 from revit_mcp_server.semantic.engine import generate_mock_snapshot
-
-
-def _load_mod(relpath: str, name: str):
-    p = Path(__file__).parent.parent / relpath
-    spec = importlib.util.spec_from_file_location(name, p)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
-_nc = _load_mod("src/revit_mcp_server/modules/naming_checker/module.py", "_naming_checker_impl")
-NamingCheckerModule = _nc.NamingCheckerModule
 
 CONVENTION = {
     "pattern": "{project}-{originator}-{level}-{number}",
@@ -259,3 +248,87 @@ def test_snapshot_names(module, tmp_path):
         module.check_names(convention=conv, snapshot_id="missing", workspace=ws)
     with pytest.raises(ValueError, match="not found"):
         module.check_names(convention=conv, snapshot_id="../x", workspace=ws)
+
+
+def _snap(tmp_path, elements, source=None, sid="s1"):
+    (tmp_path / "snapshots").mkdir(exist_ok=True)
+    (tmp_path / "snapshots" / f"{sid}.json").write_text(
+        json.dumps({"snapshot_id": sid, "source": source or {}, "elements": elements}), encoding="utf-8")
+    return sid
+
+
+def _view(uid, name, key="View Name"):
+    return {"uid": uid, "category": "OST_Views", "type_name": "Drafting View", "params": {key: {"v": name}}}
+
+
+VIEW_CONV = {"pattern": "{a}_{b}", "fields": {"a": {"allowed": ["WORK"]}, "b": {}}}
+
+
+def test_snapshot_views_are_not_a_clean_pass(module, tmp_path):
+    sid = _snap(tmp_path, [_view("v1", "WORK_Plan")])
+    res = module.check_names(convention=VIEW_CONV, snapshot_id=sid, kinds=["view_names"],
+                             workspace=MockWorkspace(tmp_path))
+    assert res["summary"]["passed"] == 1
+    assert res["complete"] is False
+    assert res["by_kind"]["view_names"]["complete"] is False
+    assert res["not_enough_data"][0]["kind"] == "view_names"
+    assert "drafting views" in res["not_enough_data"][0]["reason"]
+
+
+def test_snapshot_without_views_says_not_enough_data(module, tmp_path):
+    sid = _snap(tmp_path, [])
+    res = module.check_names(convention=VIEW_CONV, snapshot_id=sid, kinds=["view_names"],
+                             workspace=MockWorkspace(tmp_path))
+    assert res["complete"] is False and "no views at all" in res["not_enough_data"][0]["reason"]
+
+
+def test_views_declared_complete_are_trusted(module, tmp_path):
+    sid = _snap(tmp_path, [_view("v1", "WORK_Plan")], source={"views_complete": True})
+    res = module.check_names(convention=VIEW_CONV, snapshot_id=sid, kinds=["view_names"],
+                             workspace=MockWorkspace(tmp_path))
+    assert res["complete"] is True and res["not_enough_data"] == []
+
+
+def test_localised_labels_are_found_via_aliases(module, tmp_path):
+    sid = _snap(tmp_path, [_view("v1", "WORK_Plan", key="Ansichtsname")], source={"views_complete": True})
+    res = module.check_names(convention=VIEW_CONV, snapshot_id=sid, kinds=["view_names"],
+                             workspace=MockWorkspace(tmp_path))
+    assert res["results"][0]["name"] == "WORK_Plan" and res["results"][0]["passed"]
+    assert res["complete"] is True
+
+
+def test_unknown_label_is_reported_not_skipped_silently(module, tmp_path):
+    sheet = {"uid": "s", "category": "OST_Sheets", "params": {"Zzz": {"v": "A101"}}}
+    sid = _snap(tmp_path, [sheet])
+    conv = {"pattern": "{a}", "fields": {"a": {}}}
+    res = module.check_names(convention=conv, snapshot_id=sid, kinds=["sheet_numbers"],
+                             workspace=MockWorkspace(tmp_path))
+    assert res["summary"]["checked"] == 0
+    assert res["complete"] is False
+    assert "none of the known parameter labels" in res["not_enough_data"][0]["reason"]
+
+
+def test_type_name_substitution_is_reported(module, tmp_path):
+    lvl = {"uid": "l", "category": "OST_Levels", "type_name": "Level 1", "params": {}}
+    sid = _snap(tmp_path, [lvl])
+    conv = {"pattern": "Level {n}", "fields": {"n": {}}}
+    res = module.check_names(convention=conv, snapshot_id=sid, kinds=["level_names"],
+                             workspace=MockWorkspace(tmp_path))
+    assert res["summary"]["checked"] == 1
+    assert any("type name was checked instead" in r["reason"] for r in res["not_enough_data"])
+
+
+def test_split_honours_field_regex():
+    conv = {"pattern": "{a}-{b}", "fields": {"a": {"regex": "[a-z]+-[a-z]+"}, "b": {"regex": "[a-z]+"}}}
+    m = NamingCheckerModule()
+    r = m.check_names(convention=conv, names={"file_names": ["foo-bar-baz"]})
+    assert r["results"][0]["passed"] is True
+    assert r["results"][0]["fields"] == {"a": "foo-bar", "b": "baz"}
+
+
+def test_split_honours_length_constraints():
+    conv = {"pattern": "{a}-{b}", "fields": {"a": {"min_length": 5}, "b": {"max_length": 3}}}
+    m = NamingCheckerModule()
+    r = m.check_names(convention=conv, names={"file_names": ["ab-cd-ef", "ab-cd"]})
+    assert r["results"][0]["passed"] is True and r["results"][0]["fields"]["a"] == "ab-cd"
+    assert r["results"][1]["passed"] is False
