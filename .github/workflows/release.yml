@@ -18,6 +18,15 @@ on:
         description: Revit version to package, or All for 2024-2027
         required: true
         default: "All"
+      dry_run:
+        description: Build and test everything, but do not create or update the GitHub release or start the registry publish. Artifacts are attached to the run instead.
+        type: boolean
+        required: false
+        default: false
+      ref:
+        description: Git ref to build instead of the tag, for testing a branch. Only allowed together with dry_run.
+        required: false
+        default: ""
 
 jobs:
   release:
@@ -33,6 +42,7 @@ jobs:
         run: |
           $tag = if ($env:GITHUB_EVENT_NAME -eq 'push') { $env:GITHUB_REF_NAME } else { '${{ inputs.tag }}' }
           if ($tag -notmatch '^v\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') { throw "Tag '$tag' is not vMAJOR.MINOR.PATCH[-prerelease]" }
+          if ('${{ inputs.ref }}' -ne '' -and '${{ inputs.dry_run }}' -ne 'true') { throw "The ref input is only allowed together with dry_run, so a release is never built from an untagged ref." }
           "tag=$tag" >> $env:GITHUB_OUTPUT
           "version=$($tag.Substring(1))" >> $env:GITHUB_OUTPUT
           "prerelease=$($tag.Contains('-').ToString().ToLower())" >> $env:GITHUB_OUTPUT
@@ -40,7 +50,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
         with:
-          ref: ${{ steps.tag.outputs.tag }}
+          ref: ${{ inputs.ref || steps.tag.outputs.tag }}
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -96,11 +106,56 @@ jobs:
           -RevitVersion "${{ inputs.revit_version || 'All' }}"
           -VSCodePackage "extensions/vscode/aec-model-bridge-${{ steps.tag.outputs.version }}.vsix"
 
+      # The double-click installer carries all four Revit years, so it needs the full package.
+      - name: Install Inno Setup
+        if: ${{ (inputs.revit_version || 'All') == 'All' }}
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup installation failed" }
+
+      - name: Build Windows installer
+        if: ${{ (inputs.revit_version || 'All') == 'All' }}
+        shell: pwsh
+        run: >
+          ./scripts/build-installer.ps1
+          -Version "${{ steps.tag.outputs.version }}"
+          -SkipPackage
+          -OutputDir dist/release
+          -UpdateChecksums
+
+      - name: Smoke-test the installer (silent install, upgrade, failure, uninstall)
+        if: ${{ (inputs.revit_version || 'All') == 'All' }}
+        shell: pwsh
+        run: >
+          ./scripts/test-installer.ps1
+          -Installer "dist/release/AECModelBridge-Setup-${{ steps.tag.outputs.version }}.exe"
+          -AllowOverwrite
+
       - name: Write release notes from CHANGELOG
         shell: pwsh
-        run: python scripts/version.py notes "${{ steps.tag.outputs.version }}" | Out-File -Encoding utf8 release-notes.md
+        run: |
+          $version = '${{ steps.tag.outputs.version }}'
+          python scripts/version.py notes $version | Out-File -Encoding utf8 release-notes.md
+          if (Test-Path "dist/release/AECModelBridge-Setup-$version.exe") {
+            Add-Content -Encoding utf8 release-notes.md @"
+
+          **Easiest install:** download ``AECModelBridge-Setup-$version.exe`` below, double-click it and follow the wizard. It detects your Revit versions and sets everything up. Checksums are in ``SHA256SUMS.txt``.
+          "@
+          }
+
+      - name: Upload artifacts (dry run)
+        if: ${{ inputs.dry_run }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-dry-run-${{ steps.tag.outputs.version }}
+          path: |
+            dist/release/*
+            release-notes.md
+          if-no-files-found: error
 
       - name: Create or update GitHub release
+        if: ${{ !inputs.dry_run }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -118,7 +173,7 @@ jobs:
           }
 
       - name: Publish to the MCP Registry
-        if: steps.tag.outputs.prerelease == 'false'
+        if: ${{ steps.tag.outputs.prerelease == 'false' && !inputs.dry_run }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
