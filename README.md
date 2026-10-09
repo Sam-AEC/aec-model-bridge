@@ -4,12 +4,14 @@
 
 # AEC Model Bridge: Revit MCP server
 
-**An open-source Revit MCP server and AI assistant for Revit. It lets Claude, Codex and other Model Context Protocol clients read and edit BIM models, with you approving every change.**
+**Let Claude, Codex and other AI assistants work inside your Revit model. They propose, you approve, Revit changes.**
 
-[![MCP Registry](https://img.shields.io/badge/MCP_Registry-active-0F766E?style=flat-square)](https://registry.modelcontextprotocol.io/?q=io.github.Sam-AEC%2Faec-model-bridge)
-[![License](https://img.shields.io/badge/license-GPLv3%2B%20%2F%20Commercial-2563EB?style=flat-square)](LICENSING.md)
+[![CI](https://img.shields.io/github/actions/workflow/status/Sam-AEC/aec-model-bridge/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Sam-AEC/aec-model-bridge/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
+[![MCP Registry](https://img.shields.io/badge/MCP_Registry-listed-0F766E?style=flat-square)](https://registry.modelcontextprotocol.io/?q=io.github.Sam-AEC%2Faec-model-bridge)
+[![Revit](https://img.shields.io/badge/Revit-2024--2027-0696D7?style=flat-square)](#supported-revit-versions)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-[![Revit](https://img.shields.io/badge/Revit-2024--2027-0696D7?style=flat-square)](https://www.autodesk.com/products/revit/)
+[![License](https://img.shields.io/badge/license-GPL--3.0%20%2B%20commercial-2563EB?style=flat-square)](LICENSING.md)
 
 [Install](#install-the-revit-add-in) | [Connect a client](#connect-claude-desktop-to-revit) | [Tools](docs/tools-generated.md) | [Documentation](#documentation) | [Latest release](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -25,15 +27,14 @@ It does not edit your model on its own. Any tool that changes the model goes
 through a plan that you review and approve first. See
 [How approval works](#how-approval-works).
 
-**License:** GPL-3.0-or-later with a Revit linking exception, or a separate
-commercial license ([details](LICENSING.md)). Independent project, not
-affiliated with Autodesk.
+**License:** GPL-3.0-or-later with a Revit linking exception, or a commercial
+license ([details](LICENSING.md)).
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/ecosystem-orbit.png" alt="AEC Model Bridge at the centre of an orbit diagram. Around it: AI clients Claude, Codex, GitHub Copilot, Cursor and VS Code; BIM and design apps Revit, Rhino, IFC, Speckle, plus Navisworks and Power BI in progress; and the Model Context Protocol, Python, Docker and GitHub." width="900">
 </p>
 
-<sub>Logos are trademarks of their owners. They are shown only to identify the tools AEC Model Bridge works with and do not imply endorsement ([TRADEMARKS.md](TRADEMARKS.md)). Image source: `scripts/make_ecosystem_image.py`.</sub>
+<sub>Logos belong to their owners. Image source: `scripts/make_ecosystem_image.py`.</sub>
 
 ## Quick start
 
@@ -395,13 +396,7 @@ Maintained by [A. Sam Mohammad](https://github.com/Sam-AEC).
 [LinkedIn](https://www.linkedin.com/in/a-sam-mohammad-92790416b) |
 [Issues](https://github.com/Sam-AEC/aec-model-bridge/issues)
 
-Version 1.1.0 and later is available under your choice of
-[GPL-3.0-or-later with the Revit Linking Exception, or a separate commercial
-license](LICENSING.md). The GPL option permits community use while allowing the
-add-in to operate through Autodesk Revit APIs. Commercial terms are available
-for proprietary distribution and negotiated requirements. Version 1.0.2 and
-earlier remains available under the MIT License.
+Licensed under GPL-3.0-or-later with a Revit linking exception, or a commercial
+license. Details in [LICENSING.md](LICENSING.md).
 
-AEC Model Bridge is an independent project and is not sponsored, endorsed, or
-provided by Autodesk. Autodesk and Revit are trademarks of the Autodesk group
-of companies. See [TRADEMARKS.md](TRADEMARKS.md).
+Not affiliated with Autodesk. Revit is a trademark of Autodesk, Inc.
