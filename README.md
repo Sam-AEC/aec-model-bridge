@@ -5,9 +5,9 @@
 **English** | [简体中文](docs/i18n/README.zh-CN.md) | [Español](docs/i18n/README.es.md) | [हिन्दी](docs/i18n/README.hi.md) | [العربية](docs/i18n/README.ar.md) | [Português (BR)](docs/i18n/README.pt-BR.md) | [Русский](docs/i18n/README.ru.md) | [日本語](docs/i18n/README.ja.md) | [Deutsch](docs/i18n/README.de.md) | [Français](docs/i18n/README.fr.md) | [Bahasa Indonesia](docs/i18n/README.id.md) | [Türkçe](docs/i18n/README.tr.md) | [한국어](docs/i18n/README.ko.md) | [Tiếng Việt](docs/i18n/README.vi.md) | [Italiano](docs/i18n/README.it.md) | [Polski](docs/i18n/README.pl.md) | [繁體中文](docs/i18n/README.zh-TW.md)
 
 
-**Review model quality and fix Revit parameters with your AI assistant.**
+**Ask your AI about the Revit model you have open. Nothing changes until you approve it.**
 
-Revit automation through the Model Context Protocol. Review and approve model changes in Revit.
+Open-source MCP server and native add-in for Revit 2024 – 2027. Works with Claude, Codex and other MCP clients.
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Sam-AEC/aec-model-bridge/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Sam-AEC/aec-model-bridge/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
@@ -19,10 +19,7 @@ Revit automation through the Model Context Protocol. Review and approve model ch
 </div>
 
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-hero-dark.png">
-    <img src="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-hero-light.png" alt="Find parameter issues. Review the fixes. A BIM model with a door flagged for an empty Mark parameter and a callout showing the reviewed correction. Example values." width="900">
-  </picture>
+  <img src="docs/images/readme/banner.png" alt="A floor plan with three doors circled in red revision clouds because their Mark tags are empty. The headline reads: your AI finds it, you approve the fix. A card shows the Mark changing from empty to D-101 after approval. Example values." width="900">
 </p>
 
 Connect Claude, Codex or another MCP client to the Revit model you have open.
@@ -227,6 +224,8 @@ which is useful for development and tests.
 | Navisworks Manage | In progress. The provider and its tools are registered. The Navisworks add-in is not finished. |
 | Power BI | In progress. The provider and tool exist but are not registered in the hub. |
 | Excel, Parquet and DuckDB | Planned. |
+
+Product names and logos belong to their owners. The banner uses them only to show what this project works with.
 
 ## Install the Revit add-in
 
