@@ -18,8 +18,8 @@ Palette is taken from `docs/design/tokens.md`. The Pier logo is embedded verbati
 
 ## Alt text
 
-- **Hero:** "Find parameter issues. Review the fixes. A BIM model with one door flagged for an empty Mark value, an issue card, and a reviewed correction card. Example values, not a Revit screenshot."
-- **Workflow:** "Four steps: Inspect finds empty Mark values, Propose drafts a change table, Approve is a human decision, Verify reads the values back. Example values are illustrative."
+- **Hero:** "Find parameter issues. Review the fixes. A BIM model with one door flagged for an empty Mark value and a callout showing the reviewed correction. Example values."
+- **Workflow:** "Four steps: Inspect finds an empty Mark, Propose drafts a change, Approve is a human decision, Verify reads the value back. Example values are illustrative."
 - **Social preview:** "AEC Model Bridge: AI-assisted BIM coordination, with the Pier logo and an isometric building model."
 - **Demo cover:** "Fix missing parameters in Revit. Inspect. Review. Approve. Verify. A placeholder reserves space for a screenshot from the synthetic test model."
 
@@ -28,7 +28,7 @@ Palette is taken from `docs/design/tokens.md`. The Pier logo is embedded verbati
 ```html
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/readme/readme-hero-dark.png">
-  <img src="docs/images/readme/readme-hero-light.png" alt="Find parameter issues. Review the fixes. A BIM model with one door flagged for an empty Mark value, an issue card, and a reviewed correction card. Example values, not a Revit screenshot." width="900">
+  <img src="docs/images/readme/readme-hero-light.png" alt="Find parameter issues. Review the fixes. A BIM model with one door flagged for an empty Mark value and a callout showing the reviewed correction. Example values." width="900">
 </picture>
 ```
 

@@ -187,49 +187,29 @@ function hero(name) {
   const T = THEMES[name];
   const W = 1600, H = 700;
   let b = '';
-  // sheet border + corner ticks
-  b += rect(24, 24, W - 48, H - 48, 0, { stroke: T.line, sw: 1.5 });
-  b += logo(T, 88, 84, 64);
-  b += text(172, 127, 'AEC Model Bridge', { size: 30, weight: 600, fill: T.ink, id: 'wordmark' });
-  b += text(88, 290, 'Find parameter issues.', { size: 62, weight: 700, fill: T.ink, ls: -1, id: 'headline-1' });
-  b += text(88, 366, 'Review the fixes.', { size: 62, weight: 700, fill: T.brandText, ls: -1, id: 'headline-2' });
-  b += rect(90, 398, 96, 6, 3, { fill: T.brand });
-  b += text(88, 468, 'AI-assisted BIM coordination', { size: 32, weight: 500, fill: T.muted, id: 'support-1' });
-  b += text(88, 512, 'with human approval.', { size: 32, weight: 500, fill: T.muted, id: 'support-2' });
-  b += text(88, 640, 'Illustration with example values. Not a Revit screenshot.', { size: 22, weight: 500, fill: T.muted, id: 'footnote' });
+  b += logo(T, 88, 92, 96);
+  b += text(88, 330, 'Find parameter issues.', { size: 68, weight: 700, fill: T.ink, ls: -1, id: 'headline-1' });
+  b += text(88, 412, 'Review the fixes.', { size: 68, weight: 700, fill: T.brandText, ls: -1, id: 'headline-2' });
+  b += rect(90, 442, 96, 6, 3, { fill: T.brand });
+  b += text(88, 514, 'AI-assisted BIM coordination', { size: 34, weight: 500, fill: T.muted, id: 'support-1' });
+  b += text(88, 560, 'with human approval.', { size: 34, weight: 500, fill: T.muted, id: 'support-2' });
+  b += text(88, 640, 'Illustration with example values.', { size: 22, weight: 500, fill: T.muted, id: 'footnote' });
 
-  const m = model(T, { s: 30, ox: 960, oy: 345, door: 'issue' });
+  const m = model(T, { s: 38, ox: 1090, oy: 250, door: 'issue', grid: false });
   b += m.svg;
-
-  // issue card
-  const cx = 1205, cw = 340;
-  b += card(T, cx, 160, cw, 170);
-  b += `<circle cx="${cx + 34}" cy="204" r="9" fill="${T.warn}"/>`;
-  b += text(cx + 56, 212, 'Issue found', { size: 26, weight: 600, fill: T.warn });
-  b += text(cx + 28, 262, 'Door · Mark', { size: 32, weight: 650, fill: T.ink });
-  b += text(cx + 28, 306, 'Value', { size: 26, weight: 500, fill: T.muted });
-  b += rect(cx + 118, 282, 190, 38, 6, { fill: T.warnBg, stroke: T.warn, sw: 2, dash: '6 5' });
-  b += text(cx + 213, 310, 'empty', { size: 26, weight: 600, fill: T.warn, anchor: 'middle' });
-  // leader from model door to issue card
   const [dx, dy] = m.door;
-  b += `<polyline points="${f1(dx)},${f1(dy)} 1186,${f1(dy)} 1186,245 ${cx},245" fill="none" stroke="${T.warn}" stroke-width="2.5" stroke-linejoin="round"/>`;
-  b += `<circle cx="${f1(dx)}" cy="${f1(dy)}" r="17" fill="none" stroke="${T.warn}" stroke-width="2.5"/>`;
-  b += `<circle cx="${f1(dx)}" cy="${f1(dy)}" r="5" fill="${T.warn}"/>`;
-
-  // arrow + fix card
-  b += arrowDown(cx + cw / 2, 334, 388, T.muted);
-  b += card(T, cx, 392, cw, 222, { stroke: T.brand });
-  b += check(cx + 36, 438, 14, T.ok, T.surface);
-  b += text(cx + 60, 447, 'Reviewed fix', { size: 26, weight: 600, fill: T.ok });
-  b += line(cx + 28, 468, cx + cw - 28, 468, T.line, 1.5);
-  b += text(cx + 28, 504, 'Door \u00B7 Mark', { size: 24, weight: 500, fill: T.muted });
-  b += text(cx + 28, 552, 'empty', { size: 28, weight: 500, fill: T.muted });
-  b += arrow(cx + 128, 542, cx + 170, T.muted, 2.5);
-  b += text(cx + 184, 554, 'D-101', { size: 36, weight: 700, fill: T.brandText });
-  b += text(cx + 28, 596, 'Approved by reviewer', { size: 24, weight: 600, fill: T.ok });
-
+  b += `<circle cx="${f1(dx)}" cy="${f1(dy)}" r="20" fill="none" stroke="${T.warn}" stroke-width="3"/>`;
+  // one callout: issue -> reviewed fix
+  const cx = 1010, cy = 530, cw = 500, ch = 124;
+  b += `<polyline points="${f1(dx)},${f1(dy + 20)} ${f1(dx)},${cy}" fill="none" stroke="${T.warn}" stroke-width="3"/>`;
+  b += rect(cx, cy, cw, ch, 16, { fill: T.surface, stroke: T.line, sw: 2 });
+  b += text(cx + 32, cy + 50, 'Door \u00B7 Mark', { size: 26, weight: 600, fill: T.muted });
+  b += text(cx + 32, cy + 96, 'empty', { size: 38, weight: 700, fill: T.warn });
+  b += arrow(cx + 170, cy + 82, cx + 232, T.muted, 3);
+  b += text(cx + 252, cy + 96, 'D-101', { size: 38, weight: 700, fill: T.brandText });
+  b += check(cx + cw - 52, cy + 62, 22, T.ok, T.surface);
   return svgDoc(W, H, T, 'Find parameter issues. Review the fixes.',
-    'A BIM model with a door flagged for a missing Mark parameter, an issue card, and a reviewed correction card. Example values.', b);
+    'A BIM model with a door flagged for an empty Mark parameter and a callout showing the reviewed correction. Example values.', b);
 }
 
 // ================================================================= WORKFLOW
@@ -237,73 +217,37 @@ function workflow(name) {
   const T = THEMES[name];
   const W = 1600, H = 500;
   let b = '';
-  const cw = 312, gap = 64, x0 = 80, cy = 118, ch = 280;
+  const cw = 312, gap = 64, x0 = 80, cy = 130, ch = 220;
   const steps = ['Inspect', 'Propose', 'Approve', 'Verify'];
-  const caps = ['Find empty values', 'Draft a change table', 'A person decides', 'Re-read and compare'];
   steps.forEach((s, i) => {
     const x = x0 + i * (cw + gap);
-    b += `<circle cx="${x + 20}" cy="64" r="20" fill="${T.brand}"/>`;
-    b += text(x + 20, 72, String(i + 1), { size: 24, weight: 700, fill: T.btnText, anchor: 'middle' });
-    b += text(x + 52, 77, s, { size: 38, weight: 700, fill: T.ink });
+    b += text(x, 88, s, { size: 44, weight: 700, fill: i === 2 ? T.brandText : T.ink });
     b += card(T, x, cy, cw, ch, i === 2 ? { stroke: T.brand } : {});
-    b += text(x, 440, caps[i], { size: 28, weight: 500, fill: T.muted });
     if (i < 3) b += arrow(x + cw + 12, cy + ch / 2, x + cw + gap - 12, T.muted, 3);
   });
-  b += text(80, 478, 'Example values are illustrative.', { size: 22, weight: 500, fill: T.muted, id: 'footnote' });
-
-  // 1 Inspect
+  b += text(80, 432, 'Missing values become proposed changes. A person approves. Results are checked.', { size: 28, weight: 500, fill: T.muted });
+  b += text(80, 472, 'Example values are illustrative.', { size: 22, weight: 500, fill: T.muted, id: 'footnote' });
+  const row = (x, y, a, bv, ca, cb) => text(x + 28, y, a, { size: 28, weight: 600, fill: ca }) + text(x + cw - 28, y, bv, { size: 28, weight: 700, fill: cb, anchor: 'end' });
   let x = x0;
-  b += text(x + 24, cy + 46, 'Door · Mark', { size: 24, weight: 600, fill: T.muted });
-  const rows1 = [['Door 0415', 'D-101', 0], ['Door 0416', 'D-102', 0], ['Door 0417', 'empty', 1], ['Door 0418', 'empty', 1]];
-  rows1.forEach(([id, v, miss], r) => {
-    const y = cy + 64 + r * 50;
-    if (miss) b += rect(x + 14, y, cw - 28, 42, 6, { fill: T.warnBg, stroke: T.warn, sw: 1.5, dash: '5 4' });
-    b += text(x + 26, y + 29, id, { size: 24, weight: 500, fill: T.ink });
-    b += text(x + cw - 26, y + 29, v, { size: 24, weight: miss ? 600 : 500, fill: miss ? T.warn : T.muted, anchor: 'end' });
-  });
-
-  // 2 Propose
-  x = x0 + (cw + gap);
-  b += text(x + 24, cy + 46, 'Proposed changes', { size: 24, weight: 600, fill: T.muted });
-  b += rect(x + 14, cy + 62, cw - 28, 40, 6, { fill: T.raised });
-  b += text(x + 26, cy + 89, 'Door', { size: 22, weight: 600, fill: T.muted });
-  b += text(x + 112, cy + 89, 'Before', { size: 22, weight: 600, fill: T.muted });
-  b += text(x + cw - 26, cy + 89, 'After', { size: 22, weight: 600, fill: T.muted, anchor: 'end' });
-  [['0417', 'D-103'], ['0418', 'D-104']].forEach(([id, v], r) => {
-    const y = cy + 112 + r * 56;
-    b += text(x + 26, y + 33, id, { size: 26, weight: 500, fill: T.ink });
-    b += text(x + 112, y + 33, 'empty', { size: 24, weight: 500, fill: T.warn });
-    b += text(x + cw - 26, y + 34, v, { size: 28, weight: 700, fill: T.brandText, anchor: 'end' });
-    b += line(x + 14, y + 52, x + cw - 14, y + 52, T.line, 1.5);
-  });
-  b += chip(T, x + 24, cy + ch - 56, 'Draft · not applied', T.muted, T.raised).svg;
-
-  // 3 Approve
-  x = x0 + 2 * (cw + gap);
-  b += `<circle cx="${x + 46}" cy="${cy + 52}" r="14" fill="none" stroke="${T.ink}" stroke-width="3"/>`;
-  b += `<path d="M${x + 20} ${cy + 96} C${x + 20} ${cy + 70} ${x + 72} ${cy + 70} ${x + 72} ${cy + 96}" fill="none" stroke="${T.ink}" stroke-width="3" stroke-linecap="round"/>`;
-  b += text(x + 92, cy + 60, 'Reviewer', { size: 26, weight: 600, fill: T.ink });
-  b += text(x + 24, cy + 138, '2 changes to review', { size: 28, weight: 600, fill: T.ink });
-  b += chip(T, x + 24, cy + 158, 'Awaiting decision', T.pend, T.pendBg).svg;
-  b += rect(x + 24, cy + ch - 72, 150, 52, 10, { fill: T.brand });
-  b += text(x + 99, cy + ch - 37, 'Approve', { size: 26, weight: 700, fill: T.btnText, anchor: 'middle' });
-  b += rect(x + 188, cy + ch - 72, 100, 52, 10, { stroke: T.muted, sw: 2 });
-  b += text(x + 238, cy + ch - 37, 'Reject', { size: 26, weight: 600, fill: T.ink, anchor: 'middle' });
-
-  // 4 Verify
-  x = x0 + 3 * (cw + gap);
-  b += text(x + 24, cy + 46, 'Read back values', { size: 24, weight: 600, fill: T.muted });
-  [['0417', 'D-103'], ['0418', 'D-104']].forEach(([id, v], r) => {
-    const y = cy + 72 + r * 56;
-    b += text(x + 26, y + 33, id, { size: 26, weight: 500, fill: T.ink });
-    b += text(x + 118, y + 34, v, { size: 28, weight: 700, fill: T.ink });
-    b += check(x + cw - 42, y + 24, 15, T.ok, T.surface);
-    b += line(x + 14, y + 52, x + cw - 14, y + 52, T.line, 1.5);
-  });
-  b += chip(T, x + 24, cy + ch - 56, '2 of 2 match', T.ok, T.okBg).svg;
-
+  b += row(x, cy + 80, 'Door 0416', 'D-102', T.ink, T.muted);
+  b += rect(x + 16, cy + 118, cw - 32, 56, 8, { fill: T.warnBg, stroke: T.warn, sw: 2, dash: '6 5' });
+  b += row(x, cy + 155, 'Door 0417', 'empty', T.ink, T.warn);
+  x += cw + gap;
+  b += text(x + 28, cy + 70, 'Door 0417', { size: 28, weight: 600, fill: T.muted });
+  b += text(x + 28, cy + 140, 'empty', { size: 32, weight: 600, fill: T.warn });
+  b += arrow(x + 138, cy + 128, x + 176, T.muted, 3);
+  b += text(x + 192, cy + 140, 'D-103', { size: 32, weight: 700, fill: T.brandText });
+  b += text(x + 28, cy + 190, 'Draft, not applied', { size: 24, weight: 500, fill: T.muted });
+  x += cw + gap;
+  b += rect(x + 28, cy + 56, cw - 56, 72, 12, { fill: T.brand });
+  b += text(x + cw / 2, cy + 104, 'Approve', { size: 34, weight: 700, fill: T.btnText, anchor: 'middle' });
+  b += text(x + cw / 2, cy + 176, 'You decide', { size: 28, weight: 500, fill: T.muted, anchor: 'middle' });
+  x += cw + gap;
+  b += check(x + 52, cy + 90, 26, T.ok, T.surface);
+  b += text(x + 96, cy + 102, 'D-103', { size: 38, weight: 700, fill: T.ink });
+  b += text(x + 28, cy + 176, 'Read back', { size: 26, weight: 500, fill: T.muted });
   return svgDoc(W, H, T, 'Inspect, Propose, Approve, Verify',
-    'Four steps: inspect finds empty Mark values, propose drafts a change table, approve is a human decision, verify reads the values back. Example values are illustrative.', b);
+    'Four steps: inspect finds an empty Mark, propose drafts a change, approve is a human decision, verify reads the value back. Example values are illustrative.', b);
 }
 
 // ================================================================= SOCIAL
@@ -325,24 +269,15 @@ function cover() {
   const T = THEMES.light;
   const W = 1600, H = 900;
   let b = '';
-  b += rect(24, 24, W - 48, H - 48, 0, { stroke: T.line, sw: 1.5 });
-  b += logo(T, 80, 72, 56);
-  b += text(150, 110, 'AEC Model Bridge', { size: 28, weight: 600, fill: T.ink });
+  b += logo(T, 80, 80, 80);
   ['Fix missing', 'parameters', 'in Revit.'].forEach((l, i) =>
-    (b += text(80, 322 + i * 86, l, { size: 76, weight: 700, fill: i === 2 ? T.brandText : T.ink, ls: -1.5, id: `title-${i + 1}` })));
-  b += rect(82, 548, 96, 6, 3, { fill: T.brand });
-  b += text(80, 620, 'Inspect. Review. Approve. Verify.', { size: 30, weight: 500, fill: T.muted, id: 'subtitle' });
-
-  // screenshot placeholder, 16:10
-  const px = 640, py = 150, pw = 880, ph = 550;
+    (b += text(80, 380 + i * 92, l, { size: 80, weight: 700, fill: i === 2 ? T.brandText : T.ink, ls: -1.5, id: `title-${i + 1}` })));
+  b += rect(82, 626, 96, 6, 3, { fill: T.brand });
+  b += text(80, 700, 'Inspect. Review. Approve. Verify.', { size: 30, weight: 500, fill: T.muted, id: 'subtitle' });
+  const px = 640, py = 110, pw = 880, ph = 550;
   b += rect(px, py, pw, ph, 12, { fill: T.surface, stroke: T.muted, sw: 3, dash: '14 10' });
-  b += line(px + 12, py + 12, px + pw - 12, py + ph - 12, T.line, 1.5);
-  b += line(px + pw - 12, py + 12, px + 12, py + ph - 12, T.line, 1.5);
-  b += rect(px + 190, py + ph / 2 - 62, pw - 380, 124, 12, { fill: T.surface });
-  b += text(px + pw / 2, py + ph / 2 - 4, 'Screenshot placeholder', { size: 44, weight: 650, fill: T.ink, anchor: 'middle', id: 'placeholder-label' });
-  b += text(px + pw / 2, py + ph / 2 + 38, '16:10 · synthetic test model', { size: 26, weight: 500, fill: T.muted, anchor: 'middle' });
-  b += text(px, py + ph + 48, 'Replace with a capture from live Revit using the repo’s synthetic test model.', { size: 24, weight: 500, fill: T.muted });
-  b += text(px, py + ph + 82, 'Mock mode returns canned responses and is not a live Revit demo.', { size: 24, weight: 500, fill: T.muted });
+  b += text(px + pw / 2, py + ph / 2 + 4, 'Screenshot placeholder', { size: 46, weight: 650, fill: T.ink, anchor: 'middle', id: 'placeholder-label' });
+  b += text(px + pw / 2, py + ph / 2 + 50, 'Synthetic test model, live Revit', { size: 26, weight: 500, fill: T.muted, anchor: 'middle' });
   return svgDoc(W, H, T, 'Fix missing parameters in Revit.', 'Demo cover with title, subtitle and a large labelled screenshot placeholder.', b);
 }
 
