@@ -7,22 +7,33 @@
   "description": "QA/QC validation workflows (W7, W9): YAML rule packs over snapshot queries, issue lifecycle (open/resolved/orphaned), async health checks via JobManager.",
   "author": "AEC Model Bridge",
   "license": "GPL-3.0-or-later",
-  "requires_providers": ["revit", "semantic"],
-  "permissions": ["model.read"],
+  "requires_providers": [
+    "revit",
+    "semantic"
+  ],
+  "permissions": [
+    "model.read",
+    "files.write"
+  ],
   "commands": [
     {
       "id": "run_check",
       "title": "Run QA/QC Check",
-      "surface": ["mcp", "panel"],
+      "surface": [
+        "mcp",
+        "panel"
+      ],
       "execution_mode": "sync",
       "is_mutating": false,
       "input_schema": {
         "type": "object",
         "properties": {
-          "snapshot_id": {"type": "string"},
+          "snapshot_id": {
+            "type": "string"
+          },
           "rule_pack": {
             "type": "string",
-            "description": "Rule pack name (e.g. 'core', or path to a YAML file).",
+            "description": "Rule pack name: a built-in (e.g. 'core') or a pack in <workspace>/rule_packs/<name>.yaml.",
             "default": "core"
           }
         },
@@ -32,21 +43,34 @@
     {
       "id": "list_issues",
       "title": "List QA/QC Issues",
-      "surface": ["mcp", "panel"],
+      "surface": [
+        "mcp",
+        "panel"
+      ],
       "execution_mode": "sync",
       "is_mutating": false,
       "input_schema": {
         "type": "object",
         "properties": {
-          "doc_guid": {"type": "string"},
+          "doc_guid": {
+            "type": "string"
+          },
           "status": {
             "type": "string",
-            "enum": ["open", "resolved", "orphaned"],
+            "enum": [
+              "open",
+              "resolved",
+              "orphaned"
+            ],
             "description": "Filter by issue lifecycle status."
           },
           "severity": {
             "type": "string",
-            "enum": ["error", "warning", "info"]
+            "enum": [
+              "error",
+              "warning",
+              "info"
+            ]
           }
         },
         "required": []
@@ -55,29 +79,138 @@
     {
       "id": "resolve_issue",
       "title": "Resolve Issue",
-      "surface": ["mcp"],
+      "surface": [
+        "mcp"
+      ],
       "execution_mode": "sync",
       "is_mutating": false,
       "input_schema": {
         "type": "object",
         "properties": {
-          "issue_id": {"type": "string"}
+          "issue_id": {
+            "type": "string"
+          }
         },
-        "required": ["issue_id"]
+        "required": [
+          "issue_id"
+        ]
       }
     },
     {
       "id": "list_rules",
       "title": "List Available Rules",
-      "surface": ["mcp", "panel"],
+      "surface": [
+        "mcp",
+        "panel"
+      ],
       "execution_mode": "sync",
       "is_mutating": false,
       "input_schema": {
         "type": "object",
         "properties": {
-          "rule_pack": {"type": "string", "default": "core"}
+          "rule_pack": {
+            "type": "string",
+            "default": "core"
+          }
         },
         "required": []
+      }
+    },
+    {
+      "id": "list_rule_packs",
+      "title": "List Rule Packs",
+      "surface": [
+        "mcp"
+      ],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "id": "validate_rule_pack",
+      "title": "Validate Rule Pack",
+      "surface": [
+        "mcp"
+      ],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "YAML file inside the workspace to validate."
+          },
+          "rule_pack": {
+            "type": "string",
+            "description": "Name of a built-in or workspace rule pack to validate instead of a path."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "id": "import_rule_pack",
+      "title": "Import Rule Pack",
+      "surface": [
+        "mcp"
+      ],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "source_path": {
+            "type": "string",
+            "description": "YAML rule pack file inside the workspace to import."
+          },
+          "name": {
+            "type": "string",
+            "description": "Pack name to save as; defaults to the file name."
+          },
+          "overwrite": {
+            "type": "boolean",
+            "default": false,
+            "description": "Replace an existing pack with the same name."
+          }
+        },
+        "required": [
+          "source_path"
+        ]
+      }
+    },
+    {
+      "id": "export_rule_pack",
+      "title": "Export Rule Pack",
+      "surface": [
+        "mcp"
+      ],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "rule_pack": {
+            "type": "string",
+            "description": "Name of the built-in or workspace pack to export."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Target YAML file or directory inside the workspace; defaults to exports/<name>.yaml."
+          },
+          "overwrite": {
+            "type": "boolean",
+            "default": false,
+            "description": "Replace an existing destination file."
+          }
+        },
+        "required": [
+          "rule_pack"
+        ]
       }
     }
   ]
