@@ -22,8 +22,10 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | --- | --- | --- | --- |
 | `approve_plan` | Approve a pending ActionPlan so that its actions may be executed. | No | sync |
 | `execute_plan` | Run every action in an approved ActionPlan. | No | sync |
+| `get_proof_bundle` | Return the proof bundle (plan hash, approver, document, per-element before and new values, skipped elements and execution outcome) of a finished ActionPlan. | No | sync |
 | `list_pending_plans` | List all ActionPlans that are waiting for review. | No | sync |
 | `plan_actions` | Create a draft ActionPlan describing the model changes you want to make, capturing the before-state of each. | No | sync |
+| `plan_revert` | Draft a new ActionPlan that sets each parameter back to the before value recorded in an executed plan's proof bundle. | No | sync |
 | `reject_plan` | Reject and archive a pending ActionPlan so that it can never be executed. | No | sync |
 | `rollback_plan` | Undo an already executed ActionPlan by applying the inverse of each recorded change, in reverse order. | No | sync |
 
@@ -85,8 +87,8 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `parameter_manager_diff_params` | Compare parameter values between two saved snapshots and list the differences. | No | sync |
 | `parameter_manager_export_params_csv` | Export parameters of the matching snapshot elements to a CSV file in the workspace. | No | sync |
 | `parameter_manager_filter_params` | Return a parameter grid for the elements of a snapshot that match a filter, optionally including read-only parameters. | No | sync |
-| `parameter_manager_import_params_csv` | Import parameter values from a CSV file in the workspace and apply them to elements. | Yes | sync |
-| `parameter_manager_plan_set_params` | Create a draft ActionPlan that sets parameter values on the elements of a snapshot matching a filter. | Yes | sync |
+| `parameter_manager_import_params_csv` | Read parameter values from a CSV file in the workspace and create a draft ActionPlan that applies them. | No | sync |
+| `parameter_manager_plan_set_params` | Create a draft ActionPlan that sets parameter values on the elements of a snapshot matching a filter. | No | sync |
 | `pyrevit_bridge_list_pyrevit_scripts` | List pyRevit pushbutton scripts found in the directories named by MCP_REVIT_PYREVIT_EXTENSION_DIRS, with tab, panel, description and whether obvious write calls were detected. | No | sync |
 | `pyrevit_bridge_plan_run_pyrevit_script` | Create a draft ActionPlan for running one pyRevit script, showing its path, SHA-256 and detected write-call lines. | No | sync |
 | `pyrevit_bridge_run_pyrevit_script` | Run a pyRevit script inside Revit after its plan was approved and only if its SHA-256 still matches the plan. | Yes | sync |
