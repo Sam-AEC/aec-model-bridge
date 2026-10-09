@@ -1,64 +1,67 @@
-# Logging And Audit
+# Logging and audit
 
-This repository records operational information in two different layers:
+The project keeps two separate logs:
 
-- Python-side audit logging
-- C# bridge-side runtime logging
+- the Python-side audit log
+- the Revit add-in runtime log
 
-## Python Audit Recorder
+## Python audit log
 
-The audit implementation lives in [packages/mcp-server-revit/src/revit_mcp_server/security/audit.py](../packages/mcp-server-revit/src/revit_mcp_server/security/audit.py).
+The code is in [packages/mcp-server-revit/src/revit_mcp_server/security/audit.py](../packages/mcp-server-revit/src/revit_mcp_server/security/audit.py).
 
-`AuditRecorder.record()` writes one JSON line per tool invocation with:
+`AuditRecorder.record()` writes one JSON line per tool call. Each line holds:
 
-- UTC timestamp
-- tool name
-- request ID
-- payload
-- response
+- a UTC timestamp
+- the tool name
+- the request ID
+- the payload
+- the response
 
-This is the structured trail for MCP-level actions.
+Tokens, secrets and file paths are replaced before the line is written. See [Security](security.md). Set the file with `MCP_REVIT_AUDIT_LOG`. The default is `audit.log` in the working directory of the server process.
 
-## Bridge Runtime Logs
+This log shows what the MCP server asked for.
 
-The Revit add-in initializes Serilog in [App.cs](../packages/revit-bridge-addin/src/Bridge/App.cs).
+Note: in the current code, only the legacy server (`legacy/server.py`) creates an `AuditRecorder`. The main server (`mcp_server.py`) uses the same redaction but does not write this file. If `audit.log` is missing, this is the likely reason.
 
-Current behavior:
+## Add-in runtime log
 
-- log file path is created under `%APPDATA%\AECModelBridge\Logs\bridge.jsonl`
-- logs roll daily
-- bridge startup, shutdown, request receipt, and execution errors are recorded
+The Revit add-in starts Serilog in [App.cs](../packages/revit-bridge-addin/src/Bridge/App.cs).
 
-This is the operational trail for the .NET side of the system.
+- The log file is `%APPDATA%\AECModelBridge\Logs\bridge.jsonl`.
+- The log rolls over daily.
+- It records add-in startup, shutdown, incoming requests and execution errors.
 
-## Why Two Layers Exist
+The panel hub writes its own log, `panel-hub.log`, in the same folder.
 
-The Python process and the Revit add-in do not share a runtime or process boundary.
+This log shows what Revit received and ran.
 
-Because of that:
+## Why there are two logs
 
-- Python audit logs tell you what the MCP layer believed it asked for
-- bridge logs tell you what the Revit-hosted runtime actually received and executed
+The Python server and the Revit add-in run as separate processes. They do not share a runtime.
 
-When debugging production issues, both logs matter.
+- The Python audit log tells you what the MCP server believed it asked for.
+- The add-in log tells you what Revit actually received and ran.
 
-## What To Expect In Incidents
+When you investigate a problem, read both.
 
-If the MCP server validates and sends a request successfully, but Revit fails to execute it:
+## What to expect when something fails
 
-- Python audit may still look normal
-- bridge log will often hold the actionable failure
+If the server sends a request and Revit fails to run it:
 
-If a path is rejected or payload shape is wrong before the bridge is contacted:
+- The Python audit log may still look normal.
+- The add-in log usually holds the useful error.
 
-- Python audit and validation behavior will matter more than the bridge log
+If the server rejects a path, or the payload has the wrong shape, the request never reaches the add-in:
 
-## Operational Rule
+- Look at the Python audit log and the error the client showed.
+- The add-in log will have nothing for this request.
 
-Never treat one log as the whole story. For live bridge failures, correlate:
+## Rule of thumb
 
-1. Python audit entry
-2. bridge runtime log entry
-3. any client-visible error response
+Do not rely on one log alone. For a failed live request, compare these three records:
 
-That three-point check is the fastest way to separate schema problems, transport problems, and live Revit execution problems.
+1. the Python audit entry
+2. the add-in log entry
+3. the error the client showed
+
+This check quickly shows whether the problem is the input, the connection or Revit itself.

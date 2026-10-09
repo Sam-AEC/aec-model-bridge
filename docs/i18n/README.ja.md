@@ -6,7 +6,7 @@
 
 > この文書は AI の支援で翻訳されたものです。内容は英語版の [README](../../README.md) が正であり、誤りや改善点があれば Pull Request でお寄せください。詳しくは [CONTRIBUTING.md](../../CONTRIBUTING.md) をご覧ください。
 
-**開いている Revit モデルについて AI に質問できます。既定では、承認するまで何も変更されません。**
+**開いている Revit モデルについて AI に質問できます。デフォルトでは、承認するまで何も変更されません。**
 
 Revit 2024 – 2027 向けのオープンソースの MCP サーバーとネイティブアドイン。Claude、Codex などの MCP クライアントで使えます。
 
@@ -20,10 +20,16 @@ Revit 2024 – 2027 向けのオープンソースの MCP サーバーとネイ�
 </div>
 
 <p align="center">
-  <img src="../images/readme/demo.gif" alt="デモ：AI アシスタントが Mark のない 12 枚のドアを見つけて計画を作成します。計画は Revit パネルで承認を待ち、承認後に値を読み戻して確認します。値は例で、セッションはシミュレーションです。" width="900">
+  <img src="../images/readme/demo.gif" alt="デモ：Revit パネルの横に建物の 3D モデルが表示されています。AI アシスタントが Mark のない 12 枚のドアを見つけて計画を作成します。計画は Revit パネルで承認を待ち、承認後に値を読み戻して確認します。値は例で、セッションはシミュレーションです。" width="900">
 </p>
 
-Claude、Codex などの MCP クライアントを、開いている Revit モデルに接続します。AEC Model Bridge は Python 製の MCP サーバーとネイティブの Revit アドインで構成されます。読み取り専用ツールはすぐにモデルを調査でき、モデルを変更するには、デフォルトでは承認済みのプランが必要です。[承認フローを見る](#承認の仕組み)。
+AEC Model Bridge は、Claude、Codex、Cursor などの AI アシスタントが、開いている Revit モデルを読み取り・編集できるようにするオープンソースの Revit MCP サーバーです。変更はすべて、先にあなたが承認します。Python 製の MCP サーバーとネイティブの Revit アドインで構成され、読み取り専用ツールはすぐにモデルを調査でき、モデルの変更にはデフォルトで承認済みのプランが必要です。[承認フローを見る](#承認の仕組み)。
+
+<p align="center">
+  <img src="../images/readme/works-with.svg" alt="対応：Claude Desktop、GitHub Copilot を併用する VS Code、Cursor、Codex はセットアップ手順があります。Claude Code、Windsurf、Cline、Continue、Zed、Gemini CLI などの他の MCP クライアントも動作するはずです。アプリケーション：Revit 2024～2027、Rhino、Grasshopper、Navisworks（開発中）。データ：IFC、Speckle、Excel、SQLite。プロトコル：承認ゲート付きの stdio 経由 MCP。" width="900">
+</p>
+
+セットアップ手順を用意しているのは、Claude Desktop、GitHub Copilot を併用する VS Code、Cursor、Codex です。標準的な MCP の stdio サーバーなので、Claude Code、Windsurf、Cline、Continue、Zed、Gemini CLI などの他のクライアントでも動作するはずです。ドキュメント化されている範囲と未検証の範囲は[互換性](../compatibility.md)をご覧ください。
 
 同じサーバーに、IFC の検査、Rhino と Grasshopper の自動化、Speckle 連携も含まれます。[連携の状況](#その他の連携)で、利用可能なプロバイダーと開発中のものを区別しています。
 
@@ -65,11 +71,11 @@ the plan in Revit, apply it and read the values back to confirm the result.
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
-ボタンに必要なのは [uv](https://docs.astral.sh/uv/getting-started/installation/) だけで、他の設定は不要です。独自に指定しない限り、サーバーは `~/Documents/AEC Model Bridge` をワークスペースとして使います。Claude Desktop の場合は、最新リリースから `.mcpb` ファイルをダウンロードして開きます。実際に Revit を操作するには、Revit と[アドイン](#revit-アドインのインストール)が必要です。モックモードは何も必要としません。
+ボタンに必要なのは [uv](https://docs.astral.sh/uv/getting-started/installation/) だけで、他の設定は不要です。独自に指定しない限り、サーバーは `~/Documents/AEC Model Bridge` をワークスペースとして使います。Claude Desktop の場合は、最新リリースから `.mcpb` ファイルをダウンロードして開きます。実際に Revit を操作するには、Revit と[アドイン](#revit-アドインのインストール)が必要です。モックモードには何も必要ありません。
 
 **手動セットアップ**
 
-ライブの Revit 自動化には、Windows、ライセンスのある Revit 2024〜2027、Python 3.11 以降、[uv](https://docs.astral.sh/uv/getting-started/installation/)、そして Revit アドインが必要です([インストール手順](#revit-アドインのインストール))。そのうえで、次を `claude_desktop_config.json` に追加します（Codex、Cursor、VS Code でも同じ値を使います。2 つのディレクトリ変数は任意で、省略すると上記のワークスペースが使われます）。
+ライブの Revit 自動化には、Windows、ライセンスのある Revit 2024〜2027、Python 3.11 以降、[uv](https://docs.astral.sh/uv/getting-started/installation/)、そして Revit アドインが必要です（[インストール手順](#revit-アドインのインストール)）。そのうえで、次を `claude_desktop_config.json` に追加します（Codex、Cursor、VS Code でも同じ値を使います。2 つのディレクトリ変数は任意で、省略すると上記のワークスペースが使われます）。
 
 ```json
 {
@@ -93,7 +99,7 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 まず Revit なしでツールを確認したい場合は、`"MCP_REVIT_MODE": "mock"` を設定します。サーバーはどの環境でも起動し、すべてのツールをスキーマ付きで一覧表示し、モデルには触れずに定型のレスポンスを返します。同じモックモード用の `Dockerfile` がリポジトリのルートにあります（`docker build -t aec-model-bridge .` のあと `docker run -i --rm aec-model-bridge`）。
 
-VS Code をお使いですか?[拡張機能のソースとローカルへのインストール手順](../../extensions/vscode/README.md)で、MCP サーバーの登録と Revit の接続状態の表示ができます。Marketplace では公開されていません。
+VS Code をお使いですか？[拡張機能のソースとローカルへのインストール手順](../../extensions/vscode/README.md)で、MCP サーバーの登録と Revit の接続状態の表示ができます。Marketplace では公開されていません。
 
 ### ツール一覧
 
@@ -118,7 +124,7 @@ VS Code をお使いですか?[拡張機能のソースとローカルへのイ�
 
 ## 仕組み
 
-MCP クライアントは 1 つの Python ハブと通信します。ハブは各呼び出しを、そのツールを持つプロバイダーに振り分けます。デスクトップアプリ向けのプロバイダーは、localhost 経由でそのアプリ内の小さなアドインと通信します。
+MCP クライアントは 1 つの Python ハブと通信します。ハブは各呼び出しを、そのツールを担当するプロバイダーに振り分けます。デスクトップアプリ向けのプロバイダーは、localhost 経由でそのアプリ内の小さなアドインと通信します。
 
 <p align="center">
   <picture>
@@ -178,9 +184,11 @@ MCP クライアントは 1 つの Python ハブと通信します。ハブは�
 | Power BI | 開発中。プロバイダーとツールはありますが、ハブには登録されていません。 |
 | Excel、Parquet、DuckDB | 計画中。 |
 
+製品名とロゴはそれぞれの所有者に帰属します。バナーでは、このプロジェクトが対応するものを示す目的でのみ使用しています。
+
 ## Revit アドインのインストール
 
-**いちばん簡単な方法(Windows):**[最新リリース](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)から `AECModelBridge-Setup-<version>.exe` をダウンロードし、ダブルクリックして、使用する Revit のバージョンを選び、Revit を再起動します。アドインと同梱の Python サーバーがインストールされ、チェックを入れれば Claude Desktop と VS Code の設定も書き込まれます（現在の設定はバックアップされます）。アンインストールは Windows の設定から行えます。以下の手順はソースからビルドする場合のものです。
+**いちばん簡単な方法（Windows）：**[最新リリース](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)から `AECModelBridge-Setup-<version>.exe` をダウンロードし、ダブルクリックして、使用する Revit のバージョンを選び、Revit を再起動します。アドインと同梱の Python サーバーがインストールされ、チェックを入れれば Claude Desktop と VS Code の設定も書き込まれます（現在の設定はバックアップされます）。アンインストールは Windows の設定から行えます。以下の手順はソースからビルドする場合のものです。
 
 インストールするのは Python MCP サーバーと Revit アドインの 2 つです。ライブの Revit 自動化には両方が必要です。
 
@@ -287,27 +295,27 @@ Invoke-RestMethod "$($switch.endpoint)/health"
 
 ## FAQ
 
-### Revit 用の MCP サーバーとは何ですか?
+### Revit 用の MCP サーバーとは何ですか？
 
-Model Context Protocol(MCP)は、AI アシスタントが他のソフトウェアのツールを呼び出せるようにするオープンな標準です。Revit 用の MCP サーバーは、Revit の操作をツールとして公開します。アシスタントがツールを選び、アドインが Revit 内でそれを実行します。
+Model Context Protocol（MCP）は、AI アシスタントが他のソフトウェアのツールを呼び出せるようにするオープンな標準です。Revit 用の MCP サーバーは、Revit の操作をツールとして公開します。アシスタントがツールを選び、アドインが Revit 内でそれを実行します。
 
-### どの AI アシスタントで使えますか?
+### どの AI アシスタントで使えますか？
 
-ローカルの stdio サーバーを起動できる MCP クライアントであれば使えます。ドキュメントがあるのは、Claude Desktop、GitHub Copilot を併用する VS Code、標準的な `mcpServers` 設定を読み込むクライアントです。パネルのチャットでは、Anthropic API キー、またはインストール済みの `claude` や `codex` のコマンドラインツールも使えます。[ADR 0012](../0012-native-agent-chat-backend.md) をご覧ください。
+ローカルの stdio サーバーを起動できる MCP クライアントであれば使えます。ドキュメントがあるのは、Claude Desktop、GitHub Copilot を併用する VS Code、Cursor、Codex、および標準的な `mcpServers` 設定を読み込むクライアントです。Windsurf、Cline、Roo Code、Continue、Zed、Claude Code、Gemini CLI も同じ方法で動作するはずですが、未検証です。[互換性](../compatibility.md)をご覧ください。パネルのチャットでは、Anthropic API キー、またはインストール済みの `claude` や `codex` のコマンドラインツールも使えます。[ADR 0012](../0012-native-agent-chat-backend.md) をご覧ください。
 
-### AI が確認なしにモデルを変更することはありますか?
+### AI が確認なしにモデルを変更することはありますか？
 
 デフォルトのモードではありません。モデルを変更するツールは、Revit のパネルでプランが承認されるまでブロックされます。読み取り専用のツールは承認なしで実行されます。`MCP_REVIT_APPROVAL_MODE=auto` を設定すると、承認はスキップされます。
 
-### モデルがクラウドに送信されますか?
+### モデルがクラウドに送信されますか？
 
 サーバーとアドインはお使いのマシン上で動作し、ブリッジは localhost でのみ待ち受けます。AI アシスタントに何が見えるかは、使用するクライアントによります。ツールの結果は、そのクライアントのモデルプロバイダーに送られます。Speckle のようなクラウド向けのプロバイダーは、設定してそのツールを呼び出したときにだけ動作します。
 
-### Revit なしで IFC ファイルを扱えますか?
+### Revit なしで IFC ファイルを扱えますか？
 
 はい。IFC プロバイダーは IfcOpenShell でファイルを読み取ります。ファイルのメタデータ、空間構造、要素のプロパティとバウンディングボックスを返し、クラス、GUID、名前、プロパティによる検索を実行し、スキーマを検証できます。IFC ファイルの編集はできません。
 
-### Revit がインストールされていなくても使えますか?
+### Revit がインストールされていなくても使えますか？
 
 開発やテストのために、サーバーをモックモードで実行できます。ライブのモデル操作には、Revit 2024〜2027 とアドインが必要です。
 

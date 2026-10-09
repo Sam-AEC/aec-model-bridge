@@ -42,7 +42,7 @@ DEFAULT_PORT = 8787
 # something a user exported and would want to open, so they're excluded by
 # name even though qaqc_issues.db shares a report extension.
 REPORT_EXTENSIONS = {".xlsx", ".csv", ".db"}
-NON_REPORT_FILENAMES = {"qaqc_issues.db"}
+NON_REPORT_FILENAMES = {"qaqc_issues.db", "clash_triage.db"}
 
 
 def _run_tool_sync(registry, approval_provider, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
