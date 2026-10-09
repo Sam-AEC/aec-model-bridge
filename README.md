@@ -2,7 +2,6 @@
 
 <img src="assets/logo.svg" alt="AEC Model Bridge logo: an isometric model cube with a bridge arch" height="120">
 
-# AEC Model Bridge
 
 **Review model quality and fix Revit parameters with your AI assistant.**
 
