@@ -1,0 +1,38 @@
+name: Feature request
+description: Suggest a new tool, workflow or improvement.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do
+      description: Describe the task or problem, not the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like
+      description: The tool, option or behaviour you have in mind, if any.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do today
+      description: Workarounds or other tools you have tried.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Revit tools
+        - Rhino / Grasshopper
+        - Navisworks
+        - IFC / Speckle
+        - Approval flow and security
+        - Install and documentation
+        - Other
+  - type: markdown
+    attributes:
+      value: |
+        If you plan to send a code pull request, please read [CONTRIBUTING.md](https://github.com/Sam-AEC/aec-model-bridge/blob/main/CONTRIBUTING.md) first. Code contributions need a signed contributor agreement.
