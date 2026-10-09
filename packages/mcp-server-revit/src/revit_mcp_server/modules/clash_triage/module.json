@@ -1,0 +1,59 @@
+{
+  "id": "clash_triage",
+  "name": "Clash Triage",
+  "version": "1.0.0",
+  "schema_version": 1,
+  "min_hub_version": "1.2.0",
+  "description": "Read-only clash triage: match each Navisworks clash item to a Revit element by UniqueId or IFC GUID, report how sure each match is (exact, ambiguous, unmatched), and record the result as an issue. Never changes the model.",
+  "author": "AEC Model Bridge",
+  "license": "GPL-3.0-or-later",
+  "requires_providers": ["revit", "semantic"],
+  "permissions": ["model.read"],
+  "commands": [
+    {
+      "id": "match_clashes",
+      "title": "Match Clashes to Revit Elements",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "clash_results": {
+            "description": "The clash results as returned by navisworks_get_clash_results (an object with a 'results' list), or just that list."
+          },
+          "snapshot_id": {
+            "type": "string",
+            "description": "Snapshot of the Revit model to match against. Required when connected to Revit."
+          },
+          "record_issues": {
+            "type": "boolean",
+            "default": true,
+            "description": "Record each clash as an issue in the workspace so it can be listed later."
+          }
+        },
+        "required": ["clash_results"]
+      }
+    },
+    {
+      "id": "list_clash_issues",
+      "title": "List Clash Issues",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "doc_guid": {"type": "string", "description": "Only issues for this Revit document."},
+          "status": {"type": "string", "enum": ["open", "resolved"], "description": "Only issues with this status."},
+          "match": {
+            "type": "string",
+            "enum": ["exact", "ambiguous", "unmatched"],
+            "description": "Only clashes with this overall match confidence."
+          }
+        },
+        "required": []
+      }
+    }
+  ]
+}
