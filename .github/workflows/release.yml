@@ -81,7 +81,7 @@ jobs:
       - name: Set up Node for the VS Code extension
         uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 24   # npm 11; npm 10 cannot install the extension's dependencies
           cache: npm
           cache-dependency-path: extensions/vscode/package-lock.json
 

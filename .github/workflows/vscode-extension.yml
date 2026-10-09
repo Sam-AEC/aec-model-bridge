@@ -26,7 +26,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [22]
+        # Node 24 ships npm 11. npm 10 (Node 20/22) crashes on this dependency tree
+        # ("Cannot read properties of null (reading 'edgesOut')") and rejects package-lock.json.
+        node: [24]
     defaults:
       run:
         working-directory: extensions/vscode
