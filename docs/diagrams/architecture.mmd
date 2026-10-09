@@ -1,0 +1,80 @@
+---
+config:
+  look: neo
+  theme: base
+  themeVariables:
+    primaryColor: "#334155"
+    primaryTextColor: "#FFFFFF"
+    primaryBorderColor: "#1E293B"
+    secondaryColor: "#334155"
+    tertiaryColor: "#334155"
+    lineColor: "#6E7781"
+    textColor: "#6E7781"
+    titleColor: "#6E7781"
+    nodeTextColor: "#FFFFFF"
+    clusterBkg: "rgba(110,119,129,0.10)"
+    clusterBorder: "#6E7781"
+    edgeLabelBackground: "#334155"
+    actorBkg: "#334155"
+    actorTextColor: "#FFFFFF"
+    actorBorder: "#1E293B"
+    actorLineColor: "#6E7781"
+    signalColor: "#6E7781"
+    signalTextColor: "#6E7781"
+    labelBoxBkgColor: "#334155"
+    labelBoxBorderColor: "#6E7781"
+    labelTextColor: "#FFFFFF"
+    loopTextColor: "#6E7781"
+    sequenceNumberColor: "#FFFFFF"
+    noteBkgColor: "#F59E0B"
+    noteTextColor: "#1F1300"
+    noteBorderColor: "#92400E"
+    transitionColor: "#6E7781"
+    transitionLabelColor: "#FFFFFF"
+    stateLabelColor: "#FFFFFF"
+    stateBkg: "#334155"
+    labelBackgroundColor: "#334155"
+    compositeBackground: "#334155"
+    specialStateColor: "#6E7781"
+---
+flowchart LR
+  subgraph clients["AI clients"]
+    client(["MCP client<br/>Claude, Codex, VS Code"])
+  end
+
+  subgraph hubzone["Python hub"]
+    hub["MCP hub<br/>routes every tool call"]
+    revitP["Revit provider"]
+    rhinoP["Rhino provider"]
+    navP["Navisworks provider"]
+    ifcP["IFC provider"]
+    speckleP["Speckle provider"]
+  end
+
+  subgraph apps["Add-ins on localhost"]
+    revitA["Revit add-in"]
+    rhinoA["Rhino add-in"]
+    navA["Navisworks<br/>add-in<br/>in progress"]
+  end
+
+  ifcLib[("IFC files<br/>read with IfcOpenShell")]
+  cloud(["Speckle server"])
+
+  client -->|"sends tool calls"| hub
+  hub -->|"routes Revit tools"| revitP
+  hub -->|"routes Rhino tools"| rhinoP
+  hub -.->|"routes Navisworks tools"| navP
+  hub -->|"routes IFC tools"| ifcP
+  hub -->|"routes Speckle tools"| speckleP
+  revitP -->|"HTTP"| revitA
+  rhinoP -->|"HTTP"| rhinoA
+  navP -.->|"local bridge"| navA
+  ifcP -->|"parses"| ifcLib
+  speckleP -->|"syncs"| cloud
+
+  classDef live fill:#0F766E,stroke:#0B4F4A,stroke-width:1.5px,color:#FFFFFF
+  classDef wip fill:#F59E0B,stroke:#92400E,stroke-width:1.5px,stroke-dasharray:4 3,color:#1F1300
+  classDef data fill:#4F46E5,stroke:#3730A3,stroke-width:1.5px,color:#FFFFFF
+  class hub,revitP,rhinoP,ifcP,speckleP,revitA,rhinoA live
+  class navP,navA wip
+  class ifcLib,cloud data
