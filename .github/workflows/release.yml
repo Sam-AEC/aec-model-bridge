@@ -79,7 +79,7 @@ jobs:
         run: python -m pytest packages/mcp-server-revit/tests
 
       - name: Set up Node for the VS Code extension
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7.0.0
         with:
           node-version: 24   # npm 11; npm 10 cannot install the extension's dependencies
           cache: npm
@@ -146,7 +146,7 @@ jobs:
 
       - name: Upload artifacts (dry run)
         if: ${{ inputs.dry_run }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: release-dry-run-${{ steps.tag.outputs.version }}
           path: |
