@@ -14,6 +14,7 @@ Start with the [installation guide](install.md). The main [README](../README.md)
 - [versioning.md](versioning.md): version numbers, release tags and release assets.
 - [clash-triage.md](clash-triage.md): read-only matching of Navisworks clashes to Revit elements, with a confidence label (unverified on live projects).
 - [roadmap.md](roadmap.md): coordinator workflows, demo scope and the next fixes.
+- [demo-runbook.md](demo-runbook.md): step-by-step script for the missing-door-Mark demo, with expected counts and a rejected-plan run.
 
 ## For contributors
 
