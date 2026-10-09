@@ -4,7 +4,7 @@
 [Setup]
 AppId={{D41A24F3-87B1-4A51-9F31-30919E371C25}
 AppName=AEC Model Bridge
-AppVersion=1.3.1
+AppVersion=1.3.2
 AppPublisher=Sam-AEC
 AppPublisherURL=https://github.com/Sam-AEC/aec-model-bridge
 DefaultDirName=C:\ProgramData\AECModelBridge
