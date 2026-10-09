@@ -52,9 +52,7 @@
       "title": "Plan Parameter Set",
       "surface": ["mcp"],
       "execution_mode": "sync",
-      "is_mutating": true,
-      "destructive": false,
-      "requires_plan": true,
+      "is_mutating": false,
       "input_schema": {
         "type": "object",
         "properties": {
@@ -90,9 +88,7 @@
       "title": "Import Parameters from CSV",
       "surface": ["mcp"],
       "execution_mode": "sync",
-      "is_mutating": true,
-      "destructive": false,
-      "requires_plan": true,
+      "is_mutating": false,
       "input_schema": {
         "type": "object",
         "properties": {
