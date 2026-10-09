@@ -29,6 +29,12 @@ through a plan that you review and approve first. See
 commercial license ([details](LICENSING.md)). Independent project, not
 affiliated with Autodesk.
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/ecosystem-orbit.png" alt="AEC Model Bridge at the centre of an orbit diagram. Around it: AI clients Claude, Codex, GitHub Copilot, Cursor and VS Code; BIM and design apps Revit, Rhino, IFC, Speckle, plus Navisworks and Power BI in progress; and the Model Context Protocol, Python, Docker and GitHub." width="900">
+</p>
+
+<sub>Logos are trademarks of their owners. They are shown only to identify the tools AEC Model Bridge works with and do not imply endorsement ([TRADEMARKS.md](TRADEMARKS.md)). Image source: `scripts/make_ecosystem_image.py`.</sub>
+
 ## Quick start
 
 For live Revit automation you need Windows, a licensed Revit 2024 to 2027,
@@ -80,13 +86,6 @@ mode). The Autodesk Data tools appear when APS credentials are configured. The
 [tool reference](docs/tools-generated.md) lists every tool. Each tool carries
 MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`,
 `openWorldHint`), so clients can tell reads from writes.
-
-### Demo
-
-> TODO (owner): add a 30 to 60 second screen recording here as
-> `assets/demo.gif` (or a linked video): ask Claude for a change, the plan
-> appears in the Revit panel, you approve it, the model updates. No demo is
-> shown until a real recording exists.
 
 ## What can the AI do in Revit?
 
