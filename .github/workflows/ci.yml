@@ -7,6 +7,7 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Least privilege: every job below also states its own permissions explicitly.
 permissions:
   contents: read
 
@@ -14,43 +15,126 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+# Third-party and first-party actions are pinned by full commit SHA with a version
+# comment; Dependabot (github-actions ecosystem) keeps them current.
 jobs:
   python:
-    runs-on: windows-latest
+    name: python (${{ matrix.os }}, ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    # The experimental leg reports Linux compatibility without blocking: the
+    # Windows-only pieces (bridge discovery via LOCALAPPDATA/ctypes.windll, path
+    # mapping) have never been exercised on Linux. Drop `experimental` once it is green.
+    continue-on-error: ${{ matrix.experimental == true }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, python-version: "3.11", primary: true }
+          - { os: windows-latest, python-version: "3.12" }
+          - { os: windows-latest, python-version: "3.13" }
+          - { os: ubuntu-latest, python-version: "3.12", experimental: true }
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - name: Set up Python
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: packages/mcp-server-revit/pyproject.toml
+
+      # Forward-slash scratch paths: valid for Git Bash and native Windows programs
+      # alike, and immune to MSYS path conversion of environment variables.
+      - name: Resolve scratch paths
+        run: |
+          temp="$(python -c 'import os, pathlib; print(pathlib.Path(os.environ["RUNNER_TEMP"]).as_posix())')"
+          {
+            echo "REPORTS_DIR=${temp}/reports"
+            echo "DIST_DIR=${temp}/dist"
+            echo "CLEAN_VENV=${temp}/clean-venv"
+            echo "COVERAGE_FILE=${temp}/reports/.coverage"
+          } >> "$GITHUB_ENV"
 
       - name: Check version consistency
         run: python scripts/version.py check
 
       - name: Install package and test dependencies
-        shell: pwsh
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e "packages/mcp-server-revit[dev]"
+          python -m pip install -e "packages/mcp-server-revit[dev]" twine
 
       - name: Run ruff
-        shell: pwsh
-        run: python -m ruff check packages/mcp-server-revit/src packages/mcp-server-revit/tests
+        run: python -m ruff check packages/mcp-server-revit/src packages/mcp-server-revit/tests scripts/ci_summary.py
 
-      - name: Run Python tests
-        shell: pwsh
-        run: python -m pytest packages/mcp-server-revit/tests
+      # Not enforced: most of the tree predates ruff format. Reported so the size of
+      # the gap stays visible; turn this into a hard check after a one-off reformat.
+      - name: Report ruff format drift (not enforced)
+        if: matrix.primary
+        run: |
+          count="$(python -m ruff format --check packages/mcp-server-revit/src packages/mcp-server-revit/tests 2>&1 | grep -c '^Would reformat' || true)"
+          echo "ruff format would change ${count} files (not enforced)." | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Set up uv
+        if: matrix.primary
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: false
+
+      # Catches a stale uv.lock (it once lacked a dependency and nothing noticed).
+      - name: Check uv.lock is up to date
+        if: matrix.primary
+        working-directory: packages/mcp-server-revit
+        run: uv lock --check
+
+      - name: Run Python tests with coverage
+        run: |
+          mkdir -p "$REPORTS_DIR"
+          python -m pytest packages/mcp-server-revit/tests \
+            --junitxml="$REPORTS_DIR/junit.xml" \
+            --cov --cov-config=packages/mcp-server-revit/pyproject.toml \
+            --cov-report=term \
+            --cov-report="xml:$REPORTS_DIR/coverage.xml"
+
+      - name: Summarise tests and coverage
+        if: always()
+        run: >
+          python scripts/ci_summary.py
+          --title "Python ${{ matrix.python-version }} on ${{ matrix.os }}"
+          --junit "$REPORTS_DIR/junit.xml"
+          --coverage "$REPORTS_DIR/coverage.xml"
+
+      - name: Upload test and coverage reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: python-reports-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: |
+            ${{ runner.temp }}/reports/junit.xml
+            ${{ runner.temp }}/reports/coverage.xml
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Check tool catalog generation
-        shell: pwsh
+        if: matrix.primary
         run: |
           python packages/mcp-server-revit/scripts/generate_tool_docs.py
           git diff --exit-code docs/tools-generated.md
 
       - name: Validate repository metadata
+        if: matrix.primary
         shell: pwsh
         run: |
           Get-Content server.json -Raw | ConvertFrom-Json | Out-Null
@@ -58,8 +142,44 @@ jobs:
           Get-Content .vscode/mcp.json -Raw | ConvertFrom-Json | Out-Null
           [xml](Get-Content packages/revit-bridge-addin/src/UI/ModernDialog.xaml -Raw) | Out-Null
 
+      - name: Build wheel and sdist
+        run: python -m build packages/mcp-server-revit --outdir "$DIST_DIR"
+
+      - name: Check distribution metadata
+        run: python -m twine check --strict "$DIST_DIR"/*
+
+      # The released artifact, not the source tree, is what users run. Install the
+      # wheel into a fresh venv outside the checkout (so nothing resolves to ./src,
+      # and dependencies are resolved from PyPI exactly as a user's install would)
+      # and run the real stdio smoke test against it. This catches a server that
+      # crashes at import under a newer dependency (mcp 2.x) and package data that
+      # is missing from the wheel (module manifests, rules, recipes).
+      - name: Install built wheel into a clean venv and smoke-test it
+        working-directory: ${{ runner.temp }}
+        run: |
+          python -m venv "$CLEAN_VENV"
+          if [ "$RUNNER_OS" = "Windows" ]; then VPY="$CLEAN_VENV/Scripts/python.exe"; else VPY="$CLEAN_VENV/bin/python"; fi
+          "$VPY" -m pip install --upgrade pip
+          "$VPY" -m pip install "$DIST_DIR"/*.whl pytest pytest-timeout
+          "$VPY" -m pip check
+          "$VPY" -c "import revit_mcp_server, sys; print(revit_mcp_server.__file__); assert 'site-packages' in revit_mcp_server.__file__, 'not running the installed wheel'"
+          "$VPY" -m pip list --format=freeze | grep -i -E '^(mcp|anthropic|pydantic|ifcopenshell|specklepy)=='
+          AEC_SMOKE_PYTHON="$VPY" "$VPY" -m pytest "$GITHUB_WORKSPACE/packages/mcp-server-revit/tests/test_mcp_stdio_smoke.py" -p no:cacheprovider -v
+
+      - name: Upload distributions
+        if: matrix.primary
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: python-dist
+          path: ${{ runner.temp }}/dist/*
+          if-no-files-found: error
+          retention-days: 14
+
   addin:
     runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -71,14 +191,24 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v6
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: |
             8.0.x
             10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('packages/**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
 
       - name: Build add-in
         shell: pwsh
@@ -86,15 +216,28 @@ jobs:
 
   rhino-addin:
     runs-on: windows-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v6
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: 8.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('packages/rhino-bridge-addin/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
 
       - name: Build Rhino bridge add-in
         shell: pwsh
@@ -102,3 +245,49 @@ jobs:
         # RhinoCommon is a plain NuGet package (unlike the Navisworks/Autodesk
         # SDKs, which have no public NuGet distribution) — this needs no local
         # Rhino install and was previously never built in CI at all.
+
+  # Fails fast on workflow typos, bad expressions and shell mistakes.
+  workflow-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # rhysd/actionlint 1.7.12, image pinned by digest (includes shellcheck and
+      # pyflakes). Dependabot does not track this reference; bump it by hand.
+      - name: Lint workflows with actionlint
+        run: >
+          docker run --rm -v "$PWD:/repo" --workdir /repo
+          rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+          -color
+
+  # One stable name for branch protection: require "ci-success" instead of each
+  # matrix leg, so adding or renaming a job never silently drops a required check.
+  ci-success:
+    name: ci-success
+    if: always()
+    needs:
+      - python
+      - addin
+      - rhino-addin
+      - workflow-lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+
+    steps:
+      - name: Require every needed job to have succeeded
+        env:
+          NEEDS_JSON: ${{ toJson(needs) }}
+        run: |
+          echo "$NEEDS_JSON" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          if echo "$NEEDS_JSON" | jq -e 'any(.[]; .result != "success")' >/dev/null; then
+            echo "::error::At least one required job failed, was cancelled or was skipped."
+            exit 1
+          fi
