@@ -1,5 +1,6 @@
 """Tests for the BCF 2.1 export/import module (UNVERIFIED against other BCF tools)."""
 import importlib.util
+import os
 import sqlite3
 import stat
 import zipfile
@@ -39,12 +40,7 @@ def mod():
 def _zip(path, entries):
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
         for name, data in entries:
-            # ZipInfo normalises os.sep to '/' on Windows; set the raw name afterwards
-            # so entry names containing a backslash reach the reader unchanged.
-            info = zipfile.ZipInfo("placeholder")
-            info.filename = name
-            info.compress_type = zipfile.ZIP_DEFLATED
-            zf.writestr(info, data)
+            zf.writestr(name, data)
     return path
 
 
@@ -133,6 +129,11 @@ def test_sandbox_rejects_symlink_escape(mod, ws, tmp_path):
 @pytest.mark.parametrize("name", ["../evil.txt", "g/../../evil.txt", "/abs/evil.txt", "C:/evil.txt", "a\\b.txt"])
 def test_rejects_bad_entry_names(mod, ws, name):
     _zip(ws.allowed_directories[0] / "m.bcfzip", [("g1/markup.bcf", MARKUP), (name, b"x")])
+    if name == "a\\b.txt" and os.sep == "\\":
+        # On Windows zipfile itself rewrites '\\' to '/' when writing and reading, so the
+        # reader only ever sees the harmless relative name 'a/b.txt': nothing to reject.
+        assert mod.import_bcf("m.bcfzip", workspace=ws)["issue_count"] == 1
+        return
     with pytest.raises(bcf.BcfError):
         mod.import_bcf("m.bcfzip", workspace=ws)
 
