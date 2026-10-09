@@ -75,9 +75,12 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | --- | --- | --- | --- |
 | `bcf_exchange_export_bcf` | Save issues (your own list and/or the recorded QA/QC issues) to a BCF 2. | No | sync |
 | `bcf_exchange_import_bcf` | Read a BCF. | No | sync |
+| `clash_triage_list_clash_issues` | List the clash issues recorded by clash triage, optionally filtered by status and match confidence. | No | sync |
+| `clash_triage_match_clashes` | Match each clash from a Navisworks clash test to the Revit elements it involves, by UniqueId or IFC GUID, and say how sure each match is (exact, ambiguous or unmatched). | No | sync |
 | `familytype_mapper_audit_families` | Audit the families in a saved snapshot and report problems such as unmapped or inconsistent family types. | No | sync |
 | `familytype_mapper_list_type_mappings` | List family-type mappings found in a saved snapshot, optionally for one category. | No | sync |
 | `hello_world_say_hello` | Example module command that returns a greeting; use it to confirm the module system works. | No | sync |
+| `links_worksets_audit_audit` | Check linked models and worksets for problems (unloaded or missing links, links not pinned or placed Origin to Origin, empty or default-named worksets, worksets owned by someone else, elements on the wrong workset) and give plain next steps. | No | sync |
 | `model_inspector_ask` | Answer a question about a saved snapshot by filtering its element records with the filter DSL. | No | sync |
 | `model_inspector_inspect_selection` | Return the snapshot records of the given elements (by UniqueId). | No | sync |
 | `model_inspector_list_groups` | List the model groups found in a saved snapshot. | No | sync |
