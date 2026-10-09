@@ -18,6 +18,24 @@ from revit_mcp_server.semantic.models import (
 
 logger = logging.getLogger(__name__)
 
+
+def require_snapshot_or_mock(snapshot_id: str, tool: str) -> None:
+    """Refuse to fall back to generated mock data unless mock mode is explicit.
+
+    Callers invoke this when ``snapshot_id`` is empty. In bridge (live) mode an
+    omitted snapshot must not be answered with synthetic data that looks like
+    findings about the open model.
+    """
+    from revit_mcp_server.config import BridgeMode, config
+
+    if config.mode != BridgeMode.mock:
+        raise ValueError(
+            f"{tool} requires a snapshot_id when connected to Revit (mode='{config.mode.value}'). "
+            "Capture one first with the snapshot tool and pass its snapshot_id; "
+            "generated mock data is only used when MCP_REVIT_MODE=mock."
+        )
+
+
 def generate_mock_snapshot() -> Snapshot:
     snapshot_id = f"01J{uuid.uuid4().hex[:23].upper()}"
     taken_at = datetime.now(timezone.utc)
