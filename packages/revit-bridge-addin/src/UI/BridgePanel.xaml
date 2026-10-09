@@ -7,25 +7,26 @@
              UseLayoutRounding="True"
              SnapsToDevicePixels="True"
              FontFamily="Segoe UI">
-    <Grid Background="#F8FAFC">
+    <Grid Background="#F2F5F8">
         <wv2:WebView2 x:Name="Browser" />
 
         <Border x:Name="Fallback"
                 Visibility="Collapsed"
-                Background="#F8FAFC"
+                Background="#F2F5F8"
                 Padding="20">
             <StackPanel VerticalAlignment="Center">
+                <Image x:Name="FallbackLogo" Width="48" Height="48" HorizontalAlignment="Left" Margin="0,0,0,14" AutomationProperties.Name="AEC Model Bridge logo" />
                 <TextBlock Text="AEC Model Bridge"
                            FontSize="18"
                            FontWeight="SemiBold"
-                           Foreground="#1F2937"
+                           Foreground="#18202C"
                            Margin="0,0,0,8" />
                 <TextBlock x:Name="FallbackMessage"
                            Text="Panel runtime unavailable."
                            FontSize="13"
                            LineHeight="20"
                            TextWrapping="Wrap"
-                           Foreground="#4B5563" />
+                           Foreground="#5B6676" />
             </StackPanel>
         </Border>
     </Grid>

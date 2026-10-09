@@ -28,6 +28,7 @@ const hostStatus = document.getElementById("host-status");
 const systemAlerts = document.getElementById("system-alerts");
 const title = document.getElementById("view-title");
 const subtitle = document.getElementById("view-subtitle");
+const viewIcon = document.getElementById("view-icon");
 const chatFeed = document.getElementById("chat-feed");
 const chatForm = document.getElementById("chat-form");
 const chatInput = document.getElementById("chat-input");
@@ -96,6 +97,7 @@ function setView(viewName) {
   });
   title.textContent = views[viewName].title;
   subtitle.textContent = views[viewName].subtitle;
+  viewIcon.setAttribute("href", `#nav-${viewName}`);
 }
 
 function renderHostStatus() {
@@ -232,7 +234,7 @@ function renderPlans() {
       </div>
       <p>${escapeHtml(plan.detail)}</p>
       <div class="item-actions">
-        <button type="button" data-plan="${escapeHtml(plan.id)}" data-decision="approve">Approve</button>
+        <button type="button" data-plan="${escapeHtml(plan.id)}" class="primary" data-decision="approve">Approve</button>
         <button type="button" data-plan="${escapeHtml(plan.id)}" data-decision="reject">Reject</button>
       </div>`;
     planList.appendChild(item);

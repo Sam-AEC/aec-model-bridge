@@ -21,8 +21,8 @@
     <Window.Resources>
         <!-- Modern Button Style -->
         <Style x:Key="ModernButton" TargetType="Button">
-            <Setter Property="Background" Value="{DynamicResource HeaderBrush}"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Padding" Value="24,10"/>
@@ -32,7 +32,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}"
-                                CornerRadius="6"
+                                CornerRadius="8"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center"
                                              VerticalAlignment="Center"/>
@@ -62,7 +62,7 @@
                         <Border Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="6"
+                                CornerRadius="8"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center"
                                              VerticalAlignment="Center"/>
@@ -72,7 +72,7 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="{DynamicResource BgBrush}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -82,7 +82,7 @@
             <Setter Property="Background" Value="{DynamicResource CardBgBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="CornerRadius" Value="10"/>
             <Setter Property="Padding" Value="16"/>
             <Setter Property="Margin" Value="6"/>
             <Setter Property="Effect">
@@ -92,7 +92,7 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="BorderBrush" Value="{DynamicResource HeaderBrush}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
                     <Setter Property="Effect">
                         <Setter.Value>
                             <DropShadowEffect Color="#000000" Opacity="0.12" BlurRadius="12" ShadowDepth="3"/>
@@ -120,7 +120,7 @@
             </Grid.RowDefinitions>
 
             <!-- Header -->
-            <Border x:Name="HeaderBorder" Grid.Row="0" Background="{DynamicResource HeaderBrush}" CornerRadius="9,9,0,0">
+            <Border x:Name="HeaderBorder" Grid.Row="0" Background="{DynamicResource HeaderBrush}" CornerRadius="9,9,0,0" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="0,0,0,2">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
@@ -136,12 +136,11 @@
                                    Text="AEC Model Bridge Status"
                                    FontSize="17"
                                    FontWeight="SemiBold"
-                                   Foreground="White"/>
+                                   Foreground="#E9EEF5"/>
                         <TextBlock x:Name="DialogSubtitle"
                                    Text="MCP automation for Revit software"
                                    FontSize="11"
-                                   Foreground="White"
-                                   Opacity="0.85"/>
+                                   Foreground="#9BA8B9"/>
                     </StackPanel>
 
                     <!-- Close Button -->
@@ -155,13 +154,14 @@
                             Cursor="Hand"
                             AutomationProperties.Name="Close dialog"
                             Click="CloseButton_Click">
-                        <Path Fill="White" Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
+                        <Path Fill="#C9D4E2" Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
                     </Button>
                 </Grid>
             </Border>
 
             <!-- Content -->
             <ScrollViewer Grid.Row="1"
+                          Background="{DynamicResource BgBrush}"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled"
                           CanContentScroll="False"
