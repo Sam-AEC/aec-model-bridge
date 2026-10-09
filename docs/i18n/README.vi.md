@@ -20,10 +20,16 @@ Máy chủ MCP mã nguồn mở và add-in gốc cho Revit 2024 – 2027. Hoạt
 </div>
 
 <p align="center">
-  <img src="../images/readme/demo.gif" alt="Demo: trợ lý AI tìm 12 cửa không có Mark và soạn một kế hoạch. Kế hoạch chờ trong bảng Revit cho đến khi bạn phê duyệt, sau đó các giá trị được đọc lại để kiểm tra. Giá trị minh họa, phiên mô phỏng." width="900">
+  <img src="../images/readme/demo.gif" alt="Demo: mô hình 3D của một tòa nhà nằm cạnh bảng Revit. Trợ lý AI tìm 12 cửa không có Mark và soạn một kế hoạch. Kế hoạch chờ trong bảng Revit cho đến khi bạn phê duyệt, sau đó các giá trị được đọc lại để kiểm tra. Giá trị minh họa, phiên mô phỏng." width="900">
 </p>
 
-Kết nối Claude, Codex hoặc ứng dụng khách MCP khác với mô hình Revit bạn đang mở. AEC Model Bridge kết hợp máy chủ MCP viết bằng Python với add-in Revit gốc: các công cụ chỉ đọc kiểm tra mô hình ngay lập tức, còn mọi thay đổi trên mô hình mặc định đều cần một kế hoạch đã được phê duyệt. [Xem luồng phê duyệt](#cách-phê-duyệt-hoạt-động).
+AEC Model Bridge là máy chủ MCP mã nguồn mở cho Revit, cho phép Claude, Codex, Cursor và các trợ lý AI khác đọc và chỉnh sửa mô hình Revit bạn đang mở, với mọi thay đổi đều do bạn phê duyệt trước. Công cụ này kết hợp máy chủ MCP viết bằng Python với add-in Revit gốc: các công cụ chỉ đọc kiểm tra mô hình ngay lập tức, còn thay đổi trên mô hình mặc định cần một kế hoạch đã được phê duyệt. [Xem luồng phê duyệt](#cách-phê-duyệt-hoạt-động).
+
+<p align="center">
+  <img src="../images/readme/works-with.svg" alt="Hoạt động với: Claude Desktop, VS Code với GitHub Copilot, Cursor và Codex đã có tài liệu thiết lập. Các ứng dụng khách MCP khác như Claude Code, Windsurf, Cline, Continue, Zed và Gemini CLI cũng nên hoạt động được. Ứng dụng: Revit 2024 đến 2027, Rhino, Grasshopper, Navisworks (đang phát triển). Dữ liệu: IFC, Speckle, Excel, SQLite. Giao thức: MCP qua stdio với cổng phê duyệt." width="900">
+</p>
+
+Có tài liệu thiết lập cho Claude Desktop, VS Code với GitHub Copilot, Cursor và Codex. Đây là máy chủ MCP stdio tiêu chuẩn, nên các ứng dụng khách khác như Claude Code, Windsurf, Cline, Continue, Zed và Gemini CLI cũng nên hoạt động được. Xem [khả năng tương thích](../compatibility.md) để biết phần nào đã có tài liệu và phần nào chưa được kiểm thử.
 
 Cùng máy chủ này còn có chức năng kiểm tra IFC, tự động hóa Rhino và Grasshopper, và tích hợp Speckle. [Trạng thái tích hợp](#các-tích-hợp-khác) phân biệt các nhà cung cấp đã sẵn sàng với những phần đang được phát triển.
 
@@ -55,7 +61,7 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 Với các thao tác chỉnh sửa, trợ lý tạo kế hoạch bằng `plan_actions`; bạn xem xét kế hoạch trong bảng điều khiển Revit trước khi `execute_plan` áp dụng. Việc rà soát IFC chạy được mà không cần Revit.
 
-Các mô-đun QA/QC và báo cáo dựa trên snapshot cần một snapshot đã lưu tương thích. Hiện tại, việc chuyển snapshot từ Revit sang mô-đun đòi hỏi tên tệp và workspace phải khớp nhau; nếu bỏ qua `snapshot_id`, dữ liệu mẫu được tạo sẵn có thể được trả về. Hãy dùng trực tiếp các công cụ Revit ở trên để kiểm tra trực tiếp. [Các bản sửa dự kiến và bản demo](../roadmap.md).
+Các mô-đun QA/QC và báo cáo dựa trên snapshot cần một snapshot đã lưu tương thích. Hiện tại, việc chuyển snapshot từ Revit sang mô-đun đòi hỏi tên tệp và workspace phải khớp nhau; nếu bỏ qua `snapshot_id`, dữ liệu mẫu được tạo sẵn có thể được trả về. Hãy dùng trực tiếp các công cụ Revit ở trên để kiểm tra theo thời gian thực. [Các bản sửa dự kiến và bản demo](../roadmap.md).
 
 ## Bắt đầu nhanh
 
@@ -91,7 +97,7 @@ Các nút này chỉ cần [uv](https://docs.astral.sh/uv/getting-started/instal
 }
 ```
 
-Muốn xem các công cụ trước mà chưa có Revit? Hãy đặt `"MCP_REVIT_MODE": "mock"`. Khi đó máy chủ chạy được ở bất kỳ đâu, liệt kê mọi công cụ cùng lược đồ của chúng và trả về các phản hồi dựng sẵn mà không chạm vào mô hình nào. Một `Dockerfile` cho chính chế độ mock này nằm ở thư mục gốc của kho mã (`docker build -t aec-model-bridge .`, sau đó `docker run -i --rm aec-model-bridge`).
+Muốn xem các công cụ trước mà chưa có Revit? Hãy đặt `"MCP_REVIT_MODE": "mock"`. Khi đó máy chủ chạy được ở bất kỳ đâu, liệt kê mọi công cụ cùng lược đồ của chúng và trả về các phản hồi dựng sẵn mà không chạm vào mô hình nào. Một `Dockerfile` cho cùng chế độ mock này nằm ở thư mục gốc của kho mã (`docker build -t aec-model-bridge .`, sau đó `docker run -i --rm aec-model-bridge`).
 
 Dùng VS Code? [Mã nguồn tiện ích mở rộng và các bước cài đặt cục bộ](../../extensions/vscode/README.md) sẽ đăng ký máy chủ MCP và hiển thị trạng thái kết nối Revit. Tiện ích này chưa được đăng lên Marketplace.
 
@@ -177,6 +183,8 @@ Bạn cũng cần Windows 10 hoặc 11, Python 3.11 trở lên và bản Revit c
 | Navisworks Manage | Đang phát triển. Nhà cung cấp và các công cụ của nó đã được đăng ký. Add-in Navisworks chưa hoàn thiện. |
 | Power BI | Đang phát triển. Nhà cung cấp và công cụ đã có nhưng chưa được đăng ký trong hub. |
 | Excel, Parquet và DuckDB | Dự kiến. |
+
+Tên sản phẩm và logo thuộc về chủ sở hữu của chúng. Banner chỉ dùng chúng để cho biết dự án này hoạt động với những gì.
 
 ## Cài đặt add-in Revit
 
@@ -293,7 +301,7 @@ Model Context Protocol (MCP) là một tiêu chuẩn mở cho phép trợ lý AI
 
 ### Những trợ lý AI nào dùng được?
 
-Bất kỳ ứng dụng khách MCP nào có thể khởi chạy máy chủ stdio cục bộ. Chúng tôi có tài liệu cho Claude Desktop, VS Code với GitHub Copilot và các ứng dụng khách đọc cấu hình `mcpServers` tiêu chuẩn. Trò chuyện trong bảng điều khiển cũng có thể dùng khóa API của Anthropic hoặc các công cụ dòng lệnh `claude` hay `codex` nếu đã cài. Xem [ADR 0012](../0012-native-agent-chat-backend.md).
+Bất kỳ ứng dụng khách MCP nào có thể khởi chạy máy chủ stdio cục bộ. Chúng tôi có tài liệu cho Claude Desktop, VS Code với GitHub Copilot, Cursor và Codex, cùng các ứng dụng khách đọc cấu hình `mcpServers` tiêu chuẩn. Windsurf, Cline, Roo Code, Continue, Zed, Claude Code và Gemini CLI cũng nên hoạt động theo cách tương tự nhưng chưa được kiểm thử. Xem [khả năng tương thích](../compatibility.md). Trò chuyện trong bảng điều khiển cũng có thể dùng khóa API của Anthropic hoặc các công cụ dòng lệnh `claude` hay `codex` nếu đã cài. Xem [ADR 0012](../0012-native-agent-chat-backend.md).
 
 ### AI có thể thay đổi mô hình của tôi mà không hỏi không?
 

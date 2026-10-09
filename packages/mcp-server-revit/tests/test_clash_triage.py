@@ -9,11 +9,8 @@ from revit_mcp_server.semantic.engine import generate_mock_snapshot
 
 
 def _load_mod():
-    p = Path(__file__).parent.parent / "src/revit_mcp_server/modules/clash_triage/module.py"
-    spec = importlib.util.spec_from_file_location("_clash_triage_impl", p)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
+    # Import under its package name so coverage (source_pkgs) measures it.
+    return importlib.import_module("revit_mcp_server.modules.clash_triage.module")
 
 
 ClashTriageModule = _load_mod().ClashTriageModule
