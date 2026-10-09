@@ -7,11 +7,8 @@ import pytest
 
 
 def _load_mod():
-    p = Path(__file__).parent.parent / "src/revit_mcp_server/modules/links_worksets_audit/module.py"
-    spec = importlib.util.spec_from_file_location("_lwa_impl", p)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
+    # Import under its package name so coverage (source_pkgs) measures it.
+    return importlib.import_module("revit_mcp_server.modules.links_worksets_audit.module")
 
 
 _mod = _load_mod()
