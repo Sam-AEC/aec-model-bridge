@@ -11,6 +11,15 @@ loop on the [canonical fixture](../fixtures/canonical-model/README.md)) works
 on a live Revit session. If it does not, fix that first; a pilot on a broken
 demo measures the bugs, not the product.
 
+**Do not schedule a session until model writes have worked once in a real
+Revit.** An architecture review found that `BridgeCommandFactory.CreateTransaction`
+in the add-in calls itself, so every model write would crash Revit. The fix is
+hotfix PR #95, open and not merged when this was written. Writes are untested in
+a real Revit until #95 is merged, the add-in is rebuilt from it, and one real
+write on a throwaway copy has been tried. Tasks 2 and 3 depend on this. The proof
+bundle and `plan_revert` work (#62) and the draft-plan gate fix (#63) are merged
+into `main`; neither has been seen working against live Revit either.
+
 ## What we are trying to find out
 
 Three bets are unproven. Each could be wrong independently, so each gets its
@@ -60,7 +69,7 @@ how each person was found and any prior relationship with the maintainer.
 
 Recruiting steps:
 
-1. Write a short invitation that says what the session is (about 90 minutes,
+1. Write a short invitation that says what the session is (about two hours,
    on a test model, nothing from their project) and that the tool is
    unfinished. Do not promise features.
 2. Ask for consent to record screen and audio, to take notes, and to publish
@@ -75,7 +84,8 @@ Recruiting steps:
 
 ## Session format
 
-One person at a time, about 90 minutes, moderator present. The moderator
+One person at a time, about two hours (the timings below are guesses until the
+dry run in the checklist), moderator present. The moderator
 observes and does not help unless the participant is stuck for more than
 three minutes; every help event is logged. Order:
 
@@ -83,14 +93,35 @@ three minutes; every help event is logged. Order:
 2. Five minutes: moderator explains only that this is an assistant that can
    find and fix missing parameters and asks before changing the model.
    Nothing about how the approval works.
-3. Fifteen minutes: setup, from a clean state to first result (task 0).
-4. Forty minutes: the task script.
-5. Twenty minutes: debrief interviews (parts B to D).
+3. Task blocks, in the order set by the participant's number (below).
+4. Twenty minutes: debrief interviews (parts B to D).
 
-Each participant also does the manual baseline (task M) in the same session,
-in counterbalanced order: odd-numbered participants do manual first,
-even-numbered do the tool first. Rebuild the fixture before each attempt so
-one run cannot affect the other.
+Each participant does two blocks in the same session:
+
+- **Manual block:** task M, the manual baseline.
+- **Tool block:** task 0 (setup), then tasks 1 to 5.
+
+Order is counterbalanced. Odd-numbered participants (P1, P3, P5) do the manual
+block first; even-numbered (P2, P4) do the tool block first. With five people
+that is three and two, so the groups are too small to compare statistically.
+
+The manual baseline has to be measured before the participant has seen any
+finding from the tool, so for the manual-first group **task 0 comes after task
+M, never before it**. Task 0 ends with a correct finding on screen. If it ran
+first it would show the participant what is wrong with the canonical fixture, and
+rebuilding the model does not remove what they now know. Their manual time and
+error count would then be measuring recall, not method.
+
+For the tool-first group the effect runs the other way: by the time they reach
+task M they have seen the answer (12 doors, 3 rooms). Rebuilding the fixture
+before each block does not undo that. Do not hide it. Record the order next to
+every manual-versus-tool comparison, report the two groups separately, and say
+in the write-up that the tool-first manual times are likely too fast. If budget
+allows, give the manual block a second fixture build with a different set of
+seeded defects, and record that change in the results.
+
+Rebuild the fixture before each block so one block cannot change the model for
+the other.
 
 ## Task script
 
@@ -106,7 +137,9 @@ Participants get a one-line goal for each task, not instructions.
 **Task 0: setup to first result.** Starting from a machine with Revit and
 without the add-in, install the supported package and get the tool to report
 a finding on the open fixture. The clock starts when the participant opens the
-install instructions and stops at the first correct finding on screen.
+install instructions and stops at the first correct finding on screen. It is the
+first task of the tool block, so for odd-numbered participants it happens after
+task M has finished and been verified (see the session format for why).
 
 **Task 1: find.** "Find out which doors and rooms are missing data."
 Expected: 12 doors without Mark, 3 rooms without Number.
@@ -120,10 +153,34 @@ before the session and not announced:
 - the numbering rule is not stated to the participant, so a careful one
   should have to confirm or correct it.
 
-**Task 3: rejection.** "Now ask it to fix the missing room Numbers, then
-decide whether you want that." The participant may reject the proposal. After
-a rejection the moderator verifies that no parameter changed. This tests
-whether rejection is easy and whether it holds.
+**Task 3: rejection.** "Ask it to fix the missing room Numbers. When it shows
+you the proposal, reject it." Every participant is told to reject, so a
+rejection always happens and can be checked. This task tests whether rejecting
+is easy and whether a rejection holds. It does not test whether the participant
+would have approved; ask that afterwards ("would you have approved that
+proposal as shown? why?") and record the answer as review behaviour, separate
+from the integrity check.
+
+The moderator checks afterwards, from the recording and from the tool:
+
+- the plan's state is `rejected` (Plans tab after a refresh, or the
+  pending-plans list no longer shows it);
+- the panel Run Log has a `Plan reject` entry and no `Error: plan.reject`
+  entry. A `Plan reject` entry alone only records the click;
+- asking the assistant to run the plan is refused because the plan is not
+  `approved`;
+- a new snapshot compared with the one taken before the task shows no parameter
+  differences, and the 3 rooms still have no Number.
+
+What counts as a failure of rejection integrity, for that participant: the plan
+is not in state `rejected`; the reject call produced an error entry; the plan
+runs after rejection; or any parameter differs between the two snapshots. Any
+changed parameter is also a tool-caused unapproved change (bet 1 kill
+trigger). If the participant approves instead of rejecting, that is a
+deviation from the script, not a pass. Log it, restore the fixture, and repeat
+the task with a fresh proposal and a clear instruction to reject. Rejection
+integrity is not scored for that participant until a rejection has been
+observed.
 
 **Task 4: verify.** "Show me that the door problem is fixed." Expected after
 a correct task 2: 0 missing door Marks, 3 room Number findings unchanged. The
@@ -132,9 +189,10 @@ check must use a freshly captured snapshot, not the earlier one.
 **Task 5: handover.** "Your BIM manager asks what changed and why. Give them
 something they can read." Observe what the participant produces (a report,
 a screenshot, the audit log, nothing). Do not assume the compact report from
-roadmap priority 4 exists; record what is actually available.
+roadmap priority 4 exists; record what is actually available (for example the
+proof bundle from `get_proof_bundle`, the audit log, the panel).
 
-**Task M: manual baseline.** Same fixture, same goals as tasks 1, 2 and 4,
+**Task M: manual baseline.** Same fixture (rebuilt), same goals as tasks 1, 2 and 4,
 using the participant's own normal method (schedules, filters, Navisworks
 searches, a pyRevit tool, whatever they usually use). The clock starts at the
 goal statement and stops when the participant says the model is fixed and
@@ -191,12 +249,12 @@ checked against the recording.
 | Measure | How | Bet |
 | --- | --- | --- |
 | Setup time to first result | Minutes from opening the install instructions to the first correct finding on screen (task 0). Also count help events and failed attempts. | 2, 3 |
-| Task time, tool vs manual | Minutes for tasks 1, 2 and 4 combined, against task M. Report both per participant; do not average away a slower participant. | all |
+| Task time, tool vs manual | Minutes for tasks 1, 2 and 4 combined, against task M. Report both per participant, with which block came first; do not average away a slower participant. | all |
 | Errors, tool path | Count of wrong or missed changes after verification: populated Marks overwritten, doors left unfixed, wrong values, elements changed outside the proposal. | 1 |
 | Errors, manual path | The same count for task M. | 1 |
 | Review behaviour | Seconds between the proposal appearing and the approval click; whether the participant opened the per-element list; whether they changed or rejected anything. Observed, not inferred. | 1 |
 | Probe catches | Whether the participant caught the pre-populated Mark and questioned the numbering rule before approving. | 1 |
-| Rejection integrity | After task 3, whether any parameter differs from before. Must be none. | 1 |
+| Rejection integrity | After the instructed rejection in task 3: plan state `rejected`, no `Error:` entry in the Run Log, execution refused, and no parameter difference between the snapshots before and after. Any miss is a failure for that participant. | 1 |
 | Stated trust | One question after task 4, 1 to 5: "I would let this change my real model after approving a proposal like that." Supporting colour only; behaviour outranks it. | 1 |
 | Workflow fit | Manual hand-off steps needed to move the result into their next tool; blockers named for their real models. | 2 |
 | Adoption blockers | Count and category of organisational blockers named (IT, client, data policy, cost). | 3 |
@@ -220,7 +278,9 @@ Pass (all of these):
 
 - No tool-caused overwrite of a populated Mark, and no element changed
   outside the approved proposal.
-- Rejection integrity holds for every participant.
+- Rejection integrity holds for every participant, measured under the
+  instructed rejection in task 3 (a participant who approved instead does not
+  count as a pass until a rejection has been observed).
 - At least 4 of 5 inspect the per-element proposal before approving, and at
   least 3 of 5 catch the pre-populated Mark or question the numbering rule.
 - At least 4 of 5 say they would use it on a real model, and at least 3 of 5
@@ -317,12 +377,17 @@ both outcomes. Never discard a result because it is inconvenient.
 
 ## Preparation checklist
 
+- [ ] Hotfix PR #95 (the `CreateTransaction` self-call) merged, the add-in
+      rebuilt from it, and one real parameter write tried on a throwaway copy
+      in live Revit. Until then writes are untested.
 - [ ] Roadmap priorities 0 to 2 verified on a live Revit session (explicit
       snapshots, dependable fix review, repeatable fixture counts).
 - [ ] Install package for the Revit versions used, and written install
       instructions a participant can follow cold.
 - [ ] Fixture rebuild rehearsed twice with matching counts.
 - [ ] Probes (populated Mark, unstated numbering rule) prepared.
+- [ ] Block order sheet (odd participants manual first, task 0 after task M)
+      and the task 3 rejection checks printed for the moderator.
 - [ ] Consent form, screening sheet, recording setup.
 - [ ] A dry run with someone outside the target group, results discarded.
 - [ ] This page committed unchanged before the first session; its commit hash
