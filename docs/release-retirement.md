@@ -3,6 +3,10 @@
 Prepared locally on 2026-10-09. No GitHub release, asset, tag, branch or history
 was changed. This is an inventory for review, not authorization to delete.
 
+## Update before this review
+
+On 2026-10-09, before this inventory was taken, the GitHub releases and tags v0.1.0, v0.1.1, v1.0.0, v1.0.1 and v1.0.2 (MIT) and v1.1.0 (its LICENSE file was PolyForm Small Business, not the GPL that LICENSING.md describes) were deleted. That is why the inventory below finds no MIT-era releases: they were already gone. The code at those commits stays in git history and the MIT terms remain valid for anyone who already has a copy. The MCP Registry still lists 1.0.1, 1.0.2 and 1.1.0 with download links that no longer work.
+
 ## Finding
 
 **The reviewed public inventory contains no MIT-era release candidates.**

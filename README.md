@@ -228,6 +228,8 @@ which is useful for development and tests.
 
 ## Install the Revit add-in
 
+**Easiest (Windows):** download `AECModelBridge-Setup-<version>.exe` from the [latest release](https://github.com/Sam-AEC/aec-model-bridge/releases/latest), double-click it, pick your Revit versions and restart Revit. It installs the add-in, the bundled Python server and, if you tick the box, the Claude Desktop and VS Code settings, with a backup of your current settings. Uninstall it from Windows Settings. The steps below are for building from source.
+
 You install two parts: the Python MCP server and the Revit add-in. Live Revit
 automation needs both.
 
