@@ -13,7 +13,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="RhinoCommon" Version="7.16.22067.13001" IncludeAssets="compile; build" />
+    <PackageReference Include="RhinoCommon" Version="8.35.26251.13001" IncludeAssets="compile; build" />
     <PackageReference Include="System.Text.Json" Version="8.0.0" />
   </ItemGroup>
 </Project>
