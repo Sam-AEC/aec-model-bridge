@@ -75,7 +75,7 @@ mode is in the repository root (`docker build -t aec-model-bridge .`, then
 | IFC | 7 | Read IFC files without Revit: structure, properties, validation |
 | Graph, snapshots, exports, jobs | 18 | Semantic graph audits, snapshot diffs, SQLite export, background jobs |
 
-219 tools are listed in the default setup (counts from the 1.3.1 server in mock
+219 tools are listed in the default setup (counted from the current server in mock
 mode). The Autodesk Data tools appear when APS credentials are configured. The
 [tool reference](docs/tools-generated.md) lists every tool. Each tool carries
 MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`,
