@@ -279,7 +279,7 @@ Set it to a year such as `2024` or `2026` to lock a client entry to that Revit
 version. `MCP_REVIT_BRIDGE_URL` overrides the endpoint for advanced setups.
 
 VS Code users can start from [`.vscode/mcp.json`](.vscode/mcp.json). Hermes
-Desktop users can start from [`Hermes.json`](Hermes.json) after replacing the
+Desktop users can start from [`docs/examples/hermes-desktop.json`](docs/examples/hermes-desktop.json) after replacing the
 placeholder Python path. Clients that support MCP Bundles can install the
 `.mcpb` file from the
 [latest release](https://github.com/Sam-AEC/aec-model-bridge/releases/latest).
@@ -386,7 +386,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 - [Security](docs/security.md)
 - [MCP clients and registry](docs/marketplaces.md)
 - [Versioning and releases](docs/versioning.md)
-- [Contributing](CONTRIBUTING.md)
+- [All documentation](docs/README.md)
+- [Contributing](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Contributors](CONTRIBUTORS.md)
 
 ## Project and license

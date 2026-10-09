@@ -1,0 +1,66 @@
+name: Bug report
+description: Something does not work as documented.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. For security problems, do not open an issue. Use the private reporting steps in [SECURITY.md](https://github.com/Sam-AEC/aec-model-bridge/blob/main/SECURITY.md).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a model in Revit 2026
+        2. Ask the assistant to ...
+        3. See the error
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: AEC Model Bridge version
+      description: From the release name, or `python -m pip show aec-model-bridge`.
+      placeholder: "1.3.2"
+    validations:
+      required: true
+  - type: dropdown
+    id: host
+    attributes:
+      label: Host application
+      options:
+        - Revit 2024
+        - Revit 2025
+        - Revit 2026
+        - Revit 2027
+        - Rhino / Grasshopper
+        - Navisworks
+        - IFC files only (no host)
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: client
+    attributes:
+      label: MCP client
+      description: The client you connect with, and its version.
+      placeholder: Claude Desktop 1.x, VS Code, Codex, ...
+  - type: input
+    id: os-python
+    attributes:
+      label: Windows and Python version
+      placeholder: Windows 11, Python 3.11
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or error output
+      description: Remove file paths, project names and anything confidential first.
+      render: text
