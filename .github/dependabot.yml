@@ -9,6 +9,10 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 1
+    # Only refresh the pinned versions in uv.lock. Never rewrite the version
+    # ranges in pyproject.toml: widening mcp to <3 would pull in 2.x, which
+    # crashes this server at import.
+    versioning-strategy: lockfile-only
     groups:
       python-dependencies:
         patterns: ["*"]
@@ -20,10 +24,10 @@ updates:
       # so it crashes at import. Keep the cap in pyproject.toml until the server
       # is ported, then lift it by hand.
       - dependency-name: mcp
-        update-types: ["version-update:semver-major"]
+        versions: [">=2"]
       # specklepy is capped below 4 on purpose; a major needs a manual port.
       - dependency-name: specklepy
-        update-types: ["version-update:semver-major"]
+        versions: [">=4"]
 
   - package-ecosystem: github-actions
     directory: /
