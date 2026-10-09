@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Dependabot: security updates are grouped into one pull request per ecosystem instead of one per package. The pinned lock-file versions of `ujson`, `anyio`, `starlette`, `cryptography`, `pydantic-settings` and `mcp` were refreshed after testing them together.
 - Docs: the README opens with an ecosystem image (AEC Model Bridge at the centre, AI clients, BIM apps and protocol tools orbiting it) in place of the demo placeholder. `scripts/make_ecosystem_image.py` regenerates it from the pinned Simple Icons set; brands whose icons were removed from that set are shown as text tiles.
 - Dependabot: routine updates are now monthly and grouped into one pull request for Python and one for GitHub Actions; routine .NET package PRs are off (the add-in dependencies are pinned on purpose). Security updates are unaffected.
 - Security: update `System.Text.Json` from 8.0.0 to the patched 8.0.5 in the Rhino, Navisworks and Power BI projects (clears the NU1903 advisories).
