@@ -1,0 +1,63 @@
+name: VS Code extension
+
+on:
+  pull_request:
+    paths:
+      - "extensions/vscode/**"
+      - "scripts/version.py"
+      - ".github/workflows/vscode-extension.yml"
+  push:
+    paths:
+      - "extensions/vscode/**"
+      - "scripts/version.py"
+      - ".github/workflows/vscode-extension.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vscode-extension-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22]
+    defaults:
+      run:
+        working-directory: extensions/vscode
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: extensions/vscode/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Compile
+        run: npm run compile
+
+      - name: Test
+        run: npm test
+
+      - name: Package
+        run: npm run package
+
+      - name: Upload .vsix
+        if: matrix.node == 22
+        uses: actions/upload-artifact@v5
+        with:
+          name: aec-model-bridge-vscode
+          path: extensions/vscode/*.vsix
+          if-no-files-found: error

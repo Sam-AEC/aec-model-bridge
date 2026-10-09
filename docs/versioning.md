@@ -27,10 +27,17 @@ Pre-releases use a hyphen suffix: `1.4.0-rc.1`, `1.4.0-beta.2`. GitHub marks the
 | `packages/revit-bridge-addin/RevitBridge.csproj` | `Version`, `AssemblyVersion`, `FileVersion`, `InformationalVersion` |
 | `packages/navisworks-bridge-addin/`, `rhino-bridge-addin/`, `powerbi-bridge-tool/` | `Version` in each `.csproj` |
 | `scripts/installer/AECModelBridge.iss` | `AppVersion` |
+| `extensions/vscode/package.json` | `version` |
+| `extensions/vscode/package-lock.json` | root version and root package version |
 
 `AssemblyVersion` and `FileVersion` are four-part numbers, so `1.3.0` becomes `1.3.0.0` and any pre-release suffix is dropped there.
 
 `server.json` also carries a `fileSha256` for the `.mcpb` bundle. That hash only exists once the release is built, so the publish workflow refreshes it. Do not edit it by hand.
+
+The release workflow also compiles, tests and packages the VS Code extension.
+It passes the versioned `.vsix` to `build-release.ps1 -VSCodePackage`, which
+includes it in the release directory and `SHA256SUMS.txt`. This attaches a
+download to a GitHub release; Marketplace publishing is a separate step.
 
 ## Cutting a release
 

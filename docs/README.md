@@ -5,12 +5,14 @@ Start with the [installation guide](install.md). The main [README](../README.md)
 ## Guides and reference
 
 - [install.md](install.md): install the Revit add-in and the MCP server.
+- [VS Code extension](../extensions/vscode/README.md): build and install the extension locally.
 - [configuration-reference.md](configuration-reference.md): environment variables, package metadata and runtime settings.
 - [tools-generated.md](tools-generated.md): the tool catalog, generated from the server (do not edit by hand).
 - [security.md](security.md): trust boundaries, workspace sandboxing and enterprise hardening.
 - [logging-and-audit.md](logging-and-audit.md): Python-side audit log and add-in logging.
 - [marketplaces.md](marketplaces.md): MCP Registry, bundle and client distribution.
 - [versioning.md](versioning.md): version numbers, release tags and release assets.
+- [roadmap.md](roadmap.md): coordinator workflows, demo scope and the next fixes.
 
 ## For contributors
 
@@ -19,6 +21,8 @@ Start with the [installation guide](install.md). The main [README](../README.md)
 - [target-frameworks-and-dependencies.md](target-frameworks-and-dependencies.md): Python and .NET targets per component.
 - [revit-addin-lifecycle.md](revit-addin-lifecycle.md): how the Revit add-in starts up and runs commands.
 - [design/tokens.md](design/tokens.md): design tokens for the add-in and panel UI ([design/review.html](design/review.html) is the visual review page).
+- [design/readme-visual-brief.md](design/readme-visual-brief.md): Claude Design prompt for README images and a demo cover.
+- [release-retirement.md](release-retirement.md): reviewed release inventory and future cleanup procedure.
 - [examples/hermes-desktop.json](examples/hermes-desktop.json): sample client config for Hermes Desktop.
 
 ## Architecture decision records

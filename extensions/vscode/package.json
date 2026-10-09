@@ -1,0 +1,147 @@
+{
+  "name": "aec-model-bridge",
+  "displayName": "AEC Model Bridge",
+  "description": "Revit and BIM tools for Copilot agent mode and other MCP clients in VS Code. Sets up the MCP server with zero config.",
+  "version": "1.3.3",
+  "publisher": "Sam-AEC",
+  "license": "GPL-3.0-or-later",
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Sam-AEC/aec-model-bridge.git",
+    "directory": "extensions/vscode"
+  },
+  "homepage": "https://github.com/Sam-AEC/aec-model-bridge",
+  "bugs": {
+    "url": "https://github.com/Sam-AEC/aec-model-bridge/issues"
+  },
+  "engines": {
+    "vscode": "^1.101.0"
+  },
+  "categories": [
+    "AI",
+    "Chat",
+    "Other"
+  ],
+  "keywords": [
+    "revit",
+    "bim",
+    "aec",
+    "mcp",
+    "ai",
+    "autodesk",
+    "copilot",
+    "model context protocol",
+    "architecture",
+    "construction"
+  ],
+  "extensionKind": [
+    "ui"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "capabilities": {
+    "virtualWorkspaces": false,
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "This extension starts a local MCP server that can act on Revit models. It only runs in trusted workspaces."
+    }
+  },
+  "contributes": {
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "aecModelBridge.servers",
+        "label": "AEC Model Bridge"
+      }
+    ],
+    "commands": [
+      {
+        "command": "aecModelBridge.checkConnection",
+        "title": "Check connection",
+        "category": "AEC Model Bridge"
+      },
+      {
+        "command": "aecModelBridge.openInstallGuide",
+        "title": "Open install guide",
+        "category": "AEC Model Bridge"
+      },
+      {
+        "command": "aecModelBridge.useMockMode",
+        "title": "Use mock mode",
+        "category": "AEC Model Bridge"
+      }
+    ],
+    "configuration": {
+      "title": "AEC Model Bridge",
+      "properties": {
+        "aecModelBridge.mode": {
+          "type": "string",
+          "enum": [
+            "bridge",
+            "mock"
+          ],
+          "default": "bridge",
+          "enumDescriptions": [
+            "Talk to a running Revit through the AEC Model Bridge add-in.",
+            "Use simulated data. Works without Revit."
+          ],
+          "description": "Bridge mode needs Revit with the add-in running. Mock mode works without Revit."
+        },
+        "aecModelBridge.revitYear": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "2024",
+            "2025",
+            "2026",
+            "2027"
+          ],
+          "default": "auto",
+          "description": "Revit year to connect to. Leave on auto to use whichever Revit is running."
+        },
+        "aecModelBridge.workspaceDir": {
+          "type": "string",
+          "default": "",
+          "description": "Folder the server may read and write (exports, reports, scripts). Empty uses the first folder open in VS Code, or your Documents folder."
+        },
+        "aecModelBridge.approvalMode": {
+          "type": "string",
+          "enum": [
+            "required",
+            "auto"
+          ],
+          "default": "required",
+          "enumDescriptions": [
+            "Every change to the model needs your explicit approval. Recommended.",
+            "Approvals are skipped. The AI can change the model without asking."
+          ],
+          "markdownDescription": "**Keep this on `required`.** With `auto`, the approval gate is switched off and an AI agent can change or delete things in your Revit model without asking first."
+        },
+        "aecModelBridge.statusRefreshSeconds": {
+          "type": "number",
+          "default": 30,
+          "minimum": 5,
+          "maximum": 600,
+          "description": "How often the status bar checks whether Revit is reachable."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc --noEmit -p . && node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "test": "vitest run",
+    "package": "vsce package --no-dependencies",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "1.101.0",
+    "@vscode/vsce": "^4.0.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.11"
+  }
+}

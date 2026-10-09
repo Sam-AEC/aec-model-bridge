@@ -46,6 +46,9 @@ def _tag_url(v: str) -> str:
 # (file, regex with the version in group "v", how to render the version)
 # A pattern may match several times (server.json has two "version" keys).
 TARGETS: list[tuple[str, str, object]] = [
+    ("extensions/vscode/package.json", r'(?m)^  "version": "(?P<v>[^"]+)"', str),
+    ("extensions/vscode/package-lock.json", r'(?m)^  "version": "(?P<v>[^"]+)"', str),
+    ("extensions/vscode/package-lock.json", r'(?m)^    "": \{\s*\n      "name": "aec-model-bridge",\s*\n      "version": "(?P<v>[^"]+)"', str),
     ("packages/mcp-server-revit/pyproject.toml", r'(?m)^version = "(?P<v>[^"]+)"', str),
     ("packages/mcp-server-revit/manifest.json", r'(?m)^  "version": "(?P<v>[^"]+)"', str),
     ("server.json", r'(?m)^    "version":  "(?P<v>[^"]+)"', str),
@@ -97,7 +100,10 @@ def scan(version: str) -> list[str]:
             want = expected(render, version)
             if m.group("v") != want:
                 problems.append(f"{rel}: found {m.group('v')}, want {want}")
-    for rel in ("server.json", "packages/mcp-server-revit/manifest.json"):
+    for rel in (
+        "server.json", "packages/mcp-server-revit/manifest.json",
+        "extensions/vscode/package.json", "extensions/vscode/package-lock.json",
+    ):
         json.loads(read(ROOT / rel))  # still valid JSON after edits
     return problems
 
