@@ -1,20 +1,10 @@
 """Tests for the sheet_view_audit module (fixtures are synthetic snapshots)."""
-import importlib.util
 import json
-from pathlib import Path
 
 import pytest
 
 
-def _load():
-    p = Path(__file__).parent.parent / "src/revit_mcp_server/modules/sheet_view_audit/module.py"
-    spec = importlib.util.spec_from_file_location("_sheet_view_audit_impl", p)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
-_mod = _load()
+import revit_mcp_server.modules.sheet_view_audit.module as _mod
 
 
 class WS:
@@ -168,3 +158,56 @@ def test_missing_snapshot_errors(tmp_path):
         _mod.SheetViewAuditModule().run_audit(snapshot_id="nope", workspace=WS(tmp_path))
     with pytest.raises(ValueError):
         _mod.SheetViewAuditModule().run_audit(workspace=WS(tmp_path))
+
+
+def _live_el(uid, cls, **params):
+    return {"uid": uid, "element_id": 1, "category": "OST_Sheets", "class": cls, "family": "", "type_name": "",
+            "params": {k: {"v": v, "storage": "String"} for k, v in params.items()}}
+
+
+LIVE = {"schema": "amb.snapshot/1", "elements": [
+    _live_el("s1", "ViewSheet", **{"Sheet Number": "A-101", "Sheet Name": "Plan"}),
+    _live_el("s2", "ViewSheet", **{"Sheet Number": "A-101", "Sheet Name": ""}),
+    _live_el("d1", "ViewDrafting", **{"View Name": "Copy of Detail"}),
+]}
+
+
+def test_live_snapshot_runs_what_it_can_and_names_the_rest(tmp_path):
+    """Real snapshots have only ViewSheet/ViewDrafting elements, no placement info."""
+    r = _run(tmp_path, LIVE)
+    assert r["status"] == "partial"
+    assert r["sheet_count"] == 2
+    found = _by_check(r)
+    assert "duplicate_sheet_numbers" in found and "missing_sheet_parameter" in found
+    assert "default_view_names" in found
+    assert "empty_sheets" not in found and "views_not_on_sheet" not in found
+    for k in ("empty_sheets", "views_not_on_sheet"):
+        assert r["checks"][k]["status"] == "not_enough_data"
+        assert r["checks"][k]["reason"] and r["checks"][k]["missing"]
+    assert "NOT run" in r["message"]
+
+
+def test_live_snapshot_with_sheets_never_reports_all_clear_for_unchecked(tmp_path):
+    data = {"elements": [_live_el("s1", "ViewSheet", **{"Sheet Number": "A-1", "Sheet Name": "x"})]}
+    r = _run(tmp_path, data)
+    assert r["status"] == "partial" and r["total_findings"] == 0
+    assert r["checks"]["empty_sheets"]["status"] == "not_enough_data"
+
+
+def test_snapshot_without_sheets_or_views_is_no_data(tmp_path):
+    r = _run(tmp_path, {"elements": [_live_el("w1", "Wall")]})
+    assert r["status"] == "no_sheet_view_data"
+
+
+def test_full_data_reports_all_checks_ran(tmp_path):
+    r = _run(tmp_path, CLEAN)
+    assert r["status"] == "ok"
+    assert all(c["status"] == "ran" for c in r["checks"].values())
+
+
+def test_snapshot_id_declared_required():
+    import json
+    from pathlib import Path
+    mj = Path(_mod.__file__).with_name("module.json")
+    cmd = json.loads(mj.read_text(encoding="utf-8"))["commands"][0]
+    assert cmd["input_schema"]["required"] == ["snapshot_id"]
