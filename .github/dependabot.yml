@@ -34,6 +34,10 @@ updates:
       interval: weekly
     open-pull-requests-limit: 2
     ignore:
+      # RhinoCommon 8.x is the Rhino 8 SDK and would drop Rhino 7 support;
+      # moving to it is a product decision, not a routine update.
+      - dependency-name: RhinoCommon
+        update-types: ["version-update:semver-major"]
       # Stay on the patched 8.x line that matches the net8 target; majors are manual.
       - dependency-name: System.Text.Json
         update-types: ["version-update:semver-major"]
