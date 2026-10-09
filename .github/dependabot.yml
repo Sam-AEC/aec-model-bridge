@@ -5,30 +5,56 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
+    ignore:
+      # mcp 2.x removed the low-level Server decorators this server is built on,
+      # so it crashes at import. Keep the cap in pyproject.toml until the server
+      # is ported, then lift it by hand.
+      - dependency-name: mcp
+        update-types: ["version-update:semver-major"]
+      # specklepy is capped below 4 on purpose; a major needs a manual port.
+      - dependency-name: specklepy
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: nuget
     directory: /packages/revit-bridge-addin
     schedule:
       interval: weekly
     open-pull-requests-limit: 2
+    ignore:
+      # IronPython 2.7 is the net48 (Revit 2024) scripting engine, 3.x is used on
+      # newer Revit. A major bump changes scripting behaviour and must be manual.
+      - dependency-name: IronPython
+        update-types: ["version-update:semver-major"]
+      # Pinned deliberately: newer WebView2 builds caused DLL conflicts in Revit.
+      - dependency-name: Microsoft.Web.WebView2
 
   - package-ecosystem: nuget
     directory: /packages/rhino-bridge-addin
     schedule:
       interval: weekly
     open-pull-requests-limit: 2
+    ignore:
+      # Stay on the patched 8.x line that matches the net8 target; majors are manual.
+      - dependency-name: System.Text.Json
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: nuget
     directory: /packages/navisworks-bridge-addin
     schedule:
       interval: weekly
     open-pull-requests-limit: 2
+    ignore:
+      - dependency-name: System.Text.Json
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: nuget
     directory: /packages/powerbi-bridge-tool
     schedule:
       interval: weekly
     open-pull-requests-limit: 2
+    ignore:
+      - dependency-name: System.Text.Json
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
