@@ -87,8 +87,8 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `parameter_manager_diff_params` | Compare parameter values between two saved snapshots and list the differences. | No | sync |
 | `parameter_manager_export_params_csv` | Export parameters of the matching snapshot elements to a CSV file in the workspace. | No | sync |
 | `parameter_manager_filter_params` | Return a parameter grid for the elements of a snapshot that match a filter, optionally including read-only parameters. | No | sync |
-| `parameter_manager_import_params_csv` | Import parameter values from a CSV file in the workspace and apply them to elements. | Yes | sync |
-| `parameter_manager_plan_set_params` | Create a draft ActionPlan that sets parameter values on the elements of a snapshot matching a filter. | Yes | sync |
+| `parameter_manager_import_params_csv` | Read parameter values from a CSV file in the workspace and create a draft ActionPlan that applies them. | No | sync |
+| `parameter_manager_plan_set_params` | Create a draft ActionPlan that sets parameter values on the elements of a snapshot matching a filter. | No | sync |
 | `qaqc_checker_list_issues` | List recorded QA/QC issues for a document, optionally filtered by status and severity. | No | sync |
 | `qaqc_checker_list_rules` | List the QA/QC rules that are available, optionally for one rule pack. | No | sync |
 | `qaqc_checker_resolve_issue` | Mark one recorded QA/QC issue as resolved. | No | sync |
