@@ -12,6 +12,7 @@ Start with the [installation guide](install.md). The main [README](../README.md)
 - [logging-and-audit.md](logging-and-audit.md): Python-side audit log and add-in logging.
 - [marketplaces.md](marketplaces.md): MCP Registry, bundle and client distribution.
 - [versioning.md](versioning.md): version numbers, release tags and release assets.
+- [clash-triage.md](clash-triage.md): read-only matching of Navisworks clashes to Revit elements, with a confidence label (unverified on live projects).
 - [roadmap.md](roadmap.md): coordinator workflows, demo scope and the next fixes.
 
 ## For contributors
