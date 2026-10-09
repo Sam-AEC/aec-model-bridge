@@ -74,6 +74,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `familytype_mapper_audit_families` | Audit the families in a saved snapshot and report problems such as unmapped or inconsistent family types. | No | sync |
 | `familytype_mapper_list_type_mappings` | List family-type mappings found in a saved snapshot, optionally for one category. | No | sync |
 | `hello_world_say_hello` | Example module command that returns a greeting; use it to confirm the module system works. | No | sync |
+| `model_bloat_audit` | Check a saved snapshot for model bloat: unused families and types (purge candidates), in-place families, families with very many types, imported CAD files, and a rough cleanliness score, sorted by likely impact. | No | sync |
 | `model_inspector_ask` | Answer a question about a saved snapshot by filtering its element records with the filter DSL. | No | sync |
 | `model_inspector_inspect_selection` | Return the snapshot records of the given elements (by UniqueId). | No | sync |
 | `model_inspector_list_groups` | List the model groups found in a saved snapshot. | No | sync |
