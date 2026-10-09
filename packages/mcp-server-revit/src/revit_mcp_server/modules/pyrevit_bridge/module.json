@@ -1,0 +1,70 @@
+{
+  "id": "pyrevit_bridge",
+  "name": "pyRevit Bridge",
+  "version": "0.1.0",
+  "schema_version": 1,
+  "min_hub_version": "1.2.0",
+  "description": "Discover existing pyRevit pushbutton scripts and run them behind the approval gate. Execution inside Revit requires a bridge command that is NOT implemented yet (see docs/pyrevit-bridge.md).",
+  "author": "AEC Model Bridge",
+  "license": "GPL-3.0-or-later",
+  "requires_providers": ["revit"],
+  "permissions": ["model.read", "model.write"],
+  "commands": [
+    {
+      "id": "list_pyrevit_scripts",
+      "title": "List pyRevit Scripts",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "id": "plan_run_pyrevit_script",
+      "title": "Plan pyRevit Script Run",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "script_id": {
+            "type": "string",
+            "description": "Script id as returned by list_pyrevit_scripts, for example '0:Tools.extension/Tab.tab/Panel.panel/Do It.pushbutton/script.py'."
+          }
+        },
+        "required": ["script_id"]
+      }
+    },
+    {
+      "id": "run_pyrevit_script",
+      "title": "Run pyRevit Script",
+      "surface": ["mcp"],
+      "execution_mode": "sync",
+      "is_mutating": true,
+      "destructive": true,
+      "requires_plan": true,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "script_id": {
+            "type": "string",
+            "description": "Script id exactly as used in the approved plan."
+          },
+          "script_sha256": {
+            "type": "string",
+            "description": "SHA-256 of the script that was previewed and approved (from plan_run_pyrevit_script). The run is refused if the file on disk no longer matches."
+          },
+          "plan_id": {
+            "type": "string",
+            "description": "ID of the approved ActionPlan authorising this run. Required."
+          }
+        },
+        "required": ["script_id", "script_sha256", "plan_id"]
+      }
+    }
+  ]
+}
