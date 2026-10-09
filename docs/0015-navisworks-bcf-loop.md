@@ -16,6 +16,7 @@ The approval gate (ADR 0008) stays in charge. The assistant may propose a fix. I
 Read from the code, not run.
 
 - **Navisworks add-in (read side).** `packages/navisworks-bridge-addin/src/ClashCommands.cs` has three commands: `navis.list_clash_tests`, `navis.run_clash_test` (marked mutating) and `navis.get_clash_results` (read-only, paged with `skip` and `limit`). For each clash it returns the clash name, GUID, status, distance and centre point, plus an identity block for each of the two items: display name, class name, `InstanceGuid`, and a value read from a property named `Guid` in the `Item` category (it calls this `ifcGuid`).
+  - **Grouped clashes are not returned.** The command reads `test.Children.OfType<ClashResult>()`. Navisworks lets a user organise clashes into groups (`ClashResultGroup`, UNVERIFIED as to exactly how the API exposes them). A group sitting directly under the test is not a `ClashResult`, so the filter drops it and every clash inside it. Meanwhile `totalClashes` (and `clashCount` in `navis.run_clash_test`) is `test.Children.Count`, which counts the top-level children, groups included. On a grouped test the returned list can be empty or short while the total looks fine, and `skip` and `limit` page over the top-level children only. Nothing in the code flags this. It is a gap in the read side, found by reading, not by running.
 - **Navisworks provider.** `providers/navisworks.py` exposes those as `navisworks_list_clash_tests`, `navisworks_run_clash_test` and `navisworks_get_clash_results`. Without a bridge it returns mock payloads. The README lists Navisworks as "in progress".
 - **No export reader.** Nothing in the repo parses a Navisworks XML or HTML clash report, and nothing reads or writes a BCF zip. A search for `bcf` finds only the cloud provider (next point).
 - **A BCF-shaped issue tool, not BCF files.** `providers/cloud.py` has `autodesk_data_create_topic` (alias `autodesk_data_create_issue`). It validates a `BCFTopicPayload` (title, description, status, type, `ifc_guid_refs`, viewpoint) and POSTs it to a configured `issues_endpoint`. It does not build a BCF zip, and it needs that endpoint to exist. Whether any real service accepts this body is not established here.
@@ -88,7 +89,8 @@ Reasons: the mapping is the main risk, and A measures it with no write risk. C r
 ### First small slice
 One read-only path, no new write behaviour:
 
-1. Take one clash test GUID. Call the existing `navisworks_get_clash_results`.
+0. **Fix the read side first.** Make `navis.get_clash_results` walk groups and return every `ClashResult` at any depth, with the group name on each result. Report a true total (count of flattened results) next to the top-level count. If that change is not made, the tool must at least say that grouped results were skipped and how many top-level groups it saw. Add a test model with grouped clashes to the checks below. Without this, the mapping rate in step 3 would be measured on an incomplete set and could look better or worse than it is.
+1. Take one clash test GUID. Call `navisworks_get_clash_results` (after step 0).
 2. For each result, try to map both items to Revit elements using whichever identifier from the table is available, and record which kind of match it was.
 3. Resolve the matches in the live Revit document. Report per clash: matched, matched with low confidence, or unmatched, with element category, type and level for each match.
 4. Write each clash as an issue in the existing QA/QC store (or a new store if its schema does not fit), with both element identifiers and the match kind.
@@ -107,7 +109,15 @@ For a mapped clash, build a plan with a small set of fix types, for example move
 - shows the clash it answers and the mapping confidence,
 - goes through the normal approve step, with the plan hash checked at run time (ADR 0008),
 - is refused under `approval_mode=auto`,
-- writes the usual audit record, so a revert plan is possible.
+- writes the usual audit record,
+- is only offered for fix types that have a tested inverse (see below).
+
+**Rollback is not generic today.** The audit record does not by itself make a fix revertible. In `ApprovalGate.rollback_plan` (`security/approval.py`), the only tool with an inverse is `revit_set_parameter_value`, which restores the recorded before-value. For any other tool, including `revit_move_element`, it logs a warning ("No rollback handler... skipped") and carries on. A plan that contains only a move can still end up in state `rolled_back` with the element where it was moved to. So:
+
+- Phase 3 must add and test an inverse for each move-style fix type it offers, for example by recording the element's prior location (or the applied offset) in the diff and moving it back. Until that exists, move fixes are not allowed in a clash plan, and only parameter changes are.
+- A plan that contains an action with no inverse must not be reported as fully rolled back. It should end in `partial_rollback`, or carry a clear list of what was skipped. This is a change to the gate, so it likely needs its own small record or an update to ADR 0008.
+- The proof-and-revert work (PR #62) may already cover part of this. That has not been checked here.
+- Revit's own Undo only helps inside the same session, so it is not a substitute.
 
 The assistant should say in plain words which of the two elements it would move and why, and say when it is not sure. Deciding who owns the fix is a coordination question between teams, not something to automate.
 
@@ -118,6 +128,7 @@ All of this needs real software. Nothing below has been done.
 | --- | --- | --- |
 | `navis.get_clash_results` returns sensible identity for Revit-sourced, IFC-sourced and DWG-sourced items | Navisworks with a federated test model | UNVERIFIED |
 | What the `Guid` property under `Item` actually contains for each source type | Navisworks | UNVERIFIED |
+| Grouped clashes: `navis.get_clash_results` returns every clash inside groups, and the totals add up | Navisworks with a test that has `ClashResultGroup` folders | UNVERIFIED |
 | Mapping to Revit `UniqueId` and to IFC GUID works, and what share is right | Navisworks plus the matching Revit model, one real project | UNVERIFIED |
 | Behaviour when the Revit model changed after the NWC was made | Both, with an edited model | UNVERIFIED |
 | Clashes involving linked models and groups | Both | UNVERIFIED |
@@ -126,6 +137,7 @@ All of this needs real software. Nothing below has been done.
 | Hostile zip is rejected (traversal, huge entries, XML entities) | Unit tests, no Revit needed | Testable in CI once code exists |
 | Fix plan is blocked without approval and under `approval_mode=auto` | Revit session | UNVERIFIED |
 | Proposed move removes the clash when Navisworks is re-run | Both | UNVERIFIED |
+| Rollback of an executed move plan puts the element back, and an un-invertible plan is not marked fully rolled back | Unit tests for the gate, then a Revit session | Gate tests testable in CI once code exists |
 
 The zip and XML safety tests and the plan-shape tests can run in ordinary CI. Everything about identifiers needs a person with both programs on one real project.
 
@@ -133,9 +145,9 @@ The zip and XML safety tests and the plan-shape tests can run in ordinary CI. Ev
 
 | Phase | Work | Size | Needed before it counts as supported |
 | --- | --- | --- | --- |
-| 1 | Read-only triage slice and a measured mapping rate | Small to medium | Run on one real project; a person checks a sample of matches |
+| 1 | Read-side fix for grouped clashes, then the read-only triage slice and a measured mapping rate | Small to medium | Run on one real project; a person checks a sample of matches |
 | 2 | BCF 2.1 export and import, safe zip handling | Medium | Round trip through two other tools; hostile-file tests |
-| 3 | Gated fix proposals for a small set of fix types | Medium to large | Approval and revert checked in Revit; Navisworks re-run shows the clash gone |
+| 3 | Gated fix proposals for a small set of fix types, each with a tested inverse | Medium to large | Approval and revert checked in Revit, including a move rollback; Navisworks re-run shows the clash gone |
 | 4 | BCF 3.0, Navisworks file parsing, cloud issue push | Medium each | Only if a pilot asks for it |
 
 ## Consequences
@@ -153,3 +165,5 @@ The zip and XML safety tests and the plan-shape tests can run in ordinary CI. Ev
 6. Which fix types are safe enough to propose automatically, and which should stay as a written suggestion only?
 7. In a workshared model, what happens when the element to move is owned by someone else?
 8. Is the cloud `issues_endpoint` real for any user, or should that tool be treated as a stub for now?
+9. Should the grouped-clash fix go in as its own small change before this record is accepted, since it affects `totalClashes` for anyone using the tool today?
+10. Should `rollback_plan` refuse to mark a plan `rolled_back` when it skipped actions? That is a gate change beyond this record's scope.
