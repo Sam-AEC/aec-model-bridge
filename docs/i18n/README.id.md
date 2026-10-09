@@ -20,10 +20,16 @@ Server MCP sumber terbuka dan add-in native untuk Revit 2024 – 2027. Bekerja d
 </div>
 
 <p align="center">
-  <img src="../images/readme/demo.gif" alt="Demo: asisten AI menemukan 12 pintu tanpa Mark dan menyusun rencana. Rencana menunggu di panel Revit sampai Anda menyetujuinya, lalu nilainya dibaca ulang untuk diperiksa. Nilai contoh, sesi simulasi." width="900">
+  <img src="../images/readme/demo.gif" alt="Demo: model 3D sebuah gedung berada di samping panel Revit. Asisten AI menemukan 12 pintu tanpa Mark dan menyusun rencana. Rencana menunggu di panel Revit sampai Anda menyetujuinya, lalu nilainya dibaca ulang untuk diperiksa. Nilai contoh, sesi simulasi." width="900">
 </p>
 
-Hubungkan Claude, Codex, atau klien MCP lain ke model Revit yang sedang Anda buka. AEC Model Bridge menggabungkan server MCP berbasis Python dengan add-in Revit native: tool baca-saja langsung memeriksa model, sedangkan perubahan pada model secara default memerlukan rencana yang sudah disetujui. [Lihat alur persetujuan](#cara-kerja-persetujuan).
+AEC Model Bridge adalah server MCP Revit sumber terbuka yang memungkinkan Claude, Codex, Cursor, dan asisten AI lain membaca dan mengedit model Revit yang sedang Anda buka, dengan setiap perubahan Anda setujui lebih dulu. Proyek ini menggabungkan server MCP berbasis Python dengan add-in Revit native: tool hanya baca langsung memeriksa model, sedangkan perubahan pada model secara default memerlukan rencana yang sudah disetujui. [Lihat alur persetujuan](#cara-kerja-persetujuan).
+
+<p align="center">
+  <img src="../images/readme/works-with.svg" alt="Bekerja dengan: Claude Desktop, VS Code dengan GitHub Copilot, Cursor, dan Codex memiliki pengaturan yang terdokumentasi. Klien MCP lain seperti Claude Code, Windsurf, Cline, Continue, Zed, dan Gemini CLI seharusnya juga dapat bekerja. Aplikasi: Revit 2024 sampai 2027, Rhino, Grasshopper, Navisworks (dalam pengerjaan). Data: IFC, Speckle, Excel, SQLite. Protokol: MCP lewat stdio dengan gerbang persetujuan." width="900">
+</p>
+
+Pengaturan didokumentasikan untuk Claude Desktop, VS Code dengan GitHub Copilot, Cursor, dan Codex. Ini adalah server MCP stdio standar, sehingga klien lain seperti Claude Code, Windsurf, Cline, Continue, Zed, dan Gemini CLI seharusnya juga dapat bekerja. Lihat [kompatibilitas](../compatibility.md) untuk bagian yang sudah didokumentasikan dan yang belum diuji.
 
 Server yang sama juga mencakup pemeriksaan IFC, otomatisasi Rhino dan Grasshopper, serta integrasi Speckle. [Status integrasi](#integrasi-lainnya) membedakan provider yang sudah tersedia dari yang masih dalam pengerjaan.
 
@@ -91,7 +97,7 @@ Untuk otomatisasi Revit secara langsung, Anda memerlukan Windows, Revit 2024 sam
 }
 ```
 
-Ingin melihat tool-nya dulu tanpa Revit? Setel `"MCP_REVIT_MODE": "mock"`. Server lalu bisa berjalan di mana saja, menampilkan semua tool beserta skemanya, dan mengembalikan respons contoh tanpa menyentuh model. `Dockerfile` untuk mode mock yang sama ada di root repositori (`docker build -t aec-model-bridge .`, lalu `docker run -i --rm aec-model-bridge`).
+Ingin melihat tool-nya dulu tanpa Revit? Atur `"MCP_REVIT_MODE": "mock"`. Server lalu bisa berjalan di mana saja, menampilkan semua tool beserta skemanya, dan mengembalikan respons contoh tanpa menyentuh model. `Dockerfile` untuk mode mock yang sama ada di root repositori (`docker build -t aec-model-bridge .`, lalu `docker run -i --rm aec-model-bridge`).
 
 Memakai VS Code? [Sumber ekstensi dan langkah instalasi lokal](../../extensions/vscode/README.md) mendaftarkan server MCP dan menampilkan status koneksi Revit. Ekstensi ini belum dipublikasikan di Marketplace.
 
@@ -104,7 +110,7 @@ Memakai VS Code? [Sumber ekstensi dan langkah instalasi lokal](../../extensions/
 | Modul | 34 | Inspeksi snapshot, grid parameter, pemeriksaan QA/QC, resep, laporan, seleksi |
 | Rhino dan Grasshopper | 19 | Geometri, layer, material, operasi boolean |
 | Speckle | 17 | Proyek, model, versi, kirim dan terima |
-| Navisworks | 15 | Model tree, viewpoint, uji bentrokan (dalam pengerjaan) |
+| Navisworks | 15 | Model tree, viewpoint, uji clash (dalam pengerjaan) |
 | IFC | 7 | Membaca file IFC tanpa Revit: struktur, properti, validasi |
 | Graf, snapshot, ekspor, job | 18 | Audit graf semantik, selisih snapshot, ekspor SQLite, job latar belakang |
 
@@ -153,7 +159,7 @@ Hub menghentikan setiap panggilan tool yang mengubah model kecuali panggilan itu
 
 Jika rencana yang sudah disetujui ternyata keliru, `rollback_plan` akan membatalkannya. Rollback memakai Undo Revit dalam sesi yang sama atau nilai parameter kebalikannya. Operasi yang tidak dapat dibatalkan, seperti keluaran file, meminta konfirmasi kedua. Siklus hidupnya ada di [ADR 0008](../0008-approval-gate-lifecycle.md).
 
-Untuk pipeline tanpa pengawasan, Anda dapat menyetel `MCP_REVIT_APPROVAL_MODE=auto`. Ini mematikan pemeriksaan manusia, jadi gunakan hanya di lingkungan yang terkendali.
+Untuk pipeline tanpa pengawasan, Anda dapat mengatur `MCP_REVIT_APPROVAL_MODE=auto`. Ini mematikan pemeriksaan manusia, jadi gunakan hanya di lingkungan yang terkendali.
 
 ## Versi Revit yang didukung
 
@@ -178,6 +184,8 @@ Anda juga memerlukan Windows 10 atau 11, Python 3.11 atau lebih baru, dan instal
 | Power BI | Dalam pengerjaan. Provider dan tool sudah ada tetapi belum terdaftar di hub. |
 | Excel, Parquet, dan DuckDB | Direncanakan. |
 
+Nama produk dan logo adalah milik pemiliknya masing-masing. Banner memakainya hanya untuk menunjukkan apa saja yang dapat bekerja bersama proyek ini.
+
 ## Memasang add-in Revit
 
 **Paling mudah (Windows):** unduh `AECModelBridge-Setup-<version>.exe` dari [rilis terbaru](https://github.com/Sam-AEC/aec-model-bridge/releases/latest), klik dua kali, pilih versi Revit Anda, lalu mulai ulang Revit. Installer memasang add-in, server Python bawaan, dan, jika kotaknya Anda centang, pengaturan Claude Desktop dan VS Code, dengan cadangan pengaturan Anda saat ini. Copot pemasangan lewat Pengaturan Windows. Langkah di bawah ini untuk build dari sumber.
@@ -197,7 +205,7 @@ python -m pip install -e packages/mcp-server-revit
 
 ### 2. Pasang add-in Revit
 
-Setel versi agar sesuai dengan instalasi Revit Anda. Jika Windows memblokir skrip yang diunduh, klik kanan setiap file `.ps1`, buka Properties, dan pilih Unblock sebelum menjalankannya.
+Atur versi agar sesuai dengan instalasi Revit Anda. Jika Windows memblokir skrip yang diunduh, klik kanan setiap file `.ps1`, buka Properties, dan pilih Unblock sebelum menjalankannya.
 
 ```powershell
 $RevitVersion = Read-Host "Revit year (2024, 2025, 2026, or 2027)"
@@ -260,7 +268,7 @@ Gunakan executable Python dari virtual environment Anda, dan pilih folder worksp
 }
 ```
 
-Hilangkan `MCP_REVIT_HOST_VERSION` untuk menargetkan instance Revit terbuka yang terbaru. Setel ke tahun seperti `2024` atau `2026` untuk mengunci entri klien ke versi Revit tersebut. `MCP_REVIT_BRIDGE_URL` menimpa endpoint untuk pengaturan lanjutan.
+Hilangkan `MCP_REVIT_HOST_VERSION` untuk menargetkan instance Revit terbuka yang terbaru. Atur ke tahun seperti `2024` atau `2026` untuk mengunci entri klien ke versi Revit tersebut. `MCP_REVIT_BRIDGE_URL` menimpa endpoint untuk pengaturan lanjutan.
 
 Pengguna VS Code dapat memulai dari [`.vscode/mcp.json`](../../.vscode/mcp.json). Pengguna Hermes Desktop dapat memulai dari [`docs/examples/hermes-desktop.json`](../examples/hermes-desktop.json) setelah mengganti path Python placeholder. Klien yang mendukung MCP Bundles dapat memasang file `.mcpb` dari [rilis terbaru](https://github.com/Sam-AEC/aec-model-bridge/releases/latest). Add-in Revit tetap diperlukan, karena server berkomunikasi dengan aplikasi desktop yang sedang berjalan.
 
@@ -293,11 +301,11 @@ Model Context Protocol (MCP) adalah standar terbuka yang memungkinkan asisten AI
 
 ### Asisten AI apa saja yang bisa dipakai?
 
-Klien MCP apa pun yang dapat menjalankan server stdio lokal. Kami mendokumentasikan Claude Desktop, VS Code dengan GitHub Copilot, dan klien yang membaca konfigurasi `mcpServers` standar. Chat di panel juga dapat memakai API key Anthropic atau tool command-line `claude` atau `codex` jika terpasang. Lihat [ADR 0012](../0012-native-agent-chat-backend.md).
+Klien MCP apa pun yang dapat menjalankan server stdio lokal. Kami mendokumentasikan Claude Desktop, VS Code dengan GitHub Copilot, Cursor, dan Codex, serta klien yang membaca konfigurasi `mcpServers` standar. Windsurf, Cline, Roo Code, Continue, Zed, Claude Code, dan Gemini CLI seharusnya bekerja dengan cara yang sama, tetapi belum diuji. Lihat [kompatibilitas](../compatibility.md). Chat di panel juga dapat memakai API key Anthropic atau tool command-line `claude` atau `codex` jika terpasang. Lihat [ADR 0012](../0012-native-agent-chat-backend.md).
 
 ### Bisakah AI mengubah model saya tanpa bertanya?
 
-Tidak pada mode default. Tool yang mengubah model diblokir sampai rencana disetujui di panel Revit. Tool baca-saja berjalan tanpa persetujuan. Jika Anda menyetel `MCP_REVIT_APPROVAL_MODE=auto`, persetujuan dilewati.
+Tidak pada mode default. Tool yang mengubah model diblokir sampai rencana disetujui di panel Revit. Tool hanya baca berjalan tanpa persetujuan. Jika Anda mengatur `MCP_REVIT_APPROVAL_MODE=auto`, persetujuan dilewati.
 
 ### Apakah model saya dikirim ke cloud?
 

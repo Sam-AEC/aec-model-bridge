@@ -23,10 +23,20 @@ Servidor MCP de código abierto y complemento nativo para Revit 2024 – 2027. F
   <img src="../images/readme/demo.gif" alt="Demostración: un asistente de IA encuentra 12 puertas sin Mark y redacta un plan. El plan espera en el panel de Revit hasta que lo apruebes; después se leen los valores para comprobarlos. Valores de ejemplo, sesión simulada." width="900">
 </p>
 
-Conecta Claude, Codex u otro cliente MCP al modelo de Revit que tienes abierto.
-AEC Model Bridge combina un servidor MCP en Python con un complemento nativo de Revit:
-las herramientas de solo lectura inspeccionan el modelo al instante y, por defecto,
-los cambios en el modelo exigen un plan aprobado. [Consulta el flujo de aprobación](#cómo-funciona-la-aprobación).
+AEC Model Bridge es el servidor MCP de código abierto para Revit que permite a Claude,
+Codex, Cursor y otros asistentes de IA leer y editar el modelo de Revit que tienes abierto,
+con cada cambio aprobado antes por ti. Combina un servidor MCP en Python con un complemento
+nativo de Revit: las herramientas de solo lectura inspeccionan el modelo al instante y, por
+defecto, los cambios en el modelo exigen un plan aprobado. [Consulta el flujo de aprobación](#cómo-funciona-la-aprobación).
+
+<p align="center">
+  <img src="../images/readme/works-with.svg" alt="Compatible con: Claude Desktop, VS Code con GitHub Copilot, Cursor y Codex tienen configuración documentada. Otros clientes MCP, como Claude Code, Windsurf, Cline, Continue, Zed y Gemini CLI, también deberían funcionar. Aplicaciones: Revit 2024 a 2027, Rhino, Grasshopper, Navisworks (en desarrollo). Datos: IFC, Speckle, Excel, SQLite. Protocolo: MCP sobre stdio con una puerta de aprobación." width="900">
+</p>
+
+La configuración está documentada para Claude Desktop, VS Code con GitHub Copilot, Cursor y
+Codex. Es un servidor MCP estándar por stdio, así que otros clientes, como Claude Code,
+Windsurf, Cline, Continue, Zed y Gemini CLI, también deberían funcionar. Consulta la
+[compatibilidad](../compatibility.md) para ver qué está documentado y qué no se ha probado.
 
 El mismo servidor incluye inspección de IFC, automatización de Rhino y Grasshopper
 e integración con Speckle. El [estado de las integraciones](#otras-integraciones) distingue
@@ -40,12 +50,12 @@ Estos ejemplos usan herramientas del [catálogo actual](../tools-generated.md).
 
 | Flujo de trabajo | Solicitud de ejemplo | Herramientas utilizadas |
 | --- | --- | --- |
-| Revisión del modelo | "Muestra el documento activo, lista sus avisos y encuentra los elementos afectados." | `revit_get_document_info`, `revit_get_warnings`, `revit_get_elements_by_type` |
+| Revisión del modelo | "Muestra el documento activo, lista sus advertencias y encuentra los elementos afectados." | `revit_get_document_info`, `revit_get_warnings`, `revit_get_elements_by_type` |
 | Actualización de parámetros | "Busca los muros del Level 02, muestra los valores de Comments y propón una actualización por lotes." | `revit_get_elements_by_type`, `revit_get_element_parameters`, `revit_batch_set_parameters` |
 | Producción de planos | "Prepara una lista de hojas a partir de este CSV y propón crear las hojas y colocar las vistas." | `revit_batch_create_sheets_from_csv`, `revit_place_viewport_on_sheet` |
 | Revisión de IFC | "Muestra las plantas de este archivo IFC, inspecciona las propiedades de los muros e informa de los problemas de validación del esquema." | `ifc_get_spatial_structure`, `ifc_get_properties`, `ifc_validate` |
 
-Para una primera prueba en Revit, prueba con:
+Para empezar en Revit, prueba esto:
 
 ```text
 Read the active model's warnings. Group them by description and show the
@@ -79,12 +89,12 @@ herramientas directas de Revit indicadas arriba para la inspección en vivo. [Co
 Los botones solo necesitan [uv](https://docs.astral.sh/uv/getting-started/installation/)
 y ninguna otra configuración: el servidor usa `~/Documents/AEC Model Bridge` como
 espacio de trabajo salvo que definas el tuyo. Para Claude Desktop, descarga el archivo `.mcpb`
-de la última versión y ábrelo. Trabajar con Revit en vivo sigue requiriendo Revit y
+de la última versión y ábrelo. El trabajo en vivo con Revit sigue requiriendo Revit y
 [el complemento](#instalar-el-complemento-de-revit); el modo mock no necesita nada.
 
 **Configuración manual**
 
-Para la automatización de Revit en vivo necesitas Windows, una licencia de Revit 2024 a 2027,
+Para la automatización de Revit en vivo necesitas Windows, Revit 2024 a 2027 con licencia,
 Python 3.11 o superior, [uv](https://docs.astral.sh/uv/getting-started/installation/) y el complemento de Revit
 ([pasos de instalación](#instalar-el-complemento-de-revit)). Después añade esto a tu
 `claude_desktop_config.json` (Codex, Cursor y VS Code usan los mismos valores;
@@ -194,12 +204,12 @@ con una transacción con nombre.
 
 Si un plan se aprueba y después resulta ser erróneo, `rollback_plan` lo revierte.
 La reversión usa Deshacer de Revit en la misma sesión o los valores de parámetros inversos.
-Las operaciones que no se pueden revertir, como la salida a archivos, piden una segunda
+Las operaciones que no se pueden revertir, como la escritura de archivos, piden una segunda
 confirmación. El ciclo de vida está descrito en
 [ADR 0008](../0008-approval-gate-lifecycle.md).
 
 Para pipelines desatendidos puedes definir `MCP_REVIT_APPROVAL_MODE=auto`. Eso desactiva
-la comprobación humana, así que úsalo solo en un entorno controlado.
+la revisión humana, así que úsalo solo en un entorno controlado.
 
 ## Versiones de Revit compatibles
 
@@ -224,7 +234,9 @@ lo que resulta útil para desarrollo y pruebas.
 | Speckle | Disponible. Requiere un ID de cliente de Speckle en tu entorno. |
 | Navisworks Manage | En desarrollo. El proveedor y sus herramientas están registrados. El complemento de Navisworks no está terminado. |
 | Power BI | En desarrollo. El proveedor y la herramienta existen, pero no están registrados en el hub. |
-| Excel, Parquet y DuckDB | Previsto. |
+| Excel, Parquet y DuckDB | Planificado. |
+
+Los nombres de producto y los logotipos pertenecen a sus respectivos propietarios. El banner los usa solo para mostrar con qué trabaja este proyecto.
 
 ## Instalar el complemento de Revit
 
@@ -353,7 +365,7 @@ y About.
 - El puente de Revit escucha solo en localhost.
 - El servidor lee y escribe únicamente dentro de las carpetas de `MCP_REVIT_ALLOWED_DIRECTORIES`.
 - Las herramientas que modifican el modelo necesitan un plan aprobado, salvo que desactives la aprobación.
-- Las llamadas a herramientas se registran en un log de auditoría y los secretos se ocultan.
+- Las llamadas a herramientas se registran en un registro de auditoría y los secretos se enmascaran.
 
 Los detalles están en [docs/security.md](../security.md). Para notificar una
 vulnerabilidad, sigue [SECURITY.md](../../SECURITY.md).
@@ -370,8 +382,9 @@ dentro de Revit.
 ### ¿Con qué asistentes de IA funciona?
 
 Con cualquier cliente MCP capaz de iniciar un servidor stdio local. Documentamos Claude
-Desktop, VS Code con GitHub Copilot y los clientes que leen una configuración estándar de
-`mcpServers`. El chat del panel también puede usar una clave de API de Anthropic
+Desktop, VS Code con GitHub Copilot, Cursor y Codex, y los clientes que leen una configuración estándar de
+`mcpServers`. Windsurf, Cline, Roo Code, Continue, Zed, Claude Code y Gemini CLI deberían funcionar
+de la misma manera, pero no se han probado. Consulta la [compatibilidad](../compatibility.md). El chat del panel también puede usar una clave de API de Anthropic
 o las herramientas de línea de comandos `claude` o `codex`, si están instaladas. Consulta
 [ADR 0012](../0012-native-agent-chat-backend.md).
 
