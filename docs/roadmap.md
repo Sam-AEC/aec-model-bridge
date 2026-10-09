@@ -69,3 +69,7 @@ demo; record missing coverage and verify the full sequence in the live client.
 - [Installation](install.md) documents the Python server and native add-in requirements; [audit logging](logging-and-audit.md) explains the two log layers needed to correlate a requested change with actual Revit execution.
 
 Finish the first demo before adding more integrations. Pick the next workflow from the setup failures and repeated QA tasks that coordinators actually hit. Keep Navisworks, Power BI and other provider work behind this until a real pilot shows one of them blocks users.
+
+The [pilot validation plan](pilot-validation-plan.md) describes how to test the
+safety, interop and client-reach assumptions with five non-scripting BIM
+coordinators. No pilot has been run.
