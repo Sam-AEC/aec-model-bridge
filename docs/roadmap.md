@@ -25,8 +25,10 @@ The snapshot contract needs repair first. The add-in used to write
 `snapshots/snapshot-{GUID}.json` while returning a bare GUID, and the Python
 modules load `snapshots/{snapshot_id}.json`; the add-in now writes
 `snapshots/{GUID}.json` (compile and verify against live Revit before relying
-on it). The add-in also uses its own workspace environment, which can differ
-from the Python server's workspace. Confirm the workspace matches, and verify the
+on it). The add-in now resolves its workspace with the same rule as the Python server
+(`MCP_REVIT_WORKSPACE_DIR`, else `~/Documents/AEC Model Bridge`) and the server
+reads snapshots from the workspace when it is on the allowed list (C# side
+UNVERIFIED: not compiled or run against live Revit). Confirm the workspace matches, and verify the
 snapshot covers the categories required by the QA rules. Never silently replace
 a failed live extraction with generated mock data.
 
