@@ -23,30 +23,30 @@ Open-source MCP server and native add-in for Revit 2024 – 2027. Works with Cla
 </p>
 
 AEC Model Bridge is the open-source Revit MCP server that lets Claude, Codex,
-Cursor and other AI assistants read and edit your open Revit model, with every
-change approved by you first. It combines a Python MCP server with a native
-Revit add-in: read-only tools inspect the model immediately, and model changes
-require an approved plan by default. [See the approval flow](#how-approval-works).
+Cursor and other AI assistants read and edit your open Revit model. You approve
+every change first. It has two parts: a Python MCP server and a native Revit
+add-in. Read-only tools inspect the model straight away. Model changes need an
+approved plan by default. [See the approval flow](#how-approval-works).
 
 <p align="center">
   <img src="docs/images/readme/works-with.svg" alt="Works with: Claude Desktop, VS Code with GitHub Copilot, Cursor and Codex have documented setup. Other MCP clients such as Claude Code, Windsurf, Cline, Continue, Zed and Gemini CLI should work too. Applications: Revit 2024 to 2027, Rhino, Grasshopper, Navisworks (in progress). Data: IFC, Speckle, Excel, SQLite. Protocol: MCP over stdio with an approval gate." width="900">
 </p>
 
 Setup is documented for Claude Desktop, VS Code with GitHub Copilot, Cursor and
-Codex. It is a standard MCP stdio server, so other clients such as Claude Code,
-Windsurf, Cline, Continue, Zed and Gemini CLI should work too. See
-[compatibility](docs/compatibility.md) for what is documented and what is
-untested.
+Codex. The server is a standard MCP stdio server, so other clients such as
+Claude Code, Windsurf, Cline, Continue, Zed and Gemini CLI should work too. The
+[compatibility](docs/compatibility.md) page lists what is documented and what
+is untested.
 
-The same server includes IFC inspection, Rhino and Grasshopper automation,
-and Speckle integration. [Integration status](#other-integrations) distinguishes
-available providers from work in progress.
+The same server also inspects IFC files, automates Rhino and Grasshopper, and
+connects to Speckle. [Integration status](#other-integrations) shows which
+providers are available and which are still in progress.
 
 ## Example workflows
 
-For BIM coordinators: inspect model quality, review the affected elements,
-approve a parameter fix, then check the results and export a report.
-These examples use tools in the [current catalog](docs/tools-generated.md).
+For BIM coordinators: check model quality, review the affected elements,
+approve a parameter fix, then check the result and export a report. These
+examples use tools in the [current catalog](docs/tools-generated.md).
 
 | Workflow | Example request | Tools used |
 | --- | --- | --- |
@@ -70,13 +70,15 @@ Comments to "Coordination reviewed" for the elements I choose. After I approve
 the plan in Revit, apply it and read the values back to confirm the result.
 ```
 
-For edits, the assistant creates a plan with `plan_actions`; you review it in
-the Revit panel before `execute_plan` applies it. IFC review runs without Revit.
+For edits, the assistant creates a plan with `plan_actions`. You review it in
+the Revit panel, and only then does `execute_plan` apply it. IFC review runs
+without Revit.
 
-The snapshot QA/QC and report modules require a compatible saved snapshot.
-The current Revit-to-module snapshot handoff needs filename and workspace
-alignment; omitting `snapshot_id` can return generated sample data. Use the
-direct Revit tools above for live inspection. [Planned fixes and demo](docs/roadmap.md).
+The snapshot QA/QC and report modules need a compatible saved snapshot. The
+handoff from Revit to these modules currently needs the filename and workspace
+to match. If you leave out `snapshot_id`, they can return generated sample
+data. For live inspection, use the direct Revit tools above.
+[Planned fixes and demo](docs/roadmap.md).
 
 ## Quick start
 
@@ -87,10 +89,10 @@ direct Revit tools above for live inspection. [Planned fixes and demo](docs/road
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
 The buttons need [uv](https://docs.astral.sh/uv/getting-started/installation/)
-and no other setup: the server uses `~/Documents/AEC Model Bridge` as its
+and nothing else. The server uses `~/Documents/AEC Model Bridge` as its
 workspace unless you set your own. For Claude Desktop, download the `.mcpb`
 file from the latest release and open it. Live Revit work still needs Revit and
-[the add-in](#install-the-revit-add-in); mock mode needs nothing.
+[the add-in](#install-the-revit-add-in). Mock mode needs neither.
 
 **Manual setup**
 
@@ -121,8 +123,8 @@ the two directory variables are optional and default to the workspace above):
 ```
 
 Want to look at the tools first, without Revit? Set `"MCP_REVIT_MODE": "mock"`.
-The server then starts anywhere, lists every tool with its schema and returns
-canned responses instead of touching a model. A `Dockerfile` for the same mock
+The server then starts on any machine, lists every tool with its schema and
+returns canned responses. It does not touch a model. A `Dockerfile` for the same mock
 mode is in the repository root (`docker build -t aec-model-bridge .`, then
 `docker run -i --rm aec-model-bridge`).
 
@@ -156,10 +158,11 @@ elements, views, sheets, schedules, tags and dimensions, and export IFC, DWG,
 images and Navisworks files. See the [tool reference](docs/tools-generated.md)
 for supported operations and inputs.
 
-For anything the tool catalog does not cover, `revit_invoke_method`, `revit_reflect_get`
-and `revit_reflect_set` work with public Revit API members, and `revit_execute_python`
-runs IronPython inside Revit. These advanced tools have the same permissions as
-the Revit process. Use them only with MCP clients and prompts you trust.
+For anything the tool catalog does not cover, `revit_invoke_method`,
+`revit_reflect_get` and `revit_reflect_set` work with public Revit API members.
+`revit_execute_python` runs IronPython inside Revit. These advanced tools have
+the same permissions as the Revit process. Use them only with MCP clients and
+prompts you trust.
 
 ## How it works
 
@@ -240,7 +243,7 @@ Product names and logos belong to their owners. The banner uses them only to sho
 
 ## Install the Revit add-in
 
-**Easiest (Windows):** download `AECModelBridge-Setup-<version>.exe` from the [latest release](https://github.com/Sam-AEC/aec-model-bridge/releases/latest), double-click it, pick your Revit versions and restart Revit. It installs the add-in, the bundled Python server and, if you tick the box, the Claude Desktop and VS Code settings, with a backup of your current settings. Uninstall it from Windows Settings. The steps below are for building from source.
+**Easiest (Windows):** download `AECModelBridge-Setup-<version>.exe` from the [latest release](https://github.com/Sam-AEC/aec-model-bridge/releases/latest), double-click it, pick your Revit versions and restart Revit. It installs the add-in and the bundled Python server. If you tick the box, it also sets up Claude Desktop and VS Code, and it backs up your current settings first. Uninstall it from Windows Settings. The steps below are for building from source.
 
 You install two parts: the Python MCP server and the Revit add-in. Live Revit
 automation needs both.
@@ -382,13 +385,13 @@ inside Revit.
 
 ### Which AI assistants work with it?
 
-Any MCP client that can start a local stdio server. We document Claude
-Desktop, VS Code with GitHub Copilot, Cursor and Codex, and clients that read a
-standard `mcpServers` configuration. Windsurf, Cline, Roo Code, Continue, Zed,
-Claude Code and Gemini CLI should work the same way but have not been tested.
-See [compatibility](docs/compatibility.md). The panel chat can also use an Anthropic API key
-or the `claude` or `codex` command-line tools if they are installed. See
-[ADR 0012](docs/0012-native-agent-chat-backend.md).
+Any MCP client that can start a local stdio server. Setup is documented for
+Claude Desktop, VS Code with GitHub Copilot, Cursor and Codex, and for clients
+that read a standard `mcpServers` configuration. Windsurf, Cline, Roo Code,
+Continue, Zed, Claude Code and Gemini CLI should work the same way but have not
+been tested. See [compatibility](docs/compatibility.md). The panel chat can also
+use an Anthropic API key, or the `claude` or `codex` command-line tools if they
+are installed. See [ADR 0012](docs/0012-native-agent-chat-backend.md).
 
 ### Can the AI change my model without asking?
 
@@ -399,9 +402,9 @@ set `MCP_REVIT_APPROVAL_MODE=auto`, approval is skipped.
 ### Does it send my model to the cloud?
 
 The server and the add-in run on your machine, and the bridge listens on
-localhost. What the AI assistant sees depends on the client you use: the tool
-results go to that client's model provider. Cloud-facing providers, such as
-Speckle, only run when you configure them and call their tools.
+localhost. The AI assistant sees what the tools return, and those results go
+to the model provider behind your client. Cloud providers, such as Speckle,
+only run when you configure them and call their tools.
 
 ### Does it work with IFC files without Revit?
 
@@ -412,7 +415,7 @@ not edit IFC files.
 
 ### Can I use it without Revit installed?
 
-You can run the server in mock mode for development and tests. Live model work
+Only in mock mode, which is meant for development and tests. Live model work
 needs Revit 2024 to 2027 and the add-in.
 
 ## Releases and versions
