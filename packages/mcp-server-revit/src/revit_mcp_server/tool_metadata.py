@@ -166,6 +166,7 @@ DESCRIPTIONS: dict[str, str] = {
     "qaqc_checker_list_issues": "List recorded QA/QC issues for a document, optionally filtered by status and severity. Read-only.",
     "qaqc_checker_resolve_issue": "Mark one recorded QA/QC issue as resolved.",
     "qaqc_checker_list_rules": "List the QA/QC rules that are available, optionally for one rule pack. Read-only.",
+    "warnings_triage_review_warnings": "Group the open project's Revit warnings by type, rank them by how many elements they touch, flag duplicate marks, overlapping elements and rooms not enclosed for the coordinator, and suggest a next step for each group. Read-only.",
     "bcf_exchange_export_bcf": "Save issues (your own list and/or the recorded QA/QC issues) to a BCF 2.1 .bcfzip file in the workspace. Writes a file; does not change the model. Not yet checked against other BCF tools.",
     "bcf_exchange_import_bcf": "Read a BCF .bcfzip file from the workspace and return its issues (title, description, status, priority, element ids). Read-only; unsafe zip files are refused.",
     "recipe_runner_run_recipe": "Run a named automation recipe (a YAML-defined sequence of tool calls) with arguments; set dry_run to list the steps without executing them.",
