@@ -73,6 +73,8 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
+| `bcf_exchange_export_bcf` | Save issues (your own list and/or the recorded QA/QC issues) to a BCF 2. | No | sync |
+| `bcf_exchange_import_bcf` | Read a BCF. | No | sync |
 | `familytype_mapper_audit_families` | Audit the families in a saved snapshot and report problems such as unmapped or inconsistent family types. | No | sync |
 | `familytype_mapper_list_type_mappings` | List family-type mappings found in a saved snapshot, optionally for one category. | No | sync |
 | `hello_world_say_hello` | Example module command that returns a greeting; use it to confirm the module system works. | No | sync |
