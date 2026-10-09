@@ -53,7 +53,7 @@ Pre-releases use a hyphen suffix: `1.4.0-rc.1`, `1.4.0-beta.2`. GitHub marks the
    ```
 
 4. The **Build GitHub Release** workflow starts on the tag. It confirms the tag, `VERSION`, every manifest and the changelog agree, runs the Python tests, builds the add-in and installer bundle, and publishes the GitHub release with the changelog section as its notes.
-5. Publishing the release starts **Publish MCP Server**, which fills in the bundle hash for the registry.
+5. For stable tags the release workflow then starts **Publish MCP Server**, which fills in the bundle hash and publishes to the MCP Registry. Pre-releases are not sent to the registry.
 
 If the tag and `VERSION` disagree, or the changelog has no section for that version, the release stops before building anything.
 

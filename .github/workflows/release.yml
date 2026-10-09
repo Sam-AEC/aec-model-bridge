@@ -24,6 +24,7 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+      actions: write
 
     steps:
       - name: Resolve tag
@@ -94,3 +95,12 @@ jobs:
             gh release create $tag (Get-ChildItem dist/release/*).FullName `
               --verify-tag --title "AEC Model Bridge $tag" --notes-file release-notes.md @flags
           }
+
+      - name: Publish to the MCP Registry
+        if: steps.tag.outputs.prerelease == 'false'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # A release created with the default token does not fire release-event workflows,
+        # but workflow_dispatch does, so start the registry publish explicitly.
+        run: gh workflow run publish-mcp.yml --ref "${{ steps.tag.outputs.tag }}"

@@ -17,15 +17,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
+      # The version comes from the VERSION file at the checked-out ref, not from
+      # the ref name, so this works for a release event, a manual run on main,
+      # and the dispatch that release.yml fires for each stable tag.
       - name: Synchronize release artifact metadata
-        if: github.event_name == 'release'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="$(tr -d '[:space:]' < VERSION)"
           asset="aec-model-bridge-${version}.mcpb"
-          gh release download "$GITHUB_REF_NAME" --pattern "$asset" --dir release
+          gh release download "v${version}" --pattern "$asset" --dir release
           sha256="$(sha256sum "release/$asset" | cut -d' ' -f1)"
           python - "$version" "$sha256" <<'PY'
           import json
