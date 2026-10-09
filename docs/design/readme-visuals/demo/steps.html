@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Demo: step strip</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Bottom strip of docs/images/readme/demo.gif. Active step comes from the hash, e.g. steps.html#s3. */
+html,body{margin:0;width:1280px;height:56px;background:#13202B;font-family:'IBM Plex Mono',monospace;overflow:hidden}
+.row{display:flex;height:56px;align-items:center;justify-content:center;gap:12px;color:#8FA1B3;font-size:15px;font-weight:500;letter-spacing:.04em}
+.s{display:flex;align-items:center;gap:9px;padding:8px 16px;border-radius:999px;border:1px solid transparent}
+.s b{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;border:1.5px solid #4C6073;font-size:12px}
+.s.on{color:#fff;border-color:#1CB5CA;background:#0F2530}
+.s.on b{background:#1CB5CA;border-color:#1CB5CA;color:#06222A}
+.s.done b{background:#2B3F51;border-color:#2B3F51;color:#cfe;}
+.a{color:#4C6073}
+</style>
+</head>
+<body>
+<div class="row" id="r"></div>
+<script>
+var cur = parseInt((location.hash || '#s1').slice(2), 10);
+var labels = ['Ask','Plan','Approve in Revit','Verify'];
+var html = '';
+labels.forEach(function(t,i){
+  var n=i+1, cls = n===cur ? 'on' : (n<cur ? 'done' : '');
+  html += '<span class="s '+cls+'"><b>'+n+'</b>'+t+'</span>';
+  if (n<labels.length) html += '<span class="a">›</span>';
+});
+document.getElementById('r').innerHTML = html;
+</script>
+</body>
+</html>
