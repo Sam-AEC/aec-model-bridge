@@ -1,12 +1,13 @@
-# Installation
+# Install AEC Model Bridge
 
-AEC Model Bridge has two components:
+AEC Model Bridge has two parts:
 
-1. A Python MCP server used by the AI client.
-2. A native add-in loaded by Revit.
+1. A Python MCP server that your AI client starts.
+2. A native add-in that Revit loads.
 
-Both are required for live Revit automation. Mock mode only requires the Python
-server.
+You need both for live Revit automation. Mock mode needs only the Python
+server. Supported Revit versions are 2024 to 2027. For release numbering, see
+[versioning](versioning.md).
 
 ## Requirements
 
@@ -43,7 +44,8 @@ Choose the Revit version installed on your machine:
 $RevitVersion = Read-Host "Revit year (2024, 2025, 2026, or 2027)"
 ```
 
-Build, package, and install the matching add-in:
+Build, package, and install the matching add-in. To only build, run
+`.\scripts\build-addin.ps1 -RevitVersion 2026` (use your Revit year):
 
 ```powershell
 .\scripts\package.ps1 -RevitVersion $RevitVersion
@@ -178,7 +180,7 @@ python -m pytest packages/mcp-server-revit/tests
 ### Bridge connection refused
 
 - Confirm Revit is running.
-- Confirm the `AEC Bridge` ribbon tab is present.
+- Confirm the `AEC Bridge` ribbon tab is present. It has Connection, Workflows and Tools panels.
 - Check that the manifest year matches the running Revit year.
 - Check the bridge log at `%APPDATA%\AECModelBridge\Logs\bridge.jsonl`.
 - Confirm no other process is using port `3000`.

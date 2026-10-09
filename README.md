@@ -1,200 +1,234 @@
 <div align="center">
 
-<img src="assets/logo.svg" alt="AEC Model Bridge" height="120">
+<img src="assets/logo.svg" alt="AEC Model Bridge logo: an isometric model cube with a bridge arch" height="120">
 
-# AEC Model Bridge
+# AEC Model Bridge: Revit MCP server
 
-AEC Model Bridge is the open, secure runtime that puts Revit, Rhino, Navisworks, and Power BI behind one MCP call center — so an AI agent orchestrates them directly, instead of you manually dumping data between disconnected apps.
-
-
+**An open-source Revit MCP server and AI assistant for Revit. It lets Claude, Codex and other Model Context Protocol clients read and edit BIM models, with you approving every change.**
 
 [![MCP Registry](https://img.shields.io/badge/MCP_Registry-active-0F766E?style=flat-square)](https://registry.modelcontextprotocol.io/?q=io.github.Sam-AEC%2Faec-model-bridge)
 [![License](https://img.shields.io/badge/license-GPLv3%2B%20%2F%20Commercial-2563EB?style=flat-square)](LICENSING.md)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![Revit](https://img.shields.io/badge/Revit-2024--2027-0696D7?style=flat-square)](https://www.autodesk.com/products/revit/)
 
-<br>
-<strong>Available now</strong><br>
-
-![Revit available](https://img.shields.io/badge/Revit-available-16A34A?style=flat-square)
-![Rhino and Grasshopper available](https://img.shields.io/badge/Rhino_%2F_Grasshopper-available-16A34A?style=flat-square)
-![IfcOpenShell available](https://img.shields.io/badge/IfcOpenShell-available-16A34A?style=flat-square)
-![Speckle available](https://img.shields.io/badge/Speckle-available-16A34A?style=flat-square)
-
-<strong>In progress</strong><br>
-
-![Navisworks Manage in progress](https://img.shields.io/badge/Navisworks_Manage-in_progress-F59E0B?style=flat-square)
-![Power BI in progress](https://img.shields.io/badge/Power_BI-in_progress-F59E0B?style=flat-square)
-
-<strong>Coming soon</strong><br>
-
-![Microsoft Excel coming soon](https://img.shields.io/badge/Microsoft_Excel-coming_soon-2563EB?style=flat-square)
-![Parquet and DuckDB coming soon](https://img.shields.io/badge/Parquet_%2F_DuckDB-coming_soon-2563EB?style=flat-square)
-
-[Install](#installation) | [Tools](docs/tools-generated.md) | [Documentation](#documentation) | [Latest release](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
+[Install](#install-the-revit-add-in) | [Connect a client](#connect-claude-desktop-to-revit) | [Tools](docs/tools-generated.md) | [Documentation](#documentation) | [Latest release](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
 </div>
 
-A single MCP client — Claude Desktop, VS Code, GitHub Copilot, or a custom
-agent — talks to one Python hub, and the hub routes each call to whichever
-app the task actually needs: draw geometry in Rhino, query parameters in
-Revit, resolve clashes in Navisworks, publish a dashboard to Power BI. The
-agent plans the workflow once; the bridge is what lets it reach every app
-without you being the one copying data between them.
+AEC Model Bridge is a Python MCP server plus a native Revit add-in. An AI
+assistant such as Claude or Codex connects to the server, and the server runs
+BIM automation tasks in the Revit model you have open. The same server also
+reads IFC files, and it has providers for Rhino and Grasshopper, Speckle and
+Navisworks.
 
-The Python hub handles MCP communication and routes each request to the relevant
-desktop, headless, cloud, or compute provider:
-- **Revit**: Native C# add-in (Revit 2024-2027) executing on the main thread via `ExternalEvent`.
-- **Navisworks Manage**: Native C# add-in (Navisworks 2024-2027) exposing the API over a local bridge (in progress).
-- **Rhino/Grasshopper**: Connects to the Rhino Bridge Add-in over HTTP localhost:3004.
-- **Speckle**: Native Python provider integrating Specklepy V3 for seamless model pushing to Power BI.
-- **IfcOpenShell**: Headless IFC semantic extraction and parsing.
+It does not edit your model on its own. Any tool that changes the model goes
+through a plan that you review and approve first. See
+[How approval works](#how-approval-works).
 
-## Platform Status
+## What can the AI do in Revit?
 
-The status below reflects the AEC Model Bridge system blueprint as of June 2026.
-In-progress integrations are implemented as routing infrastructure but require further registration or workflow integration.
+The server exposes more than 200 tools across all providers. The full list is
+in the [tool reference](docs/tools-generated.md). In Revit, the tools cover:
 
-### Available Now
+- **Reading the model:** list elements, categories, levels, views, sheets and
+  families. Read element and type parameters, geometry, worksets, links,
+  phases and warnings.
+- **Editing parameters:** set one value, set values in batches, or set values
+  for every element matching a filter. Create shared and project parameters.
+- **Creating elements:** walls, floors, roofs, levels, grids, columns, beams,
+  doors, windows, rooms, family instances, and some MEP elements such as ducts,
+  pipes and conduit.
+- **Documentation:** create views and sections, apply view templates, create
+  and renumber sheets, place viewports, tag elements, add text notes and
+  dimensions, and build schedules.
+- **Exports:** IFC, DWG, images and Navisworks.
+- **Checks and reports:** model snapshots and change diffs, a QA/QC checker,
+  and report generation.
 
-Revit, Rhino/Grasshopper, IfcOpenShell, and Speckle are available integrations. The Revit C# add-in (Revit 2024-2027) executes commands on the main thread. Rhino connects to the Rhino Bridge Add-in over HTTP on port 3004. IfcOpenShell provides headless IFC parsing, and Speckle integrates model pushing via Specklepy V3.
+For anything the tool catalog does not cover, `invoke_method`, `reflect_get`
+and `reflect_set` work with public Revit API members, and `execute_python`
+runs IronPython inside Revit. These advanced tools have the same permissions as
+the Revit process. Use them only with MCP clients and prompts you trust.
 
-### In Progress
+## How it works
 
-Navisworks Manage is currently in progress; while the C# add-in routing infrastructure is in place, the provider is not yet registered in the shipped hub. Power BI is also in progress, with the provider and tool in place but not yet integrated into the active hub runtime.
-
-### Coming Soon
-
-This wave adds Excel workbook round trips and a Parquet/DuckDB data plane for cross-platform reporting.
-
-## Highlights
-
-- 100+ MCP tools for model authoring, documentation, parameters, views, sheets, exports, and QA.
-- Native Revit & Navisworks add-ins with no Dynamo or pyRevit dependencies.
-- Multi-platform synchronization: Cross-query Navisworks clash results, Revit parameters, and Rhino models dynamically.
-- Speckle and PowerBI automated data handoffs.
-- Async job orchestration and centralized PII redaction.
-- Reflection and in-process Python for advanced API workflows.
-- Localhost-only bridge by default for absolute security.
-- Mock mode for development and automated testing without Revit.
-
-## How It Works
+The MCP client talks to one Python hub. The hub sends each call to the
+provider that owns the tool. Providers for desktop apps talk to a small add-in
+inside that app over localhost.
 
 ```mermaid
-flowchart TD
+---
+config:
+  look: neo
+  theme: base
+  themeVariables:
+    primaryColor: "#334155"
+    primaryTextColor: "#FFFFFF"
+    primaryBorderColor: "#1E293B"
+    secondaryColor: "#334155"
+    tertiaryColor: "#334155"
+    lineColor: "#6E7781"
+    textColor: "#6E7781"
+    titleColor: "#6E7781"
+    nodeTextColor: "#FFFFFF"
+    clusterBkg: "rgba(110,119,129,0.10)"
+    clusterBorder: "#6E7781"
+    edgeLabelBackground: "#334155"
+    actorBkg: "#334155"
+    actorTextColor: "#FFFFFF"
+    actorBorder: "#1E293B"
+    actorLineColor: "#6E7781"
+    signalColor: "#6E7781"
+    signalTextColor: "#6E7781"
+    labelBoxBkgColor: "#334155"
+    labelBoxBorderColor: "#6E7781"
+    labelTextColor: "#FFFFFF"
+    loopTextColor: "#6E7781"
+    sequenceNumberColor: "#FFFFFF"
+    noteBkgColor: "#F59E0B"
+    noteTextColor: "#1F1300"
+    noteBorderColor: "#92400E"
+    transitionColor: "#6E7781"
+    transitionLabelColor: "#FFFFFF"
+    stateLabelColor: "#FFFFFF"
+    stateBkg: "#334155"
+    labelBackgroundColor: "#334155"
+    compositeBackground: "#334155"
+    specialStateColor: "#6E7781"
+---
+flowchart LR
+  subgraph clients["AI clients"]
+    client(["MCP client<br/>Claude, Codex, VS Code"])
+  end
 
-subgraph group_clients["Clients and UI"]
-  node_panel_ui["Bridge Panel<br/>[app.js]"]
-end
+  subgraph hubzone["Python hub"]
+    hub["MCP hub<br/>routes every tool call"]
+    revitP["Revit provider"]
+    rhinoP["Rhino provider"]
+    navP["Navisworks provider"]
+    ifcP["IFC provider"]
+    speckleP["Speckle provider"]
+  end
 
-subgraph group_hub["Hub and Governance"]
-  node_mcp_hub["MCP Hub<br/>[mcp_server.py]"]
-  node_provider_registry["Provider Registry<br/>[registry.py]"]
-  node_job_manager["Job Manager<br/>[jobs.py]"]
-  node_security_controls["Security Controls<br/>[workspace.py]"]
-  node_audit_log["Audit Log<br/>[audit.py]"]
-end
+  subgraph apps["Desktop apps, add-ins on localhost"]
+    revitA["Revit add-in"]
+    rhinoA["Rhino add-in"]
+    navA["Navisworks<br/>add-in<br/>in progress"]
+  end
 
-subgraph group_revit["Revit Runtime"]
-  node_revit_bridge_client["Bridge Client<br/>[client.py]"]
-  node_revit_addin["Revit Add-in<br/>[BridgeServer.cs]"]
-  node_external_executor["External Executor"]
-  node_revit_commands["Revit Commands"]
-  node_revit_model[("Revit Model")]
-end
+  ifcLib[("IFC files<br/>read with IfcOpenShell")]
+  cloud(["Speckle server"])
 
-subgraph group_providers["Integration Providers"]
-  node_revit_provider["Revit Provider<br/>[revit.py]"]
-  node_rhino_provider["Rhino Provider<br/>[rhino.py]"]
-  node_rhino_addin["Rhino Add-in<br/>[BridgeCommands.cs]"]
-  node_ifc_provider["IFC Provider<br/>[ifc.py]"]
-  node_speckle_provider["Speckle Provider<br/>[cloud.py]"]
-  node_navisworks_provider["Navisworks Provider<br/>[navisworks.py]"]
-  node_navisworks_addin["Navisworks Add-in<br/>[BridgeServer.cs]"]
-  node_powerbi_provider["Power BI Provider<br/>[powerbi.py]"]
-  node_powerbi_tool["Power BI Tool<br/>[Program.cs]"]
-end
+  client -->|"sends tool calls"| hub
+  hub -->|"routes Revit tools"| revitP
+  hub -->|"routes Rhino tools"| rhinoP
+  hub -.->|"routes Navisworks tools"| navP
+  hub -->|"routes IFC tools"| ifcP
+  hub -->|"routes Speckle tools"| speckleP
+  revitP -->|"HTTP"| revitA
+  rhinoP -->|"HTTP"| rhinoA
+  navP -.->|"local bridge"| navA
+  ifcP -->|"parses"| ifcLib
+  speckleP -->|"syncs"| cloud
 
-subgraph group_intelligence["AEC Intelligence"]
-  node_semantic_provider["Semantic Provider"]
-  node_semantic_engine["Semantic Engine<br/>[engine.py]"]
-  node_revit_modules["Revit Tool Modules"]
-  node_approval_provider["Approval Provider"]
-end
-
-node_mcp_client(("MCP Client"))
-
-node_mcp_client -->|"sends requests"| node_mcp_hub
-node_panel_ui -->|"shows results"| node_mcp_hub
-node_mcp_hub -->|"validates access"| node_security_controls
-node_mcp_hub -->|"records calls"| node_audit_log
-node_mcp_hub -->|"schedules jobs"| node_job_manager
-node_mcp_hub -->|"dispatches tools"| node_provider_registry
-node_provider_registry -->|"routes Revit"| node_revit_provider
-node_provider_registry -->|"routes Rhino"| node_rhino_provider
-node_provider_registry -->|"routes IFC"| node_ifc_provider
-node_provider_registry -->|"routes Speckle"| node_speckle_provider
-node_provider_registry -->|"routes semantics"| node_semantic_provider
-node_provider_registry -->|"routes approvals"| node_approval_provider
-node_provider_registry -.->|"routes clashes"| node_navisworks_provider
-node_provider_registry -.->|"routes dashboards"| node_powerbi_provider
-node_revit_provider -->|"calls tools"| node_revit_bridge_client
-node_revit_bridge_client -->|"uses HTTP"| node_revit_addin
-node_revit_addin -->|"queues commands"| node_external_executor
-node_external_executor -->|"executes tools"| node_revit_commands
-node_revit_commands -->|"reads and writes"| node_revit_model
-node_revit_addin -->|"opens panel"| node_panel_ui
-node_rhino_provider -->|"uses HTTP"| node_rhino_addin
-node_ifc_provider -->|"extracts IFC"| node_semantic_engine
-node_speckle_provider -->|"pushes models"| node_semantic_engine
-node_navisworks_provider -.->|"uses bridge"| node_navisworks_addin
-node_powerbi_provider -.->|"executes queries"| node_powerbi_tool
-node_semantic_provider -->|"queries graph"| node_semantic_engine
-node_approval_provider -->|"updates queue"| node_panel_ui
-
-click node_panel_ui "https://github.com/Sam-AEC/aec-model-bridge/blob/main/panel/app.js"
-click node_mcp_hub "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py"
-click node_provider_registry "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/providers/registry.py"
-click node_job_manager "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/jobs.py"
-click node_security_controls "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/security/workspace.py"
-click node_audit_log "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/security/audit.py"
-click node_revit_provider "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/providers/revit.py"
-click node_revit_bridge_client "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/bridge/client.py"
-click node_revit_addin "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/revit-bridge-addin/src/Bridge/BridgeServer.cs"
-click node_external_executor "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/revit-bridge-addin/src/Bridge/ExternalEventHandler.cs"
-click node_revit_commands "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/revit-bridge-addin/src/Bridge/BridgeCommandFactory.cs"
-click node_rhino_provider "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/providers/rhino.py"
-click node_rhino_addin "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/rhino-bridge-addin/src/BridgeCommands.cs"
-click node_ifc_provider "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/providers/ifc.py"
-click node_speckle_provider "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/providers/cloud.py"
-click node_navisworks_provider "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/providers/navisworks.py"
-click node_navisworks_addin "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/navisworks-bridge-addin/src/BridgeServer.cs"
-click node_powerbi_provider "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/providers/powerbi.py"
-click node_powerbi_tool "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/powerbi-bridge-tool/src/Program.cs"
-click node_semantic_provider "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/providers/semantic_provider.py"
-click node_semantic_engine "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/semantic/engine.py"
-click node_revit_modules "https://github.com/Sam-AEC/aec-model-bridge/tree/main/packages/mcp-server-revit/src/revit_mcp_server/modules"
-click node_approval_provider "https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/mcp-server-revit/src/revit_mcp_server/providers/approval_provider.py"
-
-classDef toneNeutral fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a
-classDef toneBlue fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
-classDef toneAmber fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f
-classDef toneMint fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
-classDef toneRose fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#881337
-classDef toneIndigo fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#312e81
-classDef toneTeal fill:#ccfbf1,stroke:#0f766e,stroke-width:1.5px,color:#134e4a
-class node_panel_ui,node_mcp_client toneBlue
-class node_mcp_hub,node_provider_registry,node_job_manager,node_security_controls,node_audit_log toneAmber
-class node_revit_bridge_client,node_revit_addin,node_external_executor,node_revit_commands,node_revit_model toneMint
-class node_revit_provider,node_rhino_provider,node_rhino_addin,node_ifc_provider,node_speckle_provider,node_navisworks_provider,node_navisworks_addin,node_powerbi_provider,node_powerbi_tool toneRose
-class node_semantic_provider,node_semantic_engine,node_revit_modules,node_approval_provider toneIndigo
+  classDef live fill:#0F766E,stroke:#0B4F4A,stroke-width:1.5px,color:#FFFFFF
+  classDef wip fill:#F59E0B,stroke:#92400E,stroke-width:1.5px,stroke-dasharray:4 3,color:#1F1300
+  classDef data fill:#4F46E5,stroke:#3730A3,stroke-width:1.5px,color:#FFFFFF
+  class hub,revitP,rhinoP,ifcP,speckleP,revitA,rhinoA live
+  class navP,navA wip
+  class ifcLib,cloud data
 ```
 
-## Installation
+Teal boxes work today. The amber dashed boxes are in progress. Indigo
+shapes are data and external services.
 
-### Requirements
+### How approval works
 
-| Revit version | Add-in target | Required build tools |
+The hub stops any tool call that changes the model unless it carries an
+approved plan. The default mode is `required`. The AI proposes a plan, you
+review it in the Revit side panel, and the add-in runs it on Revit's main
+thread in a named transaction.
+
+```mermaid
+---
+config:
+  look: neo
+  theme: base
+  themeVariables:
+    primaryColor: "#334155"
+    primaryTextColor: "#FFFFFF"
+    primaryBorderColor: "#1E293B"
+    secondaryColor: "#334155"
+    tertiaryColor: "#334155"
+    lineColor: "#6E7781"
+    textColor: "#6E7781"
+    titleColor: "#6E7781"
+    nodeTextColor: "#FFFFFF"
+    clusterBkg: "rgba(110,119,129,0.10)"
+    clusterBorder: "#6E7781"
+    edgeLabelBackground: "#334155"
+    actorBkg: "#334155"
+    actorTextColor: "#FFFFFF"
+    actorBorder: "#1E293B"
+    actorLineColor: "#6E7781"
+    signalColor: "#6E7781"
+    signalTextColor: "#6E7781"
+    labelBoxBkgColor: "#334155"
+    labelBoxBorderColor: "#6E7781"
+    labelTextColor: "#FFFFFF"
+    loopTextColor: "#6E7781"
+    sequenceNumberColor: "#FFFFFF"
+    noteBkgColor: "#F59E0B"
+    noteTextColor: "#1F1300"
+    noteBorderColor: "#92400E"
+    transitionColor: "#6E7781"
+    transitionLabelColor: "#FFFFFF"
+    stateLabelColor: "#FFFFFF"
+    stateBkg: "#334155"
+    labelBackgroundColor: "#334155"
+    compositeBackground: "#334155"
+    specialStateColor: "#6E7781"
+---
+sequenceDiagram
+  autonumber
+  participant You
+  participant AI as AI assistant
+  participant Hub as MCP hub + ApprovalGate
+  participant Panel as Side panel (WebView2)
+  participant Addin as Revit add-in
+  participant Model as Revit model
+
+  AI->>Hub: plan_actions (proposed changes)
+  Hub->>Panel: show the pending plan
+  Panel->>You: review the plan
+  alt You approve
+    You->>Panel: Approve
+    Panel->>Hub: approved
+    AI->>Hub: execute_plan
+    Hub->>Addin: forward the commands
+    Addin->>Model: run in one named transaction
+    Model-->>Addin: done
+    Addin-->>AI: result (rollback_plan can reverse it)
+  else You reject, or never approve
+    You->>Panel: Reject
+    Panel->>Hub: rejected
+    AI->>Hub: execute_plan
+    Hub--xAI: blocked, the model is untouched
+  end
+```
+
+If a plan is approved and later turns out wrong, `rollback_plan` reverses it.
+Rollback uses Revit Undo in the same session or inverse parameter values.
+Operations that cannot be reversed, such as file output, ask for a second
+confirmation. The lifecycle is in
+[ADR 0008](docs/0008-approval-gate-lifecycle.md).
+
+For unattended pipelines you can set `MCP_REVIT_APPROVAL_MODE=auto`. That turns
+the human check off, so use it only in a controlled environment.
+
+## Supported Revit versions
+
+| Revit version | Add-in target | Build tools |
 |---|---|---|
 | 2024 | .NET Framework 4.8 | .NET 8 SDK and .NET Framework 4.8 developer pack |
 | 2025 | .NET 8 for Windows | .NET 8 SDK |
@@ -202,7 +236,25 @@ class node_semantic_provider,node_semantic_engine,node_revit_modules,node_approv
 | 2027 | .NET 10 for Windows | .NET 10 SDK |
 
 You also need Windows 10 or 11, Python 3.11 or later, and a licensed Revit
-installation for the version you want to use.
+installation for the version you use. Mock mode runs the server without Revit,
+which is useful for development and tests.
+
+### Other integrations
+
+| Integration | Status |
+|---|---|
+| Revit | Available. Native C# add-in. |
+| IFC (IfcOpenShell) | Available. Reads IFC files without Revit running. |
+| Rhino and Grasshopper | Available. Connects to the Rhino add-in on `localhost:3004`. |
+| Speckle | Available. Needs a Speckle client ID in your environment. |
+| Navisworks Manage | In progress. The provider and its tools are registered. The Navisworks add-in is not finished. |
+| Power BI | In progress. The provider and tool exist but are not registered in the hub. |
+| Excel, Parquet and DuckDB | Planned. |
+
+## Install the Revit add-in
+
+You install two parts: the Python MCP server and the Revit add-in. Live Revit
+automation needs both.
 
 ### 1. Install the MCP server
 
@@ -250,12 +302,19 @@ To prepare binaries for every supported version in one pass:
 ```
 
 Prebuilt packages are attached to GitHub releases when available. The source
-installation above is the canonical path for all supported Revit versions.
+installation above works for all supported Revit versions. For a double-click
+Windows installer, `scripts/build-installer.ps1` builds one with Inno Setup.
+The full guide, with troubleshooting, is in [docs/install.md](docs/install.md).
 
-### 3. Configure your MCP client
+## Connect Claude Desktop to Revit
 
-Use the Python executable from the virtual environment and choose a workspace
-that the server may access:
+Add the server to your MCP client configuration. For Claude Desktop, that is
+the `mcpServers` section of `claude_desktop_config.json`. Codex, Cursor, VS
+Code and other MCP clients use the same `command`, `args` and `env` values in
+their own config format.
+
+Use the Python executable from your virtual environment, and choose a workspace
+folder the server may access:
 
 ```json
 {
@@ -283,21 +342,19 @@ that the server may access:
 }
 ```
 
-Omit `MCP_REVIT_HOST_VERSION` to target the newest open Revit instance, or set
-it to a year such as `2024` or `2026` to keep a client entry locked to that
-Revit version. `MCP_REVIT_BRIDGE_URL` remains available as an explicit endpoint
-override for advanced setups.
+Leave out `MCP_REVIT_HOST_VERSION` to target the newest open Revit instance.
+Set it to a year such as `2024` or `2026` to lock a client entry to that Revit
+version. `MCP_REVIT_BRIDGE_URL` overrides the endpoint for advanced setups.
 
-VS Code users can start from [`.vscode/mcp.json`](.vscode/mcp.json).
-Hermes Desktop users can start from [`Hermes.json`](Hermes.json); replace the
-placeholder Python path with the path to your local virtual environment.
-
-Clients that support MCP Bundles can install the `.mcpb` file from the
+VS Code users can start from [`.vscode/mcp.json`](.vscode/mcp.json). Hermes
+Desktop users can start from [`Hermes.json`](Hermes.json) after replacing the
+placeholder Python path. Clients that support MCP Bundles can install the
+`.mcpb` file from the
 [latest release](https://github.com/Sam-AEC/aec-model-bridge/releases/latest).
-The Revit add-in is still required because the MCP server communicates with the
-running desktop application.
+The Revit add-in is still required, because the server talks to the running
+desktop application.
 
-### 4. Verify the connection
+### Check the connection
 
 Restart Revit after installing the add-in, open a model, and run:
 
@@ -307,19 +364,70 @@ $switch = Get-Content $registry.FullName -Raw | ConvertFrom-Json
 Invoke-RestMethod "$($switch.endpoint)/health"
 ```
 
-The response should report `healthy` and the active Revit version.
+The response should report `healthy` and the running Revit version. In Revit,
+look for the `AEC Bridge` ribbon tab. Its Workflows panel has Open Panel,
+Health Check, Pending Actions and Reports. Its Tools panel has Config, Help
+and About.
 
-## Revit API Access
+## Security
 
-The typed MCP tools cover the common workflow surface and are the recommended
-default for agents.
+- The Revit bridge listens on localhost only.
+- The server reads and writes only inside the folders in
+  `MCP_REVIT_ALLOWED_DIRECTORIES`.
+- Mutating tools need an approved plan unless you turn approval off.
+- Tool calls are written to an audit log, and secrets are redacted.
 
-For work outside the tool catalog, `invoke_method`, `reflect_get`, and
-`reflect_set` can work with public .NET API members. `execute_python` runs
-IronPython inside Revit with `doc`, `uidoc`, `uiapp`, and `app` available.
+Details are in [docs/security.md](docs/security.md). To report a
+vulnerability, follow [SECURITY.md](SECURITY.md).
 
-These advanced tools run with the same permissions as the Revit process. Keep
-the bridge on localhost and only use trusted MCP clients and prompts.
+## FAQ
+
+### What is an MCP server for Revit?
+
+The Model Context Protocol (MCP) is an open standard that lets AI assistants
+call tools in other software. An MCP server for Revit publishes Revit
+operations as tools. The assistant picks the tools, and the add-in runs them
+inside Revit.
+
+### Which AI assistants work with it?
+
+Any MCP client that can start a local stdio server. We document Claude
+Desktop, VS Code with GitHub Copilot, and clients that read a standard
+`mcpServers` configuration. The panel chat can also use an Anthropic API key
+or the `claude` or `codex` command-line tools if they are installed. See
+[ADR 0012](docs/0012-native-agent-chat-backend.md).
+
+### Can the AI change my model without asking?
+
+Not in the default mode. Tools that change the model are blocked until a plan
+is approved in the Revit panel. Read-only tools run without approval. If you
+set `MCP_REVIT_APPROVAL_MODE=auto`, approval is skipped.
+
+### Does it send my model to the cloud?
+
+The server and the add-in run on your machine, and the bridge listens on
+localhost. What the AI assistant sees depends on the client you use: the tool
+results go to that client's model provider. Cloud-facing providers, such as
+Speckle, only run when you configure them and call their tools.
+
+### Does it work with IFC files without Revit?
+
+Yes. The IFC provider reads files with IfcOpenShell. It can return file
+metadata, the spatial structure, element properties and bounding boxes, run
+queries by class, GUID, name or property, and validate the schema. It does
+not edit IFC files.
+
+### Can I use it without Revit installed?
+
+You can run the server in mock mode for development and tests. Live model work
+needs Revit 2024 to 2027 and the add-in.
+
+## Releases and versions
+
+AEC Model Bridge follows Semantic Versioning. Releases are tagged `vX.Y.Z` on
+GitHub, and a root `VERSION` file holds the version number. See
+[docs/versioning.md](docs/versioning.md) for the release process and
+[CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 
 ## Development
 
@@ -327,15 +435,15 @@ the bridge on localhost and only use trusted MCP clients and prompts.
 # Python tests
 python -m pytest packages/mcp-server-revit/tests
 
-# Build one Revit version
-$RevitVersion = Read-Host "Revit year (2024, 2025, 2026, or 2027)"
-.\scripts\build-addin.ps1 -RevitVersion $RevitVersion -Configuration Release
+# Build one Revit version, for example 2026
+.\scripts\build-addin.ps1 -RevitVersion 2026 -Configuration Release
 
 # Build all supported versions
 .\scripts\package.ps1 -RevitVersion All
 ```
 
-CI builds the Python server and add-in targets for Revit 2024 through 2027.
+CI builds the Python server and the add-in targets for Revit 2024 through 2027.
+See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 
 ## Documentation
 
@@ -345,10 +453,11 @@ CI builds the Python server and add-in targets for Revit 2024 through 2027.
 - [Configuration reference](docs/configuration-reference.md)
 - [Security](docs/security.md)
 - [MCP clients and registry](docs/marketplaces.md)
+- [Versioning and releases](docs/versioning.md)
 - [Contributing](CONTRIBUTING.md)
 - [Contributors](CONTRIBUTORS.md)
 
-## Project
+## Project and license
 
 Maintained by [A. Sam Mohammad](https://github.com/Sam-AEC).
 [LinkedIn](https://www.linkedin.com/in/a-sam-mohammad-92790416b) |

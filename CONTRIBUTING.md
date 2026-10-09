@@ -15,7 +15,6 @@ corrections are welcome without a code contribution.
 
 ## Focus Areas
 
-
 Contributions are most useful when they improve one of the following:
 - Revit command coverage
 - MCP tool reliability and error handling
@@ -30,10 +29,30 @@ Contributions are most useful when they improve one of the following:
 - If a change affects UI or commands, include reproduction steps and expected behavior.
 - Update examples or docs when behavior changes.
 
+## Building and testing
+
+Build the add-in for one Revit version and run the Python tests:
+
+```powershell
+.\scripts\build-addin.ps1 -RevitVersion 2026 -Configuration Release
+python -m pytest packages/mcp-server-revit/tests
+```
+
+Supported Revit versions are 2024 (net48), 2025 and 2026 (net8.0-windows), and
+2027 (net10.0-windows). See
+[docs/target-frameworks-and-dependencies.md](docs/target-frameworks-and-dependencies.md).
+
+## Releases and versions
+
+The project uses Semantic Versioning, and the root `VERSION` file is the
+single source of truth. Tags use the form `vX.Y.Z`. Do not bump version numbers
+by hand in other files. [docs/versioning.md](docs/versioning.md) describes the
+release process, and [CHANGELOG.md](CHANGELOG.md) lists what changed.
+
 ## Repository Hygiene & Build Artifacts
 
-- **Build Artifacts (`dist/`, `build/`)**: Compiled distribution files, zip packages, and binary builds must not be committed to the git repository. All releases are attached directly to GitHub Releases.
-- **Local virtual environments**: Always run tests and scripts within local `.venv` environments, which are ignored by git.
+- **Build artifacts (`dist/`, `build/`)**: Do not commit compiled files, zip packages, or binary builds. Releases are attached to GitHub Releases.
+- **Virtual environments**: Run tests and scripts inside a local `.venv`. Git ignores it.
 
 ## Pull Request Checklist
 

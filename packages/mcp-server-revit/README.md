@@ -1,6 +1,6 @@
 # AEC Model Bridge (Python Package)
 
-Independent MCP integration for Autodesk Revit software, used by AI clients over stdio.
+Python MCP server for Autodesk Revit, plus IFC, Rhino, Speckle and Navisworks providers. AI clients such as Claude and Codex start it over stdio. Mutating tools need an approved plan by default.
 
 - Repository: https://github.com/Sam-AEC/aec-model-bridge
 - Maintainer: [A. Sam Mohammad](https://github.com/Sam-AEC)
@@ -8,6 +8,8 @@ Independent MCP integration for Autodesk Revit software, used by AI clients over
 - MCP entrypoint: `python -m revit_mcp_server.mcp_server`
 - Console scripts: `aec-model-bridge` and the compatibility alias `revit-mcp-server`
 - Requires Python 3.11+
+- Works with the Revit add-in for Revit 2024 to 2027 (see the repository README for setup)
+- Versioning: Semantic Versioning, see [docs/versioning.md](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/versioning.md)
 - The `.mcpb` bundle uses the MCPB `uv` runtime and prompts for a permitted workspace directory.
 
 Environment variables (prefix `MCP_REVIT_`) include:

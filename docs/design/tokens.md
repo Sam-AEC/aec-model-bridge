@@ -9,7 +9,8 @@ Status: **approved**.
 > `UI/BrandMark.cs` (dialog header, brand card, ribbon brand icon). Ribbon icons
 > in `IconGenerator.cs` use a 32 px grid, 2 px charcoal outline, light teal fill,
 > one `amb-brand` accent and a lower-right state badge. Sections 2 and 5 below
-> describe the earlier Span mark and are superseded where they conflict.
+> describe the earlier Span mark (retired in 1.3.0) and are superseded where they
+> conflict. The Pier is the only current brand mark.
 
 ### One design across surfaces (current)
 
@@ -51,7 +52,20 @@ All five are replaced by **one mark** and **one palette** below.
 
 ---
 
-## 2. The mark — "the Span"
+## 2. The mark
+
+**Current: the Pier.** An isometric model cube with a bridge arch cut through
+each side face, on a rounded `#111923` tile (96 px viewBox, 20 px corner
+radius). The top face is `#1CB5CA`, the left face `#FFFFFF`, the right face
+`#AEBCCB`, with a 2.5 px `#111923` stroke between faces. The source of truth
+for the geometry is `assets/logo-mark.svg`; `UI/BrandMark.cs`, `panel/index.html`
+and `scripts/make_brand_assets.py` copy it.
+
+The rest of this section, 2.1 to 2.6, documents the **Span**, the mark that the
+Pier replaced. It is kept as history and as the reference for the retired
+wordmark and rail-mark geometry. Do not use it for new work.
+
+### Span (retired)
 
 ### 2.1 Concept
 

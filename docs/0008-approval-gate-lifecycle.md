@@ -12,13 +12,63 @@ AI agents modifying production BIM models (e.g., Revit, Navisworks) pose signifi
 An **ActionPlan** is the unit of human approval and execution control. It transitions through the following states:
 
 ```mermaid
-graph TD
-    Draft[Draft] -->|plan_actions| Validated[Validated]
-    Validated -->|submit| Pending[Pending Review]
-    Pending -->|approve| Approved[Approved]
-    Pending -->|reject| Rejected[Rejected]
-    Approved -->|execute| Executed[Executed]
-    Executed -->|rollback| RolledBack[Rolled Back]
+---
+config:
+  look: neo
+  theme: base
+  themeVariables:
+    primaryColor: "#334155"
+    primaryTextColor: "#FFFFFF"
+    primaryBorderColor: "#1E293B"
+    secondaryColor: "#334155"
+    tertiaryColor: "#334155"
+    lineColor: "#6E7781"
+    textColor: "#6E7781"
+    titleColor: "#6E7781"
+    nodeTextColor: "#FFFFFF"
+    clusterBkg: "rgba(110,119,129,0.10)"
+    clusterBorder: "#6E7781"
+    edgeLabelBackground: "#334155"
+    actorBkg: "#334155"
+    actorTextColor: "#FFFFFF"
+    actorBorder: "#1E293B"
+    actorLineColor: "#6E7781"
+    signalColor: "#6E7781"
+    signalTextColor: "#6E7781"
+    labelBoxBkgColor: "#334155"
+    labelBoxBorderColor: "#6E7781"
+    labelTextColor: "#FFFFFF"
+    loopTextColor: "#6E7781"
+    sequenceNumberColor: "#FFFFFF"
+    noteBkgColor: "#F59E0B"
+    noteTextColor: "#1F1300"
+    noteBorderColor: "#92400E"
+    transitionColor: "#6E7781"
+    transitionLabelColor: "#FFFFFF"
+    stateLabelColor: "#FFFFFF"
+    stateBkg: "#334155"
+    labelBackgroundColor: "#334155"
+    compositeBackground: "#334155"
+    specialStateColor: "#6E7781"
+---
+stateDiagram-v2
+  state "Pending review" as Pending
+  state "Rolled back" as RolledBack
+
+  [*] --> Draft
+  Draft --> Validated: plan_actions
+  Validated --> Pending: submit
+  Pending --> Approved: approve
+  Pending --> Rejected: reject
+  Approved --> Executed: execute
+  Executed --> RolledBack: rollback_plan
+  Rejected --> [*]
+  RolledBack --> [*]
+
+  classDef ok fill:#0F766E,stroke:#0B4F4A,color:#FFFFFF
+  classDef blocked fill:#B91C1C,stroke:#7F1D1D,color:#FFFFFF
+  class Approved,Executed ok
+  class Rejected blocked
 ```
 
 - **Draft**: A plan containing proposed actions (tool calls and arguments) under construction.
@@ -64,7 +114,7 @@ The ActionPlan represents a batch of modifications:
 - **Auto-Approval**: For headless CI/CD pipelines, `approval_mode=auto` can be set via environment variable (`MCP_REVIT_APPROVAL_MODE=auto`).
 
 ### 4. Rollback Strategies
-- **Revit Undo (`undo`)**: If executed inside the same Revit session, the add-in wraps the execution in a single named transaction (`"AMB: Plan <plan_id>"`). The add-in can tigger Revit's native Undo command.
+- **Revit Undo (`undo`)**: If executed inside the same Revit session, the add-in wraps the execution in a single named transaction (`"AMB: Plan <plan_id>"`). The add-in can trigger Revit's native Undo command.
 - **Inverse Counter-Plan (`inverse`)**: For persistent history rollbacks, the hub generates an inverse counter-plan by capturing the before-state (e.g., parameter values) and executing a compensating batch of updates.
 - **Irreversible (`none`)**: High-risk operations (e.g., deleting models, file outputs) cannot be rolled back and require a double-confirmation from the human operator.
 
