@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -93,6 +94,7 @@ namespace RevitBridge.UI
 
             InitializeComponent();
             HeaderLogo.Source = BrandMark.CreateImageSource();
+            Icon = BrandMark.CreateImageSource();
 
             // Keep dialogs usable on smaller displays and owned by Revit.
             var workArea = SystemParameters.WorkArea;
@@ -138,14 +140,24 @@ namespace RevitBridge.UI
         // Glyphs are drawn in a 24 x 24 box: stroke only, round caps, like the ribbon and panel icons.
         private FrameworkElement CreateGlyphTile(string icon, double tile)
         {
+            // Semantic keys ("success", "stop", ...) are the contract; the emoji are accepted for old callers.
             string? data = null;
             Color kind = _accentColor;
-            if (icon.Contains("\u2705")) { data = "M5,12.5 L10,17.5 L19,7.5"; kind = _successColor; }
-            else if (icon.Contains("\U0001F6D1")) { data = "M7,7 H17 V17 H7 Z"; kind = _dangerColor; }
-            else if (icon.Contains("\u2139")) { data = "M12,10.5 V17 M12,6.6 V6.5"; }
-            else if (icon.Contains("\U0001F50C")) { data = "M8,4 V9 M16,4 V9 M6,9 H18 V12 A6,6 0 0 1 6,12 Z M12,18 V21"; }
-            else if (icon.Contains("\U0001F4CA")) { data = "M6,19 V12 M12,19 V6 M18,19 V10"; }
-            else if (icon.Contains("\u23F1")) { data = "M12,4 A8,8 0 1 0 12,20 A8,8 0 1 0 12,4 M12,8 V12.5 L15,14.5"; }
+            string key = icon.Trim().ToLowerInvariant();
+            if (key == "success" || icon.Contains("\u2705")) { data = "M5,12.5 L10,17.5 L19,7.5"; kind = _successColor; }
+            else if (key == "stop" || icon.Contains("\U0001F6D1")) { data = "M7,7 H17 V17 H7 Z"; kind = _dangerColor; }
+            else if (key == "error" || icon.Contains("\u274C")) { data = "M7,7 L17,17 M17,7 L7,17"; kind = _dangerColor; }
+            else if (key == "info" || icon.Contains("\u2139")) { data = "M12,10.5 V17 M12,6.6 V6.5"; }
+            else if (key == "plug" || icon.Contains("\U0001F50C")) { data = "M8,4 V9 M16,4 V9 M6,9 H18 V12 A6,6 0 0 1 6,12 Z M12,18 V21"; }
+            else if (key == "chart" || icon.Contains("\U0001F4CA")) { data = "M6,19 V12 M12,19 V6 M18,19 V10"; }
+            else if (key == "clock" || icon.Contains("\u23F1")) { data = "M12,4 A8,8 0 1 0 12,20 A8,8 0 1 0 12,4 M12,8 V12.5 L15,14.5"; }
+
+            // Short plain text ("MCP", "API") renders as a chip; any other unknown symbol falls back to the info glyph.
+            bool chip = data == null && icon.Length <= 6 && icon.All(ch => ch < 0x2000);
+            if (data == null && !chip)
+            {
+                data = "M12,10.5 V17 M12,6.6 V6.5";
+            }
 
             var border = new Border
             {
@@ -190,8 +202,8 @@ namespace RevitBridge.UI
             return border;
         }
 
-        /// <param name="iconColor">Legacy; the tile colour is now derived from the icon so every dialog uses the same palette.</param>
-        public void AddStatusCard(string icon, string label, string value, Brush? iconColor = null)
+        /// <param name="icon">Semantic key: success, stop, error, info, plug, chart, clock.</param>
+        public void AddStatusCard(string icon, string label, string value)
         {
             var card = new Border
             {
@@ -431,16 +443,7 @@ namespace RevitBridge.UI
                 };
                 button.Click += (s, e) =>
                 {
-                    if (!ProductInfo.TryOpenUrl(link.url, out var error))
-                    {
-                        MessageBox.Show(
-                            this,
-                            $"Could not open the link.\n\n{link.url}\n\n{error}",
-                            ProductInfo.ProductName,
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Warning
-                        );
-                    }
+                    OpenLink(link.url);
                 };
                 panel.Children.Add(button);
             }
@@ -544,18 +547,29 @@ namespace RevitBridge.UI
             };
             button.Click += (s, e) =>
             {
-                if (!ProductInfo.TryOpenUrl(url, out var error))
-                {
-                    MessageBox.Show(
-                        this,
-                        $"Could not open the link.\n\n{url}\n\n{error}",
-                        ProductInfo.ProductName,
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Warning
-                    );
-                }
+                OpenLink(url);
             };
             return button;
+        }
+
+        private void OpenLink(string url)
+        {
+            if (ProductInfo.TryOpenUrl(url, out var error))
+            {
+                return;
+            }
+
+            var notice = new ModernDialog { Owner = this };
+            notice.SetTitle(ProductInfo.ProductName, "Could not open the link");
+            notice.AddStatusCard("error", "Link", "Your system could not open this address.");
+            notice.AddInfoSection("Address", url);
+            if (!string.IsNullOrWhiteSpace(error))
+            {
+                notice.AddInfoSection("Details", error);
+            }
+
+            notice.SetActionButton("OK");
+            notice.ShowDialog();
         }
 
         public void SetActionButton(string text, Action? action = null)
