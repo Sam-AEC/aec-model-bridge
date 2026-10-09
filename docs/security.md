@@ -53,6 +53,17 @@ The C# Revit bridge supports two runtime modes:
 1. **Legacy Mode (Default)**: Binds to fixed port `3000` with no authentication (relies entirely on the localhost boundary). Enabled by default unless configured otherwise.
 2. **Contract v2 Mode**: Runs with dynamic loopback ports and bearer token authorization. A random per-session bearer token (nonce) is generated at startup and written to local registry files. The Python MCP provider reads the registry file, obtains the port and token, and uses authorization headers for subsequent requests.
 
+### Panel HTTP shim (`panel_server.py`)
+The panel hub (`aec-model-bridge-panel-server`, default port 8787) listens on `127.0.0.1` and serves `/execute`, `/agent/chat`, `/diagnostics`, `/reports`, `/agent/providers` and `/health`. Its only intended caller is the add-in's C# `HubClient`. Every request is checked:
+
+- `Host` must be `127.0.0.1:<port>` or `localhost:<port>` (the port the hub is actually bound to), otherwise 403.
+- Any request carrying an `Origin` header, including `Origin: null`, is refused with 403. `HubClient` sends no `Origin`.
+- `POST` requires `Content-Type: application/json` (a `charset` parameter is accepted), otherwise 415.
+- `OPTIONS` is not handled and no CORS headers are sent.
+- `GET /health` returns only `{"status": "healthy"}`.
+
+What this does not do: there is no authentication token yet, so it does not stop other software running as the same user from calling the port directly with a valid `Host` and no `Origin`. It does not change tool approval semantics; mutating tools remain gated by the approval flow. A token is planned separately.
+
 ---
 
 ## 3. Workspace Sandboxing
