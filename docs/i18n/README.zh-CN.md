@@ -6,7 +6,7 @@
 
 > 本文为 AI 辅助翻译。内容以英文版 [README](../../README.md) 为准；发现错误或有改进建议，欢迎通过 Pull Request 提交，详见 [CONTRIBUTING.md](../../CONTRIBUTING.md)。
 
-**向 AI 询问你正在打开的 Revit 模型。在你批准之前，模型不会有任何改动。**
+**向 AI 询问你正在打开的 Revit 模型。默认情况下，在你批准之前，模型不会有任何改动。**
 
 面向 Revit 2024 – 2027 的开源 MCP 服务器和原生插件，可与 Claude、Codex 及其他 MCP 客户端配合使用。
 

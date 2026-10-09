@@ -6,7 +6,7 @@
 
 > Cette traduction a été réalisée avec l'aide de l'IA. Le [README](../../README.md) en anglais fait foi ; les corrections sont les bienvenues via une pull request (voir [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
-**Interrogez votre IA sur le modèle Revit que vous avez ouvert. Rien ne change tant que vous n'avez pas approuvé.**
+**Interrogez votre IA sur le modèle Revit que vous avez ouvert. Par défaut, rien ne change tant que vous n'avez pas approuvé.**
 
 Serveur MCP open source et add-in natif pour Revit 2024 – 2027. Fonctionne avec Claude, Codex et d'autres clients MCP.
 

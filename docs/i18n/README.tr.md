@@ -6,7 +6,7 @@
 
 > Bu çeviri yapay zeka desteğiyle hazırlanmıştır. Esas kaynak İngilizce [README](../../README.md) dosyasıdır; düzeltmeler için pull request göndermekten çekinmeyin (bkz. [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
-**Açık Revit modelinizi yapay zekâya sorun. Siz onaylamadan hiçbir şey değişmez.**
+**Açık Revit modelinizi yapay zekâya sorun. Varsayılan olarak siz onaylamadan hiçbir şey değişmez.**
 
 Revit 2024 – 2027 için açık kaynaklı MCP sunucusu ve yerel eklenti. Claude, Codex ve diğer MCP istemcileriyle çalışır.
 

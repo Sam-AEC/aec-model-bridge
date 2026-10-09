@@ -6,7 +6,7 @@
 
 > Terjemahan ini dibuat dengan bantuan AI. README bahasa Inggris ([README](../../README.md)) adalah sumber acuan; koreksi sangat kami hargai melalui pull request (lihat [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
-**Tanyakan model Revit yang sedang Anda buka kepada AI Anda. Tidak ada yang berubah sebelum Anda menyetujuinya.**
+**Tanyakan model Revit yang sedang Anda buka kepada AI Anda. Secara default, tidak ada yang berubah sebelum Anda menyetujuinya.**
 
 Server MCP sumber terbuka dan add-in native untuk Revit 2024 – 2027. Bekerja dengan Claude, Codex, dan klien MCP lainnya.
 

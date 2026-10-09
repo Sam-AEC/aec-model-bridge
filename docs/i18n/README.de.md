@@ -6,7 +6,7 @@
 
 > Diese Übersetzung wurde mit KI-Unterstützung erstellt. Maßgeblich ist die englische [README](../../README.md); Korrekturen sind per Pull Request willkommen (siehe [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
-**Fragen Sie Ihre KI zum geöffneten Revit-Modell. Nichts ändert sich, bevor Sie es freigeben.**
+**Fragen Sie Ihre KI zum geöffneten Revit-Modell. Standardmäßig ändert sich nichts, bevor Sie es freigeben.**
 
 Open-Source-MCP-Server und natives Add-in für Revit 2024 – 2027. Funktioniert mit Claude, Codex und anderen MCP-Clients.
 

@@ -39,10 +39,6 @@ LANGUAGES = [
 ]
 TRANSLATIONS = [(label, name) for label, name in LANGUAGES if name]
 
-# Files that the README may reference before they are committed. They are
-# still required to exist once present, but a missing one is not a failure.
-PENDING_ASSETS = {"docs/images/readme/banner.png"}
-
 FENCE_RE = re.compile(r"^```.*?^```$", re.MULTILINE | re.DOTALL)
 LINK_RE = re.compile(r"\]\(([^)\s]+)\)")
 ATTR_RE = re.compile(r'(?:src|srcset)="([^"]+)"')
@@ -147,8 +143,6 @@ def test_relative_links_resolve(label: str, name: str) -> None:
         if not rel:
             continue
         resolved = (path.parent / rel).resolve()
-        if resolved.relative_to(ROOT).as_posix() in PENDING_ASSETS:
-            continue
         assert resolved.exists(), f"{name}: broken relative link {target}"
 
 

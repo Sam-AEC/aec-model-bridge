@@ -6,7 +6,7 @@
 
 > To tłumaczenie powstało z pomocą AI. Wiążące jest angielskie [README](../../README.md); poprawki są mile widziane w formie pull requestów (zob. [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
-**Zapytaj swoje AI o otwarty model Revit. Nic się nie zmieni, dopóki tego nie zatwierdzisz.**
+**Zapytaj swoje AI o otwarty model Revit. Domyślnie nic się nie zmieni, dopóki tego nie zatwierdzisz.**
 
 Otwartoźródłowy serwer MCP i natywny dodatek do Revit 2024 – 2027. Działa z Claude, Codex i innymi klientami MCP.
 

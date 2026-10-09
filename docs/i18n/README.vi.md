@@ -6,7 +6,7 @@
 
 > Bản dịch này được thực hiện với sự hỗ trợ của AI. [README](../../README.md) tiếng Anh là bản gốc; rất hoan nghênh các chỉnh sửa qua pull request (xem [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
-**Hỏi AI về mô hình Revit bạn đang mở. Không có gì thay đổi cho đến khi bạn phê duyệt.**
+**Hỏi AI về mô hình Revit bạn đang mở. Theo mặc định, không có gì thay đổi cho đến khi bạn phê duyệt.**
 
 Máy chủ MCP mã nguồn mở và add-in gốc cho Revit 2024 – 2027. Hoạt động với Claude, Codex và các ứng dụng khách MCP khác.
 
