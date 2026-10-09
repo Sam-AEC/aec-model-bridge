@@ -39,8 +39,24 @@ STORAGE_TYPE_VALIDATORS: Dict[str, type] = {
 def _workspace_dir(workspace: Any) -> Path:
     return workspace.allowed_directories[0]
 
+def _confined(workspace: Any, *parts: str) -> Path:
+    """Join parts under the workspace and refuse anything that resolves outside it.
+
+    Snapshot ids and file names come from the caller, and the draft-only tools run
+    without an approved plan, so '..', absolute paths and symlinks must not escape.
+    """
+    base = _workspace_dir(workspace)
+    candidate = (base.joinpath(*parts)).resolve()
+    checker = getattr(workspace, "assert_in_workspace", None)
+    if checker is not None:
+        return checker(candidate)
+    if not candidate.is_relative_to(base.resolve()):
+        raise ValueError(f"{candidate} is outside the allowed workspace directories")
+    return candidate
+
+
 def _load_snapshot(snapshot_id: str, workspace: Any) -> Dict[str, Any]:
-    path = _workspace_dir(workspace) / "snapshots" / f"{snapshot_id}.json"
+    path = _confined(workspace, "snapshots", f"{snapshot_id}.json")
     if not path.exists():
         raise ValueError(f"Snapshot '{snapshot_id}' not found.")
     with open(path, "r", encoding="utf-8") as f:
@@ -106,6 +122,10 @@ def _make_action_plan(tool_name: str, args: Dict[str, Any], preview: Dict[str, A
         "preview": preview,
         "requires_approval": True,
         "actions": _actions_from_planned(preview.get("planned", [])),
+        # Hand these to plan_actions (snapshot_id, skipped) so the proof bundle names the
+        # source document and lists what was left out and why.
+        "skipped": preview.get("blocked", []),
+        "snapshot_id": args.get("snapshot_id", ""),
     }
 
 
@@ -248,7 +268,12 @@ class ParameterManagerModule:
                         "storage": pinfo.get("storage"),
                     }
                 else:
-                    el_blocked.append({"param": pname, "reason": reason})
+                    el_blocked.append({
+                        "uid": el.get("uid"),
+                        "element_id": el.get("element_id"),
+                        "param": pname,
+                        "reason": reason,
+                    })
             
             if el_updates:
                 planned.append({
@@ -272,7 +297,7 @@ class ParameterManagerModule:
         
         return _make_action_plan(
             "plan_set_params",
-            {"element_filter": element_filter, "param_updates": param_updates},
+            {"element_filter": element_filter, "param_updates": param_updates, "snapshot_id": snapshot_id},
             {**preview, "planned": planned},
         )
 
@@ -288,7 +313,7 @@ class ParameterManagerModule:
         elements = self._get_elements(snapshot_id, workspace)
         matched = [el for el in elements if _match_element(el, element_filter)]
         
-        output_path = _workspace_dir(workspace) / output_filename
+        output_path = _confined(workspace, output_filename)
         
         header = ["uid", "element_id", "category", "family", "type_name"] + param_names
         with open(output_path, "w", newline="", encoding="utf-8") as csvfile:
@@ -321,7 +346,7 @@ class ParameterManagerModule:
         workspace: Any = None,
         **_,
     ) -> Dict[str, Any]:
-        csv_path = _workspace_dir(workspace) / csv_filename
+        csv_path = _confined(workspace, csv_filename)
         if not csv_path.exists():
             raise ValueError(f"CSV file '{csv_filename}' not found in workspace.")
         
