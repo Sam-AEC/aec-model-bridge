@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="../../assets/logo.svg" alt="AEC Model Bridge logo: an isometric model cube with a bridge arch" height="120">
+<img src="../../assets/logo.svg" alt="Logo AEC Model Bridge: izometryczna kostka modelu z łukiem mostu" height="120">
 
 [English](../../README.md) | [简体中文](README.zh-CN.md) | [Español](README.es.md) | [हिन्दी](README.hi.md) | [العربية](README.ar.md) | [Português (BR)](README.pt-BR.md) | [Русский](README.ru.md) | [日本語](README.ja.md) | [Deutsch](README.de.md) | [Français](README.fr.md) | [Bahasa Indonesia](README.id.md) | [Türkçe](README.tr.md) | [한국어](README.ko.md) | [Tiếng Việt](README.vi.md) | [Italiano](README.it.md) | **Polski** | [繁體中文](README.zh-TW.md)
 
@@ -20,20 +20,26 @@ Otwartoźródłowy serwer MCP i natywny dodatek do Revit 2024 – 2027. Działa 
 </div>
 
 <p align="center">
-  <img src="../images/readme/demo.gif" alt="Demo: asystent AI znajduje 12 drzwi bez Mark i przygotowuje plan. Plan czeka w panelu Revit, aż go zatwierdzisz, a potem wartości są odczytywane ponownie w celu sprawdzenia. Przykładowe wartości, symulowana sesja." width="900">
+  <img src="../images/readme/demo.gif" alt="Demo: trójwymiarowy model budynku obok panelu Revit. Asystent AI znajduje 12 drzwi bez Mark i przygotowuje plan. Plan czeka w panelu Revit, aż go zatwierdzisz, a potem wartości są odczytywane ponownie w celu sprawdzenia. Przykładowe wartości, symulowana sesja." width="900">
 </p>
 
-Połącz Claude, Codex lub innego klienta MCP z otwartym modelem Revit. AEC Model Bridge łączy serwer MCP w Pythonie z natywnym dodatkiem do Revit: narzędzia tylko do odczytu od razu badają model, a zmiany w modelu domyślnie wymagają zatwierdzonego planu. [Zobacz, jak działa zatwierdzanie](#jak-działa-zatwierdzanie).
+AEC Model Bridge to otwartoźródłowy serwer MCP dla Revit, który pozwala Claude, Codex, Cursorowi i innym asystentom AI odczytywać i edytować otwarty model Revit, przy czym każdą zmianę najpierw zatwierdzasz Ty. Łączy serwer MCP w Pythonie z natywnym dodatkiem do Revit: narzędzia tylko do odczytu od razu sprawdzają model, a zmiany w modelu domyślnie wymagają zatwierdzonego planu. [Zobacz, jak działa zatwierdzanie](#jak-działa-zatwierdzanie).
 
-Ten sam serwer obejmuje też inspekcję IFC, automatyzację Rhino i Grasshoppera oraz integrację ze Speckle. [Stan integracji](#inne-integracje) rozróżnia dostawców już dostępnych od tych, nad którymi trwają prace.
+<p align="center">
+  <img src="../images/readme/works-with.svg" alt="Działa z: Claude Desktop, VS Code z GitHub Copilot, Cursor i Codex mają udokumentowaną konfigurację. Inni klienci MCP, np. Claude Code, Windsurf, Cline, Continue, Zed i Gemini CLI, też powinni działać. Aplikacje: Revit 2024–2027, Rhino, Grasshopper, Navisworks (w trakcie prac). Dane: IFC, Speckle, Excel, SQLite. Protokół: MCP przez stdio z bramką zatwierdzania." width="900">
+</p>
+
+Konfiguracja jest udokumentowana dla Claude Desktop, VS Code z GitHub Copilot, Cursor i Codex. To standardowy serwer MCP działający przez stdio, więc inni klienci, np. Claude Code, Windsurf, Cline, Continue, Zed i Gemini CLI, też powinni działać. W [zgodności](../compatibility.md) opisano, co jest udokumentowane, a co nie było testowane.
+
+Ten sam serwer obejmuje też kontrolę plików IFC, automatyzację Rhino i Grasshoppera oraz integrację ze Speckle. [Stan integracji](#inne-integracje) rozróżnia dostawców już dostępnych od tych, nad którymi trwają prace.
 
 ## Przykładowe procesy pracy
 
-Dla koordynatorów BIM: sprawdź jakość modelu, przejrzyj dotknięte elementy, zatwierdź poprawkę parametrów, a potem zweryfikuj wyniki i wyeksportuj raport. Przykłady korzystają z narzędzi z [aktualnego katalogu](../tools-generated.md).
+Dla koordynatorów BIM: sprawdź jakość modelu, przejrzyj elementy, których dotyczą, zatwierdź poprawkę parametrów, a potem zweryfikuj wyniki i wyeksportuj raport. Przykłady korzystają z narzędzi z [aktualnego katalogu](../tools-generated.md).
 
 | Proces | Przykładowe polecenie | Użyte narzędzia |
 | --- | --- | --- |
-| Przegląd modelu | "Pokaż aktywny dokument, wypisz jego ostrzeżenia i znajdź dotknięte elementy." | `revit_get_document_info`, `revit_get_warnings`, `revit_get_elements_by_type` |
+| Przegląd modelu | "Pokaż aktywny dokument, wypisz jego ostrzeżenia i znajdź elementy, których dotyczą." | `revit_get_document_info`, `revit_get_warnings`, `revit_get_elements_by_type` |
 | Aktualizacja parametrów | "Znajdź ściany na Level 02, pokaż ich wartości Comments i zaproponuj aktualizację zbiorczą." | `revit_get_elements_by_type`, `revit_get_element_parameters`, `revit_batch_set_parameters` |
 | Przygotowanie rysunków | "Przygotuj listę arkuszy z tego pliku CSV, a potem zaproponuj utworzenie arkuszy i rozmieszczenie widoków." | `revit_batch_create_sheets_from_csv`, `revit_place_viewport_on_sheet` |
 | Przegląd IFC | "Pokaż kondygnacje tego pliku IFC, sprawdź właściwości ścian i zgłoś problemy z walidacją schematu." | `ifc_get_spatial_structure`, `ifc_get_properties`, `ifc_validate` |
@@ -101,10 +107,10 @@ Używasz VS Code? [Kod źródłowy rozszerzenia i kroki lokalnej instalacji](../
 | --- | --- | --- |
 | Revit | 103 | Odczyt modelu, tworzenie i edycja elementów, parametrów, widoków, arkuszy, zestawień, eksporty, współpraca (worksharing) |
 | Zatwierdzanie | 6 | Planowanie, przegląd, zatwierdzanie, wykonywanie i wycofywanie zmian modelu |
-| Moduły | 34 | Inspekcja migawek, siatki parametrów, kontrole QA/QC, przepisy, raporty, zaznaczenia |
+| Moduły | 34 | Inspekcja migawek, siatki parametrów, kontrole QA/QC, receptury, raporty, zaznaczenia |
 | Rhino i Grasshopper | 19 | Geometria, warstwy, materiały, operacje boolowskie |
 | Speckle | 17 | Projekty, modele, wersje, wysyłanie i odbieranie |
-| Navisworks | 15 | Drzewo modelu, punkty widzenia, testy kolizji (w toku) |
+| Navisworks | 15 | Drzewo modelu, punkty widzenia, testy kolizji (w trakcie prac) |
 | IFC | 7 | Odczyt plików IFC bez Revit: struktura, właściwości, walidacja |
 | Graf, migawki, eksporty, zadania | 18 | Audyty grafu semantycznego, różnice migawek, eksport do SQLite, zadania w tle |
 
@@ -114,7 +120,7 @@ W konfiguracji domyślnej widocznych jest 219 narzędzi (policzone na aktualnym 
 
 Oprócz zapytań do modelu i aktualizacji parametrów narzędzia Revit tworzą elementy budynku, widoki, arkusze, zestawienia, etykiety i wymiary oraz eksportują pliki IFC, DWG, obrazy i pliki Navisworks. Obsługiwane operacje i dane wejściowe opisuje [opis narzędzi](../tools-generated.md).
 
-Do tego, czego katalog narzędzi nie obejmuje, `revit_invoke_method`, `revit_reflect_get` i `revit_reflect_set` działają na publicznych składowych API Revit, a `revit_execute_python` uruchamia IronPython wewnątrz Revit. Te zaawansowane narzędzia mają takie same uprawnienia jak proces Revit. Używaj ich tylko z klientami MCP i promptami, którym ufasz.
+W sytuacjach, których katalog narzędzi nie obejmuje, `revit_invoke_method`, `revit_reflect_get` i `revit_reflect_set` działają na publicznych składowych API Revit, a `revit_execute_python` uruchamia IronPython wewnątrz Revit. Te zaawansowane narzędzia mają takie same uprawnienia jak proces Revit. Używaj ich tylko z klientami MCP i promptami, którym ufasz.
 
 ## Jak to działa
 
@@ -123,13 +129,13 @@ Klient MCP komunikuje się z jednym hubem w Pythonie. Hub przekazuje każde wywo
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/architecture-dark.png">
-    <img src="../images/architecture-light.png" alt="Architecture of AEC Model Bridge: an MCP client such as Claude or Codex calls the Python MCP hub, which routes tool calls to the Revit, Rhino, Navisworks, IFC and Speckle providers. The Revit and Rhino providers talk to add-ins over localhost HTTP, the IFC provider reads IFC files with IfcOpenShell, and Navisworks is still in progress." width="900">
+    <img src="../images/architecture-light.png" alt="Architektura AEC Model Bridge: klient MCP, np. Claude lub Codex, wywołuje hub MCP w Pythonie, który kieruje wywołania narzędzi do dostawców Revit, Rhino, Navisworks, IFC i Speckle. Dostawcy Revit i Rhino komunikują się z dodatkami przez HTTP na localhost, dostawca IFC odczytuje pliki IFC za pomocą IfcOpenShell, a Navisworks jest nadal w trakcie prac." width="900">
   </picture>
 </p>
 
 <sub>Źródło diagramu: [architecture.mmd](../diagrams/architecture.mmd). Obrazy wygenerujesz ponownie poleceniem `python scripts/render_diagrams.py`.</sub>
 
-Turkusowe ramki działają już dziś. Bursztynowe przerywane ramki są w toku. Granatowe kształty to dane i usługi zewnętrzne.
+Turkusowe ramki działają już dziś. Bursztynowe ramki z linią przerywaną są w trakcie prac. Granatowe kształty to dane i usługi zewnętrzne.
 
 ### Jak działa zatwierdzanie
 
@@ -138,14 +144,14 @@ Hub zatrzymuje każde wywołanie narzędzia zmieniającego model, jeśli nie tow
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-dark.png">
-    <img src="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-light.png" alt="Inspect, Propose, Approve, Verify. Four steps: inspect finds an empty Mark, propose drafts a change, approve is a human decision, verify reads the value back. Example values are illustrative." width="900">
+    <img src="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-light.png" alt="Sprawdź, zaproponuj, zatwierdź, zweryfikuj. Cztery kroki: sprawdzenie znajduje puste pole Mark, propozycja przygotowuje zmianę, zatwierdzenie to decyzja człowieka, weryfikacja odczytuje wartość ponownie. Wartości są przykładowe." width="900">
   </picture>
 </p>
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant proposes a plan, the MCP hub and ApprovalGate show it in the Revit side panel, and only after you approve does execute_plan forward the commands to the Revit add-in, which runs them in one named transaction. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
+    <img src="../images/approval-flow-light.png" alt="Przepływ zatwierdzania: asystent AI proponuje plan, hub MCP i ApprovalGate pokazują go w panelu bocznym Revit, a dopiero po Twoim zatwierdzeniu execute_plan przekazuje polecenia do dodatku Revit, który wykonuje je w jednej nazwanej transakcji. Jeśli odrzucisz plan lub nigdy go nie zatwierdzisz, wywołanie jest blokowane, a model pozostaje nietknięty." width="900">
   </picture>
 </p>
 
@@ -174,13 +180,15 @@ Potrzebujesz także Windows 10 lub 11, Pythona 3.11 lub nowszego oraz licencjono
 | IFC (IfcOpenShell) | Dostępne. Odczytuje pliki IFC bez uruchomionego Revit. |
 | Rhino i Grasshopper | Dostępne. Łączy się z dodatkiem Rhino pod `localhost:3004`. |
 | Speckle | Dostępne. Wymaga identyfikatora klienta Speckle w środowisku. |
-| Navisworks Manage | W toku. Dostawca i jego narzędzia są zarejestrowane. Dodatek do Navisworks nie jest ukończony. |
-| Power BI | W toku. Dostawca i narzędzie istnieją, ale nie są zarejestrowane w hubie. |
+| Navisworks Manage | W trakcie prac. Dostawca i jego narzędzia są zarejestrowane. Dodatek do Navisworks nie jest ukończony. |
+| Power BI | W trakcie prac. Dostawca i narzędzie istnieją, ale nie są zarejestrowane w hubie. |
 | Excel, Parquet i DuckDB | Planowane. |
+
+Nazwy produktów i logotypy należą do ich właścicieli. Baner używa ich wyłącznie po to, by pokazać, z czym współpracuje ten projekt.
 
 ## Instalacja dodatku do Revit
 
-**Najprościej (Windows):** pobierz `AECModelBridge-Setup-<version>.exe` z [najnowszego wydania](https://github.com/Sam-AEC/aec-model-bridge/releases/latest), kliknij go dwukrotnie, wybierz swoje wersje Revit i uruchom Revit ponownie. Instalator doda dodatek, dołączony serwer Pythona i, po zaznaczeniu pola, ustawienia Claude Desktop oraz VS Code, z kopią zapasową bieżących ustawień. Odinstalujesz go w Ustawieniach Windows. Poniższe kroki dotyczą kompilacji ze źródeł.
+**Najprościej (Windows):** pobierz `AECModelBridge-Setup-<version>.exe` z [najnowszego wydania](https://github.com/Sam-AEC/aec-model-bridge/releases/latest), kliknij go dwukrotnie, wybierz swoje wersje Revit i uruchom Revit ponownie. Zainstaluje dodatek, dołączony serwer Pythona i, po zaznaczeniu pola, ustawienia Claude Desktop oraz VS Code, z kopią zapasową bieżących ustawień. Odinstalujesz go w Ustawieniach Windows. Poniższe kroki dotyczą kompilacji ze źródeł.
 
 Instalujesz dwie części: serwer MCP w Pythonie i dodatek do Revit. Automatyzacja Revit na żywo wymaga obu.
 
@@ -226,7 +234,7 @@ Aby przygotować pliki binarne dla wszystkich obsługiwanych wersji naraz:
 .\scripts\package.ps1 -RevitVersion All
 ```
 
-Każde [wydanie na GitHubie](https://github.com/Sam-AEC/aec-model-bridge/releases/latest) zawiera gotowy pakiet dla każdego roku Revit, na przykład `aec-model-bridge-revit-2026-<version>.zip`. Rozpakuj go i uruchom `.\install.ps1 -RevitVersion 2026` zamiast kompilować ze źródeł. Instalator Windows uruchamiany dwukrotnym kliknięciem tworzy `scripts/build-installer.ps1` przy użyciu Inno Setup. Pełny przewodnik z rozwiązywaniem problemów znajdziesz w [docs/install.md](../install.md).
+Każde [wydanie na GitHubie](https://github.com/Sam-AEC/aec-model-bridge/releases/latest) zawiera gotowy pakiet dla każdego roku Revit, na przykład `aec-model-bridge-revit-2026-<version>.zip`. Rozpakuj go i uruchom `.\install.ps1 -RevitVersion 2026` zamiast kompilować ze źródeł. Skrypt `scripts/build-installer.ps1` buduje za pomocą Inno Setup instalator Windows uruchamiany dwukrotnym kliknięciem. Pełny przewodnik z rozwiązywaniem problemów znajdziesz w [docs/install.md](../install.md).
 
 ## Łączenie Claude Desktop z Revit
 
@@ -293,7 +301,7 @@ Model Context Protocol (MCP) to otwarty standard, który pozwala asystentom AI w
 
 ### Z którymi asystentami AI to działa?
 
-Z każdym klientem MCP, który potrafi uruchomić lokalny serwer stdio. Dokumentujemy Claude Desktop, VS Code z GitHub Copilot oraz klientów czytających standardową konfigurację `mcpServers`. Czat w panelu może też korzystać z klucza API Anthropic albo z narzędzi wiersza poleceń `claude` lub `codex`, jeśli są zainstalowane. Zob. [ADR 0012](../0012-native-agent-chat-backend.md).
+Z każdym klientem MCP, który potrafi uruchomić lokalny serwer stdio. Dokumentujemy Claude Desktop, VS Code z GitHub Copilot, Cursor i Codex oraz klientów czytających standardową konfigurację `mcpServers`. Windsurf, Cline, Roo Code, Continue, Zed, Claude Code i Gemini CLI powinni działać tak samo, ale nie byli testowani. Zob. [zgodność](../compatibility.md). Czat w panelu może też korzystać z klucza API Anthropic albo z narzędzi wiersza poleceń `claude` lub `codex`, jeśli są zainstalowane. Zob. [ADR 0012](../0012-native-agent-chat-backend.md).
 
 ### Czy AI może zmienić mój model bez pytania?
 
