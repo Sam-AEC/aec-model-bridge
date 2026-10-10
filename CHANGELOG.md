@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Security: a person can now recover a plan stuck by a crashed process. `aec-model-bridge-approve recover <plan_id> --reason ...` marks actions left in `running` as `abandoned` (never re-run, the approved plan becomes `partial`, remaining actions need a new plan); `show` lists running actions with their age. It is not an MCP tool and nothing recovers automatically. Plan writes retry `os.replace` up to 5 times on a Windows `PermissionError` before failing with a clear error (UNVERIFIED on Windows). `docs/security.md` lists the remaining gaps and ADR 0017 (Proposed) covers document binding and expiry; no behaviour change for those.
 - Brand: adopt the text-free Ember mesh mark (three jackal heads in an ouroboros ring) in `assets/`, the installer wizard images, `icon.ico`, the VS Code extension icon and all READMEs; add `assets/social-preview.png` and `docs/design/brand.md`. The social preview image must still be set by hand in repository Settings.
 - Security: log and error redaction now also covers UNC network paths (`\\server\share\model.rvt`, the usual way central models are shared) and backslash paths without a drive letter. Before, a server or share name could appear in audit logs and error messages. This also fixes `test_redaction_in_server` on Linux.
 ## 1.4.0 - 2026-10-09
