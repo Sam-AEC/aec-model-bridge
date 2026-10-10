@@ -601,6 +601,16 @@ p {
   margin-right: 4px;
 }
 
+.plan-review {
+  margin: 8px 0 0;
+  padding: 8px;
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 12px/1.4 ui-monospace, Consolas, monospace;
+}
+
 /* Setup check (first run). Pass/fail is carried by the text label and glyph,
    never by colour alone. */
 .setup {

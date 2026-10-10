@@ -21,17 +21,23 @@ from typing import Any, Dict, List, Optional, Tuple
 
 SCHEMA = "amb.proof/1"
 PARAM_TOOL = "revit_set_parameter_value"
-_ID_RE = re.compile(r"^[A-Za-z0-9_\-]{1,128}$")
+_ID_RE = re.compile(r"[A-Za-z0-9_\-]{1,128}")
 
 
 def validate_plan_id(plan_id: Any) -> str:
-    if not isinstance(plan_id, str) or not _ID_RE.match(plan_id):
+    if not isinstance(plan_id, str) or not _ID_RE.fullmatch(plan_id):
         raise ValueError("Invalid plan_id.")
     return plan_id
 
 
 def proof_path(workspace_dir: Path, plan_id: str) -> Path:
     return Path(workspace_dir) / "proofs" / f"{validate_plan_id(plan_id)}.json"
+
+
+def _hashable_arguments(arguments: Any) -> Any:
+    if isinstance(arguments, dict):
+        return {k: v for k, v in arguments.items() if k != "plan_id"}
+    return {"__not_an_object__": arguments}
 
 
 def plan_content_hash(plan: Dict[str, Any]) -> str:
@@ -45,7 +51,7 @@ def plan_content_hash(plan: Dict[str, Any]) -> str:
             {
                 "action_id": a.get("action_id"),
                 "tool": a.get("tool"),
-                "arguments": {k: v for k, v in (a.get("arguments") or {}).items() if k != "plan_id"},
+                "arguments": _hashable_arguments(a.get("arguments")),
                 "before": (a.get("diff") or {}).get("before"),
             }
             for a in plan.get("actions", [])
@@ -62,7 +68,7 @@ def _load_snapshot_doc(workspace_dir: Path, snapshot_id: Optional[str]) -> Tuple
     doc: Dict[str, Any] = {"snapshot_id": snapshot_id, "doc_guid": None, "doc_title": None}
     uids: Dict[str, str] = {}
     try:
-        if not _ID_RE.match(snapshot_id):
+        if not _ID_RE.fullmatch(snapshot_id):
             raise ValueError("bad snapshot id")
         with open(Path(workspace_dir) / "snapshots" / f"{snapshot_id}.json", "r", encoding="utf-8") as f:
             snap = json.load(f)
@@ -146,7 +152,8 @@ def build_proof(
         "approved_at": plan.get("approved_at"),
         "executed_at": plan.get("executed_at") or datetime.now(timezone.utc).isoformat(),
         "approved_by": plan.get("approved_by"),
-        "approver_note": "self-reported by the approving client; not authenticated"
+        "approver_note": "OS account running the approving panel hub or command-line tool "
+                         f"(approved via {plan.get('approved_via') or 'unknown'}); not an authenticated identity"
         if plan.get("approved_by") else "approver identity was not recorded",
         "document": document,
         "plan_hash": plan_content_hash(plan),

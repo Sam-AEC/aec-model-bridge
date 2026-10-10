@@ -10,6 +10,8 @@ from revit_mcp_server.providers.registry import ProviderRegistry
 from revit_mcp_server.security.workspace import WorkspaceMonitor
 
 from test_approval_provider import FakeParamStore
+from helpers import panel_decide, human_approve
+from revit_mcp_server.security.approval import local_user
 
 
 @pytest.fixture
@@ -33,7 +35,7 @@ def _acts(*ids, value="60"):
 async def _run(approval, actions, **plan_kwargs):
     plan = await approval.execute_tool("plan_actions", {"actions": actions, **plan_kwargs})
     pid = plan["plan_id"]
-    await approval.execute_tool("approve_plan", {"plan_id": pid, "approver": "coordinator@example.com"})
+    await panel_decide(approval, "approve_plan", pid)
     result = await approval.execute_tool("execute_plan", {"plan_id": pid})
     return pid, result
 
@@ -61,7 +63,7 @@ async def test_proof_written_on_success(env):
     assert proof["outcome"] == "success"
     assert proof["plan_id"] == pid
     assert proof["tool"] == "revit_set_parameter_value"
-    assert proof["approved_by"] == "coordinator@example.com"
+    assert proof["approved_by"] == local_user()  # recorded by the code path, not the caller
     assert proof["created_at"] and proof["approved_at"] and proof["executed_at"]
     assert proof["document"] == {"snapshot_id": "snap1", "doc_guid": "guid-1", "doc_title": "Tower.rvt"}
     assert proof["plan_hash"].startswith("sha256:")
@@ -75,14 +77,15 @@ async def test_proof_written_on_success(env):
 
 
 @pytest.mark.anyio
-async def test_proof_without_approver_says_so(env):
+async def test_proof_records_the_approving_account_not_a_caller_name(env):
     tmp_path, approval, _ = env
     plan = await approval.execute_tool("plan_actions", {"actions": _acts(1)})
-    await approval.execute_tool("approve_plan", {"plan_id": plan["plan_id"]})
+    await panel_decide(approval, "approve_plan", plan["plan_id"])
     await approval.execute_tool("execute_plan", {"plan_id": plan["plan_id"]})
     proof = _proof_file(tmp_path, plan["plan_id"])
-    assert proof["approved_by"] is None
-    assert "not recorded" in proof["approver_note"]
+    # The approver is the OS account of the approving process, never a caller-supplied name.
+    assert proof["approved_by"] == local_user()
+    assert "not an authenticated identity" in proof["approver_note"]
     assert proof["document"] is None
 
 
@@ -115,7 +118,7 @@ async def test_direct_tool_path_writes_proof(env):
     tmp_path, approval, _ = env
     plan = await approval.execute_tool("plan_actions", {"actions": _acts(1)})
     pid = plan["plan_id"]
-    approval.gate.update_plan_state(pid, "approved", approver="someone")
+    human_approve(approval.gate, pid, approver="someone")
     approval.gate.update_plan_state(pid, "executed")  # what mcp_server/panel do after a direct call
     proof = _proof_file(tmp_path, pid)
     assert proof["approved_by"] == "someone"
@@ -157,7 +160,7 @@ async def test_plan_revert_content_and_never_auto_executes(env):
     with pytest.raises(ValueError, match="not 'approved'"):
         await approval.execute_tool("execute_plan", {"plan_id": revert["plan_id"]})
     # After approval + execution the originals are restored and the revert has its own proof.
-    await approval.execute_tool("approve_plan", {"plan_id": revert["plan_id"]})
+    await panel_decide(approval, "approve_plan", revert["plan_id"])
     await approval.execute_tool("execute_plan", {"plan_id": revert["plan_id"]})
     assert store.values[1]["FireRating"] == "30" and store.values[2]["FireRating"] == "45"
     assert _proof_file(tmp_path, revert["plan_id"])["reverts_plan_id"] == pid
