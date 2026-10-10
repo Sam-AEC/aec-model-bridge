@@ -94,7 +94,7 @@ public sealed class PanelHubLauncher
             // user already has set system-wide; otherwise default to Documents, same
             // as install.ps1's own default.json.
             SetEnvironmentDefault(startInfo, "MCP_REVIT_MODE", "bridge");
-            var defaultWorkspace = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            var defaultWorkspace = WorkspaceDirectory.Default(); // same as config.py's default_workspace_dir()
             SetEnvironmentDefault(startInfo, "MCP_REVIT_WORKSPACE_DIR", defaultWorkspace);
             SetEnvironmentDefault(startInfo, "MCP_REVIT_ALLOWED_DIRECTORIES", defaultWorkspace);
 
