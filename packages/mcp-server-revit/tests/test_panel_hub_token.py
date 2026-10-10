@@ -703,3 +703,48 @@ def test_csharp_retries_on_429_and_does_not_leak_process_handles():
     assert src.count("result.Status == 429") >= 2
     assert "Process.GetCurrentProcess().Id" not in src and "using (var current = Process.GetCurrentProcess())" in src
     assert "TokenFileGoneMessage" in src
+
+
+def _registry_file(directory, pid, started_at):
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / f"revit-{pid}.json").write_text(json.dumps({
+        "provider_id": "revit", "endpoint": f"http://127.0.0.1:{4000 + pid}", "pid": pid,
+        "host_version": "2026", "connector_version": "1", "protocol_version": 2,
+        "capability_digest": "dynamic", "session_token": "bridge-secret", "started_at": started_at,
+    }))
+
+
+def test_long_running_revit_stays_routable_and_nothing_is_deleted(tmp_path, bridge_mode, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    from revit_mcp_server.bridge import discovery
+
+    registry = tmp_path / "registry"
+    old = (datetime.now(timezone.utc) - timedelta(days=20)).isoformat()
+    _registry_file(registry, 111, old)
+    monkeypatch.setattr(discovery, "REGISTRY_DIR", registry)
+    monkeypatch.setattr(discovery, "is_pid_alive", lambda pid: True)
+    monkeypatch.setattr(discovery, "process_start_time", lambda pid: datetime.now(timezone.utc) - timedelta(days=20))
+    assert panel_server.resolve_instance({"pid": 111}, "revit_get_document_info").pid == 111
+    assert panel_server.resolve_instance(None, "revit_get_document_info").pid == 111
+    assert (registry / "revit-111.json").exists()  # a read path does not delete
+
+
+def test_dead_pid_or_recycled_pid_is_refused_without_deleting(tmp_path, bridge_mode, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    from revit_mcp_server.bridge import discovery
+
+    registry = tmp_path / "registry"
+    old = (datetime.now(timezone.utc) - timedelta(days=20)).isoformat()
+    _registry_file(registry, 111, old)
+    monkeypatch.setattr(discovery, "REGISTRY_DIR", registry)
+    monkeypatch.setattr(discovery, "is_pid_alive", lambda pid: False)
+    with pytest.raises(panel_server.InstanceRoutingError):
+        panel_server.resolve_instance({"pid": 111}, "revit_get_document_info")
+    # alive, but the process started long after the registry entry was written: a recycled pid
+    monkeypatch.setattr(discovery, "is_pid_alive", lambda pid: True)
+    monkeypatch.setattr(discovery, "process_start_time", lambda pid: datetime.now(timezone.utc))
+    with pytest.raises(panel_server.InstanceRoutingError):
+        panel_server.resolve_instance({"pid": 111}, "revit_get_document_info")
+    assert (registry / "revit-111.json").exists()
