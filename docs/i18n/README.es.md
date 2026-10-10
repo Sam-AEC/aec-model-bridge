@@ -184,7 +184,7 @@ formas índigo son datos y servicios externos.
 El hub bloquea cualquier llamada a una herramienta que modifique el modelo salvo que lleve un
 plan aprobado. El modo predeterminado es `required`. La IA propone un plan, tú
 lo revisas en el panel lateral de Revit y el complemento lo ejecuta en el hilo principal de Revit
-con una transacción con nombre.
+y cada acción va en su propia transacción con nombre.
 
 <p align="center">
   <picture>
@@ -208,8 +208,8 @@ Un deshacer en un solo paso para un plan completo está planificado, no construi
 `rollback_plan` vuelve a escribir los valores previos registrados en orden inverso y
 puede omitir una acción si no se registró un valor previo, así que lee sus advertencias.
 Ninguna de las dos vías está verificada todavía en una sesión real de Revit (UNVERIFIED).
-Las operaciones que no se pueden revertir, como la escritura de archivos, piden una segunda
-confirmación. El ciclo de vida está descrito en
+Las operaciones que no se pueden revertir, como la escritura de archivos, no se deshacen
+por ninguna de las dos vías y todavía no piden una segunda confirmación (planificado). El ciclo de vida está descrito en
 [ADR 0008](../0008-approval-gate-lifecycle.md).
 
 Para pipelines desatendidos puedes definir `MCP_REVIT_APPROVAL_MODE=auto`. Eso desactiva

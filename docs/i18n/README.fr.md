@@ -139,7 +139,7 @@ Les cadres turquoise fonctionnent aujourd'hui. Les cadres ambre en pointillés s
 
 ### Fonctionnement de l'approbation
 
-Le hub bloque tout appel d'outil qui modifie le modèle s'il n'est pas accompagné d'un plan approuvé. Le mode par défaut est `required`. L'IA propose un plan, vous l'examinez dans le panneau latéral de Revit, et l'add-in l'exécute dans le thread principal de Revit, dans une transaction nommée.
+Le hub bloque tout appel d'outil qui modifie le modèle s'il n'est pas accompagné d'un plan approuvé. Le mode par défaut est `required`. L'IA propose un plan, vous l'examinez dans le panneau latéral de Revit, et l'add-in l'exécute dans le thread principal de Revit, chaque action dans sa propre transaction nommée.
 
 <p align="center">
   <picture>
@@ -157,7 +157,7 @@ Le hub bloque tout appel d'outil qui modifie le modèle s'il n'est pas accompagn
 
 <sub>Source du schéma : [approval-flow.mmd](../diagrams/approval-flow.mmd). Régénérez les images avec `python scripts/render_diagrams.py`.</sub>
 
-Si un plan se révèle erroné, annulez-le avec Ctrl+Z dans Revit. Chaque écriture de paramètre est sa propre transaction nommée, donc un plan peut demander plusieurs appuis. Une annulation en une seule étape pour un plan entier est prévue, pas encore construite. `rollback_plan` réécrit les valeurs d'origine enregistrées dans l'ordre inverse et peut ignorer une action si aucune valeur d'origine n'a été enregistrée ; lisez donc ses avertissements. Aucune des deux voies n'est encore vérifiée dans une vraie session Revit (UNVERIFIED). Les opérations irréversibles, comme l'écriture de fichiers, demandent une seconde confirmation. Le cycle de vie est décrit dans l'[ADR 0008](../0008-approval-gate-lifecycle.md).
+Si un plan se révèle erroné, annulez-le avec Ctrl+Z dans Revit. Chaque écriture de paramètre est sa propre transaction nommée, donc un plan peut demander plusieurs appuis. Une annulation en une seule étape pour un plan entier est prévue, pas encore construite. `rollback_plan` réécrit les valeurs d'origine enregistrées dans l'ordre inverse et peut ignorer une action si aucune valeur d'origine n'a été enregistrée ; lisez donc ses avertissements. Aucune des deux voies n'est encore vérifiée dans une vraie session Revit (UNVERIFIED). Les opérations irréversibles, comme l'écriture de fichiers, ne sont annulées par aucune des deux voies et ne demandent pas encore de seconde confirmation (prévu). Le cycle de vie est décrit dans l'[ADR 0008](../0008-approval-gate-lifecycle.md).
 
 Pour les pipelines sans surveillance, vous pouvez définir `MCP_REVIT_APPROVAL_MODE=auto`. Cela désactive la vérification par un humain ; ne l'utilisez donc que dans un environnement maîtrisé.
 
