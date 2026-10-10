@@ -196,7 +196,9 @@ def test_vendored_libraries_match_vendor_txt():
     hashes = _vendor_hashes()
     assert set(hashes) == {"smd.min.js", "highlight.core-min.js"}
     for name, expected in hashes.items():
-        actual = hashlib.sha256((VENDOR / name).read_bytes()).hexdigest()
+        # autocrlf checkouts on Windows may turn LF into CRLF; the published bytes are LF.
+        data = (VENDOR / name).read_bytes().replace(b"\r\n", b"\n")
+        actual = hashlib.sha256(data).hexdigest()
         assert actual == expected, f"{name} differs from VENDOR.txt"
 
 
