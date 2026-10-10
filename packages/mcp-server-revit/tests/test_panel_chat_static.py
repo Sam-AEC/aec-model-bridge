@@ -58,15 +58,15 @@ def test_csp_meta_is_present_and_strict():
 
 def test_csp_meta_precedes_every_script_and_stylesheet():
     meta = HTML.index("Content-Security-Policy")
-    for tag in re.finditer(r"<(?:script|link)\b", HTML):
+    for tag in re.finditer(r"<(?:script|link)\b", HTML, re.I):
         assert tag.start() > meta, "a script/link is parsed before the CSP applies"
 
 
 def test_page_has_no_inline_script_style_or_handlers():
     """The CSP (no 'unsafe-inline') would block these, so they must not exist."""
-    for m in re.finditer(r"<script\b([^>]*)>", HTML):
+    for m in re.finditer(r"<script\b([^>]*)>", HTML, re.I):
         assert "src=" in m.group(1), "inline <script> would be blocked by the CSP"
-    assert not re.search(r"<style\b", HTML), "inline <style> would be blocked"
+    assert not re.search(r"<style\b", HTML, re.I), "inline <style> would be blocked"
     assert not re.search(r"\sstyle\s*=", HTML), "style attribute would be blocked"
     assert not re.search(r"\son[a-z]+\s*=", HTML, re.I), "inline event handler"
     assert 'href="#brand-mark"' in HTML  # same-document SVG refs are fine
