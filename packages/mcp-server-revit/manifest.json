@@ -16,6 +16,9 @@
   "homepage": "https://github.com/Sam-AEC/aec-model-bridge",
   "documentation": "https://github.com/Sam-AEC/aec-model-bridge#installation",
   "support": "https://github.com/Sam-AEC/aec-model-bridge/issues",
+  "privacy_policies": [
+    "https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/privacy.md"
+  ],
   "server": {
     "type": "uv",
     "entry_point": "src/revit_mcp_server/mcp_server.py",
