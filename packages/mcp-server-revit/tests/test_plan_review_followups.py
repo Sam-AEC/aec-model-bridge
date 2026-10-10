@@ -44,22 +44,29 @@ def _env(tmp_path, values):
 
 @pytest.mark.anyio
 async def test_revert_with_many_long_conflicts_is_drafted_within_budget_and_names_every_element(tmp_path):
+    # The executed state is built directly (running 600 actions through the claim path is slow
+    # and is not what this test is about): plan on disk in 'executed' state plus its proof bundle.
     n = 600
-    approval, store = _env(tmp_path, {i: {"Comments": "A" * 200} for i in range(1, n + 1)})
-    acts = [_act(i, "B" * 200, "Comments") for i in range(1, n + 1)]
-    pid = (await approval.execute_tool("plan_actions", {"actions": acts}))["plan_id"]
-    await panel_decide(approval, "approve_plan", pid)
-    await approval.execute_tool("execute_plan", {"plan_id": pid})
-    for i in range(1, n + 1):
-        store.values[i]["Comments"] = "C" * 200
-    revert = await approval.execute_tool("plan_revert", {"plan_id": pid, "allow_conflicts": True})
+    approval, store = _env(tmp_path, {i: {"Comments": "C" * 200} for i in range(1, n + 1)})
+    gate = approval.gate
+    acts = [_act(i, "B" * 200, "Comments") for i in range(1, n + 1)] + [{"tool": "revit_other_tool", "arguments": {}}]
+    befores = [{str(i): {"Comments": "A" * 200}} for i in range(1, n + 1)] + [{}]
+    plan = gate.create_plan(acts, befores)
+    for a in plan["actions"]:
+        a["state"] = "executed"
+    plan["state"] = "executed"
+    gate.save_plan(plan)
+    gate.record_proof(plan)
+    revert = await approval.execute_tool("plan_revert", {"plan_id": plan["plan_id"], "allow_conflicts": True})
     review = revert["review"]
-    assert len(json.dumps(review).encode()) <= proof.REVIEW_MAX_BYTES
+    assert len(json.dumps(review, ensure_ascii=False).encode()) <= proof.REVIEW_BUDGET_BYTES
+    assert review["warnings"][0].startswith("Action ")  # unreverted-action warning comes first
+    assert len(review["conflicts"]) < n  # the detailed list overflowed ...
     named = {c["element_id"] for c in review["conflicts"]}
     for w in review["warnings"]:
         if w.startswith("Also changed"):
             named |= {int(x.split("/")[0]) for x in w.split(": ", 1)[1].split(", ") if "/" in x}
-    assert 1 in named and n in named and len(named) == n  # nobody is silently dropped
+    assert named == set(range(1, n + 1))  # ... and nobody is silently dropped
 
 
 def test_conflict_values_are_clipped_visibly():
