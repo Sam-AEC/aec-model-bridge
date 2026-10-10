@@ -105,16 +105,16 @@ Usi VS Code? Il [sorgente dell'estensione e i passaggi di installazione locale](
 
 | Area | Strumenti | Cosa fanno |
 | --- | --- | --- |
-| Revit | 103 | Leggere il modello, creare e modificare elementi, parametri, viste, tavole, abachi, esportazioni, condivisione del lavoro (worksharing) |
-| Approvazione | 6 | Pianificare, rivedere, approvare, eseguire e annullare le modifiche al modello |
-| Moduli | 34 | Ispezione degli snapshot, griglie di parametri, controlli QA/QC, ricette, report, selezioni |
+| Revit | 105 | Leggere il modello, creare e modificare elementi, parametri, viste, tavole, abachi, esportazioni, condivisione del lavoro (worksharing) |
+| Approvazione | 5 | Pianificare, rivedere, approvare, eseguire e annullare le modifiche al modello |
+| Moduli | 55 | Ispezione degli snapshot, griglie di parametri, controlli QA/QC, ricette, report, selezioni |
 | Rhino e Grasshopper | 19 | Geometria, layer, materiali, operazioni booleane |
 | Speckle | 17 | Progetti, modelli, versioni, invio e ricezione |
 | Navisworks | 15 | Albero del modello, punti di vista, verifiche di interferenza (in sviluppo) |
 | IFC | 7 | Leggere file IFC senza Revit: struttura, proprietà, validazione |
 | Grafo, snapshot, esportazioni, job | 18 | Audit del grafo semantico, differenze tra snapshot, esportazione SQLite, job in background |
 
-Nella configurazione predefinita sono elencati 219 strumenti (contati dal server attuale in modalità mock). Gli strumenti Autodesk Data compaiono quando sono configurate le credenziali APS. Il [riferimento degli strumenti](../tools-generated.md) li elenca tutti. Ogni strumento ha annotazioni MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), così i client possono distinguere le letture dalle scritture.
+Nella configurazione predefinita sono elencati 241 strumenti (contati dal server attuale in modalità mock). Gli strumenti Autodesk Data compaiono quando sono configurate le credenziali APS. Il [riferimento degli strumenti](../tools-generated.md) li elenca tutti. Ogni strumento ha annotazioni MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), così i client possono distinguere le letture dalle scritture.
 
 ### Automazione avanzata di Revit
 
@@ -151,13 +151,13 @@ L'hub blocca qualsiasi chiamata a uno strumento che modifica il modello, a meno 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant drafts a plan with plan_actions, the side panel shows the proposed changes (counts, scope, before and after), and a human approves in the panel or with the aec-model-bridge-approve CLI, never over MCP. The hub checks that the plan matches the approved tool and arguments, once only. Revit then runs each action in its own transaction, so Ctrl+Z undoes one action per press. After verifying, you can also use rollback_plan, which may skip actions with no recorded before-value. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
+    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant drafts a plan with plan_actions, the side panel shows the proposed changes (counts, scope, before and after), and a human approves in the panel or with the aec-model-bridge-approve CLI, never over MCP. The hub checks that the plan matches the approved tool and arguments, once only. Revit then runs each action in its own transaction, so Ctrl+Z undoes one action per press. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
   </picture>
 </p>
 
 <sub>Sorgente del diagramma: [approval-flow.mmd](../diagrams/approval-flow.mmd). Rigenera le immagini con `python scripts/render_diagrams.py`.</sub>
 
-Se un piano si rivela sbagliato, annullalo con Ctrl+Z in Revit. Ogni scrittura di parametro è una transazione con nome a sé, quindi un piano può richiedere più pressioni. Un annullamento in un solo passaggio per un intero piano è pianificato, non realizzato. `rollback_plan` riscrive i valori precedenti registrati in ordine inverso e può saltare un'azione se non è stato registrato alcun valore precedente, quindi leggi i suoi avvisi. Nessuno dei due percorsi è ancora verificato in una sessione Revit reale (UNVERIFIED). Le operazioni che non si possono annullare, come la scrittura di file, non vengono annullate da nessuno dei due percorsi e non chiedono ancora una seconda conferma (pianificato). L'elenco Plans del pannello mostra solo i piani in sospeso; `aec-model-bridge-approve show <plan_id>` funziona per un piano in qualsiasi stato, mentre i pacchetti `proofs/` esistono solo per i piani eseguiti (o tentati). Il ciclo di vita è descritto nell'[ADR 0008](../0008-approval-gate-lifecycle.md).
+Se un piano si rivela sbagliato, annullalo con Ctrl+Z in Revit. Ogni scrittura di parametro è una transazione con nome a sé, quindi un piano può richiedere più pressioni. Un annullamento in un solo passaggio per un intero piano è pianificato, non realizzato. Una seconda via è un piano di ripristino: l'assistente ne redige uno con `plan_revert` a partire dalla prova di un piano eseguito, e tu lo approvi come qualsiasi altro piano. `rollback_plan` è solo per le persone e non è né un pulsante né un comando, quindi non contarci. Nessuna di queste vie è ancora verificata in una sessione Revit reale (UNVERIFIED). Le operazioni che non si possono annullare, come la scrittura di file, non vengono annullate da nessuna di esse e non chiedono ancora una seconda conferma (pianificato). L'elenco Plans del pannello mostra solo i piani in sospeso; `aec-model-bridge-approve show <plan_id>` funziona per un piano in qualsiasi stato, mentre i pacchetti `proofs/` esistono solo per i piani eseguiti (o tentati). Il ciclo di vita è descritto nell'[ADR 0008](../0008-approval-gate-lifecycle.md).
 
 Per le pipeline non presidiate puoi impostare `MCP_REVIT_APPROVAL_MODE=auto`. Questo disattiva il controllo da parte di una persona, quindi usalo solo in un ambiente controllato.
 

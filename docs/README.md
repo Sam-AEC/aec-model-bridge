@@ -5,6 +5,7 @@ Start with the [installation guide](install.md). The main [README](../README.md)
 ## Guides and reference
 
 - [install.md](install.md): install the Revit add-in and the MCP server.
+- [first-check.md](first-check.md): from install to ready, using the panel's Setup check card.
 - [VS Code extension](../extensions/vscode/README.md): build and install the extension locally.
 - [configuration-reference.md](configuration-reference.md): environment variables, package metadata and runtime settings.
 - [tools-generated.md](tools-generated.md): the tool catalog, generated from the server (do not edit by hand).

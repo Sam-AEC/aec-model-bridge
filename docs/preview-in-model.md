@@ -29,7 +29,7 @@ resolve are counted in `not_found_count` and skipped.
 ## UNVERIFIED
 
 - The C# was not compiled locally (no dotnet SDK). Compilation is checked only
-  by the CI add-in jobs for Revit 2024-2027; see the PR.
+  by the CI add-in jobs for Revit 2024-2027.
 - Not run in a live Revit session. Actual on-screen behaviour is unobserved.
 - Workshared models: whether the small transactions behave well (no
   checkout/ownership side effects, no sync prompts) is unknown.

@@ -214,9 +214,14 @@ Approve as the person, in one of two ways.
 
 The assistant cannot approve its own plan: `approve_plan`, `reject_plan` and
 `rollback_plan` are not listed to MCP clients, are denied to the panel chat, and
-are refused on every other path a model can reach. The approval is bound to
-exactly what was shown. If the plan file changed after you looked at it, the
-approval is refused. The plan records `approved_via` (`panel` or `cli`) and
+are refused on every other path a model can reach. The approval is bound to a
+content hash of the plan. If the plan file changed after you looked at it, the
+approval is refused. The panel shows the tools, arguments and before-values. If
+the assistant attached a review to the plan, the card has a "Show the review"
+button, and Approve stays off until you have opened it. If the panel cannot show
+the plan completely (for example it holds a credential, which the panel masks),
+Approve is off and the card points to `aec-model-bridge-approve show <plan_id>`,
+which prints the whole plan. The plan records `approved_via` (`panel` or `cli`) and
 `approved_by` (your account name).
 
 Expected: the plan leaves the Plans list. The panel lists pending plans only, so
@@ -297,12 +302,12 @@ There are two ways back. Use whichever you can show honestly.
    `executed`, and it writes each recorded before-value back, only for
    `revit_set_parameter_value` actions. One catch: it skips an action when no
    before-value was recorded, and reports that as a warning. It skips any other
-   tool with a "No rollback handler" warning. Rollback is for a person to run
-   from the client, not the assistant. These doors started empty. If the before-state is stored as empty,
+   tool with a "No rollback handler" warning. Rollback is for a person, not the
+   assistant, and on `dev` it has no panel button or `aec-model-bridge-approve`
+   command, so there is no everyday way to run it. These doors started empty. If the before-state is stored as empty,
    rollback may skip all 12 and leave the Marks in place. Read the warnings in
    the result and verify with a new snapshot. If it skipped them, use Ctrl+Z
-   instead. UNVERIFIED (live Revit). The model-facing chat cannot call rollback;
-   a person does it from the client.
+   instead. UNVERIFIED (live Revit). The model-facing chat cannot call rollback.
 3. **`plan_revert` (checked in code, merged in #62)**. It drafts a new pending
    plan from the proof bundle; you still approve and execute it. It refuses when
    an element has no recorded before-value, and an empty value counts as not
@@ -351,7 +356,7 @@ file, the audit log and both snapshot ids.
 | "Look only mode: this tool changes the model..." | The mode is Look only on purpose; nothing can change the model. | Set `MCP_REVIT_APPROVAL_MODE` to `ask_first` and restart, if you meant to write. |
 | Approval refused, plan changed | The plan on disk no longer matches what you were shown. | Run `show` again, check the hash, reject or redraft the plan. |
 | Assistant says it cannot approve | Correct: only a person approves. | Approve in the panel or with `aec-model-bridge-approve`. |
-| An action stays `running` | Submit to Revit may have failed; it will not rerun. | Check the model, then ask for a new plan. |
+| An action stays `running` | Submit to Revit may have failed; it will not rerun. | Check in Revit what it changed, mark it with `aec-model-bridge-approve recover <plan_id> --reason "..."`, then ask for a new plan. |
 | Some actions failed on execute | This is a partial result, not a finished fix. | Read the per-action errors, verify with a new snapshot. |
 | Door count after is not 0 | Not everything was fixed. | List the remaining issues, match them to failed actions. |
 | Rollback skipped actions | Rollback could not restore empty values. | Use Revit Undo, then verify with a new snapshot. |
@@ -359,10 +364,11 @@ file, the audit log and both snapshot ids.
 
 ## Known limits
 
-- The panel hub (port 8787) has no token yet. Any local program can call it,
-  including to approve a plan. Treat the machine as trusted-local.
+- The panel hub (port 8787) needs a per-user token, but the token only proves a
+  process running as your Windows user. Any such program can read it and call
+  the hub, including to approve a plan. Treat the machine as trusted-local.
 - Approvals are not bound to a document or view and never expire.
-- Actions can stay `running` after a failed submit.
+- Actions can stay `running` after a failed submit or a crash. A person can abandon them with `aec-model-bridge-approve recover`; nothing recovers automatically.
 - Some Navisworks and proxy tools are still outside the approval gate.
 - The add-in's snapshot extractor does not carry every field, so some checks say
   "not enough data".

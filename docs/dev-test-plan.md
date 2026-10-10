@@ -45,9 +45,18 @@ Merged since the first version of this plan:
 - **#109.** Approval modes `look_only`, `ask_first` and `auto`, set with
   `MCP_REVIT_APPROVAL_MODE`. Unknown values fail closed to `ask_first`. No MCP
   tool can change the mode.
+- **#121.** The panel shows a plan's hashed review block behind "Show the
+  review", with a narrow credential-only redaction, and fails closed to
+  `aec-model-bridge-approve show` (see "Plan review in the panel" in
+  [security.md](security.md)).
+- **#124.** `aec-model-bridge-approve recover <plan_id> --reason ...` abandons
+  actions stuck in `running`; plan writes retry `os.replace` on Windows
+  ([ADR 0017](0017-approval-document-binding-and-expiry.md) is a proposal only).
 
-Not on dev: #92 (panel token, on hold because it breaks multi-Revit). The panel
-hub is therefore still unauthenticated; see section H.
+Also on dev since then: the per-user panel hub token (`X-AMB-Token`) and
+instance routing for several open Revits (see [security.md](security.md) and
+[ADR 0014](0014-multi-revit-routing.md)). The C# side of both has not been
+compiled for all three targets together or run; see section H.
 
 [demo-runbook.md](demo-runbook.md) was brought up to date with this list.
 Known limits you should expect to hit are collected in section H.
@@ -153,7 +162,8 @@ rejected-plan run. Differences on this branch:
 - Approval is now human-only (#99). Step 5 is done by you in the panel or with
   `aec-model-bridge-approve`; the assistant cannot do it.
 - Undo (step 8) is Ctrl+Z once per action, so 12 presses for the 12 doors.
-  `rollback_plan` may skip the doors that started empty (see the runbook).
+  `rollback_plan` may skip the doors that started empty (see the runbook), and
+  it has no panel button or command-line command on dev.
 - Expected baseline from the manifest: 12 doors without Mark and 3 rooms
   without Number, 15 findings in total. Nobody has recorded this on a live
   model.
@@ -252,14 +262,24 @@ Open the panel from the **AEC Bridge** tab.
    (before) value, with control characters shown as visible escapes. If you can,
    have the assistant draft a plan with an argument containing `<b>x</b>` or an
    escape sequence and confirm it is shown as text, not rendered.
-8. **Panel shim checks (#93).** The panel hub should refuse requests with a
+8. **Plan review in the panel (#121).** Have the assistant draft a plan with a
+   `review` (summary, reasoning, a citation, an assumption, a warning). Working
+   looks like: the card has a "Show the review" button; Approve is off until you
+   press it; the review text appears as plain text; the card names what the
+   approval hash covers and shows the plan id with a Copy button for
+   `aec-model-bridge-approve show <plan id>`. Then draft a plan whose argument
+   holds a fake password (`password: hunter2`): Approve should stay off, with a
+   pointer to the command line. Compare with `show` for the same plan. Only
+   tested in headless Chromium with a stubbed host; UNVERIFIED in WebView2.
+9. **Panel shim checks (#93).** The panel hub should refuse requests with a
    foreign Host, Origin or Content-Type. From PowerShell,
    `Invoke-RestMethod http://127.0.0.1:8787/health` should work, and
    `curl.exe -i -H "Origin: http://evil.example" http://127.0.0.1:8787/health`
    should be refused. UNVERIFIED which status code; record it. The panel itself
-   must still work after this change. That is the main thing to check. The hub
-   has no token: a request with a valid Host and no Origin is accepted from any
-   local program. That is a known limit (section H), not a finding about #93.
+   must still work after this change. That is the main thing to check. Every
+   route except `GET /health` also needs the `X-AMB-Token` header: a request with
+   a valid Host, no Origin and no token should get 401. The token proves a
+   process running as your Windows user, not a person (section H).
 
 ### E2. Chat panel, stage 1 (new chat renderer)
 
@@ -322,16 +342,17 @@ host, so each item is UNVERIFIED in Revit's WebView2.
 
 ## F. Multi-Revit check
 
-Known limit: the panel hub listens on fixed port 8787 and a second Revit
-attaches to the hub the first one started, so two Revits can end up sharing one
-hub ([ADR 0014](0014-multi-revit-routing.md)). This is not fixed on dev.
+One hub on fixed port 8787 serves every open Revit. Requests carry the Revit
+process id and the hub routes them to that Revit's bridge
+([ADR 0014](0014-multi-revit-routing.md), the "Several Revits" section of
+[security.md](security.md)). This routing has never run against two live Revits.
+Plans do not yet record which Revit created them.
 
 Only do this on scratch models. Open Revit 2024 and 2026 (any two versions) with
 a different scratch model in each. Open the panel in both. Ask each panel for
 the document name (for example a model summary) and note which model answers.
-Working today would be each panel answering for its own Revit. The expected
-result is that both answer for the same Revit. Record which, and do **not**
-approve any write plan in this setup.
+Working looks like each panel answering for its own Revit. Record which Revit
+answers in each panel, and do **not** approve any write plan in this setup.
 
 ## G. Approval v2 and modes (#99, #105, #106, #109)
 
@@ -451,8 +472,10 @@ approval mode to `auto`, or to turn approvals off.
 
 **G12. Rollback of a plan with a skipped action (#106).** Use the demo's 12-door
 plan (the doors started with an empty Mark), or any plan where an action had no
-recorded before-value. Run it, then roll it back from a person-run route
-(rollback is not available to the assistant).
+recorded before-value. Run it. `rollback_plan` is not available to the assistant
+and has no panel button or `aec-model-bridge-approve` command on dev, so it can
+only be reached by posting to the panel hub's `/execute` with the token. If you
+cannot do that, mark this step N/A and use Ctrl+Z.
 - Working looks like: the result carries warnings such as "Skipped rollback for
   action ...: no before-value recorded", and the doors keep their new Marks. The
   plan is not reported as fully restored. Verify with a new snapshot, then
@@ -466,15 +489,19 @@ recorded before-value. Run it, then roll it back from a person-run route
 These are known and accepted for this dev drop. Check they behave as described;
 do not spend time trying to prove them wrong.
 
-- **The panel hub is unauthenticated** until the shared token (#92) lands. Any
-  local program that sends a valid `Host` and no `Origin` to `127.0.0.1:8787`
-  can use `/execute`, including to approve a plan. #93 only stops browser pages.
+- **The panel hub token authenticates a process, not a person.** Any program
+  running as your Windows user can read `panel-hub.token` and use `/execute`,
+  including to approve a plan. The client sends the raw token to whatever
+  listens on 127.0.0.1:8787, so another user on a shared machine could bind the
+  port first. The Host and Origin checks only stop browser pages.
 - **Approvals are not bound to a document or a view, and never expire.** A plan
   approved on one model can in principle be run later after you switch
   documents, if the element ids and arguments still match. Reject plans you no
   longer want.
-- **An action can stay `running`** if the submit to Revit fails part-way. Such
-  an action is consumed and will not rerun; ask for a new plan.
+- **An action can stay `running`** if the submit to Revit fails part-way or the
+  process dies. Such an action is consumed and will not rerun. A person can
+  abandon it with `aec-model-bridge-approve recover <plan_id> --reason "..."`
+  (after checking in Revit what it changed); then ask for a new plan.
 - **Some Navisworks and proxy tools are still ungated.** #105 covered five tools,
   not every mutating tool. Treat other Navisworks and proxy tools as able to act
   without an approved plan.
@@ -489,7 +516,7 @@ do not spend time trying to prove them wrong.
   clients' file tools out of the workspace.
 - **The command line does not authenticate who is typing.** A program that can
   run shell commands as you can run `aec-model-bridge-approve approve <id> --yes`.
-- **Two Revits can share one hub** (section F).
+- **One hub serves all Revits.** A plan drafted in one Revit can be executed against another, because plans do not record the Revit that created them (section F).
 
 ## I. Results table and where to report
 

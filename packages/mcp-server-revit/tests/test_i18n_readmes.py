@@ -120,7 +120,7 @@ def test_identifiers_and_counts_preserved(english: str, label: str, name: str) -
     # Tool-count table and the headline total must not drift.
     counts = re.findall(r"^\| [^|]+ \| (\d+) \|", english, re.MULTILINE)
     assert counts and re.findall(r"^\| [^|]+ \| (\d+) \|", text, re.MULTILINE) == counts
-    assert "219" in text
+    assert "241" in text
 
 
 @pytest.mark.parametrize(("label", "name"), TRANSLATIONS)

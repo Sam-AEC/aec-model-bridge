@@ -10,7 +10,7 @@ Consequences, read from the code:
 
 - A plan drafted and approved against model A can be executed after the person switched to model B, or in a different Revit when several are open ([ADR 0014](0014-multi-revit-routing.md)). Element ids are only meaningful inside one document, so the actions may touch unrelated elements.
 - An approval given on Monday can be spent on Friday, after the model changed. The before-values captured at drafting are then stale.
-- Plans do not record the Revit instance that created them (listed in security.md, "Before any release").
+- Plans do not record the Revit instance that created them (listed in security.md, "Before any release: panel token and routing").
 
 ## Decision (proposed)
 1. **Document binding.** At drafting, store a `binding` object inside the hashed plan: document GUID or central path hash, document title, Revit process id and start time, Revit version, and the active view id for view-scoped actions. The CLI and panel show it. `claim_action` compares it with the live document and refuses on a mismatch, with a message naming both. Fail closed: if the live document cannot be read, the claim is refused. Plans without a binding cannot be approved after the change (same rule as plans without `plan_hash`).

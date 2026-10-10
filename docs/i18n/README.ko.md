@@ -105,16 +105,16 @@ VS Code를 사용하시나요? [확장 프로그램 소스와 로컬 설치 단�
 
 | 영역 | 도구 수 | 기능 |
 | --- | --- | --- |
-| Revit | 103 | 모델 읽기, 요소·매개변수·뷰·시트·일람표 생성 및 편집, 내보내기, 워크셰어링 |
-| 승인 | 6 | 모델 변경의 계획, 검토, 승인, 실행, 롤백 |
-| 모듈 | 34 | 스냅샷 검사, 매개변수 그리드, QA/QC 점검, 레시피, 보고서, 선택 |
+| Revit | 105 | 모델 읽기, 요소·매개변수·뷰·시트·일람표 생성 및 편집, 내보내기, 워크셰어링 |
+| 승인 | 5 | 모델 변경의 계획, 검토, 승인, 실행, 롤백 |
+| 모듈 | 55 | 스냅샷 검사, 매개변수 그리드, QA/QC 점검, 레시피, 보고서, 선택 |
 | Rhino 및 Grasshopper | 19 | 지오메트리, 레이어, 재료, 불리언 연산 |
 | Speckle | 17 | 프로젝트, 모델, 버전, 전송 및 수신 |
 | Navisworks | 15 | 모델 트리, 뷰포인트, 간섭 검토(개발 중) |
 | IFC | 7 | Revit 없이 IFC 파일 읽기: 구조, 속성, 검증 |
 | 그래프, 스냅샷, 내보내기, 작업 | 18 | 시맨틱 그래프 감사, 스냅샷 비교, SQLite 내보내기, 백그라운드 작업 |
 
-기본 설정에서는 219개의 도구가 나열됩니다(mock 모드에서 현재 서버 기준으로 집계). Autodesk Data 도구는 APS 자격 증명을 구성하면 나타납니다. [도구 레퍼런스](../tools-generated.md)에서 모든 도구를 확인할 수 있습니다. 각 도구에는 MCP 어노테이션(`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)이 있어 클라이언트가 읽기와 쓰기를 구분할 수 있습니다.
+기본 설정에서는 241개의 도구가 나열됩니다(mock 모드에서 현재 서버 기준으로 집계). Autodesk Data 도구는 APS 자격 증명을 구성하면 나타납니다. [도구 레퍼런스](../tools-generated.md)에서 모든 도구를 확인할 수 있습니다. 각 도구에는 MCP 어노테이션(`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)이 있어 클라이언트가 읽기와 쓰기를 구분할 수 있습니다.
 
 ### 고급 Revit 자동화
 
@@ -151,13 +151,13 @@ MCP 클라이언트는 하나의 Python 허브와 통신합니다. 허브는 각
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant drafts a plan with plan_actions, the side panel shows the proposed changes (counts, scope, before and after), and a human approves in the panel or with the aec-model-bridge-approve CLI, never over MCP. The hub checks that the plan matches the approved tool and arguments, once only. Revit then runs each action in its own transaction, so Ctrl+Z undoes one action per press. After verifying, you can also use rollback_plan, which may skip actions with no recorded before-value. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
+    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant drafts a plan with plan_actions, the side panel shows the proposed changes (counts, scope, before and after), and a human approves in the panel or with the aec-model-bridge-approve CLI, never over MCP. The hub checks that the plan matches the approved tool and arguments, once only. Revit then runs each action in its own transaction, so Ctrl+Z undoes one action per press. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
   </picture>
 </p>
 
 <sub>다이어그램 소스: [approval-flow.mmd](../diagrams/approval-flow.mmd). 이미지는 `python scripts/render_diagrams.py`로 다시 생성합니다.</sub>
 
-계획이 잘못된 것으로 드러나면 Revit의 Ctrl+Z로 되돌리세요. 매개변수 쓰기는 각각 이름이 붙은 별도 트랜잭션이므로, 계획 하나를 되돌리려면 여러 번 눌러야 할 수 있습니다. 계획 전체를 한 번에 되돌리는 기능은 계획 단계이며 아직 구현되지 않았습니다. `rollback_plan`은 기록된 이전 값을 역순으로 다시 쓰며, 이전 값이 기록되지 않은 작업은 건너뛸 수 있으므로 경고를 확인하세요. 두 방법 모두 실제 Revit 세션에서는 아직 검증되지 않았습니다(UNVERIFIED). 파일 출력처럼 되돌릴 수 없는 작업은 두 방법 모두로 되돌릴 수 없으며, 한 번 더 확인하는 기능은 아직 없습니다(계획 단계). 패널의 Plans 목록에는 대기 중인 계획만 표시됩니다. `aec-model-bridge-approve show <plan_id>`는 어떤 상태의 계획에도 사용할 수 있지만, `proofs/` 번들은 실행된(또는 실행을 시도한) 계획에만 존재합니다. 전체 수명 주기는 [ADR 0008](../0008-approval-gate-lifecycle.md)에 있습니다.
+계획이 잘못된 것으로 드러나면 Revit의 Ctrl+Z로 되돌리세요. 매개변수 쓰기는 각각 이름이 붙은 별도 트랜잭션이므로, 계획 하나를 되돌리려면 여러 번 눌러야 할 수 있습니다. 계획 전체를 한 번에 되돌리는 기능은 계획 단계이며 아직 구현되지 않았습니다. 두 번째 방법은 되돌리기 계획입니다. 어시스턴트가 실행된 계획의 증빙으로 `plan_revert`를 사용해 초안을 만들고, 다른 계획과 똑같이 사용자가 승인합니다. `rollback_plan`은 사람 전용이며 버튼도 명령도 아니므로 기대하지 마세요. 이 방법들은 모두 실제 Revit 세션에서 아직 검증되지 않았습니다(UNVERIFIED). 파일 출력처럼 되돌릴 수 없는 작업은 어떤 방법으로도 되돌릴 수 없으며, 한 번 더 확인하는 기능은 아직 없습니다(계획 단계). 패널의 Plans 목록에는 대기 중인 계획만 표시됩니다. `aec-model-bridge-approve show <plan_id>`는 어떤 상태의 계획에도 사용할 수 있지만, `proofs/` 번들은 실행된(또는 실행을 시도한) 계획에만 존재합니다. 전체 수명 주기는 [ADR 0008](../0008-approval-gate-lifecycle.md)에 있습니다.
 
 무인 파이프라인에서는 `MCP_REVIT_APPROVAL_MODE=auto`를 설정할 수 있습니다. 사람의 확인을 끄는 설정이므로 통제된 환경에서만 사용하세요.
 

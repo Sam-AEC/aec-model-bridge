@@ -105,16 +105,16 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 | 領域 | 工具數 | 功能 |
 | --- | --- | --- |
-| Revit | 103 | 讀取模型，建立與編輯元件、參數、視圖、圖紙、明細表，匯出，工作共享(worksharing) |
-| 核准 | 6 | 規劃、檢視、核准、執行並復原模型變更 |
-| 模組 | 34 | 快照檢查、參數表格、QA/QC 檢查、配方、報告、選取集 |
+| Revit | 105 | 讀取模型，建立與編輯元件、參數、視圖、圖紙、明細表，匯出，工作共享(worksharing) |
+| 核准 | 5 | 規劃、檢視、核准、執行並復原模型變更 |
+| 模組 | 55 | 快照檢查、參數表格、QA/QC 檢查、配方、報告、選取集 |
 | Rhino 與 Grasshopper | 19 | 幾何、圖層、材質、布林運算 |
 | Speckle | 17 | 專案、模型、版本、傳送與接收 |
 | Navisworks | 15 | 模型樹、視點、碰撞檢查（開發中） |
 | IFC | 7 | 無需 Revit 即可讀取 IFC 檔案：結構、屬性、驗證 |
 | 圖譜、快照、匯出、作業 | 18 | 語意圖譜稽核、快照差異比對、SQLite 匯出、背景作業 |
 
-預設設定下共列出 219 個工具（在 mock 模式下由目前的伺服器統計）。設定 APS 憑證後，Autodesk Data 工具才會出現。[工具參考](../tools-generated.md)列出所有工具。每個工具都帶有 MCP 註解（`readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`），讓用戶端能分辨讀取與寫入。
+預設設定下共列出 241 個工具（在 mock 模式下由目前的伺服器統計）。設定 APS 憑證後，Autodesk Data 工具才會出現。[工具參考](../tools-generated.md)列出所有工具。每個工具都帶有 MCP 註解（`readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`），讓用戶端能分辨讀取與寫入。
 
 ### 進階 Revit 自動化
 
@@ -151,13 +151,13 @@ MCP 用戶端與一個 Python hub 溝通。hub 會把每次呼叫轉送給擁有
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant drafts a plan with plan_actions, the side panel shows the proposed changes (counts, scope, before and after), and a human approves in the panel or with the aec-model-bridge-approve CLI, never over MCP. The hub checks that the plan matches the approved tool and arguments, once only. Revit then runs each action in its own transaction, so Ctrl+Z undoes one action per press. After verifying, you can also use rollback_plan, which may skip actions with no recorded before-value. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
+    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant drafts a plan with plan_actions, the side panel shows the proposed changes (counts, scope, before and after), and a human approves in the panel or with the aec-model-bridge-approve CLI, never over MCP. The hub checks that the plan matches the approved tool and arguments, once only. Revit then runs each action in its own transaction, so Ctrl+Z undoes one action per press. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
   </picture>
 </p>
 
 <sub>圖表來源：[approval-flow.mmd](../diagrams/approval-flow.mmd)。使用 `python scripts/render_diagrams.py` 重新產生圖片。</sub>
 
-若計畫有誤，請在 Revit 中用 Ctrl+Z 復原。每次參數寫入都是各自獨立的具名交易，因此一個計畫可能需要按多次。整個計畫一步復原的功能已列入規劃，尚未實作。`rollback_plan` 會依相反順序寫回已記錄的原值，若某個動作沒有記錄原值，它可能會略過該動作，請查看其警告。這兩種方式目前都尚未在真實的 Revit 工作階段中驗證（UNVERIFIED）。無法復原的操作（例如檔案輸出）這兩種方式都無法復原，目前也尚未要求再次確認（已列入規劃）。面板的 Plans 清單只顯示待處理的計畫；`aec-model-bridge-approve show <plan_id>` 適用於任何狀態的計畫，而 `proofs/` 套件只存在於已執行（或嘗試執行）的計畫。完整生命週期請見 [ADR 0008](../0008-approval-gate-lifecycle.md)。
+若計畫有誤，請在 Revit 中用 Ctrl+Z 復原。每次參數寫入都是各自獨立的具名交易，因此一個計畫可能需要按多次。整個計畫一步復原的功能已列入規劃，尚未實作。第二種方式是還原計畫：助理根據已執行計畫的憑證，以 `plan_revert` 起草一個新計畫，再像核准其他計畫一樣核准它。`rollback_plan` 僅供人使用，既不是按鈕也不是指令，因此不要指望它。這些方式目前都尚未在真實的 Revit 工作階段中驗證（UNVERIFIED）。無法復原的操作（例如檔案輸出）這些方式都無法復原，目前也尚未要求再次確認（已列入規劃）。面板的 Plans 清單只顯示待處理的計畫；`aec-model-bridge-approve show <plan_id>` 適用於任何狀態的計畫，而 `proofs/` 套件只存在於已執行（或嘗試執行）的計畫。完整生命週期請見 [ADR 0008](../0008-approval-gate-lifecycle.md)。
 
 對於無人值守的流程，可以設定 `MCP_REVIT_APPROVAL_MODE=auto`。這會關閉人工檢查，因此請只在受控環境中使用。
 
