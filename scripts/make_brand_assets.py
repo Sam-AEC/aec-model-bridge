@@ -48,6 +48,11 @@ def mark(size, arches=True, rounded=True):
 
 
 def main():
+    raise SystemExit(
+        "Retired: this script draws the old Pier mark. The current brand assets (Ember mesh) are "
+        "vector artwork committed in assets/; see docs/design/brand.md. Edit the SVG masters and "
+        "re-export instead of running this."
+    )
     assets = ROOT / "assets"
     (assets / "installer").mkdir(parents=True, exist_ok=True)
 
