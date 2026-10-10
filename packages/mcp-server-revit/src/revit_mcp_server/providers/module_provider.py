@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from revit_mcp_server.errors import BridgeError
 from revit_mcp_server.module_registry import ModuleRegistry, ModuleInstance, CommandSpec
+from revit_mcp_server.security.dispatch import refuse_human_only, run_gated_tool
 from revit_mcp_server.security.workspace import WorkspaceMonitor
 from .base import AECProvider, ProviderTool
 
@@ -244,24 +245,14 @@ class ModuleProvider(AECProvider):
         return execute
 
     async def _execute_registered_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Run a tool for a module (recipe steps, audits) through the shared gated dispatch:
+        human-only tools are refused and a mutating tool consumes its approved action first."""
+        refuse_human_only(tool_name)
         provider = self.tool_registry.lookup_tool_provider(tool_name) if self.tool_registry else None
-        tool_def = self.tool_registry.lookup_tool(tool_name) if self.tool_registry else None
         if not provider:
             raise BridgeError(f"Recipe step tool '{tool_name}' not found in registry")
-
         gate = getattr(self.tool_registry.get_provider("approval"), "gate", None)
-        if tool_def and tool_def.is_mutating and gate:
-            gate.check_tool_execution(tool_name, arguments)
-
-        result = await provider.execute_tool(tool_name, arguments)
-
-        if tool_def and tool_def.is_mutating and gate and isinstance(arguments, dict) and "plan_id" in arguments:
-            try:
-                gate.mark_action_executed(tool_name, arguments)
-            except Exception:
-                pass
-
-        return result
+        return await run_gated_tool(self.tool_registry, gate, tool_name, arguments)
 
     async def _run_callable_with_timeout(self, func: Callable[..., Any], *args, timeout: float = 2.0) -> Any:
         try:

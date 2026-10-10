@@ -1,6 +1,7 @@
 import pytest
 from revit_mcp_server.security.approval import ApprovalGate
 from revit_mcp_server.errors import BridgeError
+from helpers import human_approve
 
 
 @pytest.mark.anyio
@@ -37,7 +38,7 @@ async def test_approval_gate_lifecycle(tmp_path):
     assert "is in state 'pending', not 'approved'" in str(exc_info.value)
 
     # 5. Approve plan
-    gate.update_plan_state(plan_id, "approved")
+    human_approve(gate, plan_id)
 
     # 6. Assert check passes when plan is approved
     gate.check_tool_execution("revit_set_parameter_value", exact)
@@ -88,7 +89,7 @@ async def test_rollback_generalizes_to_a_batch_of_actions(tmp_path):
     ]
     plan = gate.create_plan(actions, before_states)
     plan_id = plan["plan_id"]
-    gate.update_plan_state(plan_id, "approved")
+    human_approve(gate, plan_id)
     gate.update_plan_state(plan_id, "executed")
 
     calls = []

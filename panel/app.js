@@ -240,8 +240,8 @@ function renderPlans() {
       </div>
       <p>${escapeHtml(plan.detail)}</p>
       <div class="item-actions">
-        <button type="button" data-plan="${escapeHtml(plan.id)}" class="primary" data-decision="approve">Approve</button>
-        <button type="button" data-plan="${escapeHtml(plan.id)}" data-decision="reject">Reject</button>
+        <button type="button" data-plan="${escapeHtml(plan.id)}" data-hash="${escapeHtml(plan.hash)}" class="primary" data-decision="approve">Approve</button>
+        <button type="button" data-plan="${escapeHtml(plan.id)}" data-hash="${escapeHtml(plan.hash)}" data-decision="reject">Reject</button>
       </div>`;
     planList.appendChild(item);
   });
@@ -359,7 +359,9 @@ document.body.addEventListener("click", (event) => {
   const planId = target.dataset.plan;
   if (planId) {
     const decision = target.dataset.decision;
-    postToHost(`plan.${decision}`, { planId });
+    // planHash is the hash of the plan this list was rendered from; the hub refuses
+    // the approval if the plan changed since.
+    postToHost(`plan.${decision}`, { planId, planHash: target.dataset.hash || "" });
     addLog(`Plan ${decision}`, planId);
   }
 
@@ -428,6 +430,7 @@ function mapPlans(hubResult) {
     const actions = plan.actions || [];
     return {
       id: plan.plan_id,
+      hash: plan.plan_hash || "",
       status: plan.state,
       title: actions.length === 1 ? actions[0].tool : `${actions.length} action(s)`,
       detail: actions.map((action) => action.tool).join(", ") || "No actions"

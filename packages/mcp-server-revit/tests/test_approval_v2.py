@@ -10,8 +10,9 @@ import pytest
 from revit_mcp_server import approve_cli, mcp_server
 from revit_mcp_server.errors import BridgeError
 from revit_mcp_server.registry_factory import build_registry
-from revit_mcp_server.security.approval import ApprovalGate, HUMAN_ONLY_TOOLS
+from revit_mcp_server.security.approval import ApprovalGate, HUMAN_ONLY_TOOLS, local_user
 from revit_mcp_server.security.workspace import WorkspaceMonitor
+from helpers import panel_decide, human_approve
 
 SET = "revit_set_parameter_value"
 
@@ -22,7 +23,7 @@ def _args(element_id=1, value="60"):
 
 def _approved(gate, *action_args):
     plan = gate.create_plan([{"tool": SET, "arguments": a} for a in action_args], [{} for _ in action_args])
-    gate.update_plan_state(plan["plan_id"], "approved")
+    human_approve(gate, plan["plan_id"])
     return plan["plan_id"]
 
 
@@ -75,7 +76,7 @@ def test_cannot_approve_an_executed_plan_again(tmp_path):
     pid = _approved(gate, _args())
     gate.mark_action_executed(SET, {**_args(), "plan_id": pid})
     with pytest.raises(ValueError, match="only a pending plan"):
-        gate.update_plan_state(pid, "approved")
+        human_approve(gate, pid)
 
 
 # ---- MCP surface -----------------------------------------------------------------
@@ -120,7 +121,7 @@ def test_server_instructions_tell_the_model_to_stop_and_ask():
 def test_registry_provider_can_still_approve_for_the_panel(server):
     _, approval = server
     plan = asyncio.run(approval.execute_tool("plan_actions", {"actions": [{"tool": SET, "arguments": _args()}]}))
-    done = asyncio.run(approval.execute_tool("approve_plan", {"plan_id": plan["plan_id"], "approver": "Sam"}))
+    done = asyncio.run(panel_decide(approval, "approve_plan", plan["plan_id"]))
     assert done["state"] == "approved" and done["approved_via"] == "panel"
 
 
@@ -129,7 +130,7 @@ def test_run_async_path_marks_the_action_executed(server):
     gate = approval.gate
     plan = asyncio.run(approval.execute_tool("plan_actions", {"actions": [{"tool": SET, "arguments": _args()}]}))
     pid = plan["plan_id"]
-    asyncio.run(approval.execute_tool("approve_plan", {"plan_id": pid}))
+    asyncio.run(panel_decide(approval, "approve_plan", pid))
     call = {**_args(), "plan_id": pid, "run_async": True}
 
     async def go():
@@ -168,9 +169,11 @@ def test_cli_list_show_approve_round_trip(tmp_path, monkeypatch, capsys):
     assert approve_cli.main(ws + ["approve", pid]) == 0
     plan = gate.load_plan(pid)
     assert plan["state"] == "approved"
-    assert plan["approved_by"] == "cli" and plan["approved_via"] == "cli" and plan["approved_at"]
-    # an approved plan is no longer pending and cannot be approved or rejected again
-    assert approve_cli.main(ws + ["reject", pid, "--yes"]) == 1
+    assert plan["approved_by"] == local_user() and plan["approved_via"] == "cli" and plan["approved_at"]
+    # an approved plan cannot be approved again, but a person can still withdraw it
+    assert approve_cli.main(ws + ["approve", pid, "--yes"]) == 1
+    assert approve_cli.main(ws + ["reject", pid, "--yes"]) == 0
+    assert gate.load_plan(pid)["state"] == "rejected"
 
 
 def test_cli_wrong_confirmation_leaves_plan_pending(tmp_path, monkeypatch):
@@ -207,4 +210,4 @@ def test_cli_approval_keeps_the_proof_bundle_working(tmp_path):
     assert approve_cli.main(["--workspace", str(tmp_path), "approve", pid, "--yes"]) == 0
     gate.mark_action_executed(SET, {**_args(77), "plan_id": pid})
     proof = json.loads((tmp_path / "proofs" / f"{pid}.json").read_text(encoding="utf-8"))
-    assert proof["approved_by"] == "cli"
+    assert proof["approved_by"] == local_user()

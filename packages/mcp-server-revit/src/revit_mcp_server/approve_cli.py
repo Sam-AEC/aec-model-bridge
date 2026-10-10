@@ -2,9 +2,11 @@
 
 A model can draft a plan but must not approve it. The Revit panel is one place a
 person does that; this is the other. It reads and writes the same plan store as the
-server (``<workspace>/plans``), prints the plan in plain language first, and only
-approves after the person types the plan id. Without a terminal it refuses unless
-``--yes`` is given.
+server (``<workspace>/plans``), prints the plan in plain language and its content
+hash first, and only approves after the person types the plan id. The approval is
+bound to that hash: it is refused if the plan changed after it was printed. Without
+a terminal it refuses unless ``--yes`` is given. Model-written text is printed with
+control characters escaped.
 
 Honest limit: an agent that can run shell commands as the same user can also run this
 tool with ``--yes``. Keep agents' shell access off, or require a terminal, if that
@@ -14,11 +16,13 @@ from __future__ import annotations
 
 import argparse
 import sys
+import unicodedata
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .config import config
-from .security.approval import ApprovalGate
+from .errors import BridgeError
+from .security.approval import ApprovalGate, local_user, plan_hash
 
 ELEMENT_ID_KEYS = ("element_id", "element_ids", "id", "ids", "elementIds")
 
@@ -30,8 +34,42 @@ def _gate(workspace: Optional[str]) -> ApprovalGate:
     return ApprovalGate(base, config.approval_mode)
 
 
-def _element_ids(arguments: Dict[str, Any]) -> List[str]:
+def safe_text(value: Any) -> str:
+    """Make model-controlled text safe to print: control and format characters
+    (ESC/ANSI/OSC sequences, carriage returns, bidi overrides, zero-width marks)
+    are shown as visible escapes instead of being sent to the terminal."""
+    out = []
+    for ch in str(value):
+        if unicodedata.category(ch) in ("Cc", "Cf", "Zl", "Zp", "Cs", "Co", "Cn"):
+            code = ord(ch)
+            out.append(f"\\x{code:02x}" if code <= 0xFF else f"\\u{code:04x}" if code <= 0xFFFF else f"\\U{code:08x}")
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def _actions(plan: Dict[str, Any]) -> List[Any]:
+    actions = plan.get("actions", [])
+    return actions if isinstance(actions, list) else []
+
+
+def malformed_reasons(plan: Dict[str, Any]) -> List[str]:
+    """Reasons a plan cannot be shown faithfully (and so must not be approved)."""
+    reasons = []
+    if not isinstance(plan.get("actions", []), list):
+        reasons.append("'actions' is not a list")
+    for i, a in enumerate(_actions(plan), 1):
+        if not isinstance(a, dict):
+            reasons.append(f"action {i} is not an object")
+        elif not isinstance(a.get("arguments", {}), dict):
+            reasons.append(f"action {i} has arguments that are not an object")
+    return reasons
+
+
+def _element_ids(arguments: Any) -> List[str]:
     found: List[str] = []
+    if not isinstance(arguments, dict):
+        return found
     for key in ELEMENT_ID_KEYS:
         value = arguments.get(key)
         if value is None:
@@ -41,33 +79,44 @@ def _element_ids(arguments: Dict[str, Any]) -> List[str]:
 
 
 def describe_plan(plan: Dict[str, Any]) -> str:
-    actions = plan.get("actions", [])
+    actions = _actions(plan)
     lines = [
-        f"Plan {plan.get('plan_id')}  [{plan.get('state')}]",
-        f"Created: {plan.get('created_at', 'unknown')}",
+        f"Plan {safe_text(plan.get('plan_id'))}  [{safe_text(plan.get('state'))}]",
+        f"Created: {safe_text(plan.get('created_at', 'unknown'))}",
         f"Actions: {len(actions)}",
     ]
     tools: Dict[str, int] = {}
     for a in actions:
-        tools[str(a.get('tool'))] = tools.get(str(a.get('tool')), 0) + 1
+        t = safe_text(a.get("tool") if isinstance(a, dict) else "<malformed action>")
+        tools[t] = tools.get(t, 0) + 1
     if tools:
         lines.append("Tools:   " + ", ".join(f"{t} x{n}" for t, n in sorted(tools.items())))
-    all_ids = sorted({i for a in actions for i in _element_ids(a.get("arguments", {}) or {})})
+    all_ids = sorted({safe_text(i) for a in actions if isinstance(a, dict) for i in _element_ids(a.get("arguments"))})
     if all_ids:
         shown = ", ".join(all_ids[:20]) + (f" ... (+{len(all_ids) - 20} more)" if len(all_ids) > 20 else "")
         lines.append(f"Elements touched: {len(all_ids)} ({shown})")
     lines.append("")
     for i, a in enumerate(actions, 1):
-        args = a.get("arguments", {}) or {}
-        detail = ", ".join(f"{k}={v!r}" for k, v in args.items() if k != "plan_id")
-        lines.append(f"  {i}. {a.get('tool')}  {detail}")
-        before = (a.get("diff") or {}).get("before")
+        if not isinstance(a, dict):
+            lines.append(f"  {i}. MALFORMED ACTION: {safe_text(repr(a))}")
+            continue
+        args = a.get("arguments", {})
+        if isinstance(args, dict):
+            detail = ", ".join(f"{safe_text(k)}={safe_text(repr(v))}" for k, v in args.items() if k != "plan_id")
+        else:
+            detail = f"MALFORMED ARGUMENTS (not an object): {safe_text(repr(args))}"
+        lines.append(f"  {i}. {safe_text(a.get('tool'))}  {detail}")
+        before = (a.get("diff") or {}).get("before") if isinstance(a.get("diff"), dict) else None
         if before:
-            lines.append(f"     current value: {before}")
+            lines.append(f"     current value: {safe_text(before)}")
     if plan.get("skipped"):
-        lines.append(f"\nSkipped when drafting: {len(plan['skipped'])}")
+        skipped = plan["skipped"]
+        lines.append(f"\nSkipped when drafting: {len(skipped) if isinstance(skipped, list) else safe_text(skipped)}")
     if plan.get("approved_by") or plan.get("approved_via"):
-        lines.append(f"\nApproved by: {plan.get('approved_by', '-')} via {plan.get('approved_via', '-')} at {plan.get('approved_at', '-')}")
+        lines.append(
+            f"\nApproved by: {safe_text(plan.get('approved_by', '-'))} via {safe_text(plan.get('approved_via', '-'))} "
+            f"at {safe_text(plan.get('approved_at', '-'))}"
+        )
     return "\n".join(lines)
 
 
@@ -106,22 +155,38 @@ def main(argv: Optional[List[str]] = None) -> int:
         plans = gate.list_pending_plans()
         if not plans:
             print("No pending plans.")
-        for plan in sorted(plans, key=lambda p: p.get("created_at", "")):
-            tools = sorted({str(a.get("tool")) for a in plan.get("actions", [])})
-            print(f"{plan['plan_id']}  {plan.get('created_at', '')}  {len(plan.get('actions', []))} action(s)  {', '.join(tools)}")
+        for plan in sorted(plans, key=lambda p: str(p.get("created_at", ""))):
+            acts = _actions(plan)
+            tools = sorted({safe_text(a.get("tool") if isinstance(a, dict) else "<malformed>") for a in acts})
+            print(f"{safe_text(plan['plan_id'])}  {safe_text(plan.get('created_at', ''))}  {len(acts)} action(s)  "
+                  f"{', '.join(tools)}")
         return 0
 
-    plan = gate.load_plan(args.plan_id)
-    if not plan:
-        print(f"Plan '{args.plan_id}' not found in {gate.plans_dir}.", file=sys.stderr)
+    try:
+        plan = gate.load_plan(args.plan_id)
+    except BridgeError as e:
+        print(str(e), file=sys.stderr)
         return 1
+    if not plan:
+        print(f"Plan '{safe_text(args.plan_id)}' not found in {gate.plans_dir}.", file=sys.stderr)
+        return 1
+    # The hash of exactly what is printed below; the approval is refused if the plan
+    # on disk differs from it when the person confirms.
+    shown_hash = plan_hash(plan)
     print(describe_plan(plan))
+    print(f"\nPlan hash: {shown_hash}")
 
     if args.command == "show":
         return 0
 
-    if plan.get("state") != "pending":
-        print(f"\nPlan is '{plan.get('state')}', not pending; nothing to {args.command}.", file=sys.stderr)
+    allowed = ("pending",) if args.command == "approve" else ("pending", "approved")
+    if plan.get("state") not in allowed:
+        print(f"\nPlan is '{safe_text(plan.get('state'))}'; it cannot be {args.command}ed.", file=sys.stderr)
+        return 1
+    problems = malformed_reasons(plan)
+    if problems and args.command == "approve":
+        print("\nThis plan is malformed (" + "; ".join(problems) + ") and cannot be approved. "
+              "Reject it and ask for a new plan.", file=sys.stderr)
         return 1
 
     verb = args.command
@@ -132,13 +197,14 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     try:
         if verb == "approve":
-            gate.update_plan_state(args.plan_id, "approved", approver="cli", via="cli")
+            gate.update_plan_state(args.plan_id, "approved", approver=local_user(), via="cli",
+                                   expected_hash=shown_hash)
         else:
             gate.update_plan_state(args.plan_id, "rejected", via="cli")
-    except ValueError as e:
+    except (ValueError, BridgeError) as e:
         print(str(e), file=sys.stderr)
         return 1
-    print(f"Plan {args.plan_id} {verb}d.")
+    print(f"Plan {args.plan_id} {verb}{'d' if verb.endswith('e') else 'ed'}.")
     return 0
 
 
