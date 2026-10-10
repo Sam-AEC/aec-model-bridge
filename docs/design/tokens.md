@@ -12,6 +12,18 @@ Status: **approved**.
 > describe the earlier Span mark (retired in 1.3.0) and are superseded where they
 > conflict. The Pier is the only current brand mark.
 
+> **Update — embedded brand PNGs (add-in).** The ribbon Open Panel button and the
+> Tools brand/About button use the colour brand PNGs at 16 and 32 px, and the
+> About brand card uses the 96 px one. They are embedded resources
+> (`src/UI/Resources/Brand/cerberus-{16,32,96,128}.png`, logical name
+> `RevitBridge.Brand.cerberus-<size>.png`) loaded by `UI/BrandAssets.cs`, which
+> never throws: on any failure `IconGenerator` falls back to the generated
+> icon. The PNGs are theme-neutral (transparent, checked on light and dark), so
+> only the generated fallbacks follow `IsDarkTheme()`. Meaning-bearing icons
+> (Connect/Disconnect/Status/Health/Pending badges: green, red, amber) stay
+> generated; a brand mark never replaces them. The mono set is not used
+> (no Approve/Reject ribbon buttons exist).
+
 ### One design across surfaces (current)
 
 | Surface | Where | Rules |
