@@ -52,5 +52,7 @@ The same data is available from the hub:
 Invoke-RestMethod "http://127.0.0.1:8787/diagnostics"
 ```
 
-It returns `{ "ok": <all checks passed>, "checks": [ { "id", "ok", "detail", "next_step" } ] }`.
-`next_step` is empty for passing checks.
+It returns `{ "ok": <all checks passed>, "approval_mode": "look_only|ask_first|auto", "approval_mode_note": "<one line>", "checks": [ { "id", "ok", "detail", "next_step" } ] }`.
+`next_step` is empty for passing checks. The `approval_mode` check is
+informational for `look_only` and `ask_first` and fails for `auto`, because
+`auto` skips approvals. `/health` stays a minimal status payload.
