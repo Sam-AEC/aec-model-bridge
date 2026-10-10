@@ -41,6 +41,7 @@ Start with the [installation guide](install.md). The main [README](../README.md)
 - [0011](0011-panel-architecture.md): WebView2 dockable panel and hub message bridge.
 - [0012](0012-native-agent-chat-backend.md): native tool-calling loop for chat.
 - [0013](0013-automation-engines.md): proposal for running Dynamo, pyRevit and Python automation behind the approval gate.
+- [0016](0016-cerberus-multi-agent-review.md): proposal for Cerberus, a multi-head read-only model review with cross-checking and one approved plan.
 
 Numbers 0003 to 0006 are not in this repository.
 
