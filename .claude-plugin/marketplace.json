@@ -1,0 +1,21 @@
+{
+  "name": "aec-model-bridge",
+  "owner": {
+    "name": "A. Sam Mohammad",
+    "url": "https://github.com/Sam-AEC"
+  },
+  "metadata": {
+    "description": "AEC Model Bridge for Claude Code: read an open Revit model and propose changes that a person approves first."
+  },
+  "plugins": [
+    {
+      "name": "aec-model-bridge",
+      "source": "./plugin",
+      "description": "Revit MCP server with an approval gate, plus a skill for the safe read, check, propose, approve flow.",
+      "version": "1.4.0",
+      "license": "GPL-3.0-or-later",
+      "homepage": "https://github.com/Sam-AEC/aec-model-bridge",
+      "keywords": ["revit", "bim", "aec", "mcp", "autodesk"]
+    }
+  ]
+}

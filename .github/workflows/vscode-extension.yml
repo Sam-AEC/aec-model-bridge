@@ -11,6 +11,9 @@ on:
       - "extensions/vscode/**"
       - "scripts/version.py"
       - ".github/workflows/vscode-extension.yml"
+  release:
+    types:
+      - published
   workflow_dispatch:
 
 permissions:
@@ -66,3 +69,67 @@ jobs:
           name: aec-model-bridge-vscode
           path: extensions/vscode/*.vsix
           if-no-files-found: error
+
+  # Publishing runs only for a published (not pre-release) GitHub release, and each
+  # step is skipped unless its token exists as a repository secret: VSCE_PAT for the
+  # Visual Studio Marketplace, OVSX_PAT for Open VSX. Without the secrets this job
+  # builds and checks the version, then does nothing else.
+  publish:
+    name: Publish extension
+    needs: build
+    if: github.event_name == 'release' && !github.event.release.prerelease
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      HAS_VSCE_PAT: ${{ secrets.VSCE_PAT != '' }}
+      HAS_OVSX_PAT: ${{ secrets.OVSX_PAT != '' }}
+    defaults:
+      run:
+        working-directory: extensions/vscode
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: extensions/vscode/package-lock.json
+
+      - name: Check the release tag matches the extension version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "v${version}" != "${TAG}" ]; then
+            echo "::error::Release tag ${TAG} does not match extension version ${version}"
+            exit 1
+          fi
+
+      - name: Install
+        run: npm ci
+
+      - name: Package
+        run: npm run package -- --out aec-model-bridge.vsix
+
+      - name: Publish to the Visual Studio Marketplace
+        if: env.HAS_VSCE_PAT == 'true'
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: npx vsce publish --no-dependencies --packagePath aec-model-bridge.vsix
+
+      - name: Publish to Open VSX
+        if: env.HAS_OVSX_PAT == 'true'
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: npx --yes ovsx@0.10.1 publish aec-model-bridge.vsix
+
+      - name: Note skipped publishing
+        if: env.HAS_VSCE_PAT != 'true' || env.HAS_OVSX_PAT != 'true'
+        run: echo "::notice::VSCE_PAT or OVSX_PAT is not set, so that publish step was skipped."
