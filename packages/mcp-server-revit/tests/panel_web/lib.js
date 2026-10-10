@@ -8,16 +8,28 @@
   window.test = function (name, fn) { cases.push({ name, fn }); };
   window.expect = function (cond, msg) { if (!cond) throw new Error(msg || "expectation failed"); };
   window.sleep = function (ms) { return new Promise((r) => setTimeout(r, ms)); };
-  window.runAll = async function () {
-    const results = [];
-    for (const c of cases) {
-      try { await c.fn(); results.push({ name: c.name, ok: true }); }
-      catch (e) { results.push({ name: c.name, ok: false, error: String((e && e.stack) || e).slice(0, 600) }); }
-    }
+  let current = "(none started)";
+  let finished = false;
+  function publish(results) {
     const pre = document.createElement("pre");
     pre.id = "amb-results";
     pre.textContent = JSON.stringify(results);
     document.body.appendChild(pre);
+  }
+  // Fail fast and say where: a case that never settles is reported, not left to hang.
+  setTimeout(() => {
+    if (finished) return;
+    publish([{ name: "__watchdog__", ok: false, error: "page did not finish in 40s; stuck in case: " + current }]);
+  }, 40000);
+  window.runAll = async function () {
+    const results = [];
+    for (const c of cases) {
+      current = c.name;
+      try { await c.fn(); results.push({ name: c.name, ok: true }); }
+      catch (e) { results.push({ name: c.name, ok: false, error: String((e && e.stack) || e).slice(0, 600) }); }
+    }
+    finished = true;
+    publish(results);
   };
   window.addEventListener("error", (e) => {
     (window.__pageErrors = window.__pageErrors || []).push(String(e.message));
