@@ -42,6 +42,37 @@ Supported Revit versions are 2024 (net48), 2025 and 2026 (net8.0-windows), and
 2027 (net10.0-windows). See
 [docs/target-frameworks-and-dependencies.md](docs/target-frameworks-and-dependencies.md).
 
+## Good first issues
+
+You do not need Revit or Windows for these. The Python tests run in mock mode.
+
+### Run the tests
+
+Install the package with its dev extra (`pip install -e "packages/mcp-server-revit[dev]"`), then run:
+
+```bash
+cd packages/mcp-server-revit
+PYTHONPATH=src python -m pytest tests/test_tools.py tests/test_config.py   # one or two files
+PYTHONPATH=src python -m pytest tests                                      # everything
+```
+
+On Windows PowerShell, set the variable first: `$env:PYTHONPATH = "src"`.
+
+The full run takes about half a minute. A few tests are skipped on purpose: the end-to-end test needs a live Revit, and the proxy tests need a bridge. `test_wheel_contents.py` builds the wheel, so it needs an up-to-date `build` and `setuptools`. If it fails with a licence-metadata error on an old setuptools, upgrade setuptools before you report it.
+
+### Starter tasks
+
+Pick one, say so in an issue, and keep the pull request small.
+
+1. **Review a translation.** The 16 READMEs in [docs/i18n/](docs/i18n/) are AI-assisted drafts. A native speaker can fix wording. See [Translations](#translations).
+2. **Add a language.** Dutch, Swedish and Czech are not there yet. The steps are in [Translations](#translations), and `test_i18n_readmes.py` checks your work.
+3. **Add a test for the Power BI provider.** `providers/powerbi.py` has no test that mentions it. A small mock-mode test is a good start.
+4. **Try an untested MCP client.** [docs/compatibility.md](docs/compatibility.md) lists clients marked "not tested". Set one up in mock mode and send a pull request that updates its row, with the steps you used.
+5. **Try the server on Linux.** The Linux CI job is experimental because the Windows-only parts (bridge discovery, path mapping) have not been exercised there. Run the tests on Linux and open an issue for each failure you find.
+6. **Check the docs for stale statements.** Pick one page from [docs/README.md](docs/README.md), follow it on a clean machine, and fix what is wrong or unclear.
+7. **Tidy formatting.** CI reports how many files `ruff format` would change, and does not enforce it. Format a few files in one pull request, with no other changes.
+8. **Improve an error message.** Find a tool that returns a vague error in `packages/mcp-server-revit/src/revit_mcp_server/` and make it say what went wrong and what to do. Add a test for it.
+
 ## Translations
 
 Translated READMEs live in `docs/i18n/` as `README.<language>.md` and are
