@@ -19,6 +19,7 @@ const state = {
   plans: [],
   findings: [],
   reports: [],
+  diagnostics: null,
   log: [
     { at: "09:00", title: "Panel loaded", detail: "Waiting for host status." }
   ]
@@ -41,6 +42,11 @@ const runLog = document.getElementById("run-log");
 const severityFilter = document.getElementById("severity-filter");
 const settingsForm = document.getElementById("settings-form");
 const hubUrl = document.getElementById("hub-url");
+const setupCard = document.getElementById("setup-check");
+const setupStatus = document.getElementById("setup-status");
+const setupList = document.getElementById("setup-list");
+const setupToggle = document.getElementById("setup-toggle");
+const setupRefresh = document.getElementById("setup-refresh");
 
 function postToHost(type, payload = {}) {
   if (window.chrome && window.chrome.webview) {
@@ -115,13 +121,103 @@ function renderHostStatus() {
     : state.host ? "Hub down" : "Host pending";
 }
 
+// ---- Setup check (GET /diagnostics, forwarded by the host as diagnostics.updated) ----
+// Human labels for the check ids collect_diagnostics() returns. Unknown ids
+// fall back to the id itself so a newer hub never hides a failing check.
+const CHECK_LABELS = {
+  hub: "Panel hub",
+  mode: "Live Revit mode",
+  revit_bridge: "Revit connection",
+  workspace: "Workspace folder",
+  ai_provider: "AI provider for chat"
+};
+
+let setupExpanded = false;
+
+function failingChecks() {
+  return (state.diagnostics?.checks || []).filter((check) => !check.ok);
+}
+
+// The specific recovery step for a failing check (by id), or the first failing
+// check's step when no id is given. Empty string when there is nothing to say.
+function nextStepFor(checkId) {
+  const failing = failingChecks().filter((check) => check.next_step && (!checkId || check.id === checkId));
+  return failing.length ? failing[0].next_step : "";
+}
+
+// Replaces the generic "Could not reach the hub" transport error with the
+// failing check's next step when diagnostics know better.
+function friendlyError(message) {
+  const step = nextStepFor();
+  if (step && /could not reach the aec model bridge hub/i.test(message || "")) {
+    return step;
+  }
+  return message;
+}
+
+function renderSetup() {
+  const checks = state.diagnostics?.checks;
+  const failing = failingChecks();
+  let mode = "checking";
+  if (checks) {
+    mode = failing.length === 0 ? "ready" : "blocked";
+  }
+  setupCard.dataset.state = mode;
+
+  if (mode === "checking") {
+    setupStatus.textContent = "Checking setup\u2026";
+  } else if (mode === "ready") {
+    setupStatus.textContent = "\u2713 Ready";
+  } else {
+    setupStatus.textContent = `${failing.length} step${failing.length === 1 ? "" : "s"} to fix`;
+  }
+
+  // All passing: collapse to the small indicator, details on demand.
+  const showList = mode === "blocked" || (mode === "ready" && setupExpanded);
+  setupToggle.hidden = mode !== "ready";
+  setupToggle.setAttribute("aria-expanded", String(showList));
+  setupToggle.textContent = setupExpanded ? "Hide" : "Details";
+  setupList.hidden = !showList;
+  setupList.innerHTML = (checks || []).map((check) => `
+    <li class="setup-item ${check.ok ? "is-pass" : "is-fail"}">
+      <span class="setup-glyph" aria-hidden="true">${check.ok ? "\u2713" : "!"}</span>
+      <div>
+        <strong>${escapeHtml(CHECK_LABELS[check.id] || check.id)}: ${check.ok ? "OK" : "Needs attention"}</strong>
+        <p>${escapeHtml(check.detail || "")}</p>
+        ${!check.ok && check.next_step ? `<p class="setup-next"><strong>What to do:</strong> ${escapeHtml(check.next_step)}</p>` : ""}
+      </div>
+    </li>`).join("");
+}
+
+function requestDiagnostics() {
+  setupCard.dataset.state = "checking";
+  setupStatus.textContent = "Checking setup\u2026";
+  postToHost("diagnostics.refresh");
+}
+
+// The hub could not be reached at all, so there is no /diagnostics payload.
+// This is derived from the transport failure, not fixture data.
+function setHubUnreachable(message) {
+  state.diagnostics = {
+    ok: false,
+    checks: [{
+      id: "hub",
+      ok: false,
+      detail: message || "The panel could not reach the AEC Model Bridge hub.",
+      next_step: "Start the bridge server (Connection panel > Start Server), then press Refresh. If it keeps failing, see docs/first-check.md."
+    }]
+  };
+  renderSetup();
+  renderSystemState();
+}
+
 function renderAlerts() {
   const alerts = [];
   if (!state.host) {
     alerts.push(["warning", "Waiting for host", "The panel has not received Revit status yet."]);
   } else {
     if (!isHubOnline()) {
-      alerts.push(["error", "Hub down", "Start the bridge server from the Connection panel."]);
+      alerts.push(["error", "Hub down", nextStepFor("hub") || "Start the bridge server from the Connection panel."]);
     }
     if (!hasActiveDocument()) {
       alerts.push(["warning", "No document open", "Open a Revit model to enable model tools."]);
@@ -137,7 +233,7 @@ function renderAlerts() {
       alerts.push(["warning", "LLM offline", "Chat and natural-language tools are unavailable."]);
     }
     if (state.providers && !state.providers.claude && !state.providers.codex) {
-      alerts.push(["warning", "No AI provider available", "Set the MCP_REVIT_ANTHROPIC_API_KEY environment variable and restart Revit, or install and sign in to the claude/codex CLI."]);
+      alerts.push(["warning", "No AI provider available", nextStepFor("ai_provider") || "Set the MCP_REVIT_ANTHROPIC_API_KEY environment variable and restart Revit, or install and sign in to the claude/codex CLI."]);
     }
   }
 
@@ -328,6 +424,12 @@ document.querySelectorAll(".nav").forEach((button) => {
   button.addEventListener("click", () => setView(button.dataset.view));
 });
 
+setupRefresh.addEventListener("click", requestDiagnostics);
+setupToggle.addEventListener("click", () => {
+  setupExpanded = !setupExpanded;
+  renderSetup();
+});
+
 document.body.addEventListener("click", (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) {
@@ -458,7 +560,11 @@ function mapReportEntry(entry) {
 if (window.chrome && window.chrome.webview) {
   window.chrome.webview.addEventListener("message", (event) => {
     if (event.data?.type === "host.status") {
+      const hubWasOnline = isHubOnline();
       state.host = event.data;
+      if (state.host.serverRunning && !hubWasOnline) {
+        requestDiagnostics();
+      }
       document.documentElement.dataset.theme = event.data.isDarkTheme ? "dark" : "light";
       renderSystemState();
       addLog("Host status updated", state.host.activeDocument || "No active document");
@@ -505,16 +611,26 @@ if (window.chrome && window.chrome.webview) {
         : `${result.selected_count || 0} selected`;
       addLog("Selection updated", detail);
     }
+    if (event.data?.type === "diagnostics.updated") {
+      state.diagnostics = event.data.diagnostics;
+      renderSetup();
+      renderSystemState();
+      addLog("Setup check", failingChecks().length ? `${failingChecks().length} step(s) need attention` : "Ready");
+    }
     if (event.data?.type === "tool.error") {
-      addLog(`Error: ${event.data.action || "tool"}`, event.data.message || "Unknown error");
+      if (event.data.action === "diagnostics.refresh") {
+        setHubUnreachable(event.data.message);
+      }
+      addLog(`Error: ${event.data.action || "tool"}`, friendlyError(event.data.message) || "Unknown error");
     }
     if (event.data?.type === "chat.response") {
       resolvePendingChatMessage(event.data.message || "(empty response)", false);
       addLog("Chat response received", "");
     }
     if (event.data?.type === "chat.error") {
-      resolvePendingChatMessage(`Error: ${event.data.message || "Unknown error"}`, true);
-      addLog("Chat error", event.data.message || "Unknown error");
+      const chatMessage = friendlyError(event.data.message) || "Unknown error";
+      resolvePendingChatMessage(`Error: ${chatMessage}`, true);
+      addLog("Chat error", chatMessage);
     }
     if (event.data?.type === "panel.view" && views[event.data.view]) {
       setView(event.data.view);
@@ -536,5 +652,7 @@ renderFindings();
 renderReports();
 renderLog();
 renderSystemState();
+renderSetup();
 postToHost("panel.loaded");
+requestDiagnostics();
 postToHost("providers.refresh");

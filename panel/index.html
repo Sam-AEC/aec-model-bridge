@@ -101,6 +101,16 @@
     </header>
     <div class="alerts" id="system-alerts" aria-live="polite" hidden></div>
 
+    <section class="setup" id="setup-check" aria-labelledby="setup-title" data-state="checking">
+      <div class="setup-head">
+        <h2 id="setup-title" class="setup-title">Setup check</h2>
+        <span class="setup-status" id="setup-status" role="status" aria-live="polite">Checking setup&hellip;</span>
+        <button type="button" id="setup-toggle" aria-expanded="false" aria-controls="setup-list" hidden>Details</button>
+        <button type="button" id="setup-refresh">Refresh</button>
+      </div>
+      <ol class="setup-list" id="setup-list" hidden></ol>
+    </section>
+
     <section class="view is-active" id="view-chat" aria-labelledby="view-title">
       <div class="chat-feed" id="chat-feed"></div>
       <form class="composer" id="chat-form">
