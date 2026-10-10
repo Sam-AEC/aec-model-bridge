@@ -151,7 +151,7 @@ Hub, onaylanmış bir plan taşımayan ve modeli değiştiren her araç çağrı
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Onay akışı: yapay zekâ asistanı bir plan önerir, MCP hub'ı ve ApprovalGate bunu Revit yan panelinde gösterir ve yalnızca siz onayladıktan sonra execute_plan komutları, tek bir adlandırılmış transaction içinde çalıştıran Revit eklentisine iletir. Planı reddederseniz veya hiç onaylamazsanız çağrı engellenir ve model olduğu gibi kalır." width="900">
+    <img src="../images/approval-flow-light.png" alt="Onay akışı: yapay zekâ asistanı plan_actions ile bir plan taslağı hazırlar, yan panel önerilen değişiklikleri (sayılar, kapsam, önce ve sonra) gösterir ve bir insan bunu panelde ya da aec-model-bridge-approve CLI ile onaylar; onay asla MCP üzerinden verilmez. Hub, planın onaylanan araç ve argümanlarla eşleştiğini yalnızca bir kez denetler. Ardından Revit her eylemi kendi transaction'ında çalıştırır, bu yüzden Ctrl+Z her basışta bir eylemi geri alır. Doğrulamadan sonra, kaydedilmiş önceki değeri olmayan eylemleri atlayabilen rollback_plan da kullanılabilir. Planı reddederseniz veya hiç onaylamazsanız çağrı engellenir ve model olduğu gibi kalır." width="900">
   </picture>
 </p>
 
