@@ -359,6 +359,62 @@ p {
   font-size: 12px;
 }
 
+.sprite {
+  position: absolute;
+}
+
+.top-status {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+  max-width: 60%;
+}
+
+/* Informational only: the mode is set in the hub config, not from the panel (stage 1). */
+.top-status .status-pill {
+  max-width: 100%;
+}
+
+.mode-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 1px solid var(--amb-line);
+  border-radius: 16px;
+  background: var(--amb-surface-raised);
+  color: var(--amb-ink-muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.mode-chip[data-mode="look_only"] {
+  color: var(--amb-info);
+}
+
+.mode-chip[data-mode="ask_first"] {
+  color: var(--amb-pending);
+}
+
+/* Warning colour on a warning border and dot; the text stays ink so it keeps AA contrast. */
+.mode-chip[data-mode="auto"] {
+  border-color: var(--amb-warning);
+  color: var(--amb-ink);
+}
+
+.mode-chip[data-mode="auto"]::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--amb-warning);
+}
+
 .status-pill {
   display: inline-flex;
   align-items: center;
@@ -474,7 +530,6 @@ p {
   max-width: 180px;
 }
 
-.chat-feed,
 .list,
 .timeline {
   display: grid;
@@ -482,12 +537,6 @@ p {
   gap: 10px;
 }
 
-.chat-feed {
-  align-content: end;
-  min-height: 320px;
-}
-
-.message,
 .item,
 .event {
   border: 1px solid var(--amb-line);
@@ -496,29 +545,6 @@ p {
   box-shadow: var(--amb-shadow-1);
 }
 
-.message {
-  padding: 10px 12px;
-  max-width: 86%;
-}
-
-.message.user {
-  justify-self: end;
-  background: var(--amb-brand-wash);
-  border-color: var(--amb-brand);
-}
-
-.message.pending {
-  color: var(--amb-ink-muted);
-  font-style: italic;
-}
-
-.message.error {
-  background: var(--amb-danger-wash);
-  border-color: var(--amb-danger);
-  color: var(--amb-danger);
-}
-
-.message .meta,
 .event .meta {
   color: var(--amb-ink-muted);
   font-size: 11px;
@@ -528,21 +554,6 @@ p {
 /* Run-log timestamps: tabular figures so the column doesn't shift (tokens.md §4). */
 .event .meta {
   font-variant-numeric: tabular-nums;
-}
-
-.composer {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  gap: 8px;
-}
-
-.composer select {
-  width: auto;
-  max-width: 110px;
-}
-
-.composer #chat-reset {
-  font-weight: 500;
 }
 
 .item {
@@ -818,33 +829,6 @@ p {
 
   .alerts {
     padding: 8px 10px 0;
-  }
-
-  .message {
-    max-width: 94%;
-  }
-
-  .composer {
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    grid-template-areas:
-      "input input input"
-      "provider send new";
-  }
-
-  .composer #chat-input {
-    grid-area: input;
-  }
-
-  .composer #chat-provider {
-    grid-area: provider;
-  }
-
-  .composer button[type="submit"] {
-    grid-area: send;
-  }
-
-  .composer #chat-reset {
-    grid-area: new;
   }
 
   .toolbar select {
