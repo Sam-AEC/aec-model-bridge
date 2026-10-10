@@ -398,3 +398,17 @@ console.log(JSON.stringify({{ buttons: html.match(/<button[^>]*data-decision="ap
     v2_button, v1_button = got["buttons"]
     assert " disabled" in v2_button, "a v2 plan must not be approvable before its review is opened"
     assert " disabled" not in v1_button
+
+
+def test_partial_and_abandoned_plans_never_offer_approve():
+    """Recovery (abandoned actions) leaves plans in approved/partial; the panel offers no decision on them."""
+    plans = [
+        {"plan_id": "pa", "state": "partial", "plan_hash": "a", "actions": [{"tool": "a", "state": "abandoned"}]},
+        {"plan_id": "pb", "state": "approved", "plan_hash": "b", "actions": [{"tool": "a", "state": "abandoned"}]},
+    ]
+    got = _run(f"""
+host(); plans({json.dumps(plans)});
+const html = els['plan-list'].innerHTML;
+console.log(JSON.stringify({{ approve: html.includes('data-decision="approve"'), select: html.includes('data-select-plan') }}));
+""")
+    assert got == {"approve": False, "select": False}

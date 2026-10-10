@@ -458,6 +458,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 - [Security](docs/security.md)
 - [MCP clients and registry](docs/marketplaces.md)
 - [Versioning and releases](docs/versioning.md)
+- [Release checklist](docs/release-checklist.md)
 - [All documentation](docs/README.md)
 - [Contributing](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Contributors](CONTRIBUTORS.md)

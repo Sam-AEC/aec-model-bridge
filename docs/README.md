@@ -27,6 +27,7 @@ Start with the [installation guide](install.md). The main [README](../README.md)
 - [revit-addin-lifecycle.md](revit-addin-lifecycle.md): how the Revit add-in starts up and runs commands.
 - [design/tokens.md](design/tokens.md): design tokens for the add-in and panel UI ([design/review.html](design/review.html) is the visual review page).
 - [design/readme-visual-brief.md](design/readme-visual-brief.md): Claude Design prompt for README images and a demo cover.
+- [release-checklist.md](release-checklist.md): ordered ship-ready checklist, what CI proves and what still needs a live Revit.
 - [release-retirement.md](release-retirement.md): reviewed release inventory and future cleanup procedure.
 - [examples/hermes-desktop.json](examples/hermes-desktop.json): sample client config for Hermes Desktop.
 
@@ -41,7 +42,10 @@ Start with the [installation guide](install.md). The main [README](../README.md)
 - [0011](0011-panel-architecture.md): WebView2 dockable panel and hub message bridge.
 - [0012](0012-native-agent-chat-backend.md): native tool-calling loop for chat.
 - [0013](0013-automation-engines.md): proposal for running Dynamo, pyRevit and Python automation behind the approval gate.
-- [0016](0016-cerberus-multi-agent-review.md): proposal for Cerberus, a multi-head read-only model review with cross-checking and one approved plan.
+- [0014](0014-multi-revit-routing.md): proposal for routing to the right Revit when several are open.
+- [0015](0015-navisworks-bcf-loop.md): proposal (scoping only) for the Navisworks clash to Revit fix loop, and BCF.
+- [0016](0016-cerberus-multi-agent-review.md): Proposed, not built. Cerberus, a multi-head read-only model review with cross-checking and one approved plan.
+- [0017](0017-approval-document-binding-and-expiry.md): proposal to bind approvals to a Revit document and expire them.
 
 Numbers 0003 to 0006 are not in this repository.
 

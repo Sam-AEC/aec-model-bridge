@@ -4,6 +4,7 @@ import os
 import re
 import tempfile
 import threading
+import time
 import uuid
 import json
 import logging
@@ -41,7 +42,13 @@ ACTION_ID_RE = re.compile(r"act_[0-9a-f]{12}")
 
 # Action states. Only "pending" is open; "running", "executed" and "failed" are consumed.
 OPEN_ACTION_STATES = frozenset({"pending", None})
-DONE_ACTION_STATES = frozenset({"executed", "failed"})
+DONE_ACTION_STATES = frozenset({"executed", "failed", "abandoned"})
+# A running action older than this is shown as STALE to the person; nothing is ever
+# recovered automatically, only the human `recover` command changes it.
+STALE_RUNNING_SECONDS = 15 * 60
+# os.replace can raise PermissionError on Windows while a reader holds the target.
+REPLACE_ATTEMPTS = 5
+REPLACE_BACKOFF_SECONDS = 0.01
 
 _PROCESS_LOCK = threading.RLock()
 
@@ -116,6 +123,48 @@ def _locked_file(path: Path) -> Iterator[None]:
                 msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
 
 
+def replace_with_retry(src: Any, dst: Any) -> None:
+    """Atomic ``os.replace`` with a bounded retry for transient PermissionError (Windows
+    readers such as antivirus or a polling panel). Atomicity is unchanged: the same single
+    replace call is retried, never a delete-then-write. Fails with a clear BridgeError."""
+    last: Optional[BaseException] = None
+    for attempt in range(REPLACE_ATTEMPTS):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError as e:
+            last = e
+            if attempt < REPLACE_ATTEMPTS - 1:
+                time.sleep(min(0.05, REPLACE_BACKOFF_SECONDS * (attempt + 1)))
+    raise BridgeError(
+        f"Could not write '{Path(str(dst)).name}': the file stayed locked by another program after "
+        f"{REPLACE_ATTEMPTS} attempts ({last}). Nothing was changed; close whatever is reading the "
+        "plans folder and try again."
+    )
+
+
+def running_actions(plan: Dict[str, Any], now: Optional[datetime] = None) -> List[Dict[str, Any]]:
+    """Actions stuck in 'running', each as {action_id, tool, claimed_at, age_seconds, stale}.
+    Information only: nothing here changes a plan."""
+    now = now or datetime.now(timezone.utc)
+    out = []
+    actions = plan.get("actions", [])
+    for a in actions if isinstance(actions, list) else []:
+        if not isinstance(a, dict) or a.get("state") != "running":
+            continue
+        age = None
+        try:
+            claimed = datetime.fromisoformat(str(a.get("claimed_at")))
+            if claimed.tzinfo is None:
+                claimed = claimed.replace(tzinfo=timezone.utc)
+            age = max(0.0, (now - claimed).total_seconds())
+        except (TypeError, ValueError):
+            pass
+        out.append({"action_id": a.get("action_id"), "tool": a.get("tool"), "claimed_at": a.get("claimed_at"),
+                    "age_seconds": age, "stale": age is None or age >= STALE_RUNNING_SECONDS})
+    return out
+
+
 class ApprovalGate:
     def __init__(self, workspace_dir: Path, approval_mode: str = config.approval_mode) -> None:
         self.workspace_dir = workspace_dir
@@ -172,7 +221,7 @@ class ApprovalGate:
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(plan, f, indent=2)
-            os.replace(tmp, path)
+            replace_with_retry(tmp, path)
         except Exception as e:
             logger.error("Failed to save plan %s: %s", plan_id, e)
             with contextlib.suppress(OSError):
@@ -494,6 +543,8 @@ class ApprovalGate:
                 return None
             for action in plan.get("actions", []):
                 if action.get("action_id") == claim["action_id"]:
+                    if action.get("state") == "abandoned":
+                        continue  # a person gave this action up; a late finish never revives it
                     action["state"] = "executed" if ok else "failed"
                     if not ok and error:
                         action["error"] = str(error)[:500]
@@ -509,6 +560,53 @@ class ApprovalGate:
         if finished_all:
             return self.update_plan_state(plan_id, "executed")
         if plan.get("state") == "partial" and all_done:
+            try:
+                self.record_proof(plan)
+            except Exception:
+                logger.exception("Failed to write proof bundle for plan %s", plan_id)
+        return plan
+
+    def recover_running_actions(self, plan_id: str, reason: str, by: Optional[str] = None,
+                                force: bool = False) -> Dict[str, Any]:
+        """Human-only: give up every action stuck in 'running' (its process died mid-call).
+
+        The actions become 'abandoned' with a reason and time. They are NEVER run again (the
+        claim marker stays, and 'abandoned' is not an open state), so at-most-once holds. An
+        approved plan becomes 'partial': its remaining open actions cannot run either, and
+        need a new plan that a person approves. Not reachable through any tool call: only
+        the command-line tool calls this. Fresh actions (younger than the stale threshold)
+        are refused unless ``force``.
+        """
+        reason = str(reason or "").strip()
+        if not reason:
+            raise BridgeError("A reason is required to abandon a running action.")
+        now = datetime.now(timezone.utc)
+        with self._plan_lock(plan_id):
+            plan = self.load_plan(plan_id)
+            if not plan:
+                raise BridgeError(f"Plan '{plan_id}' does not exist.")
+            stuck = running_actions(plan, now)
+            if not stuck:
+                raise BridgeError(f"Plan '{plan_id}' has no action in state 'running'; nothing to recover.")
+            if not force and any(not r["stale"] for r in stuck):
+                raise BridgeError(
+                    f"An action in plan '{plan_id}' started less than {STALE_RUNNING_SECONDS // 60} minutes ago "
+                    "and may still be running. Wait, or pass --force if you are sure it is dead."
+                )
+            ids = {r["action_id"] for r in stuck}
+            for action in plan["actions"]:
+                if isinstance(action, dict) and action.get("action_id") in ids and action.get("state") == "running":
+                    action["state"] = "abandoned"
+                    action["abandoned_at"] = now.isoformat()
+                    action["abandoned_reason"] = reason[:500]
+                    action["abandoned_by"] = str(by) if by else local_user()
+                    action["abandoned_via"] = "cli"
+            closed = plan.get("state") == "approved"
+            if closed:
+                plan["state"] = "partial"
+                plan["executed_at"] = now.isoformat()
+            self.save_plan(plan)
+        if closed:
             try:
                 self.record_proof(plan)
             except Exception:

@@ -209,7 +209,7 @@ Un deshacer en un solo paso para un plan completo está planificado, no construi
 puede omitir una acción si no se registró un valor previo, así que lee sus advertencias.
 Ninguna de las dos vías está verificada todavía en una sesión real de Revit (UNVERIFIED).
 Las operaciones que no se pueden revertir, como la escritura de archivos, no se deshacen
-por ninguna de las dos vías y todavía no piden una segunda confirmación (planificado). El ciclo de vida está descrito en
+por ninguna de las dos vías y todavía no piden una segunda confirmación (planificado). La lista Plans del panel muestra solo los planes pendientes; `aec-model-bridge-approve show <plan_id>` funciona con un plan en cualquier estado, mientras que los paquetes de `proofs/` solo existen para los planes que se ejecutaron (o se intentaron). El ciclo de vida está descrito en
 [ADR 0008](../0008-approval-gate-lifecycle.md).
 
 Para pipelines desatendidos puedes definir `MCP_REVIT_APPROVAL_MODE=auto`. Eso desactiva
