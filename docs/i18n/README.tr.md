@@ -6,7 +6,7 @@
 
 > Bu çeviri yapay zekâ desteğiyle hazırlanmıştır. Esas kaynak İngilizce [README](../../README.md) dosyasıdır; düzeltmeler için pull request göndermekten çekinmeyin (bkz. [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
-**Açık Revit modelinizi yapay zekâya sorun. Varsayılan olarak siz onaylamadan hiçbir şey değişmez.**
+**Açık Revit modelinizi yapay zekâya sorun. Varsayılan olarak siz bir planı onaylayana kadar yazma araçları engellenir.**
 
 Revit 2024 – 2027 için açık kaynaklı MCP sunucusu ve yerel eklenti. Claude, Codex ve diğer MCP istemcileriyle çalışır.
 
@@ -105,16 +105,16 @@ VS Code mu kullanıyorsunuz? [Eklenti kaynağı ve yerel kurulum adımları](../
 
 | Alan | Araçlar | Ne yaparlar |
 | --- | --- | --- |
-| Revit | 103 | Modeli okuma; eleman, parametre, görünüm, pafta, çizelge oluşturma ve düzenleme; dışa aktarma; çalışma paylaşımı (worksharing) |
-| Onay | 6 | Model değişikliklerini planlama, inceleme, onaylama, çalıştırma ve geri alma |
-| Modüller | 34 | Snapshot incelemesi, parametre ızgaraları, QA/QC kontrolleri, reçeteler, raporlar, seçimler |
+| Revit | 105 | Modeli okuma; eleman, parametre, görünüm, pafta, çizelge oluşturma ve düzenleme; dışa aktarma; çalışma paylaşımı (worksharing) |
+| Onay | 5 | Model değişikliklerini planlama, inceleme, onaylama, çalıştırma ve geri alma |
+| Modüller | 55 | Snapshot incelemesi, parametre ızgaraları, QA/QC kontrolleri, reçeteler, raporlar, seçimler |
 | Rhino ve Grasshopper | 19 | Geometri, katmanlar, malzemeler, boolean işlemleri |
 | Speckle | 17 | Projeler, modeller, sürümler, gönderme ve alma |
 | Navisworks | 15 | Model ağacı, bakış noktaları, çakışma testleri (geliştirme sürüyor) |
 | IFC | 7 | IFC dosyalarını Revit olmadan okuma: yapı, özellikler, doğrulama |
 | Grafik, snapshot'lar, dışa aktarmalar, işler | 18 | Anlamsal grafik denetimleri, snapshot farkları, SQLite dışa aktarma, arka plan işleri |
 
-Varsayılan kurulumda 219 araç listelenir (mock modundaki mevcut sunucudan sayılmıştır). Autodesk Data araçları, APS kimlik bilgileri yapılandırıldığında görünür. [Araç başvurusu](../tools-generated.md) tüm araçları listeler. Her araç, istemcilerin okuma ile yazmayı ayırt edebilmesi için MCP ek açıklamaları (annotations; `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) taşır.
+Varsayılan kurulumda 241 araç listelenir (mock modundaki mevcut sunucudan sayılmıştır). Autodesk Data araçları, APS kimlik bilgileri yapılandırıldığında görünür. [Araç başvurusu](../tools-generated.md) tüm araçları listeler. Her araç, istemcilerin okuma ile yazmayı ayırt edebilmesi için MCP ek açıklamaları (annotations; `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) taşır.
 
 ### Gelişmiş Revit otomasyonu
 
@@ -139,7 +139,7 @@ Turkuaz kutular bugün çalışıyor. Kehribar rengi kesikli kutuların üzerind
 
 ### Onay nasıl çalışır
 
-Hub, onaylanmış bir plan taşımayan ve modeli değiştiren her araç çağrısını durdurur. Varsayılan mod `required`'dır. Yapay zekâ bir plan önerir, siz Revit yan panelinde incelersiniz ve eklenti planı Revit'in ana iş parçacığında adlandırılmış bir transaction içinde çalıştırır.
+Hub, onaylanmış bir plan taşımayan ve modeli değiştiren her araç çağrısını durdurur. Varsayılan mod `required`'dır. Yapay zekâ bir plan önerir, siz Revit yan panelinde incelersiniz ve eklenti planı Revit'in ana iş parçacığında çalıştırır; parametre ve model düzenleme eylemlerinin her biri kendi adlandırılmış transaction'ı içinde yürür; kaydetme, senkronizasyon ve betik eylemleri böyle değildir, bu yüzden Ctrl+Z onları kapsamaz.
 
 <p align="center">
   <picture>
@@ -151,13 +151,13 @@ Hub, onaylanmış bir plan taşımayan ve modeli değiştiren her araç çağrı
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Onay akışı: yapay zekâ asistanı bir plan önerir, MCP hub'ı ve ApprovalGate bunu Revit yan panelinde gösterir ve yalnızca siz onayladıktan sonra execute_plan komutları, tek bir adlandırılmış transaction içinde çalıştıran Revit eklentisine iletir. Planı reddederseniz veya hiç onaylamazsanız çağrı engellenir ve model olduğu gibi kalır." width="900">
+    <img src="../images/approval-flow-light.png" alt="Onay akışı: yapay zekâ asistanı plan_actions ile bir plan taslağı hazırlar, yan panel önerilen değişiklikleri (sayılar, kapsam, önce ve sonra) gösterir ve bir insan bunu panelde ya da aec-model-bridge-approve CLI ile onaylar; onay asla MCP üzerinden verilmez. Hub, planın onaylanan araç ve argümanlarla eşleştiğini yalnızca bir kez denetler. Ardından Revit her eylemi kendi transaction'ında çalıştırır, bu yüzden Ctrl+Z her basışta bir eylemi geri alır. Doğrulamadan sonra, kaydedilmiş önceki değeri olmayan eylemleri atlayabilen rollback_plan da kullanılabilir. Planı reddederseniz veya hiç onaylamazsanız çağrı engellenir ve model olduğu gibi kalır." width="900">
   </picture>
 </p>
 
 <sub>Diyagram kaynağı: [approval-flow.mmd](../diagrams/approval-flow.mmd). Görselleri `python scripts/render_diagrams.py` ile yeniden oluşturun.</sub>
 
-Onaylanan bir plan sonradan hatalı çıkarsa `rollback_plan` onu geri alır. Geri alma, aynı oturumda Revit'in Geri Al komutunu veya ters parametre değerlerini kullanır. Dosya çıktısı gibi geri alınamayan işlemler ikinci bir onay ister. Yaşam döngüsü [ADR 0008](../0008-approval-gate-lifecycle.md) belgesindedir.
+Bir plan hatalı çıkarsa Revit'te Ctrl+Z ile geri alın. Her parametre yazımı kendi adlandırılmış işlemidir, bu yüzden tek bir plan için birkaç kez basmanız gerekebilir. Tüm plan için tek adımda geri alma planlanmıştır, henüz yapılmamıştır. `rollback_plan` kaydedilen önceki değerleri ters sırayla geri yazar ve önceki değer kaydedilmemişse bir eylemi atlayabilir; bu yüzden uyarılarını okuyun. İki yol da henüz gerçek bir Revit oturumunda doğrulanmadı (UNVERIFIED). Dosya çıktısı gibi geri alınamayan işlemler bu iki yolla da geri alınamaz ve henüz ikinci bir onay istemez (planlanmıştır). Panelin Plans listesi yalnızca bekleyen planları gösterir; `aec-model-bridge-approve show <plan_id>` her durumdaki bir plan için çalışır, `proofs/` paketleri ise yalnızca yürütülen (veya yürütülmeye çalışılan) planlar için vardır. Yaşam döngüsü [ADR 0008](../0008-approval-gate-lifecycle.md) belgesindedir.
 
 Gözetimsiz pipeline'lar için `MCP_REVIT_APPROVAL_MODE=auto` ayarlayabilirsiniz. Bu, insan denetimini kapatır; bu yüzden yalnızca kontrollü bir ortamda kullanın.
 
@@ -350,6 +350,20 @@ CI, Python sunucusunu ve Revit 2024–2027 için eklenti hedeflerini derler. Pul
 - [Tüm dokümantasyon](../README.md)
 - [Katkıda bulunma](../../CONTRIBUTING.md) ve [Davranış Kuralları](../../CODE_OF_CONDUCT.md)
 - [Katkıda bulunanlar](../../CONTRIBUTORS.md)
+
+## Built with
+
+AEC Model Bridge stands on open-source work. It is independent and is not affiliated with or endorsed by any project named here.
+
+- [Model Context Protocol](https://modelcontextprotocol.io) Python SDK (MIT) for the MCP server
+- [IfcOpenShell](https://ifcopenshell.org) (LGPL-3.0-or-later) for IFC files
+- [specklepy](https://github.com/specklesystems/specklepy) (Apache-2.0) for Speckle
+- [pydantic](https://docs.pydantic.dev), [httpx](https://www.python-httpx.org), [NetworkX](https://networkx.org), [openpyxl](https://openpyxl.readthedocs.io) and [PyYAML](https://pyyaml.org) (MIT or BSD)
+- [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) (MIT) for the built-in agent chat
+- [Serilog](https://serilog.net), [IronPython](https://ironpython.net) and [Microsoft WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) in the Revit add-in
+- Autodesk Revit and Navisworks and McNeel Rhino are separate products that you license yourself. This project does not include their code.
+
+Licence texts and the full list of packages are in [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md). Licences were read from package metadata; rows that could not be verified are marked as such.
 
 ## Proje ve lisans
 

@@ -222,7 +222,7 @@ Contrast figures are measured against that theme's `--amb-surface`
 | `--amb-rail` | `#141B24` | `#141B24` | Nav rail — **dark in both themes**, as today |
 | `--amb-rail-ink` | `#C9D4E2` | `#C9D4E2` | Nav rail label and inactive glyph |
 
-Measured: ink 16.4:1 light / 13.7:1 dark. Muted 5.8:1 light / 6.7:1 dark.
+Measured: ink 16.4:1 light / 13.7:1 dark. Muted 5.8:1 light / 6.6:1 dark.
 
 `--amb-ink` light is `#18202C`, the value already in `panel/styles.css`.
 Kept on purpose — it is correct, and continuity beats novelty for neutrals.
@@ -231,13 +231,30 @@ Kept on purpose — it is correct, and continuity beats novelty for neutrals.
 
 | Token | Light | Dark | Role |
 | --- | --- | --- | --- |
-| `--amb-brand` | `#0091A7` | `#3FC3D6` | Mark apex; focus ring; active nav indicator |
-| `--amb-brand-strong` | `#046B80` | `#6FD8E6` | Brand-colored **text** and links; primary button hover |
+| `--amb-brand` | `#0091A7` | `#3FC3D6` | Mark apex; focus ring; active nav indicator; non-text graphics |
+| `--amb-brand-strong` | `#046B80` | `#6FD8E6` | Brand-colored **text** and links |
+| `--amb-primary-bg` | `#046B80` | `#3FC3D6` | Fill of the primary button (white label light, `#06222A` label dark) |
+| `--amb-primary-bg-hover` | `#035262` | `#3FC3D6` | Primary button hover (dark theme keeps the same fill) |
 | `--amb-brand-wash` | `rgba(0, 145, 167, 0.14)` | `rgba(63, 195, 214, 0.14)` | Tinted brand surfaces |
 
-Measured: `--amb-brand` 3.8:1 on white, 4.2:1 on `#1C222B` — above the 3:1
-floor for graphics in both themes, which is why one hue serves both.
-`--amb-brand-strong` 5.6:1 / 9.7:1 — safe for text.
+Measured (script below): `--amb-brand` 3.74:1 on white, 7.61:1 on `#1C222B` —
+above the 3:1 floor for graphics in both themes, which is why one hue serves
+both, but **below 4.5:1 on white, so it is not for text or for a fill that
+carries a white label**. `--amb-brand-strong` 6.14:1 on white / 9.63:1 on
+`#1C222B` — safe for text. (Earlier revisions of this file said 5.6:1 and 4.2:1
+/ 9.7:1; those figures were wrong.)
+
+**When to use which.**
+
+| Need | Token | Why |
+| --- | --- | --- |
+| Focus ring, nav indicator, icon accent, mark | `--amb-brand` | Non-text graphic; 3:1 is enough and it is the identity hue |
+| Brand-colored text or link on a surface | `--amb-brand-strong` | Needs 4.5:1; 6.14:1 light / 9.63:1 dark |
+| Solid fill behind a label (primary button) | `--amb-primary-bg` | White on `--amb-brand` is 3.74:1 and fails WCAG AA 4.5:1; white on `#046B80` is 6.14:1 |
+| Primary button hover | `--amb-primary-bg-hover` | White on `#035262` is 8.80:1 |
+
+Dark theme: the primary button keeps `#3FC3D6` with a `#06222A` label
+(`--amb-on-brand`), 7.86:1.
 
 **Why this hue.** It is the one saturated family that no semantic token below
 occupies, so the brand never gets read as a status. It is also the color of an
@@ -246,10 +263,31 @@ displays — which is the vernacular this product actually lives in. It is
 deliberately *not* Autodesk's `#0696D7`: the panel is a guest inside Revit, not
 a part of it.
 
-**Primary buttons.** `panel/styles.css` currently paints the submit/save
-buttons with `--blue` (`#2563eb`), which is now the *info* token. Repaint them
-with `--amb-brand` (light) / `--amb-brand` (dark) and white / `#06222A` label
-respectively.
+**Primary buttons.** Paint the submit/save buttons with `--amb-primary-bg`
+(light `#046B80`, white label; dark `#3FC3D6`, `#06222A` label), hover
+`--amb-primary-bg-hover`. Do not use `--amb-brand` as a light-theme fill under a
+white label: 3.74:1 fails AA.
+
+> Status: `--amb-primary-bg` and `--amb-primary-bg-hover` are introduced by
+> PR #107 (`feat/panel-step1-a11y-layout`). They are not yet in `panel/styles.css`
+> on `dev` (which still has only the 17 tokens in section 8 and uses
+> `--amb-brand` / `--amb-brand-strong`), so the token count and summary table
+> below do not include them until that PR merges.
+
+**Reproducing the figures.** WCAG 2.x relative luminance; ratio is
+`(L1 + 0.05) / (L2 + 0.05)`.
+
+```python
+def lum(hex_):
+    c = [int(hex_[i:i+2], 16) / 255 for i in (1, 3, 5)]
+    c = [v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4 for v in c]
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+def ratio(a, b):
+    hi, lo = sorted((lum(a), lum(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+# ratio("#FFFFFF", "#0091A7") = 3.74   ratio("#FFFFFF", "#046B80") = 6.14
+# ratio("#FFFFFF", "#035262") = 8.80   ratio("#06222A", "#3FC3D6") = 7.86
+```
 
 ### 3.4 Semantic — shared by ribbon icons and panel badges
 
@@ -265,7 +303,8 @@ respectively.
 Measured against white (the solid badge label color), light column:
 danger 5.3:1, warning 5.0:1, info 6.5:1, success 5.4:1, pending 6.8:1,
 idle 5.8:1. All pass AA for 11 px text.
-Measured against `#1C222B`, dark column: 5.8 / 7.9 / 6.6 / 7.7 / 6.8 / 6.7.
+Measured against `#1C222B`, dark column (label text on the surface): 5.8 / 7.8 / 6.6 / 7.7 / 6.8 / 6.6.
+Recomputed from the values in `panel/styles.css` on `dev`.
 
 > The current `.badge.warning` uses `#b7791f`, which is **3.6:1 against its own
 > white label** — it fails AA today. `#A45F0B` is the fix, not a restyle.
@@ -327,7 +366,7 @@ Dark theme — 14 % tint, 40 % hairline, lifted label:
 ```
 
 The 14 % tint is the largest value that still leaves the lifted label at
-≥ 4.5:1 over the tinted surface (measured 4.7:1 for the tightest case, danger).
+≥ 4.5:1 over the tinted surface (measured 4.72:1 for the tightest case, danger, over the 14 % tint composited on `#1C222B`; the others are 5.1:1 to 6.0:1).
 Do not raise it.
 
 Add `border: 1px solid transparent` to the base `.badge` rule so the box does
