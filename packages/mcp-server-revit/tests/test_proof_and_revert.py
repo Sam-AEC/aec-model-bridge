@@ -154,7 +154,7 @@ async def test_plan_revert_content_and_never_auto_executes(env):
     got = {(a["arguments"]["element_id"], a["arguments"]["value"]) for a in revert["actions"]}
     assert got == {(1, "30"), (2, "45")}
     assert all(a["tool"] == "revit_set_parameter_value" for a in revert["actions"])
-    assert "conflicts" not in revert
+    assert not [w for w in revert["review"]["warnings"] if w.startswith("CONFLICT")]
     # Not executed: model still holds the fixed values, and execution is gated.
     assert store.values[1]["FireRating"] == "60"
     with pytest.raises(ValueError, match="not 'approved'"):
@@ -199,9 +199,10 @@ async def test_plan_revert_refused_when_stale_unless_conflicts_allowed(env):
 
     revert = await approval.execute_tool("plan_revert", {"plan_id": pid, "allow_conflicts": True})
     assert revert["state"] == "pending"
-    assert len(revert["conflicts"]) == 1
-    c = revert["conflicts"][0]
-    assert (c["element_id"], c["expected_current"], c["actual_current"], c["revert_to"]) == (2, "60", "90", "45")
+    assert "conflicts" not in revert  # conflicts live in the hashed review block
+    conflicts = [w for w in revert["review"]["warnings"] if w.startswith("CONFLICT")]
+    assert len(conflicts) == 1
+    assert "2/FireRating" in conflicts[0] and "'90'" in conflicts[0] and "'60'" in conflicts[0] and "'45'" in conflicts[0]
 
 
 @pytest.mark.anyio
@@ -249,7 +250,7 @@ async def test_revert_numeric_string_vs_number_is_not_a_conflict(tmp_path):
     pid, _ = await _run(approval, [_set(1, "Rating", 60)])
     assert store.values[1]["Rating"] == 60  # live read returns "60", the proof holds 60
     revert = await approval.execute_tool("plan_revert", {"plan_id": pid})
-    assert "conflicts" not in revert
+    assert not [w for w in revert["review"]["warnings"] if w.startswith("CONFLICT")]
 
 
 @pytest.mark.anyio
@@ -260,7 +261,7 @@ async def test_revert_numeric_real_conflict_still_refused(tmp_path):
     with pytest.raises(ValueError, match="changed since"):
         await approval.execute_tool("plan_revert", {"plan_id": pid})
     revert = await approval.execute_tool("plan_revert", {"plan_id": pid, "allow_conflicts": True})
-    assert revert["conflicts"][0]["actual_current"] == "61"
+    assert "'61'" in revert["review"]["warnings"][0]
 
 
 @pytest.mark.anyio
@@ -278,7 +279,7 @@ async def test_revert_drafts_typed_values(tmp_path):
     assert got == {"Rating": 30, "Width": 0.5, "Mark": "A-1", "Fixed": 1, "Host": 12}
     assert type(got["Rating"]) is int and type(got["Width"]) is float and type(got["Mark"]) is str
     assert type(got["Fixed"]) is int and type(got["Host"]) is int
-    assert "notes" not in revert
+    assert not revert["review"]["assumptions"]
     assert _proof_file(tmp_path, pid)["elements"][0]["before_storage_type"] == "Integer"
 
 
@@ -299,4 +300,5 @@ async def test_revert_unknown_storage_type_coerces_conservatively_with_note(tmp_
     got = {a["arguments"]["parameter_name"]: a["arguments"]["value"] for a in revert["actions"]}
     assert got["Rating"] == 30 and type(got["Rating"]) is int
     assert got["Mark"] == "12"  # new value was text, so stays text
-    assert len(revert["notes"]) == 2 and all("storage type not recorded" in n for n in revert["notes"])
+    notes = revert["review"]["assumptions"]
+    assert len(notes) == 2 and all("storage type not recorded" in n for n in notes)
