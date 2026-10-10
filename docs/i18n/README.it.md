@@ -6,7 +6,7 @@
 
 > Questa traduzione è stata realizzata con l'aiuto dell'IA. Il [README](../../README.md) in inglese è la fonte di riferimento; le correzioni sono benvenute tramite pull request (vedi [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
-**Interroga la tua IA sul modello Revit che hai aperto. Per impostazione predefinita, nulla cambia finché non lo approvi.**
+**Interroga la tua IA sul modello Revit che hai aperto. Per impostazione predefinita, gli strumenti di scrittura restano bloccati finché non approvi un piano.**
 
 Server MCP open source e add-in nativo per Revit 2024 – 2027. Funziona con Claude, Codex e altri client MCP.
 
@@ -157,7 +157,7 @@ L'hub blocca qualsiasi chiamata a uno strumento che modifica il modello, a meno 
 
 <sub>Sorgente del diagramma: [approval-flow.mmd](../diagrams/approval-flow.mmd). Rigenera le immagini con `python scripts/render_diagrams.py`.</sub>
 
-Se un piano approvato si rivela poi sbagliato, `rollback_plan` lo annulla. Il rollback usa Annulla di Revit nella stessa sessione oppure i valori inversi dei parametri. Le operazioni che non si possono annullare, come la scrittura di file, chiedono una seconda conferma. Il ciclo di vita è descritto nell'[ADR 0008](../0008-approval-gate-lifecycle.md).
+Se un piano si rivela sbagliato, annullalo con Ctrl+Z in Revit. Ogni scrittura di parametro è una transazione con nome a sé, quindi un piano può richiedere più pressioni. Un annullamento in un solo passaggio per un intero piano è pianificato, non realizzato. `rollback_plan` riscrive i valori precedenti registrati in ordine inverso e può saltare un'azione se non è stato registrato alcun valore precedente, quindi leggi i suoi avvisi. Nessuno dei due percorsi è ancora verificato in una sessione Revit reale (UNVERIFIED). Le operazioni che non si possono annullare, come la scrittura di file, chiedono una seconda conferma. Il ciclo di vita è descritto nell'[ADR 0008](../0008-approval-gate-lifecycle.md).
 
 Per le pipeline non presidiate puoi impostare `MCP_REVIT_APPROVAL_MODE=auto`. Questo disattiva il controllo da parte di una persona, quindi usalo solo in un ambiente controllato.
 

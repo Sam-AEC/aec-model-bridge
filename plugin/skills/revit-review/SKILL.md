@@ -55,8 +55,10 @@ you can, read the changed values back from the model.
 - Never say a change was made until the result confirms it.
 - If the run failed, was blocked, or was partly done, say exactly that, with the
   error. Do not retry in a way that skips approval.
-- If the person asks to undo a change, draft a new plan for it. It needs approval
-  too.
+- If the person asks to undo a change, tell them Revit's Ctrl+Z works per step (one
+  step per parameter write; a one-step undo for a whole plan is not built yet), or
+  draft a new proposed-changes plan for it. It needs approval too. Do not promise a
+  one-click undo, and say rollback behaviour is unverified in a live Revit session.
 
 ## Keep it honest
 

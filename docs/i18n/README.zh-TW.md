@@ -6,7 +6,7 @@
 
 > 本文由 AI 輔助翻譯。內容以英文版 [README](../../README.md) 為準；若發現錯誤或有改進建議，歡迎透過 Pull Request 提出，詳見 [CONTRIBUTING.md](../../CONTRIBUTING.md)。
 
-**就你開啟中的 Revit 模型向 AI 提問。預設情況下，未經你核准，不會有任何變更。**
+**就你開啟中的 Revit 模型向 AI 提問。預設情況下，在你核准計畫之前，寫入類工具會被攔截。**
 
 適用於 Revit 2024 – 2027 的開源 MCP 伺服器與原生增益集，可搭配 Claude、Codex 及其他 MCP 用戶端使用。
 
@@ -157,7 +157,7 @@ MCP 用戶端與一個 Python hub 溝通。hub 會把每次呼叫轉送給擁有
 
 <sub>圖表來源：[approval-flow.mmd](../diagrams/approval-flow.mmd)。使用 `python scripts/render_diagrams.py` 重新產生圖片。</sub>
 
-若已核准的計畫之後發現有誤，可用 `rollback_plan` 復原。復原會在同一個工作階段中使用 Revit 的復原功能，或套用相反的參數值。無法復原的操作（例如檔案輸出）會要求再次確認。完整生命週期請見 [ADR 0008](../0008-approval-gate-lifecycle.md)。
+若計畫有誤，請在 Revit 中用 Ctrl+Z 復原。每次參數寫入都是各自獨立的具名交易，因此一個計畫可能需要按多次。整個計畫一步復原的功能已列入規劃，尚未實作。`rollback_plan` 會依相反順序寫回已記錄的原值，若某個動作沒有記錄原值，它可能會略過該動作，請查看其警告。這兩種方式目前都尚未在真實的 Revit 工作階段中驗證（UNVERIFIED）。無法復原的操作（例如檔案輸出）會要求再次確認。完整生命週期請見 [ADR 0008](../0008-approval-gate-lifecycle.md)。
 
 對於無人值守的流程，可以設定 `MCP_REVIT_APPROVAL_MODE=auto`。這會關閉人工檢查，因此請只在受控環境中使用。
 
