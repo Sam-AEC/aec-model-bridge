@@ -252,3 +252,33 @@ async def test_ifc_provider_path_traversal_protection(tmp_path):
 
     # Pydantic or WorkspaceMonitor raises ValueError or related custom errors for paths outside workspace
     assert "outside the allowed workspace" in str(exc.value).lower()
+
+
+def test_revit_preview_tools_registered_and_not_mutating(tmp_path):
+    from revit_mcp_server.tool_metadata import DESCRIPTIONS
+
+    provider = RevitProvider(workspace=WorkspaceMonitor([tmp_path]), mode=BridgeMode.mock)
+    tools = {tool.name: tool for tool in provider.get_capabilities()}
+    for name in ("revit_preview_elements", "revit_clear_preview"):
+        assert name in tools
+        assert tools[name].is_mutating is False
+        assert len(DESCRIPTIONS[name]) >= 40
+
+
+@pytest.mark.anyio
+async def test_revit_preview_elements_maps_arguments(tmp_path):
+    provider = RevitProvider(workspace=WorkspaceMonitor([tmp_path]), mode=BridgeMode.mock)
+
+    result = await provider.execute_tool(
+        "revit_preview_elements", {"element_uids": ["u1"], "element_ids": [7], "isolate": False}
+    )
+    assert result["tool"] == "revit.preview_elements"
+    assert result["payload"] == {"element_uids": ["u1"], "element_ids": [7], "isolate": False}
+
+    default = await provider.execute_tool("revit_preview_elements", {"element_uids": ["u1"]})
+    assert default["payload"]["isolate"] is True
+    assert default["payload"]["element_ids"] == []
+
+    cleared = await provider.execute_tool("revit_clear_preview", {})
+    assert cleared["tool"] == "revit.clear_preview"
+    assert cleared["payload"] == {}

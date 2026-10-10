@@ -1,0 +1,19 @@
+# Code owners. Pull requests that touch these paths ask the owner for review.
+# Patterns follow .gitignore rules; the last matching pattern wins.
+
+# Everything.
+*   @Sam-AEC
+
+# Security-sensitive paths. Listed on their own so the intent stays clear
+# if the default owner ever changes.
+/packages/mcp-server-revit/src/revit_mcp_server/security/                       @Sam-AEC
+/packages/mcp-server-revit/src/revit_mcp_server/providers/approval_provider.py  @Sam-AEC
+/packages/mcp-server-revit/tests/test_approval*.py                              @Sam-AEC
+/docs/0008-approval-gate-lifecycle.md                                           @Sam-AEC
+/packages/mcp-server-revit/src/revit_mcp_server/panel_server.py                 @Sam-AEC
+/packages/revit-bridge-addin/src/Bridge/BridgeServer.cs                         @Sam-AEC
+/packages/navisworks-bridge-addin/src/BridgeServer.cs                           @Sam-AEC
+/packages/rhino-bridge-addin/src/BridgeServer.cs                                @Sam-AEC
+/.github/workflows/                                                             @Sam-AEC
+/.github/CODEOWNERS                                                             @Sam-AEC
+/SECURITY.md                                                                    @Sam-AEC

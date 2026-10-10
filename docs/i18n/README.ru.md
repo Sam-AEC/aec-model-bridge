@@ -6,7 +6,7 @@
 
 > Этот перевод выполнен с помощью ИИ. Основным источником остаётся английский [README](../../README.md); исправления приветствуются через pull request (см. [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
-**Задавайте ИИ вопросы об открытой модели Revit. По умолчанию ничего не изменится, пока вы не согласуете.**
+**Задавайте ИИ вопросы об открытой модели Revit. По умолчанию инструменты записи заблокированы, пока вы не согласуете план.**
 
 MCP-сервер с открытым исходным кодом и нативный плагин для Revit 2024 – 2027. Работает с Claude, Codex и другими MCP-клиентами.
 
@@ -157,7 +157,7 @@ MCP-клиент обращается к одному Python-хабу. Хаб п
 
 <sub>Исходник диаграммы: [approval-flow.mmd](../diagrams/approval-flow.mmd). Пересоздать изображения можно командой `python scripts/render_diagrams.py`.</sub>
 
-Если согласованный план позже оказался ошибочным, `rollback_plan` отменяет его. Откат использует команду Revit «Отменить» в том же сеансе или обратные значения параметров. Операции, которые нельзя отменить, например запись файлов, запрашивают повторное подтверждение. Жизненный цикл описан в [ADR 0008](../0008-approval-gate-lifecycle.md).
+Если план оказался ошибочным, отмените его сочетанием Ctrl+Z в Revit. Каждая запись параметра — отдельная именованная транзакция, поэтому для одного плана может потребоваться несколько нажатий. Отмена всего плана одним шагом запланирована, но пока не реализована. `rollback_plan` записывает обратно сохранённые прежние значения в обратном порядке и может пропустить действие, если прежнее значение не было сохранено, поэтому читайте его предупреждения. Ни один из двух путей пока не проверен в реальном сеансе Revit (UNVERIFIED). Операции, которые нельзя отменить, например запись файлов, запрашивают повторное подтверждение. Жизненный цикл описан в [ADR 0008](../0008-approval-gate-lifecycle.md).
 
 Для конвейеров без участия человека можно задать `MCP_REVIT_APPROVAL_MODE=auto`. Это отключает проверку человеком, поэтому используйте режим только в контролируемой среде.
 
@@ -350,6 +350,20 @@ CI собирает Python-сервер и целевые сборки плаг�
 - [Вся документация](../README.md)
 - [Участие в проекте](../../CONTRIBUTING.md) и [Кодекс поведения](../../CODE_OF_CONDUCT.md)
 - [Участники](../../CONTRIBUTORS.md)
+
+## Built with
+
+AEC Model Bridge stands on open-source work. It is independent and is not affiliated with or endorsed by any project named here.
+
+- [Model Context Protocol](https://modelcontextprotocol.io) Python SDK (MIT) for the MCP server
+- [IfcOpenShell](https://ifcopenshell.org) (LGPL-3.0-or-later) for IFC files
+- [specklepy](https://github.com/specklesystems/specklepy) (Apache-2.0) for Speckle
+- [pydantic](https://docs.pydantic.dev), [httpx](https://www.python-httpx.org), [NetworkX](https://networkx.org), [openpyxl](https://openpyxl.readthedocs.io) and [PyYAML](https://pyyaml.org) (MIT or BSD)
+- [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) (MIT) for the built-in agent chat
+- [Serilog](https://serilog.net), [IronPython](https://ironpython.net) and [Microsoft WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) in the Revit add-in
+- Autodesk Revit and Navisworks and McNeel Rhino are separate products that you license yourself. This project does not include their code.
+
+Licence texts and the full list of packages are in [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md). Licences were read from package metadata; rows that could not be verified are marked as such.
 
 ## Проект и лицензия
 

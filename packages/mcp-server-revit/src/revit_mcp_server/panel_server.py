@@ -135,9 +135,48 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _reject(self, status: int, error: str) -> bool:
+        """Send an error and return False. Reads (a bounded amount of) the request
+        body first: closing a socket with unread data makes Windows send a reset
+        that can destroy the response before the client reads it."""
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = 0
+        if 0 < length <= 1_048_576:
+            try:
+                self.rfile.read(length)
+            except OSError:
+                pass
+        self._send_json(status, {"ok": False, "error": error})
+        return False
+
+    def _authorize(self, is_post: bool) -> bool:
+        """Reject requests with an unexpected Host, any Origin, or a non-JSON POST.
+
+        The only legitimate caller is the add-in's C# HttpClient, which sends a
+        loopback Host and no Origin header. Sends the error response and returns
+        False when the request must not proceed. No CORS headers are served and
+        OPTIONS is not handled.
+        """
+        port = self.server.server_address[1]
+        allowed_hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
+        host = (self.headers.get("Host") or "").strip().lower()
+        if host not in allowed_hosts:
+            return self._reject(403, "Forbidden host")
+        if self.headers.get("Origin") is not None:
+            return self._reject(403, "Requests with an Origin header are not allowed")
+        if is_post:
+            ctype = (self.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
+            if ctype != "application/json":
+                return self._reject(415, "Content-Type must be application/json")
+        return True
+
     def do_GET(self) -> None:  # noqa: N802
+        if not self._authorize(is_post=False):
+            return
         if self.path == "/health":
-            self._send_json(200, {"status": "healthy", "tools": len(self.registry.get_all_tools())})
+            self._send_json(200, {"status": "healthy"})
             return
         if self.path == "/diagnostics":
             self._send_json(200, collect_diagnostics(self.workspace.allowed_directories[0]))
@@ -177,6 +216,8 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
         self._send_json(200, {"ok": True, "reports": reports})
 
     def do_POST(self) -> None:  # noqa: N802
+        if not self._authorize(is_post=True):
+            return
         if self.path == "/agent/chat":
             self._handle_agent_chat()
             return

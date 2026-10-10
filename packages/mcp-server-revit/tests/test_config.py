@@ -83,3 +83,38 @@ def test_traversal_still_blocked_with_defaults(zero_config):
         assert not cfg.workspace_allowed(bad)
         with pytest.raises(WorkspaceViolation):
             monitor.assert_in_workspace(bad)
+
+
+def test_workspace_is_first_allowed_directory(monkeypatch, tmp_path):
+    """Modules use allowed_directories[0]; the add-in writes under workspace_dir."""
+    other = tmp_path / "other"
+    ws = tmp_path / "ws"
+    other.mkdir()
+    ws.mkdir()
+    monkeypatch.setenv("MCP_REVIT_WORKSPACE_DIR", str(ws))
+    monkeypatch.setenv("MCP_REVIT_ALLOWED_DIRECTORIES", f"{other};{ws}")
+    cfg = Config()
+    assert cfg.allowed_directories[0] == ws
+    assert set(cfg.allowed_directories) == {ws, other}
+
+
+def test_explicit_allowed_list_is_not_widened(monkeypatch, tmp_path):
+    other = tmp_path / "other"
+    other.mkdir()
+    monkeypatch.setenv("MCP_REVIT_WORKSPACE_DIR", str(tmp_path / "ws"))
+    monkeypatch.setenv("MCP_REVIT_ALLOWED_DIRECTORIES", str(other))
+    assert Config().allowed_directories == [other]
+
+
+def test_addin_workspace_resolver_mirrors_python_default():
+    """Static parity check with the C# resolver (not compiled here; UNVERIFIED in Revit)."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[3] / "packages" / "revit-bridge-addin" / "src" / "Bridge"
+    helper = (root / "WorkspaceDirectory.cs").read_text(encoding="utf-8")
+    assert '"MCP_REVIT_WORKSPACE_DIR"' in helper
+    assert 'Path.Combine(home, "Documents", "AEC Model Bridge")' in helper
+    for name in ("BridgeCommandFactory.cs", "PanelHubLauncher.cs", "WorkspaceMonitor.cs"):
+        text = (root / name).read_text(encoding="utf-8")
+        assert "WorkspaceDirectory." in text
+        assert 'GetEnvironmentVariable("MCP_REVIT_WORKSPACE_DIR")' not in text

@@ -174,6 +174,20 @@ namespace RevitBridge.UI
                     break;
                 }
 
+                // UNVERIFIED (not compiled): forwards the hub's GET /diagnostics to the panel's Setup check.
+                case "diagnostics.refresh":
+                {
+                    var diagnostics = await HubClient.GetDiagnosticsAsync();
+                    if (!diagnostics.Ok)
+                    {
+                        PostToPanel(new { type = "tool.error", action = type, message = diagnostics.Error });
+                        break;
+                    }
+
+                    PostToPanel(new { type = "diagnostics.updated", diagnostics = diagnostics.Result });
+                    break;
+                }
+
                 case "providers.refresh":
                 {
                     var providers = await HubClient.GetProvidersAsync();

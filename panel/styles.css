@@ -610,3 +610,100 @@ p {
   overflow-wrap: anywhere;
   font: 12px/1.4 ui-monospace, Consolas, monospace;
 }
+
+/* Setup check (first run). Pass/fail is carried by the text label and glyph,
+   never by colour alone. */
+.setup {
+  margin: 10px 14px 0;
+  border: 1px solid var(--amb-line);
+  border-radius: var(--amb-radius);
+  background: var(--amb-surface);
+  box-shadow: var(--amb-shadow-1);
+  padding: 8px 10px;
+}
+
+.setup-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.setup-title {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.setup-status {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--amb-ink-muted);
+}
+
+.setup[data-state="ready"] .setup-status {
+  color: var(--amb-success);
+}
+
+.setup[data-state="blocked"] .setup-status {
+  color: var(--amb-danger);
+}
+
+.setup[data-state="ready"] .setup-title {
+  font-weight: 500;
+  color: var(--amb-ink-muted);
+}
+
+.setup-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.setup-list[hidden] {
+  display: none;
+}
+
+.setup-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+}
+
+.setup-glyph {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--amb-on-brand);
+  background: var(--amb-success);
+}
+
+.setup-item.is-fail .setup-glyph {
+  background: var(--amb-danger);
+  color: #fff;
+}
+
+.setup-item strong {
+  display: block;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.setup-item p {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.setup-next {
+  margin-top: 2px;
+  padding-left: 8px;
+  border-left: 3px solid var(--amb-danger);
+}

@@ -6,7 +6,7 @@
 
 > यह अनुवाद AI की मदद से किया गया है। मूल स्रोत अंग्रेज़ी [README](../../README.md) है; सुधार के लिए pull request का स्वागत है (देखें [CONTRIBUTING.md](../../CONTRIBUTING.md))।
 
-**अपने खुले Revit मॉडल के बारे में AI से पूछिए। डिफ़ॉल्ट रूप से, आपकी मंज़ूरी के बिना कुछ नहीं बदलता।**
+**अपने खुले Revit मॉडल के बारे में AI से पूछिए। डिफ़ॉल्ट रूप से, जब तक आप किसी योजना को मंज़ूर नहीं करते, लिखने वाले टूल ब्लॉक रहते हैं।**
 
 Revit 2024 – 2027 के लिए ओपन-सोर्स MCP सर्वर और नेटिव ऐड-इन। Claude, Codex और अन्य MCP क्लाइंट के साथ काम करता है।
 
@@ -157,7 +157,7 @@ MCP क्लाइंट एक Python हब से बात करता ह
 
 <sub>डायग्राम का स्रोत: [approval-flow.mmd](../diagrams/approval-flow.mmd)। इमेज दोबारा बनाने के लिए `python scripts/render_diagrams.py` चलाएँ।</sub>
 
-अगर मंज़ूर की गई योजना बाद में ग़लत निकले, तो `rollback_plan` उसे पलट देता है। रोलबैक उसी सेशन में Revit Undo या उलटे पैरामीटर मानों का इस्तेमाल करता है। जिन ऑपरेशनों को पलटा नहीं जा सकता, जैसे फ़ाइल आउटपुट, उनके लिए दूसरी बार पुष्टि माँगी जाती है। पूरा जीवनचक्र [ADR 0008](../0008-approval-gate-lifecycle.md) में है।
+अगर कोई योजना ग़लत निकले, तो Revit में Ctrl+Z से उसे पलटिए। हर पैरामीटर राइट अपना अलग नामित ट्रांज़ैक्शन है, इसलिए एक योजना के लिए कई बार दबाना पड़ सकता है। पूरी योजना को एक ही चरण में पलटने की सुविधा योजना में है, अभी बनी नहीं है। `rollback_plan` दर्ज किए गए पुराने मानों को उलटे क्रम में वापस लिखता है, और जिस एक्शन का पुराना मान दर्ज नहीं हुआ उसे छोड़ सकता है, इसलिए उसकी चेतावनियाँ पढ़ें। दोनों रास्ते अभी किसी असली Revit सेशन में सत्यापित नहीं हुए हैं (UNVERIFIED)। जिन ऑपरेशनों को पलटा नहीं जा सकता, जैसे फ़ाइल आउटपुट, उनके लिए दूसरी बार पुष्टि माँगी जाती है। पूरा जीवनचक्र [ADR 0008](../0008-approval-gate-lifecycle.md) में है।
 
 बिना निगरानी वाली पाइपलाइनों के लिए आप `MCP_REVIT_APPROVAL_MODE=auto` सेट कर सकते हैं। इससे इंसान द्वारा की जाने वाली जाँच बंद हो जाती है, इसलिए इसे सिर्फ़ नियंत्रित एनवायरनमेंट में इस्तेमाल करें।
 
@@ -350,6 +350,20 @@ CI Python सर्वर और Revit 2024 से 2027 के ऐड-इन ट
 - [सभी दस्तावेज़](../README.md)
 - [योगदान गाइड](../../CONTRIBUTING.md) और [आचार संहिता](../../CODE_OF_CONDUCT.md)
 - [योगदानकर्ता](../../CONTRIBUTORS.md)
+
+## Built with
+
+AEC Model Bridge stands on open-source work. It is independent and is not affiliated with or endorsed by any project named here.
+
+- [Model Context Protocol](https://modelcontextprotocol.io) Python SDK (MIT) for the MCP server
+- [IfcOpenShell](https://ifcopenshell.org) (LGPL-3.0-or-later) for IFC files
+- [specklepy](https://github.com/specklesystems/specklepy) (Apache-2.0) for Speckle
+- [pydantic](https://docs.pydantic.dev), [httpx](https://www.python-httpx.org), [NetworkX](https://networkx.org), [openpyxl](https://openpyxl.readthedocs.io) and [PyYAML](https://pyyaml.org) (MIT or BSD)
+- [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) (MIT) for the built-in agent chat
+- [Serilog](https://serilog.net), [IronPython](https://ironpython.net) and [Microsoft WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) in the Revit add-in
+- Autodesk Revit and Navisworks and McNeel Rhino are separate products that you license yourself. This project does not include their code.
+
+Licence texts and the full list of packages are in [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md). Licences were read from package metadata; rows that could not be verified are marked as such.
 
 ## प्रोजेक्ट और लाइसेंस
 

@@ -90,6 +90,17 @@ class Config(BaseSettings):
             self.allowed_directories = [self.workspace_dir]
             if self.workspace_dir not in auto:
                 auto.append(self.workspace_dir)
+        else:
+            # Every module reads/writes under allowed_directories[0], while the Revit
+            # add-in writes snapshots under workspace_dir. Keep them the same directory
+            # whenever the workspace is on the explicit allowed list (order only; the
+            # sandbox is never widened).
+            allowed = list(self.allowed_directories)
+            for index, directory in enumerate(allowed):
+                if index and directory.resolve() == self.workspace_dir.resolve():
+                    allowed.insert(0, allowed.pop(index))
+                    self.allowed_directories = allowed
+                    break
         self._auto_dirs = auto
         return self
 

@@ -6,7 +6,7 @@
 
 > Questa traduzione è stata realizzata con l'aiuto dell'IA. Il [README](../../README.md) in inglese è la fonte di riferimento; le correzioni sono benvenute tramite pull request (vedi [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
-**Interroga la tua IA sul modello Revit che hai aperto. Per impostazione predefinita, nulla cambia finché non lo approvi.**
+**Interroga la tua IA sul modello Revit che hai aperto. Per impostazione predefinita, gli strumenti di scrittura restano bloccati finché non approvi un piano.**
 
 Server MCP open source e add-in nativo per Revit 2024 – 2027. Funziona con Claude, Codex e altri client MCP.
 
@@ -157,7 +157,7 @@ L'hub blocca qualsiasi chiamata a uno strumento che modifica il modello, a meno 
 
 <sub>Sorgente del diagramma: [approval-flow.mmd](../diagrams/approval-flow.mmd). Rigenera le immagini con `python scripts/render_diagrams.py`.</sub>
 
-Se un piano approvato si rivela poi sbagliato, `rollback_plan` lo annulla. Il rollback usa Annulla di Revit nella stessa sessione oppure i valori inversi dei parametri. Le operazioni che non si possono annullare, come la scrittura di file, chiedono una seconda conferma. Il ciclo di vita è descritto nell'[ADR 0008](../0008-approval-gate-lifecycle.md).
+Se un piano si rivela sbagliato, annullalo con Ctrl+Z in Revit. Ogni scrittura di parametro è una transazione con nome a sé, quindi un piano può richiedere più pressioni. Un annullamento in un solo passaggio per un intero piano è pianificato, non realizzato. `rollback_plan` riscrive i valori precedenti registrati in ordine inverso e può saltare un'azione se non è stato registrato alcun valore precedente, quindi leggi i suoi avvisi. Nessuno dei due percorsi è ancora verificato in una sessione Revit reale (UNVERIFIED). Le operazioni che non si possono annullare, come la scrittura di file, chiedono una seconda conferma. Il ciclo di vita è descritto nell'[ADR 0008](../0008-approval-gate-lifecycle.md).
 
 Per le pipeline non presidiate puoi impostare `MCP_REVIT_APPROVAL_MODE=auto`. Questo disattiva il controllo da parte di una persona, quindi usalo solo in un ambiente controllato.
 
@@ -350,6 +350,20 @@ La CI compila il server Python e i target dell'add-in per Revit 2024-2027. Leggi
 - [Tutta la documentazione](../README.md)
 - [Come contribuire](../../CONTRIBUTING.md) e [Codice di condotta](../../CODE_OF_CONDUCT.md)
 - [Collaboratori](../../CONTRIBUTORS.md)
+
+## Built with
+
+AEC Model Bridge stands on open-source work. It is independent and is not affiliated with or endorsed by any project named here.
+
+- [Model Context Protocol](https://modelcontextprotocol.io) Python SDK (MIT) for the MCP server
+- [IfcOpenShell](https://ifcopenshell.org) (LGPL-3.0-or-later) for IFC files
+- [specklepy](https://github.com/specklesystems/specklepy) (Apache-2.0) for Speckle
+- [pydantic](https://docs.pydantic.dev), [httpx](https://www.python-httpx.org), [NetworkX](https://networkx.org), [openpyxl](https://openpyxl.readthedocs.io) and [PyYAML](https://pyyaml.org) (MIT or BSD)
+- [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) (MIT) for the built-in agent chat
+- [Serilog](https://serilog.net), [IronPython](https://ironpython.net) and [Microsoft WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) in the Revit add-in
+- Autodesk Revit and Navisworks and McNeel Rhino are separate products that you license yourself. This project does not include their code.
+
+Licence texts and the full list of packages are in [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md). Licences were read from package metadata; rows that could not be verified are marked as such.
 
 ## Progetto e licenza
 
