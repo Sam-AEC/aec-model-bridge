@@ -1,4 +1,4 @@
-"""Human-run command-line approval: ``aec-model-bridge-approve list|show|approve|reject``.
+"""Human-run command-line approval: ``aec-model-bridge-approve list|show|approve|reject|recover``.
 
 A model can draft a plan but must not approve it. The Revit panel is one place a
 person does that; this is the other. It reads and writes the same plan store as the
@@ -25,7 +25,7 @@ from typing import Any, Dict, List, Optional
 from .config import config
 from .errors import BridgeError
 from .security import proof as proof_mod
-from .security.approval import ApprovalGate, local_user, plan_hash
+from .security.approval import STALE_RUNNING_SECONDS, ApprovalGate, local_user, plan_hash, running_actions
 from .security.proof import normalize_review
 
 ELEMENT_ID_KEYS = ("element_id", "element_ids", "id", "ids", "elementIds")
@@ -171,6 +171,21 @@ def describe_plan(plan: Dict[str, Any]) -> str:
         before = (a.get("diff") or {}).get("before") if isinstance(a.get("diff"), dict) else None
         if before:
             lines.append(f"     current value: {safe_text(before)}")
+    stuck = running_actions(plan)
+    if stuck:
+        lines.append("\nActions stuck in 'running' (claimed, no result recorded; the process may have died):")
+        for r in stuck:
+            age = r["age_seconds"]
+            age_txt = "unknown age" if age is None else f"{int(age // 60)} min {int(age % 60)} s"
+            flag = "STALE" if r["stale"] else "recent"
+            lines.append(f"  - {safe_text(r['action_id'])} {safe_text(r['tool'])}: running for {age_txt} [{flag}]")
+        lines.append(f"  Nothing recovers these automatically. After {STALE_RUNNING_SECONDS // 60} minutes a person can run "
+                     f"`aec-model-bridge-approve recover {safe_text(plan.get('plan_id'))} --reason ...` "
+                     "(the action is abandoned and never re-run).")
+    for a in actions:
+        if isinstance(a, dict) and a.get("state") == "abandoned":
+            lines.append(f"Abandoned: {safe_text(a.get('action_id'))} at {safe_text(a.get('abandoned_at', '-'))} by "
+                         f"{safe_text(a.get('abandoned_by', '-'))}: {safe_text(a.get('abandoned_reason', '-'))}")
     if plan.get("reverts_plan_id"):
         lines.append(f"Reverts plan: {safe_text(plan['reverts_plan_id'])}")
     lines.extend(_describe_review(plan))
@@ -224,6 +239,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         p.add_argument("plan_id")
         if name != "show":
             p.add_argument("--yes", action="store_true", help=f"{name} without the typed confirmation")
+    rec = sub.add_parser("recover", help="abandon actions stuck in 'running' after a crash (never re-run)")
+    rec.add_argument("plan_id")
+    rec.add_argument("--reason", required=True, help="why the action is being abandoned (recorded)")
+    rec.add_argument("--force", action="store_true", help="also abandon actions younger than the stale threshold")
+    rec.add_argument("--yes", action="store_true", help="recover without the typed confirmation")
     args = parser.parse_args(argv)
 
     gate = _gate(args.workspace)
@@ -258,6 +278,23 @@ def main(argv: Optional[List[str]] = None) -> int:
     print(f"\nPlan hash: {shown_hash}")
 
     if args.command == "show":
+        return 0
+
+    if args.command == "recover":
+        if not running_actions(plan):
+            print("\nNo action is in state 'running'; nothing to recover.", file=sys.stderr)
+            return 1
+        print("\nRecovering marks every 'running' action above as abandoned. It is never run again, and the "
+              "plan's remaining actions cannot run; a new plan must be drafted and approved for them.")
+        if not _confirm(args.plan_id, "recover", args.yes):
+            print("Cancelled; plan unchanged.", file=sys.stderr)
+            return 2
+        try:
+            gate.recover_running_actions(args.plan_id, args.reason, by=local_user(), force=args.force)
+        except (ValueError, BridgeError) as e:
+            print(str(e), file=sys.stderr)
+            return 1
+        print(f"Plan {args.plan_id}: running actions abandoned.")
         return 0
 
     allowed = ("pending",) if args.command == "approve" else ("pending", "approved")

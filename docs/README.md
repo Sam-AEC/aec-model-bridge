@@ -45,6 +45,7 @@ Start with the [installation guide](install.md). The main [README](../README.md)
 - [0014](0014-multi-revit-routing.md): proposal for routing to the right Revit when several are open.
 - [0015](0015-navisworks-bcf-loop.md): proposal (scoping only) for the Navisworks clash to Revit fix loop, and BCF.
 - [0016](0016-cerberus-multi-agent-review.md): Proposed, not built. Cerberus, a multi-head read-only model review with cross-checking and one approved plan.
+- [0017](0017-approval-document-binding-and-expiry.md): proposal to bind approvals to a Revit document and expire them.
 
 Numbers 0003 to 0006 are not in this repository.
 
