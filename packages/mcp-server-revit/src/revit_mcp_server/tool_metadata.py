@@ -134,7 +134,7 @@ DESCRIPTIONS: dict[str, str] = {
         "Advanced escape hatch: call any public Revit API method by class and method name through reflection, "
         "optionally inside a transaction. Can change anything the Revit API can change; prefer a dedicated tool."
     ),
-    "revit_reflect_get": "Advanced: read any public Revit API property of an object identified by target_id, through reflection. Read-only.",
+    "revit_reflect_get": "Advanced: read any public Revit API property of an object identified by target_id, through reflection. Needs plan approval because a getter on an arbitrary object can have side effects.",
     "revit_reflect_set": "Advanced escape hatch: set any writable Revit API property of an object identified by target_id, through reflection. Prefer a dedicated tool.",
     # --- Approval tools ----------------------------------------------------
     "plan_actions": (
@@ -217,7 +217,7 @@ DESCRIPTIONS: dict[str, str] = {
     "navisworks_run_clash_test": "Run one Clash Detective test, identified by Guid, and update its results.",
     "navisworks_get_clash_results": "Return the results of one clash test, with paging by skip and limit. Read-only.",
     "navisworks_invoke_method": "Advanced escape hatch: call a public C# method in Navisworks through reflection. Prefer a dedicated tool.",
-    "navisworks_reflect_get": "Advanced: read a C# property of a Navisworks object through reflection. Read-only.",
+    "navisworks_reflect_get": "Advanced: read a C# property of a Navisworks object through reflection. Needs plan approval because a getter on an arbitrary object can have side effects.",
     "navisworks_reflect_set": "Advanced escape hatch: set a C# property of a Navisworks object through reflection.",
     # --- Rhino -------------------------------------------------------------
     "rhino_health": "Check that the Rhino bridge is reachable and healthy.",
