@@ -4,7 +4,10 @@ Start with the [installation guide](install.md). The main [README](../README.md)
 
 ## Guides and reference
 
+- [getting-started.md](getting-started.md): a 15-minute tutorial from install to a reviewed change, in demo mode without Revit. Includes an unverified live Revit section.
 - [install.md](install.md): install the Revit add-in and the MCP server.
+- [troubleshooting.md](troubleshooting.md): symptom, cause and fix for common failures, with log locations.
+- [faq.md](faq.md): privacy, approval, Revit versions, cost, undo and uninstall.
 - [VS Code extension](../extensions/vscode/README.md): build and install the extension locally.
 - [configuration-reference.md](configuration-reference.md): environment variables, package metadata and runtime settings.
 - [tools-generated.md](tools-generated.md): the tool catalog, generated from the server (do not edit by hand).
