@@ -139,7 +139,7 @@ Kotak berwarna teal sudah berfungsi saat ini. Kotak putus-putus berwarna amber m
 
 ### Cara kerja persetujuan
 
-Hub menghentikan setiap panggilan tool yang mengubah model kecuali panggilan itu membawa rencana yang sudah disetujui. Mode default-nya adalah `required`. AI mengusulkan rencana, Anda meninjaunya di panel samping Revit, lalu add-in menjalankannya di main thread Revit, setiap aksi dalam transaksi bernamanya sendiri.
+Hub menghentikan setiap panggilan tool yang mengubah model kecuali panggilan itu membawa rencana yang sudah disetujui. Mode default-nya adalah `required`. AI mengusulkan rencana, Anda meninjaunya di panel samping Revit, lalu add-in menjalankannya di main thread Revit, aksi parameter dan pengeditan model masing-masing dalam transaksi bernamanya sendiri; aksi simpan, sinkronisasi, dan skrip tidak, sehingga Ctrl+Z tidak mencakupnya.
 
 <p align="center">
   <picture>

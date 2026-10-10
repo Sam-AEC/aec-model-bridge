@@ -184,7 +184,7 @@ formas índigo son datos y servicios externos.
 El hub bloquea cualquier llamada a una herramienta que modifique el modelo salvo que lleve un
 plan aprobado. El modo predeterminado es `required`. La IA propone un plan, tú
 lo revisas en el panel lateral de Revit y el complemento lo ejecuta en el hilo principal de Revit
-y cada acción va en su propia transacción con nombre.
+y las acciones de parámetros y de edición del modelo van cada una en su propia transacción con nombre; guardar, sincronizar y los scripts no, así que Ctrl+Z no los cubre.
 
 <p align="center">
   <picture>
