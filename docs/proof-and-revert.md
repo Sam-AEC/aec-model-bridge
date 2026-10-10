@@ -28,9 +28,9 @@ It refuses, with a message, when:
 - the plan has no proof bundle, or its outcome is not `success` (partial and failed runs are not reverted);
 - the plan state is not `executed`;
 - an element has no recorded `before` value (an empty value counts as not recorded);
-- the current model value differs from the value the plan wrote. With `allow_conflicts=true` the draft is created anyway and lists those elements under `conflicts` for explicit review.
+- the current model value differs from the value the plan wrote. With `allow_conflicts=true` the draft is created anyway and lists those elements in the plan's hashed `review` block (`review.conflicts`, with element, parameter, expected, actual and revert-to values clipped for display, plus a warning; conflicts beyond the detailed list are named in an "Also changed" warning), so editing them after drafting invalidates the approval. `aec-model-bridge-approve show` prints them. The panel does not render `review` yet.
 
-Values are compared and drafted by type. The live read returns every value as text, so the staleness check compares numerically when both sides are numbers (`"60"` equals `60`, `"61"` does not) and as text otherwise. The drafted `value` is rebuilt from `before_storage_type`: integer for Integer and ElementId, float for Double, text for String. When the storage type was not recorded (proofs written before this field existed), a numeric-looking `before` becomes a number only if the value the plan wrote was numeric; the draft's `notes` list each such guess.
+Values are compared and drafted by type. The live read returns every value as text, so the staleness check compares numerically when both sides are numbers (`"60"` equals `60`, `"61"` does not) and as text otherwise. The drafted `value` is rebuilt from `before_storage_type`: integer for Integer and ElementId, float for Double, text for String. When the storage type was not recorded (proofs written before this field existed), a numeric-looking `before` becomes a number only if the value the plan wrote was numeric; the draft's `review.assumptions` list each such guess. The proof bundle also records the plan's `hash_version` and `review`.
 
 Like `plan_actions`, drafting a revert is not itself gated; changing the model is.
 

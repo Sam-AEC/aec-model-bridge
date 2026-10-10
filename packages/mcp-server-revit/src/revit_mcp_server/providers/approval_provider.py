@@ -1,7 +1,9 @@
+import json
 import logging
 import math
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
+from ..security import proof as proof_mod
 from ..security.workspace import WorkspaceMonitor
 from ..errors import BridgeError
 from ..security.approval import APPROVAL_CHANNELS, HUMAN_ONLY_TOOLS, ApprovalGate, local_user
@@ -80,6 +82,25 @@ def _typed_revert_value(before: Any, storage_type: Any, new: Any) -> Tuple[Any, 
             return value, "storage type not recorded; before value converted to a number because the plan wrote a number"
     return before, "storage type not recorded; before value kept as text"
 
+def _clip(text: str, limit: int) -> str:
+    return text if len(text) <= limit else text[: limit - 3] + "..."
+
+
+def _value_text(value: Any, limit: int = 60) -> str:
+    """repr of a parameter value, shortened for display in a review."""
+    return _clip(repr(value), limit)
+
+
+def _bytes(obj: Any) -> int:
+    return len(json.dumps(obj, ensure_ascii=False).encode("utf-8"))
+
+
+def _capped(items: List[str], cap: int) -> List[str]:
+    if len(items) <= cap:
+        return items
+    return items[: cap - 1] + [f"... and {len(items) - cap + 1} more not listed."]
+
+
 class ApprovalProvider(AECProvider):
     def __init__(self, workspace: WorkspaceMonitor, registry: Any, approval_mode: str = config.approval_mode) -> None:
         self.workspace = workspace
@@ -145,6 +166,7 @@ class ApprovalProvider(AECProvider):
                 snapshot_id=arguments.get("snapshot_id") or None,
                 skipped=arguments.get("skipped") or None,
                 before_storage_types=before_types,
+                review=arguments.get("review"),
             )
             return plan
 
@@ -283,7 +305,8 @@ class ApprovalProvider(AECProvider):
         Refuses unless the original plan fully executed, every reverted element has a
         recorded before value, and the model still holds the value the plan wrote.
         Elements whose current value differs are conflicts: refused unless
-        allow_conflicts=True, in which case they are listed on the plan for review.
+        allow_conflicts=True, in which case they are listed in the plan's hashed review block
+        (``review.conflicts`` and ``review.warnings``) for the approver.
         """
         bundle = self.gate.load_proof(plan_id)
         if bundle is None:
@@ -342,18 +365,63 @@ class ApprovalProvider(AECProvider):
                 "Re-run with allow_conflicts=true to draft a plan that lists these elements for explicit review."
             )
 
-        extra: Dict[str, Any] = {"reverts_plan_id": plan_id}
+        # Conflicts, notes and warnings go into the hashed, displayed review block, built
+        # inside a byte budget so a revert with many drifted elements can still be drafted.
+        warnings: List[str] = []
+        for a in bundle.get("other_actions", []):
+            if a.get("status") == "executed":
+                warnings.append(_clip(
+                    f"Action {a.get('action_id')} ({a.get('tool')}) is not a parameter change and is not reverted.",
+                    1000))
         if conflicts:
-            extra["conflicts"] = conflicts
-        if notes:
-            extra["notes"] = notes
-        unreverted = [a for a in bundle.get("other_actions", []) if a.get("status") == "executed"]
-        if unreverted:
-            extra["warnings"] = [
-                f"Action {a.get('action_id')} ({a.get('tool')}) is not a parameter change and is not reverted."
-                for a in unreverted
-            ]
-        return self.gate.create_plan(actions, before_states, snapshot_id=plan.get("snapshot_id"), extra=extra)
+            warnings.append(
+                f"{len(conflicts)} element(s) were changed since the original plan ran; this revert overwrites "
+                "their current values (see Conflicts)."
+            )
+        assumptions = [_clip(n, 1000) for n in notes]
+        listed: List[Dict[str, Any]] = []
+        overflow: List[str] = []
+        used = _bytes(warnings) + _bytes(assumptions)
+        for c in conflicts:
+            entry = {
+                "element_id": c["element_id"] if isinstance(c["element_id"], (int, str)) else str(c["element_id"]),
+                "parameter": _clip(str(c["parameter"]), 200),
+                "expected_current": _value_text(c["expected_current"]),
+                "actual_current": _value_text(c["actual_current"]),
+                "revert_to": _value_text(c["revert_to"]),
+            }
+            size = _bytes(entry)
+            if len(listed) < proof_mod.REVIEW_MAX_ITEMS["conflicts"] and used + size <= 40000:
+                listed.append(entry)
+                used += size
+            else:
+                overflow.append(f"{c['element_id']}/{c['parameter']}")
+        # Conflicts past the detailed list are still named, by element and parameter.
+        chunk: List[str] = []
+        for name in overflow:
+            if used > proof_mod.REVIEW_BUDGET_BYTES - 2000:
+                break
+            if sum(len(x) + 2 for x in chunk) + len(name) > 900:
+                text = "Also changed (details in the proof bundle): " + ", ".join(chunk)
+                warnings.append(text)
+                used += len(text.encode("utf-8")) + 4
+                chunk = []
+            chunk.append(name)
+        if chunk:
+            warnings.append("Also changed (details in the proof bundle): " + ", ".join(chunk))
+        review = {
+            "summary": f"Revert of plan {plan_id}: restore the recorded before values of {len(actions)} parameter(s).",
+            "assumptions": _capped(assumptions, 100),
+            "warnings": _capped(warnings, 200),
+            "conflicts": listed,
+        }
+        if _bytes(review) > proof_mod.REVIEW_BUDGET_BYTES:
+            # Last resort: drop detail, never fail the draft.
+            review["conflicts"] = listed[: max(1, len(listed) // 4)]
+            review["warnings"] = review["warnings"][:50] + [
+                f"... {len(conflicts)} conflict(s) in total; the rest are not listed, see the proof bundle."]
+        return self.gate.create_plan(actions, before_states, snapshot_id=plan.get("snapshot_id"),
+                                     extra={"reverts_plan_id": plan_id}, review=review)
 
     _capabilities = [
         ProviderTool(
@@ -364,6 +432,7 @@ class ApprovalProvider(AECProvider):
                 "properties": {
                     "snapshot_id": {"type": "string"},
                     "skipped": {"type": "array", "items": {"type": "object"}},
+                    "review": {"type": "object"},
                     "actions": {
                         "type": "array",
                         "items": {
