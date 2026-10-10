@@ -443,7 +443,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 
 ## Documentation
 
+- [Getting started tutorial](docs/getting-started.md)
 - [Installation guide](docs/install.md)
+- [Troubleshooting](docs/troubleshooting.md) and [FAQ](docs/faq.md)
 - [Tool reference](docs/tools-generated.md)
 - [Architecture](docs/0001-multi-provider-architecture.md)
 - [Configuration reference](docs/configuration-reference.md)
