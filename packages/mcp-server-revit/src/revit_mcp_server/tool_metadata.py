@@ -226,7 +226,7 @@ DESCRIPTIONS: dict[str, str] = {
     "rhino_get_scene": "Return every object in the Rhino scene with its type, layer and bounding box. Read-only.",
     "rhino_list_layers": "List all layers of the Rhino document with name, colour, visibility and lock state. Read-only.",
     "rhino_clear_scene": "Delete all objects in the Rhino document, or only the objects on one layer.",
-    "rhino_reflect_get": "Advanced: read a C# property of a Rhino object through reflection. Read-only.",
+    "rhino_reflect_get": "Advanced: read a C# property of a Rhino object through reflection. Needs plan approval because a getter on an arbitrary object can have side effects.",
     "rhino_invoke_method": "Advanced escape hatch: call a public C# method on a Rhino object through reflection. Prefer a dedicated tool.",
     "rhino_reflect_set": "Advanced escape hatch: set a C# property of a Rhino object through reflection.",
     # --- Graph / Speckle / jobs / snapshots --------------------------------

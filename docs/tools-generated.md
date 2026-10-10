@@ -276,7 +276,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `rhino_health` | Check that the Rhino bridge is reachable and healthy. | No | sync |
 | `rhino_invoke_method` | Advanced escape hatch: call a public C# method on a Rhino object through reflection. | Yes | sync |
 | `rhino_list_layers` | List all layers of the Rhino document with name, colour, visibility and lock state. | No | sync |
-| `rhino_reflect_get` | Advanced: read a C# property of a Rhino object through reflection. | No | sync |
+| `rhino_reflect_get` | Advanced: read a C# property of a Rhino object through reflection. | Yes | sync |
 | `rhino_reflect_set` | Advanced escape hatch: set a C# property of a Rhino object through reflection. | Yes | sync |
 | `rhino_run_python` | Execute arbitrary IronPython code inside Rhino with full RhinoCommon access. | Yes | sync |
 | `rhino_set_material` | Apply a material to objects by GUID list or by layer name. | Yes | sync |
