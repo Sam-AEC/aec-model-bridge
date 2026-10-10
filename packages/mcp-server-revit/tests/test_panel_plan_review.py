@@ -185,46 +185,64 @@ def test_legacy_v1_revert_plan_with_unhashed_content_is_invalid(hub):
     assert "Legacy" in got["review_view"]["error"]
 
 
-# ------------------------------------------- redaction must not change what is approved
+# ------------------------------- credentials are masked, so Approve is refused; the rest is shown
 
-REDACTION_CASES = {
-    "path in a review warning": lambda port, tmp: _draft(port, {**REVIEW, "warnings": ["Also clears C:\\Levels and /etc/fire/plan.txt"]}),
+SECRET_CASES = {
     "password in the summary": lambda port, tmp: _draft(port, {**REVIEW, "summary": "password: hunter2 for the link"}),
-    "path in a conflict value": lambda port, tmp: _draft(port, {**REVIEW, "conflicts": [
-        {"element_id": 1, "parameter": "Link", "expected_current": "\\\\srv\\share\\a.rvt",
-         "actual_current": "C:\\b.rvt", "revert_to": "D:\\c.rvt"}]}),
-    "rhino_run_python code argument": lambda port, tmp: _draft(
-        port, None, [{"tool": "rhino_run_python", "arguments": {"code": "import os; os.system('rm -rf ~')"}}]),
-    "path inside an action argument": lambda port, tmp: _draft(
-        port, None, [{"tool": SET, "arguments": {"element_id": 1, "parameter_name": "Link", "value": "C:\\Users\\a\\x.rvt"}}]),
+    "password in an action argument": lambda port, tmp: _draft(
+        port, None, [{"tool": SET, "arguments": {"element_id": 1, "parameter_name": "Comments", "value": "password: hunter2"}}]),
+    "api_key under a secret key": lambda port, tmp: _draft(
+        port, None, [{"tool": SET, "arguments": {"element_id": 1, "parameter_name": "Mark", "value": "A", "api_key": "k-123456"}}]),
+    "nested Api-Key": lambda port, tmp: _draft(
+        port, None, [{"tool": SET, "arguments": {"element_id": 1, "parameter_name": "Mark", "value": "A", "options": {"Api-Key": "zz"}}}]),
+    "bearer value in a warning": lambda port, tmp: _draft(
+        port, {**REVIEW, "warnings": ["call with Authorization: Bearer abcdefghijklmnop1234"]}),
+    "key-shaped string": lambda port, tmp: _draft(port, {**REVIEW, "summary": "use sk-abcdefghijklmnopqrstuvwx"}),
+    "long high-entropy token": lambda port, tmp: _draft(port, {**REVIEW, "summary": "x aB3dE6gH9jK2mN5pQ8sT1vW4yZ7bC0eF3hJ6 y"}),
 }
 
 
 def _assembly_code_case(port, tmp):
     plan = _draft(port)
     _edit(tmp, plan["plan_id"], lambda p: p["actions"][0].setdefault("diff", {}).update(
-        before={"1": {"Assembly Code": "A-100"}}))
+        before={"1": {"Assembly Code": "A-100", "Cost Code": None}}))
     return plan
 
 
-REDACTION_CASES["Assembly Code before value"] = _assembly_code_case
+BENIGN_CASES = {
+    "path in a review warning": (lambda port, tmp: _draft(port, {**REVIEW, "warnings": ["Matches C:\\Standards\\naming.xlsx and /keynotes/2024.txt"]}), "C:\\Standards\\naming.xlsx"),
+    "UNC path in the reasoning": (lambda port, tmp: _draft(port, {**REVIEW, "reasoning": "Central model \\\\srv\\proj\\tower.rvt"}), "\\\\srv\\proj\\tower.rvt"),
+    "path in a conflict value": (lambda port, tmp: _draft(port, {**REVIEW, "conflicts": [
+        {"element_id": 1, "parameter": "Link", "expected_current": "\\\\srv\\share\\a.rvt",
+         "actual_current": "C:\\b.rvt", "revert_to": "D:\\c.rvt"}]}), "D:\\c.rvt"),
+    "Token and session prose": (lambda port, tmp: _draft(port, {**REVIEW, "summary": "Token: 3, Design session: 3 Oct, Top secret: no"}), "Design session: 3 Oct"),
+    "path argument (save document)": (lambda port, tmp: _draft(
+        port, None, [{"tool": "revit_save_document", "arguments": {"path": "C:\\Projects\\Tower.rvt"}}]), "C:\\Projects\\Tower.rvt"),
+    "path argument (export, v1)": (lambda port, tmp: _draft(
+        port, None, [{"tool": "revit_export_dwg", "arguments": {"output_path": "C:\\Exports\\A101.dwg"}}]), "C:\\Exports\\A101.dwg"),
+    "rhino_run_python code is shown": (lambda port, tmp: _draft(
+        port, {"summary": "Count curves"}, [{"tool": "rhino_run_python", "arguments": {"code": "import os; os.system('rm -rf ~')"}}]),
+     "import os; os.system('rm -rf ~')"),
+    "Assembly Code before value": (_assembly_code_case, "Assembly Code"),
+}
 
 
-@pytest.mark.parametrize("name", list(REDACTION_CASES))
-def test_content_changed_by_redaction_is_marked_invalid(hub, name):
+@pytest.mark.parametrize("name", list(SECRET_CASES))
+def test_credential_like_content_is_marked_invalid(hub, name):
     port, tmp = hub
-    plan = REDACTION_CASES[name](port, tmp)
+    plan = SECRET_CASES[name](port, tmp)
     got = _pending(port)[plan["plan_id"]]
     assert got["review_view"]["status"] == "invalid", got["review_view"]
     assert got["review_view"]["review"] is None
-    assert "panel hides" in got["review_view"]["error"]
+    assert "masks" in got["review_view"]["error"]
+    assert "hunter2" not in json.dumps(got) and "k-123456" not in json.dumps(got)
 
 
-@pytest.mark.parametrize("name", list(REDACTION_CASES))
-def test_real_hub_output_with_redacted_content_cannot_be_approved_in_the_page(hub, name):
+@pytest.mark.parametrize("name", list(SECRET_CASES))
+def test_real_hub_output_with_a_credential_cannot_be_approved_in_the_page(hub, name):
     """Hub JSON goes through the real page code: Approve is off, nothing is sent, Reject works."""
     port, tmp = hub
-    plan = REDACTION_CASES[name](port, tmp)
+    plan = SECRET_CASES[name](port, tmp)
     plans = _list(port)["plans"]
     got = _run(f"""
 host(); plans({json.dumps(plans)});
@@ -233,10 +251,90 @@ const approve = (html.match(/<button[^>]*data-decision="approve"[^>]*>/) || ['']
 sent.length = 0;
 fire('click', {{ plan: {json.dumps(plan['plan_id'])}, decision: 'approve', hash: 'x' }});
 fire('click', {{ plan: {json.dumps(plan['plan_id'])}, decision: 'reject', hash: 'x' }});
-console.log(JSON.stringify({{ approve, sent, cli: html.includes('aec-model-bridge-approve') }}));
+console.log(JSON.stringify({{ approve, sent }}));
 """)
     assert " disabled" in got["approve"], got
     assert [m["type"] for m in got["sent"]] == ["plan.reject"]
+
+
+@pytest.mark.parametrize("name", list(BENIGN_CASES))
+def test_benign_content_is_shown_as_is_and_approvable(hub, name):
+    """Paths, 'code' arguments, parameter names ending in Code and prose like 'Token: 3' are
+    exactly what the person approves: the hub sends them unchanged and the approval works."""
+    port, tmp = hub
+    make, expected = BENIGN_CASES[name]
+    plan = make(port, tmp)
+    got = _pending(port)[plan["plan_id"]]
+    assert got["review_view"]["status"] in ("ok", "none"), got["review_view"]
+    assert expected in json.dumps(got, ensure_ascii=False).replace("\\\\", "\\") or expected in json.dumps(got)
+    assert "<redacted" not in json.dumps(got)
+    status, body = _approve(port, plan["plan_id"], got["plan_hash"])
+    assert status == 200 and body["ok"], body
+
+
+@pytest.mark.parametrize("name", list(BENIGN_CASES))
+def test_real_hub_output_with_benign_content_is_approvable_in_the_page_and_shows_the_text(hub, name):
+    port, tmp = hub
+    make, expected = BENIGN_CASES[name]
+    make(port, tmp)
+    plans = _list(port)["plans"]
+    got = _run(f"""
+host(); plans({json.dumps(plans)});
+const html = els['plan-list'].innerHTML;
+const approve = (html.match(/<button[^>]*data-decision="approve"[^>]*>/) || [''])[0];
+console.log(JSON.stringify({{ approve, html }}));
+""")
+    blocked = " disabled" in got["approve"]
+    v2 = plans[0]["review_view"]["status"] == "ok"
+    # v2 plans wait for "Show the review" (browser tests); v1 plans are approvable at once.
+    assert blocked == v2, got["approve"]
+    import html as _html
+    needle = json.dumps(expected)[1:-1]
+    if needle in json.dumps(plans[0]["actions"], ensure_ascii=False):
+        assert needle in _html.unescape(got["html"]), "the action text the person approves is not on the card"
+
+
+def test_credential_value_is_never_sent_to_the_page_for_the_panel_token(hub):
+    from revit_mcp_server.security.audit import register_secret_value
+    port, _ = hub
+    register_secret_value("tok-1234567890abcdef")
+    plan = _draft(port, {**REVIEW, "summary": "leaked tok-1234567890abcdef here"})
+    got = _pending(port)[plan["plan_id"]]
+    assert got["review_view"]["status"] == "invalid"
+    assert "tok-1234567890abcdef" not in json.dumps(got)
+
+
+def test_narrow_redaction_leaves_everything_else_alone_and_full_redaction_is_unchanged():
+    from revit_mcp_server.security.audit import redact_for_approval
+    keep = {"code": "x = 1", "path": "C:\\a\\b.rvt", "Assembly Code": "B20", "note": "Token: 3 session: 1",
+            "before": {"1": {"Cost Code": None}}}
+    assert redact_for_approval(keep) == keep
+    assert redact_for_approval({"password": "x"}) == {"password": "<redacted>"}
+    assert redact_data({"code": "x", "path": "C:\\a\\b.rvt"}) == {"code": "<redacted>", "path": "<redacted-path>"}
+
+
+def test_non_finite_numbers_are_refused_at_creation_and_cannot_break_the_queue(hub):
+    port, tmp = hub
+    good = _draft(port, REVIEW)
+    status, body = _post(port, "/execute", {"tool": "plan_actions", "arguments": {"actions": [
+        {"tool": SET, "arguments": {"element_id": 1, "parameter_name": "Mark", "value": float("nan")}}]}})
+    assert status != 200 or not body.get("ok")
+    # a file written by other means still cannot break the Plans list
+    bad = _draft(port)
+    _edit(tmp, bad["plan_id"], lambda p: p["actions"][0]["arguments"].update(value=float("inf")), rehash=False)
+    plans = _pending(port)
+    assert plans[bad["plan_id"]]["review_view"]["status"] == "invalid"
+    assert plans[good["plan_id"]]["review_view"]["status"] == "ok"
+
+
+def test_hub_sorts_newest_first_and_caps_with_an_omitted_count(hub):
+    port, tmp = hub
+    ids = [_draft(port)["plan_id"] for _ in range(proof.PANEL_PLAN_LIMIT + 5)]
+    result = _list(port)
+    assert len(result["plans"]) == proof.PANEL_PLAN_LIMIT and result["omitted"] == 5
+    created = [p["created_at"] for p in result["plans"]]
+    assert created == sorted(created, reverse=True)
+    assert ids[-1] in {p["plan_id"] for p in result["plans"]}, "the newest plan must always be visible"
 
 
 def test_unchanged_by_redaction_stays_approvable_and_matches_the_hash(hub):

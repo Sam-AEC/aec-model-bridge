@@ -649,5 +649,47 @@
     expect(ms < 1500, "rendering 200 pending plans took " + Math.round(ms) + " ms (budget 1500)");
   });
 
+
+  test("card: shows the plan id and a copyable aec-model-bridge-approve show command", () => {
+    fresh();
+    plans([PLAN("plan_0123456789ab", [SET([1], true)])]);
+    const card = cardOf("plan_0123456789ab");
+    expect(card.querySelector(".plan-cli code").textContent === "plan_0123456789ab", "plan id not shown");
+    expect(card.querySelector(".plan-cli-command").textContent === "aec-model-bridge-approve show plan_0123456789ab", "command not shown");
+    card.querySelector("[data-copy-command]").click();
+    expect(window.__copied.includes("aec-model-bridge-approve show plan_0123456789ab"), "command not copied");
+  });
+
+  test("card: a blocked v1 plan says what is blocked without talking about a review", () => {
+    fresh();
+    const p = PLAN("plan_aaaaaaaaaaaa", [SET([1], true)]);
+    p.review_view = { status: "invalid", hash_version: null, review: null, error: "Legacy plan with content outside the approval hash." };
+    plans([p]);
+    const t = cardOf("plan_aaaaaaaaaaaa").querySelector('[role="alert"]').textContent;
+    expect(/cannot be shown completely/.test(t) && !/review could not/.test(t), "wording: " + t);
+    expect(/aec-model-bridge-approve show plan_aaaaaaaaaaaa/.test(t), "no command with the plan id");
+    expect(/Legacy plan/.test(t), "reason missing");
+  });
+
+  test("card: a long code argument is shown, clipped, and Show all actions reveals the end", () => {
+    fresh();
+    const code = "import os\n" + "x = 1\n".repeat(2000) + "THE_END";
+    plans([PLAN("plan_bbbbbbbbbbbb", [{ tool: "rhino_run_python", arguments: { code } }])]);
+    const card = cardOf("plan_bbbbbbbbbbbb");
+    const pre = card.querySelector("pre.plan-review");
+    expect(pre.textContent.includes("import os") && !pre.textContent.includes("THE_END"), "not clipped");
+    const more = Array.from(card.querySelectorAll("button")).find((b) => /^Show all actions/.test(b.textContent));
+    expect(more, "no Show all actions button");
+    more.click();
+    expect(pre.textContent.includes("THE_END"), "full action text not revealed");
+  });
+
+  test("card: plans the hub left out are announced with the CLI list command", () => {
+    fresh();
+    deliver({ type: "plans.updated", result: { plans: [PLAN("plan_cccccccccccc", [SET([1], true)])], omitted: 7 } });
+    expect(/7 more pending plan/.test($("plan-list").textContent), "omitted count not shown");
+    expect(/aec-model-bridge-approve list/.test($("plan-list").textContent), "list command not named");
+  });
+
   window.addEventListener("load", () => { runAll(); });
 })();
