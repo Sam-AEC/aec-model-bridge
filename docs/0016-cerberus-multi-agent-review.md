@@ -23,14 +23,15 @@ Build Cerberus as a review feature on top of our own small harness, not as a gen
 ### 1. What Cerberus is for, and what it is not for
 - Cerberus is used only for the full read-only model review over a frozen, hashed snapshot.
 - It is never used for writes and never for small questions ("which doors lack a fire rating?" is one tool call).
-- Default: **3 heads**. The count is configurable up to a cap of about 5 or 6.
+- **Default Cerberus run:** rules plus one cheap AI head.
+- **Council:** 3 heads by default, started only on request. It is meant for high-stakes checks (fire, egress, accessibility, large change sets) or as a second opinion on low-confidence items. The head count is configurable up to a cap of about 5 or 6.
 - A head is defined by a **role**, a **tool allowlist** and a **knowledge scope**. It is not defined only by vendor. Two heads may use the same vendor with different roles.
-- The default run is rules plus one head. Three vendor heads run only when the user asks, for high-stakes checks (fire, egress, accessibility, large change sets), or as a second opinion on low-confidence items.
+- The voting and citation thresholds in section 4 apply to Council only. A single-head run may not meet them, so it follows the separate limits in section 4.
 - Before a run, the panel shows the estimated cost and time, and which vendors receive which data.
 
 | Mode | How it works | Order |
 |---|---|---|
-| Council | All heads attempt the task independently. A deterministic judge (code, not a model) verifies, clusters and ranks | First. This is what the spike tests |
+| Council (3 heads or more) | All heads attempt the task independently. A deterministic judge (code, not a model) verifies, clusters and ranks | First. This is what the spike tests |
 | Relay | Head A drafts, head B reviews A's structured findings, head C attacks them | Later, once Council data shows where errors are |
 | Split | Partition the model across heads for speed | Last. It does not cross-check, and plain parallel code is already fast |
 
@@ -45,9 +46,18 @@ Build Cerberus as a review feature on top of our own small harness, not as a gen
 - Only the coordinator drafts **at most one plan**, through `ApprovalGate.create_plan`. Humans approve. The plan hash binding and the at-most-once (run once) claim rules from ADR 0008 are unchanged.
 - **Review plans are refused in `auto` mode.** They are model-proposed.
 - **Gap to close before shipping proposals:** add an optional hashed `review` block to the plan content, holding `{run_id, bundle_hash, per-action {finding_id, rule_id, citation}}`. Plans without it keep their current hash. This is a small gate change and needs its own test.
+- **Replay and the plan hash.** `create_plan` generates a new `plan_id`, `created_at` and per-action `act_` ids on every call (`security/approval.py`), and `plan_content_hash` hashes all of them (`security/proof.py`). So a replayed run can never reproduce `plan_hash`. Instead, the run log records a separate deterministic **content hash**: the actions' tool and canonical arguments, their before-values, `skipped`, and the `review` block, with generated ids and timestamps excluded. Replay must reproduce that content hash. The real `plan_hash` is recorded for audit and is not compared. (Re-injecting the recorded ids was rejected: it would mean overriding gate-generated values.)
 
 ### 4. Verification: disagreement is the signal
-Ids, parameters, before-values and evidence call ids must resolve against the bundle and the hub log. Failures go to a "rejected" list and never show as findings.
+Ids, parameters, before-values and evidence call ids must resolve against the bundle and the hub log. Failures go to a "rejected" list and never show as findings. These checks apply to every run.
+
+The voting and citation rules in the table apply to **Council only**.
+
+**What a single-head run may and may not do:**
+- Its findings are labelled "AI suggestion, one head". Rule findings keep the "Rule" label.
+- Its citations count at most as "needs human review", never as "sourced", because two heads cannot cite them.
+- A single-head finding **never enters a plan on its own**. It can enter only if the human explicitly chooses to include it. A Rule finding with a fix template is not affected.
+- It never drives a change on a safety-critical item (fire, egress, accessibility). Those need Council.
 
 | Question | Rule |
 |---|---|
@@ -85,7 +95,10 @@ One `HeadAdapter` interface (build the launch, parse the output, classify errors
 Credential rules:
 - **API keys are the shipped default.** Driving a user's own signed-in CLI is opt-in, labelled with that vendor's terms, and off until counsel has reviewed it.
 - **We never collect, store or proxy vendor sign-ins.** Anthropic's published terms forbid collecting or intermediating subscription credentials. They say developers building products should use API keys.
-- Keys live in Windows Credential Manager and are readable only by the authenticated panel hub. That depends on the per-user panel hub token in PR #115, which is still open (not merged) at the time of writing. Today `/execute` on the panel hub is unauthenticated (docs/security.md). Keys never go into plans, logs, bundles or head environments, except for the one adapter that needs its own.
+- Keys are stored in Windows Credential Manager as a **user-scope secret. Other processes running as the same Windows user can read it.** Credential Manager protects at the Windows-user boundary, not per process. We do not claim the key is hidden from same-user software.
+- What the panel hub token does: it stops unauthorised HTTP callers from asking the hub to use a key. That depends on the per-user token in PR #115, which is still open (not merged) at the time of writing. Today `/execute` on the panel hub is unauthenticated (docs/security.md). The token does not protect the stored key itself.
+- Residual risk: malware or another tool running as the same user can read the key. Mitigation: separate OS users for sensitive projects, and per-project spend limits set at the vendor. Local-only projects need no key.
+- Keys never go into plans, logs, bundles or head environments, except for the one adapter that needs its own.
 
 ### 7. Privacy per project
 - A per-project vendor allowlist, editable only from the panel. An NDA project means `local` only.
@@ -99,7 +112,7 @@ Credential rules:
 - WAL mode and FTS5. It holds run logs with exact replay, findings with status history, memory, rule packs and the clause index.
 - Vectors (sqlite-vec) only if text search measurably misses on the gold set. Rejected: LanceDB, Chroma, Qdrant local, pgvector.
 - **Memory never approves.** It can annotate, demote, or pre-fill a value a current rule already requires. It is untrusted input.
-- Replay feeds recorded head outputs to the judge and must reproduce finding ids and the plan hash bit for bit. Replay is refused if the bundle hash differs.
+- Replay feeds recorded head outputs to the judge and must reproduce the finding ids and the plan **content hash** (section 3). It does not compare the gate's `plan_hash`, which includes generated ids and timestamps. Replay is refused if the bundle hash differs.
 
 ### 9. Knowledge layer
 Expert heads come from versioned rule packs with citations, plus retrieval over documents the user owns. Retrieval can explain and cite. It can never be the sole basis of a plan action.
@@ -133,7 +146,7 @@ One "Run full model review" button. A pre-run card, a per-check progress list wh
 ## Consequences
 Good:
 - The part users will value most (many checks, one ranked list, cross-checked) comes mostly from deterministic code, which is cheap and exact.
-- Heads cannot write, by construction. The approval gate stays the only way a change reaches Revit.
+- Heads get no write tools from the hub, and a CLI head's built-in tools are switched off. That is the design and is enforced server-side for the hub. Whether each vendor CLI honours the switch-off is UNVERIFIED until phase 0. The approval gate stays the only way a change reaches Revit.
 - Disagreement becomes visible work for the human instead of a hidden error.
 - Per-project vendor control and a local-only profile make the feature usable on NDA projects.
 
