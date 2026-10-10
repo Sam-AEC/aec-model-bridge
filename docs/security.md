@@ -127,11 +127,16 @@ A model that wants to change a model must draft a plan, and a person must approv
 - **Each approved action runs at most once.** A tool call that carries a `plan_id` must match a not-yet-run action in that plan (same tool, same arguments; `plan_id`, `run_async` and `idempotency_key` are ignored). The action is consumed before the tool runs, under a per-plan lock and with a per-action claim file created exclusively (`plans/.claims/`). Concurrent calls for the same action therefore run it once, and editing an action's state back to `pending` does not reopen it. If the tool fails or the bridge times out, the action stays consumed and is marked `failed`, and the plan becomes `partial`; ask for a new plan to retry. A `run_async` call consumes its action when it is queued.
 - **A person can withdraw an approval.** A plan that is `approved` but not yet fully executed can still be rejected (panel or `aec-model-bridge-approve reject`). Executed or rolled-back plans cannot be rejected.
 - **The command-line tool prints model text safely.** Control and format characters in tool names, argument keys and values (terminal escape sequences, carriage returns, bidirectional overrides) are shown as visible escapes such as `\x1b`. A plan whose arguments are not an object is shown with a plain message and cannot be approved.
-- **`approval_mode` fails closed.** The value is trimmed and lower-cased. Only `auto` turns the gate off. Any other value, including typos, behaves as `required` and logs a warning.
+- **Approval modes.** `MCP_REVIT_APPROVAL_MODE` takes one of three modes (the value is trimmed and case-insensitive):
+  - `look_only`: every tool that changes the model is refused with "Look only mode: this tool changes the model. Switch to Ask me first in the panel or settings." Tools that only read keep working. The refusal applies on every path a model can reach (MCP calls, the panel's chat assistant, recipe steps and other module tool executors, `execute_plan`, and the panel's `/execute` route), and `rollback_plan` is refused too. A plan can still be drafted, but nothing in it can run until the mode is changed.
+  - `ask_first` (the default; `required` is the older name and means the same): a mutating tool needs an approved, unchanged plan action, as described above.
+  - `auto`: the approval check is off (see "Not protected"). This is the only way to turn it off, and it must be named explicitly.
+- **`approval_mode` fails closed.** Any value that is not one of `look_only`, `ask_first`, `required` or `auto` (a typo, an empty string, `off`, `false`) behaves as `ask_first` and logs a warning. Earlier wording of this rule said `required`; it is the same behaviour under the new name.
+- **The mode cannot be changed over MCP.** No MCP tool sets it; it comes from the environment variable (or the server configuration) when the hub starts. The hub reports the current mode, normalised to `look_only`, `ask_first` or `auto`, as `approval_mode` in the approval provider's health result, so the panel can show it later. UNVERIFIED: how the Revit panel shows or switches the mode, and the behaviour against a live Revit session; the hub tests use mock providers only.
 
 ### Not protected
 
-- **`MCP_REVIT_APPROVAL_MODE=auto`** turns the gate off entirely.
+- **`MCP_REVIT_APPROVAL_MODE=auto`** turns the gate off entirely. Use `look_only` instead when you want the opposite: no model changes at all.
 - **The panel's `/execute` endpoint is not authenticated.** Any local process that can send HTTP requests to the panel hub can approve a plan through it (it is recorded as `panel`). PR #93 adds Host, Origin and Content-Type checks that stop browser pages from reaching it; a per-session token for the panel is still being designed. Until both land, treat the panel hub port as trusted-local only. The panel's Plans view also shows only tool names, not full arguments; review arguments with `aec-model-bridge-approve show` when it matters.
 - **The command-line tool does not authenticate who is typing.** Software that can run shell commands as you can run `aec-model-bridge-approve approve <id> --yes`. Do not give an AI client a shell on the same account if you rely on the gate.
 - **Names are not identities.** `approved_by` is the local account name, not a verified person.
@@ -190,4 +195,4 @@ Example log entry:
 - [ ] Limit `MCP_REVIT_ALLOWED_DIRECTORIES` to the folders you need.
 - [ ] Confirm no bridge listens on `0.0.0.0` or sits behind a port forward.
 - [ ] Restrict access to the audit log file (`audit.log` by default).
-- [ ] Keep `MCP_REVIT_APPROVAL_MODE` at `required`, so every model change needs an approved plan.
+- [ ] Keep `MCP_REVIT_APPROVAL_MODE` at `ask_first` (or `required`), so every model change needs an approved plan. Use `look_only` to block model changes entirely.

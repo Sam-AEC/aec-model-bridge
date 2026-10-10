@@ -381,7 +381,7 @@ def test_an_executed_plan_cannot_be_rejected(tmp_path):
 @pytest.mark.parametrize("mode", ["required", "Required", " required ", "REQUIRED", "bogus", "", None, "off"])
 def test_approval_mode_other_than_auto_keeps_the_gate_on(tmp_path, mode):
     gate = ApprovalGate(tmp_path, mode)
-    assert gate.approval_mode == "required"
+    assert gate.approval_mode == "ask_first"
     with pytest.raises(BridgeError, match="requires a valid 'plan_id'"):
         gate.check_tool_execution("revit_delete_element", {"element_id": 1})
 
@@ -395,5 +395,5 @@ def test_only_auto_turns_the_gate_off(tmp_path, mode):
 
 def test_unknown_approval_mode_logs_a_warning(caplog):
     with caplog.at_level(logging.WARNING):
-        assert normalize_approval_mode("bogus") == "required"
-    assert "treating it as 'required'" in caplog.text
+        assert normalize_approval_mode("bogus") == "ask_first"
+    assert "treating it as 'ask_first'" in caplog.text
