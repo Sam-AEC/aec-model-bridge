@@ -180,6 +180,12 @@ namespace RevitBridge.UI
         /// <summary>Open Panel: window with an accent docked side panel.</summary>
         public static BitmapSource CreatePanelIcon(int size = 32)
         {
+            // The main button carries the brand mark; the generated window glyph is the fallback.
+            return BrandAssets.TryLoad(size) ?? CreatePanelGlyphIcon(size);
+        }
+
+        private static BitmapSource CreatePanelGlyphIcon(int size)
+        {
             return Render32(size, (c, p) =>
             {
                 var ink = P(p.Ink, 2);
@@ -239,6 +245,12 @@ namespace RevitBridge.UI
         /// themes, so it is not palette-driven; at 16 px the arches drop out for legibility.
         /// </summary>
         public static BitmapSource CreateBrandIcon(int size = 32)
+        {
+            // Prefer the embedded brand PNG (16/32); the drawn Pier tile is the fallback.
+            return BrandAssets.TryLoad(size) ?? CreatePierBrandIcon(size);
+        }
+
+        private static BitmapSource CreatePierBrandIcon(int size)
         {
             var visual = new DrawingVisual();
             using (var context = visual.RenderOpen())
