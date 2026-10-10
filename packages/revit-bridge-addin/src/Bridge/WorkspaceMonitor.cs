@@ -10,7 +10,7 @@ namespace RevitBridge.Bridge
 
         public WorkspaceMonitor()
         {
-            var workspaceDir = Environment.GetEnvironmentVariable("MCP_REVIT_WORKSPACE_DIR");
+            var workspaceDir = WorkspaceDirectory.Resolve();
             var allowedDirsEnv = Environment.GetEnvironmentVariable("MCP_REVIT_ALLOWED_DIRECTORIES");
 
             if (!string.IsNullOrEmpty(workspaceDir))
