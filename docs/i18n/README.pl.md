@@ -6,7 +6,7 @@
 
 > To tłumaczenie powstało z pomocą AI. Wiążące jest angielskie [README](../../README.md); poprawki są mile widziane w formie pull requestów (zob. [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
-**Zapytaj swoje AI o otwarty model Revit. Domyślnie nic się nie zmieni, dopóki tego nie zatwierdzisz.**
+**Zapytaj swoje AI o otwarty model Revit. Domyślnie narzędzia zapisu są zablokowane, dopóki nie zatwierdzisz planu.**
 
 Otwartoźródłowy serwer MCP i natywny dodatek do Revit 2024 – 2027. Działa z Claude, Codex i innymi klientami MCP.
 
@@ -139,7 +139,7 @@ Turkusowe ramki działają już dziś. Bursztynowe ramki z linią przerywaną s�
 
 ### Jak działa zatwierdzanie
 
-Hub zatrzymuje każde wywołanie narzędzia zmieniającego model, jeśli nie towarzyszy mu zatwierdzony plan. Tryb domyślny to `required`. AI proponuje plan, Ty przeglądasz go w panelu bocznym Revit, a dodatek wykonuje go w głównym wątku Revit w nazwanej transakcji.
+Hub zatrzymuje każde wywołanie narzędzia zmieniającego model, jeśli nie towarzyszy mu zatwierdzony plan. Tryb domyślny to `required`. AI proponuje plan, Ty przeglądasz go w panelu bocznym Revit, a dodatek wykonuje go w głównym wątku Revit, akcje parametrów i edycji modelu każda w osobnej nazwanej transakcji; zapis, synchronizacja i skrypty nie, więc Ctrl+Z ich nie obejmuje.
 
 <p align="center">
   <picture>
@@ -151,13 +151,13 @@ Hub zatrzymuje każde wywołanie narzędzia zmieniającego model, jeśli nie tow
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Przepływ zatwierdzania: asystent AI proponuje plan, hub MCP i ApprovalGate pokazują go w panelu bocznym Revit, a dopiero po Twoim zatwierdzeniu execute_plan przekazuje polecenia do dodatku Revit, który wykonuje je w jednej nazwanej transakcji. Jeśli odrzucisz plan lub nigdy go nie zatwierdzisz, wywołanie jest blokowane, a model pozostaje nietknięty." width="900">
+    <img src="../images/approval-flow-light.png" alt="Przepływ zatwierdzania: asystent AI tworzy plan przez plan_actions, panel boczny pokazuje proponowane zmiany (liczby, zakres, przed i po), a człowiek zatwierdza w panelu lub poleceniem CLI aec-model-bridge-approve, nigdy przez MCP. Hub sprawdza, czy plan zgadza się z zatwierdzonym narzędziem i argumentami, tylko jeden raz. Revit wykonuje każdą akcję w osobnej transakcji, więc Ctrl+Z cofa jedną akcję na naciśnięcie. Jeśli odrzucisz plan lub nigdy go nie zatwierdzisz, wywołanie jest blokowane, a model pozostaje nietknięty." width="900">
   </picture>
 </p>
 
 <sub>Źródło diagramu: [approval-flow.mmd](../diagrams/approval-flow.mmd). Obrazy wygenerujesz ponownie poleceniem `python scripts/render_diagrams.py`.</sub>
 
-Jeśli zatwierdzony plan okaże się błędny, `rollback_plan` go cofa. Wycofanie korzysta z funkcji Cofnij w Revit w tej samej sesji albo z odwrotnych wartości parametrów. Operacje, których nie da się cofnąć, np. zapis plików, wymagają drugiego potwierdzenia. Cykl życia opisuje [ADR 0008](../0008-approval-gate-lifecycle.md).
+Jeśli plan okaże się błędny, cofnij go skrótem Ctrl+Z w Revit. Każdy zapis parametru to osobna nazwana transakcja, więc jeden plan może wymagać kilku naciśnięć. Cofnięcie całego planu jednym krokiem jest planowane, ale jeszcze nie zbudowane. Drugą drogą jest plan cofnięcia: asystent sporządza go za pomocą `plan_revert` na podstawie dowodu wykonanego planu, a zatwierdzasz go jak każdy inny plan. `rollback_plan` jest tylko dla ludzi i nie jest ani przyciskiem, ani poleceniem, więc nie licz na niego. Żadna z tych dróg nie została jeszcze zweryfikowana w prawdziwej sesji Revit (UNVERIFIED). Operacje, których nie da się cofnąć, np. zapis plików, nie są cofane żadną z nich i nie wymagają jeszcze drugiego potwierdzenia (planowane). Lista Plans w panelu pokazuje tylko plany oczekujące; `aec-model-bridge-approve show <plan_id>` działa dla planu w dowolnym stanie, natomiast pakiety `proofs/` istnieją tylko dla planów, które wykonano (lub próbowano wykonać). Cykl życia opisuje [ADR 0008](../0008-approval-gate-lifecycle.md).
 
 W potokach działających bez nadzoru możesz ustawić `MCP_REVIT_APPROVAL_MODE=auto`. To wyłącza kontrolę człowieka, więc używaj tego tylko w kontrolowanym środowisku.
 
@@ -350,6 +350,20 @@ CI kompiluje serwer w Pythonie oraz cele dodatku dla Revit 2024–2027. Przed ot
 - [Cała dokumentacja](../README.md)
 - [Jak współtworzyć](../../CONTRIBUTING.md) i [Kodeks postępowania](../../CODE_OF_CONDUCT.md)
 - [Współtwórcy](../../CONTRIBUTORS.md)
+
+## Built with
+
+AEC Model Bridge stands on open-source work. It is independent and is not affiliated with or endorsed by any project named here.
+
+- [Model Context Protocol](https://modelcontextprotocol.io) Python SDK (MIT) for the MCP server
+- [IfcOpenShell](https://ifcopenshell.org) (LGPL-3.0-or-later) for IFC files
+- [specklepy](https://github.com/specklesystems/specklepy) (Apache-2.0) for Speckle
+- [pydantic](https://docs.pydantic.dev), [httpx](https://www.python-httpx.org), [NetworkX](https://networkx.org), [openpyxl](https://openpyxl.readthedocs.io) and [PyYAML](https://pyyaml.org) (MIT or BSD)
+- [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) (MIT) for the built-in agent chat
+- [Serilog](https://serilog.net), [IronPython](https://ironpython.net) and [Microsoft WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) in the Revit add-in
+- Autodesk Revit and Navisworks and McNeel Rhino are separate products that you license yourself. This project does not include their code.
+
+Licence texts and the full list of packages are in [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md). Licences were read from package metadata; rows that could not be verified are marked as such.
 
 ## Projekt i licencja
 
