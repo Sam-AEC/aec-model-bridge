@@ -16,6 +16,7 @@ from mcp.types import Tool, TextContent
 from .errors import BridgeError
 from .registry_factory import build_registry
 from .security.approval import HUMAN_ONLY_TOOLS
+from .security.dispatch import gate_after, gate_before
 from .security.audit import redact_data
 from .tool_metadata import enrich_tool
 
@@ -94,16 +95,16 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             text=f"Error: Unknown tool '{name}'"
         )]
 
-    # Approval Gate Middleware Check
-    tool_def = registry.lookup_tool(name)
-    if tool_def and tool_def.is_mutating:
-        try:
-            approval_provider.gate.check_tool_execution(name, arguments)
-        except Exception as e:
-            return [TextContent(
-                type="text",
-                text=f"Approval Gate Blocked: {str(e)}"
-            )]
+    # Approval gate: a mutating call consumes its approved action here, before it
+    # runs, so it can run at most once even if it fails or is called concurrently.
+    gate = approval_provider.gate
+    try:
+        claim = gate_before(registry, gate, name, arguments)
+    except Exception as e:
+        return [TextContent(
+            type="text",
+            text=f"Approval Gate Blocked: {str(e)}"
+        )]
 
     try:
         # Check if deferred execution is requested.
@@ -118,16 +119,16 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             idempotency_key = args_copy.get("idempotency_key")
 
         if run_async:
+            # The action was consumed above, when the job is queued; the job records
+            # how it ended. A job that fails needs a new plan.
             async def run_tool_job(context=None):
-                return await provider.execute_tool(name, arguments)
-
-            # Consume the approved action when the job is queued, not when it ends:
-            # otherwise the same approved call could be submitted again while it runs.
-            if tool_def and tool_def.is_mutating and isinstance(arguments, dict) and "plan_id" in arguments:
                 try:
-                    approval_provider.gate.mark_action_executed(name, arguments)
-                except Exception:
-                    logger.exception("Could not record plan action for queued job '%s'", name)
+                    result = await provider.execute_tool(name, arguments)
+                except BaseException as e:
+                    gate_after(gate, claim, ok=False, error=str(e) or type(e).__name__)
+                    raise
+                gate_after(gate, claim, ok=True)
+                return result
 
             job_ref = await job_manager.submit(
                 run_tool_job,
@@ -138,14 +139,12 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             return [TextContent(type="text", text=response_text)]
 
         # Execute the tool on the provider
-        result = await provider.execute_tool(name, arguments)
-
-        # If mutating tool and plan_id is provided, transition state to executed
-        if tool_def and tool_def.is_mutating and isinstance(arguments, dict) and "plan_id" in arguments:
-            try:
-                approval_provider.gate.mark_action_executed(name, arguments)
-            except Exception:
-                logger.exception("Tool '%s' executed but its plan action could not be recorded", name)
+        try:
+            result = await provider.execute_tool(name, arguments)
+        except BaseException as e:
+            gate_after(gate, claim, ok=False, error=str(e) or type(e).__name__)
+            raise
+        gate_after(gate, claim, ok=True)
 
         redacted_result = redact_data(result)
 

@@ -34,6 +34,12 @@ def proof_path(workspace_dir: Path, plan_id: str) -> Path:
     return Path(workspace_dir) / "proofs" / f"{validate_plan_id(plan_id)}.json"
 
 
+def _hashable_arguments(arguments: Any) -> Any:
+    if isinstance(arguments, dict):
+        return {k: v for k, v in arguments.items() if k != "plan_id"}
+    return {"__not_an_object__": arguments}
+
+
 def plan_content_hash(plan: Dict[str, Any]) -> str:
     """SHA-256 over the immutable content of a plan (not its mutable state/results)."""
     content = {
@@ -45,7 +51,7 @@ def plan_content_hash(plan: Dict[str, Any]) -> str:
             {
                 "action_id": a.get("action_id"),
                 "tool": a.get("tool"),
-                "arguments": {k: v for k, v in (a.get("arguments") or {}).items() if k != "plan_id"},
+                "arguments": _hashable_arguments(a.get("arguments")),
                 "before": (a.get("diff") or {}).get("before"),
             }
             for a in plan.get("actions", [])
@@ -146,7 +152,8 @@ def build_proof(
         "approved_at": plan.get("approved_at"),
         "executed_at": plan.get("executed_at") or datetime.now(timezone.utc).isoformat(),
         "approved_by": plan.get("approved_by"),
-        "approver_note": "self-reported by the approving client; not authenticated"
+        "approver_note": "OS account running the approving panel hub or command-line tool "
+                         f"(approved via {plan.get('approved_via') or 'unknown'}); not an authenticated identity"
         if plan.get("approved_by") else "approver identity was not recorded",
         "document": document,
         "plan_hash": plan_content_hash(plan),

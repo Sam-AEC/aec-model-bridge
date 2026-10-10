@@ -1,9 +1,15 @@
+import contextlib
+import getpass
+import os
+import re
+import tempfile
+import threading
 import uuid
 import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Iterator, List, Optional
 from ..config import config
 from ..errors import BridgeError
 from . import proof as proof_mod
@@ -12,12 +18,55 @@ logger = logging.getLogger(__name__)
 
 # Tools that move a plan between approval states. They stay registered (the Revit
 # panel and the command-line tool use them) but are never offered to a model: an
-# agent that can approve its own plan has no human gate at all.
+# agent that can approve its own plan has no human gate at all. Every internal
+# dispatch path refuses them too (see security/dispatch.py); only
+# ApprovalProvider.execute_human_tool, called by the panel route, runs them.
 HUMAN_ONLY_TOOLS = frozenset({"approve_plan", "reject_plan", "rollback_plan"})
+
+# Channels that may record an approval. Set by the code path, never by tool arguments.
+APPROVAL_CHANNELS = frozenset({"panel", "cli"})
 
 # Arguments that identify or schedule a call rather than describe the change, so
 # they are ignored when matching a call to an approved action.
 VOLATILE_ARGUMENT_KEYS = frozenset({"plan_id", "run_async", "idempotency_key"})
+
+PLAN_ID_RE = re.compile(r"^plan_[0-9a-f]{12}$")
+ACTION_ID_RE = re.compile(r"^act_[0-9a-f]{12}$")
+
+# Action states. Only "pending" is open; "running", "executed" and "failed" are consumed.
+OPEN_ACTION_STATES = frozenset({"pending", None})
+DONE_ACTION_STATES = frozenset({"executed", "failed"})
+
+_PROCESS_LOCK = threading.RLock()
+
+
+def normalize_approval_mode(value: Any) -> str:
+    """Return 'required' or 'auto'. Fails closed: anything but an explicit 'auto' is 'required'."""
+    text = value.strip().lower() if isinstance(value, str) else ""
+    if text in ("required", "auto"):
+        return text
+    logger.warning(
+        "Unknown approval_mode %r; treating it as 'required'. Only 'auto' turns the approval gate off.",
+        value,
+    )
+    return "required"
+
+
+def validate_plan_id(plan_id: Any) -> str:
+    """Accept only ids of the shape create_plan makes; anything else is refused."""
+    if not isinstance(plan_id, str) or not PLAN_ID_RE.match(plan_id):
+        raise BridgeError(
+            "Invalid plan_id: expected the id returned by plan_actions ('plan_' followed by 12 hex characters)."
+        )
+    return plan_id
+
+
+def local_user() -> str:
+    """The OS account running this process. Recorded, not authenticated."""
+    try:
+        return getpass.getuser()
+    except Exception:
+        return "unknown"
 
 
 def _canonical(value: Any) -> Any:
@@ -32,9 +81,40 @@ def _canonical(value: Any) -> Any:
 
 
 def canonical_arguments(arguments: Any) -> str:
-    args = arguments if isinstance(arguments, dict) else {}
-    kept = {k: v for k, v in args.items() if k not in VOLATILE_ARGUMENT_KEYS}
+    if not isinstance(arguments, dict):
+        # Never let a malformed (non-object) argument list compare equal to {}.
+        return json.dumps({"__not_an_object__": _canonical(arguments)}, sort_keys=True, default=str,
+                          separators=(",", ":"))
+    kept = {k: v for k, v in arguments.items() if k not in VOLATILE_ARGUMENT_KEYS}
     return json.dumps(_canonical(kept), sort_keys=True, default=str, separators=(",", ":"))
+
+
+def plan_hash(plan: Dict[str, Any]) -> str:
+    """Content hash of what a person reviews: ids, tools, arguments, before values."""
+    return proof_mod.plan_content_hash(plan)
+
+
+@contextlib.contextmanager
+def _locked_file(path: Path) -> Iterator[None]:
+    """Exclusive lock on ``path`` across processes (fcntl on POSIX, msvcrt on Windows)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a+b") as fh:
+        try:
+            import fcntl
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+        except ImportError:  # pragma: no cover - Windows
+            import msvcrt
+            fh.seek(0)
+            msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)
+            try:
+                yield
+            finally:
+                fh.seek(0)
+                msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
 
 
 class ApprovalGate:
@@ -44,8 +124,28 @@ class ApprovalGate:
         self.plans_dir = workspace_dir / "plans"
         self.plans_dir.mkdir(parents=True, exist_ok=True)
 
+    @property
+    def approval_mode(self) -> str:
+        return self._approval_mode
+
+    @approval_mode.setter
+    def approval_mode(self, value: Any) -> None:
+        self._approval_mode = normalize_approval_mode(value)
+
     def _get_plan_path(self, plan_id: str) -> Path:
-        return self.plans_dir / f"{plan_id}.json"
+        validate_plan_id(plan_id)
+        root = self.plans_dir.resolve()
+        path = (root / f"{plan_id}.json").resolve()
+        if path.parent != root:
+            raise BridgeError("Invalid plan_id: the plan file is outside the plans folder.")
+        return path
+
+    @contextlib.contextmanager
+    def _plan_lock(self, plan_id: str) -> Iterator[None]:
+        """Serialise read-modify-write of one plan across threads and processes."""
+        validate_plan_id(plan_id)
+        with _PROCESS_LOCK, _locked_file(self.plans_dir / ".locks" / f"{plan_id}.lock"):
+            yield
 
     def load_plan(self, plan_id: str) -> Optional[Dict[str, Any]]:
         path = self._get_plan_path(plan_id)
@@ -53,19 +153,40 @@ class ApprovalGate:
             return None
         try:
             with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
+                plan = json.load(f)
         except Exception as e:
             logger.error("Failed to load plan %s: %s", plan_id, e)
             return None
+        if not isinstance(plan, dict) or plan.get("plan_id") != plan_id:
+            raise BridgeError(f"Plan file for '{plan_id}' does not hold that plan; refusing to use it.")
+        return plan
 
     def save_plan(self, plan: Dict[str, Any]) -> None:
         plan_id = plan["plan_id"]
         path = self._get_plan_path(plan_id)
+        fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=f".{plan_id}.", suffix=".tmp")
         try:
-            with open(path, "w", encoding="utf-8") as f:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(plan, f, indent=2)
+            os.replace(tmp, path)
         except Exception as e:
             logger.error("Failed to save plan %s: %s", plan_id, e)
+            with contextlib.suppress(OSError):
+                os.unlink(tmp)
+            raise
+
+    @staticmethod
+    def validate_actions(actions: Any) -> None:
+        """Refuse action lists a person could not review faithfully or that name human-only tools."""
+        if not isinstance(actions, list):
+            raise BridgeError("'actions' must be a list.")
+        for i, action in enumerate(actions):
+            if not isinstance(action, dict) or not isinstance(action.get("tool"), str) or not action.get("tool"):
+                raise BridgeError(f"Action {i + 1} must be an object with a 'tool' name.")
+            if action["tool"] in HUMAN_ONLY_TOOLS:
+                raise BridgeError(f"Action {i + 1}: '{action['tool']}' cannot be part of a plan; a person runs it.")
+            if not isinstance(action.get("arguments", {}), dict):
+                raise BridgeError(f"Action {i + 1} ('{action['tool']}'): 'arguments' must be an object.")
 
     def create_plan(
         self,
@@ -76,12 +197,13 @@ class ApprovalGate:
         extra: Optional[Dict[str, Any]] = None,
         before_storage_types: Optional[List[Optional[str]]] = None,
     ) -> Dict[str, Any]:
+        self.validate_actions(actions)
         plan_id = f"plan_{uuid.uuid4().hex[:12]}"
         plan_actions = []
         for i, action in enumerate(actions):
             act_id = f"act_{uuid.uuid4().hex[:12]}"
             before = before_states[i] if i < len(before_states) else {}
-            
+
             arguments = action.get("arguments", {})
             diff = {
                 "type": "parameter_change" if "parameter_name" in arguments else "model_modification",
@@ -114,52 +236,83 @@ class ApprovalGate:
         if skipped:
             plan["skipped"] = skipped
         if extra:
-            plan.update(extra)
+            plan.update({k: v for k, v in extra.items() if k not in ("plan_id", "state", "actions")})
+        plan["plan_hash"] = plan_hash(plan)
         self.save_plan(plan)
         return plan
 
     def list_pending_plans(self) -> List[Dict[str, Any]]:
         plans = []
         for path in self.plans_dir.glob("*.json"):
+            if not PLAN_ID_RE.match(path.stem):
+                continue
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     plan = json.load(f)
-                    if plan.get("state") == "pending":
-                        plans.append(plan)
             except Exception:
                 continue
+            if isinstance(plan, dict) and plan.get("plan_id") == path.stem and plan.get("state") == "pending":
+                plans.append(plan)
         return plans
 
     def update_plan_state(self, plan_id: str, state: str, approver: Optional[str] = None,
-                          via: Optional[str] = None) -> Dict[str, Any]:
-        plan = self.load_plan(plan_id)
-        if not plan:
-            raise ValueError(f"Plan {plan_id} not found")
-        if state in ("approved", "rejected") and plan.get("state") != "pending":
-            raise ValueError(
-                f"Plan {plan_id} is in state '{plan.get('state')}'; only a pending plan can be {state}."
-            )
-        plan["state"] = state
-        now = datetime.now(timezone.utc).isoformat()
-        if state == "approved":
-            plan["approved_at"] = now
-            if approver:
-                plan["approved_by"] = str(approver)
-            if via:
-                plan["approved_via"] = str(via)
-        elif state == "rejected":
-            plan["rejected_at"] = now
-            if via:
-                plan["rejected_via"] = str(via)
-        fill_proof = False
-        if state == "executed":
-            plan["executed_at"] = now
-            # execute_plan writes a richer proof itself; only fill in for direct tool calls.
-            try:
-                fill_proof = proof_mod.read_proof(self.workspace_dir, plan_id) is None
-            except ValueError:
-                fill_proof = False
-        self.save_plan(plan)
+                          via: Optional[str] = None, expected_hash: Optional[str] = None) -> Dict[str, Any]:
+        """Move a plan to ``state``.
+
+        Approving needs ``expected_hash``: the hash of the plan the person was shown. The
+        approval is refused if the plan on disk no longer has that content, so a person
+        approves exactly what they reviewed. ``via`` is the channel ('panel' or 'cli')
+        and is set by the calling code path, never taken from tool arguments.
+        """
+        with self._plan_lock(plan_id):
+            plan = self.load_plan(plan_id)
+            if not plan:
+                raise ValueError(f"Plan {plan_id} not found")
+            current = plan.get("state")
+            if state == "approved":
+                if current != "pending":
+                    raise ValueError(f"Plan {plan_id} is in state '{current}'; only a pending plan can be approved.")
+                if via not in APPROVAL_CHANNELS:
+                    raise ValueError("An approval must come from the panel or the command-line tool.")
+                now_hash = plan_hash(plan)
+                if not expected_hash or expected_hash != now_hash:
+                    raise ValueError(
+                        f"Plan {plan_id} is not the plan that was shown for approval (its content changed). "
+                        "Review it again before approving."
+                    )
+                if plan.get("plan_hash") != now_hash:
+                    raise ValueError(
+                        f"Plan {plan_id} was changed after it was drafted. Ask for a new plan instead of approving it."
+                    )
+            elif state == "rejected":
+                if current not in ("pending", "approved"):
+                    raise ValueError(
+                        f"Plan {plan_id} is in state '{current}'; only a pending or approved plan can be rejected."
+                    )
+                if via is not None and via not in APPROVAL_CHANNELS:
+                    raise ValueError("A rejection must come from the panel or the command-line tool.")
+            plan["state"] = state
+            now = datetime.now(timezone.utc).isoformat()
+            if state == "approved":
+                plan["approved_at"] = now
+                plan["approved_hash"] = now_hash
+                plan["approved_via"] = via
+                plan["approved_by"] = str(approver) if approver else local_user()
+            elif state == "rejected":
+                plan["rejected_at"] = now
+                if current == "approved":
+                    plan["rejected_after_approval"] = True
+                if via:
+                    plan["rejected_via"] = via
+            fill_proof = False
+            if state == "executed":
+                plan["executed_at"] = now
+                # execute_plan writes a richer proof itself; only fill in for direct tool calls.
+                try:
+                    fill_proof = proof_mod.read_proof(self.workspace_dir, plan_id) is None
+                except ValueError:
+                    fill_proof = False
+            self.save_plan(plan)
         if fill_proof:
             try:
                 self.record_proof(plan)
@@ -177,63 +330,176 @@ class ApprovalGate:
     def load_proof(self, plan_id: str) -> Optional[Dict[str, Any]]:
         return proof_mod.read_proof(self.workspace_dir, plan_id)
 
+    def verify_approved(self, plan: Dict[str, Any]) -> None:
+        """Refuse unless the plan is approved and still holds exactly what was approved."""
+        plan_id = plan.get("plan_id")
+        if plan.get("state") != "approved":
+            raise BridgeError(f"Plan '{plan_id}' is in state '{plan.get('state')}', not 'approved'. Execution blocked.")
+        approved = plan.get("approved_hash")
+        if not approved or plan_hash(plan) != approved:
+            raise BridgeError(
+                f"Plan '{plan_id}' changed after it was approved (or has no approval record). Execution blocked; "
+                "draft a new plan and ask the person to approve it."
+            )
+
     def check_tool_execution(self, tool_name: str, arguments: Dict[str, Any]) -> None:
-        """
-        Interceptors check before execution.
+        """Read-only check that a call is covered by an approved, unchanged plan.
+
+        Execution paths use claim_action, which makes the same checks and consumes the
+        action atomically before the tool runs.
         """
         if self.approval_mode != "required":
             return
+        if tool_name in HUMAN_ONLY_TOOLS:
+            raise BridgeError(f"'{tool_name}' is run by a person, not through a tool call.")
 
-        # Check if plan_id is provided
-        plan_id = arguments.get("plan_id")
+        plan_id = arguments.get("plan_id") if isinstance(arguments, dict) else None
         if not plan_id:
             raise BridgeError(f"Approval mode is enabled. Mutating tool '{tool_name}' requires a valid 'plan_id' parameter.")
 
         plan = self.load_plan(plan_id)
         if not plan:
             raise BridgeError(f"Plan '{plan_id}' does not exist.")
-
-        if plan.get("state") != "approved":
-            raise BridgeError(f"Plan '{plan_id}' is in state '{plan.get('state')}', not 'approved'. Execution blocked.")
+        self.verify_approved(plan)
 
         if self._find_open_action(plan, tool_name, arguments) is None:
-            raise BridgeError(
-                f"Plan '{plan_id}' does not approve this call: it has no remaining approved action for "
-                f"'{tool_name}' with these arguments (an action can only run once, exactly as approved). "
-                "Draft a new plan for this change and ask the person to approve it."
-            )
+            raise self._no_action_error(plan_id, tool_name)
 
     @staticmethod
-    def _find_open_action(plan: Dict[str, Any], tool_name: str, arguments: Any) -> Optional[Dict[str, Any]]:
+    def _no_action_error(plan_id: str, tool_name: str) -> BridgeError:
+        return BridgeError(
+            f"Plan '{plan_id}' does not approve this call: it has no remaining approved action for "
+            f"'{tool_name}' with these arguments (an action can only run once, exactly as approved). "
+            "Draft a new plan for this change and ask the person to approve it."
+        )
+
+    @staticmethod
+    def _find_open_action(plan: Dict[str, Any], tool_name: str, arguments: Any,
+                          skip: Optional[set] = None) -> Optional[Dict[str, Any]]:
         wanted = canonical_arguments(arguments)
         for action in plan.get("actions", []):
-            if action.get("state") == "executed" or action.get("tool") != tool_name:
+            if action.get("state") not in OPEN_ACTION_STATES or action.get("tool") != tool_name:
+                continue
+            if skip and action.get("action_id") in skip:
                 continue
             if canonical_arguments(action.get("arguments", {})) == wanted:
                 return action
         return None
 
-    def mark_action_executed(self, tool_name: str, arguments: Any) -> Optional[Dict[str, Any]]:
-        """Record that a gated call ran: consume the matching approved action and, once
-        every action in the plan has run, move the plan to 'executed'.
+    def _claim_marker(self, plan_id: str, action_id: Any) -> Path:
+        if not isinstance(action_id, str) or not ACTION_ID_RE.match(action_id):
+            raise BridgeError(f"Plan '{plan_id}' has a malformed action id; refusing to run it.")
+        return self.plans_dir / ".claims" / f"{plan_id}.{action_id}"
 
-        Runs on every execution path (MCP, panel, chat, recipes, run_async). Does nothing
-        when the call carries no plan_id or matches no open action. Returns the plan.
+    def claim_action(self, tool_name: str, arguments: Any) -> Optional[Dict[str, str]]:
+        """Consume the matching approved action BEFORE the tool runs (at most once).
+
+        Under a per-plan lock, checks the plan (approved, unchanged since approval),
+        finds an open action with the same tool and arguments, creates a claim marker
+        with O_EXCL (so exactly one caller wins even across processes, and an edited
+        action state cannot reopen it) and marks the action 'running'. The action stays
+        consumed whatever the tool does next: a failed or interrupted call needs a new plan.
+
+        Returns {"plan_id", "action_id"} or None when the gate is off and the call
+        carries no plan. Raises BridgeError when the call is not allowed.
+        """
+        if tool_name in HUMAN_ONLY_TOOLS:
+            raise BridgeError(f"'{tool_name}' is run by a person, not through a tool call.")
+        plan_id = arguments.get("plan_id") if isinstance(arguments, dict) else None
+        if self.approval_mode != "required":
+            if not plan_id:
+                return None
+            try:  # gate off: keep the plan bookkeeping when we can, never block
+                return self._claim(plan_id, tool_name, arguments)
+            except BridgeError:
+                return None
+        if not plan_id:
+            raise BridgeError(f"Approval mode is enabled. Mutating tool '{tool_name}' requires a valid 'plan_id' parameter.")
+        return self._claim(plan_id, tool_name, arguments)
+
+    def _claim(self, plan_id: Any, tool_name: str, arguments: Any) -> Dict[str, str]:
+        validate_plan_id(plan_id)
+        with self._plan_lock(plan_id):
+            plan = self.load_plan(plan_id)
+            if not plan:
+                raise BridgeError(f"Plan '{plan_id}' does not exist.")
+            self.verify_approved(plan)
+            tried: set = set()
+            while True:
+                action = self._find_open_action(plan, tool_name, arguments, skip=tried)
+                if action is None:
+                    raise self._no_action_error(plan_id, tool_name)
+                action_id = action.get("action_id")
+                tried.add(action_id)
+                marker = self._claim_marker(plan_id, action_id)
+                marker.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    fd = os.open(str(marker), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+                except FileExistsError:
+                    continue  # consumed earlier; its recorded state is not trusted
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    f.write(datetime.now(timezone.utc).isoformat())
+                break
+            action["state"] = "running"
+            action["claimed_at"] = datetime.now(timezone.utc).isoformat()
+            self.save_plan(plan)
+        return {"plan_id": plan_id, "action_id": action_id}
+
+    def finish_action(self, claim: Optional[Dict[str, str]], ok: bool, error: Optional[str] = None
+                      ) -> Optional[Dict[str, Any]]:
+        """Record how a claimed action ended. Never reopens it.
+
+        When no action is left open or running, the plan moves to 'executed' (every
+        action succeeded) or 'partial' (some failed), unless a person rejected it.
+        """
+        if not claim:
+            return None
+        plan_id = claim["plan_id"]
+        finished_all = False
+        with self._plan_lock(plan_id):
+            plan = self.load_plan(plan_id)
+            if not plan:
+                return None
+            for action in plan.get("actions", []):
+                if action.get("action_id") == claim["action_id"]:
+                    action["state"] = "executed" if ok else "failed"
+                    if not ok and error:
+                        action["error"] = str(error)[:500]
+            states = [a.get("state") for a in plan.get("actions", [])]
+            all_done = all(s in DONE_ACTION_STATES for s in states)
+            if all_done and plan.get("state") == "approved":
+                if all(s == "executed" for s in states):
+                    finished_all = True
+                else:
+                    plan["state"] = "partial"
+                    plan["executed_at"] = datetime.now(timezone.utc).isoformat()
+            self.save_plan(plan)
+        if finished_all:
+            return self.update_plan_state(plan_id, "executed")
+        if plan.get("state") == "partial" and all_done:
+            try:
+                self.record_proof(plan)
+            except Exception:
+                logger.exception("Failed to write proof bundle for plan %s", plan_id)
+        return plan
+
+    def mark_action_executed(self, tool_name: str, arguments: Any) -> Optional[Dict[str, Any]]:
+        """Claim and complete the matching action in one step (bookkeeping helper).
+
+        Returns the plan, or None when the call carries no plan_id. A call that matches
+        no open action leaves the plan unchanged.
         """
         plan_id = arguments.get("plan_id") if isinstance(arguments, dict) else None
         if not plan_id:
             return None
-        plan = self.load_plan(plan_id)
-        if not plan:
-            return None
-        action = self._find_open_action(plan, tool_name, arguments)
-        if action is None:
-            return plan
-        action["state"] = "executed"
-        self.save_plan(plan)
-        if all(a.get("state") == "executed" for a in plan.get("actions", [])):
-            return self.update_plan_state(plan_id, "executed")
-        return plan
+        try:
+            claim = self._claim(plan_id, tool_name, arguments)
+        except BridgeError:
+            try:
+                return self.load_plan(plan_id)
+            except BridgeError:
+                return None
+        return self.finish_action(claim, ok=True)
 
     async def rollback_plan(self, plan_id: str, execute_fn) -> Dict[str, Any]:
         """Roll back an executed plan.

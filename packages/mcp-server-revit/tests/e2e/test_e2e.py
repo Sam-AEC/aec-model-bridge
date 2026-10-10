@@ -102,7 +102,9 @@ def test_mutating_tools_require_approved_plan(tmp_path):
     with pytest.raises(BridgeError, match="not 'approved'"):
         approval.gate.check_tool_execution(tool_def.name, exact)
 
-    approval.gate.update_plan_state(plan["plan_id"], "approved")
+    from revit_mcp_server.security.approval import plan_hash
+    approval.gate.update_plan_state(plan["plan_id"], "approved", via="cli",
+                                    expected_hash=plan_hash(approval.gate.load_plan(plan["plan_id"])))
     approval.gate.check_tool_execution(tool_def.name, exact)
 
 

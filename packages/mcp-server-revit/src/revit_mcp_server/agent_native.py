@@ -34,6 +34,7 @@ import anthropic
 
 from .config import config
 from .security.approval import HUMAN_ONLY_TOOLS
+from .security.dispatch import run_gated_tool
 
 logger = logging.getLogger(__name__)
 
@@ -125,27 +126,9 @@ async def _execute_tool_call(registry, approval_provider, name: str, arguments: 
             "approved, rejected and rolled back by a human in the panel's Plans view."
         )
 
-    provider = registry.lookup_tool_provider(name)
-    if not provider:
-        raise ValueError(f"Unknown tool '{name}'")
-
-    tool_def = registry.lookup_tool(name)
-    if tool_def and tool_def.is_mutating:
-        approval_provider.gate.check_tool_execution(name, arguments)
-
-    result = await provider.execute_tool(name, arguments)
-
-    # Mirrors _run_tool_sync's post-execution plan-state transition: keep
-    # ApprovalGate's plan bookkeeping in sync when a mutating tool was
-    # invoked directly (not via execute_plan) with a plan_id. Best-effort -
-    # a failure here must not fail the tool call that already succeeded.
-    if tool_def and tool_def.is_mutating and isinstance(arguments, dict) and "plan_id" in arguments:
-        try:
-            approval_provider.gate.mark_action_executed(name, arguments)
-        except Exception:
-            pass
-
-    return result
+    # Shared gated dispatch: refuses human-only tools and consumes the approved
+    # action before a mutating tool runs (at most once, even if it fails).
+    return await run_gated_tool(registry, approval_provider.gate, name, arguments)
 
 
 async def _execute_tool_calls(

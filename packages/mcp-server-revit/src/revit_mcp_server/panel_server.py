@@ -29,7 +29,9 @@ from . import agent_native
 from .config import config
 from .errors import RevitMCPError
 from .registry_factory import build_registry
+from .security.approval import HUMAN_ONLY_TOOLS
 from .security.audit import redact_data
+from .security.dispatch import run_gated_tool
 from .security.workspace import WorkspaceMonitor
 
 logger = logging.getLogger(__name__)
@@ -53,29 +55,12 @@ def _run_tool_sync(registry, approval_provider, name: str, arguments: Dict[str, 
     panel is gated identically to one called through MCP.
     """
     async def _run() -> Dict[str, Any]:
-        provider = registry.lookup_tool_provider(name)
-        if not provider:
-            raise ValueError(f"Unknown tool '{name}'")
-
-        tool_def = registry.lookup_tool(name)
-        if tool_def and tool_def.is_mutating:
-            approval_provider.gate.check_tool_execution(name, arguments)
-
-        result = await provider.execute_tool(name, arguments)
-
-        if tool_def and tool_def.is_mutating and isinstance(arguments, dict) and "plan_id" in arguments:
-            try:
-                approval_provider.gate.mark_action_executed(name, arguments)
-            except Exception:
-                # The tool has already run, so don't fail the call and invite a
-                # retry of a completed mutation; make the stale plan visible instead.
-                logger.exception(
-                    "Tool '%s' executed but plan '%s' could not be marked executed",
-                    name,
-                    arguments["plan_id"],
-                )
-
-        return result
+        if name in HUMAN_ONLY_TOOLS:
+            # The panel's Plans view: the channel is recorded as 'panel' by this route,
+            # never taken from the request. See docs/security.md for what this route
+            # does not authenticate.
+            return await approval_provider.execute_human_tool(name, arguments, via="panel")
+        return await run_gated_tool(registry, approval_provider.gate, name, arguments)
 
     return asyncio.run(_run())
 
