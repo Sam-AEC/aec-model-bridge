@@ -139,7 +139,7 @@ As caixas verde-azuladas já funcionam. As caixas âmbar tracejadas estão em de
 
 ### Como funciona a aprovação
 
-O hub bloqueia qualquer chamada de ferramenta que altere o modelo, a menos que ela traga um plano aprovado. O modo padrão é `required`. A IA propõe um plano, você o revisa no painel lateral do Revit e o add-in o executa na thread principal do Revit, em uma transação nomeada.
+O hub bloqueia qualquer chamada de ferramenta que altere o modelo, a menos que ela traga um plano aprovado. O modo padrão é `required`. A IA propõe um plano, você o revisa no painel lateral do Revit e o add-in o executa na thread principal do Revit, as ações de parâmetro e de edição do modelo, cada uma em sua própria transação nomeada; salvar, sincronizar e scripts não, então o Ctrl+Z não os cobre.
 
 <p align="center">
   <picture>
@@ -157,7 +157,7 @@ O hub bloqueia qualquer chamada de ferramenta que altere o modelo, a menos que e
 
 <sub>Fonte do diagrama: [approval-flow.mmd](../diagrams/approval-flow.mmd). Gere as imagens novamente com `python scripts/render_diagrams.py`.</sub>
 
-Se um plano se mostrar errado, desfaça com Ctrl+Z no Revit. Cada gravação de parâmetro é uma transação nomeada própria, então um plano pode exigir vários toques. Um desfazer em uma única etapa para um plano inteiro está planejado, não construído. `rollback_plan` grava de volta os valores anteriores registrados, em ordem inversa, e pode pular uma ação quando nenhum valor anterior foi registrado, então leia seus avisos. Nenhum dos dois caminhos foi verificado ainda em uma sessão real do Revit (UNVERIFIED). Operações que não podem ser revertidas, como a gravação de arquivos, pedem uma segunda confirmação. O ciclo de vida está no [ADR 0008](../0008-approval-gate-lifecycle.md).
+Se um plano se mostrar errado, desfaça com Ctrl+Z no Revit. Cada gravação de parâmetro é uma transação nomeada própria, então um plano pode exigir vários toques. Um desfazer em uma única etapa para um plano inteiro está planejado, não construído. `rollback_plan` grava de volta os valores anteriores registrados, em ordem inversa, e pode pular uma ação quando nenhum valor anterior foi registrado, então leia seus avisos. Nenhum dos dois caminhos foi verificado ainda em uma sessão real do Revit (UNVERIFIED). Operações que não podem ser revertidas, como a gravação de arquivos, não são desfeitas por nenhum dos dois caminhos e ainda não pedem uma segunda confirmação (planejado). O ciclo de vida está no [ADR 0008](../0008-approval-gate-lifecycle.md).
 
 Para pipelines sem supervisão, você pode definir `MCP_REVIT_APPROVAL_MODE=auto`. Isso desliga a verificação feita por uma pessoa, então use apenas em um ambiente controlado.
 
