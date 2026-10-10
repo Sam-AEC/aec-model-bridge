@@ -187,7 +187,7 @@ shapes are data and external services.
 The hub stops any tool call that changes the model unless it carries an
 approved plan. The default mode is `required`. The AI proposes a plan, you
 review it in the Revit side panel, and the add-in runs it on Revit's main
-thread in a named transaction.
+thread, each action in its own named transaction.
 
 <p align="center">
   <picture>
@@ -211,7 +211,10 @@ for a whole plan is planned, not built. `rollback_plan` writes the recorded
 before-values back in reverse order, and it can skip an action when no
 before-value was recorded, so read its warnings. Neither path is verified in a
 live Revit session yet (UNVERIFIED). Operations that cannot be reversed, such as
-file output, ask for a second confirmation. The lifecycle is in
+file output, are not undone by either path and do not get a second confirmation
+yet (planned). The panel's Plans list shows pending plans only; finished plans
+are visible with `aec-model-bridge-approve show <plan_id>` and in the
+`proofs/` bundles. The lifecycle is in
 [ADR 0008](docs/0008-approval-gate-lifecycle.md).
 
 For unattended pipelines you can set `MCP_REVIT_APPROVAL_MODE=auto`. That turns

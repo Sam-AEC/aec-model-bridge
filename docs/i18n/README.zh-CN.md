@@ -140,7 +140,7 @@ MCP 客户端与一个 Python hub 通信。hub 将每次调用转发给拥有该
 
 ### 审批如何运作
 
-hub 会拦截任何会修改模型的工具调用，除非它附带已批准的计划。默认模式为 `required`。AI 提出计划，你在 Revit 侧边面板中审阅，然后插件在 Revit 主线程中以命名事务（transaction）执行。
+hub 会拦截任何会修改模型的工具调用，除非它附带已批准的计划。默认模式为 `required`。AI 提出计划，你在 Revit 侧边面板中审阅，然后插件在 Revit 主线程中执行，每个操作各自在独立的命名事务（transaction）中运行。
 
 <p align="center">
   <picture>
@@ -158,7 +158,7 @@ hub 会拦截任何会修改模型的工具调用，除非它附带已批准的�
 
 <sub>图表源文件：[approval-flow.mmd](../diagrams/approval-flow.mmd)。使用 `python scripts/render_diagrams.py` 重新生成图片。</sub>
 
-如果计划有误，请在 Revit 中用 Ctrl+Z 撤销。每次参数写入都是各自独立的命名事务，因此一个计划可能需要按多次。整个计划一步撤销的功能已列入计划，尚未实现。`rollback_plan` 会按相反顺序写回已记录的原值，如果某个操作没有记录原值，它可能会跳过该操作，请查看其警告。这两种方式目前都尚未在真实的 Revit 会话中验证（UNVERIFIED）。无法撤销的操作（例如文件输出）会要求再次确认。完整生命周期见 [ADR 0008](../0008-approval-gate-lifecycle.md)。
+如果计划有误，请在 Revit 中用 Ctrl+Z 撤销。每次参数写入都是各自独立的命名事务，因此一个计划可能需要按多次。整个计划一步撤销的功能已列入计划，尚未实现。`rollback_plan` 会按相反顺序写回已记录的原值，如果某个操作没有记录原值，它可能会跳过该操作，请查看其警告。这两种方式目前都尚未在真实的 Revit 会话中验证（UNVERIFIED）。无法撤销的操作（例如文件输出）这两种方式都无法撤销，目前也尚未要求再次确认（已列入计划）。完整生命周期见 [ADR 0008](../0008-approval-gate-lifecycle.md)。
 
 对于无人值守的流水线，可以设置 `MCP_REVIT_APPROVAL_MODE=auto`。这会关闭人工检查，因此请仅在受控环境中使用。
 
