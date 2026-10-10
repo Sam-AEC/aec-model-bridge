@@ -351,20 +351,21 @@ p {
   align-items: center;
   gap: 8px;
   min-height: 30px;
-  padding: 0 10px;
+  padding: 4px 10px;
   border: 1px solid var(--amb-line);
-  border-radius: 999px;
+  border-radius: 16px;
   background: var(--amb-surface-raised);
   color: var(--amb-ink-muted);
   font-size: 12px;
-  white-space: nowrap;
+  line-height: 1.25;
   min-width: 0;
   max-width: 45%;
 }
 
+/* Wrap rather than truncate: the port at the end of "Revit 2025 :PORT" must stay visible. */
 .status-pill > span:last-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .dot {
@@ -661,6 +662,16 @@ p {
   display: inline-block;
   vertical-align: -3px;
   margin-right: 4px;
+}
+
+.plan-review {
+  margin: 8px 0 0;
+  padding: 8px;
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 12px/1.4 ui-monospace, Consolas, monospace;
 }
 
 /* Setup check (first run). Pass/fail is carried by the text label and glyph,

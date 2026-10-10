@@ -139,8 +139,14 @@ namespace RevitBridge.UI
                         break;
                     }
 
-                    var decisionTool = type == "plan.approve" ? "approve_plan" : "reject_plan";
-                    var decision = await HubClient.ExecuteToolAsync(decisionTool, new { plan_id = planId });
+                    // The approval carries the hash of the plan the panel displayed; the hub
+                    // refuses it if the plan changed after it was listed.
+                    var planHash = root.TryGetProperty("planHash", out var hashEl) && hashEl.ValueKind == JsonValueKind.String
+                        ? hashEl.GetString()
+                        : null;
+                    var decision = type == "plan.approve"
+                        ? await HubClient.ExecuteToolAsync("approve_plan", new { plan_id = planId, expected_hash = planHash ?? "" })
+                        : await HubClient.ExecuteToolAsync("reject_plan", new { plan_id = planId });
                     if (!decision.Ok)
                     {
                         PostToPanel(new { type = "tool.error", action = type, message = decision.Error });

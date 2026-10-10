@@ -5,7 +5,7 @@
 **English** | [简体中文](docs/i18n/README.zh-CN.md) | [Español](docs/i18n/README.es.md) | [हिन्दी](docs/i18n/README.hi.md) | [العربية](docs/i18n/README.ar.md) | [Português (BR)](docs/i18n/README.pt-BR.md) | [Русский](docs/i18n/README.ru.md) | [日本語](docs/i18n/README.ja.md) | [Deutsch](docs/i18n/README.de.md) | [Français](docs/i18n/README.fr.md) | [Bahasa Indonesia](docs/i18n/README.id.md) | [Türkçe](docs/i18n/README.tr.md) | [한국어](docs/i18n/README.ko.md) | [Tiếng Việt](docs/i18n/README.vi.md) | [Italiano](docs/i18n/README.it.md) | [Polski](docs/i18n/README.pl.md) | [繁體中文](docs/i18n/README.zh-TW.md)
 
 
-**Ask your AI about the Revit model you have open. By default, nothing changes until you approve it.**
+**Ask your AI about the Revit model you have open. By default, write tools are blocked until you approve a plan.**
 
 Open-source MCP server and native add-in for Revit 2024 – 2027. Works with Claude, Codex and other MCP clients.
 
@@ -205,10 +205,13 @@ thread in a named transaction.
 
 <sub>Diagram source: [approval-flow.mmd](docs/diagrams/approval-flow.mmd). Regenerate the images with `python scripts/render_diagrams.py`.</sub>
 
-If a plan is approved and later turns out wrong, `rollback_plan` reverses it.
-Rollback uses Revit Undo in the same session or inverse parameter values.
-Operations that cannot be reversed, such as file output, ask for a second
-confirmation. The lifecycle is in
+If a plan turns out wrong, undo it with Revit's Ctrl+Z. Each parameter write is
+its own named transaction, so one plan can take several presses. A one-step undo
+for a whole plan is planned, not built. `rollback_plan` writes the recorded
+before-values back in reverse order, and it can skip an action when no
+before-value was recorded, so read its warnings. Neither path is verified in a
+live Revit session yet (UNVERIFIED). Operations that cannot be reversed, such as
+file output, ask for a second confirmation. The lifecycle is in
 [ADR 0008](docs/0008-approval-gate-lifecycle.md).
 
 For unattended pipelines you can set `MCP_REVIT_APPROVAL_MODE=auto`. That turns

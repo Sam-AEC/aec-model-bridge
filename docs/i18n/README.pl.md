@@ -6,7 +6,7 @@
 
 > To tłumaczenie powstało z pomocą AI. Wiążące jest angielskie [README](../../README.md); poprawki są mile widziane w formie pull requestów (zob. [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
-**Zapytaj swoje AI o otwarty model Revit. Domyślnie nic się nie zmieni, dopóki tego nie zatwierdzisz.**
+**Zapytaj swoje AI o otwarty model Revit. Domyślnie narzędzia zapisu są zablokowane, dopóki nie zatwierdzisz planu.**
 
 Otwartoźródłowy serwer MCP i natywny dodatek do Revit 2024 – 2027. Działa z Claude, Codex i innymi klientami MCP.
 
@@ -157,7 +157,7 @@ Hub zatrzymuje każde wywołanie narzędzia zmieniającego model, jeśli nie tow
 
 <sub>Źródło diagramu: [approval-flow.mmd](../diagrams/approval-flow.mmd). Obrazy wygenerujesz ponownie poleceniem `python scripts/render_diagrams.py`.</sub>
 
-Jeśli zatwierdzony plan okaże się błędny, `rollback_plan` go cofa. Wycofanie korzysta z funkcji Cofnij w Revit w tej samej sesji albo z odwrotnych wartości parametrów. Operacje, których nie da się cofnąć, np. zapis plików, wymagają drugiego potwierdzenia. Cykl życia opisuje [ADR 0008](../0008-approval-gate-lifecycle.md).
+Jeśli plan okaże się błędny, cofnij go skrótem Ctrl+Z w Revit. Każdy zapis parametru to osobna nazwana transakcja, więc jeden plan może wymagać kilku naciśnięć. Cofnięcie całego planu jednym krokiem jest planowane, ale jeszcze nie zbudowane. `rollback_plan` zapisuje z powrotem zarejestrowane wartości sprzed zmiany w odwrotnej kolejności i może pominąć akcję, jeśli nie zarejestrowano wartości poprzedniej, więc przeczytaj jego ostrzeżenia. Żadna z tych dróg nie została jeszcze zweryfikowana w prawdziwej sesji Revit (UNVERIFIED). Operacje, których nie da się cofnąć, np. zapis plików, wymagają drugiego potwierdzenia. Cykl życia opisuje [ADR 0008](../0008-approval-gate-lifecycle.md).
 
 W potokach działających bez nadzoru możesz ustawić `MCP_REVIT_APPROVAL_MODE=auto`. To wyłącza kontrolę człowieka, więc używaj tego tylko w kontrolowanym środowisku.
 

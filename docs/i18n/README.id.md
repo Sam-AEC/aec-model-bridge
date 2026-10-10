@@ -6,7 +6,7 @@
 
 > Terjemahan ini dibuat dengan bantuan AI. README bahasa Inggris ([README](../../README.md)) adalah sumber acuan; koreksi sangat kami hargai melalui pull request (lihat [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
-**Tanyakan model Revit yang sedang Anda buka kepada AI Anda. Secara default, tidak ada yang berubah sebelum Anda menyetujuinya.**
+**Tanyakan model Revit yang sedang Anda buka kepada AI Anda. Secara default, tool penulisan diblokir sampai Anda menyetujui sebuah rencana.**
 
 Server MCP sumber terbuka dan add-in native untuk Revit 2024 – 2027. Bekerja dengan Claude, Codex, dan klien MCP lainnya.
 
@@ -157,7 +157,7 @@ Hub menghentikan setiap panggilan tool yang mengubah model kecuali panggilan itu
 
 <sub>Sumber diagram: [approval-flow.mmd](../diagrams/approval-flow.mmd). Buat ulang gambar dengan `python scripts/render_diagrams.py`.</sub>
 
-Jika rencana yang sudah disetujui ternyata keliru, `rollback_plan` akan membatalkannya. Rollback memakai Undo Revit dalam sesi yang sama atau nilai parameter kebalikannya. Operasi yang tidak dapat dibatalkan, seperti keluaran file, meminta konfirmasi kedua. Siklus hidupnya ada di [ADR 0008](../0008-approval-gate-lifecycle.md).
+Jika sebuah rencana ternyata keliru, batalkan dengan Ctrl+Z di Revit. Setiap penulisan parameter adalah transaksi bernama tersendiri, jadi satu rencana bisa memerlukan beberapa kali penekanan. Undo satu langkah untuk seluruh rencana masih direncanakan, belum dibangun. `rollback_plan` menulis kembali nilai sebelumnya yang tercatat dalam urutan terbalik, dan dapat melewati sebuah aksi bila nilai sebelumnya tidak tercatat, jadi baca peringatannya. Kedua jalur ini belum diverifikasi di sesi Revit yang sebenarnya (UNVERIFIED). Operasi yang tidak dapat dibatalkan, seperti keluaran file, meminta konfirmasi kedua. Siklus hidupnya ada di [ADR 0008](../0008-approval-gate-lifecycle.md).
 
 Untuk pipeline tanpa pengawasan, Anda dapat mengatur `MCP_REVIT_APPROVAL_MODE=auto`. Ini mematikan pemeriksaan manusia, jadi gunakan hanya di lingkungan yang terkendali.
 

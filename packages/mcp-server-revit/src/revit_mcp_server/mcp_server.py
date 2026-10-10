@@ -15,6 +15,8 @@ from mcp.types import Tool, TextContent
 
 from .errors import BridgeError
 from .registry_factory import build_registry
+from .security.approval import HUMAN_ONLY_TOOLS
+from .security.dispatch import gate_after, gate_before
 from .security.audit import redact_data
 from .tool_metadata import enrich_tool
 
@@ -23,8 +25,11 @@ logger = logging.getLogger(__name__)
 SERVER_INSTRUCTIONS = (
     "AEC Model Bridge exposes Autodesk Revit (and Navisworks, Rhino, IFC, Speckle) as MCP tools. "
     "Read-only tools run immediately. Every tool that changes a model requires an approved plan: "
-    "call plan_actions with the proposed changes, have the human approve it (approve_plan or the Revit panel), "
-    "then call execute_plan or pass the plan_id to the write tool. Revit lengths are in feet. "
+    "call plan_actions with the proposed changes, then STOP and ask the person to review and approve the plan "
+    "themselves, in the Revit panel's Plans view or with the command-line tool `aec-model-bridge-approve`. "
+    "You cannot approve, reject or roll back a plan, and must not try to work around that. "
+    "Only after the person tells you the plan is approved, call execute_plan (or pass the plan_id to the write tool "
+    "with exactly the arguments that were approved; an approved action runs once). Revit lengths are in feet. "
     "In MCP_REVIT_MODE=mock the server returns canned responses and needs no Revit."
 )
 
@@ -70,11 +75,19 @@ async def list_tools() -> list[Tool]:
         enrich_tool(provider.get_identity(), t)
         for provider in registry.get_all_providers()
         for t in provider.get_capabilities()
+        if t.name not in HUMAN_ONLY_TOOLS
     ]
 
 @app.call_tool()
 async def call_tool(name: str, arguments: Any) -> list[TextContent]:
     """Execute a registered AEC tool."""
+    if name in HUMAN_ONLY_TOOLS:
+        return [TextContent(
+            type="text",
+            text=(f"Error: '{name}' is not available to AI clients. A person approves, rejects and rolls back "
+                  "plans in the Revit panel or with the aec-model-bridge-approve command. Ask them to do it.")
+        )]
+
     provider = registry.lookup_tool_provider(name)
     if not provider:
         return [TextContent(
@@ -82,16 +95,16 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             text=f"Error: Unknown tool '{name}'"
         )]
 
-    # Approval Gate Middleware Check
-    tool_def = registry.lookup_tool(name)
-    if tool_def and tool_def.is_mutating:
-        try:
-            approval_provider.gate.check_tool_execution(name, arguments)
-        except Exception as e:
-            return [TextContent(
-                type="text",
-                text=f"Approval Gate Blocked: {str(e)}"
-            )]
+    # Approval gate: a mutating call consumes its approved action here, before it
+    # runs, so it can run at most once even if it fails or is called concurrently.
+    gate = approval_provider.gate
+    try:
+        claim = gate_before(registry, gate, name, arguments)
+    except Exception as e:
+        return [TextContent(
+            type="text",
+            text=f"Approval Gate Blocked: {str(e)}"
+        )]
 
     try:
         # Check if deferred execution is requested.
@@ -106,8 +119,16 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             idempotency_key = args_copy.get("idempotency_key")
 
         if run_async:
+            # The action was consumed above, when the job is queued; the job records
+            # how it ended. A job that fails needs a new plan.
             async def run_tool_job(context=None):
-                return await provider.execute_tool(name, arguments)
+                try:
+                    result = await provider.execute_tool(name, arguments)
+                except BaseException as e:
+                    gate_after(gate, claim, ok=False, error=str(e) or type(e).__name__)
+                    raise
+                gate_after(gate, claim, ok=True)
+                return result
 
             job_ref = await job_manager.submit(
                 run_tool_job,
@@ -118,21 +139,12 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             return [TextContent(type="text", text=response_text)]
 
         # Execute the tool on the provider
-        result = await provider.execute_tool(name, arguments)
-
-        # If mutating tool and plan_id is provided, transition state to executed
-        if tool_def and tool_def.is_mutating and isinstance(arguments, dict) and "plan_id" in arguments:
-            plan_id = arguments["plan_id"]
-            try:
-                approval_provider.gate.update_plan_state(plan_id, "executed")
-            except Exception:
-                # The tool has already run, so don't fail the call and invite a
-                # retry of a completed mutation; make the stale plan visible instead.
-                logger.exception(
-                    "Tool '%s' executed but plan '%s' could not be marked executed",
-                    name,
-                    plan_id,
-                )
+        try:
+            result = await provider.execute_tool(name, arguments)
+        except BaseException as e:
+            gate_after(gate, claim, ok=False, error=str(e) or type(e).__name__)
+            raise
+        gate_after(gate, claim, ok=True)
 
         redacted_result = redact_data(result)
 

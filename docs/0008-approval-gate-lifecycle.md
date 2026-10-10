@@ -77,7 +77,7 @@ stateDiagram-v2
 - **Approved**: Human checked the parameter diffs and element counts, giving explicit consent.
 - **Rejected**: Human rejected the plan; it is closed and archived.
 - **Executed**: The changes are applied to the model inside host transactions.
-- **Rolled Back**: The executed changes are reversed using Revit Undo (same session) or inverse parameters.
+- **Rolled Back**: The recorded changes are reversed by `rollback_plan`, which applies inverse parameter values and can skip an action that has no recorded before-value. Revit's own Ctrl+Z is the other route. Neither is verified in a live Revit session (UNVERIFIED).
 
 ### 2. ActionPlan Schema
 The ActionPlan represents a batch of modifications:
@@ -111,14 +111,21 @@ The ActionPlan represents a batch of modifications:
 ### 3. The Approval Gate Middleware
 - **Enforcement Location**: The unified Python MCP hub acts as the single choke point. 
 - **Rule**: If `approval_mode=required` (default in panel mode), any tool call containing mutating or destructive metadata (`is_mutating=True` or `destructive=True`) must supply a valid, approved `plan_id`. Unplanned mutations are immediately blocked and returned as an authorization error.
+- **Bound to the approved action** (approval v2): a call with a `plan_id` must match a not-yet-run action of that plan by tool name and canonical arguments (`plan_id`, `run_async`, `idempotency_key` are ignored; key order and `5` vs `5.0` do not matter). Only a `pending` plan can be approved; a `pending` or `approved` plan can be rejected, so a person can withdraw an approval before it runs.
+- **Plan ids**: a `plan_id` must match `^plan_[0-9a-f]{12}$` and resolve to a file directly inside `<workspace>/plans` whose `plan_id` field matches. Anything else is refused.
+- **Content binding**: `create_plan` stores `plan_hash` (SHA-256 over the plan id, creation time, snapshot, skipped list, and each action's id, tool, arguments and before value). Approving requires `expected_hash`, the hash of the plan the person was shown (the command-line tool computes it from what it printed; the panel sends back the `plan_hash` from the list it rendered). `update_plan_state` refuses if the plan on disk does not have that hash, or no longer matches the hash stored at drafting, and stores `approved_hash`. Every execution path refuses an approved plan whose content no longer matches `approved_hash`.
+- **At most once**: every execution path (MCP, `run_async` at queue time, panel, chat, recipe and module steps, `execute_plan`) calls `ApprovalGate.claim_action` before the tool runs. Under a per-plan lock (a thread lock plus a file lock), it checks the plan, finds the open action and creates `plans/.claims/<plan_id>.<action_id>` with `O_EXCL`, then marks the action `running`. When the tool returns, the action becomes `executed`; if it raises, it becomes `failed` and stays consumed. When no action is open or running, the plan becomes `executed` (all succeeded) or `partial`. A failed action needs a new plan.
+- **Humans approve**: `approve_plan`, `reject_plan` and `rollback_plan` stay registered but are not listed to MCP clients and are refused by the shared dispatch (`security/dispatch.py`) used by MCP, the panel chat, module tool executors and the panel route, and by `ApprovalProvider.execute_tool` itself. A plan cannot contain them. They run only through `ApprovalProvider.execute_human_tool`, which the panel route calls with `via="panel"`, or through the command-line tool (`via="cli"`). The channel is set by the route; `approver`/`approved_via` arguments are ignored and `approved_by` is the OS account of the approving process.
+- **`approval_mode`**: the value is trimmed and lower-cased; only `auto` disables the gate. Unknown values behave as `required` and log a warning.
+- **Limits**: none of this authenticates the human. A process that can run shell commands as the user can run the command-line tool with `--yes`. The panel's `/execute` endpoint has no authentication; it relies on the Host/Origin/Content-Type checks from PR #93 and on a per-session token that is still pending. Software with write access to `<workspace>/plans` can replace a plan together with its stored hashes or remove claim files.
 - **Auto-Approval**: For headless CI/CD pipelines, `approval_mode=auto` can be set via environment variable (`MCP_REVIT_APPROVAL_MODE=auto`).
 
 ### 4. Rollback Strategies
-- **Revit Undo (`undo`)**: If executed inside the same Revit session, the add-in wraps the execution in a single named transaction (`"AMB: Plan <plan_id>"`). The add-in can trigger Revit's native Undo command.
-- **Inverse Counter-Plan (`inverse`)**: For persistent history rollbacks, the hub generates an inverse counter-plan by capturing the before-state (e.g., parameter values) and executing a compensating batch of updates.
+- **Revit Undo (`undo`)**: Design target, not built. The intent is one named transaction per plan (`"AMB: Plan <plan_id>"`), so that a single Ctrl+Z reverts the whole plan. Today the add-in names one transaction per action (for example one per parameter write), so undoing a plan takes one Ctrl+Z per action. A one-step undo for a whole plan is planned. Live-Revit behaviour is UNVERIFIED.
+- **Inverse Counter-Plan (`inverse`)**: For persistent history rollbacks, the hub records the before-state (e.g., parameter values) and `rollback_plan` writes those values back in reverse order. An action with no recorded before-value (including an empty one) is skipped and reported as a warning, so a rollback can be partial. `plan_revert` drafts the same reversal as a new plan that needs approval. Live-Revit behaviour is UNVERIFIED.
 - **Irreversible (`none`)**: High-risk operations (e.g., deleting models, file outputs) cannot be rolled back and require a double-confirmation from the human operator.
 
 ## Consequences
-- **Trust & Safety**: Eliminates the risk of hallucinated or malicious AI writes damaging BIM models.
+- **Trust & Safety**: Reduces the risk of hallucinated or malicious AI writes damaging BIM models. The gate is enforced in the hub; behaviour in a live Revit session is UNVERIFIED.
 - **Audit Trails**: Every write corresponds to a versioned ActionPlan, a specific approving user, and an audit ledger entry.
 - **Decoupled Orchestration**: AI agents can generate plans asynchronously while running long-running processes (e.g., clash detection), leaving the execution to the user.

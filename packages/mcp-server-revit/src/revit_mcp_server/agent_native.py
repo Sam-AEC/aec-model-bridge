@@ -33,6 +33,8 @@ from typing import Any, Dict, List, Optional, Tuple
 import anthropic
 
 from .config import config
+from .security.approval import HUMAN_ONLY_TOOLS
+from .security.dispatch import run_gated_tool
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +86,7 @@ _SYSTEM_PROMPT = (
 # which calls the hub's /execute endpoint directly, outside this loop).
 # rollback_plan is excluded for the same reason: it writes to the model
 # without any plan approval of its own.
-_MODEL_EXCLUDED_TOOLS = frozenset({"approve_plan", "reject_plan", "rollback_plan"})
+_MODEL_EXCLUDED_TOOLS = HUMAN_ONLY_TOOLS
 
 # session_id -> running message list (user/assistant/tool_result turns so
 # far). In-memory only - see module docstring.
@@ -124,27 +126,9 @@ async def _execute_tool_call(registry, approval_provider, name: str, arguments: 
             "approved, rejected and rolled back by a human in the panel's Plans view."
         )
 
-    provider = registry.lookup_tool_provider(name)
-    if not provider:
-        raise ValueError(f"Unknown tool '{name}'")
-
-    tool_def = registry.lookup_tool(name)
-    if tool_def and tool_def.is_mutating:
-        approval_provider.gate.check_tool_execution(name, arguments)
-
-    result = await provider.execute_tool(name, arguments)
-
-    # Mirrors _run_tool_sync's post-execution plan-state transition: keep
-    # ApprovalGate's plan bookkeeping in sync when a mutating tool was
-    # invoked directly (not via execute_plan) with a plan_id. Best-effort -
-    # a failure here must not fail the tool call that already succeeded.
-    if tool_def and tool_def.is_mutating and isinstance(arguments, dict) and "plan_id" in arguments:
-        try:
-            approval_provider.gate.update_plan_state(arguments["plan_id"], "executed")
-        except Exception:
-            pass
-
-    return result
+    # Shared gated dispatch: refuses human-only tools and consumes the approved
+    # action before a mutating tool runs (at most once, even if it fails).
+    return await run_gated_tool(registry, approval_provider.gate, name, arguments)
 
 
 async def _execute_tool_calls(
