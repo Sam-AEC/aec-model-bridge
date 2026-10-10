@@ -20,6 +20,7 @@ NOW_GATED = [
     "navisworks_activate_viewpoint",
     "revit_render_3d",
     "revit_reflect_get",
+    "rhino_reflect_get",
     "navisworks_reflect_get",
     "navisworks_create_viewpoint",
     "navisworks_run_clash_test",
