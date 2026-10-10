@@ -13,6 +13,10 @@
   --amb-brand: #0091A7;
   --amb-brand-strong: #046B80;
   --amb-brand-wash: rgba(0, 145, 167, 0.14);
+  /* Primary button fill: --amb-brand (#0091A7) only reaches 3.7:1 with a white
+     label; the strong teal gives 6.1:1 (WCAG AA needs 4.5:1 for button text). */
+  --amb-primary-bg: #046B80;
+  --amb-primary-hover: #035262;
   --amb-danger: #C23B2E;
   --amb-danger-wash: rgba(194, 59, 46, 0.14);
   --amb-warning: #A45F0B;
@@ -51,6 +55,8 @@
   --amb-brand: #3FC3D6;
   --amb-brand-strong: #6FD8E6;
   --amb-brand-wash: rgba(63, 195, 214, 0.14);
+  --amb-primary-bg: #3FC3D6;
+  --amb-primary-hover: #6FD8E6;
   --amb-danger: #F0796B;
   --amb-danger-wash: rgba(240, 121, 107, 0.14);
   --amb-warning: #F2A63C;
@@ -87,6 +93,8 @@
     --amb-brand: #3FC3D6;
     --amb-brand-strong: #6FD8E6;
     --amb-brand-wash: rgba(63, 195, 214, 0.14);
+    --amb-primary-bg: #3FC3D6;
+    --amb-primary-hover: #6FD8E6;
     --amb-danger: #F0796B;
     --amb-danger-wash: rgba(240, 121, 107, 0.14);
     --amb-warning: #F2A63C;
@@ -113,8 +121,8 @@
 
 body {
   margin: 0;
-  min-width: 320px;
   min-height: 100vh;
+  overflow-wrap: anywhere;
   display: grid;
   grid-template-columns: 64px minmax(0, 1fr);
   background: var(--amb-bg);
@@ -145,19 +153,31 @@ button:hover:not(:disabled) {
 }
 
 button.primary {
-  border-color: var(--amb-brand);
-  background: var(--amb-brand);
+  border-color: var(--amb-primary-bg);
+  background: var(--amb-primary-bg);
   color: var(--amb-on-brand);
 }
 
 button.primary:hover:not(:disabled) {
-  border-color: var(--amb-brand-strong);
-  background: var(--amb-brand-strong);
+  border-color: var(--amb-primary-hover);
+  background: var(--amb-primary-hover);
 }
 
+/* A real outline (not a box-shadow) so the ring also survives Windows
+   high-contrast / forced-colors mode inside WebView2. */
 :focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--amb-bg), 0 0 0 4px var(--amb-brand);
+  outline: 2px solid var(--amb-brand);
+  outline-offset: 2px;
+}
+
+.nav:focus-visible {
+  outline-color: #3FC3D6;
+  outline-offset: -2px;
+}
+
+::placeholder {
+  color: var(--amb-ink-muted);
+  opacity: 1;
 }
 
 button:disabled,
@@ -274,7 +294,9 @@ symbol .fi { fill: currentColor; }
 .app {
   min-width: 0;
   display: grid;
-  grid-template-rows: 64px auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: auto;
+  align-content: start;
 }
 
 .topbar {
@@ -286,6 +308,10 @@ symbol .fi { fill: currentColor; }
   border-bottom: 1px solid var(--amb-glass-line);
   background: var(--amb-glass);
   backdrop-filter: var(--amb-glass-filter);
+}
+
+.titleblock > div {
+  min-width: 0;
 }
 
 .titleblock {
@@ -332,9 +358,17 @@ p {
   color: var(--amb-ink-muted);
   font-size: 12px;
   white-space: nowrap;
+  min-width: 0;
+  max-width: 45%;
+}
+
+.status-pill > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dot {
+  flex: none;
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -410,6 +444,7 @@ p {
 
 .view.is-active {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
   gap: 12px;
 }
@@ -429,6 +464,7 @@ p {
 .list,
 .timeline {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
 
@@ -502,6 +538,32 @@ p {
 .empty {
   padding: 18px;
   text-align: center;
+}
+
+.item-head h2 {
+  flex: 1;
+  min-width: 0;
+}
+
+.badge {
+  flex: none;
+}
+
+.plan-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.plan-select input {
+  flex: none;
+  width: 18px;
+  min-height: 18px;
+  height: 18px;
+  padding: 0;
+  accent-color: var(--amb-primary-bg);
 }
 
 .item-head {
@@ -696,4 +758,91 @@ p {
   margin-top: 2px;
   padding-left: 8px;
   border-left: 3px solid var(--amb-danger);
+}
+
+/* Docked next to the 3D view the panel is ~320-400px wide: tighten the rail and
+   padding, and let the composer wrap, so nothing scrolls horizontally. */
+@media (max-width: 480px) {
+  body {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .rail {
+    padding: 8px 2px;
+  }
+
+  .nav {
+    width: 46px;
+  }
+
+  .nav.is-active::before {
+    left: -2px;
+  }
+
+  .topbar {
+    padding: 10px 10px;
+    gap: 8px;
+  }
+
+  .view {
+    padding: 10px;
+  }
+
+  .setup {
+    margin: 8px 10px 0;
+  }
+
+  .alerts {
+    padding: 8px 10px 0;
+  }
+
+  .message {
+    max-width: 94%;
+  }
+
+  .composer {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "input input input"
+      "provider send new";
+  }
+
+  .composer #chat-input {
+    grid-area: input;
+  }
+
+  .composer #chat-provider {
+    grid-area: provider;
+  }
+
+  .composer button[type="submit"] {
+    grid-area: send;
+  }
+
+  .composer #chat-reset {
+    grid-area: new;
+  }
+
+  .toolbar select {
+    max-width: 100%;
+  }
+}
+
+@media (forced-colors: active) {
+  .badge,
+  .nav.is-active {
+    border: 1px solid CanvasText;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
