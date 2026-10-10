@@ -6,12 +6,35 @@ Thanks for improving AEC Model Bridge.
 
 Open an issue before you write code. The project is licensed under
 GPL-3.0-or-later with the Revit Linking Exception, and it also has a commercial
-licence. To keep both options, we can only accept code pull requests after the
-contributor signs a separate contributor agreement that permits both.
+licence. To keep both options, the maintainer needs the right to license each
+contribution under both.
 
-Do not submit code copied from projects whose licences are incompatible with
-commercial redistribution. Issue reports, design proposals and documentation
-corrections are welcome without a contributor agreement.
+There is no contributor agreement in force yet. Until there is one, code pull
+requests cannot be merged. We are not asking anyone to sign anything now.
+[docs/legal/CLA-DRAFT.md](docs/legal/CLA-DRAFT.md) is a draft of what it might
+look like. It is not reviewed by a lawyer and not in force. If you plan a larger
+code contribution, say so in your issue and we will settle the terms first.
+
+Issue reports, design proposals and documentation corrections are welcome
+without any agreement.
+
+## Dependencies and licences
+
+- Do not vendor or copy GPL-only code into this repository. This includes
+  pyRevit, Bonsai (BlenderBIM) and Dynamo samples unless their licence allows
+  it. Calling such a tool from outside, without copying its code, is fine, but
+  ask in an issue first.
+- Do not add proprietary dependencies without discussing them in an issue
+  first. Autodesk Revit and Navisworks assemblies are referenced from the
+  user's own installation and are never committed or packaged (see
+  [TRADEMARKS.md](TRADEMARKS.md)).
+- A new dependency needs a licence that is compatible with GPL-3.0-or-later
+  and that does not stop a commercial licence of this project. MIT, BSD, ISC,
+  Apache-2.0 and PSF are fine. LGPL needs a discussion. Do not add AGPL, SSPL
+  or GPL-only libraries.
+- After you change a dependency, regenerate the notices with
+  `python scripts/generate_third_party_notices.py` in an environment synced
+  from `uv.lock` (`uv sync --frozen`), and commit the result.
 
 ## Focus Areas
 
