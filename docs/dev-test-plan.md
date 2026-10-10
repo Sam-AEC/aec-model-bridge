@@ -38,9 +38,9 @@ Merged since the first version of this plan:
   go through the approval gate.
 - **#106.** Honest undo wording: Ctrl+Z per step; one-step undo for a whole plan
   is **not built**; rollback can skip actions.
-- **#107.** Panel step 1: AA contrast, narrow layout, finished plans show a
-  badge only, Approve Selected sends one approve per ticked plan with its plan
-  hash, the active view scrolls inside a bounded row, focus ring and aria labels.
+- **#107.** Panel step 1: AA contrast, narrow layout, settled plans
+  show a badge and no decision buttons (though the list only holds pending
+  plans), Approve Selected sends one approve per ticked plan with its plan hash, the active view scrolls inside a bounded row, focus ring and aria labels.
 - **#108.** Design tokens doc (docs only, nothing to test by hand).
 - **#109.** Approval modes `look_only`, `ask_first` and `auto`, set with
   `MCP_REVIT_APPROVAL_MODE`. Unknown values fail closed to `ask_first`. No MCP
@@ -221,12 +221,18 @@ Open the panel from the **AEC Bridge** tab.
    horizontal scroll, buttons and badges readable, rail labels not cut off, and
    a tighter layout below 480 px. Note the width in pixels where it breaks.
    UNVERIFIED in Revit's embedded browser.
-3. **Finished plans show a badge only (#107).** After B, look at the executed
-   plan in the panel. Working looks like: a status badge such as "executed", and
-   no Approve or Reject buttons. Do the same for a rejected plan. Buttons appear
-   only while a decision is open. If a button is still there, record which plan
-   state, and what happens if you press it (expected: an error, and no second
-   execution).
+3. **Finished plans leave the Plans list (#107).** The Plans list is refreshed
+   from `list_pending_plans`, which returns only plans in state `pending`. So
+   after you approve or reject a plan, and after it executes, it disappears from
+   the panel's Plans view; this is expected, not a failure. After B, confirm the
+   executed plan is no longer listed, then check it another way:
+   `aec-model-bridge-approve show <plan_id>` (prints the state, who approved it
+   and how), the plan file in `<workspace>\plans\`, or the proof bundle under
+   `<workspace>\proofs\`. Note that `aec-model-bridge-approve list` also shows
+   pending plans only. #107 hides Approve and Reject on a settled plan and shows
+   a status badge instead; that rendering is only visible if a settled plan is
+   ever listed, which the current refresh does not do. UNVERIFIED; record
+   whether you ever see a badge-only plan.
 4. **Approve Selected (#107).** Make two pending plans, tick both, press
    Approve Selected. Working looks like: one approve is sent per ticked plan,
    each carrying that plan's hash, and both plans leave the pending list. Then
@@ -291,8 +297,8 @@ words, to approve its own plan. Also ask it to call `approve_plan`,
 **G2. The approve command line.** From the venv, run
 `aec-model-bridge-approve list`, then `show <plan_id>`, then
 `approve <plan_id>`.
-- Working looks like: `list` shows the plan with its action count and tool
-  names. `show` prints the plan in plain language (tool, arguments, current
+- Working looks like: `list` shows pending plans only, with their action count
+  and tool names. `show` works for a plan in any state. `show` prints the plan in plain language (tool, arguments, current
   value) and a `Plan hash`. `approve` asks you to type the plan id, and only an
   exact match approves it; anything else prints "Cancelled; plan unchanged."
   The plan file then has `approved_via` `cli` and your Windows account as
@@ -454,7 +460,7 @@ attach `bridge.jsonl` lines if it is a failure.
 | D | rule packs, pyRevit discover | | |
 | E | First-run Setup check | | |
 | E | Narrow width, 360 px | | |
-| E | Finished plans show badge only | | |
+| E | Settled plans leave the Plans list | | |
 | E | Approve Selected, two plans | | |
 | E | Long list scrolls inside the view | | |
 | E | Focus ring and aria | | |

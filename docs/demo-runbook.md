@@ -219,8 +219,10 @@ exactly what was shown. If the plan file changed after you looked at it, the
 approval is refused. The plan records `approved_via` (`panel` or `cli`) and
 `approved_by` (your account name).
 
-Expected: the plan leaves the pending list and, once approved, shows a state
-badge without Approve or Reject buttons. The Run Log gets a `Plan approve`
+Expected: the plan leaves the Plans list. The panel lists pending plans only, so
+an approved, rejected or executed plan is no longer shown there. Check its
+state with `aec-model-bridge-approve show <plan_id>`, the plan file, or (after
+execution) the proof bundle. The Run Log gets a `Plan approve`
 entry as soon as you click, and a `Plans updated` entry after the refresh; both
 are normal and neither proves the hub accepted the call. Nothing in the model has changed yet; approval only unlocks execution.
 
