@@ -396,6 +396,11 @@
     actions: [SET([1], true)],
     review_view: { status: "ok", hash_version: 2, reverts_plan_id: null, review, error: "" },
   }, extra || {});
+  // Deliver plans, then open every review that offers to be opened (Approve waits for it).
+  function plansOpen(list) {
+    plans(list);
+    document.querySelectorAll("[data-open-review]").forEach((b) => b.click());
+  }
   const cardOf = (id) => Array.from($("plan-list").children).find((c) => c.dataset.planId === id);
   const approveBtn = (card) => card.querySelector('[data-decision="approve"]');
   const FORBIDDEN = "script,img,iframe,object,embed,style,link,meta,base,form,svg,math,video,audio,a,textarea";
@@ -403,7 +408,7 @@
 
   test("review: a v2 plan shows every hashed review field and says what the hash covers", () => {
     fresh();
-    plans([V2("r1", REVIEW())]);
+    plansOpen([V2("r1", REVIEW())]);
     const card = cardOf("r1");
     const block = card.querySelector(".plan-review-block");
     expect(block && block.dataset.reviewKind === "v2", "review block missing");
@@ -422,9 +427,9 @@
   test("review: reverts_plan_id is shown when present", () => {
     fresh();
     const p = V2("r2", REVIEW());
-    p.review_view.reverts_plan_id = "plan-orig_1";
-    plans([p]);
-    expect(/Reverts plan: plan-orig_1/.test(cardOf("r2").textContent), "reverted plan id not shown");
+    p.review_view.reverts_plan_id = "plan_0123456789ab";
+    plansOpen([p]);
+    expect(/Reverts plan: plan_0123456789ab/.test(cardOf("r2").textContent), "reverted plan id not shown");
   });
 
   test("review: script and markup in every field stay inert text", () => {
@@ -435,7 +440,7 @@
       assumptions: [XSS], excluded: [{ element_id: XSS, reason: XSS }], warnings: [XSS],
       conflicts: [{ element_id: XSS, parameter: XSS, expected_current: XSS, actual_current: XSS, revert_to: XSS }],
     };
-    plans([V2("x1", r)]);
+    plansOpen([V2("x1", r)]);
     const block = cardOf("x1").querySelector(".plan-review-block");
     expect(block, "review block missing");
     expect(block.querySelectorAll(FORBIDDEN).length === 0, "active element inside the review");
@@ -452,7 +457,8 @@
     fresh();
     const p = V2("x2", REVIEW());
     p.review_view.reverts_plan_id = XSS;
-    plans([p]);
+    plansOpen([p]);
+    expect(approveBtn(cardOf("x2")).disabled, "a reverts id that is not a plan id must block Approve");
     expect(cardOf("x2").querySelectorAll(FORBIDDEN).length === 0, "active element in card");
     expect(window.__pwned === undefined, "script ran");
   });
@@ -461,7 +467,7 @@
     fresh();
     const r = REVIEW();
     r.summary = "pay‮exe​now\u001b[31m";
-    plans([V2("c1", r)]);
+    plansOpen([V2("c1", r)]);
     const t = cardOf("c1").querySelector(".plan-review-block").textContent;
     expect(!/[‮​\u001b]/.test(t), "raw control/bidi char reached the page");
     expect(t.includes("\\u202e") && t.includes("\\x1b"), "escapes not shown");
@@ -471,10 +477,10 @@
     fresh();
     const r = REVIEW();
     r.reasoning = "A".repeat(3000) + "END";
-    plans([V2("l1", r)]);
+    plansOpen([V2("l1", r)]);
     const block = cardOf("l1").querySelector(".plan-review-block");
     const btn = block.querySelector(".review-more");
-    expect(btn && btn.textContent === "Show more", "no Show more button");
+    expect(btn && /^Show more \(\d+ more characters\)$/.test(btn.textContent), "no Show more button");
     expect(!block.textContent.includes("END"), "text was not clipped");
     btn.click();
     expect(block.textContent.includes("A".repeat(3000) + "END"), "full text not revealed");
@@ -490,7 +496,7 @@
     r.citations[0].note = "SECRET_CITE";
     const p = V2("k1", r);
     p.review_view.extra = "SECRET_VIEW";
-    plans([p]);
+    plansOpen([p]);
     const card = cardOf("k1");
     expect(!/SECRET_/.test(card.textContent), "unknown key was rendered");
     expect(!approveBtn(card).disabled, "unknown keys must not block approval");
@@ -518,7 +524,7 @@
   };
   function failClosed(plan) {
     fresh();
-    plans([plan]);
+    plansOpen([plan]);
     const card = cardOf("f");
     const btn = approveBtn(card);
     expect(btn.disabled, "Approve is enabled for an unshowable review");
@@ -540,7 +546,7 @@
 
   test("fail closed: a host status update does not re-enable a blocked Approve", () => {
     fresh();
-    plans([V2("f2", null)]);
+    plansOpen([V2("f2", null)]);
     host({ serverRunning: true });
     diag("ask_first");
     expect(approveBtn(cardOf("f2")).disabled, "re-enabled by host.status");
@@ -554,7 +560,7 @@
     const real = Array.from;
     Array.from = function () { if (typeof arguments[0] === "string") throw new Error("boom"); return real.apply(Array, arguments); };
     try {
-      plans([V2("t1", long)]);
+      plansOpen([V2("t1", long)]);
     } finally { Array.from = real; }
     const card = cardOf("t1");
     expect(approveBtn(card).disabled, "Approve enabled although rendering threw");
@@ -563,9 +569,84 @@
 
   test("review: a settled plan shows no review and no decision buttons", () => {
     fresh();
-    plans([V2("s1", REVIEW(), { state: "executed" })]);
+    plansOpen([V2("s1", REVIEW(), { state: "executed" })]);
     const card = cardOf("s1");
     expect(!card.querySelector(".plan-review-block") && !approveBtn(card), "settled plan shows decision UI");
+  });
+
+
+  test("review: Approve waits until the review has been opened, then works", () => {
+    fresh();
+    plans([V2("o1", REVIEW())]);
+    let card = cardOf("o1");
+    expect(approveBtn(card).disabled, "Approve should wait for the review");
+    expect(!card.querySelector(".plan-review-block"), "review built before it was asked for");
+    approveBtn(card).click();
+    expect(sentOf("plan.approve").length === 0, "approve sent before the review was shown");
+    card.querySelector("[data-open-review]").click();
+    card = cardOf("o1");
+    expect(card.querySelector(".plan-review-block"), "review not built on demand");
+    expect(!approveBtn(card).disabled, "Approve still off after the review was shown");
+    approveBtn(card).click();
+    expect(sentOf("plan.approve").length === 1, "approve not sent");
+  });
+
+  test("review: invisible filler characters and long combining runs are escaped", () => {
+    fresh();
+    const r = REVIEW();
+    r.summary = "aㅤbᅟcᅠdﾠe⠀f";
+    r.warnings = ["x" + "́".repeat(40)];
+    plansOpen([V2("fi1", r)]);
+    const t = cardOf("fi1").querySelector(".plan-review-block").textContent;
+    for (const ch of ["ㅤ", "ᅟ", "ᅠ", "ﾠ", "⠀"]) expect(!t.includes(ch), "raw filler " + ch.charCodeAt(0).toString(16));
+    expect(t.includes("\\u3164") && t.includes("\\u2800"), "fillers not shown as escapes");
+    expect((t.match(/́/g) || []).length <= 2, "combining run not capped");
+    expect(/more combining marks hidden/.test(t), "no note about hidden marks");
+  });
+
+  test("review: a list over the cap blocks Approve and names the CLI", () => {
+    fresh();
+    const r = REVIEW();
+    r.warnings = Array.from({ length: 101 }, (_, i) => "w" + i);
+    plansOpen([V2("cap1", r)]);
+    const card = cardOf("cap1");
+    expect(approveBtn(card).disabled, "Approve enabled although entries are not all shown");
+    expect(/aec-model-bridge-approve show/.test(card.textContent), "CLI not named");
+  });
+
+  test("review: an integer the page cannot show exactly blocks Approve", () => {
+    fresh();
+    const r = REVIEW();
+    r.excluded = [{ element_id: 9007199254740992, reason: "x" }];
+    plansOpen([V2("big1", r)]);
+    expect(approveBtn(cardOf("big1")).disabled, "unsafe integer was shown");
+  });
+
+  test("review: hub output that redaction changed arrives as invalid and cannot be approved", () => {
+    fresh();
+    const p = V2("red1", null, { review_view: { status: "invalid", hash_version: null, reverts_plan_id: null, review: null, error: "This plan contains text the panel hides" } });
+    plansOpen([p]);
+    const card = cardOf("red1");
+    expect(approveBtn(card).disabled, "Approve enabled for redacted content");
+    expect(/the panel hides/.test(card.textContent), "reason not shown");
+  });
+
+  test("review: 200 plans of 100-entry reviews render within the time budget and are capped", () => {
+    fresh();
+    const many = [];
+    for (let i = 0; i < 200; i++) {
+      const r = REVIEW();
+      r.conflicts = Array.from({ length: 100 }, (_, k) => ({ element_id: k, parameter: "P" + k, expected_current: "x".repeat(180), actual_current: "y".repeat(180), revert_to: "z".repeat(180) }));
+      r.excluded = Array.from({ length: 100 }, (_, k) => ({ element_id: k, reason: "r".repeat(400) }));
+      many.push(V2("m" + i, r));
+    }
+    const t0 = performance.now();
+    plans(many);
+    const ms = performance.now() - t0;
+    expect(document.querySelectorAll("#plan-list > article").length === 50, "plan cap not applied");
+    expect(/150 more pending plan/.test($("plan-list").textContent), "omitted plans not announced");
+    expect(document.querySelectorAll(".plan-review-block").length === 0, "reviews built eagerly");
+    expect(ms < 1500, "rendering 200 pending plans took " + Math.round(ms) + " ms (budget 1500)");
   });
 
   window.addEventListener("load", () => { runAll(); });

@@ -740,6 +740,11 @@ p {
   opacity: 0.75;
 }
 
+.review-pending {
+  margin: 8px 0 4px;
+  font-weight: 600;
+}
+
 .review-blocked {
   margin: 8px 0 0;
   padding: 8px;

@@ -19,6 +19,9 @@ const state = {
   plans: [],
   // Plan ids ticked in the Plans view for "Approve Selected".
   selectedPlanIds: new Set(),
+  // "<plan id>:<plan hash>" of plans whose review the person opened; Approve needs it for hash_version 2.
+  openedReviews: new Set(),
+  plansOmitted: 0,
   findings: [],
   reports: [],
   diagnostics: null,
@@ -351,7 +354,11 @@ function isPlanActionable(plan) {
 
 // Approve needs the plan's review (when it has one) to have been shown. Reject never does.
 function isPlanApprovable(plan) {
-  return isPlanActionable(plan) && !plan.reviewBlocked;
+  return isPlanActionable(plan) && !plan.reviewBlocked && !plan.reviewPending;
+}
+
+function reviewKey(plan) {
+  return `${plan.id}:${plan.hash}`;
 }
 
 function selectedActionablePlanIds() {
@@ -387,14 +394,31 @@ function renderPlans() {
     // still open; settled plans keep a badge. If the review cannot be shown, Approve is off.
     const slot = document.createElement("div");
     slot.className = "plan-review-slot";
+    plan.reviewBlocked = false;
+    plan.reviewPending = false;
     if (actionable) {
-      plan.reviewBlocked = !plan.reviewState.ok || !fillReviewSlot(slot, plan.reviewState);
+      if (!plan.reviewState.ok) {
+        plan.reviewBlocked = true;
+      } else if (plan.reviewState.version === 2 && !state.openedReviews.has(reviewKey(plan))) {
+        // Built only when asked for, and Approve waits for it: the person must have seen it.
+        plan.reviewPending = true;
+        const open = document.createElement("button");
+        open.type = "button";
+        open.dataset.openReview = plan.id;
+        open.textContent = "Show the review to enable Approve";
+        const hint = document.createElement("p");
+        hint.className = "review-pending";
+        hint.textContent = "This plan carries a review that the approval hash covers. Read it before you approve.";
+        slot.append(hint, open);
+      } else {
+        plan.reviewBlocked = !fillReviewSlot(slot, plan.reviewState);
+      }
     }
     const approvable = isPlanApprovable(plan);
     const select = approvable
       ? `<label class="plan-select"><input type="checkbox" data-select-plan="${id}" aria-label="Select plan ${label}"${state.selectedPlanIds.has(plan.id) ? " checked" : ""}></label>`
       : "";
-    const blockedAttr = plan.reviewBlocked ? ' disabled data-review-blocked="1" aria-describedby="review-blocked-' + id + '"' : "";
+    const blockedAttr = !approvable && actionable ? ' disabled data-review-blocked="1"' : "";
     const actions = actionable
       ? `<div class="item-actions">
         <button type="button" data-plan="${id}" data-hash="${hash}" class="primary" data-decision="approve" aria-label="Approve plan ${label}"${blockedAttr}>Approve</button>
@@ -414,9 +438,9 @@ function renderPlans() {
     if (plan.reviewBlocked && actionable) {
       const note = document.createElement("p");
       note.className = "review-blocked";
-      note.id = "review-blocked-" + plan.id;
       note.setAttribute("role", "alert");
-      note.textContent = REVIEW_BLOCKED_MESSAGE;
+      const reason = plan.reviewState.reason ? ` (${visibleText(plan.reviewState.reason).slice(0, 300)})` : "";
+      note.textContent = REVIEW_BLOCKED_MESSAGE + reason;
       mount.replaceWith(note);
     } else if (actionable) {
       mount.replaceWith(slot);
@@ -425,6 +449,12 @@ function renderPlans() {
     }
     planList.appendChild(item);
   });
+  if (state.plansOmitted > 0) {
+    const more = document.createElement("p");
+    more.className = "review-blocked";
+    more.textContent = `${state.plansOmitted} more pending plan(s) are not shown. Use aec-model-bridge-approve list to see them.`;
+    planList.appendChild(more);
+  }
   syncApproveSelected();
 }
 
@@ -518,6 +548,19 @@ setupToggle.addEventListener("click", () => {
 document.body.addEventListener("click", (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) {
+    return;
+  }
+
+  const openReview = target.dataset.openReview;
+  if (openReview) {
+    const known = state.plans.find((candidate) => candidate.id === openReview);
+    if (known) {
+      state.openedReviews.add(reviewKey(known));
+      renderPlans();
+      updateToolAvailability();
+      const card = Array.from(planList.children).find((child) => child.dataset && child.dataset.planId === openReview);
+      if (card && card.focus) card.focus();
+    }
     return;
   }
 
@@ -623,13 +666,15 @@ function mapFindings(hubResult) {
 // Model-controlled text: show control and format characters (ANSI/bidi/zero-width)
 // as visible escapes, as the aec-model-bridge-approve CLI does.
 function visibleText(value) {
-  return String(value).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Cs}\p{Co}\p{Cn}]/gu, (ch) => {
+  const escaped = String(value).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Cs}\p{Co}\p{Cn}\u034F\u115F\u1160\u17B4\u17B5\u2800\u3164\uFFA0]/gu, (ch) => {
     // Newline and tab are layout, not hidden content: keep pretty-printed JSON readable.
     if (ch === "\n" || ch === "\t") return ch;
     const code = ch.codePointAt(0);
     const hex = code.toString(16).padStart(code <= 0xff ? 2 : code <= 0xffff ? 4 : 8, "0");
     return (code <= 0xff ? "\\x" : code <= 0xffff ? "\\u" : "\\U") + hex;
   });
+  // More than two combining marks in a row can stack over neighbouring lines: keep two.
+  return escaped.replace(/(\p{M}{2})\p{M}+/gu, (run, keep) => keep + `[${run.length - keep.length} more combining marks hidden]`);
 }
 
 function stringifyForReview(value) {
@@ -647,6 +692,9 @@ function stringifyForReview(value) {
 // text: it is only ever put on the page with textContent, never innerHTML, and a plan the
 // panel cannot show completely is not approvable here (fail closed).
 const REVIEW_CLIP = 280;
+const REVIEW_LIST_CAP = 100;
+const PLAN_LIMIT = 50;
+const PLAN_ID_SHAPE = /^plan_[0-9a-f]{12}$/;
 const REVIEW_BLOCKED_MESSAGE =
   "This plan's review could not be shown, so it cannot be approved here. " +
   "Use aec-model-bridge-approve show <plan id> in a terminal to read it, then approve or reject there.";
@@ -682,7 +730,7 @@ function planReviewState(plan) {
     for (const key of ["citations", "assumptions", "excluded", "warnings", "conflicts"]) {
       if (!Array.isArray(r[key])) return reviewBlocked("the review is malformed");
     }
-    const strOrNum = (v) => typeof v === "string" || (typeof v === "number" && Number.isFinite(v));
+    const strOrNum = (v) => typeof v === "string" || Number.isSafeInteger(v);
     const okAll =
       r.citations.every((c) => isPlainObject(c) && typeof c.rule_id === "string" && typeof c.clause === "string" && typeof c.source === "string") &&
       r.assumptions.every((a) => typeof a === "string") &&
@@ -691,8 +739,15 @@ function planReviewState(plan) {
       r.conflicts.every((c) => isPlainObject(c) && strOrNum(c.element_id) &&
         ["parameter", "expected_current", "actual_current", "revert_to"].every((k) => typeof c[k] === "string"));
     if (!okAll) return reviewBlocked("the review is malformed");
+    for (const key of ["citations", "assumptions", "excluded", "warnings", "conflicts"]) {
+      if (r[key].length > REVIEW_LIST_CAP) {
+        return reviewBlocked(`the review has ${r[key].length} ${key} entries; the panel shows at most ${REVIEW_LIST_CAP}`);
+      }
+    }
     const reverts = view.reverts_plan_id;
-    if (reverts !== null && reverts !== undefined && typeof reverts !== "string") return reviewBlocked("the review is malformed");
+    if (reverts !== null && reverts !== undefined && !(typeof reverts === "string" && PLAN_ID_SHAPE.test(reverts))) {
+      return reviewBlocked("the review is malformed");
+    }
     return { ok: true, version: 2, review: r, revertsPlanId: reverts || null, reason: "" };
   } catch (error) {
     return reviewBlocked("the review could not be read");
@@ -718,13 +773,15 @@ function clippedText(tag, className, raw) {
   }
   const clipped = chars.slice(0, REVIEW_CLIP).join("") + "…";
   const body = reviewEl("span", "review-text", clipped);
-  const more = reviewEl("button", "review-more", "Show more");
+  const hidden = chars.length - REVIEW_CLIP;
+  const moreLabel = `Show more (${hidden} more characters)`;
+  const more = reviewEl("button", "review-more", moreLabel);
   more.type = "button";
   more.setAttribute("aria-expanded", "false");
   more.addEventListener("click", () => {
     const open = more.getAttribute("aria-expanded") === "true";
     body.textContent = open ? clipped : full;
-    more.textContent = open ? "Show more" : "Show less";
+    more.textContent = open ? moreLabel : "Show less";
     more.setAttribute("aria-expanded", open ? "false" : "true");
   });
   node.append(body, " ", more);
@@ -770,7 +827,8 @@ function buildReviewPanel(reviewState) {
     "Hash version 2. Covered by the approval hash: the actions above and everything in this review " +
     "(summary, reasoning, citations, assumptions, excluded elements, warnings, conflicts)" +
     (reviewState.revertsPlanId ? ", and the id of the plan it reverts" : "") +
-    ". Changing any of it after you approve cancels the approval. An AI model wrote this text: read it as a claim, not a fact.";
+    ". Also covered but not shown here: the creation time, the snapshot id and the skipped list (aec-model-bridge-approve show lists them). " +
+    "Changing any of it after you approve cancels the approval. An AI model wrote this text: read it as a claim, not a fact.";
   root.append(hashNote);
   if (reviewState.revertsPlanId) {
     const p = reviewEl("p", "review-reverts");
@@ -829,9 +887,11 @@ function planActionLines(actions) {
 }
 
 function mapPlans(hubResult) {
-  const plans = (hubResult && hubResult.plans) || [];
-  return plans.map((plan) => {
+  const all = (hubResult && hubResult.plans) || [];
+  state.plansOmitted = Math.max(0, all.length - PLAN_LIMIT);
+  return all.slice(0, PLAN_LIMIT).map((plan) => {
     const actions = plan.actions || [];
+    const reviewState = planReviewState(plan);
     return {
       id: plan.plan_id,
       hash: plan.plan_hash || "",
@@ -839,8 +899,9 @@ function mapPlans(hubResult) {
       title: actions.length === 1 ? actions[0].tool : `${actions.length} action(s)`,
       detail: actions.map((action) => action.tool).join(", ") || "No actions",
       review: planActionLines(actions).join("\n") || "No actions",
-      reviewState: planReviewState(plan),
-      reviewBlocked: !planReviewState(plan).ok,
+      reviewState,
+      reviewBlocked: !reviewState.ok,
+      reviewPending: false,
       // Facts for the chat card, from the same real actions: tool, arguments, captured before value.
       actions: actions.map((action) => ({
         tool: action && action.tool,
