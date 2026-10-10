@@ -34,9 +34,16 @@ def running_server(tmp_path):
         thread.join(timeout=2)
 
 
+def _token() -> str:
+    from revit_mcp_server.security.panel_token import read_token
+
+    return read_token()
+
+
 def _get(port: int, path: str):
+    req = urllib.request.Request(f"http://127.0.0.1:{port}{path}", headers={"X-AMB-Token": _token()})
     try:
-        with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=5) as resp:
             return resp.status, json.loads(resp.read())
     except urllib.error.HTTPError as e:
         return e.code, json.loads(e.read())
@@ -46,7 +53,7 @@ def _post(port: int, path: str, body: dict):
     req = urllib.request.Request(
         f"http://127.0.0.1:{port}{path}",
         data=json.dumps(body).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", "X-AMB-Token": _token()},
         method="POST",
     )
     try:
@@ -382,7 +389,7 @@ def _raw(port, method, path, headers=None, body=None):
     conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
     try:
         conn.putrequest(method, path, skip_host=True, skip_accept_encoding=True)
-        hdrs = {"Host": f"127.0.0.1:{port}"}
+        hdrs = {"Host": f"127.0.0.1:{port}", "X-AMB-Token": _token()}
         hdrs.update(headers or {})
         data = body.encode("utf-8") if body is not None else None
         if data is not None:

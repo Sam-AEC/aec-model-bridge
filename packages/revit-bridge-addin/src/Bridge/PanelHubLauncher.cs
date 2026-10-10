@@ -58,6 +58,7 @@ public sealed class PanelHubLauncher
         if (await IsHealthyAsync().ConfigureAwait(false))
         {
             Log.Information("Panel hub already reachable on 127.0.0.1:{Port} — not launching a new one", Port);
+            LogTokenFileState();
             return;
         }
 
@@ -114,6 +115,7 @@ public sealed class PanelHubLauncher
             if (await IsHealthyAsync().ConfigureAwait(false))
             {
                 Log.Information("Panel hub is up on 127.0.0.1:{Port}", Port);
+                LogTokenFileState();
                 return;
             }
         }
@@ -122,6 +124,30 @@ public sealed class PanelHubLauncher
             "Launched the panel hub but it never became reachable on 127.0.0.1:{Port} after {Attempts} attempts. " +
             "Check %LOCALAPPDATA%\\AECModelBridge or the process's own logs for why it failed to start.",
             Port, PostLaunchMaxAttempts);
+    }
+
+    /// <summary>
+    /// The hub (not this add-in) creates the per-user token file the panel needs on every call
+    /// (see UI/HubClient.cs, HubTokenStore). Logs whether it is readable; never logs the token.
+    /// UNVERIFIED: not compiled or run against Revit.
+    /// </summary>
+    private static void LogTokenFileState()
+    {
+        try
+        {
+            if (RevitBridge.UI.HubTokenStore.Get(true) == null)
+            {
+                Log.Warning(
+                    "The panel hub is reachable but its access token file was not found or is unreadable at {TokenFile}. " +
+                    "Panel calls will be refused until a current hub (this version of the add-in expects one that " +
+                    "creates the file) is running.",
+                    RevitBridge.UI.HubTokenStore.FilePath);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Could not check the panel hub token file");
+        }
     }
 
     private static void SetEnvironmentDefault(ProcessStartInfo startInfo, string name, string defaultValue)
