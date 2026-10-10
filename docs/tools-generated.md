@@ -160,6 +160,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_calculate_material_quantities` | Calculate material volumes and areas for all elements of a category. | No | sync |
 | `revit_change_element_type` | Swap all instances of one element type to another type. | Yes | sync |
 | `revit_check_clashes` | Check for geometric clashes between elements of two categories, within a tolerance (feet). | No | sync |
+| `revit_clear_preview` | End the element preview: exit temporary isolate in the active view and clear the selection. | No | sync |
 | `revit_close_document` | Close the active Revit document, optionally saving changes first. | Yes | sync |
 | `revit_convert_to_group` | Convert a set of elements into a named model group. | Yes | sync |
 | `revit_copy_element` | Copy one element and place the copy at an offset vector in feet from the original. | Yes | sync |
@@ -239,6 +240,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_place_viewport_on_sheet` | Place a view on a sheet at an x/y position (feet on the sheet). | Yes | sync |
 | `revit_place_window` | Place a window of a given family and type in a host wall at a location. | Yes | sync |
 | `revit_populate_titleblock` | Write a set of parameter values into the title block of a sheet. | Yes | sync |
+| `revit_preview_elements` | Preview which elements a proposed change affects: select and zoom to them in the active view and temporarily isolate them. | No | sync |
 | `revit_reflect_get` | Advanced: read any public Revit API property of an object identified by target_id, through reflection. | No | sync |
 | `revit_reflect_set` | Advanced escape hatch: set any writable Revit API property of an object identified by target_id, through reflection. | Yes | sync |
 | `revit_relinquish_all` | Relinquish every element and workset the current user owns in a workshared model. | Yes | sync |

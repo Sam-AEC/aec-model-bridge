@@ -181,6 +181,7 @@ _MUTATION_GATE_EXEMPT = {
     "exporter_to_sqlite", "exporter_graph_to_sqlite",  # workspace export artifact
     "snapshot_take",                             # workspace export artifact
     "job_cancel",                                # stops work, doesn't mutate a model
+    "revit_clear_preview",                       # ends temporary isolate + selection in the view; never saved to the model
 }
 
 
