@@ -17,6 +17,8 @@ const state = {
   llm: null,
   providers: null,
   plans: [],
+  // Plan ids ticked in the Plans view for "Approve Selected".
+  selectedPlanIds: new Set(),
   findings: [],
   reports: [],
   diagnostics: null,
@@ -251,9 +253,10 @@ function renderAlerts() {
 function updateToolAvailability() {
   const blocked = modelActionsBlocked();
   const chatBlocked = blocked || llmIsOffline();
-  document.querySelectorAll("[data-action], [data-plan], [data-report]").forEach((control) => {
+  document.querySelectorAll("[data-action], [data-plan], [data-report], [data-select-plan]").forEach((control) => {
     control.disabled = blocked;
   });
+  syncApproveSelected();
   chatInput.disabled = chatBlocked;
   chatForm.querySelector("button").disabled = chatBlocked;
 }
@@ -314,9 +317,28 @@ function resolvePendingChatMessage(text, isError) {
 }
 
 function planStatusBadgeClass(status) {
-  if (status === "approved") return "success";
+  if (status === "approved" || status === "executed") return "success";
   if (status === "rejected") return "error";
+  if (status === "rolled_back") return "idle";
   return "pending";
+}
+
+// Only a plan that is still waiting for review can be approved or rejected.
+// approved/executed/rolled_back/rejected plans are history: no decision buttons.
+function isPlanActionable(plan) {
+  return plan.status === "pending";
+}
+
+function selectedActionablePlanIds() {
+  const actionable = new Set(state.plans.filter(isPlanActionable).map((plan) => plan.id));
+  return Array.from(state.selectedPlanIds).filter((id) => actionable.has(id));
+}
+
+// "Approve Selected" needs at least one ticked, still-pending plan.
+function syncApproveSelected() {
+  document.querySelectorAll('[data-action="approve-selected"]').forEach((button) => {
+    button.disabled = modelActionsBlocked() || selectedActionablePlanIds().length === 0;
+  });
 }
 
 function renderPlans() {
@@ -329,18 +351,28 @@ function renderPlans() {
   state.plans.forEach((plan) => {
     const item = document.createElement("article");
     item.className = "item";
+    const id = escapeHtml(plan.id);
+    const label = escapeHtml(plan.title);
+    const actionable = isPlanActionable(plan);
+    const select = actionable
+      ? `<label class="plan-select"><input type="checkbox" data-select-plan="${id}" aria-label="Select plan ${label}"${state.selectedPlanIds.has(plan.id) ? " checked" : ""}></label>`
+      : "";
+    const actions = actionable
+      ? `<div class="item-actions">
+        <button type="button" data-plan="${id}" class="primary" data-decision="approve" aria-label="Approve plan ${label}">Approve</button>
+        <button type="button" data-plan="${id}" data-decision="reject" aria-label="Reject plan ${label}">Reject</button>
+      </div>`
+      : "";
     item.innerHTML = `
       <div class="item-head">
-        <h2>${escapeHtml(plan.title)}</h2>
-        <span class="badge ${planStatusBadgeClass(plan.status)}">${escapeHtml(plan.status)}</span>
+        ${select}<h2>${label}</h2>
+        <span class="badge ${planStatusBadgeClass(plan.status)}">${escapeHtml(String(plan.status).replace(/_/g, " "))}</span>
       </div>
       <p>${escapeHtml(plan.detail)}</p>
-      <div class="item-actions">
-        <button type="button" data-plan="${escapeHtml(plan.id)}" class="primary" data-decision="approve">Approve</button>
-        <button type="button" data-plan="${escapeHtml(plan.id)}" data-decision="reject">Reject</button>
-      </div>`;
+      ${actions}`;
     planList.appendChild(item);
   });
+  syncApproveSelected();
 }
 
 function renderFindings() {
@@ -442,8 +474,19 @@ document.body.addEventListener("click", (event) => {
     addLog("Plans refreshed", "Requested pending plans from the host.");
   }
   if (action === "approve-selected") {
-    postToHost("plans.approveSelected");
-    addLog("Approval requested", "Selected pending actions sent to the host.");
+    // The host has no bulk message: approve each ticked, still-pending plan
+    // through the same per-plan plan.approve it already handles.
+    const ids = selectedActionablePlanIds();
+    if (ids.length === 0) {
+      addLog("Nothing selected", "Tick one or more pending plans first.");
+    } else {
+      ids.forEach((planId) => {
+        postToHost("plan.approve", { planId });
+        state.selectedPlanIds.delete(planId);
+      });
+      addLog("Approval requested", `${ids.length} selected plan(s) sent to the host.`);
+      renderPlans();
+    }
   }
   if (action === "run-health") {
     postToHost("qaqc.runHealthCheck");
@@ -476,6 +519,19 @@ document.body.addEventListener("click", (event) => {
     postToHost("selection.set", { elementUids: [selectUid] });
     addLog("Selection requested", selectUid);
   }
+});
+
+document.body.addEventListener("change", (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement) || !target.dataset.selectPlan) {
+    return;
+  }
+  if (target.checked) {
+    state.selectedPlanIds.add(target.dataset.selectPlan);
+  } else {
+    state.selectedPlanIds.delete(target.dataset.selectPlan);
+  }
+  syncApproveSelected();
 });
 
 chatForm.addEventListener("submit", (event) => {
@@ -589,8 +645,10 @@ if (window.chrome && window.chrome.webview) {
     }
     if (event.data?.type === "plans.updated") {
       state.plans = mapPlans(event.data.result);
+      const known = new Set(state.plans.map((plan) => plan.id));
+      state.selectedPlanIds.forEach((id) => { if (!known.has(id)) state.selectedPlanIds.delete(id); });
       renderPlans();
-      addLog("Plans updated", `${state.plans.length} pending`);
+      addLog("Plans updated", `${state.plans.filter(isPlanActionable).length} pending of ${state.plans.length}`);
     }
     if (event.data?.type === "reports.updated") {
       const report = mapReport(event.data.result);
