@@ -151,7 +151,7 @@ Hub zatrzymuje każde wywołanie narzędzia zmieniającego model, jeśli nie tow
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Przepływ zatwierdzania: asystent AI proponuje plan, hub MCP i ApprovalGate pokazują go w panelu bocznym Revit, a dopiero po Twoim zatwierdzeniu execute_plan przekazuje polecenia do dodatku Revit, który wykonuje je w jednej nazwanej transakcji. Jeśli odrzucisz plan lub nigdy go nie zatwierdzisz, wywołanie jest blokowane, a model pozostaje nietknięty." width="900">
+    <img src="../images/approval-flow-light.png" alt="Przepływ zatwierdzania: asystent AI tworzy plan przez plan_actions, panel boczny pokazuje proponowane zmiany (liczby, zakres, przed i po), a człowiek zatwierdza w panelu lub poleceniem CLI aec-model-bridge-approve, nigdy przez MCP. Hub sprawdza, czy plan zgadza się z zatwierdzonym narzędziem i argumentami, tylko jeden raz. Revit wykonuje każdą akcję w osobnej transakcji, więc Ctrl+Z cofa jedną akcję na naciśnięcie. Po weryfikacji można też użyć rollback_plan, który może pominąć akcje bez zapisanej wartości sprzed zmiany. Jeśli odrzucisz plan lub nigdy go nie zatwierdzisz, wywołanie jest blokowane, a model pozostaje nietknięty." width="900">
   </picture>
 </p>
 

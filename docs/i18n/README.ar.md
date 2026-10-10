@@ -169,7 +169,7 @@ the plan in Revit, apply it and read the values back to confirm the result.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="مخطط تدفق الموافقة: يقترح مساعد الذكاء الاصطناعي خطة، ويعرضها موزّع MCP وApprovalGate في اللوحة الجانبية في Revit، ولا يمرّر execute_plan الأوامر إلى إضافة Revit، التي تنفّذها في معاملة مسمّاة واحدة، إلا بعد موافقتك. وإذا رفضتَ أو لم توافق أبدًا، يُحجب الاستدعاء ويبقى النموذج دون أي تغيير." width="900">
+    <img src="../images/approval-flow-light.png" alt="مخطط تدفق الموافقة: يصوغ مساعد الذكاء الاصطناعي خطة عبر plan_actions، وتعرض اللوحة الجانبية التغييرات المقترحة (الأعداد والنطاق والقيم قبل وبعد)، ثم يوافق إنسان في اللوحة أو عبر أداة سطر الأوامر aec-model-bridge-approve، ولا تتم الموافقة أبدًا عبر MCP. يتحقق الموزّع من تطابق الخطة مع الأداة والوسائط المعتمدة، ولمرة واحدة فقط. ثم ينفّذ Revit كل إجراء في معاملة مستقلة، فيتراجع Ctrl+Z عن إجراء واحد في كل ضغطة. بعد التحقق يمكنك أيضًا استخدام rollback_plan الذي قد يتخطى الإجراءات التي لا توجد لها قيمة سابقة مسجّلة. وإذا رفضتَ أو لم توافق، يُحجب الاستدعاء ويبقى النموذج دون تغيير." width="900">
   </picture>
 </p>
 
