@@ -10,7 +10,7 @@
 
 </div>
 
-**اسأل الذكاء الاصطناعي عن نموذج Revit المفتوح لديك. افتراضيًا، لا يتغيّر شيء قبل أن توافق أنت.**
+**اسأل الذكاء الاصطناعي عن نموذج Revit المفتوح لديك. افتراضيًا، تُحظر أدوات الكتابة حتى توافق على خطة.**
 
 خادم MCP مفتوح المصدر وإضافة أصلية لبرنامج Revit 2024 – 2027. يعمل مع Claude وCodex وعملاء MCP الآخرين.
 
@@ -157,7 +157,7 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 ### كيف تعمل الموافقة
 
-يوقف الموزّع أي استدعاء لأداة يغيّر النموذج ما لم يحمل خطة معتمدة. الوضع الافتراضي هو `required`. يقترح الذكاء الاصطناعي خطة، وتراجعها أنت في اللوحة الجانبية في Revit، ثم تنفّذها الإضافة على الخيط الرئيسي (main thread) في Revit ضمن معاملة (transaction) مسمّاة.
+يوقف الموزّع أي استدعاء لأداة يغيّر النموذج ما لم يحمل خطة معتمدة. الوضع الافتراضي هو `required`. يقترح الذكاء الاصطناعي خطة، وتراجعها أنت في اللوحة الجانبية في Revit، ثم تنفّذها الإضافة على الخيط الرئيسي (main thread) في Revit وتنفّذ إجراءات تعديل المعاملات (parameters) والنموذج كلًّا ضمن معاملة (transaction) مسمّاة مستقلة؛ أما إجراءات الحفظ والمزامنة والسكربتات فلا، لذا لا يشملها Ctrl+Z.
 
 <p align="center">
   <picture>
@@ -169,13 +169,13 @@ the plan in Revit, apply it and read the values back to confirm the result.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="مخطط تدفق الموافقة: يقترح مساعد الذكاء الاصطناعي خطة، ويعرضها موزّع MCP وApprovalGate في اللوحة الجانبية في Revit، ولا يمرّر execute_plan الأوامر إلى إضافة Revit، التي تنفّذها في معاملة مسمّاة واحدة، إلا بعد موافقتك. وإذا رفضتَ أو لم توافق أبدًا، يُحجب الاستدعاء ويبقى النموذج دون أي تغيير." width="900">
+    <img src="../images/approval-flow-light.png" alt="مخطط تدفق الموافقة: يصوغ مساعد الذكاء الاصطناعي خطة عبر plan_actions، وتعرض اللوحة الجانبية التغييرات المقترحة (الأعداد والنطاق والقيم قبل وبعد)، ثم يوافق إنسان في اللوحة أو عبر أداة سطر الأوامر aec-model-bridge-approve، ولا تتم الموافقة أبدًا عبر MCP. يتحقق الموزّع من تطابق الخطة مع الأداة والوسائط المعتمدة، ولمرة واحدة فقط. ثم ينفّذ Revit كل إجراء في معاملة مستقلة، فيتراجع Ctrl+Z عن إجراء واحد في كل ضغطة. وإذا رفضتَ أو لم توافق، يُحجب الاستدعاء ويبقى النموذج دون تغيير." width="900">
   </picture>
 </p>
 
 <sub>مصدر المخطط: [approval-flow.mmd](../diagrams/approval-flow.mmd). أعد توليد الصور بالأمر `python scripts/render_diagrams.py`.</sub>
 
-إذا اعتُمدت خطة ثم تبيّن لاحقًا أنها خاطئة، فإن `rollback_plan` يعكسها. يستخدم التراجع أمر Undo في Revit ضمن الجلسة نفسها أو القيم العكسية للمعاملات. أما العمليات التي لا يمكن عكسها، مثل كتابة الملفات، فتطلب تأكيدًا ثانيًا. دورة الحياة موضحة في [ADR 0008](../0008-approval-gate-lifecycle.md).
+إذا تبيّن أن خطة ما خاطئة، فتراجع عنها بـ Ctrl+Z في Revit. كل كتابة لمعامل هي معاملة مسمّاة مستقلة، لذا قد تحتاج خطة واحدة إلى عدة ضغطات. التراجع بخطوة واحدة عن خطة كاملة مخطَّط له ولم يُبنَ بعد. يعيد الطريق الثاني هو خطة تراجع: يصيغ المساعد واحدة بالأداة `plan_revert` انطلاقًا من إثبات خطة نُفّذت، وتوافق عليها كأي خطة أخرى. `rollback_plan` مخصص للأشخاص فقط وليس زرًا ولا أمرًا، فلا تعتمد عليه. لم يُتحقَّق من أيٍّ من هذه المسارات في جلسة Revit حقيقية بعد (UNVERIFIED). أما العمليات التي لا يمكن عكسها، مثل كتابة الملفات، فلا يتراجع عنها أيٌّ منها، ولا تطلب تأكيدًا ثانيًا بعد (مخطَّط له). تعرض قائمة الخطط في اللوحة الخطط المعلّقة فقط؛ ويعمل الأمر `aec-model-bridge-approve show <plan_id>` مع خطة في أي حالة، بينما لا توجد حزم `proofs/` إلا للخطط التي نُفّذت (أو جرت محاولة تنفيذها). دورة الحياة موضحة في [ADR 0008](../0008-approval-gate-lifecycle.md).
 
 في خطوط المعالجة الآلية غير المراقَبة يمكنك ضبط `MCP_REVIT_APPROVAL_MODE=auto`. يؤدي ذلك إلى إيقاف المراجعة البشرية، لذا استخدمه في بيئة خاضعة للتحكم فقط.
 
@@ -400,6 +400,20 @@ python -m pytest packages/mcp-server-revit/tests
 - [كل التوثيق](../README.md)
 - [دليل المساهمة](../../CONTRIBUTING.md) و [مدونة السلوك](../../CODE_OF_CONDUCT.md)
 - [المساهمون](../../CONTRIBUTORS.md)
+
+## Built with
+
+AEC Model Bridge stands on open-source work. It is independent and is not affiliated with or endorsed by any project named here.
+
+- [Model Context Protocol](https://modelcontextprotocol.io) Python SDK (MIT) for the MCP server
+- [IfcOpenShell](https://ifcopenshell.org) (LGPL-3.0-or-later) for IFC files
+- [specklepy](https://github.com/specklesystems/specklepy) (Apache-2.0) for Speckle
+- [pydantic](https://docs.pydantic.dev), [httpx](https://www.python-httpx.org), [NetworkX](https://networkx.org), [openpyxl](https://openpyxl.readthedocs.io) and [PyYAML](https://pyyaml.org) (MIT or BSD)
+- [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) (MIT) for the built-in agent chat
+- [Serilog](https://serilog.net), [IronPython](https://ironpython.net) and [Microsoft WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) in the Revit add-in
+- Autodesk Revit and Navisworks and McNeel Rhino are separate products that you license yourself. This project does not include their code.
+
+Licence texts and the full list of packages are in [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md). Licences were read from package metadata; rows that could not be verified are marked as such.
 
 ## المشروع والترخيص
 

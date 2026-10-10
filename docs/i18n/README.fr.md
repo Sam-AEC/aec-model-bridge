@@ -6,7 +6,7 @@
 
 > Cette traduction a été réalisée avec l'aide de l'IA. Le [README](../../README.md) en anglais fait foi ; les corrections sont les bienvenues via une pull request (voir [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
-**Interrogez votre IA sur le modèle Revit que vous avez ouvert. Par défaut, rien ne change tant que vous n'avez pas approuvé.**
+**Interrogez votre IA sur le modèle Revit que vous avez ouvert. Par défaut, les outils d'écriture sont bloqués tant que vous n'avez pas approuvé un plan.**
 
 Serveur MCP open source et add-in natif pour Revit 2024 – 2027. Fonctionne avec Claude, Codex et d'autres clients MCP.
 
@@ -139,7 +139,7 @@ Les cadres turquoise fonctionnent aujourd'hui. Les cadres ambre en pointillés s
 
 ### Fonctionnement de l'approbation
 
-Le hub bloque tout appel d'outil qui modifie le modèle s'il n'est pas accompagné d'un plan approuvé. Le mode par défaut est `required`. L'IA propose un plan, vous l'examinez dans le panneau latéral de Revit, et l'add-in l'exécute dans le thread principal de Revit, dans une transaction nommée.
+Le hub bloque tout appel d'outil qui modifie le modèle s'il n'est pas accompagné d'un plan approuvé. Le mode par défaut est `required`. L'IA propose un plan, vous l'examinez dans le panneau latéral de Revit, et l'add-in l'exécute dans le thread principal de Revit, les actions de paramètres et de modification du modèle dans leur propre transaction nommée ; l'enregistrement, la synchronisation et les scripts n'en ont pas, donc Ctrl+Z ne les couvre pas.
 
 <p align="center">
   <picture>
@@ -151,13 +151,13 @@ Le hub bloque tout appel d'outil qui modifie le modèle s'il n'est pas accompagn
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant proposes a plan, the MCP hub and ApprovalGate show it in the Revit side panel, and only after you approve does execute_plan forward the commands to the Revit add-in, which runs them in one named transaction. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
+    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant drafts a plan with plan_actions, the side panel shows the proposed changes (counts, scope, before and after), and a human approves in the panel or with the aec-model-bridge-approve CLI, never over MCP. The hub checks that the plan matches the approved tool and arguments, once only. Revit then runs each action in its own transaction, so Ctrl+Z undoes one action per press. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
   </picture>
 </p>
 
 <sub>Source du schéma : [approval-flow.mmd](../diagrams/approval-flow.mmd). Régénérez les images avec `python scripts/render_diagrams.py`.</sub>
 
-Si un plan approuvé se révèle erroné par la suite, `rollback_plan` l'annule. L'annulation utilise la fonction Annuler de Revit dans la même session, ou les valeurs de paramètres inverses. Les opérations irréversibles, comme l'écriture de fichiers, demandent une seconde confirmation. Le cycle de vie est décrit dans l'[ADR 0008](../0008-approval-gate-lifecycle.md).
+Si un plan se révèle erroné, annulez-le avec Ctrl+Z dans Revit. Chaque écriture de paramètre est sa propre transaction nommée, donc un plan peut demander plusieurs appuis. Une annulation en une seule étape pour un plan entier est prévue, pas encore construite. Une deuxième voie est un plan d'annulation : l'assistant en rédige un avec `plan_revert` à partir de la preuve d'un plan exécuté, et vous l'approuvez comme n'importe quel autre plan. `rollback_plan` est réservé aux personnes et n'est ni un bouton ni une commande ; ne comptez donc pas dessus. Aucune de ces voies n'est encore vérifiée dans une vraie session Revit (UNVERIFIED). Les opérations irréversibles, comme l'écriture de fichiers, ne sont annulées par aucune d'elles et ne demandent pas encore de seconde confirmation (prévu). La liste Plans du panneau n'affiche que les plans en attente ; `aec-model-bridge-approve show <plan_id>` fonctionne pour un plan dans n'importe quel état, tandis que les lots `proofs/` n'existent que pour les plans exécutés (ou tentés). Le cycle de vie est décrit dans l'[ADR 0008](../0008-approval-gate-lifecycle.md).
 
 Pour les pipelines sans surveillance, vous pouvez définir `MCP_REVIT_APPROVAL_MODE=auto`. Cela désactive la vérification par un humain ; ne l'utilisez donc que dans un environnement maîtrisé.
 
@@ -350,6 +350,20 @@ La CI compile le serveur Python et les cibles de l'add-in pour Revit 2024 à 202
 - [Toute la documentation](../README.md)
 - [Contribuer](../../CONTRIBUTING.md) et [Code de conduite](../../CODE_OF_CONDUCT.md)
 - [Contributeurs](../../CONTRIBUTORS.md)
+
+## Built with
+
+AEC Model Bridge stands on open-source work. It is independent and is not affiliated with or endorsed by any project named here.
+
+- [Model Context Protocol](https://modelcontextprotocol.io) Python SDK (MIT) for the MCP server
+- [IfcOpenShell](https://ifcopenshell.org) (LGPL-3.0-or-later) for IFC files
+- [specklepy](https://github.com/specklesystems/specklepy) (Apache-2.0) for Speckle
+- [pydantic](https://docs.pydantic.dev), [httpx](https://www.python-httpx.org), [NetworkX](https://networkx.org), [openpyxl](https://openpyxl.readthedocs.io) and [PyYAML](https://pyyaml.org) (MIT or BSD)
+- [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) (MIT) for the built-in agent chat
+- [Serilog](https://serilog.net), [IronPython](https://ironpython.net) and [Microsoft WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) in the Revit add-in
+- Autodesk Revit and Navisworks and McNeel Rhino are separate products that you license yourself. This project does not include their code.
+
+Licence texts and the full list of packages are in [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md). Licences were read from package metadata; rows that could not be verified are marked as such.
 
 ## Projet et licence
 

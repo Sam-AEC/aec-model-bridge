@@ -6,7 +6,7 @@
 
 > 本文为 AI 辅助翻译。内容以英文版 [README](../../README.md) 为准；发现错误或有改进建议，欢迎通过 Pull Request 提交，详见 [CONTRIBUTING.md](../../CONTRIBUTING.md)。
 
-**就你当前打开的 Revit 模型向 AI 提问。默认情况下，在你批准之前，不会有任何改动。**
+**就你当前打开的 Revit 模型向 AI 提问。默认情况下，在你批准计划之前，写入类工具会被拦截。**
 
 面向 Revit 2024 – 2027 的开源 MCP 服务器和原生插件，可与 Claude、Codex 及其他 MCP 客户端配合使用。
 
@@ -140,7 +140,7 @@ MCP 客户端与一个 Python hub 通信。hub 将每次调用转发给拥有该
 
 ### 审批如何运作
 
-hub 会拦截任何会修改模型的工具调用，除非它附带已批准的计划。默认模式为 `required`。AI 提出计划，你在 Revit 侧边面板中审阅，然后插件在 Revit 主线程中以命名事务（transaction）执行。
+hub 会拦截任何会修改模型的工具调用，除非它附带已批准的计划。默认模式为 `required`。AI 提出计划，你在 Revit 侧边面板中审阅，然后插件在 Revit 主线程中执行，参数和模型编辑类操作各自在独立的命名事务（transaction）中运行；保存、同步和脚本类操作则不是，因此 Ctrl+Z 无法撤销它们。
 
 <p align="center">
   <picture>
@@ -152,13 +152,13 @@ hub 会拦截任何会修改模型的工具调用，除非它附带已批准的�
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant proposes a plan, the MCP hub and ApprovalGate show it in the Revit side panel, and only after you approve does execute_plan forward the commands to the Revit add-in, which runs them in one named transaction. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
+    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant drafts a plan with plan_actions, the side panel shows the proposed changes (counts, scope, before and after), and a human approves in the panel or with the aec-model-bridge-approve CLI, never over MCP. The hub checks that the plan matches the approved tool and arguments, once only. Revit then runs each action in its own transaction, so Ctrl+Z undoes one action per press. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
   </picture>
 </p>
 
 <sub>图表源文件：[approval-flow.mmd](../diagrams/approval-flow.mmd)。使用 `python scripts/render_diagrams.py` 重新生成图片。</sub>
 
-如果计划获批后发现有误，可用 `rollback_plan` 撤销。回滚会在同一会话中使用 Revit 的撤销功能，或应用反向的参数值。无法撤销的操作（例如文件输出）会要求再次确认。完整生命周期见 [ADR 0008](../0008-approval-gate-lifecycle.md)。
+如果计划有误，请在 Revit 中用 Ctrl+Z 撤销。每次参数写入都是各自独立的命名事务，因此一个计划可能需要按多次。整个计划一步撤销的功能已列入计划，尚未实现。第二种方式是还原计划：助手根据已执行计划的凭证，用 `plan_revert` 起草一个新计划，再像批准其他计划一样批准它。`rollback_plan` 仅供人使用，既不是按钮也不是命令，因此不要指望它。这些方式目前都尚未在真实的 Revit 会话中验证（UNVERIFIED）。无法撤销的操作（例如文件输出）这些方式都无法撤销，目前也尚未要求再次确认（已列入计划）。面板的 Plans 列表只显示待处理的计划；`aec-model-bridge-approve show <plan_id>` 适用于任何状态的计划，而 `proofs/` 包只存在于已执行（或尝试执行）的计划。完整生命周期见 [ADR 0008](../0008-approval-gate-lifecycle.md)。
 
 对于无人值守的流水线，可以设置 `MCP_REVIT_APPROVAL_MODE=auto`。这会关闭人工检查，因此请仅在受控环境中使用。
 
@@ -351,6 +351,20 @@ CI 会构建 Python 服务器以及面向 Revit 2024 至 2027 的插件目标。
 - [全部文档](../README.md)
 - [贡献指南](../../CONTRIBUTING.md) 和 [行为准则](../../CODE_OF_CONDUCT.md)
 - [贡献者](../../CONTRIBUTORS.md)
+
+## Built with
+
+AEC Model Bridge stands on open-source work. It is independent and is not affiliated with or endorsed by any project named here.
+
+- [Model Context Protocol](https://modelcontextprotocol.io) Python SDK (MIT) for the MCP server
+- [IfcOpenShell](https://ifcopenshell.org) (LGPL-3.0-or-later) for IFC files
+- [specklepy](https://github.com/specklesystems/specklepy) (Apache-2.0) for Speckle
+- [pydantic](https://docs.pydantic.dev), [httpx](https://www.python-httpx.org), [NetworkX](https://networkx.org), [openpyxl](https://openpyxl.readthedocs.io) and [PyYAML](https://pyyaml.org) (MIT or BSD)
+- [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) (MIT) for the built-in agent chat
+- [Serilog](https://serilog.net), [IronPython](https://ironpython.net) and [Microsoft WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) in the Revit add-in
+- Autodesk Revit and Navisworks and McNeel Rhino are separate products that you license yourself. This project does not include their code.
+
+Licence texts and the full list of packages are in [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md). Licences were read from package metadata; rows that could not be verified are marked as such.
 
 ## 项目与许可证
 

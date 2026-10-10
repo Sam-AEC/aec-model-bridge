@@ -15,6 +15,21 @@ Current characteristics:
 - environment loading: `python-dotenv`
 - development and test dependencies are defined inline rather than split into a separate requirements file
 
+Licences of the direct Python dependencies, read from the installed package metadata for the versions in `uv.lock`:
+
+| Package | Locked version | Licence |
+|---|---|---|
+| `mcp` | 1.28.1 | MIT |
+| `ifcopenshell` | 0.8.5 | LGPL-3.0-or-later |
+| `specklepy` | 3.2.8 | Apache-2.0 |
+| `pydantic` | 2.13.4 | MIT |
+| `pydantic-settings` | 2.14.2 | MIT |
+| `httpx` | 0.28.1 | BSD License (as named in the package classifiers) |
+| `python-dotenv` | 1.2.2 | BSD-3-Clause |
+| `networkx` | 3.6.1 | BSD-3-Clause |
+
+The full list, including transitive packages and the NuGet and npm packages, is in [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md). Licences of the NuGet packages named below have not been verified and are left out of this page on purpose.
+
 ## Revit Add-in Targets
 
 The add-in project file is [packages/revit-bridge-addin/RevitBridge.csproj](../packages/revit-bridge-addin/RevitBridge.csproj).

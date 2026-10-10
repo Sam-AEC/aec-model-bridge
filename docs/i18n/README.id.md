@@ -6,7 +6,7 @@
 
 > Terjemahan ini dibuat dengan bantuan AI. README bahasa Inggris ([README](../../README.md)) adalah sumber acuan; koreksi sangat kami hargai melalui pull request (lihat [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
-**Tanyakan model Revit yang sedang Anda buka kepada AI Anda. Secara default, tidak ada yang berubah sebelum Anda menyetujuinya.**
+**Tanyakan model Revit yang sedang Anda buka kepada AI Anda. Secara default, tool penulisan diblokir sampai Anda menyetujui sebuah rencana.**
 
 Server MCP sumber terbuka dan add-in native untuk Revit 2024 – 2027. Bekerja dengan Claude, Codex, dan klien MCP lainnya.
 
@@ -139,7 +139,7 @@ Kotak berwarna teal sudah berfungsi saat ini. Kotak putus-putus berwarna amber m
 
 ### Cara kerja persetujuan
 
-Hub menghentikan setiap panggilan tool yang mengubah model kecuali panggilan itu membawa rencana yang sudah disetujui. Mode default-nya adalah `required`. AI mengusulkan rencana, Anda meninjaunya di panel samping Revit, lalu add-in menjalankannya di main thread Revit dalam transaksi bernama.
+Hub menghentikan setiap panggilan tool yang mengubah model kecuali panggilan itu membawa rencana yang sudah disetujui. Mode default-nya adalah `required`. AI mengusulkan rencana, Anda meninjaunya di panel samping Revit, lalu add-in menjalankannya di main thread Revit, aksi parameter dan pengeditan model masing-masing dalam transaksi bernamanya sendiri; aksi simpan, sinkronisasi, dan skrip tidak, sehingga Ctrl+Z tidak mencakupnya.
 
 <p align="center">
   <picture>
@@ -151,13 +151,13 @@ Hub menghentikan setiap panggilan tool yang mengubah model kecuali panggilan itu
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant proposes a plan, the MCP hub and ApprovalGate show it in the Revit side panel, and only after you approve does execute_plan forward the commands to the Revit add-in, which runs them in one named transaction. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
+    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant drafts a plan with plan_actions, the side panel shows the proposed changes (counts, scope, before and after), and a human approves in the panel or with the aec-model-bridge-approve CLI, never over MCP. The hub checks that the plan matches the approved tool and arguments, once only. Revit then runs each action in its own transaction, so Ctrl+Z undoes one action per press. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
   </picture>
 </p>
 
 <sub>Sumber diagram: [approval-flow.mmd](../diagrams/approval-flow.mmd). Buat ulang gambar dengan `python scripts/render_diagrams.py`.</sub>
 
-Jika rencana yang sudah disetujui ternyata keliru, `rollback_plan` akan membatalkannya. Rollback memakai Undo Revit dalam sesi yang sama atau nilai parameter kebalikannya. Operasi yang tidak dapat dibatalkan, seperti keluaran file, meminta konfirmasi kedua. Siklus hidupnya ada di [ADR 0008](../0008-approval-gate-lifecycle.md).
+Jika sebuah rencana ternyata keliru, batalkan dengan Ctrl+Z di Revit. Setiap penulisan parameter adalah transaksi bernama tersendiri, jadi satu rencana bisa memerlukan beberapa kali penekanan. Undo satu langkah untuk seluruh rencana masih direncanakan, belum dibangun. Jalur kedua adalah rencana pembalikan: asisten menyusunnya dengan `plan_revert` dari bukti rencana yang sudah dieksekusi, dan Anda menyetujuinya seperti rencana lainnya. `rollback_plan` hanya untuk manusia dan bukan tombol maupun perintah, jadi jangan mengandalkannya. Belum ada jalur ini yang diverifikasi di sesi Revit yang sebenarnya (UNVERIFIED). Operasi yang tidak dapat dibatalkan, seperti keluaran file, tidak dibatalkan oleh jalur mana pun dan belum meminta konfirmasi kedua (direncanakan). Daftar Plans di panel hanya menampilkan rencana yang tertunda; `aec-model-bridge-approve show <plan_id>` berfungsi untuk rencana dalam status apa pun, sedangkan bundel `proofs/` hanya ada untuk rencana yang dieksekusi (atau dicoba). Siklus hidupnya ada di [ADR 0008](../0008-approval-gate-lifecycle.md).
 
 Untuk pipeline tanpa pengawasan, Anda dapat mengatur `MCP_REVIT_APPROVAL_MODE=auto`. Ini mematikan pemeriksaan manusia, jadi gunakan hanya di lingkungan yang terkendali.
 
@@ -350,6 +350,20 @@ CI membangun server Python dan target add-in untuk Revit 2024 sampai 2027. Baca 
 - [Semua dokumentasi](../README.md)
 - [Kontribusi](../../CONTRIBUTING.md) dan [Kode Etik](../../CODE_OF_CONDUCT.md)
 - [Kontributor](../../CONTRIBUTORS.md)
+
+## Built with
+
+AEC Model Bridge stands on open-source work. It is independent and is not affiliated with or endorsed by any project named here.
+
+- [Model Context Protocol](https://modelcontextprotocol.io) Python SDK (MIT) for the MCP server
+- [IfcOpenShell](https://ifcopenshell.org) (LGPL-3.0-or-later) for IFC files
+- [specklepy](https://github.com/specklesystems/specklepy) (Apache-2.0) for Speckle
+- [pydantic](https://docs.pydantic.dev), [httpx](https://www.python-httpx.org), [NetworkX](https://networkx.org), [openpyxl](https://openpyxl.readthedocs.io) and [PyYAML](https://pyyaml.org) (MIT or BSD)
+- [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) (MIT) for the built-in agent chat
+- [Serilog](https://serilog.net), [IronPython](https://ironpython.net) and [Microsoft WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) in the Revit add-in
+- Autodesk Revit and Navisworks and McNeel Rhino are separate products that you license yourself. This project does not include their code.
+
+Licence texts and the full list of packages are in [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md). Licences were read from package metadata; rows that could not be verified are marked as such.
 
 ## Proyek dan lisensi
 

@@ -6,7 +6,7 @@
 
 > Bản dịch này được thực hiện với sự hỗ trợ của AI. [README](../../README.md) tiếng Anh là bản gốc; rất hoan nghênh các chỉnh sửa qua pull request (xem [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
-**Hỏi AI về mô hình Revit bạn đang mở. Theo mặc định, không có gì thay đổi cho đến khi bạn phê duyệt.**
+**Hỏi AI về mô hình Revit bạn đang mở. Theo mặc định, các công cụ ghi bị chặn cho đến khi bạn phê duyệt một kế hoạch.**
 
 Máy chủ MCP mã nguồn mở và add-in gốc cho Revit 2024 – 2027. Hoạt động với Claude, Codex và các ứng dụng khách MCP khác.
 
@@ -139,7 +139,7 @@ Các khung màu xanh mòng két đã hoạt động. Các khung nét đứt màu
 
 ### Cách phê duyệt hoạt động
 
-Hub chặn mọi lệnh gọi công cụ làm thay đổi mô hình nếu không kèm kế hoạch đã được phê duyệt. Chế độ mặc định là `required`. AI đề xuất kế hoạch, bạn xem xét trong bảng bên của Revit, và add-in chạy nó trên luồng chính của Revit trong một transaction có tên.
+Hub chặn mọi lệnh gọi công cụ làm thay đổi mô hình nếu không kèm kế hoạch đã được phê duyệt. Chế độ mặc định là `required`. AI đề xuất kế hoạch, bạn xem xét trong bảng bên của Revit, và add-in chạy nó trên luồng chính của Revit, các hành động sửa tham số và chỉnh sửa mô hình mỗi hành động chạy trong một transaction có tên riêng; các hành động lưu, đồng bộ và script thì không, nên Ctrl+Z không bao gồm chúng.
 
 <p align="center">
   <picture>
@@ -151,13 +151,13 @@ Hub chặn mọi lệnh gọi công cụ làm thay đổi mô hình nếu không
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant proposes a plan, the MCP hub and ApprovalGate show it in the Revit side panel, and only after you approve does execute_plan forward the commands to the Revit add-in, which runs them in one named transaction. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
+    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant drafts a plan with plan_actions, the side panel shows the proposed changes (counts, scope, before and after), and a human approves in the panel or with the aec-model-bridge-approve CLI, never over MCP. The hub checks that the plan matches the approved tool and arguments, once only. Revit then runs each action in its own transaction, so Ctrl+Z undoes one action per press. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
   </picture>
 </p>
 
 <sub>Nguồn sơ đồ: [approval-flow.mmd](../diagrams/approval-flow.mmd). Tạo lại hình ảnh bằng `python scripts/render_diagrams.py`.</sub>
 
-Nếu một kế hoạch đã được phê duyệt sau đó hóa ra sai, `rollback_plan` sẽ hoàn tác nó. Việc hoàn tác dùng Undo của Revit trong cùng phiên hoặc các giá trị tham số nghịch đảo. Các thao tác không thể đảo ngược, chẳng hạn xuất tệp, sẽ yêu cầu xác nhận lần hai. Vòng đời được mô tả trong [ADR 0008](../0008-approval-gate-lifecycle.md).
+Nếu một kế hoạch hóa ra sai, hãy hoàn tác bằng Ctrl+Z trong Revit. Mỗi lần ghi tham số là một giao dịch có tên riêng, nên một kế hoạch có thể cần nhấn nhiều lần. Hoàn tác cả kế hoạch chỉ trong một bước đã được lên kế hoạch nhưng chưa được xây dựng. Cách thứ hai là kế hoạch hoàn nguyên: trợ lý soạn một kế hoạch bằng `plan_revert` từ bằng chứng của một kế hoạch đã thực thi, và bạn phê duyệt nó như mọi kế hoạch khác. `rollback_plan` chỉ dành cho con người và không phải là nút hay lệnh, vì vậy đừng trông cậy vào nó. Chưa cách nào trong số này được xác minh trong một phiên Revit thực tế (UNVERIFIED). Các thao tác không thể đảo ngược, chẳng hạn xuất tệp, không thể hoàn tác bằng cách nào trong số đó và hiện chưa yêu cầu xác nhận lần hai (đã lên kế hoạch). Danh sách Plans của bảng điều khiển chỉ hiển thị các kế hoạch đang chờ; `aec-model-bridge-approve show <plan_id>` dùng được cho kế hoạch ở bất kỳ trạng thái nào, còn các gói `proofs/` chỉ tồn tại cho những kế hoạch đã được thực thi (hoặc đã thử thực thi). Vòng đời được mô tả trong [ADR 0008](../0008-approval-gate-lifecycle.md).
 
 Với các pipeline chạy tự động, bạn có thể đặt `MCP_REVIT_APPROVAL_MODE=auto`. Thiết lập này tắt bước kiểm tra của con người, vì vậy chỉ dùng trong môi trường được kiểm soát.
 
@@ -350,6 +350,20 @@ CI build máy chủ Python và các mục tiêu add-in cho Revit 2024 đến 202
 - [Toàn bộ tài liệu](../README.md)
 - [Hướng dẫn đóng góp](../../CONTRIBUTING.md) và [Quy tắc ứng xử](../../CODE_OF_CONDUCT.md)
 - [Những người đóng góp](../../CONTRIBUTORS.md)
+
+## Built with
+
+AEC Model Bridge stands on open-source work. It is independent and is not affiliated with or endorsed by any project named here.
+
+- [Model Context Protocol](https://modelcontextprotocol.io) Python SDK (MIT) for the MCP server
+- [IfcOpenShell](https://ifcopenshell.org) (LGPL-3.0-or-later) for IFC files
+- [specklepy](https://github.com/specklesystems/specklepy) (Apache-2.0) for Speckle
+- [pydantic](https://docs.pydantic.dev), [httpx](https://www.python-httpx.org), [NetworkX](https://networkx.org), [openpyxl](https://openpyxl.readthedocs.io) and [PyYAML](https://pyyaml.org) (MIT or BSD)
+- [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) (MIT) for the built-in agent chat
+- [Serilog](https://serilog.net), [IronPython](https://ironpython.net) and [Microsoft WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) in the Revit add-in
+- Autodesk Revit and Navisworks and McNeel Rhino are separate products that you license yourself. This project does not include their code.
+
+Licence texts and the full list of packages are in [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md). Licences were read from package metadata; rows that could not be verified are marked as such.
 
 ## Dự án và giấy phép
 

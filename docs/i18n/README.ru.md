@@ -6,7 +6,7 @@
 
 > Этот перевод выполнен с помощью ИИ. Основным источником остаётся английский [README](../../README.md); исправления приветствуются через pull request (см. [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
-**Задавайте ИИ вопросы об открытой модели Revit. По умолчанию ничего не изменится, пока вы не согласуете.**
+**Задавайте ИИ вопросы об открытой модели Revit. По умолчанию инструменты записи заблокированы, пока вы не согласуете план.**
 
 MCP-сервер с открытым исходным кодом и нативный плагин для Revit 2024 – 2027. Работает с Claude, Codex и другими MCP-клиентами.
 
@@ -139,7 +139,7 @@ MCP-клиент обращается к одному Python-хабу. Хаб п
 
 ### Как работает согласование
 
-Хаб останавливает любой вызов инструмента, меняющий модель, если с ним не передан согласованный план. Режим по умолчанию — `required`. ИИ предлагает план, вы просматриваете его на боковой панели Revit, а плагин выполняет его в основном потоке Revit в именованной транзакции.
+Хаб останавливает любой вызов инструмента, меняющий модель, если с ним не передан согласованный план. Режим по умолчанию — `required`. ИИ предлагает план, вы просматриваете его на боковой панели Revit, а плагин выполняет его в основном потоке Revit, действия с параметрами и правки модели выполняются каждое в своей именованной транзакции; сохранение, синхронизация и скрипты — нет, поэтому Ctrl+Z их не охватывает.
 
 <p align="center">
   <picture>
@@ -151,13 +151,13 @@ MCP-клиент обращается к одному Python-хабу. Хаб п
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Схема согласования: ИИ-ассистент предлагает план, хаб MCP и ApprovalGate показывают его на боковой панели Revit, и только после вашего согласования execute_plan передаёт команды плагину Revit, который выполняет их в одной именованной транзакции. Если вы отклонили план или не согласовали его, вызов блокируется, а модель остаётся нетронутой." width="900">
+    <img src="../images/approval-flow-light.png" alt="Схема согласования: ИИ-ассистент составляет план через plan_actions, боковая панель показывает предлагаемые изменения (количество, область, значения до и после), а человек согласует их в панели или через CLI aec-model-bridge-approve, но никогда через MCP. Хаб проверяет, что план совпадает с согласованным инструментом и аргументами, и только один раз. Затем Revit выполняет каждое действие в отдельной транзакции, поэтому Ctrl+Z отменяет одно действие за нажатие. Если вы отклонили план или не согласовали его, вызов блокируется, а модель остаётся нетронутой." width="900">
   </picture>
 </p>
 
 <sub>Исходник диаграммы: [approval-flow.mmd](../diagrams/approval-flow.mmd). Пересоздать изображения можно командой `python scripts/render_diagrams.py`.</sub>
 
-Если согласованный план позже оказался ошибочным, `rollback_plan` отменяет его. Откат использует команду Revit «Отменить» в том же сеансе или обратные значения параметров. Операции, которые нельзя отменить, например запись файлов, запрашивают повторное подтверждение. Жизненный цикл описан в [ADR 0008](../0008-approval-gate-lifecycle.md).
+Если план оказался ошибочным, отмените его сочетанием Ctrl+Z в Revit. Каждая запись параметра — отдельная именованная транзакция, поэтому для одного плана может потребоваться несколько нажатий. Отмена всего плана одним шагом запланирована, но пока не реализована. Второй путь — план отката: ассистент составляет его командой `plan_revert` по подтверждению выполненного плана, а вы утверждаете его как любой другой план. `rollback_plan` предназначен только для людей и не является ни кнопкой, ни командой, поэтому не рассчитывайте на него. Ни один из этих путей пока не проверен в реальном сеансе Revit (UNVERIFIED). Операции, которые нельзя отменить, например запись файлов, не отменяются ни одним из них и пока не требуют повторного подтверждения (запланировано). Список Plans на панели показывает только ожидающие планы; `aec-model-bridge-approve show <plan_id>` работает для плана в любом состоянии, а пакеты `proofs/` существуют только для планов, которые были выполнены (или предприняты попытки выполнения). Жизненный цикл описан в [ADR 0008](../0008-approval-gate-lifecycle.md).
 
 Для конвейеров без участия человека можно задать `MCP_REVIT_APPROVAL_MODE=auto`. Это отключает проверку человеком, поэтому используйте режим только в контролируемой среде.
 
@@ -350,6 +350,20 @@ CI собирает Python-сервер и целевые сборки плаг�
 - [Вся документация](../README.md)
 - [Участие в проекте](../../CONTRIBUTING.md) и [Кодекс поведения](../../CODE_OF_CONDUCT.md)
 - [Участники](../../CONTRIBUTORS.md)
+
+## Built with
+
+AEC Model Bridge stands on open-source work. It is independent and is not affiliated with or endorsed by any project named here.
+
+- [Model Context Protocol](https://modelcontextprotocol.io) Python SDK (MIT) for the MCP server
+- [IfcOpenShell](https://ifcopenshell.org) (LGPL-3.0-or-later) for IFC files
+- [specklepy](https://github.com/specklesystems/specklepy) (Apache-2.0) for Speckle
+- [pydantic](https://docs.pydantic.dev), [httpx](https://www.python-httpx.org), [NetworkX](https://networkx.org), [openpyxl](https://openpyxl.readthedocs.io) and [PyYAML](https://pyyaml.org) (MIT or BSD)
+- [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) (MIT) for the built-in agent chat
+- [Serilog](https://serilog.net), [IronPython](https://ironpython.net) and [Microsoft WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) in the Revit add-in
+- Autodesk Revit and Navisworks and McNeel Rhino are separate products that you license yourself. This project does not include their code.
+
+Licence texts and the full list of packages are in [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md). Licences were read from package metadata; rows that could not be verified are marked as such.
 
 ## Проект и лицензия
 

@@ -17,11 +17,13 @@ The first goal is a repeatable workflow on a synthetic model in a real Revit ses
 Fix the snapshot contract first. The add-in used to write
 `snapshots/snapshot-{GUID}.json` but return a bare GUID. The Python modules load
 `snapshots/{snapshot_id}.json`. The add-in now writes `snapshots/{GUID}.json`.
-Compile it and test it against live Revit before you rely on it. The add-in also
-reads its own `MCP_REVIT_WORKSPACE_DIR`, which can differ from the Python
-server's workspace. Check that both use the same folder. Check that the snapshot
-covers the categories the QA rules need. Never replace a failed live extraction
-with generated mock data.
+The add-in now resolves its workspace with the same rule as the Python server
+(`MCP_REVIT_WORKSPACE_DIR`, else `~/Documents/AEC Model Bridge`), and the server
+reads snapshots from the workspace when it is on the allowed list. The C# side is
+UNVERIFIED: it has not been compiled or run against live Revit. Compile it and
+test it against live Revit before you rely on it, and check that both sides use
+the same folder. Check that the snapshot covers the categories the QA rules
+need. Never replace a failed live extraction with generated mock data.
 
 Use a disposable copy of the [canonical model](../fixtures/canonical-model/README.md).
 The [seeded defect manifest](../fixtures/canonical-model/seeded-defects.json)
