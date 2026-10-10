@@ -105,16 +105,16 @@ Usa o VS Code? O [código da extensão e os passos de instalação local](../../
 
 | Área | Ferramentas | O que fazem |
 | --- | --- | --- |
-| Revit | 103 | Ler o modelo, criar e editar elementos, parâmetros, vistas, folhas, tabelas de quantitativos, exportações, trabalho compartilhado |
-| Aprovação | 6 | Planejar, revisar, aprovar, executar e reverter alterações no modelo |
-| Módulos | 34 | Inspeção de snapshots, grades de parâmetros, verificações de QA/QC, receitas, relatórios, seleções |
+| Revit | 105 | Ler o modelo, criar e editar elementos, parâmetros, vistas, folhas, tabelas de quantitativos, exportações, trabalho compartilhado |
+| Aprovação | 5 | Planejar, revisar, aprovar, executar e reverter alterações no modelo |
+| Módulos | 55 | Inspeção de snapshots, grades de parâmetros, verificações de QA/QC, receitas, relatórios, seleções |
 | Rhino e Grasshopper | 19 | Geometria, camadas, materiais, operações booleanas |
 | Speckle | 17 | Projetos, modelos, versões, envio e recebimento |
 | Navisworks | 15 | Árvore do modelo, pontos de vista, testes de interferência (em desenvolvimento) |
 | IFC | 7 | Ler arquivos IFC sem o Revit: estrutura, propriedades, validação |
 | Grafo, snapshots, exportações, tarefas | 18 | Auditorias do grafo semântico, diferenças entre snapshots, exportação para SQLite, tarefas em segundo plano |
 
-219 ferramentas são listadas na configuração padrão (contadas no servidor atual em modo mock). As ferramentas do Autodesk Data aparecem quando as credenciais do APS estão configuradas. A [referência de ferramentas](../tools-generated.md) lista todas elas. Cada ferramenta traz anotações MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), para que os clientes distingam leituras de escritas.
+241 ferramentas são listadas na configuração padrão (contadas no servidor atual em modo mock). As ferramentas do Autodesk Data aparecem quando as credenciais do APS estão configuradas. A [referência de ferramentas](../tools-generated.md) lista todas elas. Cada ferramenta traz anotações MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), para que os clientes distingam leituras de escritas.
 
 ### Automação avançada do Revit
 
@@ -151,13 +151,13 @@ O hub bloqueia qualquer chamada de ferramenta que altere o modelo, a menos que e
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant drafts a plan with plan_actions, the side panel shows the proposed changes (counts, scope, before and after), and a human approves in the panel or with the aec-model-bridge-approve CLI, never over MCP. The hub checks that the plan matches the approved tool and arguments, once only. Revit then runs each action in its own transaction, so Ctrl+Z undoes one action per press. After verifying, you can also use rollback_plan, which may skip actions with no recorded before-value. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
+    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant drafts a plan with plan_actions, the side panel shows the proposed changes (counts, scope, before and after), and a human approves in the panel or with the aec-model-bridge-approve CLI, never over MCP. The hub checks that the plan matches the approved tool and arguments, once only. Revit then runs each action in its own transaction, so Ctrl+Z undoes one action per press. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
   </picture>
 </p>
 
 <sub>Fonte do diagrama: [approval-flow.mmd](../diagrams/approval-flow.mmd). Gere as imagens novamente com `python scripts/render_diagrams.py`.</sub>
 
-Se um plano se mostrar errado, desfaça com Ctrl+Z no Revit. Cada gravação de parâmetro é uma transação nomeada própria, então um plano pode exigir vários toques. Um desfazer em uma única etapa para um plano inteiro está planejado, não construído. `rollback_plan` grava de volta os valores anteriores registrados, em ordem inversa, e pode pular uma ação quando nenhum valor anterior foi registrado, então leia seus avisos. Nenhum dos dois caminhos foi verificado ainda em uma sessão real do Revit (UNVERIFIED). Operações que não podem ser revertidas, como a gravação de arquivos, não são desfeitas por nenhum dos dois caminhos e ainda não pedem uma segunda confirmação (planejado). A lista Plans do painel mostra apenas planos pendentes; `aec-model-bridge-approve show <plan_id>` funciona para um plano em qualquer estado, enquanto os pacotes de `proofs/` existem apenas para planos que foram executados (ou tentados). O ciclo de vida está no [ADR 0008](../0008-approval-gate-lifecycle.md).
+Se um plano se mostrar errado, desfaça com Ctrl+Z no Revit. Cada gravação de parâmetro é uma transação nomeada própria, então um plano pode exigir vários toques. Um desfazer em uma única etapa para um plano inteiro está planejado, não construído. Um segundo caminho é um plano de reversão: o assistente redige um com `plan_revert` a partir da prova de um plano executado, e você o aprova como qualquer outro plano. `rollback_plan` é apenas para pessoas e não é um botão nem um comando, então não conte com ele. Nenhum desses caminhos foi verificado ainda em uma sessão real do Revit (UNVERIFIED). Operações que não podem ser revertidas, como a gravação de arquivos, não são desfeitas por nenhum deles e ainda não pedem uma segunda confirmação (planejado). A lista Plans do painel mostra apenas planos pendentes; `aec-model-bridge-approve show <plan_id>` funciona para um plano em qualquer estado, enquanto os pacotes de `proofs/` existem apenas para planos que foram executados (ou tentados). O ciclo de vida está no [ADR 0008](../0008-approval-gate-lifecycle.md).
 
 Para pipelines sem supervisão, você pode definir `MCP_REVIT_APPROVAL_MODE=auto`. Isso desliga a verificação feita por uma pessoa, então use apenas em um ambiente controlado.
 

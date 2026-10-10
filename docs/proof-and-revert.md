@@ -10,7 +10,7 @@ When `execute_plan` finishes (or a mutating tool marks a plan executed), the ser
 | --- | --- |
 | `plan_id`, `tool`, `tools` | The plan and the tool(s) it called. |
 | `created_at`, `approved_at`, `executed_at` | Lifecycle timestamps (UTC). |
-| `approved_by` | Name passed as `approver` to `approve_plan`. Self-reported and not authenticated; `null` if none was given. |
+| `approved_by` | The operating-system account that ran the approval (set by the server; an `approver` argument is ignored). It is a local account name, not a verified person. `approver_note` names the channel (`panel` or `cli`), or says the identity was not recorded. |
 | `document` | `snapshot_id`, `doc_guid`, `doc_title` of the snapshot the plan was drafted from. `null` if the plan has no `snapshot_id`. |
 | `plan_hash` | SHA-256 of the plan content (actions, arguments, before values, skipped list). |
 | `elements` | Applied changes: `element_id`, `uid` (when a snapshot is known), `parameter`, `before`, `before_storage_type` (Revit storage type reported when `before` was captured; `null` if unknown), `new`. |
@@ -21,7 +21,7 @@ To get the document identity and the skipped list, pass `snapshot_id` (and `skip
 
 ## Reverting
 
-`plan_revert(plan_id)` reads the proof bundle and drafts a new pending plan that sets each parameter back to its recorded `before` value. It never executes anything: the draft still needs `approve_plan` and `execute_plan`, and its own execution gets its own proof (`reverts_plan_id` links them).
+`plan_revert(plan_id)` reads the proof bundle and drafts a new pending plan that sets each parameter back to its recorded `before` value. It never executes anything: the draft still needs a person to approve it (in the panel or with `aec-model-bridge-approve`) and then `execute_plan`, and its own execution gets its own proof (`reverts_plan_id` links them).
 
 It refuses, with a message, when:
 
@@ -40,4 +40,4 @@ Like `plan_actions`, drafting a revert is not itself gated; changing the model i
 - UNVERIFIED: revert's staleness check and the `before` capture read values through `revit_get_parameter_value`, so their correctness in a real model (units, type vs instance parameters, worksharing ownership) depends on that live tool.
 - When a mutating tool is called directly with a `plan_id` (not through `execute_plan`), no per-action results exist. The proof is still written, but its outcome is never `success`, so such plans cannot be reverted. Direct calls that raise before the plan is marked executed leave no proof.
 - Only `revit_set_parameter_value` actions are recorded per element and reverted. Other actions in the same plan appear under `other_actions` and are not reverted.
-- `approved_by` is whatever the approving client passed; it is not an authenticated identity.
+- `approved_by` is the local operating-system account name; it is not an authenticated identity.

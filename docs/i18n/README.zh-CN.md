@@ -106,16 +106,16 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 | 领域 | 工具数 | 功能 |
 | --- | --- | --- |
-| Revit | 103 | 读取模型，创建和编辑构件、参数、视图、图纸、明细表，导出，工作共享 |
-| 审批 | 6 | 规划、审阅、批准、执行并回滚模型变更 |
-| 模块 | 34 | 快照检查、参数网格、QA/QC 检查、配方、报告、选择集 |
+| Revit | 105 | 读取模型，创建和编辑构件、参数、视图、图纸、明细表，导出，工作共享 |
+| 审批 | 5 | 规划、审阅、批准、执行并回滚模型变更 |
+| 模块 | 55 | 快照检查、参数网格、QA/QC 检查、配方、报告、选择集 |
 | Rhino 与 Grasshopper | 19 | 几何体、图层、材质、布尔运算 |
 | Speckle | 17 | 项目、模型、版本、发送与接收 |
 | Navisworks | 15 | 模型树、视点、碰撞测试（开发中） |
 | IFC | 7 | 无需 Revit 即可读取 IFC 文件：结构、属性、校验 |
 | 图谱、快照、导出、作业 | 18 | 语义图谱审计、快照差异比对、SQLite 导出、后台作业 |
 
-默认配置下共列出 219 个工具（在 mock 模式下统计自当前服务器）。配置 APS 凭据后会出现 Autodesk Data 工具。[工具参考](../tools-generated.md)列出了所有工具。每个工具都带有 MCP 注解（`readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`），客户端据此区分读取和写入。
+默认配置下共列出 241 个工具（在 mock 模式下统计自当前服务器）。配置 APS 凭据后会出现 Autodesk Data 工具。[工具参考](../tools-generated.md)列出了所有工具。每个工具都带有 MCP 注解（`readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`），客户端据此区分读取和写入。
 
 ### 高级 Revit 自动化
 
@@ -152,13 +152,13 @@ hub 会拦截任何会修改模型的工具调用，除非它附带已批准的�
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant drafts a plan with plan_actions, the side panel shows the proposed changes (counts, scope, before and after), and a human approves in the panel or with the aec-model-bridge-approve CLI, never over MCP. The hub checks that the plan matches the approved tool and arguments, once only. Revit then runs each action in its own transaction, so Ctrl+Z undoes one action per press. After verifying, you can also use rollback_plan, which may skip actions with no recorded before-value. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
+    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant drafts a plan with plan_actions, the side panel shows the proposed changes (counts, scope, before and after), and a human approves in the panel or with the aec-model-bridge-approve CLI, never over MCP. The hub checks that the plan matches the approved tool and arguments, once only. Revit then runs each action in its own transaction, so Ctrl+Z undoes one action per press. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
   </picture>
 </p>
 
 <sub>图表源文件：[approval-flow.mmd](../diagrams/approval-flow.mmd)。使用 `python scripts/render_diagrams.py` 重新生成图片。</sub>
 
-如果计划有误，请在 Revit 中用 Ctrl+Z 撤销。每次参数写入都是各自独立的命名事务，因此一个计划可能需要按多次。整个计划一步撤销的功能已列入计划，尚未实现。`rollback_plan` 会按相反顺序写回已记录的原值，如果某个操作没有记录原值，它可能会跳过该操作，请查看其警告。这两种方式目前都尚未在真实的 Revit 会话中验证（UNVERIFIED）。无法撤销的操作（例如文件输出）这两种方式都无法撤销，目前也尚未要求再次确认（已列入计划）。面板的 Plans 列表只显示待处理的计划；`aec-model-bridge-approve show <plan_id>` 适用于任何状态的计划，而 `proofs/` 包只存在于已执行（或尝试执行）的计划。完整生命周期见 [ADR 0008](../0008-approval-gate-lifecycle.md)。
+如果计划有误，请在 Revit 中用 Ctrl+Z 撤销。每次参数写入都是各自独立的命名事务，因此一个计划可能需要按多次。整个计划一步撤销的功能已列入计划，尚未实现。第二种方式是还原计划：助手根据已执行计划的凭证，用 `plan_revert` 起草一个新计划，再像批准其他计划一样批准它。`rollback_plan` 仅供人使用，既不是按钮也不是命令，因此不要指望它。这些方式目前都尚未在真实的 Revit 会话中验证（UNVERIFIED）。无法撤销的操作（例如文件输出）这些方式都无法撤销，目前也尚未要求再次确认（已列入计划）。面板的 Plans 列表只显示待处理的计划；`aec-model-bridge-approve show <plan_id>` 适用于任何状态的计划，而 `proofs/` 包只存在于已执行（或尝试执行）的计划。完整生命周期见 [ADR 0008](../0008-approval-gate-lifecycle.md)。
 
 对于无人值守的流水线，可以设置 `MCP_REVIT_APPROVAL_MODE=auto`。这会关闭人工检查，因此请仅在受控环境中使用。
 
