@@ -95,7 +95,7 @@ class ApprovalProvider(AECProvider):
         return self._capabilities
 
     async def check_health(self) -> Dict[str, Any]:
-        return {"status": "healthy"}
+        return {"status": "healthy", "approval_mode": self.gate.approval_mode}
 
     async def shutdown(self) -> None:
         pass
@@ -212,6 +212,7 @@ class ApprovalProvider(AECProvider):
         never mistaken for fully applied and never silently retried by rollback; failed
         and succeeded actions are both recorded so nothing is dropped from the audit trail.
         """
+        self.gate.refuse_if_look_only()  # before any plan state is touched
         plan = self.gate.load_plan(plan_id)
         if not plan:
             raise ValueError(f"Plan {plan_id} not found")
