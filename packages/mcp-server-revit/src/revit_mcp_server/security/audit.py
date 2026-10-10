@@ -33,12 +33,31 @@ _POSIX_PATH_RE = re.compile(r"(?:(?<=^)|(?<=[\s\"'(<\[]))(/(?:[^/\s]+/)*[^/\s]+)
 _UNC_OR_ROOTED_PATH_RE = re.compile(r"(?<![\w\\:])\\{1,2}(?:[^\s\"'<>|\\/]+\\)+[^\s\"'<>|\\/]+")
 
 
+# Exact secret values known to this process (for example the panel hub token). Matching is by
+# value, so a secret is masked wherever it ends up, not only next to a "token=" label.
+_KNOWN_SECRET_VALUES: set[str] = set()
+
+
+def register_secret_value(value: str) -> None:
+    """Mask this exact value in everything redact_data / redact_known_secrets touch."""
+    if value and len(value) >= 8:
+        _KNOWN_SECRET_VALUES.add(value)
+
+
+def redact_known_secrets(text: str) -> str:
+    for secret in _KNOWN_SECRET_VALUES:
+        if secret in text:
+            text = text.replace(secret, "<redacted>")
+    return text
+
+
 def _is_sensitive_key(key: str) -> bool:
     normalized = re.sub(r"[^a-z0-9]", "", key.strip().lower())
     return any(normalized == secret or normalized.endswith(secret) for secret in _SECRET_KEYS)
 
 
 def _redact_text(value: str) -> str:
+    value = redact_known_secrets(value)
     sanitized = _SECRET_VALUE_RE.sub(lambda match: f"{match.group(1)}=<redacted>", value)
     sanitized = _WINDOWS_PATH_RE.sub("<redacted-path>", sanitized)
     sanitized = _UNC_OR_ROOTED_PATH_RE.sub("<redacted-path>", sanitized)
