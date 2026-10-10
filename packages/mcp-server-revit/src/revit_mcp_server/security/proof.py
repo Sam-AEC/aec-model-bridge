@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import re
 from datetime import datetime, timezone
@@ -226,34 +227,62 @@ def review_view(plan: Dict[str, Any]) -> Dict[str, Any]:
     return view
 
 
+PANEL_PLAN_LIMIT = 50
+
+
+def has_nonfinite_float(value: Any) -> bool:
+    """True if a JSON-ish value holds NaN or Infinity (not valid JSON; breaks the host's parser)."""
+    if isinstance(value, float):
+        return not math.isfinite(value)
+    if isinstance(value, dict):
+        return any(has_nonfinite_float(v) for v in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(has_nonfinite_float(v) for v in value)
+    return False
+
+
+def _invalid_view(error: str) -> Dict[str, Any]:
+    return {"status": "invalid", "hash_version": None, "reverts_plan_id": None, "review": None, "error": error}
+
+
 def panel_plans(plans: Any) -> Any:
-    """Shape a ``list_pending_plans`` result for the panel: each plan gets ``review_view``
-    and loses its raw ``review`` (the panel reads only the validated copy). Read-only; the
-    plan files and the MCP result are not changed."""
+    """Shape a ``list_pending_plans`` result for the panel: newest first, at most
+    PANEL_PLAN_LIMIT plans (``omitted`` says how many were left out), each with
+    ``review_view`` and without its raw ``review``. A plan holding NaN/Infinity is sent as
+    a stub that fails closed so one bad plan cannot break the whole queue. Read-only."""
     if not isinstance(plans, dict) or not isinstance(plans.get("plans"), list):
         return plans
+    ordered = sorted(plans["plans"], key=lambda p: str(p.get("created_at", "")) if isinstance(p, dict) else "", reverse=True)
     out = []
-    for plan in plans["plans"]:
+    for plan in ordered[:PANEL_PLAN_LIMIT]:
         if not isinstance(plan, dict):
             out.append(plan)
+            continue
+        if has_nonfinite_float(plan):
+            out.append({"plan_id": plan.get("plan_id"), "state": plan.get("state"),
+                        "plan_hash": plan.get("plan_hash"), "created_at": plan.get("created_at"), "actions": [],
+                        "review_view": _invalid_view("The plan holds a number (NaN or Infinity) that cannot be shown.")})
             continue
         shaped = {k: v for k, v in plan.items() if k != "review"}
         shaped["review_view"] = review_view(plan)
         out.append(shaped)
-    return {**plans, "plans": out}
+    return {**plans, "plans": out, "omitted": max(0, len(ordered) - PANEL_PLAN_LIMIT)}
 
 
-REDACTED_ERROR = ("This plan contains text the panel hides (a path, a secret-like value or a code field), "
+REDACTED_ERROR = ("This plan contains a credential-like value (a password, key or token) that the panel masks, "
                   "so what you would approve cannot be shown here.")
 
 
-def panel_plans_redacted(result: Any, redact: Any) -> Any:
-    """``panel_plans`` followed by output redaction, failing closed: a plan whose approved
-    content (see ``approved_content``) is changed by ``redact`` is sent as ``invalid`` so the
-    panel disables Approve. The command-line tool does not redact, so ``show`` is the way
-    to read such a plan."""
+def panel_plans_redacted(result: Any, redact_full: Any, redact_narrow: Any) -> Any:
+    """``panel_plans`` followed by output redaction, failing closed.
+
+    Fields that are not approved content get ``redact_full`` (paths, secrets, everything).
+    The approved content (``approved_content``: actions, review, reverts id, legacy revert
+    metadata) gets only ``redact_narrow`` (real credentials). It is shown unchanged when the
+    narrow pass changes nothing; if it would mask anything, the plan is sent as ``invalid`` so
+    the panel disables Approve. The command-line tool does not redact, so ``show`` can read it."""
     shaped = panel_plans(result)
-    redacted = redact(shaped)
+    redacted = redact_full(shaped)
     if not isinstance(shaped, dict) or not isinstance(shaped.get("plans"), list):
         return redacted
     plans_out = redacted.get("plans") if isinstance(redacted, dict) else None
@@ -262,9 +291,17 @@ def panel_plans_redacted(result: Any, redact: Any) -> Any:
     for before, after in zip(shaped["plans"], plans_out):
         if not isinstance(before, dict) or not isinstance(after, dict):
             continue
-        if approved_content(before) != approved_content(after):
-            after["review_view"] = {"status": "invalid", "hash_version": None, "reverts_plan_id": None,
-                                    "review": None, "error": REDACTED_ERROR}
+        approved = approved_content(before)
+        narrow = redact_narrow(approved)
+        after["actions"] = narrow["actions"]
+        for key, value in narrow["legacy"].items():
+            after[key] = value
+        if "reverts_plan_id" in before:
+            after["reverts_plan_id"] = narrow["reverts_plan_id"]
+        if narrow != approved:
+            after["review_view"] = _invalid_view(REDACTED_ERROR)
+        elif isinstance(after.get("review_view"), dict) and before["review_view"].get("status") == "ok":
+            after["review_view"]["review"] = narrow["review"]
     return redacted
 
 

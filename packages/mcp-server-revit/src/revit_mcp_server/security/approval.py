@@ -255,6 +255,8 @@ class ApprovalGate:
         canonicalised and covered by the plan hash. ``extra`` is metadata only: it is NOT
         hashed and must not be presented as approved content (see proof.unhashed_metadata_keys)."""
         self.validate_actions(actions)
+        if proof_mod.has_nonfinite_float(actions) or proof_mod.has_nonfinite_float(review):
+            raise BridgeError("A plan cannot hold NaN or Infinity.")
         reserved = sorted(k for k in (extra or {}) if k in _RESERVED_EXTRA_KEYS)
         if reserved:
             raise BridgeError("'extra' cannot set: " + ", ".join(reserved)

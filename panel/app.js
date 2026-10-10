@@ -336,6 +336,14 @@ function reviewPlan(planId) {
     if (item.scrollIntoView) {
       item.scrollIntoView({ block: "nearest" });
     }
+  } else {
+    // Not in the list: more than PLAN_LIMIT plans are pending, or it is no longer pending.
+    const note = document.createElement("p");
+    note.className = "review-blocked";
+    note.setAttribute("role", "alert");
+    note.textContent = `Plan ${visibleText(planId)} is not shown in this panel (too many pending plans, or it is no longer pending). ` +
+      `Use ${cliShowCommand(planId)} to read it.`;
+    planList.prepend(note);
   }
 }
 
@@ -431,16 +439,33 @@ function renderPlans() {
         <span class="badge ${planStatusBadgeClass(plan.status)}">${escapeHtml(String(plan.status).replace(/_/g, " "))}</span>
       </div>
       <p>${escapeHtml(plan.detail)}</p>
-      ${actionable ? `<pre class="plan-review">${escapeHtml(plan.review)}</pre>` : ""}
+      <p class="plan-cli">Plan <code>${id}</code>. To read it in full: <code class="plan-cli-command">${escapeHtml(cliShowCommand(plan.id))}</code>
+        <button type="button" class="review-more" data-copy-command="${id}">Copy command</button></p>
+      ${actionable ? `<pre class="plan-review">${escapeHtml(clipActions(plan.review))}</pre>` : ""}
       <div data-review-mount></div>
       ${actions}`;
+    const pre = item.querySelector("pre.plan-review");
+    if (pre && plan.review.length > ACTIONS_CLIP) {
+      const more = document.createElement("button");
+      more.type = "button";
+      more.className = "review-more";
+      more.setAttribute("aria-expanded", "false");
+      more.textContent = `Show all actions (${plan.review.length - ACTIONS_CLIP} more characters)`;
+      more.addEventListener("click", () => {
+        const open = more.getAttribute("aria-expanded") === "true";
+        pre.textContent = open ? clipActions(plan.review) : plan.review;
+        more.textContent = open ? `Show all actions (${plan.review.length - ACTIONS_CLIP} more characters)` : "Show less";
+        more.setAttribute("aria-expanded", open ? "false" : "true");
+      });
+      pre.after(more);
+    }
     const mount = item.querySelector("[data-review-mount]");
     if (plan.reviewBlocked && actionable) {
       const note = document.createElement("p");
       note.className = "review-blocked";
       note.setAttribute("role", "alert");
       const reason = plan.reviewState.reason ? ` (${visibleText(plan.reviewState.reason).slice(0, 300)})` : "";
-      note.textContent = REVIEW_BLOCKED_MESSAGE + reason;
+      note.textContent = REVIEW_BLOCKED_MESSAGE.replace("aec-model-bridge-approve show <plan id>", cliShowCommand(plan.id)) + reason;
       mount.replaceWith(note);
     } else if (actionable) {
       mount.replaceWith(slot);
@@ -548,6 +573,18 @@ setupToggle.addEventListener("click", () => {
 document.body.addEventListener("click", (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) {
+    return;
+  }
+
+  const copyFor = target.dataset.copyCommand;
+  if (copyFor) {
+    const command = cliShowCommand(copyFor);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(command).catch(() => {});
+      }
+    } catch (error) { /* clipboard may be unavailable in WebView2; the command is shown on the card */ }
+    addLog("Command copied", command);
     return;
   }
 
@@ -694,10 +731,25 @@ function stringifyForReview(value) {
 const REVIEW_CLIP = 280;
 const REVIEW_LIST_CAP = 100;
 const PLAN_LIMIT = 50;
+const ACTIONS_CLIP = 4000;
+
+// The action text (tool, arguments incl. code, before values) is what the person approves:
+// shown in full up to ACTIONS_CLIP characters, the rest behind "Show all actions".
+function clipActions(text) {
+  const t = String(text);
+  if (t.length <= ACTIONS_CLIP) return t;
+  let cut = t.slice(0, ACTIONS_CLIP);
+  if (/[\uD800-\uDBFF]$/.test(cut)) cut = cut.slice(0, -1);
+  return cut + "\u2026";
+}
 const PLAN_ID_SHAPE = /^plan_[0-9a-f]{12}$/;
 const REVIEW_BLOCKED_MESSAGE =
-  "This plan's review could not be shown, so it cannot be approved here. " +
+  "This plan cannot be shown completely here, so it cannot be approved in this panel. " +
   "Use aec-model-bridge-approve show <plan id> in a terminal to read it, then approve or reject there.";
+
+function cliShowCommand(planId) {
+  return `aec-model-bridge-approve show ${visibleText(planId)}`;
+}
 
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -888,7 +940,8 @@ function planActionLines(actions) {
 
 function mapPlans(hubResult) {
   const all = (hubResult && hubResult.plans) || [];
-  state.plansOmitted = Math.max(0, all.length - PLAN_LIMIT);
+  const hubOmitted = Number.isSafeInteger(hubResult && hubResult.omitted) && hubResult.omitted > 0 ? hubResult.omitted : 0;
+  state.plansOmitted = hubOmitted + Math.max(0, all.length - PLAN_LIMIT);
   return all.slice(0, PLAN_LIMIT).map((plan) => {
     const actions = plan.actions || [];
     const reviewState = planReviewState(plan);
@@ -901,7 +954,7 @@ function mapPlans(hubResult) {
       review: planActionLines(actions).join("\n") || "No actions",
       reviewState,
       reviewBlocked: !reviewState.ok,
-      reviewPending: false,
+      reviewPending: reviewState.ok && reviewState.version === 2 && !state.openedReviews.has(`${plan.plan_id}:${plan.plan_hash || ""}`),
       // Facts for the chat card, from the same real actions: tool, arguments, captured before value.
       actions: actions.map((action) => ({
         tool: action && action.tool,
