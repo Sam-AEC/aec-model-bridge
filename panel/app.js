@@ -353,14 +353,18 @@ function renderPlans() {
     item.className = "item";
     const id = escapeHtml(plan.id);
     const label = escapeHtml(plan.title);
+    const hash = escapeHtml(plan.hash);
     const actionable = isPlanActionable(plan);
+    // The review block (tool, arguments, before value) is what the person approves,
+    // so it is shown only while a decision is still open; settled plans keep a badge.
+    const review = actionable ? `<pre class="plan-review">${escapeHtml(plan.review)}</pre>` : "";
     const select = actionable
       ? `<label class="plan-select"><input type="checkbox" data-select-plan="${id}" aria-label="Select plan ${label}"${state.selectedPlanIds.has(plan.id) ? " checked" : ""}></label>`
       : "";
     const actions = actionable
       ? `<div class="item-actions">
-        <button type="button" data-plan="${id}" class="primary" data-decision="approve" aria-label="Approve plan ${label}">Approve</button>
-        <button type="button" data-plan="${id}" data-decision="reject" aria-label="Reject plan ${label}">Reject</button>
+        <button type="button" data-plan="${id}" data-hash="${hash}" class="primary" data-decision="approve" aria-label="Approve plan ${label}">Approve</button>
+        <button type="button" data-plan="${id}" data-hash="${hash}" data-decision="reject" aria-label="Reject plan ${label}">Reject</button>
       </div>`
       : "";
     item.innerHTML = `
@@ -369,6 +373,7 @@ function renderPlans() {
         <span class="badge ${planStatusBadgeClass(plan.status)}">${escapeHtml(String(plan.status).replace(/_/g, " "))}</span>
       </div>
       <p>${escapeHtml(plan.detail)}</p>
+      ${review}
       ${actions}`;
     planList.appendChild(item);
   });
@@ -481,7 +486,8 @@ document.body.addEventListener("click", (event) => {
       addLog("Nothing selected", "Tick one or more pending plans first.");
     } else {
       ids.forEach((planId) => {
-        postToHost("plan.approve", { planId });
+        const plan = state.plans.find((candidate) => candidate.id === planId);
+        postToHost("plan.approve", { planId, planHash: plan ? plan.hash || "" : "" });
         state.selectedPlanIds.delete(planId);
       });
       addLog("Approval requested", `${ids.length} selected plan(s) sent to the host.`);
@@ -504,7 +510,9 @@ document.body.addEventListener("click", (event) => {
   const planId = target.dataset.plan;
   if (planId) {
     const decision = target.dataset.decision;
-    postToHost(`plan.${decision}`, { planId });
+    // planHash is the hash of the plan this list was rendered from; the hub refuses
+    // the approval if the plan changed since.
+    postToHost(`plan.${decision}`, { planId, planHash: target.dataset.hash || "" });
     addLog(`Plan ${decision}`, planId);
   }
 
@@ -580,15 +588,52 @@ function mapFindings(hubResult) {
   }));
 }
 
+// Model-controlled text: show control and format characters (ANSI/bidi/zero-width)
+// as visible escapes, as the aec-model-bridge-approve CLI does.
+function visibleText(value) {
+  return String(value).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Cs}\p{Co}\p{Cn}]/gu, (ch) => {
+    // Newline and tab are layout, not hidden content: keep pretty-printed JSON readable.
+    if (ch === "\n" || ch === "\t") return ch;
+    const code = ch.codePointAt(0);
+    const hex = code.toString(16).padStart(code <= 0xff ? 2 : code <= 0xffff ? 4 : 8, "0");
+    return (code <= 0xff ? "\\x" : code <= 0xffff ? "\\u" : "\\U") + hex;
+  });
+}
+
+function stringifyForReview(value) {
+  try {
+    const text = JSON.stringify(value === undefined ? null : value, null, 2);
+    return visibleText(text === undefined ? String(value) : text);
+  } catch (error) {
+    return "(not displayable)";
+  }
+}
+
+// Everything the person approves: each action's tool, arguments and before value.
+function planActionLines(actions) {
+  return actions.map((action, index) => {
+    const lines = [`${index + 1}. ${visibleText(action && action.tool)}`];
+    const args = action && action.arguments;
+    lines.push(`   arguments: ${stringifyForReview(args === undefined ? {} : args)}`);
+    const before = action && action.diff && action.diff.before;
+    if (before && Object.keys(before).length > 0) {
+      lines.push(`   before: ${stringifyForReview(before)}`);
+    }
+    return lines.join("\n");
+  });
+}
+
 function mapPlans(hubResult) {
   const plans = (hubResult && hubResult.plans) || [];
   return plans.map((plan) => {
     const actions = plan.actions || [];
     return {
       id: plan.plan_id,
+      hash: plan.plan_hash || "",
       status: plan.state,
       title: actions.length === 1 ? actions[0].tool : `${actions.length} action(s)`,
-      detail: actions.map((action) => action.tool).join(", ") || "No actions"
+      detail: actions.map((action) => action.tool).join(", ") || "No actions",
+      review: planActionLines(actions).join("\n") || "No actions"
     };
   });
 }

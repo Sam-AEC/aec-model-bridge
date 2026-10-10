@@ -1,4 +1,4 @@
-"""call_tool must log (not swallow) a failed plan-state update after a mutating tool ran."""
+"""call_tool must log (not swallow) a failed outcome record after a mutating tool ran."""
 from __future__ import annotations
 
 import asyncio
@@ -22,10 +22,10 @@ class _Registry:
 
 
 class _Gate:
-    def check_tool_execution(self, name, arguments):
-        return None
+    def claim_action(self, name, arguments):
+        return {"plan_id": arguments["plan_id"], "action_id": "act-1"}
 
-    def update_plan_state(self, plan_id, state):
+    def finish_action(self, claim, ok, error=None):
         raise RuntimeError("state store unavailable")
 
 
@@ -39,8 +39,7 @@ def test_plan_state_failure_is_logged_and_result_unchanged(monkeypatch, caplog):
         result = asyncio.run(mcp_server.call_tool("set_thing", {"plan_id": "plan-123"}))
 
     assert "set_thing executed successfully" in result[0].text
-    records = [r for r in caplog.records if "could not be marked executed" in r.getMessage()]
+    records = [r for r in caplog.records if "Could not record the outcome" in r.getMessage()]
     assert len(records) == 1
     assert "plan-123" in records[0].getMessage()
-    assert "set_thing" in records[0].getMessage()
     assert records[0].exc_info and records[0].exc_info[0] is RuntimeError

@@ -146,7 +146,7 @@ DESCRIPTIONS: dict[str, str] = {
     "reject_plan": "Reject and archive a pending ActionPlan so that it can never be executed.",
     "get_proof_bundle": "Return the proof bundle (plan hash, approver, document, per-element before and new values, skipped elements and execution outcome) of a finished ActionPlan. Read-only.",
     "plan_revert": "Draft a new ActionPlan that sets each parameter back to the before value recorded in an executed plan's proof bundle. Refuses if the plan was not fully executed, a before value is missing, or the model changed since. Never executes; the draft needs approval.",
-    "rollback_plan": "Undo an already executed ActionPlan by applying the inverse of each recorded change, in reverse order. Actions without a rollback handler are reported as warnings.",
+    "rollback_plan": "Write back the recorded before-values of an already executed ActionPlan, in reverse order. Not a one-step Revit undo: an action without a rollback handler or a recorded before-value is skipped and reported as a warning, so the rollback can be partial. Revit's Ctrl+Z works per step. Untested in a live Revit session.",
     # --- Modules (panel commands) -----------------------------------------
     "module_list_commands": "List all registered modules and the commands they expose to the dockable Revit panel. Read-only.",
     "familytype_mapper_audit_families": "Audit the families in a saved snapshot and report problems such as unmapped or inconsistent family types. Read-only.",

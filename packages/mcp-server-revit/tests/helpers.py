@@ -108,3 +108,19 @@ class MCPServer:
 
         self._loop.call_soon_threadsafe(self._loop.stop)
         self._loop_thread.join(timeout=2.0)
+
+
+def human_approve(gate, plan_id, via="cli", approver=None):
+    """Approve a plan the way a person does: with the hash of the plan they were shown."""
+    from revit_mcp_server.security.approval import plan_hash
+
+    return gate.update_plan_state(plan_id, "approved", approver=approver, via=via,
+                                  expected_hash=plan_hash(gate.load_plan(plan_id)))
+
+
+async def panel_decide(approval, tool, plan_id, **extra):
+    """Run approve_plan / reject_plan / rollback_plan through the panel's human route."""
+    args = {"plan_id": plan_id, **extra}
+    if tool == "approve_plan":
+        args.setdefault("expected_hash", approval.gate.load_plan(plan_id)["plan_hash"])
+    return await approval.execute_human_tool(tool, args, via="panel")

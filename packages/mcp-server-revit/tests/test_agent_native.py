@@ -185,12 +185,12 @@ def test_successful_single_turn_returns_text_and_session_id(monkeypatch, registr
 
 def test_mutating_tool_call_goes_through_approval_gate_before_executing(monkeypatch, registry, approval_provider):
     """The load-bearing test: a mutating tool call must be checked against
-    ApprovalGate.check_tool_execution BEFORE provider.execute_tool runs -
+    ApprovalGate.claim_action (check + consume) BEFORE provider.execute_tool runs -
     not just that the tool eventually executed."""
     monkeypatch.setattr(agent_native.config, "anthropic_api_key", "test-key")
 
     call_order: list[tuple[str, str]] = []
-    approval_provider.gate.check_tool_execution.side_effect = lambda name, args: call_order.append(("gate", name))
+    approval_provider.gate.claim_action.side_effect = lambda name, args: call_order.append(("gate", name))
 
     fake_provider = registry.lookup_tool_provider("revit_set_parameter_value")
     original_execute = fake_provider.execute_tool
@@ -212,7 +212,7 @@ def test_mutating_tool_call_goes_through_approval_gate_before_executing(monkeypa
 
     assert result["ok"] is True
     assert result["response"] == "Updated Mark to D-1"
-    approval_provider.gate.check_tool_execution.assert_called_once_with("revit_set_parameter_value", tool_args)
+    approval_provider.gate.claim_action.assert_called_once_with("revit_set_parameter_value", tool_args)
     assert call_order == [("gate", "revit_set_parameter_value"), ("execute", "revit_set_parameter_value")]
 
 
@@ -225,7 +225,7 @@ def test_gate_rejected_tool_call_surfaces_to_model_as_error_result_without_rollb
     session history keeps the whole exchange - including a sibling call in
     the same turn that already succeeded."""
     monkeypatch.setattr(agent_native.config, "anthropic_api_key", "test-key")
-    approval_provider.gate.check_tool_execution.side_effect = RuntimeError(
+    approval_provider.gate.claim_action.side_effect = RuntimeError(
         "Mutating tool 'revit_set_parameter_value' requires a valid 'plan_id' parameter."
     )
 
@@ -290,7 +290,7 @@ def test_non_mutating_tool_call_does_not_require_gate_check(monkeypatch, registr
 
     assert result["ok"] is True
     assert result["response"] == "FireRating is 60"
-    approval_provider.gate.check_tool_execution.assert_not_called()
+    approval_provider.gate.claim_action.assert_not_called()
 
     fake_provider = registry.lookup_tool_provider("revit_get_parameter_value")
     assert fake_provider.calls == [("revit_get_parameter_value", tool_args)]

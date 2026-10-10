@@ -159,7 +159,8 @@ def test_plan_actions_approve_execute_round_trip_over_http(running_server):
     plan_id = plan["result"]["plan_id"]
     assert plan["result"]["state"] == "pending"
 
-    status, approved = _post(running_server, "/execute", {"tool": "approve_plan", "arguments": {"plan_id": plan_id}})
+    status, approved = _post(running_server, "/execute", {"tool": "approve_plan", "arguments": {
+        "plan_id": plan_id, "expected_hash": plan["result"]["plan_hash"]}})
     assert status == 200
     assert approved["result"]["state"] == "approved"
 

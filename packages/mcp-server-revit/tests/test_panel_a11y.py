@@ -159,6 +159,12 @@ def test_narrow_layout_rules():
     assert "overflow-wrap" in CSS
 
 
+def test_status_pill_keeps_port_visible_when_narrow():
+    body = _block(r"\.status-pill")
+    assert "white-space: nowrap" not in body
+    assert "text-overflow: ellipsis" not in CSS.split(".status-pill > span:last-child")[1].split("}")[0]
+
+
 # ------------------------------------------------------------------- plans
 
 
@@ -255,6 +261,20 @@ console.log(JSON.stringify(out));
         assert not got[finished]["reject"], f"{finished} still shows Reject"
 
 
+def test_review_block_only_for_pending_plans():
+    got = _run(
+        f"""
+host(); plans({PLAN_LIST});
+const h = els['plan-list'].innerHTML;
+const cards = h.split('class="item-head"').slice(1);
+console.log(JSON.stringify(cards.map((c) => ({{ review: c.includes('class="plan-review"'),
+  badge: c.includes('class="badge ') }}))));
+"""
+    )
+    assert [c["review"] for c in got] == [True, True, False, False, False, False]
+    assert all(c["badge"] for c in got)
+
+
 def test_approve_selected_sends_one_plan_approve_per_checked_plan():
     got = _run(
         f"""
@@ -268,7 +288,7 @@ console.log(JSON.stringify({{ checkboxes, sent }}));
 """
     )
     assert got["checkboxes"] == ['data-select-plan="p1"', 'data-select-plan="p2"']
-    assert got["sent"] == [{"type": "plan.approve", "planId": "p2"}]
+    assert got["sent"] == [{"type": "plan.approve", "planId": "p2", "planHash": ""}]
 
 
 def test_approve_selected_with_nothing_selected_sends_nothing():

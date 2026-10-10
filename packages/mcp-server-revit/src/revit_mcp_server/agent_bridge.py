@@ -27,6 +27,8 @@ import tempfile
 import uuid
 from typing import Any, Dict, Optional
 
+from .security.approval import HUMAN_ONLY_TOOLS
+
 logger = logging.getLogger(__name__)
 
 _TURN_TIMEOUT_SECONDS = 180
@@ -101,6 +103,9 @@ def _run_claude_turn(message: str, session_id: Optional[str]) -> Dict[str, Any]:
         # server is what actually lets Revit tool calls proceed; ApprovalGate
         # on the Revit side is still the real safety boundary for mutations.
         "--allowedTools", f"mcp__{_MCP_SERVER_NAME}",
+        # Plans are approved by a person (panel or command line), never by the
+        # model. The server also hides and refuses these; this is belt and braces.
+        "--disallowedTools", *[f"mcp__{_MCP_SERVER_NAME}__{t}" for t in sorted(HUMAN_ONLY_TOOLS)],
         "--permission-mode", "acceptEdits",
         "--output-format", "json",
     ]
