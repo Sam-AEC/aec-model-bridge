@@ -268,11 +268,6 @@ namespace RevitBridge.UI
 
             // Brand mark (shared with the dialog header and ribbon brand icon)
             var viewBox = BrandMark.CreateImage(40);
-            var brandBitmap = BrandAssets.TryLoad(96); // null -> keep the drawn mark
-            if (brandBitmap != null)
-            {
-                viewBox.Source = brandBitmap;
-            }
 
             Grid.SetColumn(viewBox, 0);
             grid.Children.Add(viewBox);
