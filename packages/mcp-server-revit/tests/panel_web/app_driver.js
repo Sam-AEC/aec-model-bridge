@@ -381,5 +381,192 @@
     expect(f.scrollHeight - f.scrollTop - f.clientHeight < 60, "pill did not return to the bottom");
   });
 
+  // ---- plan review block (hash_version 2) ------------------------------------------------
+  const REVIEW = () => ({
+    summary: "Raise fire rating to 60",
+    reasoning: "Corridor walls need 60 min.",
+    citations: [{ rule_id: "FIRE-001", clause: "B3.2", source: "Approved Document B" }],
+    assumptions: ["Walls are load bearing"],
+    excluded: [{ element_id: 9, reason: "linked model" }],
+    warnings: ["Check with the fire engineer"],
+    conflicts: [{ element_id: 1, parameter: "FireRating", expected_current: "60", actual_current: "90", revert_to: "30" }],
+  });
+  const V2 = (id, review, extra) => Object.assign({
+    plan_id: id, plan_hash: "abcdef0123456789", state: "pending", hash_version: 2,
+    actions: [SET([1], true)],
+    review_view: { status: "ok", hash_version: 2, reverts_plan_id: null, review, error: "" },
+  }, extra || {});
+  const cardOf = (id) => Array.from($("plan-list").children).find((c) => c.dataset.planId === id);
+  const approveBtn = (card) => card.querySelector('[data-decision="approve"]');
+  const FORBIDDEN = "script,img,iframe,object,embed,style,link,meta,base,form,svg,math,video,audio,a,textarea";
+  const XSS = '<script>window.__pwned=1</script><img src=x onerror="window.__pwned=2"><a href="javascript:window.__pwned=3">x</a><svg onload="window.__pwned=4"></svg>';
+
+  test("review: a v2 plan shows every hashed review field and says what the hash covers", () => {
+    fresh();
+    plans([V2("r1", REVIEW())]);
+    const card = cardOf("r1");
+    const block = card.querySelector(".plan-review-block");
+    expect(block && block.dataset.reviewKind === "v2", "review block missing");
+    const t = block.textContent;
+    for (const needle of ["Raise fire rating to 60", "Corridor walls need 60 min.", "FIRE-001", "B3.2", "Approved Document B",
+      "Walls are load bearing", "linked model", "Check with the fire engineer", "FireRating", "Revert to"]) {
+      expect(t.includes(needle), "missing in review: " + needle);
+    }
+    expect(/Covered by the approval hash/.test(t), "hash coverage not stated");
+    for (const h of ["Summary", "Reasoning", "Citations", "Assumptions", "Excluded elements", "Warnings", "Conflicts"]) {
+      expect(Array.from(block.querySelectorAll("h3")).some((n) => n.textContent.startsWith(h)), "section " + h);
+    }
+    expect(!approveBtn(card).disabled, "Approve should be on for a shown review");
+  });
+
+  test("review: reverts_plan_id is shown when present", () => {
+    fresh();
+    const p = V2("r2", REVIEW());
+    p.review_view.reverts_plan_id = "plan-orig_1";
+    plans([p]);
+    expect(/Reverts plan: plan-orig_1/.test(cardOf("r2").textContent), "reverted plan id not shown");
+  });
+
+  test("review: script and markup in every field stay inert text", () => {
+    fresh();
+    const r = {
+      summary: XSS, reasoning: XSS,
+      citations: [{ rule_id: XSS, clause: XSS, source: XSS }],
+      assumptions: [XSS], excluded: [{ element_id: XSS, reason: XSS }], warnings: [XSS],
+      conflicts: [{ element_id: XSS, parameter: XSS, expected_current: XSS, actual_current: XSS, revert_to: XSS }],
+    };
+    plans([V2("x1", r)]);
+    const block = cardOf("x1").querySelector(".plan-review-block");
+    expect(block, "review block missing");
+    expect(block.querySelectorAll(FORBIDDEN).length === 0, "active element inside the review");
+    block.querySelectorAll("*").forEach((n) => {
+      Array.from(n.attributes).forEach((a) => expect(!/^on/i.test(a.name) && a.name !== "href" && a.name !== "src", "attribute " + a.name));
+    });
+    expect(block.textContent.includes("<script>window.__pwned=1</script>"), "markup should appear as literal text");
+    expect(window.__pwned === undefined, "script ran");
+    expect(window.__csp.length === 0, "CSP violations: " + window.__csp.join(" | "));
+    expect(!sent().some((m) => m.type === "link.open"), "a link was opened");
+  });
+
+  test("review: hostile text in the reverts id stays inert", () => {
+    fresh();
+    const p = V2("x2", REVIEW());
+    p.review_view.reverts_plan_id = XSS;
+    plans([p]);
+    expect(cardOf("x2").querySelectorAll(FORBIDDEN).length === 0, "active element in card");
+    expect(window.__pwned === undefined, "script ran");
+  });
+
+  test("review: control and bidi characters are shown as escapes", () => {
+    fresh();
+    const r = REVIEW();
+    r.summary = "pay‮exe​now\u001b[31m";
+    plans([V2("c1", r)]);
+    const t = cardOf("c1").querySelector(".plan-review-block").textContent;
+    expect(!/[‮​\u001b]/.test(t), "raw control/bidi char reached the page");
+    expect(t.includes("\\u202e") && t.includes("\\x1b"), "escapes not shown");
+  });
+
+  test("review: long text is clipped with Show more that reveals all of it", () => {
+    fresh();
+    const r = REVIEW();
+    r.reasoning = "A".repeat(3000) + "END";
+    plans([V2("l1", r)]);
+    const block = cardOf("l1").querySelector(".plan-review-block");
+    const btn = block.querySelector(".review-more");
+    expect(btn && btn.textContent === "Show more", "no Show more button");
+    expect(!block.textContent.includes("END"), "text was not clipped");
+    btn.click();
+    expect(block.textContent.includes("A".repeat(3000) + "END"), "full text not revealed");
+    expect(btn.textContent === "Show less" && btn.getAttribute("aria-expanded") === "true", "button state");
+    btn.click();
+    expect(!block.textContent.includes("END"), "second click should clip again");
+  });
+
+  test("review: unknown keys are ignored", () => {
+    fresh();
+    const r = REVIEW();
+    r.extra = "<b>x</b>SECRET_TOP";
+    r.citations[0].note = "SECRET_CITE";
+    const p = V2("k1", r);
+    p.review_view.extra = "SECRET_VIEW";
+    plans([p]);
+    const card = cardOf("k1");
+    expect(!/SECRET_/.test(card.textContent), "unknown key was rendered");
+    expect(!approveBtn(card).disabled, "unknown keys must not block approval");
+  });
+
+  test("review: v1 plan (no review) is still approvable and says the hash covers actions only", () => {
+    fresh();
+    plans([PLAN("v1p", [SET([1], true)])]);
+    const card = cardOf("v1p");
+    expect(!approveBtn(card).disabled, "v1 plan blocked");
+    expect(/Hash version 1/.test(card.textContent), "v1 note missing");
+    approveBtn(card).click();
+    expect(sentOf("plan.approve").length === 1, "approve not sent");
+  });
+
+  const BAD_REVIEWS = {
+    "missing view": () => { const p = V2("f", REVIEW()); delete p.review_view; return p; },
+    "hub says invalid": () => V2("f", null, { review_view: { status: "invalid", hash_version: 2, review: null, error: "not canonical" } }),
+    "review null": () => V2("f", null),
+    "citations not a list": () => { const r = REVIEW(); r.citations = "x"; return V2("f", r); },
+    "assumption wrong type": () => { const r = REVIEW(); r.assumptions = [{ a: 1 }]; return V2("f", r); },
+    "conflict field missing": () => { const r = REVIEW(); delete r.conflicts[0].revert_to; return V2("f", r); },
+    "summary not a string": () => { const r = REVIEW(); r.summary = 5; return V2("f", r); },
+    "v2 plan the hub reports as having no review": () => V2("f", null, { review_view: { status: "none", hash_version: 1, review: null } }),
+  };
+  function failClosed(plan) {
+    fresh();
+    plans([plan]);
+    const card = cardOf("f");
+    const btn = approveBtn(card);
+    expect(btn.disabled, "Approve is enabled for an unshowable review");
+    expect(/aec-model-bridge-approve show/.test(card.textContent), "CLI fallback not named");
+    expect(card.querySelector('[role="alert"]'), "no alert message");
+    expect(!card.querySelector(".plan-select"), "bulk-select checkbox offered");
+    btn.click();
+    expect(sentOf("plan.approve").length === 0, "approve was sent");
+    expect(!card.querySelector('[data-decision="reject"]').disabled, "Reject must stay available");
+  }
+  test("fail closed: missing view disables Approve and points to the CLI", () => failClosed(BAD_REVIEWS["missing view"]()));
+  test("fail closed: hub says invalid disables Approve and points to the CLI", () => failClosed(BAD_REVIEWS["hub says invalid"]()));
+  test("fail closed: review null disables Approve and points to the CLI", () => failClosed(BAD_REVIEWS["review null"]()));
+  test("fail closed: citations not a list disables Approve and points to the CLI", () => failClosed(BAD_REVIEWS["citations not a list"]()));
+  test("fail closed: assumption wrong type disables Approve and points to the CLI", () => failClosed(BAD_REVIEWS["assumption wrong type"]()));
+  test("fail closed: conflict field missing disables Approve and points to the CLI", () => failClosed(BAD_REVIEWS["conflict field missing"]()));
+  test("fail closed: summary not a string disables Approve and points to the CLI", () => failClosed(BAD_REVIEWS["summary not a string"]()));
+  test("fail closed: v2 plan the hub reports as having no review disables Approve and points to the CLI", () => failClosed(BAD_REVIEWS["v2 plan the hub reports as having no review"]()));
+
+  test("fail closed: a host status update does not re-enable a blocked Approve", () => {
+    fresh();
+    plans([V2("f2", null)]);
+    host({ serverRunning: true });
+    diag("ask_first");
+    expect(approveBtn(cardOf("f2")).disabled, "re-enabled by host.status");
+    expect(document.querySelector('[data-action="approve-selected"]').disabled, "Approve Selected should have nothing to approve");
+  });
+
+  test("fail closed: a review that throws while rendering blocks Approve", () => {
+    fresh();
+    const long = REVIEW();
+    long.summary = "S".repeat(1000); // takes the clipping path, which calls Array.from
+    const real = Array.from;
+    Array.from = function () { if (typeof arguments[0] === "string") throw new Error("boom"); return real.apply(Array, arguments); };
+    try {
+      plans([V2("t1", long)]);
+    } finally { Array.from = real; }
+    const card = cardOf("t1");
+    expect(approveBtn(card).disabled, "Approve enabled although rendering threw");
+    expect(/aec-model-bridge-approve show/.test(card.textContent), "no CLI message");
+  });
+
+  test("review: a settled plan shows no review and no decision buttons", () => {
+    fresh();
+    plans([V2("s1", REVIEW(), { state: "executed" })]);
+    const card = cardOf("s1");
+    expect(!card.querySelector(".plan-review-block") && !approveBtn(card), "settled plan shows decision UI");
+  });
+
   window.addEventListener("load", () => { runAll(); });
 })();

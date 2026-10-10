@@ -132,7 +132,8 @@ const fs = require('fs');
 // function-boundary regex below sees "\n}\n" on every platform.
 const src = fs.readFileSync(process.argv[2], 'utf8').replace(/\r\n/g, '\n');
 const grab = (n) => src.match(new RegExp('function ' + n + '\\([\\s\\S]*?\\n}\\n'))[0];
-const code = ['escapeHtml', 'visibleText', 'stringifyForReview', 'planActionLines', 'mapPlans']
+const code = ['escapeHtml', 'visibleText', 'stringifyForReview', 'planActionLines',
+  'isPlainObject', 'reviewBlocked', 'planReviewState', 'mapPlans']
   .map(grab).join('\n') + '\nglobalThis.mapPlans = mapPlans; globalThis.escapeHtml = escapeHtml; globalThis.visibleText = visibleText;';
 (0, eval)(code);
 const plans = mapPlans({plans: [{plan_id: 'plan_0123456789ab', plan_hash: 'h', state: 'pending', actions: [

@@ -159,6 +159,51 @@ def normalize_review(review: Any) -> Dict[str, Any]:
     return out
 
 
+def review_view(plan: Dict[str, Any]) -> Dict[str, Any]:
+    """What the panel may show of a plan's review, computed here so the page never has to
+    trust the raw plan file. ``status`` is ``none`` (a hash_version 1 plan: no review),
+    ``ok`` (a v2 plan whose review is canonical and whose stored hash matches) or
+    ``invalid`` (anything else; the panel must not offer Approve). ``review`` is present
+    only when ``ok`` and is the normalised block that the plan hash covers."""
+    view: Dict[str, Any] = {"status": "invalid", "hash_version": None, "reverts_plan_id": None,
+                            "review": None, "error": ""}
+    try:
+        version = plan_hash_version(plan)
+        view["hash_version"] = version
+        if version != HASH_VERSION_REVIEW:
+            view["status"] = "none"
+            return view
+        review = plan["review"]
+        if normalize_review(review) != review:
+            raise ValueError("The review block is not in canonical form.")
+        reverts = plan.get("reverts_plan_id")
+        if reverts is not None:
+            validate_plan_id(reverts)
+        if plan.get("plan_hash") != plan_content_hash(plan):
+            raise ValueError("The plan content does not match its stored hash.")
+        view.update(status="ok", review=review, reverts_plan_id=reverts)
+    except Exception as exc:  # noqa: BLE001 - any failure means "do not show as approvable"
+        view.update(status="invalid", review=None, error=str(exc)[:300])
+    return view
+
+
+def panel_plans(plans: Any) -> Any:
+    """Shape a ``list_pending_plans`` result for the panel: each plan gets ``review_view``
+    and loses its raw ``review`` (the panel reads only the validated copy). Read-only; the
+    plan files and the MCP result are not changed."""
+    if not isinstance(plans, dict) or not isinstance(plans.get("plans"), list):
+        return plans
+    out = []
+    for plan in plans["plans"]:
+        if not isinstance(plan, dict):
+            out.append(plan)
+            continue
+        shaped = {k: v for k, v in plan.items() if k != "review"}
+        shaped["review_view"] = review_view(plan)
+        out.append(shaped)
+    return {**plans, "plans": out}
+
+
 def plan_hash_version(plan: Dict[str, Any]) -> int:
     """1 for plans without a review block, 2 for plans that carry one. A plan that mixes
     the two (a review without hash_version 2, or version 2 without a review) is refused."""
