@@ -10,7 +10,7 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any, Iterator, List, Optional
-from ..config import config
+from ..config import APPROVAL_MODES, config, normalize_approval_mode  # noqa: F401 (re-exported)
 from ..errors import BridgeError
 from . import proof as proof_mod
 
@@ -40,16 +40,9 @@ DONE_ACTION_STATES = frozenset({"executed", "failed"})
 _PROCESS_LOCK = threading.RLock()
 
 
-def normalize_approval_mode(value: Any) -> str:
-    """Return 'required' or 'auto'. Fails closed: anything but an explicit 'auto' is 'required'."""
-    text = value.strip().lower() if isinstance(value, str) else ""
-    if text in ("required", "auto"):
-        return text
-    logger.warning(
-        "Unknown approval_mode %r; treating it as 'required'. Only 'auto' turns the approval gate off.",
-        value,
-    )
-    return "required"
+LOOK_ONLY_MESSAGE = (
+    "Look only mode: this tool changes the model. Switch to Ask me first in the panel or settings."
+)
 
 
 def validate_plan_id(plan_id: Any) -> str:
@@ -131,6 +124,11 @@ class ApprovalGate:
     @approval_mode.setter
     def approval_mode(self, value: Any) -> None:
         self._approval_mode = normalize_approval_mode(value)
+
+    def refuse_if_look_only(self) -> None:
+        """Raise when the mode is look_only. Called for every mutating tool, on every path."""
+        if self.approval_mode == "look_only":
+            raise BridgeError(LOOK_ONLY_MESSAGE)
 
     def _get_plan_path(self, plan_id: str) -> Path:
         validate_plan_id(plan_id)
@@ -348,7 +346,8 @@ class ApprovalGate:
         Execution paths use claim_action, which makes the same checks and consumes the
         action atomically before the tool runs.
         """
-        if self.approval_mode != "required":
+        self.refuse_if_look_only()
+        if self.approval_mode == "auto":
             return
         if tool_name in HUMAN_ONLY_TOOLS:
             raise BridgeError(f"'{tool_name}' is run by a person, not through a tool call.")
@@ -405,8 +404,9 @@ class ApprovalGate:
         """
         if tool_name in HUMAN_ONLY_TOOLS:
             raise BridgeError(f"'{tool_name}' is run by a person, not through a tool call.")
+        self.refuse_if_look_only()
         plan_id = arguments.get("plan_id") if isinstance(arguments, dict) else None
-        if self.approval_mode != "required":
+        if self.approval_mode == "auto":
             if not plan_id:
                 return None
             try:  # gate off: keep the plan bookkeeping when we can, never block
@@ -512,6 +512,7 @@ class ApprovalGate:
         errors) so that a mixed plan (some rollback-able, some not) still rolls back
         what it can and reports clearly what was skipped.
         """
+        self.refuse_if_look_only()  # rollback writes to the model directly, outside claim_action
         plan = self.load_plan(plan_id)
         if not plan:
             raise ValueError(f"Plan {plan_id} not found")
