@@ -11,6 +11,30 @@ from mcp.types import CallToolResult
 from .base import AECProvider, ProviderTool
 from ..errors import BridgeError
 
+# Fail-closed approval rule for proxied tools.
+#
+# We cannot see what an external MCP server's tool does, so every proxied tool is
+# treated as mutating (it goes through the plan approval gate) unless BOTH hold:
+#   1. the upstream tool name starts with a conservative read-only verb below, and
+#   2. the upstream advertises annotations.readOnlyHint == True.
+# If the upstream sends no readOnlyHint at all (older servers), only (1) is used.
+# An explicit readOnlyHint=False or destructiveHint=True always means mutating.
+# Matching is on the remote name, before the "<identity>_" namespace prefix is added.
+READ_ONLY_NAME_PREFIXES = ("get_", "list_", "read_", "query_", "search_", "describe_")
+
+
+def is_proxied_tool_read_only(remote_name: str, annotations: Any = None) -> bool:
+    """Return True only when a proxied tool may skip the approval gate."""
+    if not remote_name.lower().startswith(READ_ONLY_NAME_PREFIXES):
+        return False
+    if getattr(annotations, "destructiveHint", None) is True:
+        return False
+    hint = getattr(annotations, "readOnlyHint", None)
+    if hint is None:
+        return True  # no upstream annotation available: name verbs only
+    return hint is True
+
+
 class McpProxyProvider(AECProvider):
     """
     A provider that proxies tool execution requests to a remote MCP server using SSE.
@@ -65,7 +89,10 @@ class McpProxyProvider(AECProvider):
                 self._tools.append(ProviderTool(
                     name=namespaced_name,
                     description=t.description or "",
-                    inputSchema=t.inputSchema
+                    inputSchema=t.inputSchema,
+                    is_mutating=not is_proxied_tool_read_only(
+                        t.name, getattr(t, "annotations", None)
+                    ),
                 ))
             self._connected = True
         except Exception as e:
