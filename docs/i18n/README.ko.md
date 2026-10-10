@@ -6,7 +6,7 @@
 
 > 이 문서는 AI의 도움으로 번역되었습니다. 영문 [README](../../README.md)가 기준 문서이며, 오류나 개선 사항은 Pull Request로 알려 주세요. 자세한 내용은 [CONTRIBUTING.md](../../CONTRIBUTING.md)를 참고하세요.
 
-**열려 있는 Revit 모델에 대해 AI에게 물어보세요. 기본 설정에서는 사용자가 승인하기 전까지 아무것도 바뀌지 않습니다.**
+**열려 있는 Revit 모델에 대해 AI에게 물어보세요. 기본 설정에서는 계획을 승인하기 전까지 쓰기 도구가 차단됩니다.**
 
 Revit 2024 – 2027용 오픈소스 MCP 서버와 네이티브 애드인. Claude, Codex 및 다른 MCP 클라이언트와 함께 사용할 수 있습니다.
 
@@ -105,16 +105,16 @@ VS Code를 사용하시나요? [확장 프로그램 소스와 로컬 설치 단�
 
 | 영역 | 도구 수 | 기능 |
 | --- | --- | --- |
-| Revit | 103 | 모델 읽기, 요소·매개변수·뷰·시트·일람표 생성 및 편집, 내보내기, 워크셰어링 |
-| 승인 | 6 | 모델 변경의 계획, 검토, 승인, 실행, 롤백 |
-| 모듈 | 34 | 스냅샷 검사, 매개변수 그리드, QA/QC 점검, 레시피, 보고서, 선택 |
+| Revit | 105 | 모델 읽기, 요소·매개변수·뷰·시트·일람표 생성 및 편집, 내보내기, 워크셰어링 |
+| 승인 | 5 | 모델 변경의 계획, 검토, 승인, 실행, 롤백 |
+| 모듈 | 55 | 스냅샷 검사, 매개변수 그리드, QA/QC 점검, 레시피, 보고서, 선택 |
 | Rhino 및 Grasshopper | 19 | 지오메트리, 레이어, 재료, 불리언 연산 |
 | Speckle | 17 | 프로젝트, 모델, 버전, 전송 및 수신 |
 | Navisworks | 15 | 모델 트리, 뷰포인트, 간섭 검토(개발 중) |
 | IFC | 7 | Revit 없이 IFC 파일 읽기: 구조, 속성, 검증 |
 | 그래프, 스냅샷, 내보내기, 작업 | 18 | 시맨틱 그래프 감사, 스냅샷 비교, SQLite 내보내기, 백그라운드 작업 |
 
-기본 설정에서는 219개의 도구가 나열됩니다(mock 모드에서 현재 서버 기준으로 집계). Autodesk Data 도구는 APS 자격 증명을 구성하면 나타납니다. [도구 레퍼런스](../tools-generated.md)에서 모든 도구를 확인할 수 있습니다. 각 도구에는 MCP 어노테이션(`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)이 있어 클라이언트가 읽기와 쓰기를 구분할 수 있습니다.
+기본 설정에서는 241개의 도구가 나열됩니다(mock 모드에서 현재 서버 기준으로 집계). Autodesk Data 도구는 APS 자격 증명을 구성하면 나타납니다. [도구 레퍼런스](../tools-generated.md)에서 모든 도구를 확인할 수 있습니다. 각 도구에는 MCP 어노테이션(`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)이 있어 클라이언트가 읽기와 쓰기를 구분할 수 있습니다.
 
 ### 고급 Revit 자동화
 
@@ -139,7 +139,7 @@ MCP 클라이언트는 하나의 Python 허브와 통신합니다. 허브는 각
 
 ### 승인 방식
 
-허브는 승인된 계획이 없는 한 모델을 변경하는 모든 도구 호출을 막습니다. 기본 모드는 `required`입니다. AI가 계획을 제안하면 Revit 사이드 패널에서 검토하고, 애드인이 Revit 메인 스레드에서 이름이 붙은 트랜잭션으로 실행합니다.
+허브는 승인된 계획이 없는 한 모델을 변경하는 모든 도구 호출을 막습니다. 기본 모드는 `required`입니다. AI가 계획을 제안하면 Revit 사이드 패널에서 검토하고, 애드인이 Revit 메인 스레드에서 실행하며, 매개변수 및 모델 편집 작업은 각각 이름이 붙은 별도 트랜잭션으로 실행되지만, 저장·동기화·스크립트 작업은 그렇지 않아 Ctrl+Z로 되돌릴 수 없습니다.
 
 <p align="center">
   <picture>
@@ -151,13 +151,13 @@ MCP 클라이언트는 하나의 Python 허브와 통신합니다. 허브는 각
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant proposes a plan, the MCP hub and ApprovalGate show it in the Revit side panel, and only after you approve does execute_plan forward the commands to the Revit add-in, which runs them in one named transaction. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
+    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant drafts a plan with plan_actions, the side panel shows the proposed changes (counts, scope, before and after), and a human approves in the panel or with the aec-model-bridge-approve CLI, never over MCP. The hub checks that the plan matches the approved tool and arguments, once only. Revit then runs each action in its own transaction, so Ctrl+Z undoes one action per press. After verifying, you can also use rollback_plan, which may skip actions with no recorded before-value. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
   </picture>
 </p>
 
 <sub>다이어그램 소스: [approval-flow.mmd](../diagrams/approval-flow.mmd). 이미지는 `python scripts/render_diagrams.py`로 다시 생성합니다.</sub>
 
-승인한 계획이 나중에 잘못된 것으로 드러나면 `rollback_plan`으로 되돌릴 수 있습니다. 롤백은 같은 세션에서는 Revit의 실행 취소를 사용하거나, 반대 매개변수 값을 적용합니다. 파일 출력처럼 되돌릴 수 없는 작업은 한 번 더 확인을 요청합니다. 전체 수명 주기는 [ADR 0008](../0008-approval-gate-lifecycle.md)에 있습니다.
+계획이 잘못된 것으로 드러나면 Revit의 Ctrl+Z로 되돌리세요. 매개변수 쓰기는 각각 이름이 붙은 별도 트랜잭션이므로, 계획 하나를 되돌리려면 여러 번 눌러야 할 수 있습니다. 계획 전체를 한 번에 되돌리는 기능은 계획 단계이며 아직 구현되지 않았습니다. `rollback_plan`은 기록된 이전 값을 역순으로 다시 쓰며, 이전 값이 기록되지 않은 작업은 건너뛸 수 있으므로 경고를 확인하세요. 두 방법 모두 실제 Revit 세션에서는 아직 검증되지 않았습니다(UNVERIFIED). 파일 출력처럼 되돌릴 수 없는 작업은 두 방법 모두로 되돌릴 수 없으며, 한 번 더 확인하는 기능은 아직 없습니다(계획 단계). 패널의 Plans 목록에는 대기 중인 계획만 표시됩니다. `aec-model-bridge-approve show <plan_id>`는 어떤 상태의 계획에도 사용할 수 있지만, `proofs/` 번들은 실행된(또는 실행을 시도한) 계획에만 존재합니다. 전체 수명 주기는 [ADR 0008](../0008-approval-gate-lifecycle.md)에 있습니다.
 
 무인 파이프라인에서는 `MCP_REVIT_APPROVAL_MODE=auto`를 설정할 수 있습니다. 사람의 확인을 끄는 설정이므로 통제된 환경에서만 사용하세요.
 
@@ -350,6 +350,20 @@ CI는 Python 서버와 Revit 2024~2027용 애드인 대상을 빌드합니다. P
 - [전체 문서](../README.md)
 - [기여 가이드](../../CONTRIBUTING.md) 및 [행동 강령](../../CODE_OF_CONDUCT.md)
 - [기여자](../../CONTRIBUTORS.md)
+
+## Built with
+
+AEC Model Bridge stands on open-source work. It is independent and is not affiliated with or endorsed by any project named here.
+
+- [Model Context Protocol](https://modelcontextprotocol.io) Python SDK (MIT) for the MCP server
+- [IfcOpenShell](https://ifcopenshell.org) (LGPL-3.0-or-later) for IFC files
+- [specklepy](https://github.com/specklesystems/specklepy) (Apache-2.0) for Speckle
+- [pydantic](https://docs.pydantic.dev), [httpx](https://www.python-httpx.org), [NetworkX](https://networkx.org), [openpyxl](https://openpyxl.readthedocs.io) and [PyYAML](https://pyyaml.org) (MIT or BSD)
+- [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) (MIT) for the built-in agent chat
+- [Serilog](https://serilog.net), [IronPython](https://ironpython.net) and [Microsoft WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) in the Revit add-in
+- Autodesk Revit and Navisworks and McNeel Rhino are separate products that you license yourself. This project does not include their code.
+
+Licence texts and the full list of packages are in [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md). Licences were read from package metadata; rows that could not be verified are marked as such.
 
 ## 프로젝트와 라이선스
 

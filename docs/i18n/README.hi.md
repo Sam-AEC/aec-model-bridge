@@ -6,7 +6,7 @@
 
 > यह अनुवाद AI की मदद से किया गया है। मूल स्रोत अंग्रेज़ी [README](../../README.md) है; सुधार के लिए pull request का स्वागत है (देखें [CONTRIBUTING.md](../../CONTRIBUTING.md))।
 
-**अपने खुले Revit मॉडल के बारे में AI से पूछिए। डिफ़ॉल्ट रूप से, आपकी मंज़ूरी के बिना कुछ नहीं बदलता।**
+**अपने खुले Revit मॉडल के बारे में AI से पूछिए। डिफ़ॉल्ट रूप से, जब तक आप किसी योजना को मंज़ूर नहीं करते, लिखने वाले टूल ब्लॉक रहते हैं।**
 
 Revit 2024 – 2027 के लिए ओपन-सोर्स MCP सर्वर और नेटिव ऐड-इन। Claude, Codex और अन्य MCP क्लाइंट के साथ काम करता है।
 
@@ -105,16 +105,16 @@ VS Code इस्तेमाल करते हैं? [एक्सटें�
 
 | क्षेत्र | टूल | क्या करते हैं |
 | --- | --- | --- |
-| Revit | 103 | मॉडल पढ़ना, एलिमेंट, पैरामीटर, व्यू, शीट, शेड्यूल बनाना और संपादित करना, एक्सपोर्ट, वर्कशेयरिंग |
-| मंज़ूरी | 6 | मॉडल बदलावों की योजना बनाना, समीक्षा, मंज़ूरी, निष्पादन और रोलबैक |
-| मॉड्यूल | 34 | स्नैपशॉट जाँच, पैरामीटर ग्रिड, QA/QC जाँचें, रेसिपी, रिपोर्ट, सेलेक्शन |
+| Revit | 105 | मॉडल पढ़ना, एलिमेंट, पैरामीटर, व्यू, शीट, शेड्यूल बनाना और संपादित करना, एक्सपोर्ट, वर्कशेयरिंग |
+| मंज़ूरी | 5 | मॉडल बदलावों की योजना बनाना, समीक्षा, मंज़ूरी, निष्पादन और रोलबैक |
+| मॉड्यूल | 55 | स्नैपशॉट जाँच, पैरामीटर ग्रिड, QA/QC जाँचें, रेसिपी, रिपोर्ट, सेलेक्शन |
 | Rhino और Grasshopper | 19 | ज्यामिति, लेयर, मटीरियल, बूलियन ऑपरेशन |
 | Speckle | 17 | प्रोजेक्ट, मॉडल, वर्ज़न, भेजना और प्राप्त करना |
 | Navisworks | 15 | मॉडल ट्री, व्यूपॉइंट, क्लैश टेस्ट (विकास जारी) |
 | IFC | 7 | Revit के बिना IFC फ़ाइलें पढ़ना: संरचना, प्रॉपर्टी, वैलिडेशन |
 | ग्राफ़, स्नैपशॉट, एक्सपोर्ट, जॉब | 18 | सिमेंटिक ग्राफ़ ऑडिट, स्नैपशॉट अंतर, SQLite एक्सपोर्ट, बैकग्राउंड जॉब |
 
-डिफ़ॉल्ट सेटअप में 219 टूल सूचीबद्ध हैं (mock मोड में मौजूदा सर्वर से गिने गए)। APS क्रेडेंशियल कॉन्फ़िगर होने पर Autodesk Data टूल दिखाई देते हैं। [टूल संदर्भ](../tools-generated.md) में हर टूल दिया गया है। हर टूल पर MCP एनोटेशन (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) होते हैं, ताकि क्लाइंट पढ़ने और लिखने वाले टूल में फ़र्क कर सकें।
+डिफ़ॉल्ट सेटअप में 241 टूल सूचीबद्ध हैं (mock मोड में मौजूदा सर्वर से गिने गए)। APS क्रेडेंशियल कॉन्फ़िगर होने पर Autodesk Data टूल दिखाई देते हैं। [टूल संदर्भ](../tools-generated.md) में हर टूल दिया गया है। हर टूल पर MCP एनोटेशन (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) होते हैं, ताकि क्लाइंट पढ़ने और लिखने वाले टूल में फ़र्क कर सकें।
 
 ### उन्नत Revit ऑटोमेशन
 
@@ -139,7 +139,7 @@ MCP क्लाइंट एक Python हब से बात करता ह
 
 ### मंज़ूरी कैसे काम करती है
 
-हब मॉडल बदलने वाली हर टूल कॉल को रोक देता है, जब तक उसके साथ मंज़ूर की हुई योजना न हो। डिफ़ॉल्ट मोड `required` है। AI योजना सुझाता है, आप उसे Revit साइड पैनल में देखते हैं, और ऐड-इन उसे Revit के मुख्य थ्रेड पर एक नामित ट्रांज़ैक्शन में चलाता है।
+हब मॉडल बदलने वाली हर टूल कॉल को रोक देता है, जब तक उसके साथ मंज़ूर की हुई योजना न हो। डिफ़ॉल्ट मोड `required` है। AI योजना सुझाता है, आप उसे Revit साइड पैनल में देखते हैं, और ऐड-इन उसे Revit के मुख्य थ्रेड पर चलाता है, पैरामीटर और मॉडल-संपादन वाले एक्शन अपने-अपने नामित ट्रांज़ैक्शन में चलते हैं; सेव, सिंक और स्क्रिप्ट एक्शन ऐसे नहीं चलते, इसलिए Ctrl+Z उन्हें कवर नहीं करता।
 
 <p align="center">
   <picture>
@@ -151,13 +151,13 @@ MCP क्लाइंट एक Python हब से बात करता ह
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="मंज़ूरी का प्रवाह: AI असिस्टेंट योजना सुझाता है, MCP हब और ApprovalGate उसे Revit साइड पैनल में दिखाते हैं, और आपकी मंज़ूरी के बाद ही execute_plan कमांड को Revit ऐड-इन तक भेजता है, जो उन्हें एक नामित ट्रांज़ैक्शन में चलाता है। अगर आप अस्वीकार करें या कभी मंज़ूर न करें, तो कॉल रुक जाती है और मॉडल अछूता रहता है।" width="900">
+    <img src="../images/approval-flow-light.png" alt="मंज़ूरी का प्रवाह: AI असिस्टेंट plan_actions से योजना का मसौदा बनाता है, साइड पैनल प्रस्तावित बदलाव (संख्या, दायरा, पहले और बाद) दिखाता है, और कोई व्यक्ति पैनल में या aec-model-bridge-approve CLI से मंज़ूरी देता है, MCP के ज़रिए कभी नहीं। हब जाँचता है कि योजना मंज़ूर किए गए टूल और आर्गुमेंट से मेल खाती है, और केवल एक बार। फिर Revit हर कार्रवाई को अपने अलग ट्रांज़ैक्शन में चलाता है, इसलिए Ctrl+Z हर बार एक कार्रवाई पूर्ववत करता है। जाँच के बाद rollback_plan भी इस्तेमाल हो सकता है, जो बिना दर्ज पिछले मान वाली कार्रवाइयाँ छोड़ सकता है। अस्वीकार करने या कभी मंज़ूर न करने पर कॉल रुक जाती है और मॉडल अछूता रहता है।" width="900">
   </picture>
 </p>
 
 <sub>डायग्राम का स्रोत: [approval-flow.mmd](../diagrams/approval-flow.mmd)। इमेज दोबारा बनाने के लिए `python scripts/render_diagrams.py` चलाएँ।</sub>
 
-अगर मंज़ूर की गई योजना बाद में ग़लत निकले, तो `rollback_plan` उसे पलट देता है। रोलबैक उसी सेशन में Revit Undo या उलटे पैरामीटर मानों का इस्तेमाल करता है। जिन ऑपरेशनों को पलटा नहीं जा सकता, जैसे फ़ाइल आउटपुट, उनके लिए दूसरी बार पुष्टि माँगी जाती है। पूरा जीवनचक्र [ADR 0008](../0008-approval-gate-lifecycle.md) में है।
+अगर कोई योजना ग़लत निकले, तो Revit में Ctrl+Z से उसे पलटिए। हर पैरामीटर राइट अपना अलग नामित ट्रांज़ैक्शन है, इसलिए एक योजना के लिए कई बार दबाना पड़ सकता है। पूरी योजना को एक ही चरण में पलटने की सुविधा योजना में है, अभी बनी नहीं है। `rollback_plan` दर्ज किए गए पुराने मानों को उलटे क्रम में वापस लिखता है, और जिस एक्शन का पुराना मान दर्ज नहीं हुआ उसे छोड़ सकता है, इसलिए उसकी चेतावनियाँ पढ़ें। दोनों रास्ते अभी किसी असली Revit सेशन में सत्यापित नहीं हुए हैं (UNVERIFIED)। जिन ऑपरेशनों को पलटा नहीं जा सकता, जैसे फ़ाइल आउटपुट, उन्हें दोनों रास्ते नहीं पलट सकते, और उनके लिए अभी दूसरी बार पुष्टि नहीं माँगी जाती (योजना में है)। पैनल की Plans सूची केवल लंबित योजनाएँ दिखाती है; `aec-model-bridge-approve show <plan_id>` किसी भी अवस्था की योजना के लिए काम करता है, जबकि `proofs/` बंडल केवल उन्हीं योजनाओं के लिए बनते हैं जो चलाई गईं (या चलाने की कोशिश हुई)। पूरा जीवनचक्र [ADR 0008](../0008-approval-gate-lifecycle.md) में है।
 
 बिना निगरानी वाली पाइपलाइनों के लिए आप `MCP_REVIT_APPROVAL_MODE=auto` सेट कर सकते हैं। इससे इंसान द्वारा की जाने वाली जाँच बंद हो जाती है, इसलिए इसे सिर्फ़ नियंत्रित एनवायरनमेंट में इस्तेमाल करें।
 
@@ -350,6 +350,20 @@ CI Python सर्वर और Revit 2024 से 2027 के ऐड-इन ट
 - [सभी दस्तावेज़](../README.md)
 - [योगदान गाइड](../../CONTRIBUTING.md) और [आचार संहिता](../../CODE_OF_CONDUCT.md)
 - [योगदानकर्ता](../../CONTRIBUTORS.md)
+
+## Built with
+
+AEC Model Bridge stands on open-source work. It is independent and is not affiliated with or endorsed by any project named here.
+
+- [Model Context Protocol](https://modelcontextprotocol.io) Python SDK (MIT) for the MCP server
+- [IfcOpenShell](https://ifcopenshell.org) (LGPL-3.0-or-later) for IFC files
+- [specklepy](https://github.com/specklesystems/specklepy) (Apache-2.0) for Speckle
+- [pydantic](https://docs.pydantic.dev), [httpx](https://www.python-httpx.org), [NetworkX](https://networkx.org), [openpyxl](https://openpyxl.readthedocs.io) and [PyYAML](https://pyyaml.org) (MIT or BSD)
+- [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) (MIT) for the built-in agent chat
+- [Serilog](https://serilog.net), [IronPython](https://ironpython.net) and [Microsoft WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) in the Revit add-in
+- Autodesk Revit and Navisworks and McNeel Rhino are separate products that you license yourself. This project does not include their code.
+
+Licence texts and the full list of packages are in [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md). Licences were read from package metadata; rows that could not be verified are marked as such.
 
 ## प्रोजेक्ट और लाइसेंस
 

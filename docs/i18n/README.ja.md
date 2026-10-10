@@ -6,7 +6,7 @@
 
 > この文書は AI の支援で翻訳されたものです。内容は英語版の [README](../../README.md) が正であり、誤りや改善点があれば Pull Request でお寄せください。詳しくは [CONTRIBUTING.md](../../CONTRIBUTING.md) をご覧ください。
 
-**開いている Revit モデルについて AI に質問できます。デフォルトでは、承認するまで何も変更されません。**
+**開いている Revit モデルについて AI に質問できます。デフォルトでは、プランを承認するまで書き込みツールはブロックされます。**
 
 Revit 2024 – 2027 向けのオープンソースの MCP サーバーとネイティブアドイン。Claude、Codex などの MCP クライアントで使えます。
 
@@ -105,16 +105,16 @@ VS Code をお使いですか？[拡張機能のソースとローカルへの�
 
 | 分野 | ツール数 | できること |
 | --- | --- | --- |
-| Revit | 103 | モデルの読み取り、要素・パラメータ・ビュー・シート・集計表の作成と編集、エクスポート、ワークシェアリング |
-| 承認 | 6 | モデル変更の計画、レビュー、承認、実行、ロールバック |
-| モジュール | 34 | スナップショットの検査、パラメータグリッド、QA/QC チェック、レシピ、レポート、選択 |
+| Revit | 105 | モデルの読み取り、要素・パラメータ・ビュー・シート・集計表の作成と編集、エクスポート、ワークシェアリング |
+| 承認 | 5 | モデル変更の計画、レビュー、承認、実行、ロールバック |
+| モジュール | 55 | スナップショットの検査、パラメータグリッド、QA/QC チェック、レシピ、レポート、選択 |
 | Rhino と Grasshopper | 19 | ジオメトリ、レイヤー、マテリアル、ブーリアン演算 |
 | Speckle | 17 | プロジェクト、モデル、バージョン、送信と受信 |
 | Navisworks | 15 | モデルツリー、ビューポイント、干渉チェック（開発中） |
 | IFC | 7 | Revit なしで IFC ファイルを読み取り：構造、プロパティ、検証 |
 | グラフ、スナップショット、エクスポート、ジョブ | 18 | セマンティックグラフの監査、スナップショットの差分、SQLite へのエクスポート、バックグラウンドジョブ |
 
-デフォルト構成では 219 個のツールが一覧に表示されます（モックモードで現行サーバーから集計）。Autodesk Data のツールは、APS の認証情報を設定すると表示されます。[ツールリファレンス](../tools-generated.md)にすべてのツールを掲載しています。各ツールには MCP アノテーション（`readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`）が付いており、クライアントは読み取りと書き込みを区別できます。
+デフォルト構成では 241 個のツールが一覧に表示されます（モックモードで現行サーバーから集計）。Autodesk Data のツールは、APS の認証情報を設定すると表示されます。[ツールリファレンス](../tools-generated.md)にすべてのツールを掲載しています。各ツールには MCP アノテーション（`readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`）が付いており、クライアントは読み取りと書き込みを区別できます。
 
 ### Revit 自動化の応用
 
@@ -139,7 +139,7 @@ MCP クライアントは 1 つの Python ハブと通信します。ハブは�
 
 ### 承認の仕組み
 
-ハブは、承認済みのプランを伴わない限り、モデルを変更するツール呼び出しをすべて止めます。デフォルトのモードは `required` です。AI がプランを提案し、あなたが Revit のサイドパネルで確認すると、アドインが Revit のメインスレッド上で名前付きトランザクションとして実行します。
+ハブは、承認済みのプランを伴わない限り、モデルを変更するツール呼び出しをすべて止めます。デフォルトのモードは `required` です。AI がプランを提案し、あなたが Revit のサイドパネルで確認すると、アドインが Revit のメインスレッド上で実行します。パラメータ編集やモデル編集のアクションはそれぞれ個別の名前付きトランザクションですが、保存・同期・スクリプトのアクションはそうではないため、Ctrl+Z では戻せません。
 
 <p align="center">
   <picture>
@@ -151,13 +151,13 @@ MCP クライアントは 1 つの Python ハブと通信します。ハブは�
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant proposes a plan, the MCP hub and ApprovalGate show it in the Revit side panel, and only after you approve does execute_plan forward the commands to the Revit add-in, which runs them in one named transaction. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
+    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant drafts a plan with plan_actions, the side panel shows the proposed changes (counts, scope, before and after), and a human approves in the panel or with the aec-model-bridge-approve CLI, never over MCP. The hub checks that the plan matches the approved tool and arguments, once only. Revit then runs each action in its own transaction, so Ctrl+Z undoes one action per press. After verifying, you can also use rollback_plan, which may skip actions with no recorded before-value. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
   </picture>
 </p>
 
 <sub>図のソース：[approval-flow.mmd](../diagrams/approval-flow.mmd)。画像は `python scripts/render_diagrams.py` で再生成できます。</sub>
 
-承認したプランが後で誤りだと分かった場合は、`rollback_plan` で元に戻せます。ロールバックには、同一セッション内では Revit の元に戻す機能、または逆のパラメータ値を使います。ファイル出力など元に戻せない操作は、再度の確認を求めます。ライフサイクルは [ADR 0008](../0008-approval-gate-lifecycle.md) をご覧ください。
+プランが誤りだと分かった場合は、Revit の Ctrl+Z で元に戻してください。パラメータの書き込みはそれぞれ個別の名前付きトランザクションなので、1 つのプランで複数回押す必要があることがあります。プラン全体を 1 ステップで元に戻す機能は計画中で、まだ実装されていません。`rollback_plan` は記録された変更前の値を逆順に書き戻しますが、変更前の値が記録されていないアクションはスキップすることがあるため、警告を確認してください。どちらの方法も、実際の Revit セッションではまだ検証されていません（UNVERIFIED）。ファイル出力など元に戻せない操作はどちらの方法でも戻せず、再度の確認もまだ求めません（計画中）。パネルの Plans 一覧に表示されるのは保留中のプランだけです。`aec-model-bridge-approve show <plan_id>` はどの状態のプランでも使えますが、`proofs/` のバンドルは実行された（または実行を試みた）プランにしか存在しません。ライフサイクルは [ADR 0008](../0008-approval-gate-lifecycle.md) をご覧ください。
 
 無人で動かすパイプラインでは `MCP_REVIT_APPROVAL_MODE=auto` を設定できます。これは人による確認を無効にするため、管理された環境でのみ使ってください。
 
@@ -350,6 +350,20 @@ CI は、Python サーバーと、Revit 2024〜2027 向けのアドインのタ�
 - [すべてのドキュメント](../README.md)
 - [コントリビューション](../../CONTRIBUTING.md) と [行動規範](../../CODE_OF_CONDUCT.md)
 - [コントリビューター](../../CONTRIBUTORS.md)
+
+## Built with
+
+AEC Model Bridge stands on open-source work. It is independent and is not affiliated with or endorsed by any project named here.
+
+- [Model Context Protocol](https://modelcontextprotocol.io) Python SDK (MIT) for the MCP server
+- [IfcOpenShell](https://ifcopenshell.org) (LGPL-3.0-or-later) for IFC files
+- [specklepy](https://github.com/specklesystems/specklepy) (Apache-2.0) for Speckle
+- [pydantic](https://docs.pydantic.dev), [httpx](https://www.python-httpx.org), [NetworkX](https://networkx.org), [openpyxl](https://openpyxl.readthedocs.io) and [PyYAML](https://pyyaml.org) (MIT or BSD)
+- [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) (MIT) for the built-in agent chat
+- [Serilog](https://serilog.net), [IronPython](https://ironpython.net) and [Microsoft WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) in the Revit add-in
+- Autodesk Revit and Navisworks and McNeel Rhino are separate products that you license yourself. This project does not include their code.
+
+Licence texts and the full list of packages are in [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md). Licences were read from package metadata; rows that could not be verified are marked as such.
 
 ## プロジェクトとライセンス
 

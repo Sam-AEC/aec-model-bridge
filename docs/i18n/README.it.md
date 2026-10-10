@@ -6,7 +6,7 @@
 
 > Questa traduzione è stata realizzata con l'aiuto dell'IA. Il [README](../../README.md) in inglese è la fonte di riferimento; le correzioni sono benvenute tramite pull request (vedi [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
-**Interroga la tua IA sul modello Revit che hai aperto. Per impostazione predefinita, nulla cambia finché non lo approvi.**
+**Interroga la tua IA sul modello Revit che hai aperto. Per impostazione predefinita, gli strumenti di scrittura restano bloccati finché non approvi un piano.**
 
 Server MCP open source e add-in nativo per Revit 2024 – 2027. Funziona con Claude, Codex e altri client MCP.
 
@@ -105,16 +105,16 @@ Usi VS Code? Il [sorgente dell'estensione e i passaggi di installazione locale](
 
 | Area | Strumenti | Cosa fanno |
 | --- | --- | --- |
-| Revit | 103 | Leggere il modello, creare e modificare elementi, parametri, viste, tavole, abachi, esportazioni, condivisione del lavoro (worksharing) |
-| Approvazione | 6 | Pianificare, rivedere, approvare, eseguire e annullare le modifiche al modello |
-| Moduli | 34 | Ispezione degli snapshot, griglie di parametri, controlli QA/QC, ricette, report, selezioni |
+| Revit | 105 | Leggere il modello, creare e modificare elementi, parametri, viste, tavole, abachi, esportazioni, condivisione del lavoro (worksharing) |
+| Approvazione | 5 | Pianificare, rivedere, approvare, eseguire e annullare le modifiche al modello |
+| Moduli | 55 | Ispezione degli snapshot, griglie di parametri, controlli QA/QC, ricette, report, selezioni |
 | Rhino e Grasshopper | 19 | Geometria, layer, materiali, operazioni booleane |
 | Speckle | 17 | Progetti, modelli, versioni, invio e ricezione |
 | Navisworks | 15 | Albero del modello, punti di vista, verifiche di interferenza (in sviluppo) |
 | IFC | 7 | Leggere file IFC senza Revit: struttura, proprietà, validazione |
 | Grafo, snapshot, esportazioni, job | 18 | Audit del grafo semantico, differenze tra snapshot, esportazione SQLite, job in background |
 
-Nella configurazione predefinita sono elencati 219 strumenti (contati dal server attuale in modalità mock). Gli strumenti Autodesk Data compaiono quando sono configurate le credenziali APS. Il [riferimento degli strumenti](../tools-generated.md) li elenca tutti. Ogni strumento ha annotazioni MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), così i client possono distinguere le letture dalle scritture.
+Nella configurazione predefinita sono elencati 241 strumenti (contati dal server attuale in modalità mock). Gli strumenti Autodesk Data compaiono quando sono configurate le credenziali APS. Il [riferimento degli strumenti](../tools-generated.md) li elenca tutti. Ogni strumento ha annotazioni MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), così i client possono distinguere le letture dalle scritture.
 
 ### Automazione avanzata di Revit
 
@@ -139,7 +139,7 @@ I riquadri verde acqua funzionano oggi. I riquadri ambra tratteggiati sono in sv
 
 ### Come funziona l'approvazione
 
-L'hub blocca qualsiasi chiamata a uno strumento che modifica il modello, a meno che non porti con sé un piano approvato. La modalità predefinita è `required`. L'IA propone un piano, tu lo esamini nel pannello laterale di Revit e l'add-in lo esegue nel thread principale di Revit in una transazione con nome.
+L'hub blocca qualsiasi chiamata a uno strumento che modifica il modello, a meno che non porti con sé un piano approvato. La modalità predefinita è `required`. L'IA propone un piano, tu lo esamini nel pannello laterale di Revit e l'add-in lo esegue nel thread principale di Revit, le azioni sui parametri e di modifica del modello ciascuna in una propria transazione con nome; salvataggio, sincronizzazione e script no, quindi Ctrl+Z non le copre.
 
 <p align="center">
   <picture>
@@ -151,13 +151,13 @@ L'hub blocca qualsiasi chiamata a uno strumento che modifica il modello, a meno 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant proposes a plan, the MCP hub and ApprovalGate show it in the Revit side panel, and only after you approve does execute_plan forward the commands to the Revit add-in, which runs them in one named transaction. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
+    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant drafts a plan with plan_actions, the side panel shows the proposed changes (counts, scope, before and after), and a human approves in the panel or with the aec-model-bridge-approve CLI, never over MCP. The hub checks that the plan matches the approved tool and arguments, once only. Revit then runs each action in its own transaction, so Ctrl+Z undoes one action per press. After verifying, you can also use rollback_plan, which may skip actions with no recorded before-value. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
   </picture>
 </p>
 
 <sub>Sorgente del diagramma: [approval-flow.mmd](../diagrams/approval-flow.mmd). Rigenera le immagini con `python scripts/render_diagrams.py`.</sub>
 
-Se un piano approvato si rivela poi sbagliato, `rollback_plan` lo annulla. Il rollback usa Annulla di Revit nella stessa sessione oppure i valori inversi dei parametri. Le operazioni che non si possono annullare, come la scrittura di file, chiedono una seconda conferma. Il ciclo di vita è descritto nell'[ADR 0008](../0008-approval-gate-lifecycle.md).
+Se un piano si rivela sbagliato, annullalo con Ctrl+Z in Revit. Ogni scrittura di parametro è una transazione con nome a sé, quindi un piano può richiedere più pressioni. Un annullamento in un solo passaggio per un intero piano è pianificato, non realizzato. `rollback_plan` riscrive i valori precedenti registrati in ordine inverso e può saltare un'azione se non è stato registrato alcun valore precedente, quindi leggi i suoi avvisi. Nessuno dei due percorsi è ancora verificato in una sessione Revit reale (UNVERIFIED). Le operazioni che non si possono annullare, come la scrittura di file, non vengono annullate da nessuno dei due percorsi e non chiedono ancora una seconda conferma (pianificato). L'elenco Plans del pannello mostra solo i piani in sospeso; `aec-model-bridge-approve show <plan_id>` funziona per un piano in qualsiasi stato, mentre i pacchetti `proofs/` esistono solo per i piani eseguiti (o tentati). Il ciclo di vita è descritto nell'[ADR 0008](../0008-approval-gate-lifecycle.md).
 
 Per le pipeline non presidiate puoi impostare `MCP_REVIT_APPROVAL_MODE=auto`. Questo disattiva il controllo da parte di una persona, quindi usalo solo in un ambiente controllato.
 
@@ -350,6 +350,20 @@ La CI compila il server Python e i target dell'add-in per Revit 2024-2027. Leggi
 - [Tutta la documentazione](../README.md)
 - [Come contribuire](../../CONTRIBUTING.md) e [Codice di condotta](../../CODE_OF_CONDUCT.md)
 - [Collaboratori](../../CONTRIBUTORS.md)
+
+## Built with
+
+AEC Model Bridge stands on open-source work. It is independent and is not affiliated with or endorsed by any project named here.
+
+- [Model Context Protocol](https://modelcontextprotocol.io) Python SDK (MIT) for the MCP server
+- [IfcOpenShell](https://ifcopenshell.org) (LGPL-3.0-or-later) for IFC files
+- [specklepy](https://github.com/specklesystems/specklepy) (Apache-2.0) for Speckle
+- [pydantic](https://docs.pydantic.dev), [httpx](https://www.python-httpx.org), [NetworkX](https://networkx.org), [openpyxl](https://openpyxl.readthedocs.io) and [PyYAML](https://pyyaml.org) (MIT or BSD)
+- [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) (MIT) for the built-in agent chat
+- [Serilog](https://serilog.net), [IronPython](https://ironpython.net) and [Microsoft WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) in the Revit add-in
+- Autodesk Revit and Navisworks and McNeel Rhino are separate products that you license yourself. This project does not include their code.
+
+Licence texts and the full list of packages are in [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md). Licences were read from package metadata; rows that could not be verified are marked as such.
 
 ## Progetto e licenza
 
