@@ -26,7 +26,14 @@ class NavisworksProvider(AECProvider):
 
     def _enrich_tool_metadata(self) -> None:
         mutating_verbs = {"set", "invoke", "delete", "create", "move", "copy", "rotate", "mirror", "run"}
-        enrich_mutation_metadata(self._capabilities, mutating_verbs=mutating_verbs)
+        # append_file changes the open model, refresh reloads linked files and
+        # activate_viewpoint moves the live view; none of these verbs is in the set above.
+        mutating_names = frozenset(
+            {"navisworks_append_file", "navisworks_refresh", "navisworks_activate_viewpoint"}
+        )
+        enrich_mutation_metadata(
+            self._capabilities, mutating_verbs=mutating_verbs, mutating_names=mutating_names
+        )
 
     def get_identity(self) -> str:
         return "navisworks"

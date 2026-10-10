@@ -49,16 +49,9 @@ RHINO_SRC = PACKAGES / "rhino-bridge-addin" / "src"
 # (provider, hub tool, add-in command): add-in says IsMutating=true, hub tool is not
 # is_mutating, so the approval gate does not cover it.
 KNOWN_UNGATED = {
-    # navisworks.py enrich verbs {set, invoke, delete, create, move, copy, rotate,
-    # mirror, run} do not include append / refresh / activate. append_file changes
-    # the open model; refresh reloads linked files; activate_viewpoint moves the view.
-    ("navisworks", "navisworks_append_file", "navis.append_file"),
-    ("navisworks", "navisworks_refresh", "navis.refresh"),
-    ("navisworks", "navisworks_activate_viewpoint", "navis.activate_viewpoint"),
-    # revit.py verbs do not include render / calculate / reflect. The add-in flag may
-    # be over-cautious for these two (they are probably read or export only); needs a
-    # decision with a Revit run before either side is changed.
-    ("revit", "revit_render_3d", "revit.render_3d_view"),
+    # The add-in flag looks over-cautious for these two (they only read); needs a
+    # decision with a Revit run before either side is changed. (revit_render_3d writes
+    # an image file inside a transaction, so it is gated.)
     ("revit", "revit_calculate_material_quantities", "revit.calculate_material_quantities"),
     # reflect_get only reads a property but the add-in marks it mutating.
     ("revit", "revit_reflect_get", "revit.reflect_get"),
@@ -75,11 +68,7 @@ KNOWN_UNMAPPED_MUTATING = {
 
 # Rhino has no attribute catalog: commands are ``case "name":`` labels in one switch,
 # with no mutating flag, so the check is by hub tool name (see the test below).
-KNOWN_RHINO_UNGATED = {
-    # GenerateDiagridTower bakes Breps and creates layers/materials
-    # (rhino-bridge-addin/src/BridgeCommands.cs); rhino.py verbs lack "generate".
-    "rhino_generate_diagrid_tower",
-}
+KNOWN_RHINO_UNGATED: set[str] = set()
 
 
 # --------------------------------------------------------------------------- #
