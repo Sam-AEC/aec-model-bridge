@@ -159,6 +159,19 @@ def test_narrow_layout_rules():
     assert "overflow-wrap" in CSS
 
 
+def test_active_view_scrolls_inside_a_bounded_row():
+    """A long plan list must scroll inside the view, not push the top bar away."""
+    app = _block(r"\.app")
+    assert "display: flex" in app and "flex-direction: column" in app
+    assert "height: 100vh" in app
+    view = re.search(r"\.app > \.view\.is-active\s*\{([^}]*)\}", CSS)
+    assert view, "active view is not given the remaining height"
+    assert "flex: 1 1 auto" in view.group(1) and "min-height: 0" in view.group(1)
+    assert "overflow: auto" in view.group(1)
+    assert "grid-auto-rows: auto" not in app
+    assert "overflow: hidden" in _block(r"^body")
+
+
 def test_status_pill_keeps_port_visible_when_narrow():
     body = _block(r"\.status-pill")
     assert "white-space: nowrap" not in body
