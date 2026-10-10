@@ -73,13 +73,14 @@ const arrow = (x1, y, x2, color, w = 3) =>
 
 
 // Pier logo: the inner markup of assets/logo-mark.svg, untouched.
-const logoInner = fs
-  .readFileSync(path.join(root, 'assets/logo-mark.svg'), 'utf8')
+const logoSrc = fs.readFileSync(path.join(root, 'assets/logo-mark.svg'), 'utf8');
+const logoBox = Number((logoSrc.match(/viewBox="0 0 (\d+)/) || [])[1]) || 96;
+const logoInner = logoSrc
   .replace(/^[\s\S]*?<svg[^>]*>/, '')
   .replace(/<\/svg>\s*$/, '')
   .trim();
 const logo = (T, x, y, size) =>
-  `<g id="pier-logo" transform="translate(${x} ${y}) scale(${size / 96})">${logoInner}</g>` +
+  `<g id="pier-logo" transform="translate(${x} ${y}) scale(${size / logoBox})">${logoInner}</g>` +
   (T.logoRing !== 'none'
     ? `<rect x="${x}" y="${y}" width="${size}" height="${size}" rx="${(20 * size) / 96}" fill="none" stroke="${T.logoRing}" stroke-width="1.5"/>`
     : '');
