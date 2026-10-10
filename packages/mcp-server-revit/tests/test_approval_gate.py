@@ -1,6 +1,7 @@
 import pytest
 from revit_mcp_server.security.approval import ApprovalGate
 from revit_mcp_server.errors import BridgeError
+from helpers import human_approve
 
 
 @pytest.mark.anyio
@@ -31,15 +32,16 @@ async def test_approval_gate_lifecycle(tmp_path):
     assert len(plan["actions"]) == 1
 
     # 4. Assert execution is blocked when plan is pending
+    exact = {"element_id": 123, "parameter_name": "FireRating", "value": "60", "plan_id": plan_id}
     with pytest.raises(BridgeError) as exc_info:
-        gate.check_tool_execution("revit_set_parameter_value", { "plan_id": plan_id })
+        gate.check_tool_execution("revit_set_parameter_value", exact)
     assert "is in state 'pending', not 'approved'" in str(exc_info.value)
 
     # 5. Approve plan
-    gate.update_plan_state(plan_id, "approved")
+    human_approve(gate, plan_id)
 
     # 6. Assert check passes when plan is approved
-    gate.check_tool_execution("revit_set_parameter_value", { "plan_id": plan_id })
+    gate.check_tool_execution("revit_set_parameter_value", exact)
 
     # 7. Execute rollback
     # Mock execution function — must be async: production passes an async
@@ -87,7 +89,7 @@ async def test_rollback_generalizes_to_a_batch_of_actions(tmp_path):
     ]
     plan = gate.create_plan(actions, before_states)
     plan_id = plan["plan_id"]
-    gate.update_plan_state(plan_id, "approved")
+    human_approve(gate, plan_id)
     gate.update_plan_state(plan_id, "executed")
 
     calls = []

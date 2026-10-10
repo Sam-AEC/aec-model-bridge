@@ -3,7 +3,8 @@ import math
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from ..security.workspace import WorkspaceMonitor
-from ..security.approval import ApprovalGate
+from ..errors import BridgeError
+from ..security.approval import APPROVAL_CHANNELS, HUMAN_ONLY_TOOLS, ApprovalGate, local_user
 from .base import AECProvider, ProviderTool
 from ..config import config
 
@@ -99,9 +100,18 @@ class ApprovalProvider(AECProvider):
     async def shutdown(self) -> None:
         pass
 
+    def _require_registered_tools(self, actions: List[Dict[str, Any]]) -> None:
+        """A person approves what the panel lists, so every action must name a real tool."""
+        for i, action in enumerate(actions):
+            tool = action["tool"]
+            if self.registry is None or self.registry.lookup_tool(tool) is None:
+                raise BridgeError(f"Action {i + 1}: '{tool}' is not a registered tool, so it cannot be part of a plan.")
+
     async def execute_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         if name == "plan_actions":
             actions = arguments.get("actions", [])
+            self.gate.validate_actions(actions)
+            self._require_registered_tools(actions)
             before_states = []
             before_types: List[Optional[str]] = []
             for action in actions:
@@ -141,23 +151,13 @@ class ApprovalProvider(AECProvider):
         elif name == "list_pending_plans":
             return {"plans": self.gate.list_pending_plans()}
 
-        elif name == "approve_plan":
-            plan_id = arguments.get("plan_id")
-            return self.gate.update_plan_state(plan_id, "approved", approver=arguments.get("approver"))
-
-        elif name == "reject_plan":
-            plan_id = arguments.get("plan_id")
-            return self.gate.update_plan_state(plan_id, "rejected")
-
-        elif name == "rollback_plan":
-            plan_id = arguments.get("plan_id")
-            async def execute_helper(t_name, t_args):
-                prov = self.registry.lookup_tool_provider(t_name)
-                if not prov:
-                    raise ValueError(f"Provider not found for tool {t_name}")
-                return await prov.execute_tool(t_name, t_args)
-
-            return await self.gate.rollback_plan(plan_id, execute_helper)
+        elif name in HUMAN_ONLY_TOOLS:
+            # Never through the generic tool path (MCP, chat, recipes, plans, modules):
+            # only the panel route calls execute_human_tool, and the CLI uses the gate.
+            raise BridgeError(
+                f"'{name}' is run by a person in the Revit panel or with aec-model-bridge-approve, "
+                "not through a tool call."
+            )
 
         elif name == "execute_plan":
             return await self._execute_plan(arguments.get("plan_id"))
@@ -175,6 +175,36 @@ class ApprovalProvider(AECProvider):
         else:
             raise ValueError(f"Unknown approval tool '{name}'")
 
+    async def execute_human_tool(self, name: str, arguments: Dict[str, Any], via: str) -> Dict[str, Any]:
+        """Approve, reject or roll back a plan for a person.
+
+        ``via`` is set by the calling route ('panel' or 'cli'). Caller-supplied
+        ``approved_via``/``approver`` arguments are ignored; ``approved_by`` records the
+        OS account running this process. Approving needs ``expected_hash``, the hash of
+        the plan the person was shown (``plan_hash`` from list_pending_plans).
+        """
+        if via not in APPROVAL_CHANNELS:
+            raise BridgeError("Plans are approved only from the Revit panel or the command-line tool.")
+        if not isinstance(arguments, dict):
+            raise BridgeError("Arguments must be an object.")
+        plan_id = arguments.get("plan_id")
+        if name == "approve_plan":
+            return self.gate.update_plan_state(
+                plan_id, "approved", approver=local_user(), via=via,
+                expected_hash=arguments.get("expected_hash"),
+            )
+        if name == "reject_plan":
+            return self.gate.update_plan_state(plan_id, "rejected", via=via)
+        if name == "rollback_plan":
+            async def execute_helper(t_name, t_args):
+                prov = self.registry.lookup_tool_provider(t_name)
+                if not prov:
+                    raise ValueError(f"Provider not found for tool {t_name}")
+                return await prov.execute_tool(t_name, t_args)
+
+            return await self.gate.rollback_plan(plan_id, execute_helper)
+        raise BridgeError(f"'{name}' is not a plan decision.")
+
     async def _execute_plan(self, plan_id: str) -> Dict[str, Any]:
         """Run every action in an approved plan, report-and-continue on failure.
 
@@ -189,32 +219,50 @@ class ApprovalProvider(AECProvider):
             raise ValueError(
                 f"Plan {plan_id} is in state '{plan.get('state')}', not 'approved'. Execution blocked."
             )
+        self.gate.verify_approved(plan)
 
         results = []
         had_failure = False
         for action in plan["actions"]:
+            if action.get("state") not in ("pending", None):
+                continue  # already consumed (e.g. a direct call earlier): never run an approved action twice
             tool = action["tool"]
-            args = dict(action["arguments"])
+            args = dict(action["arguments"]) if isinstance(action.get("arguments"), dict) else {}
             args["plan_id"] = plan_id
+            # Each action is consumed before it runs, exactly like a direct call, so a
+            # concurrent execute_plan or direct call cannot run it a second time.
+            try:
+                claim = self.gate.claim_action(tool, args)
+            except Exception as e:
+                had_failure = True
+                results.append({"action_id": action.get("action_id"), "tool": tool, "error": str(e)})
+                continue
             provider = self.registry.lookup_tool_provider(tool)
             if not provider:
-                action["state"] = "failed"
                 had_failure = True
-                results.append({"action_id": action["action_id"], "tool": tool, "error": f"Provider not found for tool {tool}"})
+                error = f"Provider not found for tool {tool}"
+                self.gate.finish_action(claim, ok=False, error=error)
+                results.append({"action_id": action["action_id"], "tool": tool, "error": error})
                 continue
             try:
                 result = await provider.execute_tool(tool, args)
-                action["state"] = "executed"
-                results.append({"action_id": action["action_id"], "tool": tool, "result": result})
             except Exception as e:
-                action["state"] = "failed"
                 had_failure = True
+                self.gate.finish_action(claim, ok=False, error=str(e))
                 results.append({"action_id": action["action_id"], "tool": tool, "error": str(e)})
+                continue
+            self.gate.finish_action(claim, ok=True)
+            results.append({"action_id": action["action_id"], "tool": tool, "result": result})
 
-        n_failed = sum(1 for r in results if "error" in r)
-        plan["state"] = "partial" if had_failure else "executed"
-        plan["executed_at"] = datetime.now(timezone.utc).isoformat()
+        plan = self.gate.load_plan(plan_id) or plan
+        if plan.get("state") == "approved" and had_failure:
+            # Some action could not even be claimed; the plan is not fully applied.
+            plan["state"] = "partial"
+        elif plan.get("state") == "approved" and not plan.get("actions"):
+            plan["state"] = "executed"
+        plan.setdefault("executed_at", datetime.now(timezone.utc).isoformat())
         self.gate.save_plan(plan)
+        n_failed = sum(1 for r in results if "error" in r)
         # Proof outcome: "failed" when nothing was applied; "success" only if every action ran.
         if not had_failure:
             outcome = "success"
@@ -337,19 +385,20 @@ class ApprovalProvider(AECProvider):
         ),
         ProviderTool(
             name="approve_plan",
-            description="Approve a pending ActionPlan for execution.",
+            description="Approve a pending ActionPlan for execution (human only: the Revit panel or "
+                        "aec-model-bridge-approve). expected_hash is the plan_hash of the plan that was shown.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "plan_id": {"type": "string"},
-                    "approver": {"type": "string"}
+                    "expected_hash": {"type": "string"}
                 },
-                "required": ["plan_id"]
+                "required": ["plan_id", "expected_hash"]
             }
         ),
         ProviderTool(
             name="reject_plan",
-            description="Reject and archive a pending ActionPlan.",
+            description="Reject a pending or approved (not yet executed) ActionPlan (human only).",
             inputSchema={
                 "type": "object",
                 "properties": {
