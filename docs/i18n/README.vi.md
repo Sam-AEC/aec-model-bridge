@@ -139,7 +139,7 @@ Các khung màu xanh mòng két đã hoạt động. Các khung nét đứt màu
 
 ### Cách phê duyệt hoạt động
 
-Hub chặn mọi lệnh gọi công cụ làm thay đổi mô hình nếu không kèm kế hoạch đã được phê duyệt. Chế độ mặc định là `required`. AI đề xuất kế hoạch, bạn xem xét trong bảng bên của Revit, và add-in chạy nó trên luồng chính của Revit trong một transaction có tên.
+Hub chặn mọi lệnh gọi công cụ làm thay đổi mô hình nếu không kèm kế hoạch đã được phê duyệt. Chế độ mặc định là `required`. AI đề xuất kế hoạch, bạn xem xét trong bảng bên của Revit, và add-in chạy nó trên luồng chính của Revit, các hành động sửa tham số và chỉnh sửa mô hình mỗi hành động chạy trong một transaction có tên riêng; các hành động lưu, đồng bộ và script thì không, nên Ctrl+Z không bao gồm chúng.
 
 <p align="center">
   <picture>
@@ -157,7 +157,7 @@ Hub chặn mọi lệnh gọi công cụ làm thay đổi mô hình nếu không
 
 <sub>Nguồn sơ đồ: [approval-flow.mmd](../diagrams/approval-flow.mmd). Tạo lại hình ảnh bằng `python scripts/render_diagrams.py`.</sub>
 
-Nếu một kế hoạch hóa ra sai, hãy hoàn tác bằng Ctrl+Z trong Revit. Mỗi lần ghi tham số là một giao dịch có tên riêng, nên một kế hoạch có thể cần nhấn nhiều lần. Hoàn tác cả kế hoạch chỉ trong một bước đã được lên kế hoạch nhưng chưa được xây dựng. `rollback_plan` ghi lại các giá trị trước đó đã được ghi nhận theo thứ tự ngược, và có thể bỏ qua một hành động nếu không có giá trị trước đó được ghi nhận, vì vậy hãy đọc các cảnh báo của nó. Cả hai cách đều chưa được xác minh trong một phiên Revit thực tế (UNVERIFIED). Các thao tác không thể đảo ngược, chẳng hạn xuất tệp, sẽ yêu cầu xác nhận lần hai. Vòng đời được mô tả trong [ADR 0008](../0008-approval-gate-lifecycle.md).
+Nếu một kế hoạch hóa ra sai, hãy hoàn tác bằng Ctrl+Z trong Revit. Mỗi lần ghi tham số là một giao dịch có tên riêng, nên một kế hoạch có thể cần nhấn nhiều lần. Hoàn tác cả kế hoạch chỉ trong một bước đã được lên kế hoạch nhưng chưa được xây dựng. `rollback_plan` ghi lại các giá trị trước đó đã được ghi nhận theo thứ tự ngược, và có thể bỏ qua một hành động nếu không có giá trị trước đó được ghi nhận, vì vậy hãy đọc các cảnh báo của nó. Cả hai cách đều chưa được xác minh trong một phiên Revit thực tế (UNVERIFIED). Các thao tác không thể đảo ngược, chẳng hạn xuất tệp, không thể hoàn tác bằng cả hai cách và hiện chưa yêu cầu xác nhận lần hai (đã lên kế hoạch). Vòng đời được mô tả trong [ADR 0008](../0008-approval-gate-lifecycle.md).
 
 Với các pipeline chạy tự động, bạn có thể đặt `MCP_REVIT_APPROVAL_MODE=auto`. Thiết lập này tắt bước kiểm tra của con người, vì vậy chỉ dùng trong môi trường được kiểm soát.
 
