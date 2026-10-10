@@ -21,11 +21,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 SCHEMA = "amb.proof/1"
 PARAM_TOOL = "revit_set_parameter_value"
-_ID_RE = re.compile(r"^[A-Za-z0-9_\-]{1,128}$")
+_ID_RE = re.compile(r"[A-Za-z0-9_\-]{1,128}")
 
 
 def validate_plan_id(plan_id: Any) -> str:
-    if not isinstance(plan_id, str) or not _ID_RE.match(plan_id):
+    if not isinstance(plan_id, str) or not _ID_RE.fullmatch(plan_id):
         raise ValueError("Invalid plan_id.")
     return plan_id
 
@@ -68,7 +68,7 @@ def _load_snapshot_doc(workspace_dir: Path, snapshot_id: Optional[str]) -> Tuple
     doc: Dict[str, Any] = {"snapshot_id": snapshot_id, "doc_guid": None, "doc_title": None}
     uids: Dict[str, str] = {}
     try:
-        if not _ID_RE.match(snapshot_id):
+        if not _ID_RE.fullmatch(snapshot_id):
             raise ValueError("bad snapshot id")
         with open(Path(workspace_dir) / "snapshots" / f"{snapshot_id}.json", "r", encoding="utf-8") as f:
             snap = json.load(f)
