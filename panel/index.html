@@ -85,7 +85,7 @@
     </button>
   </aside>
 
-  <main class="app">
+  <main class="app" aria-label="AEC Model Bridge">
     <header class="topbar">
       <div class="titleblock">
         <span class="view-tile" aria-hidden="true"><svg class="ico" viewBox="0 0 32 32"><use id="view-icon" href="#nav-chat"/></svg></span>
@@ -106,30 +106,31 @@
         <h2 id="setup-title" class="setup-title">Setup check</h2>
         <span class="setup-status" id="setup-status" role="status" aria-live="polite">Checking setup&hellip;</span>
         <button type="button" id="setup-toggle" aria-expanded="false" aria-controls="setup-list" hidden>Details</button>
-        <button type="button" id="setup-refresh">Refresh</button>
+        <button type="button" id="setup-refresh" aria-label="Refresh setup check">Refresh</button>
       </div>
       <ol class="setup-list" id="setup-list" hidden></ol>
     </section>
 
     <section class="view is-active" id="view-chat" aria-labelledby="view-title">
-      <div class="chat-feed" id="chat-feed"></div>
-      <form class="composer" id="chat-form">
+      <div class="chat-feed" id="chat-feed" role="log" aria-live="polite" aria-label="Conversation"></div>
+      <form class="composer" id="chat-form" aria-label="Send a message">
         <select id="chat-provider" aria-label="Agent">
           <option value="claude">Claude</option>
           <option value="codex">Codex</option>
         </select>
-        <input id="chat-input" name="message" autocomplete="off" placeholder="Ask about the active model">
+        <input id="chat-input" name="message" autocomplete="off" aria-label="Message to the agent" placeholder="Ask about the active model">
         <button type="submit" class="primary">Send</button>
-        <button type="button" id="chat-reset" title="Start a new conversation">New</button>
+        <button type="button" id="chat-reset" title="Start a new conversation" aria-label="Start a new conversation">New</button>
       </form>
     </section>
 
     <section class="view" id="view-plans" aria-labelledby="view-title">
       <div class="toolbar">
-        <button type="button" data-action="refresh-plans">Refresh</button>
-        <button type="button" class="primary" data-action="approve-selected">Approve Selected</button>
+        <button type="button" data-action="refresh-plans" aria-label="Refresh pending plans">Refresh</button>
+        <button type="button" class="primary" data-action="approve-selected" aria-label="Approve selected plans" aria-describedby="plan-select-hint">Approve Selected</button>
+        <span class="sr-only" id="plan-select-hint">Tick the checkbox on one or more pending plans first.</span>
       </div>
-      <div class="list" id="plan-list"></div>
+      <div class="list" id="plan-list" role="group" aria-label="Pending plans"></div>
     </section>
 
     <section class="view" id="view-findings" aria-labelledby="view-title">
@@ -142,19 +143,19 @@
           <option value="info">Info</option>
         </select>
       </div>
-      <div class="list" id="finding-list"></div>
+      <div class="list" id="finding-list" role="group" aria-label="Findings"></div>
     </section>
 
     <section class="view" id="view-reports" aria-labelledby="view-title">
       <div class="toolbar">
         <button type="button" class="primary" data-action="export-excel">Export Excel</button>
-        <button type="button" data-action="refresh-reports">Refresh</button>
+        <button type="button" data-action="refresh-reports" aria-label="Refresh reports list">Refresh</button>
       </div>
-      <div class="list" id="report-list"></div>
+      <div class="list" id="report-list" role="group" aria-label="Reports"></div>
     </section>
 
     <section class="view" id="view-log" aria-labelledby="view-title">
-      <div class="timeline" id="run-log"></div>
+      <div class="timeline" id="run-log" role="group" aria-label="Run log"></div>
     </section>
 
     <section class="view" id="view-settings" aria-labelledby="view-title">

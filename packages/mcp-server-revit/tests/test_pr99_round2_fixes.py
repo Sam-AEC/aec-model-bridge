@@ -133,13 +133,14 @@ const fs = require('fs');
 const src = fs.readFileSync(process.argv[2], 'utf8').replace(/\r\n/g, '\n');
 const grab = (n) => src.match(new RegExp('function ' + n + '\\([\\s\\S]*?\\n}\\n'))[0];
 const code = ['escapeHtml', 'visibleText', 'stringifyForReview', 'planActionLines', 'mapPlans']
-  .map(grab).join('\n') + '\nglobalThis.mapPlans = mapPlans; globalThis.escapeHtml = escapeHtml;';
+  .map(grab).join('\n') + '\nglobalThis.mapPlans = mapPlans; globalThis.escapeHtml = escapeHtml; globalThis.visibleText = visibleText;';
 (0, eval)(code);
 const plans = mapPlans({plans: [{plan_id: 'plan_0123456789ab', plan_hash: 'h', state: 'pending', actions: [
   {tool: 'revit_delete_element',
-   arguments: {element_id: 42, note: '<img src=x onerror=1>‮\u001b[2J'},
+   arguments: {element_id: 42, note: '<img src=x onerror=1>‮\u001b[2J\u0007'},
    diff: {before: {value: '60'}}}]}]});
-console.log(JSON.stringify({review: plans[0].review, html: escapeHtml(plans[0].review)}));
+console.log(JSON.stringify({review: plans[0].review, html: escapeHtml(plans[0].review),
+  visible: visibleText('a\nb\tc\u0007\u202e\u200b')}));
 """
 
 
@@ -160,6 +161,12 @@ def assert_escaped_review(data):
     assert '"value": "60"' in data["review"]
     assert "\u202e" not in data["review"] and "\x1b" not in data["review"]
     assert "\\u202e" in data["review"]
+    # Pretty-printed JSON keeps its real line breaks (readable), while BEL stays visibly escaped.
+    assert "{\n  \"element_id\": 42" in data["review"]
+    assert "\\x0a" not in data["review"] and "\\x09" not in data["review"]
+    assert "\x07" not in data["review"] and "\\u0007" in data["review"]
+    # visibleText itself: \n and \t stay real whitespace; BEL and bidi/format chars are escaped.
+    assert data["visible"] == "a\nb\tc\\x07\\u202e\\u200b"
     assert "<img" not in data["html"] and "&lt;img" in data["html"]
 
 
