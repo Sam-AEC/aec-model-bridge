@@ -139,7 +139,7 @@ Turkuaz kutular bugün çalışıyor. Kehribar rengi kesikli kutuların üzerind
 
 ### Onay nasıl çalışır
 
-Hub, onaylanmış bir plan taşımayan ve modeli değiştiren her araç çağrısını durdurur. Varsayılan mod `required`'dır. Yapay zekâ bir plan önerir, siz Revit yan panelinde incelersiniz ve eklenti planı Revit'in ana iş parçacığında adlandırılmış bir transaction içinde çalıştırır.
+Hub, onaylanmış bir plan taşımayan ve modeli değiştiren her araç çağrısını durdurur. Varsayılan mod `required`'dır. Yapay zekâ bir plan önerir, siz Revit yan panelinde incelersiniz ve eklenti planı Revit'in ana iş parçacığında çalıştırır; parametre ve model düzenleme eylemlerinin her biri kendi adlandırılmış transaction'ı içinde yürür; kaydetme, senkronizasyon ve betik eylemleri böyle değildir, bu yüzden Ctrl+Z onları kapsamaz.
 
 <p align="center">
   <picture>
@@ -151,13 +151,13 @@ Hub, onaylanmış bir plan taşımayan ve modeli değiştiren her araç çağrı
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Onay akışı: yapay zekâ asistanı bir plan önerir, MCP hub'ı ve ApprovalGate bunu Revit yan panelinde gösterir ve yalnızca siz onayladıktan sonra execute_plan komutları, tek bir adlandırılmış transaction içinde çalıştıran Revit eklentisine iletir. Planı reddederseniz veya hiç onaylamazsanız çağrı engellenir ve model olduğu gibi kalır." width="900">
+    <img src="../images/approval-flow-light.png" alt="Onay akışı: yapay zekâ asistanı plan_actions ile bir plan taslağı hazırlar, yan panel önerilen değişiklikleri (sayılar, kapsam, önce ve sonra) gösterir ve bir insan bunu panelde ya da aec-model-bridge-approve CLI ile onaylar; onay asla MCP üzerinden verilmez. Hub, planın onaylanan araç ve argümanlarla eşleştiğini yalnızca bir kez denetler. Ardından Revit her eylemi kendi transaction'ında çalıştırır, bu yüzden Ctrl+Z her basışta bir eylemi geri alır. Doğrulamadan sonra, kaydedilmiş önceki değeri olmayan eylemleri atlayabilen rollback_plan da kullanılabilir. Planı reddederseniz veya hiç onaylamazsanız çağrı engellenir ve model olduğu gibi kalır." width="900">
   </picture>
 </p>
 
 <sub>Diyagram kaynağı: [approval-flow.mmd](../diagrams/approval-flow.mmd). Görselleri `python scripts/render_diagrams.py` ile yeniden oluşturun.</sub>
 
-Bir plan hatalı çıkarsa Revit'te Ctrl+Z ile geri alın. Her parametre yazımı kendi adlandırılmış işlemidir, bu yüzden tek bir plan için birkaç kez basmanız gerekebilir. Tüm plan için tek adımda geri alma planlanmıştır, henüz yapılmamıştır. `rollback_plan` kaydedilen önceki değerleri ters sırayla geri yazar ve önceki değer kaydedilmemişse bir eylemi atlayabilir; bu yüzden uyarılarını okuyun. İki yol da henüz gerçek bir Revit oturumunda doğrulanmadı (UNVERIFIED). Dosya çıktısı gibi geri alınamayan işlemler ikinci bir onay ister. Yaşam döngüsü [ADR 0008](../0008-approval-gate-lifecycle.md) belgesindedir.
+Bir plan hatalı çıkarsa Revit'te Ctrl+Z ile geri alın. Her parametre yazımı kendi adlandırılmış işlemidir, bu yüzden tek bir plan için birkaç kez basmanız gerekebilir. Tüm plan için tek adımda geri alma planlanmıştır, henüz yapılmamıştır. `rollback_plan` kaydedilen önceki değerleri ters sırayla geri yazar ve önceki değer kaydedilmemişse bir eylemi atlayabilir; bu yüzden uyarılarını okuyun. İki yol da henüz gerçek bir Revit oturumunda doğrulanmadı (UNVERIFIED). Dosya çıktısı gibi geri alınamayan işlemler bu iki yolla da geri alınamaz ve henüz ikinci bir onay istemez (planlanmıştır). Yaşam döngüsü [ADR 0008](../0008-approval-gate-lifecycle.md) belgesindedir.
 
 Gözetimsiz pipeline'lar için `MCP_REVIT_APPROVAL_MODE=auto` ayarlayabilirsiniz. Bu, insan denetimini kapatır; bu yüzden yalnızca kontrollü bir ortamda kullanın.
 

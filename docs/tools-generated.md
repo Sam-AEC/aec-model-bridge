@@ -144,7 +144,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `navisworks_invoke_method` | Advanced escape hatch: call a public C# method in Navisworks through reflection. | Yes | sync |
 | `navisworks_list_clash_tests` | List the clash tests defined in Clash Detective. | No | sync |
 | `navisworks_list_viewpoints` | List the saved viewpoints of the active Navisworks document. | No | sync |
-| `navisworks_reflect_get` | Advanced: read a C# property of a Navisworks object through reflection. | No | sync |
+| `navisworks_reflect_get` | Advanced: read a C# property of a Navisworks object through reflection. | Yes | sync |
 | `navisworks_reflect_set` | Advanced escape hatch: set a C# property of a Navisworks object through reflection. | Yes | sync |
 | `navisworks_refresh` | Refresh all appended files that changed on disk in the active Navisworks document. | Yes | sync |
 | `navisworks_run_clash_test` | Run one Clash Detective test, identified by Guid, and update its results. | Yes | sync |
@@ -241,7 +241,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_place_window` | Place a window of a given family and type in a host wall at a location. | Yes | sync |
 | `revit_populate_titleblock` | Write a set of parameter values into the title block of a sheet. | Yes | sync |
 | `revit_preview_elements` | Preview which elements a proposed change affects: select and zoom to them in the active view and temporarily isolate them. | No | sync |
-| `revit_reflect_get` | Advanced: read any public Revit API property of an object identified by target_id, through reflection. | No | sync |
+| `revit_reflect_get` | Advanced: read any public Revit API property of an object identified by target_id, through reflection. | Yes | sync |
 | `revit_reflect_set` | Advanced escape hatch: set any writable Revit API property of an object identified by target_id, through reflection. | Yes | sync |
 | `revit_relinquish_all` | Relinquish every element and workset the current user owns in a workshared model. | Yes | sync |
 | `revit_render_3d` | Render a 3D view to an image file at a chosen quality level. | Yes | sync |
@@ -276,7 +276,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `rhino_health` | Check that the Rhino bridge is reachable and healthy. | No | sync |
 | `rhino_invoke_method` | Advanced escape hatch: call a public C# method on a Rhino object through reflection. | Yes | sync |
 | `rhino_list_layers` | List all layers of the Rhino document with name, colour, visibility and lock state. | No | sync |
-| `rhino_reflect_get` | Advanced: read a C# property of a Rhino object through reflection. | No | sync |
+| `rhino_reflect_get` | Advanced: read a C# property of a Rhino object through reflection. | Yes | sync |
 | `rhino_reflect_set` | Advanced escape hatch: set a C# property of a Rhino object through reflection. | Yes | sync |
 | `rhino_run_python` | Execute arbitrary IronPython code inside Rhino with full RhinoCommon access. | Yes | sync |
 | `rhino_set_material` | Apply a material to objects by GUID list or by layer name. | Yes | sync |

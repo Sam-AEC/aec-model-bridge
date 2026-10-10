@@ -139,7 +139,7 @@ Kotak berwarna teal sudah berfungsi saat ini. Kotak putus-putus berwarna amber m
 
 ### Cara kerja persetujuan
 
-Hub menghentikan setiap panggilan tool yang mengubah model kecuali panggilan itu membawa rencana yang sudah disetujui. Mode default-nya adalah `required`. AI mengusulkan rencana, Anda meninjaunya di panel samping Revit, lalu add-in menjalankannya di main thread Revit dalam transaksi bernama.
+Hub menghentikan setiap panggilan tool yang mengubah model kecuali panggilan itu membawa rencana yang sudah disetujui. Mode default-nya adalah `required`. AI mengusulkan rencana, Anda meninjaunya di panel samping Revit, lalu add-in menjalankannya di main thread Revit, aksi parameter dan pengeditan model masing-masing dalam transaksi bernamanya sendiri; aksi simpan, sinkronisasi, dan skrip tidak, sehingga Ctrl+Z tidak mencakupnya.
 
 <p align="center">
   <picture>
@@ -151,13 +151,13 @@ Hub menghentikan setiap panggilan tool yang mengubah model kecuali panggilan itu
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant proposes a plan, the MCP hub and ApprovalGate show it in the Revit side panel, and only after you approve does execute_plan forward the commands to the Revit add-in, which runs them in one named transaction. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
+    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant drafts a plan with plan_actions, the side panel shows the proposed changes (counts, scope, before and after), and a human approves in the panel or with the aec-model-bridge-approve CLI, never over MCP. The hub checks that the plan matches the approved tool and arguments, once only. Revit then runs each action in its own transaction, so Ctrl+Z undoes one action per press. After verifying, you can also use rollback_plan, which may skip actions with no recorded before-value. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
   </picture>
 </p>
 
 <sub>Sumber diagram: [approval-flow.mmd](../diagrams/approval-flow.mmd). Buat ulang gambar dengan `python scripts/render_diagrams.py`.</sub>
 
-Jika sebuah rencana ternyata keliru, batalkan dengan Ctrl+Z di Revit. Setiap penulisan parameter adalah transaksi bernama tersendiri, jadi satu rencana bisa memerlukan beberapa kali penekanan. Undo satu langkah untuk seluruh rencana masih direncanakan, belum dibangun. `rollback_plan` menulis kembali nilai sebelumnya yang tercatat dalam urutan terbalik, dan dapat melewati sebuah aksi bila nilai sebelumnya tidak tercatat, jadi baca peringatannya. Kedua jalur ini belum diverifikasi di sesi Revit yang sebenarnya (UNVERIFIED). Operasi yang tidak dapat dibatalkan, seperti keluaran file, meminta konfirmasi kedua. Siklus hidupnya ada di [ADR 0008](../0008-approval-gate-lifecycle.md).
+Jika sebuah rencana ternyata keliru, batalkan dengan Ctrl+Z di Revit. Setiap penulisan parameter adalah transaksi bernama tersendiri, jadi satu rencana bisa memerlukan beberapa kali penekanan. Undo satu langkah untuk seluruh rencana masih direncanakan, belum dibangun. `rollback_plan` menulis kembali nilai sebelumnya yang tercatat dalam urutan terbalik, dan dapat melewati sebuah aksi bila nilai sebelumnya tidak tercatat, jadi baca peringatannya. Kedua jalur ini belum diverifikasi di sesi Revit yang sebenarnya (UNVERIFIED). Operasi yang tidak dapat dibatalkan, seperti keluaran file, tidak dibatalkan oleh kedua jalur ini dan belum meminta konfirmasi kedua (direncanakan). Siklus hidupnya ada di [ADR 0008](../0008-approval-gate-lifecycle.md).
 
 Untuk pipeline tanpa pengawasan, Anda dapat mengatur `MCP_REVIT_APPROVAL_MODE=auto`. Ini mematikan pemeriksaan manusia, jadi gunakan hanya di lingkungan yang terkendali.
 

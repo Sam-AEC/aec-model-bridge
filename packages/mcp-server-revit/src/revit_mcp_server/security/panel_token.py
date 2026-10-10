@@ -65,28 +65,57 @@ def is_valid_token(value: str) -> bool:
     return bool(_TOKEN_RE.fullmatch(value))
 
 
+def _system32_tool(name: str) -> str:
+    return str(Path(os.environ.get("SystemRoot") or r"C:\Windows") / "System32" / name)
+
+
+def _current_user_sid() -> str:
+    out = subprocess.run(
+        [_system32_tool("whoami.exe"), "/user", "/fo", "csv", "/nh"],
+        check=True, capture_output=True, timeout=15, text=True,
+    ).stdout
+    match = re.search(r"S-\d+-\d+(?:-\d+)+", out)
+    if not match:
+        raise ValueError("no SID")
+    return match.group(0)
+
+
 def _restrict_windows_acl(path: Path) -> None:
-    user = os.environ.get("USERNAME")
-    if not user:
-        raise PanelTokenError("Cannot restrict the panel token file: USERNAME is not set.")
-    domain = os.environ.get("USERDOMAIN")
-    principal = f"{domain}\\{user}" if domain else user
+    """Owner-only ACL: inheritance removed, full control granted to the current user's SID.
+    Tools are called by full System32 path (no search-path lookup); the user is identified by SID,
+    not by environment variables. UNVERIFIED on Windows."""
     try:
+        sid = _current_user_sid()
         subprocess.run(
-            ["icacls", str(path), "/inheritance:r", "/grant:r", f"{principal}:(F)"],
+            [_system32_tool("icacls.exe"), str(path), "/inheritance:r", "/grant:r", f"*{sid}:(F)"],
             check=True, capture_output=True, timeout=15,
         )
-    except (OSError, subprocess.SubprocessError) as e:
+    except (OSError, ValueError, subprocess.SubprocessError) as e:
         raise PanelTokenError(f"Could not restrict access to the panel token file ({type(e).__name__}).") from None
 
 
-def _check_posix_file(path: Path) -> None:
+def _open_posix_file(path: Path) -> str:
+    """Open without following symlinks, check the *open* descriptor (no check/open race), read it."""
     try:
-        st = os.lstat(path)
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
     except FileNotFoundError:
         raise
     except OSError as e:
-        raise PanelTokenError(f"Cannot inspect the panel token file {path}: {e.strerror or e}") from None
+        raise PanelTokenError(
+            f"Cannot open the panel token file {path} (a symlink is not accepted): {e.strerror or e}"
+        ) from None
+    try:
+        _check_posix_stat(path, os.fstat(fd))
+        data = os.read(fd, 4096)
+    finally:
+        os.close(fd)
+    try:
+        return data.decode("ascii")
+    except UnicodeDecodeError:
+        raise PanelTokenError(f"The panel token file {path} cannot be read; delete it and restart the hub.") from None
+
+
+def _check_posix_stat(path: Path, st: os.stat_result) -> None:
     import stat
 
     if not stat.S_ISREG(st.st_mode):
@@ -108,13 +137,8 @@ def read_token(path: Path | None = None) -> str | None:
     """
     path = path or token_path()
     for attempt in range(_READ_RETRIES):
-        if os.name != "nt":
-            try:
-                _check_posix_file(path)
-            except FileNotFoundError:
-                return None
         try:
-            raw = path.read_text(encoding="ascii")
+            raw = _open_posix_file(path) if os.name != "nt" else path.read_text(encoding="ascii")
         except FileNotFoundError:
             return None
         except (OSError, UnicodeDecodeError):
@@ -170,7 +194,14 @@ def _exclusive_copy(path: Path, token: str) -> None:
     with os.fdopen(fd, "wb") as fh:
         fh.write((token + "\n").encode("ascii"))
     if os.name == "nt":
-        _restrict_windows_acl(path)
+        try:
+            _restrict_windows_acl(path)
+        except PanelTokenError:
+            try:
+                os.unlink(path)  # never leave a token file with inherited ACLs behind
+            except OSError:
+                pass
+            raise
 
 
 def load_or_create_token(path: Path | None = None) -> str:

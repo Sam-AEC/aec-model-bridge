@@ -139,7 +139,7 @@ MCP クライアントは 1 つの Python ハブと通信します。ハブは�
 
 ### 承認の仕組み
 
-ハブは、承認済みのプランを伴わない限り、モデルを変更するツール呼び出しをすべて止めます。デフォルトのモードは `required` です。AI がプランを提案し、あなたが Revit のサイドパネルで確認すると、アドインが Revit のメインスレッド上で名前付きトランザクションとして実行します。
+ハブは、承認済みのプランを伴わない限り、モデルを変更するツール呼び出しをすべて止めます。デフォルトのモードは `required` です。AI がプランを提案し、あなたが Revit のサイドパネルで確認すると、アドインが Revit のメインスレッド上で実行します。パラメータ編集やモデル編集のアクションはそれぞれ個別の名前付きトランザクションですが、保存・同期・スクリプトのアクションはそうではないため、Ctrl+Z では戻せません。
 
 <p align="center">
   <picture>
@@ -151,13 +151,13 @@ MCP クライアントは 1 つの Python ハブと通信します。ハブは�
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant proposes a plan, the MCP hub and ApprovalGate show it in the Revit side panel, and only after you approve does execute_plan forward the commands to the Revit add-in, which runs them in one named transaction. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
+    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant drafts a plan with plan_actions, the side panel shows the proposed changes (counts, scope, before and after), and a human approves in the panel or with the aec-model-bridge-approve CLI, never over MCP. The hub checks that the plan matches the approved tool and arguments, once only. Revit then runs each action in its own transaction, so Ctrl+Z undoes one action per press. After verifying, you can also use rollback_plan, which may skip actions with no recorded before-value. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
   </picture>
 </p>
 
 <sub>図のソース：[approval-flow.mmd](../diagrams/approval-flow.mmd)。画像は `python scripts/render_diagrams.py` で再生成できます。</sub>
 
-プランが誤りだと分かった場合は、Revit の Ctrl+Z で元に戻してください。パラメータの書き込みはそれぞれ個別の名前付きトランザクションなので、1 つのプランで複数回押す必要があることがあります。プラン全体を 1 ステップで元に戻す機能は計画中で、まだ実装されていません。`rollback_plan` は記録された変更前の値を逆順に書き戻しますが、変更前の値が記録されていないアクションはスキップすることがあるため、警告を確認してください。どちらの方法も、実際の Revit セッションではまだ検証されていません（UNVERIFIED）。ファイル出力など元に戻せない操作は、再度の確認を求めます。ライフサイクルは [ADR 0008](../0008-approval-gate-lifecycle.md) をご覧ください。
+プランが誤りだと分かった場合は、Revit の Ctrl+Z で元に戻してください。パラメータの書き込みはそれぞれ個別の名前付きトランザクションなので、1 つのプランで複数回押す必要があることがあります。プラン全体を 1 ステップで元に戻す機能は計画中で、まだ実装されていません。`rollback_plan` は記録された変更前の値を逆順に書き戻しますが、変更前の値が記録されていないアクションはスキップすることがあるため、警告を確認してください。どちらの方法も、実際の Revit セッションではまだ検証されていません（UNVERIFIED）。ファイル出力など元に戻せない操作はどちらの方法でも戻せず、再度の確認もまだ求めません（計画中）。ライフサイクルは [ADR 0008](../0008-approval-gate-lifecycle.md) をご覧ください。
 
 無人で動かすパイプラインでは `MCP_REVIT_APPROVAL_MODE=auto` を設定できます。これは人による確認を無効にするため、管理された環境でのみ使ってください。
 

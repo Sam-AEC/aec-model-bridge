@@ -6,14 +6,16 @@ and 3 rooms that have no Number. It also covers a run where the plan is
 rejected and nothing changes.
 
 **Writes are untested in a real Revit.** An architecture review found that
-`BridgeCommandFactory.CreateTransaction(Document, string)` in the add-in calls
-itself, so as written on `main` every model write (including
-`revit_set_parameter_value`) would recurse until Revit crashes. The fix is
-hotfix PR #95, which is open and not merged. Do not run Step 6 or the undo
-steps against anything you care about until #95 is merged and the add-in is
-rebuilt from it, and treat the first real write on a throwaway copy as a test
-in its own right. Steps 1 to 5 and the rejected-plan run do not write to the
-model.
+`BridgeCommandFactory.CreateTransaction(Document, string)` in the add-in called
+itself, so on `main` every model write (including `revit_set_parameter_value`)
+would recurse until Revit crashes. The fix, hotfix PR #95, is merged into `dev`
+but has never run in live Revit. Build the add-in from `dev` (or a release that
+contains #95), do not run Step 6 or the undo steps against anything you care
+about, and treat the first real write on a throwaway copy as a test in its own
+right. Steps 1 to 5 and the rejected-plan run do not write to the model.
+
+This runbook matches `dev`, not the last release. The test plan for `dev` is
+[dev-test-plan.md](dev-test-plan.md); it also lists the known limits.
 
 Nobody has run this end to end against live Revit yet. The expected counts come
 from the [seeded defect manifest](../fixtures/canonical-model/seeded-defects.json)
@@ -23,15 +25,15 @@ this is in the [roadmap](roadmap.md).
 
 ## How to read the status tags
 
-- **Checked in code**: the tool or panel feature exists on `main` and I read
+- **Checked in code**: the tool or panel feature exists on `dev` and I read
   how it behaves. That does not mean it has been seen working in Revit.
 - **UNVERIFIED (live Revit)**: it needs a running Revit session with the
   add-in. Nothing in this runbook has been confirmed that way.
-- **UNVERIFIED (unmerged)**: it depends on work that is not on `main`.
-  Preview in the model is in open PR #64. Skip that step, or do it by hand,
-  until it lands. Proof bundles and `plan_revert` (#62) and the draft-plan gate
-  fix (#63) are merged, so they are tagged "checked in code" below, not
-  unmerged. The write-path crash fix is open PR #95 (see above).
+- **UNVERIFIED (not in a release)**: it is merged into `dev` but not yet in a
+  release or on `main`. Preview in the model (#64), the write-path crash fix
+  (#95) and approval v2 (#99, #105, #109) are in this group. They are tagged
+  "checked in code" or "UNVERIFIED (live Revit)" below, as appropriate. Proof
+  bundles, `plan_revert` (#62) and the draft-plan gate fix (#63) are merged.
 
 ## What you need
 
@@ -39,8 +41,12 @@ this is in the [roadmap](roadmap.md).
   installed. See the [install guide](install.md).
 - The MCP server connected to an MCP client, and the Revit side panel open.
 - A throwaway copy of the fixture. Never run this on a project model.
-- Approval mode left at its default (`required`). Do not set
-  `MCP_REVIT_APPROVAL_MODE=auto`; that turns the human check off.
+- Approval mode left at its default, `ask_first` (the older name `required`
+  means the same). Do not set `MCP_REVIT_APPROVAL_MODE=auto`; that turns the
+  human check off. `look_only` refuses every model change; use it only to show
+  that writes are blocked. An unknown value falls back to `ask_first`.
+- The person running the demo approves. The assistant cannot approve, reject or
+  roll back a plan, and the approval tools are not listed to MCP clients.
 
 Write down before you start: Revit version, git commit, date, and the document
 name. The roadmap asks for these with every recorded run.
@@ -74,7 +80,7 @@ Ask the assistant: "Take a snapshot of the active model." The tool is
 `revit_extract_snapshot`. Keep the `snapshot_id` it returns; every check and
 parameter call below needs it.
 
-Why: on `main`, the QA checker and the parameter manager refuse to run in live
+Why: on `dev`, the QA checker and the parameter manager refuse to run in live
 mode without a `snapshot_id` and tell you to capture one (change #59). They only
 fall back to generated sample data when `MCP_REVIT_MODE=mock`. Sample data is not
 your model, so do not run the demo in mock mode and call it live.
@@ -146,8 +152,10 @@ guess ids. The add-in's snapshot writer includes `element_id`; that it comes
 through correctly is UNVERIFIED (live Revit).
 
 Tool: `plan_actions`, with one `revit_set_parameter_value` action per door
-(`element_id`, `parameter_name` = `Mark`, `value`). On `main`, `plan_actions`
-reads each door's current Mark and stores it as the plan's before-state.
+(`element_id`, `parameter_name` = `Mark`, `value`). `plan_actions` reads each
+door's current Mark and stores it as the plan's before-state. It refuses a tool
+name that is not a registered tool, and it stores a content hash of the plan
+(its actions, arguments and before values) that the approval is bound to.
 `parameter_manager_plan_set_params` can also build a draft, but it sets one
 value for every matched element, so it does not fit unique Marks. Use it only
 if you want to show a shared value.
@@ -176,13 +184,14 @@ report the error text.
 Two previews, different status:
 
 - **In the panel (checked in code)**: open the Plans tab and press Refresh. The
-  plan appears with its state and a one-line list of the tools in it. The panel
-  today shows tool names, not per-door old and new values. So read the
-  old/new values from the assistant's plan output, and compare the count
-  yourself.
-- **In the model (UNVERIFIED, unmerged, PR #64)**: showing the pending change on
-  the actual elements in Revit is not on `main`. Skip it for now, or select the
-  12 doors and eyeball them. Use `revit_select_by_unique_ids` with the 12
+  plan appears with its state and, for each action, its tool, its arguments
+  (escaped, so odd characters show as text) and the current value. Read these
+  before you approve and compare the count yourself. For long arguments,
+  `aec-model-bridge-approve show <plan_id>` prints the same in a terminal, with
+  the plan hash.
+- **In the model (UNVERIFIED (live Revit), PR #64, merged into `dev`)**: see
+  [preview-in-model.md](preview-in-model.md). If it does not work in your
+  build, select the 12 doors and eyeball them. Use `revit_select_by_unique_ids` with the 12
   `element_uid` values; it selects and zooms in the active view. Do not use
   `selection_tools_select_by_query` for this: it only writes the matching UIDs to
   `pending_selection.json` in the workspace, and nothing in the add-in reads that
@@ -193,19 +202,38 @@ Expected: 1 pending plan, 12 actions.
 
 ## Step 5: approve in Revit
 
-In the panel's Plans tab, press Approve on the plan. The panel sends
-`approve_plan` through the hub. The assistant cannot approve its own plan: the
-approval tools are withheld from the native chat backend by design.
+Approve as the person, in one of two ways.
 
-Expected: the plan leaves the pending list. The Run Log gets a `Plan approve`
+- **Panel.** In the Plans tab, read the arguments shown, then press Approve on
+  the plan. The panel sends `approve_plan` through the hub together with the
+  plan's hash. To approve several, tick them and press Approve Selected; it
+  sends one approve per ticked plan, each with its own hash.
+- **Command line.** `aec-model-bridge-approve list`, `show <plan_id>`, then
+  `approve <plan_id>` and type the plan id when asked. Without a terminal it
+  refuses unless you add `--yes`.
+
+The assistant cannot approve its own plan: `approve_plan`, `reject_plan` and
+`rollback_plan` are not listed to MCP clients, are denied to the panel chat, and
+are refused on every other path a model can reach. The approval is bound to
+exactly what was shown. If the plan file changed after you looked at it, the
+approval is refused. The plan records `approved_via` (`panel` or `cli`) and
+`approved_by` (your account name).
+
+Expected: the plan leaves the Plans list. The panel lists pending plans only, so
+an approved, rejected or executed plan is no longer shown there. Check its
+state with `aec-model-bridge-approve show <plan_id>`, the plan file, or (after
+execution) the proof bundle. The Run Log gets a `Plan approve`
 entry as soon as you click, and a `Plans updated` entry after the refresh; both
 are normal and neither proves the hub accepted the call. Nothing in the model has changed yet; approval only unlocks execution.
 
+An approval is not tied to a document or a view and does not expire. If you
+switch models before executing, reject the plan and draft a new one.
+
 If it fails: an `Error: plan.approve` entry in the Run Log (or an error toast)
 means the hub rejected the call. Any other Run Log entry is not a failure.
-Press Refresh and check the plan's state. Do not approve a plan you
-rejected; the code does not stop you from changing a plan's state, so check
-the state each time.
+Press Refresh and check the plan's state. Check the plan's
+state each time. A plan that was approved but not yet run can still be
+rejected; an executed or rolled-back one cannot.
 
 UNVERIFIED (live Revit).
 
@@ -213,19 +241,24 @@ UNVERIFIED (live Revit).
 
 Ask the assistant: "The plan is approved. Run it." Tool: `execute_plan`.
 
+Each approved action runs at most once and only with the arguments you
+approved. A repeat of the same action, or a call that differs in any argument,
+is refused. If an action fails, it is not reopened: ask for a new plan.
+
 Expected: the result lists 12 actions, each executed. In the add-in each
 `revit_set_parameter_value` call runs in its own transaction, which Revit's
 Undo list should show as `AMB: Set Parameter Value`, one entry per door, not one
 entry for the whole plan. The add-in only appends ` #<action id>` to the name
 when the call carries an `action_id`, and `execute_plan` does not pass one, so
-expect no suffix and 12 identical-looking entries. This is only reachable once
-#95 is merged (see the top of this page). UNVERIFIED (live Revit).
+expect no suffix and 12 identical-looking entries. This is only reachable with the #95 fix in the add-in build (see the top of
+this page). UNVERIFIED (live Revit).
 
 If some actions fail: execution reports and continues. The plan is marked
 `partial`, not `executed`, and the proof bundle's outcome is `partial` or
 `failed`. Do not tell the audience it worked. Read which actions failed
 (read-only or owned elements are the usual suspects), then go to Step 7 and look
-at what changed.
+at what changed. An action can also be left marked `running` if the submit to
+Revit failed part-way; treat the plan as not finished and check the model.
 
 ## Step 7: verify
 
@@ -255,15 +288,17 @@ There are two ways back. Use whichever you can show honestly.
 
 1. **Revit Undo (checked in code that transactions are named, behavior
    UNVERIFIED)**. Immediately after execution, in the same Revit session, press
-   Ctrl+Z. Because each parameter write is its own named transaction, you may
-   need to press it 12 times. Take a fresh snapshot afterwards and expect the
-   baseline of 12 and 3 again. ADR 0008 describes a single named transaction
-   per plan; the code on `main` names one per action. The ADR and the code do
-   not yet agree, so do not promise one-click undo.
+   Ctrl+Z. Because each parameter write is its own named transaction, you
+   need to press it 12 times, once per door. Take a fresh snapshot afterwards and
+   expect the baseline of 12 and 3 again. One-step undo for a whole plan is not
+   built. ADR 0008 describes a single named transaction per plan; the code names
+   one per action. Do not promise one-click undo.
 2. **`rollback_plan` (checked in code)**. It only works on a plan in state
-   `executed`, and it writes each recorded before-value back. One catch: it
-   skips an action when no before-value was recorded, and reports that as a
-   warning. These doors started empty. If the before-state is stored as empty,
+   `executed`, and it writes each recorded before-value back, only for
+   `revit_set_parameter_value` actions. One catch: it skips an action when no
+   before-value was recorded, and reports that as a warning. It skips any other
+   tool with a "No rollback handler" warning. Rollback is for a person to run
+   from the client, not the assistant. These doors started empty. If the before-state is stored as empty,
    rollback may skip all 12 and leave the Marks in place. Read the warnings in
    the result and verify with a new snapshot. If it skipped them, use Ctrl+Z
    instead. UNVERIFIED (live Revit). The model-facing chat cannot call rollback;
@@ -289,7 +324,7 @@ This proves a rejected plan leaves the model alone. Start from a clean copy of
 the fixture (the baseline of 12 and 3) and a new snapshot.
 
 1. Steps 1 to 4 as above. Note the snapshot id and the 12 before-values.
-2. In the panel's Plans tab, press Reject. This sends `reject_plan`. The plan is
+2. In the panel's Plans tab, press Reject (or run `aec-model-bridge-approve reject <plan_id>`). This sends `reject_plan`. The plan is
    closed and archived.
 3. Ask the assistant to run it anyway. Expected: `execute_plan` refuses, saying
    the plan is `rejected`, not `approved`. A direct parameter write with that
@@ -312,11 +347,30 @@ file, the audit log and both snapshot ids.
 | Counts are not 12 and 3 | The baseline is off; I am not going to hide that. | Rebuild the fixture, retake the snapshot, record both runs. |
 | Error naming a missing or unapproved `plan_id` | The gate is blocking an unapproved write. | Create or approve the plan. |
 | Approve does nothing in the panel | I will confirm the plan state before going on. | Refresh, look for an `Error:` entry in the Run Log, check the plan state. |
-| Revit crashes or hangs on the first write | Known: write path is broken until #95. | Stop. Check that #95 is merged and the add-in rebuilt. |
+| Revit crashes or hangs on the first write | Known risk: this is the first real write, and #95 has never run in live Revit. | Stop. Check the add-in was built from `dev`, record the log, report it. |
+| "Look only mode: this tool changes the model..." | The mode is Look only on purpose; nothing can change the model. | Set `MCP_REVIT_APPROVAL_MODE` to `ask_first` and restart, if you meant to write. |
+| Approval refused, plan changed | The plan on disk no longer matches what you were shown. | Run `show` again, check the hash, reject or redraft the plan. |
+| Assistant says it cannot approve | Correct: only a person approves. | Approve in the panel or with `aec-model-bridge-approve`. |
+| An action stays `running` | Submit to Revit may have failed; it will not rerun. | Check the model, then ask for a new plan. |
 | Some actions failed on execute | This is a partial result, not a finished fix. | Read the per-action errors, verify with a new snapshot. |
 | Door count after is not 0 | Not everything was fixed. | List the remaining issues, match them to failed actions. |
 | Rollback skipped actions | Rollback could not restore empty values. | Use Revit Undo, then verify with a new snapshot. |
 | Anything touching rooms changed | Stop the demo. | Check the audit logs. |
+
+## Known limits
+
+- The panel hub (port 8787) has no token yet. Any local program can call it,
+  including to approve a plan. Treat the machine as trusted-local.
+- Approvals are not bound to a document or view and never expire.
+- Actions can stay `running` after a failed submit.
+- Some Navisworks and proxy tools are still outside the approval gate.
+- The add-in's snapshot extractor does not carry every field, so some checks say
+  "not enough data".
+- Nothing here has run in live Revit, and the first real write is unverified.
+- Undo is Ctrl+Z once per action. There is no one-step undo for a plan.
+
+The fuller list, with how to check each, is in
+[dev-test-plan.md](dev-test-plan.md#h-known-limits-do-not-report-as-new-findings).
 
 ## Record for each run
 

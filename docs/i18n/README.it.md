@@ -139,7 +139,7 @@ I riquadri verde acqua funzionano oggi. I riquadri ambra tratteggiati sono in sv
 
 ### Come funziona l'approvazione
 
-L'hub blocca qualsiasi chiamata a uno strumento che modifica il modello, a meno che non porti con sé un piano approvato. La modalità predefinita è `required`. L'IA propone un piano, tu lo esamini nel pannello laterale di Revit e l'add-in lo esegue nel thread principale di Revit in una transazione con nome.
+L'hub blocca qualsiasi chiamata a uno strumento che modifica il modello, a meno che non porti con sé un piano approvato. La modalità predefinita è `required`. L'IA propone un piano, tu lo esamini nel pannello laterale di Revit e l'add-in lo esegue nel thread principale di Revit, le azioni sui parametri e di modifica del modello ciascuna in una propria transazione con nome; salvataggio, sincronizzazione e script no, quindi Ctrl+Z non le copre.
 
 <p align="center">
   <picture>
@@ -151,13 +151,13 @@ L'hub blocca qualsiasi chiamata a uno strumento che modifica il modello, a meno 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant proposes a plan, the MCP hub and ApprovalGate show it in the Revit side panel, and only after you approve does execute_plan forward the commands to the Revit add-in, which runs them in one named transaction. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
+    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant drafts a plan with plan_actions, the side panel shows the proposed changes (counts, scope, before and after), and a human approves in the panel or with the aec-model-bridge-approve CLI, never over MCP. The hub checks that the plan matches the approved tool and arguments, once only. Revit then runs each action in its own transaction, so Ctrl+Z undoes one action per press. After verifying, you can also use rollback_plan, which may skip actions with no recorded before-value. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
   </picture>
 </p>
 
 <sub>Sorgente del diagramma: [approval-flow.mmd](../diagrams/approval-flow.mmd). Rigenera le immagini con `python scripts/render_diagrams.py`.</sub>
 
-Se un piano si rivela sbagliato, annullalo con Ctrl+Z in Revit. Ogni scrittura di parametro è una transazione con nome a sé, quindi un piano può richiedere più pressioni. Un annullamento in un solo passaggio per un intero piano è pianificato, non realizzato. `rollback_plan` riscrive i valori precedenti registrati in ordine inverso e può saltare un'azione se non è stato registrato alcun valore precedente, quindi leggi i suoi avvisi. Nessuno dei due percorsi è ancora verificato in una sessione Revit reale (UNVERIFIED). Le operazioni che non si possono annullare, come la scrittura di file, chiedono una seconda conferma. Il ciclo di vita è descritto nell'[ADR 0008](../0008-approval-gate-lifecycle.md).
+Se un piano si rivela sbagliato, annullalo con Ctrl+Z in Revit. Ogni scrittura di parametro è una transazione con nome a sé, quindi un piano può richiedere più pressioni. Un annullamento in un solo passaggio per un intero piano è pianificato, non realizzato. `rollback_plan` riscrive i valori precedenti registrati in ordine inverso e può saltare un'azione se non è stato registrato alcun valore precedente, quindi leggi i suoi avvisi. Nessuno dei due percorsi è ancora verificato in una sessione Revit reale (UNVERIFIED). Le operazioni che non si possono annullare, come la scrittura di file, non vengono annullate da nessuno dei due percorsi e non chiedono ancora una seconda conferma (pianificato). Il ciclo di vita è descritto nell'[ADR 0008](../0008-approval-gate-lifecycle.md).
 
 Per le pipeline non presidiate puoi impostare `MCP_REVIT_APPROVAL_MODE=auto`. Questo disattiva il controllo da parte di una persona, quindi usalo solo in un ambiente controllato.
 

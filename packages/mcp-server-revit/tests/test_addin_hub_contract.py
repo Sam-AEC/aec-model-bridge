@@ -49,12 +49,10 @@ RHINO_SRC = PACKAGES / "rhino-bridge-addin" / "src"
 # (provider, hub tool, add-in command): add-in says IsMutating=true, hub tool is not
 # is_mutating, so the approval gate does not cover it.
 KNOWN_UNGATED = {
-    # The add-in flag looks over-cautious for these two (they only read); needs a
-    # decision with a Revit run before either side is changed. (revit_render_3d writes
-    # an image file inside a transaction, so it is gated.)
+    # UNVERIFIED: the add-in marks this mutating but it looks read-only (volumes and
+    # areas). Needs a Revit run before either side is changed, so it stays ungated.
+    # (revit_render_3d and revit_reflect_get are gated.)
     ("revit", "revit_calculate_material_quantities", "revit.calculate_material_quantities"),
-    # reflect_get only reads a property but the add-in marks it mutating.
-    ("revit", "revit_reflect_get", "revit.reflect_get"),
 }
 
 # (provider, add-in command): IsMutating=true commands that no hub tool forwards to.

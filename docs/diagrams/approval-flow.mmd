@@ -1,6 +1,11 @@
 ---
 config:
   look: neo
+  flowchart:
+    htmlLabels: true
+    nodeSpacing: 40
+    rankSpacing: 36
+    padding: 14
   theme: base
   themeVariables:
     primaryColor: "#334155"
@@ -37,29 +42,16 @@ config:
     compositeBackground: "#334155"
     specialStateColor: "#6E7781"
 ---
-sequenceDiagram
-  autonumber
-  participant You
-  participant AI as AI assistant
-  participant Hub as MCP hub + ApprovalGate
-  participant Panel as Side panel (WebView2)
-  participant Addin as Revit add-in
-  participant Model as Revit model
-
-  AI->>Hub: plan_actions (proposed changes)
-  Hub->>Panel: show the pending plan
-  Panel->>You: review the plan
-  alt You approve
-    You->>Panel: Approve
-    Panel->>Hub: approved
-    AI->>Hub: execute_plan
-    Hub->>Addin: forward the commands
-    Addin->>Model: run in one named transaction
-    Model-->>Addin: done
-    Addin-->>AI: result (rollback_plan can reverse it)
-  else You reject, or never approve
-    You->>Panel: Reject
-    Panel->>Hub: rejected
-    AI->>Hub: execute_plan
-    Hub--xAI: blocked, the model is untouched
-  end
+flowchart TB
+  A["<b>Draft plan</b><br/>AI assistant calls plan_actions"] --> B["<b>Show proposed changes</b><br/>counts, scope, before / after"]
+  B --> C["<b>Human approves</b><br/>in the side panel or the CLI<br/>aec-model-bridge-approve<br/>(never over MCP)"]
+  C --> D["<b>Hub checks the plan matches</b><br/>same tool, same arguments, once only"]
+  D --> E["<b>Revit runs each action</b><br/>in its own transaction"]
+  E --> F["<b>Verify</b><br/>read the values back"]
+  F --> G["<b>Undo with Ctrl+Z</b><br/>one press per action"]
+  F --> H["<b>Or rollback_plan</b><br/>writes before-values back in reverse<br/>may skip actions with no before-value"]
+  C -. "reject, or never approve" .-> X["<b>Blocked</b><br/>the model is untouched"]
+  classDef human fill:#1CB5CA,stroke:#111923,color:#06222A
+  classDef stop fill:#F59E0B,stroke:#92400E,color:#1F1300
+  class C human
+  class X stop
