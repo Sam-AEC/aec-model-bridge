@@ -9,6 +9,13 @@ We actively support and provide security updates for the following versions:
 | 1.x     | ✅ Active support  |
 | < 1.0   | ❌ Not supported   |
 
+Security fixes go into the latest 1.x release. For the Revit and Python versions that are built and tested, see the table below and the [deprecation policy](docs/deprecation-policy.md).
+
+| Component | Supported | Notes |
+| --------- | --------- | ----- |
+| Revit | 2024, 2025, 2026, 2027 | Built in CI for every year |
+| Python | 3.11, 3.12, 3.13 | Tested on Windows in CI. Linux (3.12) is experimental. |
+
 ## Reporting a Vulnerability
 
 **DO NOT** open public GitHub issues for security vulnerabilities.

@@ -1,5 +1,15 @@
-blank_issues_enabled: true
+# Blank issues are off. The bug report and feature request forms cover the
+# usual cases and ask for the details needed to act on them.
+blank_issues_enabled: false
 contact_links:
   - name: Report a security vulnerability
     url: https://github.com/Sam-AEC/aec-model-bridge/security/advisories/new
-    about: Please report security problems privately, not as a public issue.
+    about: Please report security problems privately, not as a public issue. See SECURITY.md.
+  - name: Get help or ask a question
+    url: https://github.com/Sam-AEC/aec-model-bridge/blob/main/SUPPORT.md
+    about: Where to ask, what to include, and what is and is not supported.
+  # TODO(owner): GitHub Discussions is not confirmed as enabled. If you turn it
+  # on (Settings -> General -> Features -> Discussions), add a contact link here:
+  #   - name: Ask the community
+  #     url: https://github.com/Sam-AEC/aec-model-bridge/discussions
+  #     about: Questions and ideas that are not bug reports.
