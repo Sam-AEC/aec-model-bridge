@@ -2503,6 +2503,92 @@ public static class BridgeCommandFactory
         return new { selected_count = ids.Count, not_found_count = requestedUids.Count - ids.Count };
     }
 
+    // Preview in model (UNVERIFIED: not compiled or run in live Revit by the author).
+    // Read-only by design: selects + zooms, and optionally applies Revit's TEMPORARY
+    // hide/isolate view mode, which is never saved with the model. Persistent graphic
+    // overrides (View.SetElementOverrides) are deliberately NOT used because they
+    // would be stored in the document. Reverted by revit.clear_preview.
+    [BridgeCommand("revit.preview_elements", IsMutating = false)]
+    private static object ExecutePreviewElements(UIApplication app, JsonElement payload)
+    {
+        var uidoc = app.ActiveUIDocument;
+        if (uidoc == null) throw new InvalidOperationException("No active UIDocument");
+
+        var doc = uidoc.Document;
+        var view = uidoc.ActiveView;
+        var ids = new List<ElementId>();
+        var requested = 0;
+
+        if (payload.TryGetProperty("element_uids", out var uidsProp) && uidsProp.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var x in uidsProp.EnumerateArray())
+            {
+                requested++;
+                var element = doc.GetElement(x.GetString());
+                if (element != null) ids.Add(element.Id);
+            }
+        }
+
+        if (payload.TryGetProperty("element_ids", out var idsProp) && idsProp.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var x in idsProp.EnumerateArray())
+            {
+                requested++;
+                var element = doc.GetElement(new ElementId((long)x.GetInt32()));
+                if (element != null) ids.Add(element.Id);
+            }
+        }
+
+        if (ids.Count == 0)
+        {
+            return new { previewed_count = 0, not_found_count = requested, isolated = false };
+        }
+
+        var isolate = !payload.TryGetProperty("isolate", out var isolateProp) || isolateProp.ValueKind != JsonValueKind.False;
+
+        uidoc.Selection.SetElementIds(ids);
+        uidoc.ShowElements(ids);
+
+        var isolated = false;
+        if (isolate && view.CanUseTemporaryVisibilityModes())
+        {
+            using (var tx = new Transaction(doc, "Preview elements (temporary isolate)"))
+            {
+                tx.Start();
+                view.IsolateElementsTemporary(ids);
+                tx.Commit();
+            }
+            isolated = true;
+        }
+
+        return new { previewed_count = ids.Count, not_found_count = requested - ids.Count, isolated };
+    }
+
+    [BridgeCommand("revit.clear_preview", IsMutating = false)]
+    private static object ExecuteClearPreview(UIApplication app)
+    {
+        var uidoc = app.ActiveUIDocument;
+        if (uidoc == null) throw new InvalidOperationException("No active UIDocument");
+
+        var doc = uidoc.Document;
+        var view = uidoc.ActiveView;
+        var restored = false;
+
+        if (view.IsInTemporaryViewMode(TemporaryViewMode.TemporaryHideIsolate))
+        {
+            using (var tx = new Transaction(doc, "Clear preview (end temporary isolate)"))
+            {
+                tx.Start();
+                view.DisableTemporaryViewMode(TemporaryViewMode.TemporaryHideIsolate);
+                tx.Commit();
+            }
+            restored = true;
+        }
+
+        uidoc.Selection.SetElementIds(new List<ElementId>());
+        return new { cleared = true, temporary_isolate_ended = restored };
+    }
+
     [BridgeCommand("revit.create_text_note", IsMutating = true)]
     private static object ExecuteCreateTextNote(UIApplication app, JsonElement payload)
     {
