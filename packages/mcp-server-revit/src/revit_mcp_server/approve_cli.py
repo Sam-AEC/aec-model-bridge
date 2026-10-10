@@ -22,7 +22,9 @@ from typing import Any, Dict, List, Optional
 
 from .config import config
 from .errors import BridgeError
+from .security import proof as proof_mod
 from .security.approval import ApprovalGate, local_user, plan_hash
+from .security.proof import normalize_review
 
 ELEMENT_ID_KEYS = ("element_id", "element_ids", "id", "ids", "elementIds")
 
@@ -63,7 +65,46 @@ def malformed_reasons(plan: Dict[str, Any]) -> List[str]:
             reasons.append(f"action {i} is not an object")
         elif not isinstance(a.get("arguments", {}), dict):
             reasons.append(f"action {i} has arguments that are not an object")
+    if "review" in plan or "hash_version" in plan:
+        try:
+            proof_mod.plan_hash_version(plan)
+            normalize_review(plan.get("review"))
+        except ValueError as e:
+            reasons.append(f"review block is invalid ({e})")
     return reasons
+
+
+def _describe_review(plan: Dict[str, Any]) -> List[str]:
+    """Lines for the plan's hashed review block; every string goes through safe_text."""
+    review = plan.get("review")
+    if review is None:
+        return []
+    try:
+        review = normalize_review(review)
+    except ValueError as e:
+        return ["", f"Review: MALFORMED, not shown ({safe_text(e)})"]
+    lines = ["", "Review (covered by the plan hash):"]
+    if review["summary"]:
+        lines.append(f"  Summary: {safe_text(review['summary'])}")
+    if review["reasoning"]:
+        lines.append("  Reasoning:")
+        lines.extend(f"    {safe_text(part)}" for part in review["reasoning"].split("\n"))
+    if review["citations"]:
+        lines.append("  Citations (stated by the drafter, not checked by this tool):")
+        for c in review["citations"]:
+            lines.append(f"    - {safe_text(c['rule_id'])}  clause: {safe_text(c['clause'] or '-')}  "
+                         f"source: {safe_text(c['source'] or '-')}")
+    if review["assumptions"]:
+        lines.append("  Assumptions:")
+        lines.extend(f"    - {safe_text(a)}" for a in review["assumptions"])
+    if review["excluded"]:
+        lines.append("  Left out:")
+        lines.extend(f"    - element {safe_text(x['element_id'])}: {safe_text(x['reason'] or '-')}"
+                     for x in review["excluded"])
+    if review["warnings"]:
+        lines.append("  Warnings:")
+        lines.extend(f"    ! {safe_text(w)}" for w in review["warnings"])
+    return lines
 
 
 def _element_ids(arguments: Any) -> List[str]:
@@ -109,9 +150,17 @@ def describe_plan(plan: Dict[str, Any]) -> str:
         before = (a.get("diff") or {}).get("before") if isinstance(a.get("diff"), dict) else None
         if before:
             lines.append(f"     current value: {safe_text(before)}")
+    lines.extend(_describe_review(plan))
     if plan.get("skipped"):
         skipped = plan["skipped"]
         lines.append(f"\nSkipped when drafting: {len(skipped) if isinstance(skipped, list) else safe_text(skipped)}")
+    try:
+        metadata = proof_mod.unhashed_metadata_keys(plan)
+    except Exception:
+        metadata = []
+    if metadata:
+        lines.append("\nNot part of the approval (metadata, not shown as approved content): "
+                     + ", ".join(safe_text(k) for k in metadata))
     if plan.get("approved_by") or plan.get("approved_via"):
         lines.append(
             f"\nApproved by: {safe_text(plan.get('approved_by', '-'))} via {safe_text(plan.get('approved_via', '-'))} "
@@ -172,7 +221,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 1
     # The hash of exactly what is printed below; the approval is refused if the plan
     # on disk differs from it when the person confirms.
-    shown_hash = plan_hash(plan)
+    try:
+        shown_hash = plan_hash(plan)
+    except ValueError as e:
+        print(f"Plan cannot be verified: {safe_text(e)}", file=sys.stderr)
+        return 1
     print(describe_plan(plan))
     print(f"\nPlan hash: {shown_hash}")
 

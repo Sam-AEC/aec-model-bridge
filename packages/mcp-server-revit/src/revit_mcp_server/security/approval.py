@@ -30,6 +30,10 @@ APPROVAL_CHANNELS = frozenset({"panel", "cli"})
 # they are ignored when matching a call to an approved action.
 VOLATILE_ARGUMENT_KEYS = frozenset({"plan_id", "run_async", "idempotency_key"})
 
+# Plan keys the caller of create_plan(extra=...) may not set: the hash fields and the
+# hashed review block (which has its own validated parameter).
+_RESERVED_EXTRA_KEYS = frozenset({"review", "hash_version", "plan_hash", "approved_hash"})
+
 PLAN_ID_RE = re.compile(r"plan_[0-9a-f]{12}")
 ACTION_ID_RE = re.compile(r"act_[0-9a-f]{12}")
 
@@ -194,8 +198,21 @@ class ApprovalGate:
         skipped: Optional[List[Dict[str, Any]]] = None,
         extra: Optional[Dict[str, Any]] = None,
         before_storage_types: Optional[List[Optional[str]]] = None,
+        review: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
+        """Draft a plan. ``review`` (summary, reasoning, citations, ...) is validated,
+        canonicalised and covered by the plan hash. ``extra`` is metadata only: it is NOT
+        hashed and must not be presented as approved content (see proof.unhashed_metadata_keys)."""
         self.validate_actions(actions)
+        reserved = sorted(k for k in (extra or {}) if k in _RESERVED_EXTRA_KEYS)
+        if reserved:
+            raise BridgeError("'extra' cannot set: " + ", ".join(reserved)
+                              + ". Use the review block for reviewable content.")
+        if review is not None:
+            try:
+                review = proof_mod.normalize_review(review)
+            except ValueError as e:
+                raise BridgeError(f"Invalid review block: {e}")
         plan_id = f"plan_{uuid.uuid4().hex[:12]}"
         plan_actions = []
         for i, action in enumerate(actions):
@@ -235,6 +252,9 @@ class ApprovalGate:
             plan["skipped"] = skipped
         if extra:
             plan.update({k: v for k, v in extra.items() if k not in ("plan_id", "state", "actions")})
+        if review is not None:
+            plan["review"] = review
+            plan["hash_version"] = proof_mod.HASH_VERSION_REVIEW
         plan["plan_hash"] = plan_hash(plan)
         self.save_plan(plan)
         return plan
@@ -334,7 +354,11 @@ class ApprovalGate:
         if plan.get("state") != "approved":
             raise BridgeError(f"Plan '{plan_id}' is in state '{plan.get('state')}', not 'approved'. Execution blocked.")
         approved = plan.get("approved_hash")
-        if not approved or plan_hash(plan) != approved:
+        try:
+            current_hash = plan_hash(plan)
+        except ValueError:
+            current_hash = None
+        if not approved or current_hash != approved:
             raise BridgeError(
                 f"Plan '{plan_id}' changed after it was approved (or has no approval record). Execution blocked; "
                 "draft a new plan and ask the person to approve it."

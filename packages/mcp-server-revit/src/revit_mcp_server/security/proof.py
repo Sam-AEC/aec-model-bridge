@@ -40,8 +40,131 @@ def _hashable_arguments(arguments: Any) -> Any:
     return {"__not_an_object__": arguments}
 
 
+# --- review block ---------------------------------------------------------------
+# A plan may carry a ``review`` block: the rationale a person reads next to the actions
+# (summary, reasoning, citations, assumptions, elements left out, warnings). It is
+# canonicalised, size-capped and part of the plan hash (hash_version 2), so editing it
+# after approval invalidates the approval. Plans without a review keep the original
+# hash rule (hash_version absent) and still verify.
+HASH_VERSION_REVIEW = 2
+REVIEW_MAX_BYTES = 65536
+REVIEW_LIMITS = {
+    "summary": 2000, "reasoning": 8000, "citation_field": 500, "assumption": 1000,
+    "excluded_reason": 500, "warning": 1000, "element_id": 128,
+}
+REVIEW_MAX_ITEMS = {"citations": 100, "assumptions": 100, "excluded": 500, "warnings": 200}
+REVIEW_KEYS = ("summary", "reasoning", "citations", "assumptions", "excluded", "warnings")
+CITATION_KEYS = ("rule_id", "clause", "source")
+EXCLUDED_KEYS = ("element_id", "reason")
+
+# Plan keys outside ``actions`` and ``review`` that are NOT covered by the hash. They are
+# bookkeeping or caller-supplied metadata: never shown as approved content, and editing
+# them does not invalidate an approval.
+HASHED_PLAN_KEYS_V1 = ("plan_id", "created_at", "snapshot_id", "skipped", "actions")
+HASHED_PLAN_KEYS_V2 = HASHED_PLAN_KEYS_V1 + ("hash_version", "review", "reverts_plan_id")
+STATE_PLAN_KEYS = frozenset({
+    "state", "plan_hash", "approved_hash", "approved_at", "approved_by", "approved_via",
+    "rejected_at", "rejected_via", "rejected_after_approval", "executed_at", "results",
+    "is_reversible", "reversible_strategy",
+})
+
+
+def unhashed_metadata_keys(plan: Dict[str, Any]) -> List[str]:
+    """Keys on the plan that are not part of the approval hash (excluding the plan's own
+    lifecycle state). Treat their content as metadata, not approved content."""
+    hashed = HASHED_PLAN_KEYS_V2 if plan.get("hash_version") == HASH_VERSION_REVIEW else HASHED_PLAN_KEYS_V1
+    return sorted(str(k) for k in plan if k not in hashed and k not in STATE_PLAN_KEYS)
+
+
+def _review_str(value: Any, field: str, limit: int, required: bool = False) -> str:
+    if value is None and not required:
+        return ""
+    if not isinstance(value, str):
+        raise ValueError(f"review.{field} must be a string.")
+    if len(value) > limit:
+        raise ValueError(f"review.{field} is longer than {limit} characters.")
+    return value
+
+
+def _review_list(value: Any, field: str) -> List[Any]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ValueError(f"review.{field} must be a list.")
+    if len(value) > REVIEW_MAX_ITEMS[field]:
+        raise ValueError(f"review.{field} has more than {REVIEW_MAX_ITEMS[field]} entries.")
+    return value
+
+
+def _review_obj(item: Any, field: str, allowed: Tuple[str, ...]) -> Dict[str, Any]:
+    if not isinstance(item, dict):
+        raise ValueError(f"review.{field} entries must be objects.")
+    unknown = sorted(str(k) for k in item if k not in allowed)
+    if unknown:
+        raise ValueError(f"review.{field} entry has unknown key(s): {', '.join(unknown)}.")
+    return item
+
+
+def normalize_review(review: Any) -> Dict[str, Any]:
+    """Validate and canonicalise a review block. Strict: unknown keys, wrong types and
+    over-long or over-large content raise ValueError. Text is stored as given (control and
+    bidi characters included); it is escaped when displayed (approve_cli.safe_text)."""
+    if not isinstance(review, dict):
+        raise ValueError("review must be an object.")
+    unknown = sorted(str(k) for k in review if k not in REVIEW_KEYS)
+    if unknown:
+        raise ValueError(f"review has unknown key(s): {', '.join(unknown)}.")
+    out: Dict[str, Any] = {
+        "summary": _review_str(review.get("summary"), "summary", REVIEW_LIMITS["summary"]),
+        "reasoning": _review_str(review.get("reasoning"), "reasoning", REVIEW_LIMITS["reasoning"]),
+        "citations": [], "assumptions": [], "excluded": [], "warnings": [],
+    }
+    for c in _review_list(review.get("citations"), "citations"):
+        c = _review_obj(c, "citations", CITATION_KEYS)
+        out["citations"].append({
+            "rule_id": _review_str(c.get("rule_id"), "citations.rule_id", REVIEW_LIMITS["citation_field"], True),
+            "clause": _review_str(c.get("clause"), "citations.clause", REVIEW_LIMITS["citation_field"]),
+            "source": _review_str(c.get("source"), "citations.source", REVIEW_LIMITS["citation_field"]),
+        })
+    for a in _review_list(review.get("assumptions"), "assumptions"):
+        out["assumptions"].append(_review_str(a, "assumptions", REVIEW_LIMITS["assumption"], True))
+    for x in _review_list(review.get("excluded"), "excluded"):
+        x = _review_obj(x, "excluded", EXCLUDED_KEYS)
+        eid = x.get("element_id")
+        if isinstance(eid, bool) or not isinstance(eid, (int, str)):
+            raise ValueError("review.excluded.element_id must be an integer or string.")
+        if isinstance(eid, str) and (not eid or len(eid) > REVIEW_LIMITS["element_id"]):
+            raise ValueError("review.excluded.element_id is empty or too long.")
+        out["excluded"].append({
+            "element_id": eid,
+            "reason": _review_str(x.get("reason"), "excluded.reason", REVIEW_LIMITS["excluded_reason"]),
+        })
+    for w in _review_list(review.get("warnings"), "warnings"):
+        out["warnings"].append(_review_str(w, "warnings", REVIEW_LIMITS["warning"], True))
+    size = len(json.dumps(out, sort_keys=True, ensure_ascii=False).encode("utf-8"))
+    if size > REVIEW_MAX_BYTES:
+        raise ValueError(f"review is too large ({size} bytes; the limit is {REVIEW_MAX_BYTES}).")
+    return out
+
+
+def plan_hash_version(plan: Dict[str, Any]) -> int:
+    """1 for plans without a review block, 2 for plans that carry one. A plan that mixes
+    the two (a review without hash_version 2, or version 2 without a review) is refused."""
+    version = plan.get("hash_version")
+    has_review = "review" in plan
+    if version is None and not has_review:
+        return 1
+    if version == HASH_VERSION_REVIEW and isinstance(plan.get("review"), dict):
+        return HASH_VERSION_REVIEW
+    raise ValueError("Plan has an inconsistent review/hash_version combination; it cannot be verified.")
+
+
 def plan_content_hash(plan: Dict[str, Any]) -> str:
-    """SHA-256 over the immutable content of a plan (not its mutable state/results)."""
+    """SHA-256 over the immutable content of a plan (not its mutable state/results).
+
+    Version 1 (no ``review``): ids, snapshot, skipped list and each action. Version 2
+    additionally covers ``hash_version``, ``review`` and ``reverts_plan_id``."""
+    version = plan_hash_version(plan)
     content = {
         "plan_id": plan.get("plan_id"),
         "created_at": plan.get("created_at"),
@@ -57,6 +180,10 @@ def plan_content_hash(plan: Dict[str, Any]) -> str:
             for a in plan.get("actions", [])
         ],
     }
+    if version == HASH_VERSION_REVIEW:
+        content["hash_version"] = HASH_VERSION_REVIEW
+        content["review"] = plan["review"]
+        content["reverts_plan_id"] = plan.get("reverts_plan_id")
     blob = json.dumps(content, sort_keys=True, separators=(",", ":"), default=str)
     return "sha256:" + hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
