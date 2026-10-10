@@ -35,6 +35,7 @@ from .config import config
 from .errors import RevitMCPError
 from .registry_factory import build_registry
 from .security.approval import HUMAN_ONLY_TOOLS
+from .security.proof import panel_plans
 from .security.audit import redact_data, redact_known_secrets, register_secret_value
 from .security.dispatch import run_gated_tool
 from .security.panel_token import TOKEN_HEADER, PanelTokenError, load_or_create_token, read_token
@@ -440,6 +441,8 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
         try:
             with _route(self.registry, switch):
                 result = _run_tool_sync(self.registry, self.approval_provider, tool, arguments)
+            if tool == "list_pending_plans":
+                result = panel_plans(result)
             self._send_json(200, {"ok": True, "result": redact_data(result)})
         except RevitMCPError as e:
             self._send_json(409, {"ok": False, "error": redact_data(str(e))})

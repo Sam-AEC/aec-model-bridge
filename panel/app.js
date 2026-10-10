@@ -272,7 +272,8 @@ function updateToolAvailability() {
   const blocked = modelActionsBlocked();
   const chatBlocked = blocked || llmIsOffline();
   document.querySelectorAll("[data-action], [data-plan], [data-report], [data-select-plan]").forEach((control) => {
-    control.disabled = blocked;
+    // A plan whose review could not be shown stays unapprovable whatever the host state is.
+    control.disabled = blocked || control.dataset.reviewBlocked === "1";
   });
   syncApproveSelected();
   if (chat) {
@@ -348,8 +349,13 @@ function isPlanActionable(plan) {
   return plan.status === "pending";
 }
 
+// Approve needs the plan's review (when it has one) to have been shown. Reject never does.
+function isPlanApprovable(plan) {
+  return isPlanActionable(plan) && !plan.reviewBlocked;
+}
+
 function selectedActionablePlanIds() {
-  const actionable = new Set(state.plans.filter(isPlanActionable).map((plan) => plan.id));
+  const actionable = new Set(state.plans.filter(isPlanApprovable).map((plan) => plan.id));
   return Array.from(state.selectedPlanIds).filter((id) => actionable.has(id));
 }
 
@@ -376,15 +382,22 @@ function renderPlans() {
     const label = escapeHtml(plan.title);
     const hash = escapeHtml(plan.hash);
     const actionable = isPlanActionable(plan);
-    // The review block (tool, arguments, before value) is what the person approves,
-    // so it is shown only while a decision is still open; settled plans keep a badge.
-    const review = actionable ? `<pre class="plan-review">${escapeHtml(plan.review)}</pre>` : "";
-    const select = actionable
+    // The review block (tool, arguments, before value, and for hash_version 2 the rationale
+    // the hash covers) is what the person approves, so it is shown only while a decision is
+    // still open; settled plans keep a badge. If the review cannot be shown, Approve is off.
+    const slot = document.createElement("div");
+    slot.className = "plan-review-slot";
+    if (actionable) {
+      plan.reviewBlocked = !plan.reviewState.ok || !fillReviewSlot(slot, plan.reviewState);
+    }
+    const approvable = isPlanApprovable(plan);
+    const select = approvable
       ? `<label class="plan-select"><input type="checkbox" data-select-plan="${id}" aria-label="Select plan ${label}"${state.selectedPlanIds.has(plan.id) ? " checked" : ""}></label>`
       : "";
+    const blockedAttr = plan.reviewBlocked ? ' disabled data-review-blocked="1" aria-describedby="review-blocked-' + id + '"' : "";
     const actions = actionable
       ? `<div class="item-actions">
-        <button type="button" data-plan="${id}" data-hash="${hash}" class="primary" data-decision="approve" aria-label="Approve plan ${label}">Approve</button>
+        <button type="button" data-plan="${id}" data-hash="${hash}" class="primary" data-decision="approve" aria-label="Approve plan ${label}"${blockedAttr}>Approve</button>
         <button type="button" data-plan="${id}" data-hash="${hash}" data-decision="reject" aria-label="Reject plan ${label}">Reject</button>
       </div>`
       : "";
@@ -394,8 +407,22 @@ function renderPlans() {
         <span class="badge ${planStatusBadgeClass(plan.status)}">${escapeHtml(String(plan.status).replace(/_/g, " "))}</span>
       </div>
       <p>${escapeHtml(plan.detail)}</p>
-      ${review}
+      ${actionable ? `<pre class="plan-review">${escapeHtml(plan.review)}</pre>` : ""}
+      <div data-review-mount></div>
       ${actions}`;
+    const mount = item.querySelector("[data-review-mount]");
+    if (plan.reviewBlocked && actionable) {
+      const note = document.createElement("p");
+      note.className = "review-blocked";
+      note.id = "review-blocked-" + plan.id;
+      note.setAttribute("role", "alert");
+      note.textContent = REVIEW_BLOCKED_MESSAGE;
+      mount.replaceWith(note);
+    } else if (actionable) {
+      mount.replaceWith(slot);
+    } else {
+      mount.remove();
+    }
     planList.appendChild(item);
   });
   syncApproveSelected();
@@ -531,6 +558,11 @@ document.body.addEventListener("click", (event) => {
   const planId = target.dataset.plan;
   if (planId) {
     const decision = target.dataset.decision;
+    const known = state.plans.find((candidate) => candidate.id === planId);
+    if (decision === "approve" && (!known || !isPlanApprovable(known))) {
+      addLog("Approve blocked", REVIEW_BLOCKED_MESSAGE);
+      return;
+    }
     // planHash is the hash of the plan this list was rendered from; the hub refuses
     // the approval if the plan changed since.
     postToHost(`plan.${decision}`, { planId, planHash: target.dataset.hash || "" });
@@ -610,6 +642,179 @@ function stringifyForReview(value) {
 }
 
 // Everything the person approves: each action's tool, arguments and before value.
+// ---- Plan review block (hash_version 2) -------------------------------------------------
+// The hub sends a validated copy as plan.review_view. Everything in it is untrusted model
+// text: it is only ever put on the page with textContent, never innerHTML, and a plan the
+// panel cannot show completely is not approvable here (fail closed).
+const REVIEW_CLIP = 280;
+const REVIEW_BLOCKED_MESSAGE =
+  "This plan's review could not be shown, so it cannot be approved here. " +
+  "Use aec-model-bridge-approve show <plan id> in a terminal to read it, then approve or reject there.";
+
+function isPlainObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function reviewBlocked(reason) {
+  return { ok: false, version: null, review: null, revertsPlanId: null, reason: String(reason || "") };
+}
+
+// Returns { ok, version, review, revertsPlanId, reason }. Unknown keys are ignored; a wrong
+// type anywhere in a field the card shows makes the whole review unusable.
+function planReviewState(plan) {
+  try {
+    const view = plan && plan.review_view;
+    const claimsReview = Boolean(plan) && (plan.hash_version !== undefined || "review" in plan);
+    const noReview = { ok: true, version: 1, review: null, revertsPlanId: null, reason: "" };
+    if (!isPlainObject(view)) {
+      return claimsReview ? reviewBlocked("the hub did not send a validated review") : noReview;
+    }
+    if (view.status === "none") {
+      return claimsReview ? reviewBlocked("the plan carries a review but the hub marked it as having none") : noReview;
+    }
+    if (view.status !== "ok" || view.hash_version !== 2) {
+      return reviewBlocked(view.error || "the hub reported the review as invalid");
+    }
+    const r = view.review;
+    if (!isPlainObject(r) || typeof r.summary !== "string" || typeof r.reasoning !== "string") {
+      return reviewBlocked("the review is malformed");
+    }
+    for (const key of ["citations", "assumptions", "excluded", "warnings", "conflicts"]) {
+      if (!Array.isArray(r[key])) return reviewBlocked("the review is malformed");
+    }
+    const strOrNum = (v) => typeof v === "string" || (typeof v === "number" && Number.isFinite(v));
+    const okAll =
+      r.citations.every((c) => isPlainObject(c) && typeof c.rule_id === "string" && typeof c.clause === "string" && typeof c.source === "string") &&
+      r.assumptions.every((a) => typeof a === "string") &&
+      r.excluded.every((x) => isPlainObject(x) && strOrNum(x.element_id) && typeof x.reason === "string") &&
+      r.warnings.every((w) => typeof w === "string") &&
+      r.conflicts.every((c) => isPlainObject(c) && strOrNum(c.element_id) &&
+        ["parameter", "expected_current", "actual_current", "revert_to"].every((k) => typeof c[k] === "string"));
+    if (!okAll) return reviewBlocked("the review is malformed");
+    const reverts = view.reverts_plan_id;
+    if (reverts !== null && reverts !== undefined && typeof reverts !== "string") return reviewBlocked("the review is malformed");
+    return { ok: true, version: 2, review: r, revertsPlanId: reverts || null, reason: "" };
+  } catch (error) {
+    return reviewBlocked("the review could not be read");
+  }
+}
+
+function reviewEl(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+// Text clipped to REVIEW_CLIP characters with a button that shows the rest. Both states are
+// text nodes; the full string is never dropped.
+function clippedText(tag, className, raw) {
+  const full = visibleText(raw);
+  const node = reviewEl(tag, className);
+  const chars = Array.from(full);
+  if (chars.length <= REVIEW_CLIP) {
+    node.textContent = full;
+    return node;
+  }
+  const clipped = chars.slice(0, REVIEW_CLIP).join("") + "…";
+  const body = reviewEl("span", "review-text", clipped);
+  const more = reviewEl("button", "review-more", "Show more");
+  more.type = "button";
+  more.setAttribute("aria-expanded", "false");
+  more.addEventListener("click", () => {
+    const open = more.getAttribute("aria-expanded") === "true";
+    body.textContent = open ? clipped : full;
+    more.textContent = open ? "Show more" : "Show less";
+    more.setAttribute("aria-expanded", open ? "false" : "true");
+  });
+  node.append(body, " ", more);
+  return node;
+}
+
+function reviewSection(title, count) {
+  const section = reviewEl("section", "review-section");
+  section.append(reviewEl("h3", "", count === undefined ? title : `${title} (${count})`));
+  return section;
+}
+
+function reviewList(items, build) {
+  const list = reviewEl("ul", "review-list");
+  items.forEach((item) => {
+    const li = reviewEl("li");
+    li.append(build(item));
+    list.append(li);
+  });
+  return list;
+}
+
+function labelled(parts) {
+  const d = reviewEl("div");
+  parts.forEach(([label, value]) => {
+    d.append(reviewEl("span", "review-label", label), clippedText("span", "review-value", value), " ");
+  });
+  return d;
+}
+
+// Builds the review block for one plan from a state planReviewState accepted.
+function buildReviewPanel(reviewState) {
+  const root = reviewEl("div", "plan-review-block");
+  root.dataset.reviewKind = reviewState.version === 2 ? "v2" : "v1";
+  const hashNote = reviewEl("p", "review-hash-note");
+  if (reviewState.version !== 2) {
+    hashNote.textContent = "Hash version 1: this plan has no review block. The approval hash covers the actions only.";
+    root.append(hashNote);
+    return root;
+  }
+  const r = reviewState.review;
+  hashNote.textContent =
+    "Hash version 2. Covered by the approval hash: the actions above and everything in this review " +
+    "(summary, reasoning, citations, assumptions, excluded elements, warnings, conflicts)" +
+    (reviewState.revertsPlanId ? ", and the id of the plan it reverts" : "") +
+    ". Changing any of it after you approve cancels the approval. An AI model wrote this text: read it as a claim, not a fact.";
+  root.append(hashNote);
+  if (reviewState.revertsPlanId) {
+    const p = reviewEl("p", "review-reverts");
+    p.append("Reverts plan: ", reviewEl("code", "", visibleText(reviewState.revertsPlanId)));
+    root.append(p);
+  }
+  const summary = reviewSection("Summary");
+  summary.append(r.summary ? clippedText("p", "review-body", r.summary) : reviewEl("p", "review-empty", "(none)"));
+  const reasoning = reviewSection("Reasoning");
+  reasoning.append(r.reasoning ? clippedText("p", "review-body", r.reasoning) : reviewEl("p", "review-empty", "(none)"));
+  root.append(summary, reasoning);
+
+  const sections = [
+    ["Citations", r.citations, (c) => labelled([["Rule", c.rule_id], ["Clause", c.clause || "(none)"], ["Source", c.source || "(none)"]])],
+    ["Assumptions", r.assumptions, (a) => clippedText("span", "", a)],
+    ["Excluded elements", r.excluded, (x) => labelled([["Element", String(x.element_id)], ["Reason", x.reason || "(none given)"]])],
+    ["Warnings", r.warnings, (w) => clippedText("span", "", w)],
+    ["Conflicts", r.conflicts, (c) => labelled([
+      ["Element", String(c.element_id)], ["Parameter", c.parameter || "(none)"],
+      ["Expected", c.expected_current || "(none)"], ["Actual", c.actual_current || "(none)"],
+      ["Revert to", c.revert_to || "(none)"]])]
+  ];
+  sections.forEach(([title, items, build]) => {
+    const section = reviewSection(title, items.length);
+    if (items.length === 0) section.append(reviewEl("p", "review-empty", "None listed."));
+    else section.append(reviewList(items, build));
+    root.append(section);
+  });
+  return root;
+}
+
+// Fills the review slot of a plan card. Returns false when the review could not be shown,
+// in which case the card disables Approve.
+function fillReviewSlot(slot, reviewState) {
+  if (!reviewState.ok) return false;
+  try {
+    slot.replaceChildren(buildReviewPanel(reviewState));
+    return true;
+  } catch (error) {
+    slot.replaceChildren();
+    return false;
+  }
+}
+
 function planActionLines(actions) {
   return actions.map((action, index) => {
     const lines = [`${index + 1}. ${visibleText(action && action.tool)}`];
@@ -634,6 +839,8 @@ function mapPlans(hubResult) {
       title: actions.length === 1 ? actions[0].tool : `${actions.length} action(s)`,
       detail: actions.map((action) => action.tool).join(", ") || "No actions",
       review: planActionLines(actions).join("\n") || "No actions",
+      reviewState: planReviewState(plan),
+      reviewBlocked: !planReviewState(plan).ok,
       // Facts for the chat card, from the same real actions: tool, arguments, captured before value.
       actions: actions.map((action) => ({
         tool: action && action.tool,

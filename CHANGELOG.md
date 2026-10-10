@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Security: the panel now shows a plan's hashed review block (summary, reasoning, citations, assumptions, excluded elements, warnings, conflicts, reverted plan id) in the Plans view, and says which parts the approval hash covers. Review text is untrusted and shown as plain text only, clipped with a Show more button. A hash_version 2 plan whose review is missing, malformed or cannot be drawn has Approve disabled and the card points to `aec-model-bridge-approve show`; Reject still works. The panel hub adds a validated `review_view` to `list_pending_plans` results on the panel route only. Not verified in a live Revit panel.
 - Security: log and error redaction now also covers UNC network paths (`\\server\share\model.rvt`, the usual way central models are shared) and backslash paths without a drive letter. Before, a server or share name could appear in audit logs and error messages. This also fixes `test_redaction_in_server` on Linux.
 ## 1.4.0 - 2026-10-09
 
