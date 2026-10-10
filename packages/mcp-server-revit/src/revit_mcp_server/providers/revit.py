@@ -1,4 +1,7 @@
+import contextlib
+import contextvars
 import logging
+import threading
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -13,6 +16,10 @@ from ..security.workspace import WorkspaceMonitor
 from .base import AECProvider, ProviderTool, enrich_mutation_metadata
 
 logger = logging.getLogger(__name__)
+
+# Per-request bridge chosen by the panel hub's instance routing. A ContextVar so concurrent
+# requests aimed at different Revit instances cannot see each other's choice.
+_BRIDGE_OVERRIDE: contextvars.ContextVar = contextvars.ContextVar("revit_bridge_override", default=None)
 
 
 class UnavailableBridge:
@@ -42,7 +49,10 @@ class RevitProvider(AECProvider):
         self.mode = mode
         self.bridge_url = bridge_url
         self.host_version = host_version
+        self._bridge_factory = bridge_factory
         self._bridge = self._build_bridge(bridge_factory)
+        self._routed_bridges: Dict[tuple, Any] = {}
+        self._routed_lock = threading.Lock()
         self._init_tool_mapping()
         self._enrich_tool_metadata()
 
@@ -90,6 +100,32 @@ class RevitProvider(AECProvider):
     def get_identity(self) -> str:
         return "revit"
 
+    def _active_bridge(self):
+        return _BRIDGE_OVERRIDE.get() or self._bridge
+
+    @contextlib.contextmanager
+    def routed_to(self, endpoint: str, token: str | None):
+        """Send every Revit call made inside this block (same task/thread context) to the
+        bridge at ``endpoint`` instead of the one chosen at hub start-up. Used by the panel
+        hub's instance routing; the registry decides the endpoint, never the request."""
+        key = (endpoint, token)
+        with self._routed_lock:
+            bridge = self._routed_bridges.get(key)
+            if bridge is None:
+                factory = self._bridge_factory or (lambda u, t=None: BridgeClient(u, token=t))
+                bridge = factory(endpoint, token)
+                if hasattr(bridge, "initialize"):
+                    try:
+                        bridge.initialize()
+                    except Exception as e:
+                        logger.error("Failed to initialize routed Revit bridge client: %s", type(e).__name__)
+                self._routed_bridges[key] = bridge
+        reset = _BRIDGE_OVERRIDE.set(bridge)
+        try:
+            yield bridge
+        finally:
+            _BRIDGE_OVERRIDE.reset(reset)
+
     def _build_bridge(self, factory=None):
         if self.mode == BridgeMode.bridge:
             from ..bridge.discovery import available_host_versions, select_switch
@@ -98,7 +134,7 @@ class RevitProvider(AECProvider):
             token = None
 
             if not url:
-                switch = select_switch("revit", self.host_version)
+                switch = select_switch("revit", self.host_version, prune=False)
                 if switch:
                     url = switch.endpoint
                     token = switch.session_token
@@ -108,7 +144,7 @@ class RevitProvider(AECProvider):
                         url,
                     )
                 elif self.host_version:
-                    versions = available_host_versions("revit")
+                    versions = available_host_versions("revit", prune=False)
                     available = ", ".join(versions) if versions else "none"
                     message = (
                         f"No live Revit {self.host_version} bridge found. "
@@ -152,8 +188,9 @@ class RevitProvider(AECProvider):
         if self.mode == BridgeMode.bridge:
             try:
                 # Direct check
-                if hasattr(self._bridge, "_get"):
-                    return self._bridge._get("/health")
+                bridge = self._active_bridge()
+                if hasattr(bridge, "_get"):
+                    return bridge._get("/health")
                 return {"status": "healthy", "mode": "bridge"}
             except Exception as e:
                 return {"status": "unhealthy", "error": str(e)}
@@ -198,7 +235,7 @@ class RevitProvider(AECProvider):
                     logger.warning(f"Revit legacy handler validation warning: {e}")
 
             # Send to bridge client
-            return self._bridge.send_tool(bridge_tool, payload)
+            return self._active_bridge().send_tool(bridge_tool, payload)
         else:
             # Mock mode
             legacy_dot_name = bridge_tool
@@ -211,7 +248,7 @@ class RevitProvider(AECProvider):
                 return handler({"request_id": "mcp-mock", **payload}, self.workspace)
 
             # Fallback to general mock response
-            return self._bridge.send_tool(bridge_tool, payload)
+            return self._active_bridge().send_tool(bridge_tool, payload)
 
     def _assert_paths_in_workspace(self, arguments: Dict[str, Any]) -> None:
         path_keys = ["path", "csv_path", "output_path", "file_path", "template_path"]
@@ -1930,3 +1967,7 @@ class RevitProvider(AECProvider):
         close = getattr(getattr(self, "_bridge", None), "close", None)
         if callable(close):
             close()
+        for routed in list(getattr(self, "_routed_bridges", {}).values()):
+            routed_close = getattr(routed, "close", None)
+            if callable(routed_close):
+                routed_close()
