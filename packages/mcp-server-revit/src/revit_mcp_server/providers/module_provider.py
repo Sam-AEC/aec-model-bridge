@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import inspect
 import logging
 from typing import Any, Callable, Dict, List, Optional
@@ -227,12 +228,12 @@ class ModuleProvider(AECProvider):
             if inspect.iscoroutinefunction(func):
                 return await func(arguments)
             else:
-                return await asyncio.get_running_loop().run_in_executor(None, func, arguments)
+                return await asyncio.get_running_loop().run_in_executor(None, contextvars.copy_context().run, func, arguments)
                 
         if inspect.iscoroutinefunction(func):
             return await func(**kwargs)
         else:
-            return await asyncio.get_running_loop().run_in_executor(None, lambda: func(**kwargs))
+            return await asyncio.get_running_loop().run_in_executor(None, contextvars.copy_context().run, lambda: func(**kwargs))
 
     def _sync_tool_executor(self, loop: asyncio.AbstractEventLoop) -> Callable[[str, Dict[str, Any]], Dict[str, Any]]:
         def execute(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
