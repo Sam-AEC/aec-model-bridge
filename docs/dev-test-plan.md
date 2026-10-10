@@ -261,6 +261,65 @@ Open the panel from the **AEC Bridge** tab.
    has no token: a request with a valid Host and no Origin is accepted from any
    local program. That is a known limit (section H), not a finding about #93.
 
+### E2. Chat panel, stage 1 (new chat renderer)
+
+The chat view now renders markdown (headings, lists, tables, code with a Copy
+button and syntax colours), shows the mode in the header, and shows pending
+plans as "Review N changes" cards. Replies still arrive whole (no streaming
+yet). Everything below was only tested in headless Chromium with a stubbed
+host, so each item is UNVERIFIED in Revit's WebView2.
+
+1. **The panel loads at all (CSP on file://).** The page now carries a
+   Content-Security-Policy (`script-src 'self'`, no inline script or style, no
+   network). Open the panel from the ribbon. Working looks like: the chat view
+   shows "Ask about the active model" with three example prompts, and the
+   header shows a mode chip. If the panel is blank, or the chat shows "Chat
+   could not load", the CSP or the script loading failed on `file://`; record
+   it first, because every other check depends on it.
+2. **Mode chip.** Working looks like: the chip reads "Look only", "Ask me
+   first" or "Auto: not recommended" to match `approval_mode` in the hub
+   config, and "Mode unknown" until the Setup check has run or when the hub is
+   down. In Look only the chat also shows a "Look only" banner. The chip only
+   displays the mode; "Change in settings" means the hub config, there is no
+   switch in the panel yet.
+3. **Markdown reply.** Ask for "a table of 3 doors and a python snippet".
+   Working looks like: a real table, a code block with a language label, colours
+   and a Copy button, and the table or code scrolls sideways inside its own box
+   instead of widening the panel. Try a reply with `<b>x</b>` or `[a](javascript:alert(1))`
+   in it: it must appear as text or as a struck-through, unclickable link.
+4. **Copy buttons (clipboard permission).** Press Copy on a code block and on a
+   message, then paste into Notepad. Working looks like: the pasted text is the
+   raw code or the message markdown. If nothing pastes, WebView2 blocked the
+   clipboard; record whether the button said "Copy failed".
+5. **Composer and IME.** Enter sends, Shift+Enter adds a line, and the box
+   grows up to about 8 lines. With a Japanese, Chinese or Korean IME, press
+   Enter to confirm a candidate: it must confirm the text and NOT send. Also
+   try the Windows emoji picker (Win+period). UNVERIFIED.
+6. **Links.** Click a link in a reply. The panel posts `link.open` to the host,
+   but the add-in has no handler for it yet, so expect nothing to open in your
+   browser and expect a small "Link" note above the composer with the URL and a
+   Copy button. Record whether anything else happened (a popup, a navigation
+   inside the panel). That would be a bug.
+7. **Proposal card.** Ask the assistant for a change (for example "set Fire
+   Rating to 2h on the selected doors") in Ask me first mode. After the reply
+   the panel asks the host for the pending plans. Working looks like: a card
+   "N proposed changes" with the tools, how many elements it names, whether
+   before values were captured, the Ctrl+Z note, and a "Review N changes"
+   button. The card has no Approve button. Press Review: the Plans view opens
+   on that plan, which still has Approve and Reject. In Look only the card says
+   the changes cannot be approved. Check the numbers on the card against the
+   plan's real actions in the Plans view.
+8. **Scroll and "Jump to latest".** After a few replies, scroll up. Working
+   looks like: a "Jump to latest" pill appears, new replies do not pull you
+   down, and the pill returns you to the bottom.
+9. **DPI, narrow width, Narrator.** Check 100%, 150% and 200% display scaling
+   and the narrowest docked width (no sideways scroll, composer buttons
+   reachable), light and dark theme, and with Narrator on that a new reply is
+   read out once and the Review button is announced with its name. UNVERIFIED.
+10. **Large reply.** A reply over 200 KB is cut with a "Message shortened for
+    display" note (Copy still copies all of it). Only try this if you can make
+    the assistant produce one; it is not a release blocker.
+
 ## F. Multi-Revit check
 
 Known limit: the panel hub listens on fixed port 8787 and a second Revit
