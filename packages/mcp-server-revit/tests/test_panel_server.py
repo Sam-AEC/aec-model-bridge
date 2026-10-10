@@ -342,6 +342,36 @@ def test_diagnostics_reports_missing_revit_bridge(running_server, monkeypatch):
     assert "add-in" in checks["revit_bridge"]["next_step"]
 
 
+@pytest.mark.parametrize(
+    "mode,note,ok",
+    [
+        ("look_only", "Look only: I read, never change the model.", True),
+        ("ask_first", "Ask me first: changes need your approval in this panel.", True),
+        ("auto", "Auto: approvals are skipped. Not recommended.", False),
+    ],
+)
+def test_diagnostics_reports_approval_mode(running_server, monkeypatch, mode, note, ok):
+    monkeypatch.setattr(panel_server.config, "approval_mode", mode)
+    monkeypatch.setattr(panel_server.PanelRequestHandler, "approval_provider", None)
+    status, body = _get(running_server, "/diagnostics")
+    assert status == 200
+    assert body["approval_mode"] == mode
+    assert body["approval_mode_note"] == note
+    check = {c["id"]: c for c in body["checks"]}["approval_mode"]
+    assert check["ok"] is ok and check["detail"] == note
+    assert bool(check["next_step"]) is (not ok)
+
+
+def test_diagnostics_normalises_approval_mode_alias(running_server, monkeypatch):
+    monkeypatch.setattr(panel_server.PanelRequestHandler, "approval_provider", Mock(approval_mode="required"))
+    _, body = _get(running_server, "/diagnostics")
+    assert body["approval_mode"] == "ask_first"
+
+
+def test_health_stays_minimal(running_server):
+    assert _get(running_server, "/health") == (200, {"status": "healthy"})
+
+
 # --- Host / Origin / Content-Type checks ------------------------------------
 
 

@@ -65,15 +65,23 @@ def _run_tool_sync(registry, approval_provider, name: str, arguments: Dict[str, 
     return asyncio.run(_run())
 
 
-def collect_diagnostics(workspace_dir: Path) -> Dict[str, Any]:
+APPROVAL_MODE_NOTES = {
+    "look_only": "Look only: I read, never change the model.",
+    "ask_first": "Ask me first: changes need your approval in this panel.",
+    "auto": "Auto: approvals are skipped. Not recommended.",
+}
+
+
+def collect_diagnostics(workspace_dir: Path, approval_mode: Any = None) -> Dict[str, Any]:
     """Install-to-first-check status: one entry per thing that can block a first run.
 
     Each check carries a ``next_step`` so the panel can show a specific recovery
     action instead of a generic connection error.
     """
     from .bridge.discovery import available_host_versions
-    from .config import BridgeMode
+    from .config import BridgeMode, normalize_approval_mode
 
+    mode_value = normalize_approval_mode(config.approval_mode if approval_mode is None else approval_mode)
     checks = []
 
     def add(check_id: str, ok: bool, detail: str, next_step: str = "") -> None:
@@ -116,7 +124,17 @@ def collect_diagnostics(workspace_dir: Path) -> Dict[str, Any]:
         "Set MCP_REVIT_ANTHROPIC_API_KEY, or install and sign in to the claude CLI, then restart Revit.",
     )
 
-    return {"ok": all(c["ok"] for c in checks), "checks": checks}
+    add(
+        "approval_mode", mode_value != "auto", APPROVAL_MODE_NOTES[mode_value],
+        "Set approval_mode to ask_first (or look_only) so changes need your approval, then restart the hub.",
+    )
+
+    return {
+        "ok": all(c["ok"] for c in checks),
+        "approval_mode": mode_value,
+        "approval_mode_note": APPROVAL_MODE_NOTES[mode_value],
+        "checks": checks,
+    }
 
 
 class PanelRequestHandler(BaseHTTPRequestHandler):
@@ -179,7 +197,11 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
             self._send_json(200, {"status": "healthy"})
             return
         if self.path == "/diagnostics":
-            self._send_json(200, collect_diagnostics(self.workspace.allowed_directories[0]))
+            self._send_json(200, collect_diagnostics(
+                    self.workspace.allowed_directories[0],
+                    getattr(self.approval_provider, "approval_mode", None),
+                ),
+            )
             return
         if self.path == "/reports":
             self._handle_list_reports()
