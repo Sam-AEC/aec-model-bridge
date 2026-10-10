@@ -157,7 +157,7 @@ MCP 用戶端與一個 Python hub 溝通。hub 會把每次呼叫轉送給擁有
 
 <sub>圖表來源：[approval-flow.mmd](../diagrams/approval-flow.mmd)。使用 `python scripts/render_diagrams.py` 重新產生圖片。</sub>
 
-若計畫有誤，請在 Revit 中用 Ctrl+Z 復原。每次參數寫入都是各自獨立的具名交易，因此一個計畫可能需要按多次。整個計畫一步復原的功能已列入規劃，尚未實作。`rollback_plan` 會依相反順序寫回已記錄的原值，若某個動作沒有記錄原值，它可能會略過該動作，請查看其警告。這兩種方式目前都尚未在真實的 Revit 工作階段中驗證（UNVERIFIED）。無法復原的操作（例如檔案輸出）這兩種方式都無法復原，目前也尚未要求再次確認（已列入規劃）。完整生命週期請見 [ADR 0008](../0008-approval-gate-lifecycle.md)。
+若計畫有誤，請在 Revit 中用 Ctrl+Z 復原。每次參數寫入都是各自獨立的具名交易，因此一個計畫可能需要按多次。整個計畫一步復原的功能已列入規劃，尚未實作。`rollback_plan` 會依相反順序寫回已記錄的原值，若某個動作沒有記錄原值，它可能會略過該動作，請查看其警告。這兩種方式目前都尚未在真實的 Revit 工作階段中驗證（UNVERIFIED）。無法復原的操作（例如檔案輸出）這兩種方式都無法復原，目前也尚未要求再次確認（已列入規劃）。面板的 Plans 清單只顯示待處理的計畫；`aec-model-bridge-approve show <plan_id>` 適用於任何狀態的計畫，而 `proofs/` 套件只存在於已執行（或嘗試執行）的計畫。完整生命週期請見 [ADR 0008](../0008-approval-gate-lifecycle.md)。
 
 對於無人值守的流程，可以設定 `MCP_REVIT_APPROVAL_MODE=auto`。這會關閉人工檢查，因此請只在受控環境中使用。
 
