@@ -209,10 +209,14 @@ def select_switch(
     provider_id: str = "revit",
     host_version: str | None = None,
     registry_dir: Path | None = None,
+    *,
+    prune: bool = True,
 ) -> SwitchInfo | None:
-    """Select the newest live switch for a provider, optionally by host version."""
+    """Select the newest live switch for a provider, optionally by host version.
+
+    ``prune=False`` applies the non-deleting liveness rule of ``discover_switch_list``."""
     requested_version = host_version.strip().lower() if host_version else None
-    for switch in discover_switch_list(registry_dir):
+    for switch in discover_switch_list(registry_dir, prune=prune):
         if switch.provider_id != provider_id:
             continue
         switch_version = switch.host_version.lower()
@@ -222,10 +226,10 @@ def select_switch(
     return None
 
 
-def available_host_versions(provider_id: str = "revit", registry_dir: Path | None = None) -> List[str]:
+def available_host_versions(provider_id: str = "revit", registry_dir: Path | None = None, *, prune: bool = True) -> List[str]:
     """Return live host versions for a provider, sorted newest first without duplicates."""
     versions: List[str] = []
-    for switch in discover_switch_list(registry_dir):
+    for switch in discover_switch_list(registry_dir, prune=prune):
         if switch.provider_id != provider_id:
             continue
         if switch.host_version not in versions:

@@ -134,7 +134,7 @@ class RevitProvider(AECProvider):
             token = None
 
             if not url:
-                switch = select_switch("revit", self.host_version)
+                switch = select_switch("revit", self.host_version, prune=False)
                 if switch:
                     url = switch.endpoint
                     token = switch.session_token
@@ -144,7 +144,7 @@ class RevitProvider(AECProvider):
                         url,
                     )
                 elif self.host_version:
-                    versions = available_host_versions("revit")
+                    versions = available_host_versions("revit", prune=False)
                     available = ", ".join(versions) if versions else "none"
                     message = (
                         f"No live Revit {self.host_version} bridge found. "

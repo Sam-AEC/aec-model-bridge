@@ -170,8 +170,8 @@ def test_revit_provider_explicit_bridge_url_takes_precedence(tmp_path):
 async def test_revit_provider_missing_requested_host_version_reports_available(tmp_path, monkeypatch):
     workspace = WorkspaceMonitor([tmp_path])
 
-    monkeypatch.setattr("revit_mcp_server.bridge.discovery.select_switch", lambda provider_id, host_version: None)
-    monkeypatch.setattr("revit_mcp_server.bridge.discovery.available_host_versions", lambda provider_id: ["2024", "2026"])
+    monkeypatch.setattr("revit_mcp_server.bridge.discovery.select_switch", lambda provider_id, host_version, **_k: None)
+    monkeypatch.setattr("revit_mcp_server.bridge.discovery.available_host_versions", lambda provider_id, **_k: ["2024", "2026"])
 
     provider = RevitProvider(workspace=workspace, mode=BridgeMode.bridge, host_version="2025")
     health = await provider.check_health()

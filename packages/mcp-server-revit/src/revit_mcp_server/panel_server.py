@@ -207,7 +207,7 @@ def collect_diagnostics(workspace_dir: Path, approval_mode: Any = None) -> Dict[
         )
     else:
         add("mode", True, f"Hub mode is '{config.mode.value}'.")
-        versions = available_host_versions("revit")
+        versions = available_host_versions("revit", prune=False)
         add(
             "revit_bridge", bool(versions),
             f"Live Revit bridge(s): {', '.join(versions)}." if versions else "No live Revit bridge found.",

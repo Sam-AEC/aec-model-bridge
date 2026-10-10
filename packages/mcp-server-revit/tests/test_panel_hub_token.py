@@ -748,3 +748,48 @@ def test_dead_pid_or_recycled_pid_is_refused_without_deleting(tmp_path, bridge_m
     with pytest.raises(panel_server.InstanceRoutingError):
         panel_server.resolve_instance({"pid": 111}, "revit_get_document_info")
     assert (registry / "revit-111.json").exists()
+
+
+def test_startup_selection_and_diagnostics_keep_a_week_old_live_revit(tmp_path, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    from revit_mcp_server.bridge import discovery
+
+    registry = tmp_path / "registry"
+    old = (datetime.now(timezone.utc) - timedelta(days=20)).isoformat()
+    _registry_file(registry, 111, old)
+    monkeypatch.setattr(discovery, "REGISTRY_DIR", registry)
+    monkeypatch.setattr(discovery, "is_pid_alive", lambda pid: True)
+    monkeypatch.setattr(discovery, "process_start_time", lambda pid: datetime.now(timezone.utc) - timedelta(days=20))
+    assert discovery.select_switch("revit", None, prune=False).pid == 111
+    assert discovery.available_host_versions("revit", prune=False) == ["2026"]
+    # hub start-up default and the diagnostics check use that rule
+    from revit_mcp_server.providers.revit import RevitProvider
+
+    monkeypatch.setattr(panel_server.config, "bridge_url", None)
+    seen = {}
+
+    def factory(url, token=None):
+        seen["url"] = url
+        return SimpleNamespace(send_tool=lambda *a: {})
+
+    RevitProvider(workspace=WorkspaceMonitor([tmp_path]), mode=BridgeMode.bridge, bridge_url=None,
+                  host_version=None, bridge_factory=factory)
+    assert seen["url"].endswith(":4111")
+    monkeypatch.setattr(panel_server.config, "mode", BridgeMode.bridge)
+    checks = {c["id"]: c for c in panel_server.collect_diagnostics(tmp_path / "ws")["checks"]}
+    assert checks["revit_bridge"]["ok"] is True
+    assert (registry / "revit-111.json").exists()
+
+
+def test_startup_selection_and_diagnostics_ignore_a_dead_pid(tmp_path, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    from revit_mcp_server.bridge import discovery
+
+    registry = tmp_path / "registry"
+    _registry_file(registry, 111, (datetime.now(timezone.utc) - timedelta(days=20)).isoformat())
+    monkeypatch.setattr(discovery, "REGISTRY_DIR", registry)
+    monkeypatch.setattr(discovery, "is_pid_alive", lambda pid: False)
+    assert discovery.select_switch("revit", None, prune=False) is None
+    assert discovery.available_host_versions("revit", prune=False) == []
