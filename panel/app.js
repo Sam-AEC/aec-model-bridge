@@ -239,6 +239,7 @@ function renderPlans() {
         <span class="badge ${planStatusBadgeClass(plan.status)}">${escapeHtml(plan.status)}</span>
       </div>
       <p>${escapeHtml(plan.detail)}</p>
+      <pre class="plan-review">${escapeHtml(plan.review)}</pre>
       <div class="item-actions">
         <button type="button" data-plan="${escapeHtml(plan.id)}" data-hash="${escapeHtml(plan.hash)}" class="primary" data-decision="approve">Approve</button>
         <button type="button" data-plan="${escapeHtml(plan.id)}" data-hash="${escapeHtml(plan.hash)}" data-decision="reject">Reject</button>
@@ -424,6 +425,39 @@ function mapFindings(hubResult) {
   }));
 }
 
+// Model-controlled text: show control and format characters (ANSI/bidi/zero-width)
+// as visible escapes, as the aec-model-bridge-approve CLI does.
+function visibleText(value) {
+  return String(value).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Cs}\p{Co}\p{Cn}]/gu, (ch) => {
+    const code = ch.codePointAt(0);
+    const hex = code.toString(16).padStart(code <= 0xff ? 2 : code <= 0xffff ? 4 : 8, "0");
+    return (code <= 0xff ? "\\x" : code <= 0xffff ? "\\u" : "\\U") + hex;
+  });
+}
+
+function stringifyForReview(value) {
+  try {
+    const text = JSON.stringify(value === undefined ? null : value, null, 2);
+    return visibleText(text === undefined ? String(value) : text);
+  } catch (error) {
+    return "(not displayable)";
+  }
+}
+
+// Everything the person approves: each action's tool, arguments and before value.
+function planActionLines(actions) {
+  return actions.map((action, index) => {
+    const lines = [`${index + 1}. ${visibleText(action && action.tool)}`];
+    const args = action && action.arguments;
+    lines.push(`   arguments: ${stringifyForReview(args === undefined ? {} : args)}`);
+    const before = action && action.diff && action.diff.before;
+    if (before && Object.keys(before).length > 0) {
+      lines.push(`   before: ${stringifyForReview(before)}`);
+    }
+    return lines.join("\n");
+  });
+}
+
 function mapPlans(hubResult) {
   const plans = (hubResult && hubResult.plans) || [];
   return plans.map((plan) => {
@@ -433,7 +467,8 @@ function mapPlans(hubResult) {
       hash: plan.plan_hash || "",
       status: plan.state,
       title: actions.length === 1 ? actions[0].tool : `${actions.length} action(s)`,
-      detail: actions.map((action) => action.tool).join(", ") || "No actions"
+      detail: actions.map((action) => action.tool).join(", ") || "No actions",
+      review: planActionLines(actions).join("\n") || "No actions"
     };
   });
 }

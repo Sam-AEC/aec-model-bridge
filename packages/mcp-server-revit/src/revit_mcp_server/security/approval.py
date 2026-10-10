@@ -30,8 +30,8 @@ APPROVAL_CHANNELS = frozenset({"panel", "cli"})
 # they are ignored when matching a call to an approved action.
 VOLATILE_ARGUMENT_KEYS = frozenset({"plan_id", "run_async", "idempotency_key"})
 
-PLAN_ID_RE = re.compile(r"^plan_[0-9a-f]{12}$")
-ACTION_ID_RE = re.compile(r"^act_[0-9a-f]{12}$")
+PLAN_ID_RE = re.compile(r"plan_[0-9a-f]{12}")
+ACTION_ID_RE = re.compile(r"act_[0-9a-f]{12}")
 
 # Action states. Only "pending" is open; "running", "executed" and "failed" are consumed.
 OPEN_ACTION_STATES = frozenset({"pending", None})
@@ -54,7 +54,7 @@ def normalize_approval_mode(value: Any) -> str:
 
 def validate_plan_id(plan_id: Any) -> str:
     """Accept only ids of the shape create_plan makes; anything else is refused."""
-    if not isinstance(plan_id, str) or not PLAN_ID_RE.match(plan_id):
+    if not isinstance(plan_id, str) or not PLAN_ID_RE.fullmatch(plan_id):
         raise BridgeError(
             "Invalid plan_id: expected the id returned by plan_actions ('plan_' followed by 12 hex characters)."
         )
@@ -244,7 +244,7 @@ class ApprovalGate:
     def list_pending_plans(self) -> List[Dict[str, Any]]:
         plans = []
         for path in self.plans_dir.glob("*.json"):
-            if not PLAN_ID_RE.match(path.stem):
+            if not PLAN_ID_RE.fullmatch(path.stem):
                 continue
             try:
                 with open(path, "r", encoding="utf-8") as f:
@@ -387,7 +387,7 @@ class ApprovalGate:
         return None
 
     def _claim_marker(self, plan_id: str, action_id: Any) -> Path:
-        if not isinstance(action_id, str) or not ACTION_ID_RE.match(action_id):
+        if not isinstance(action_id, str) or not ACTION_ID_RE.fullmatch(action_id):
             raise BridgeError(f"Plan '{plan_id}' has a malformed action id; refusing to run it.")
         return self.plans_dir / ".claims" / f"{plan_id}.{action_id}"
 

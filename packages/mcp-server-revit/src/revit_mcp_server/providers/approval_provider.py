@@ -100,10 +100,18 @@ class ApprovalProvider(AECProvider):
     async def shutdown(self) -> None:
         pass
 
+    def _require_registered_tools(self, actions: List[Dict[str, Any]]) -> None:
+        """A person approves what the panel lists, so every action must name a real tool."""
+        for i, action in enumerate(actions):
+            tool = action["tool"]
+            if self.registry is None or self.registry.lookup_tool(tool) is None:
+                raise BridgeError(f"Action {i + 1}: '{tool}' is not a registered tool, so it cannot be part of a plan.")
+
     async def execute_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         if name == "plan_actions":
             actions = arguments.get("actions", [])
             self.gate.validate_actions(actions)
+            self._require_registered_tools(actions)
             before_states = []
             before_types: List[Optional[str]] = []
             for action in actions:
