@@ -698,6 +698,60 @@ p {
   font: 12px/1.4 ui-monospace, Consolas, monospace;
 }
 
+/* Plan review block (hash_version 2). Text is model output, shown with textContent only. */
+.plan-review-block {
+  margin: 8px 0 0;
+  padding: 8px;
+  border: 1px solid var(--amb-line);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.plan-review-block h3 {
+  margin: 8px 0 2px;
+  font-size: 12px;
+}
+
+.plan-review-block p,
+.plan-review-block ul {
+  margin: 2px 0;
+}
+
+.review-list {
+  padding-left: 18px;
+}
+
+.review-hash-note {
+  font-weight: 600;
+}
+
+.review-label {
+  font-weight: 600;
+}
+
+.review-more {
+  font: inherit;
+  padding: 0 4px;
+  cursor: pointer;
+}
+
+.review-empty {
+  opacity: 0.75;
+}
+
+.review-pending {
+  margin: 8px 0 4px;
+  font-weight: 600;
+}
+
+.review-blocked {
+  margin: 8px 0 0;
+  padding: 8px;
+  border: 2px solid currentColor;
+  font-weight: 600;
+}
+
 /* Setup check (first run). Pass/fail is carried by the text label and glyph,
    never by colour alone. */
 .setup {
