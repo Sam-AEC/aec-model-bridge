@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import re
 from datetime import datetime, timezone
@@ -157,6 +158,151 @@ def normalize_review(review: Any) -> Dict[str, Any]:
     if size > REVIEW_MAX_BYTES:
         raise ValueError(f"review is too large ({size} bytes; the limit is {REVIEW_MAX_BYTES}).")
     return out
+
+
+SAFE_INT = 2 ** 53 - 1
+
+
+def has_unsafe_int(value: Any) -> bool:
+    """True if a JSON-ish value holds an integer a JavaScript page would display rounded."""
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, int):
+        return abs(value) > SAFE_INT
+    if isinstance(value, dict):
+        return any(has_unsafe_int(v) for v in value.values())
+    if isinstance(value, list):
+        return any(has_unsafe_int(v) for v in value)
+    return False
+
+
+def approved_content(plan: Dict[str, Any]) -> Dict[str, Any]:
+    """What an approval covers and the panel displays: actions (tool, arguments, before
+    values), the review, the reverted plan id and the unhashed revert metadata. The hub
+    compares this before and after output redaction (panel_plans_redacted)."""
+    view = plan.get("review_view")
+    return {
+        "actions": plan.get("actions"),
+        "review": view.get("review") if isinstance(view, dict) else None,
+        "reverts_plan_id": plan.get("reverts_plan_id"),
+        "legacy": {k: plan.get(k) for k in ("conflicts", "warnings", "notes") if k in plan},
+    }
+
+
+def review_view(plan: Dict[str, Any]) -> Dict[str, Any]:
+    """What the panel may show of a plan's review, computed here so the page never has to
+    trust the raw plan file. ``status`` is ``none`` (a clean hash_version 1 plan: no review),
+    ``ok`` (a v2 plan whose review is canonical and whose stored hash matches) or
+    ``invalid`` (anything else; the panel must not offer Approve). ``review`` is present
+    only when ``ok`` and is the normalised block that the plan hash covers."""
+    view: Dict[str, Any] = {"status": "invalid", "hash_version": None, "reverts_plan_id": None,
+                            "review": None, "error": ""}
+    try:
+        version = plan_hash_version(plan)
+        view["hash_version"] = version
+        if has_unsafe_int(plan.get("actions")) or has_unsafe_int(plan.get("review")):
+            raise ValueError("The plan holds a number too large to display exactly.")
+        if version != HASH_VERSION_REVIEW:
+            extra = unhashed_metadata_keys(plan)
+            if plan.get("reverts_plan_id") is not None or extra:
+                raise ValueError(
+                    "Legacy plan with content outside the approval hash"
+                    + (f" ({', '.join(extra)[:120]})" if extra else "") + "."
+                )
+            view["status"] = "none"
+            return view
+        review = plan["review"]
+        if normalize_review(review) != review:
+            raise ValueError("The review block is not in canonical form.")
+        reverts = plan.get("reverts_plan_id")
+        if reverts is not None:
+            from .approval import PLAN_ID_RE  # local: approval imports this module
+            if not isinstance(reverts, str) or not PLAN_ID_RE.fullmatch(reverts):
+                raise ValueError("reverts_plan_id is not a plan id.")
+        if plan.get("plan_hash") != plan_content_hash(plan):
+            raise ValueError("The plan content does not match its stored hash.")
+        view.update(status="ok", review=review, reverts_plan_id=reverts)
+    except Exception as exc:  # noqa: BLE001 - any failure means "do not show as approvable"
+        view.update(status="invalid", review=None, error=str(exc)[:300])
+    return view
+
+
+PANEL_PLAN_LIMIT = 50
+
+
+def has_nonfinite_float(value: Any) -> bool:
+    """True if a JSON-ish value holds NaN or Infinity (not valid JSON; breaks the host's parser)."""
+    if isinstance(value, float):
+        return not math.isfinite(value)
+    if isinstance(value, dict):
+        return any(has_nonfinite_float(v) for v in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(has_nonfinite_float(v) for v in value)
+    return False
+
+
+def _invalid_view(error: str) -> Dict[str, Any]:
+    return {"status": "invalid", "hash_version": None, "reverts_plan_id": None, "review": None, "error": error}
+
+
+def panel_plans(plans: Any) -> Any:
+    """Shape a ``list_pending_plans`` result for the panel: newest first, at most
+    PANEL_PLAN_LIMIT plans (``omitted`` says how many were left out), each with
+    ``review_view`` and without its raw ``review``. A plan holding NaN/Infinity is sent as
+    a stub that fails closed so one bad plan cannot break the whole queue. Read-only."""
+    if not isinstance(plans, dict) or not isinstance(plans.get("plans"), list):
+        return plans
+    ordered = sorted(plans["plans"], key=lambda p: str(p.get("created_at", "")) if isinstance(p, dict) else "", reverse=True)
+    out = []
+    for plan in ordered[:PANEL_PLAN_LIMIT]:
+        if not isinstance(plan, dict):
+            out.append(plan)
+            continue
+        if has_nonfinite_float(plan):
+            out.append({"plan_id": plan.get("plan_id"), "state": plan.get("state"),
+                        "plan_hash": plan.get("plan_hash"), "created_at": plan.get("created_at"), "actions": [],
+                        "review_view": _invalid_view("The plan holds a number (NaN or Infinity) that cannot be shown.")})
+            continue
+        shaped = {k: v for k, v in plan.items() if k != "review"}
+        shaped["review_view"] = review_view(plan)
+        out.append(shaped)
+    return {**plans, "plans": out, "omitted": max(0, len(ordered) - PANEL_PLAN_LIMIT)}
+
+
+REDACTED_ERROR = ("This plan contains a credential-like value (a password, key or token) that the panel masks, "
+                  "so what you would approve cannot be shown here.")
+
+
+def panel_plans_redacted(result: Any, redact_full: Any, redact_narrow: Any) -> Any:
+    """``panel_plans`` followed by output redaction, failing closed.
+
+    Fields that are not approved content get ``redact_full`` (paths, secrets, everything).
+    The approved content (``approved_content``: actions, review, reverts id, legacy revert
+    metadata) gets only ``redact_narrow`` (real credentials). It is shown unchanged when the
+    narrow pass changes nothing; if it would mask anything, the plan is sent as ``invalid`` so
+    the panel disables Approve. The command-line tool does not redact, so ``show`` can read it."""
+    shaped = panel_plans(result)
+    redacted = redact_full(shaped)
+    if not isinstance(shaped, dict) or not isinstance(shaped.get("plans"), list):
+        return redacted
+    plans_out = redacted.get("plans") if isinstance(redacted, dict) else None
+    if not isinstance(plans_out, list) or len(plans_out) != len(shaped["plans"]):
+        raise ValueError("Redaction changed the plan list.")
+    for before, after in zip(shaped["plans"], plans_out):
+        if not isinstance(before, dict) or not isinstance(after, dict):
+            continue
+        approved = approved_content(before)
+        narrow = redact_narrow(approved)
+        after["actions"] = narrow["actions"]
+        for key, value in narrow["legacy"].items():
+            after[key] = value
+        if "reverts_plan_id" in before:
+            after["reverts_plan_id"] = narrow["reverts_plan_id"]
+        if narrow != approved:
+            after["review_view"] = _invalid_view(REDACTED_ERROR)
+        elif isinstance(after.get("review_view"), dict) and before["review_view"].get("status") == "ok":
+            after["review_view"]["review"] = narrow["review"]
+    return redacted
 
 
 def plan_hash_version(plan: Dict[str, Any]) -> int:

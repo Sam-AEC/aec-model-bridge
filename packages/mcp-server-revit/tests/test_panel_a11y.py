@@ -203,6 +203,7 @@ function el(id) {
   Object.assign(e, { id, dataset: {}, children: [], _html: '', hidden: false, disabled: false, value: 'all',
     classList: { toggle(){}, add(){}, remove(){} }, style: {}, handlers: {},
     setAttribute(){}, removeAttribute(){}, appendChild(c){ this.children.push(c); return c; },
+    append(){}, replaceChildren(){}, replaceWith(){}, remove(){},
     addEventListener(t, f){ (this.handlers[t] = this.handlers[t] || []).push(f); },
     querySelector(){ return el('q'); }, querySelectorAll(){ return []; },
     lastElementChild: el0(), selectedOptions: [], options: [] });
