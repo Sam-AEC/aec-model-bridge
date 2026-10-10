@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="../../assets/logo-mark.svg" alt="AEC Model Bridge logo" height="120">
+<img src="../../assets/logo.svg" alt="AEC Model Bridge logosu: köprü kemerli izometrik bir model küpü" height="120">
 
 [English](../../README.md) | [简体中文](README.zh-CN.md) | [Español](README.es.md) | [हिन्दी](README.hi.md) | [العربية](README.ar.md) | [Português (BR)](README.pt-BR.md) | [Русский](README.ru.md) | [日本語](README.ja.md) | [Deutsch](README.de.md) | [Français](README.fr.md) | [Bahasa Indonesia](README.id.md) | **Türkçe** | [한국어](README.ko.md) | [Tiếng Việt](README.vi.md) | [Italiano](README.it.md) | [Polski](README.pl.md) | [繁體中文](README.zh-TW.md)
 
@@ -157,7 +157,7 @@ Hub, onaylanmış bir plan taşımayan ve modeli değiştiren her araç çağrı
 
 <sub>Diyagram kaynağı: [approval-flow.mmd](../diagrams/approval-flow.mmd). Görselleri `python scripts/render_diagrams.py` ile yeniden oluşturun.</sub>
 
-Bir plan hatalı çıkarsa Revit'te Ctrl+Z ile geri alın. Her parametre yazımı kendi adlandırılmış işlemidir, bu yüzden tek bir plan için birkaç kez basmanız gerekebilir. Tüm plan için tek adımda geri alma planlanmıştır, henüz yapılmamıştır. `rollback_plan` kaydedilen önceki değerleri ters sırayla geri yazar ve önceki değer kaydedilmemişse bir eylemi atlayabilir; bu yüzden uyarılarını okuyun. İki yol da henüz gerçek bir Revit oturumunda doğrulanmadı (UNVERIFIED). Dosya çıktısı gibi geri alınamayan işlemler bu iki yolla da geri alınamaz ve henüz ikinci bir onay istemez (planlanmıştır). Yaşam döngüsü [ADR 0008](../0008-approval-gate-lifecycle.md) belgesindedir.
+Bir plan hatalı çıkarsa Revit'te Ctrl+Z ile geri alın. Her parametre yazımı kendi adlandırılmış işlemidir, bu yüzden tek bir plan için birkaç kez basmanız gerekebilir. Tüm plan için tek adımda geri alma planlanmıştır, henüz yapılmamıştır. `rollback_plan` kaydedilen önceki değerleri ters sırayla geri yazar ve önceki değer kaydedilmemişse bir eylemi atlayabilir; bu yüzden uyarılarını okuyun. İki yol da henüz gerçek bir Revit oturumunda doğrulanmadı (UNVERIFIED). Dosya çıktısı gibi geri alınamayan işlemler bu iki yolla da geri alınamaz ve henüz ikinci bir onay istemez (planlanmıştır). Panelin Plans listesi yalnızca bekleyen planları gösterir; `aec-model-bridge-approve show <plan_id>` her durumdaki bir plan için çalışır, `proofs/` paketleri ise yalnızca yürütülen (veya yürütülmeye çalışılan) planlar için vardır. Yaşam döngüsü [ADR 0008](../0008-approval-gate-lifecycle.md) belgesindedir.
 
 Gözetimsiz pipeline'lar için `MCP_REVIT_APPROVAL_MODE=auto` ayarlayabilirsiniz. Bu, insan denetimini kapatır; bu yüzden yalnızca kontrollü bir ortamda kullanın.
 

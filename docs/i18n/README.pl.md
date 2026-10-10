@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="../../assets/logo-mark.svg" alt="AEC Model Bridge logo" height="120">
+<img src="../../assets/logo.svg" alt="Logo AEC Model Bridge: izometryczna kostka modelu z łukiem mostu" height="120">
 
 [English](../../README.md) | [简体中文](README.zh-CN.md) | [Español](README.es.md) | [हिन्दी](README.hi.md) | [العربية](README.ar.md) | [Português (BR)](README.pt-BR.md) | [Русский](README.ru.md) | [日本語](README.ja.md) | [Deutsch](README.de.md) | [Français](README.fr.md) | [Bahasa Indonesia](README.id.md) | [Türkçe](README.tr.md) | [한국어](README.ko.md) | [Tiếng Việt](README.vi.md) | [Italiano](README.it.md) | **Polski** | [繁體中文](README.zh-TW.md)
 
@@ -157,7 +157,7 @@ Hub zatrzymuje każde wywołanie narzędzia zmieniającego model, jeśli nie tow
 
 <sub>Źródło diagramu: [approval-flow.mmd](../diagrams/approval-flow.mmd). Obrazy wygenerujesz ponownie poleceniem `python scripts/render_diagrams.py`.</sub>
 
-Jeśli plan okaże się błędny, cofnij go skrótem Ctrl+Z w Revit. Każdy zapis parametru to osobna nazwana transakcja, więc jeden plan może wymagać kilku naciśnięć. Cofnięcie całego planu jednym krokiem jest planowane, ale jeszcze nie zbudowane. `rollback_plan` zapisuje z powrotem zarejestrowane wartości sprzed zmiany w odwrotnej kolejności i może pominąć akcję, jeśli nie zarejestrowano wartości poprzedniej, więc przeczytaj jego ostrzeżenia. Żadna z tych dróg nie została jeszcze zweryfikowana w prawdziwej sesji Revit (UNVERIFIED). Operacje, których nie da się cofnąć, np. zapis plików, nie są cofane żadną z tych dróg i nie wymagają jeszcze drugiego potwierdzenia (planowane). Cykl życia opisuje [ADR 0008](../0008-approval-gate-lifecycle.md).
+Jeśli plan okaże się błędny, cofnij go skrótem Ctrl+Z w Revit. Każdy zapis parametru to osobna nazwana transakcja, więc jeden plan może wymagać kilku naciśnięć. Cofnięcie całego planu jednym krokiem jest planowane, ale jeszcze nie zbudowane. `rollback_plan` zapisuje z powrotem zarejestrowane wartości sprzed zmiany w odwrotnej kolejności i może pominąć akcję, jeśli nie zarejestrowano wartości poprzedniej, więc przeczytaj jego ostrzeżenia. Żadna z tych dróg nie została jeszcze zweryfikowana w prawdziwej sesji Revit (UNVERIFIED). Operacje, których nie da się cofnąć, np. zapis plików, nie są cofane żadną z tych dróg i nie wymagają jeszcze drugiego potwierdzenia (planowane). Lista Plans w panelu pokazuje tylko plany oczekujące; `aec-model-bridge-approve show <plan_id>` działa dla planu w dowolnym stanie, natomiast pakiety `proofs/` istnieją tylko dla planów, które wykonano (lub próbowano wykonać). Cykl życia opisuje [ADR 0008](../0008-approval-gate-lifecycle.md).
 
 W potokach działających bez nadzoru możesz ustawić `MCP_REVIT_APPROVAL_MODE=auto`. To wyłącza kontrolę człowieka, więc używaj tego tylko w kontrolowanym środowisku.
 

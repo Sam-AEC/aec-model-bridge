@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="../../assets/logo-mark.svg" alt="AEC Model Bridge logo" height="120">
+<img src="../../assets/logo.svg" alt="AEC Model Bridge logo: an isometric model cube with a bridge arch" height="120">
 
 [English](../../README.md) | [简体中文](README.zh-CN.md) | [Español](README.es.md) | [हिन्दी](README.hi.md) | [العربية](README.ar.md) | [Português (BR)](README.pt-BR.md) | [Русский](README.ru.md) | **日本語** | [Deutsch](README.de.md) | [Français](README.fr.md) | [Bahasa Indonesia](README.id.md) | [Türkçe](README.tr.md) | [한국어](README.ko.md) | [Tiếng Việt](README.vi.md) | [Italiano](README.it.md) | [Polski](README.pl.md) | [繁體中文](README.zh-TW.md)
 
@@ -157,7 +157,7 @@ MCP クライアントは 1 つの Python ハブと通信します。ハブは�
 
 <sub>図のソース：[approval-flow.mmd](../diagrams/approval-flow.mmd)。画像は `python scripts/render_diagrams.py` で再生成できます。</sub>
 
-プランが誤りだと分かった場合は、Revit の Ctrl+Z で元に戻してください。パラメータの書き込みはそれぞれ個別の名前付きトランザクションなので、1 つのプランで複数回押す必要があることがあります。プラン全体を 1 ステップで元に戻す機能は計画中で、まだ実装されていません。`rollback_plan` は記録された変更前の値を逆順に書き戻しますが、変更前の値が記録されていないアクションはスキップすることがあるため、警告を確認してください。どちらの方法も、実際の Revit セッションではまだ検証されていません（UNVERIFIED）。ファイル出力など元に戻せない操作はどちらの方法でも戻せず、再度の確認もまだ求めません（計画中）。ライフサイクルは [ADR 0008](../0008-approval-gate-lifecycle.md) をご覧ください。
+プランが誤りだと分かった場合は、Revit の Ctrl+Z で元に戻してください。パラメータの書き込みはそれぞれ個別の名前付きトランザクションなので、1 つのプランで複数回押す必要があることがあります。プラン全体を 1 ステップで元に戻す機能は計画中で、まだ実装されていません。`rollback_plan` は記録された変更前の値を逆順に書き戻しますが、変更前の値が記録されていないアクションはスキップすることがあるため、警告を確認してください。どちらの方法も、実際の Revit セッションではまだ検証されていません（UNVERIFIED）。ファイル出力など元に戻せない操作はどちらの方法でも戻せず、再度の確認もまだ求めません（計画中）。パネルの Plans 一覧に表示されるのは保留中のプランだけです。`aec-model-bridge-approve show <plan_id>` はどの状態のプランでも使えますが、`proofs/` のバンドルは実行された（または実行を試みた）プランにしか存在しません。ライフサイクルは [ADR 0008](../0008-approval-gate-lifecycle.md) をご覧ください。
 
 無人で動かすパイプラインでは `MCP_REVIT_APPROVAL_MODE=auto` を設定できます。これは人による確認を無効にするため、管理された環境でのみ使ってください。
 

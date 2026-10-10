@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="../../assets/logo-mark.svg" alt="AEC Model Bridge logo" height="120">
+<img src="../../assets/logo.svg" alt="AEC Model Bridge logo: an isometric model cube with a bridge arch" height="120">
 
 [English](../../README.md) | [简体中文](README.zh-CN.md) | [Español](README.es.md) | [हिन्दी](README.hi.md) | [العربية](README.ar.md) | [Português (BR)](README.pt-BR.md) | [Русский](README.ru.md) | [日本語](README.ja.md) | [Deutsch](README.de.md) | [Français](README.fr.md) | **Bahasa Indonesia** | [Türkçe](README.tr.md) | [한국어](README.ko.md) | [Tiếng Việt](README.vi.md) | [Italiano](README.it.md) | [Polski](README.pl.md) | [繁體中文](README.zh-TW.md)
 
@@ -157,7 +157,7 @@ Hub menghentikan setiap panggilan tool yang mengubah model kecuali panggilan itu
 
 <sub>Sumber diagram: [approval-flow.mmd](../diagrams/approval-flow.mmd). Buat ulang gambar dengan `python scripts/render_diagrams.py`.</sub>
 
-Jika sebuah rencana ternyata keliru, batalkan dengan Ctrl+Z di Revit. Setiap penulisan parameter adalah transaksi bernama tersendiri, jadi satu rencana bisa memerlukan beberapa kali penekanan. Undo satu langkah untuk seluruh rencana masih direncanakan, belum dibangun. `rollback_plan` menulis kembali nilai sebelumnya yang tercatat dalam urutan terbalik, dan dapat melewati sebuah aksi bila nilai sebelumnya tidak tercatat, jadi baca peringatannya. Kedua jalur ini belum diverifikasi di sesi Revit yang sebenarnya (UNVERIFIED). Operasi yang tidak dapat dibatalkan, seperti keluaran file, tidak dibatalkan oleh kedua jalur ini dan belum meminta konfirmasi kedua (direncanakan). Siklus hidupnya ada di [ADR 0008](../0008-approval-gate-lifecycle.md).
+Jika sebuah rencana ternyata keliru, batalkan dengan Ctrl+Z di Revit. Setiap penulisan parameter adalah transaksi bernama tersendiri, jadi satu rencana bisa memerlukan beberapa kali penekanan. Undo satu langkah untuk seluruh rencana masih direncanakan, belum dibangun. `rollback_plan` menulis kembali nilai sebelumnya yang tercatat dalam urutan terbalik, dan dapat melewati sebuah aksi bila nilai sebelumnya tidak tercatat, jadi baca peringatannya. Kedua jalur ini belum diverifikasi di sesi Revit yang sebenarnya (UNVERIFIED). Operasi yang tidak dapat dibatalkan, seperti keluaran file, tidak dibatalkan oleh kedua jalur ini dan belum meminta konfirmasi kedua (direncanakan). Daftar Plans di panel hanya menampilkan rencana yang tertunda; `aec-model-bridge-approve show <plan_id>` berfungsi untuk rencana dalam status apa pun, sedangkan bundel `proofs/` hanya ada untuk rencana yang dieksekusi (atau dicoba). Siklus hidupnya ada di [ADR 0008](../0008-approval-gate-lifecycle.md).
 
 Untuk pipeline tanpa pengawasan, Anda dapat mengatur `MCP_REVIT_APPROVAL_MODE=auto`. Ini mematikan pemeriksaan manusia, jadi gunakan hanya di lingkungan yang terkendali.
 
