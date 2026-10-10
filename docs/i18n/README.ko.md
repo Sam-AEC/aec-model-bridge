@@ -151,13 +151,13 @@ MCP 클라이언트는 하나의 Python 허브와 통신합니다. 허브는 각
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant drafts a plan with plan_actions, the side panel shows the proposed changes (counts, scope, before and after), and a human approves in the panel or with the aec-model-bridge-approve CLI, never over MCP. The hub checks that the plan matches the approved tool and arguments, once only. Revit then runs each action in its own transaction, so Ctrl+Z undoes one action per press. After verifying, you can also use rollback_plan, which may skip actions with no recorded before-value. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
+    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant drafts a plan with plan_actions, the side panel shows the proposed changes (counts, scope, before and after), and a human approves in the panel or with the aec-model-bridge-approve CLI, never over MCP. The hub checks that the plan matches the approved tool and arguments, once only. Revit then runs each action in its own transaction, so Ctrl+Z undoes one action per press. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
   </picture>
 </p>
 
 <sub>다이어그램 소스: [approval-flow.mmd](../diagrams/approval-flow.mmd). 이미지는 `python scripts/render_diagrams.py`로 다시 생성합니다.</sub>
 
-계획이 잘못된 것으로 드러나면 Revit의 Ctrl+Z로 되돌리세요. 매개변수 쓰기는 각각 이름이 붙은 별도 트랜잭션이므로, 계획 하나를 되돌리려면 여러 번 눌러야 할 수 있습니다. 계획 전체를 한 번에 되돌리는 기능은 계획 단계이며 아직 구현되지 않았습니다. `rollback_plan`은 기록된 이전 값을 역순으로 다시 쓰며, 이전 값이 기록되지 않은 작업은 건너뛸 수 있으므로 경고를 확인하세요. 두 방법 모두 실제 Revit 세션에서는 아직 검증되지 않았습니다(UNVERIFIED). 파일 출력처럼 되돌릴 수 없는 작업은 두 방법 모두로 되돌릴 수 없으며, 한 번 더 확인하는 기능은 아직 없습니다(계획 단계). 패널의 Plans 목록에는 대기 중인 계획만 표시됩니다. `aec-model-bridge-approve show <plan_id>`는 어떤 상태의 계획에도 사용할 수 있지만, `proofs/` 번들은 실행된(또는 실행을 시도한) 계획에만 존재합니다. 전체 수명 주기는 [ADR 0008](../0008-approval-gate-lifecycle.md)에 있습니다.
+계획이 잘못된 것으로 드러나면 Revit의 Ctrl+Z로 되돌리세요. 매개변수 쓰기는 각각 이름이 붙은 별도 트랜잭션이므로, 계획 하나를 되돌리려면 여러 번 눌러야 할 수 있습니다. 계획 전체를 한 번에 되돌리는 기능은 계획 단계이며 아직 구현되지 않았습니다. 두 번째 방법은 되돌리기 계획입니다. 어시스턴트가 실행된 계획의 증빙으로 `plan_revert`를 사용해 초안을 만들고, 다른 계획과 똑같이 사용자가 승인합니다. `rollback_plan`은 사람 전용이며 버튼도 명령도 아니므로 기대하지 마세요. 이 방법들은 모두 실제 Revit 세션에서 아직 검증되지 않았습니다(UNVERIFIED). 파일 출력처럼 되돌릴 수 없는 작업은 어떤 방법으로도 되돌릴 수 없으며, 한 번 더 확인하는 기능은 아직 없습니다(계획 단계). 패널의 Plans 목록에는 대기 중인 계획만 표시됩니다. `aec-model-bridge-approve show <plan_id>`는 어떤 상태의 계획에도 사용할 수 있지만, `proofs/` 번들은 실행된(또는 실행을 시도한) 계획에만 존재합니다. 전체 수명 주기는 [ADR 0008](../0008-approval-gate-lifecycle.md)에 있습니다.
 
 무인 파이프라인에서는 `MCP_REVIT_APPROVAL_MODE=auto`를 설정할 수 있습니다. 사람의 확인을 끄는 설정이므로 통제된 환경에서만 사용하세요.
 
