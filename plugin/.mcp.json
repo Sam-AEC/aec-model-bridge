@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "aec-model-bridge": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/Sam-AEC/aec-model-bridge#subdirectory=packages/mcp-server-revit",
+        "aec-model-bridge"
+      ],
+      "env": {
+        "MCP_REVIT_MODE": "bridge"
+      }
+    }
+  }
+}
