@@ -15,7 +15,9 @@ matters to you.
 from __future__ import annotations
 
 import argparse
+import re
 import sys
+import textwrap
 import unicodedata
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -70,8 +72,19 @@ def malformed_reasons(plan: Dict[str, Any]) -> List[str]:
             proof_mod.plan_hash_version(plan)
             normalize_review(plan.get("review"))
         except ValueError as e:
-            reasons.append(f"review block is invalid ({e})")
+            reasons.append(f"review block is invalid ({safe_text(e)})")
     return reasons
+
+
+_SPACE_RUN = re.compile(r"[ \t\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000]{2,}")
+
+
+def _field(prefix: str, text: Any, indent: str = "  ") -> List[str]:
+    """One review field as indented, wrapped lines: runs of spaces are collapsed and every
+    continuation line is indented, so field text cannot pose as a separate line."""
+    cleaned = safe_text(_SPACE_RUN.sub(" ", str(text)))
+    return textwrap.wrap(cleaned, width=78, initial_indent=indent + prefix,
+                         subsequent_indent=indent + " " * len(prefix), break_long_words=True) or [indent + prefix]
 
 
 def _describe_review(plan: Dict[str, Any]) -> List[str]:
@@ -85,25 +98,33 @@ def _describe_review(plan: Dict[str, Any]) -> List[str]:
         return ["", f"Review: MALFORMED, not shown ({safe_text(e)})"]
     lines = ["", "Review (covered by the plan hash):"]
     if review["summary"]:
-        lines.append(f"  Summary: {safe_text(review['summary'])}")
+        lines.extend(_field("Summary: ", review["summary"]))
     if review["reasoning"]:
         lines.append("  Reasoning:")
-        lines.extend(f"    {safe_text(part)}" for part in review["reasoning"].split("\n"))
+        for part in review["reasoning"].split("\n"):
+            lines.extend(_field("", part, "    "))
     if review["citations"]:
         lines.append("  Citations (stated by the drafter, not checked by this tool):")
         for c in review["citations"]:
-            lines.append(f"    - {safe_text(c['rule_id'])}  clause: {safe_text(c['clause'] or '-')}  "
-                         f"source: {safe_text(c['source'] or '-')}")
+            lines.extend(_field("- ", f"{c['rule_id']}  clause: {c['clause'] or '-'}  source: {c['source'] or '-'}", "    "))
     if review["assumptions"]:
         lines.append("  Assumptions:")
-        lines.extend(f"    - {safe_text(a)}" for a in review["assumptions"])
+        for a in review["assumptions"]:
+            lines.extend(_field("- ", a, "    "))
     if review["excluded"]:
         lines.append("  Left out:")
-        lines.extend(f"    - element {safe_text(x['element_id'])}: {safe_text(x['reason'] or '-')}"
-                     for x in review["excluded"])
+        for x in review["excluded"]:
+            lines.extend(_field("- ", f"element {x['element_id']}: {x['reason'] or '-'}", "    "))
+    if review["conflicts"]:
+        lines.append(f"  Conflicts ({len(review['conflicts'])}; the model changed since the original plan ran):")
+        for c in review["conflicts"]:
+            lines.extend(_field(
+                "- ", f"element {c['element_id']}/{c['parameter']}: model now {c['actual_current']}, "
+                      f"plan wrote {c['expected_current']}, revert sets {c['revert_to']}", "    "))
     if review["warnings"]:
         lines.append("  Warnings:")
-        lines.extend(f"    ! {safe_text(w)}" for w in review["warnings"])
+        for w in review["warnings"]:
+            lines.extend(_field("! ", w, "    "))
     return lines
 
 
@@ -150,7 +171,14 @@ def describe_plan(plan: Dict[str, Any]) -> str:
         before = (a.get("diff") or {}).get("before") if isinstance(a.get("diff"), dict) else None
         if before:
             lines.append(f"     current value: {safe_text(before)}")
+    if plan.get("reverts_plan_id"):
+        lines.append(f"Reverts plan: {safe_text(plan['reverts_plan_id'])}")
     lines.extend(_describe_review(plan))
+    legacy = [k for k in ("conflicts", "notes", "warnings") if k in plan]
+    if legacy:
+        lines.append("\nNOT covered by the approval (stored outside the hashed content, drafted before the review block):")
+        for k in legacy:
+            lines.extend(_field(f"{k}: ", repr(plan[k])[:1500], "  "))
     if plan.get("skipped"):
         skipped = plan["skipped"]
         lines.append(f"\nSkipped when drafting: {len(skipped) if isinstance(skipped, list) else safe_text(skipped)}")
@@ -238,7 +266,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 1
     problems = malformed_reasons(plan)
     if problems and args.command == "approve":
-        print("\nThis plan is malformed (" + "; ".join(problems) + ") and cannot be approved. "
+        print("\nThis plan is malformed (" + safe_text("; ".join(problems)) + ") and cannot be approved. "
               "Reject it and ask for a new plan.", file=sys.stderr)
         return 1
 

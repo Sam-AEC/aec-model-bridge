@@ -154,7 +154,7 @@ async def test_plan_revert_content_and_never_auto_executes(env):
     got = {(a["arguments"]["element_id"], a["arguments"]["value"]) for a in revert["actions"]}
     assert got == {(1, "30"), (2, "45")}
     assert all(a["tool"] == "revit_set_parameter_value" for a in revert["actions"])
-    assert not [w for w in revert["review"]["warnings"] if w.startswith("CONFLICT")]
+    assert not revert["review"]["conflicts"]
     # Not executed: model still holds the fixed values, and execution is gated.
     assert store.values[1]["FireRating"] == "60"
     with pytest.raises(ValueError, match="not 'approved'"):
@@ -200,9 +200,11 @@ async def test_plan_revert_refused_when_stale_unless_conflicts_allowed(env):
     revert = await approval.execute_tool("plan_revert", {"plan_id": pid, "allow_conflicts": True})
     assert revert["state"] == "pending"
     assert "conflicts" not in revert  # conflicts live in the hashed review block
-    conflicts = [w for w in revert["review"]["warnings"] if w.startswith("CONFLICT")]
+    conflicts = revert["review"]["conflicts"]
     assert len(conflicts) == 1
-    assert "2/FireRating" in conflicts[0] and "'90'" in conflicts[0] and "'60'" in conflicts[0] and "'45'" in conflicts[0]
+    c = conflicts[0]
+    assert (c["element_id"], c["parameter"], c["expected_current"], c["actual_current"], c["revert_to"]) == (
+        2, "FireRating", "'60'", "'90'", "'45'")
 
 
 @pytest.mark.anyio
@@ -250,7 +252,7 @@ async def test_revert_numeric_string_vs_number_is_not_a_conflict(tmp_path):
     pid, _ = await _run(approval, [_set(1, "Rating", 60)])
     assert store.values[1]["Rating"] == 60  # live read returns "60", the proof holds 60
     revert = await approval.execute_tool("plan_revert", {"plan_id": pid})
-    assert not [w for w in revert["review"]["warnings"] if w.startswith("CONFLICT")]
+    assert not revert["review"]["conflicts"]
 
 
 @pytest.mark.anyio
@@ -261,7 +263,7 @@ async def test_revert_numeric_real_conflict_still_refused(tmp_path):
     with pytest.raises(ValueError, match="changed since"):
         await approval.execute_tool("plan_revert", {"plan_id": pid})
     revert = await approval.execute_tool("plan_revert", {"plan_id": pid, "allow_conflicts": True})
-    assert "'61'" in revert["review"]["warnings"][0]
+    assert revert["review"]["conflicts"][0]["actual_current"] == "'61'"
 
 
 @pytest.mark.anyio

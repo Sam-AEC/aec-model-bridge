@@ -52,9 +52,12 @@ REVIEW_LIMITS = {
     "summary": 2000, "reasoning": 8000, "citation_field": 500, "assumption": 1000,
     "excluded_reason": 500, "warning": 1000, "element_id": 128,
 }
-REVIEW_MAX_ITEMS = {"citations": 100, "assumptions": 100, "excluded": 500, "warnings": 200}
-REVIEW_KEYS = ("summary", "reasoning", "citations", "assumptions", "excluded", "warnings")
+REVIEW_MAX_ITEMS = {"citations": 100, "assumptions": 100, "excluded": 500, "warnings": 200, "conflicts": 500}
+REVIEW_KEYS = ("summary", "reasoning", "citations", "assumptions", "excluded", "warnings", "conflicts")
 CITATION_KEYS = ("rule_id", "clause", "source")
+CONFLICT_KEYS = ("element_id", "parameter", "expected_current", "actual_current", "revert_to")
+CONFLICT_FIELD_LIMIT = 200
+REVIEW_BUDGET_BYTES = 56000  # builders stay under this so a review never hits REVIEW_MAX_BYTES
 EXCLUDED_KEYS = ("element_id", "reason")
 
 # Plan keys outside ``actions`` and ``review`` that are NOT covered by the hash. They are
@@ -99,7 +102,7 @@ def _review_list(value: Any, field: str) -> List[Any]:
 def _review_obj(item: Any, field: str, allowed: Tuple[str, ...]) -> Dict[str, Any]:
     if not isinstance(item, dict):
         raise ValueError(f"review.{field} entries must be objects.")
-    unknown = sorted(str(k) for k in item if k not in allowed)
+    unknown = sorted(str(k)[:40] for k in item if k not in allowed)
     if unknown:
         raise ValueError(f"review.{field} entry has unknown key(s): {', '.join(unknown)}.")
     return item
@@ -111,13 +114,13 @@ def normalize_review(review: Any) -> Dict[str, Any]:
     bidi characters included); it is escaped when displayed (approve_cli.safe_text)."""
     if not isinstance(review, dict):
         raise ValueError("review must be an object.")
-    unknown = sorted(str(k) for k in review if k not in REVIEW_KEYS)
+    unknown = sorted(str(k)[:40] for k in review if k not in REVIEW_KEYS)
     if unknown:
         raise ValueError(f"review has unknown key(s): {', '.join(unknown)}.")
     out: Dict[str, Any] = {
         "summary": _review_str(review.get("summary"), "summary", REVIEW_LIMITS["summary"]),
         "reasoning": _review_str(review.get("reasoning"), "reasoning", REVIEW_LIMITS["reasoning"]),
-        "citations": [], "assumptions": [], "excluded": [], "warnings": [],
+        "citations": [], "assumptions": [], "excluded": [], "warnings": [], "conflicts": [],
     }
     for c in _review_list(review.get("citations"), "citations"):
         c = _review_obj(c, "citations", CITATION_KEYS)
@@ -139,6 +142,15 @@ def normalize_review(review: Any) -> Dict[str, Any]:
             "element_id": eid,
             "reason": _review_str(x.get("reason"), "excluded.reason", REVIEW_LIMITS["excluded_reason"]),
         })
+    for c in _review_list(review.get("conflicts"), "conflicts"):
+        c = _review_obj(c, "conflicts", CONFLICT_KEYS)
+        eid = c.get("element_id")
+        if isinstance(eid, bool) or not isinstance(eid, (int, str)):
+            raise ValueError("review.conflicts.element_id must be an integer or string.")
+        entry: Dict[str, Any] = {"element_id": eid}
+        for key in CONFLICT_KEYS[1:]:
+            entry[key] = _review_str(c.get(key), f"conflicts.{key}", CONFLICT_FIELD_LIMIT)
+        out["conflicts"].append(entry)
     for w in _review_list(review.get("warnings"), "warnings"):
         out["warnings"].append(_review_str(w, "warnings", REVIEW_LIMITS["warning"], True))
     size = len(json.dumps(out, sort_keys=True, ensure_ascii=False).encode("utf-8"))
@@ -150,11 +162,12 @@ def normalize_review(review: Any) -> Dict[str, Any]:
 def plan_hash_version(plan: Dict[str, Any]) -> int:
     """1 for plans without a review block, 2 for plans that carry one. A plan that mixes
     the two (a review without hash_version 2, or version 2 without a review) is refused."""
-    version = plan.get("hash_version")
     has_review = "review" in plan
-    if version is None and not has_review:
+    if "hash_version" not in plan and not has_review:
         return 1
-    if version == HASH_VERSION_REVIEW and isinstance(plan.get("review"), dict):
+    version = plan.get("hash_version")
+    # Strict: exactly the integer 2 (not 2.0, True, "2" or null).
+    if type(version) is int and version == HASH_VERSION_REVIEW and isinstance(plan.get("review"), dict):
         return HASH_VERSION_REVIEW
     raise ValueError("Plan has an inconsistent review/hash_version combination; it cannot be verified.")
 
@@ -284,6 +297,8 @@ def build_proof(
         if plan.get("approved_by") else "approver identity was not recorded",
         "document": document,
         "plan_hash": plan_content_hash(plan),
+        "hash_version": plan_hash_version(plan),
+        "review": plan.get("review"),
         "outcome": outcome,
         "reverts_plan_id": plan.get("reverts_plan_id"),
         "elements": elements,

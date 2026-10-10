@@ -250,7 +250,7 @@ async def test_plan_revert_puts_conflicts_notes_and_warnings_in_the_hashed_revie
     for loose in ("conflicts", "notes", "warnings"):
         assert loose not in revert  # nothing reviewable sits outside the hash
     assert revert["hash_version"] == 2 and revert["reverts_plan_id"] == pid
-    assert any("CONFLICT 2/FireRating" in w for w in revert["review"]["warnings"])
+    assert revert["review"]["conflicts"][0]["element_id"] == 2
     # editing the conflict warning after drafting changes the hash (so approval is refused)
     gate = approval.gate
     shown = plan_hash(gate.load_plan(revert["plan_id"]))
@@ -258,4 +258,5 @@ async def test_plan_revert_puts_conflicts_notes_and_warnings_in_the_hashed_revie
     with pytest.raises(ValueError, match="not the plan that was shown"):
         gate.update_plan_state(revert["plan_id"], "approved", via="cli", expected_hash=shown)
     # and the CLI shows the conflict
-    assert "CONFLICT 2/FireRating" in approve_cli.describe_plan(copy.deepcopy(revert))
+    shown = approve_cli.describe_plan(copy.deepcopy(revert))
+    assert "element 2/FireRating: model now '90'" in shown and "Reverts plan: " + pid in shown

@@ -32,7 +32,9 @@ VOLATILE_ARGUMENT_KEYS = frozenset({"plan_id", "run_async", "idempotency_key"})
 
 # Plan keys the caller of create_plan(extra=...) may not set: the hash fields and the
 # hashed review block (which has its own validated parameter).
-_RESERVED_EXTRA_KEYS = frozenset({"review", "hash_version", "plan_hash", "approved_hash"})
+_RESERVED_EXTRA_KEYS = frozenset({
+    "review", "hash_version", "plan_hash", "approved_hash", "plan_id", "created_at", "actions",
+}) | proof_mod.STATE_PLAN_KEYS
 
 PLAN_ID_RE = re.compile(r"plan_[0-9a-f]{12}")
 ACTION_ID_RE = re.compile(r"act_[0-9a-f]{12}")
@@ -298,6 +300,12 @@ class ApprovalGate:
                         f"Plan {plan_id} is not the plan that was shown for approval (its content changed). "
                         "Review it again before approving."
                     )
+                if proof_mod.plan_hash_version(plan) == proof_mod.HASH_VERSION_REVIEW:
+                    # Same strict schema the command-line tool applies, on every approval channel.
+                    if proof_mod.normalize_review(plan["review"]) != plan["review"]:
+                        raise ValueError(
+                            f"Plan {plan_id} has a review block that is not in canonical form; it cannot be approved."
+                        )
                 if plan.get("plan_hash") != now_hash:
                     raise ValueError(
                         f"Plan {plan_id} was changed after it was drafted. Ask for a new plan instead of approving it."
