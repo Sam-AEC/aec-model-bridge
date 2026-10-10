@@ -10,6 +10,7 @@ from mcp.types import CallToolResult
 
 from .base import AECProvider, ProviderTool
 from ..errors import BridgeError
+from ..security.approval import VOLATILE_ARGUMENT_KEYS
 
 # Fail-closed approval rule for proxied tools.
 #
@@ -33,6 +34,14 @@ def is_proxied_tool_read_only(remote_name: str, annotations: Any = None) -> bool
     if hint is None:
         return True  # no upstream annotation available: name verbs only
     return hint is True
+
+
+def strip_local_control_fields(arguments: Dict[str, Any] | None) -> Dict[str, Any]:
+    """Copy of `arguments` without the bridge-only control fields (plan_id, run_async,
+    idempotency_key). They are meaningful to the local approval gate and job runner
+    only; strict upstream schemas reject undeclared properties. The caller's dict is
+    not modified, so the gate keeps matching on the original arguments."""
+    return {k: v for k, v in (arguments or {}).items() if k not in VOLATILE_ARGUMENT_KEYS}
 
 
 class McpProxyProvider(AECProvider):
@@ -129,6 +138,7 @@ class McpProxyProvider(AECProvider):
             raise ValueError(f"Unknown tool '{name}' on provider '{self._identity}'")
 
         remote_name = name[len(prefix):]
+        arguments = strip_local_control_fields(arguments)
 
         if not self._connected or not self._session:
             await self._connect_with_retry()
