@@ -33,6 +33,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import anthropic
 
 from .config import config
+from .security.approval import HUMAN_ONLY_TOOLS
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +85,7 @@ _SYSTEM_PROMPT = (
 # which calls the hub's /execute endpoint directly, outside this loop).
 # rollback_plan is excluded for the same reason: it writes to the model
 # without any plan approval of its own.
-_MODEL_EXCLUDED_TOOLS = frozenset({"approve_plan", "reject_plan", "rollback_plan"})
+_MODEL_EXCLUDED_TOOLS = HUMAN_ONLY_TOOLS
 
 # session_id -> running message list (user/assistant/tool_result turns so
 # far). In-memory only - see module docstring.
@@ -140,7 +141,7 @@ async def _execute_tool_call(registry, approval_provider, name: str, arguments: 
     # a failure here must not fail the tool call that already succeeded.
     if tool_def and tool_def.is_mutating and isinstance(arguments, dict) and "plan_id" in arguments:
         try:
-            approval_provider.gate.update_plan_state(arguments["plan_id"], "executed")
+            approval_provider.gate.mark_action_executed(name, arguments)
         except Exception:
             pass
 

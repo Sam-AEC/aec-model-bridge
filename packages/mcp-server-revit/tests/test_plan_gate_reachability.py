@@ -91,12 +91,12 @@ async def test_draft_approve_execute_end_to_end(stack):
 
     # The writing tool is blocked until approved.
     with pytest.raises(BridgeError, match="not 'approved'"):
-        _gate_applies(registry, "revit_set_parameter_value", {"plan_id": plan_id}, gate)
+        _gate_applies(registry, "revit_set_parameter_value", {**action["arguments"], "plan_id": plan_id}, gate)
     assert store.values[1]["Mark"] == "D-101"
 
     # 3. Approve, then execute.
     await approval.execute_tool("approve_plan", {"plan_id": plan_id})
-    _gate_applies(registry, "revit_set_parameter_value", {"plan_id": plan_id}, gate)
+    _gate_applies(registry, "revit_set_parameter_value", {**action["arguments"], "plan_id": plan_id}, gate)
     result = await approval.execute_tool("execute_plan", {"plan_id": plan_id})
     assert result["state"] == "executed"
     assert store.values[1]["Mark"] == "D-201"

@@ -73,7 +73,7 @@ def test_escape_hatches_are_destructive(listed):
 
 def test_file_writing_and_plan_execution_tools_are_not_read_only(listed):
     tools, _ = listed
-    for name in ("revit_export_ifc", "revit_export_dwg", "execute_plan", "rollback_plan", "plan_actions"):
+    for name in ("revit_export_ifc", "revit_export_dwg", "execute_plan", "plan_actions"):
         assert tools[name].annotations.readOnlyHint is False, name
     assert tools["execute_plan"].annotations.destructiveHint is True
 

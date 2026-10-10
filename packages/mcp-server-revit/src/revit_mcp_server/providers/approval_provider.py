@@ -143,11 +143,16 @@ class ApprovalProvider(AECProvider):
 
         elif name == "approve_plan":
             plan_id = arguments.get("plan_id")
-            return self.gate.update_plan_state(plan_id, "approved", approver=arguments.get("approver"))
+            via = arguments.get("approved_via")
+            return self.gate.update_plan_state(
+                plan_id, "approved", approver=arguments.get("approver"),
+                via=via if via in ("panel", "cli") else "panel",
+            )
 
         elif name == "reject_plan":
             plan_id = arguments.get("plan_id")
-            return self.gate.update_plan_state(plan_id, "rejected")
+            via = arguments.get("approved_via")
+            return self.gate.update_plan_state(plan_id, "rejected", via=via if via in ("panel", "cli") else "panel")
 
         elif name == "rollback_plan":
             plan_id = arguments.get("plan_id")
@@ -193,6 +198,8 @@ class ApprovalProvider(AECProvider):
         results = []
         had_failure = False
         for action in plan["actions"]:
+            if action.get("state") == "executed":
+                continue  # already ran (e.g. a direct call earlier): never run an approved action twice
             tool = action["tool"]
             args = dict(action["arguments"])
             args["plan_id"] = plan_id

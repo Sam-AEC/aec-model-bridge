@@ -65,7 +65,7 @@ def _run_tool_sync(registry, approval_provider, name: str, arguments: Dict[str, 
 
         if tool_def and tool_def.is_mutating and isinstance(arguments, dict) and "plan_id" in arguments:
             try:
-                approval_provider.gate.update_plan_state(arguments["plan_id"], "executed")
+                approval_provider.gate.mark_action_executed(name, arguments)
             except Exception:
                 # The tool has already run, so don't fail the call and invite a
                 # retry of a completed mutation; make the stale plan visible instead.
