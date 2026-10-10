@@ -6,7 +6,7 @@
 
 > Cette traduction a été réalisée avec l'aide de l'IA. Le [README](../../README.md) en anglais fait foi ; les corrections sont les bienvenues via une pull request (voir [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
-**Interrogez votre IA sur le modèle Revit que vous avez ouvert. Par défaut, rien ne change tant que vous n'avez pas approuvé.**
+**Interrogez votre IA sur le modèle Revit que vous avez ouvert. Par défaut, les outils d'écriture sont bloqués tant que vous n'avez pas approuvé un plan.**
 
 Serveur MCP open source et add-in natif pour Revit 2024 – 2027. Fonctionne avec Claude, Codex et d'autres clients MCP.
 
@@ -157,7 +157,7 @@ Le hub bloque tout appel d'outil qui modifie le modèle s'il n'est pas accompagn
 
 <sub>Source du schéma : [approval-flow.mmd](../diagrams/approval-flow.mmd). Régénérez les images avec `python scripts/render_diagrams.py`.</sub>
 
-Si un plan approuvé se révèle erroné par la suite, `rollback_plan` l'annule. L'annulation utilise la fonction Annuler de Revit dans la même session, ou les valeurs de paramètres inverses. Les opérations irréversibles, comme l'écriture de fichiers, demandent une seconde confirmation. Le cycle de vie est décrit dans l'[ADR 0008](../0008-approval-gate-lifecycle.md).
+Si un plan se révèle erroné, annulez-le avec Ctrl+Z dans Revit. Chaque écriture de paramètre est sa propre transaction nommée, donc un plan peut demander plusieurs appuis. Une annulation en une seule étape pour un plan entier est prévue, pas encore construite. `rollback_plan` réécrit les valeurs d'origine enregistrées dans l'ordre inverse et peut ignorer une action si aucune valeur d'origine n'a été enregistrée ; lisez donc ses avertissements. Aucune des deux voies n'est encore vérifiée dans une vraie session Revit (UNVERIFIED). Les opérations irréversibles, comme l'écriture de fichiers, demandent une seconde confirmation. Le cycle de vie est décrit dans l'[ADR 0008](../0008-approval-gate-lifecycle.md).
 
 Pour les pipelines sans surveillance, vous pouvez définir `MCP_REVIT_APPROVAL_MODE=auto`. Cela désactive la vérification par un humain ; ne l'utilisez donc que dans un environnement maîtrisé.
 
