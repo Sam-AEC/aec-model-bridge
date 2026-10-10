@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List
 import ctypes
@@ -43,6 +43,53 @@ def is_pid_alive(pid: int) -> bool:
     except Exception as e:
         logger.debug("PID check failed for %s: %s", pid, e)
         return False
+
+
+PID_REUSE_TOLERANCE_SECONDS = 30
+
+
+def process_start_time(pid: int) -> datetime | None:
+    """Start time of a running process (UTC), or None when it cannot be determined."""
+    try:
+        if os.name == "nt":
+            kernel32 = ctypes.windll.kernel32
+            handle = kernel32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+            if not handle:
+                return None
+            try:
+                created, exited, kernel, user = (ctypes.c_ulonglong() for _ in range(4))
+                if not kernel32.GetProcessTimes(handle, ctypes.byref(created), ctypes.byref(exited),
+                                                ctypes.byref(kernel), ctypes.byref(user)):
+                    return None
+                # FILETIME: 100 ns ticks since 1601-01-01
+                return datetime(1601, 1, 1, tzinfo=timezone.utc) + timedelta(microseconds=created.value // 10)
+            finally:
+                kernel32.CloseHandle(handle)
+    except Exception as e:  # best effort only
+        logger.debug("Process start time unavailable for %s: %s", pid, e)
+    return None
+
+
+def is_live_instance(info: SwitchInfo) -> bool:
+    """True when the entry's process is alive and is not a recycled pid.
+
+    No age limit: a Revit session that has been open for weeks is still live. The bridge server starts
+    after its Revit process, so a process that started AFTER the registry's ``started_at`` (beyond a
+    tolerance) cannot be the one that wrote the entry. If the start time cannot be read, the pid check
+    alone decides.
+    """
+    if not is_pid_alive(info.pid):
+        return False
+    try:
+        registered = datetime.fromisoformat(info.started_at.replace("Z", "+00:00"))
+        if registered.tzinfo is None:
+            registered = registered.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return True
+    actual = process_start_time(info.pid)
+    if actual is not None and (actual - registered).total_seconds() > PID_REUSE_TOLERANCE_SECONDS:
+        return False
+    return True
 
 
 def _is_stale(info: SwitchInfo) -> bool:
@@ -108,8 +155,13 @@ def discover_switches(registry_dir: Path | None = None) -> Dict[str, SwitchInfo]
     return switches
 
 
-def discover_switch_list(registry_dir: Path | None = None) -> List[SwitchInfo]:
-    """Return every live switch entry, sorted from newest to oldest."""
+def discover_switch_list(registry_dir: Path | None = None, *, prune: bool = True) -> List[SwitchInfo]:
+    """Return every live switch entry, sorted from newest to oldest.
+
+    ``prune=True`` (default) deletes stale files (dead pid, or older than 7 days). ``prune=False`` is for
+    routing on a read path: nothing is deleted or age-filtered; an entry is kept when its process is alive
+    and not a recycled pid (``is_live_instance``), so a Revit open for weeks stays routable.
+    """
     switches: List[SwitchInfo] = []
     registry_dir = registry_dir or REGISTRY_DIR
 
@@ -122,6 +174,11 @@ def discover_switch_list(registry_dir: Path | None = None) -> List[SwitchInfo]:
                 data = json.load(f)
 
             info = SwitchInfo(**data)
+
+            if not prune:
+                if is_live_instance(info):
+                    switches.append(info)
+                continue
 
             if _is_stale(info):
                 logger.info("Pruning stale switch registry entry: %s", file_path)

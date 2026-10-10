@@ -130,7 +130,7 @@ def resolve_instance(instance: Any, tool: str):
     elif tool in HUB_LOCAL_TOOLS:
         return None
 
-    live = [s for s in discovery.discover_switch_list() if s.provider_id == "revit"]
+    live = [s for s in discovery.discover_switch_list(prune=False) if s.provider_id == "revit"]
     if pid is not None:
         for switch in live:
             if switch.pid == pid:
@@ -479,7 +479,7 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
             from .bridge import discovery
             from .config import BridgeMode
 
-            live = [s for s in discovery.discover_switch_list() if s.provider_id == "revit"]
+            live = [s for s in discovery.discover_switch_list(prune=False) if s.provider_id == "revit"]
             if config.mode == BridgeMode.bridge and not config.bridge_url and len(live) > 1:
                 self._send_json(409, {"ok": False, "error": (
                     "More than one Revit is open, and chat through the claude/codex CLI cannot be pinned to one yet. "
