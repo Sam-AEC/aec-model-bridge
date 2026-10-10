@@ -128,7 +128,9 @@ NODE = shutil.which("node")
 
 HARNESS = r"""
 const fs = require('fs');
-const src = fs.readFileSync(process.argv[2], 'utf8');
+// Windows checkouts convert app.js to CRLF (.gitattributes: text=auto); normalise so the
+// function-boundary regex below sees "\n}\n" on every platform.
+const src = fs.readFileSync(process.argv[2], 'utf8').replace(/\r\n/g, '\n');
 const grab = (n) => src.match(new RegExp('function ' + n + '\\([\\s\\S]*?\\n}\\n'))[0];
 const code = ['escapeHtml', 'visibleText', 'stringifyForReview', 'planActionLines', 'mapPlans']
   .map(grab).join('\n') + '\nglobalThis.mapPlans = mapPlans; globalThis.escapeHtml = escapeHtml;';
@@ -141,15 +143,35 @@ console.log(JSON.stringify({review: plans[0].review, html: escapeHtml(plans[0].r
 """
 
 
-@pytest.mark.skipif(NODE is None, reason="node is not installed")
-def test_panel_plans_view_shows_escaped_arguments(tmp_path):
+def run_harness(tmp_path, app_js):
     script = tmp_path / "harness.js"
     script.write_text(HARNESS, encoding="utf-8")
-    out = subprocess.run([NODE, str(script), str(REPO / "panel" / "app.js")],
-                         capture_output=True, text=True, check=True).stdout
-    data = json.loads(out)
+    # The path travels as a process argument (never spliced into JS source) and the output is
+    # decoded as UTF-8 explicitly: the harness prints U+202E, which a cp1252 default would mangle.
+    proc = subprocess.run([NODE, str(script), str(app_js)], capture_output=True,
+                          encoding="utf-8", errors="replace", check=False)
+    assert proc.returncode == 0, (
+        f"node harness exited {proc.returncode}\nstdout: {proc.stdout}\nstderr: {proc.stderr}")
+    return json.loads(proc.stdout)
+
+
+def assert_escaped_review(data):
     assert '"element_id": 42' in data["review"]
     assert '"value": "60"' in data["review"]
-    assert "‮" not in data["review"] and "\x1b" not in data["review"]
+    assert "\u202e" not in data["review"] and "\x1b" not in data["review"]
     assert "\\u202e" in data["review"]
     assert "<img" not in data["html"] and "&lt;img" in data["html"]
+
+
+@pytest.mark.skipif(NODE is None, reason="node is not installed")
+def test_panel_plans_view_shows_escaped_arguments(tmp_path):
+    assert_escaped_review(run_harness(tmp_path, REPO / "panel" / "app.js"))
+
+
+@pytest.mark.skipif(NODE is None, reason="node is not installed")
+def test_panel_plans_view_survives_crlf_checkout(tmp_path):
+    # Windows checkouts get CRLF line endings via .gitattributes (text=auto).
+    src = (REPO / "panel" / "app.js").read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+    crlf = tmp_path / "app crlf.js"
+    crlf.write_bytes(src)
+    assert_escaped_review(run_harness(tmp_path, crlf))
