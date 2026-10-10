@@ -134,6 +134,12 @@ A model that wants to change a model must draft a plan, and a person must approv
 - **`approval_mode` fails closed.** Any value that is not one of `look_only`, `ask_first`, `required` or `auto` (a typo, an empty string, `off`, `false`) behaves as `ask_first` and logs a warning. Earlier wording of this rule said `required`; it is the same behaviour under the new name.
 - **The mode cannot be changed over MCP.** No MCP tool sets it; it comes from the environment variable (or the server configuration) when the hub starts. The hub reports the current mode, normalised to `look_only`, `ask_first` or `auto`, as `approval_mode` in the approval provider's health result, so the panel can show it later. UNVERIFIED: how the Revit panel shows or switches the mode, and the behaviour against a live Revit session; the hub tests use mock providers only.
 
+### Which tools the gate covers (fail closed)
+
+- **Proxied tools.** Tools forwarded to an external MCP server (`providers/proxy.py`) are unknown to this server, so each one is treated as a model change and needs an approved plan. It skips the gate only if its upstream name starts with `get_`, `list_`, `read_`, `query_`, `search_` or `describe_` and the upstream advertises `readOnlyHint: true`. If the upstream sends no `readOnlyHint` at all, the name prefix alone decides. `readOnlyHint: false` or `destructiveHint: true` always means gated. Users of proxied servers therefore need plan approval for any proxied write.
+- **Navisworks.** Only `health`, `get_document_info`, `get_model_tree`, `get_selection`, `list_viewpoints`, `list_clash_tests` and `get_clash_results` skip the gate. Every other Navisworks tool, including any added later, is gated. This includes `navisworks_reflect_get` and `revit_reflect_get`: a property getter on an arbitrary object can have side effects.
+- **UNVERIFIED:** `revit_calculate_material_quantities` stays ungated although the Revit add-in marks it mutating. The flag looks wrong, but this needs a Revit run to confirm; it is listed in `KNOWN_UNGATED` in `tests/test_addin_hub_contract.py`.
+
 ### Not protected
 
 - **`MCP_REVIT_APPROVAL_MODE=auto`** turns the gate off entirely. Use `look_only` instead when you want the opposite: no model changes at all.

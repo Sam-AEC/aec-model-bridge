@@ -10,6 +10,39 @@ from mcp.types import CallToolResult
 
 from .base import AECProvider, ProviderTool
 from ..errors import BridgeError
+from ..security.approval import VOLATILE_ARGUMENT_KEYS
+
+# Fail-closed approval rule for proxied tools.
+#
+# We cannot see what an external MCP server's tool does, so every proxied tool is
+# treated as mutating (it goes through the plan approval gate) unless BOTH hold:
+#   1. the upstream tool name starts with a conservative read-only verb below, and
+#   2. the upstream advertises annotations.readOnlyHint == True.
+# If the upstream sends no readOnlyHint at all (older servers), only (1) is used.
+# An explicit readOnlyHint=False or destructiveHint=True always means mutating.
+# Matching is on the remote name, before the "<identity>_" namespace prefix is added.
+READ_ONLY_NAME_PREFIXES = ("get_", "list_", "read_", "query_", "search_", "describe_")
+
+
+def is_proxied_tool_read_only(remote_name: str, annotations: Any = None) -> bool:
+    """Return True only when a proxied tool may skip the approval gate."""
+    if not remote_name.lower().startswith(READ_ONLY_NAME_PREFIXES):
+        return False
+    if getattr(annotations, "destructiveHint", None) is True:
+        return False
+    hint = getattr(annotations, "readOnlyHint", None)
+    if hint is None:
+        return True  # no upstream annotation available: name verbs only
+    return hint is True
+
+
+def strip_local_control_fields(arguments: Dict[str, Any] | None) -> Dict[str, Any]:
+    """Copy of `arguments` without the bridge-only control fields (plan_id, run_async,
+    idempotency_key). They are meaningful to the local approval gate and job runner
+    only; strict upstream schemas reject undeclared properties. The caller's dict is
+    not modified, so the gate keeps matching on the original arguments."""
+    return {k: v for k, v in (arguments or {}).items() if k not in VOLATILE_ARGUMENT_KEYS}
+
 
 class McpProxyProvider(AECProvider):
     """
@@ -65,7 +98,10 @@ class McpProxyProvider(AECProvider):
                 self._tools.append(ProviderTool(
                     name=namespaced_name,
                     description=t.description or "",
-                    inputSchema=t.inputSchema
+                    inputSchema=t.inputSchema,
+                    is_mutating=not is_proxied_tool_read_only(
+                        t.name, getattr(t, "annotations", None)
+                    ),
                 ))
             self._connected = True
         except Exception as e:
@@ -102,6 +138,7 @@ class McpProxyProvider(AECProvider):
             raise ValueError(f"Unknown tool '{name}' on provider '{self._identity}'")
 
         remote_name = name[len(prefix):]
+        arguments = strip_local_control_fields(arguments)
 
         if not self._connected or not self._session:
             await self._connect_with_retry()
