@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="../../assets/logo-mark.svg" alt="AEC Model Bridge logo" height="120">
+<img src="../../assets/logo.svg" alt="AEC Model Bridge logo: an isometric model cube with a bridge arch" height="120">
 
 [English](../../README.md) | [简体中文](README.zh-CN.md) | [Español](README.es.md) | [हिन्दी](README.hi.md) | [العربية](README.ar.md) | [Português (BR)](README.pt-BR.md) | [Русский](README.ru.md) | [日本語](README.ja.md) | [Deutsch](README.de.md) | **Français** | [Bahasa Indonesia](README.id.md) | [Türkçe](README.tr.md) | [한국어](README.ko.md) | [Tiếng Việt](README.vi.md) | [Italiano](README.it.md) | [Polski](README.pl.md) | [繁體中文](README.zh-TW.md)
 
@@ -157,7 +157,7 @@ Le hub bloque tout appel d'outil qui modifie le modèle s'il n'est pas accompagn
 
 <sub>Source du schéma : [approval-flow.mmd](../diagrams/approval-flow.mmd). Régénérez les images avec `python scripts/render_diagrams.py`.</sub>
 
-Si un plan se révèle erroné, annulez-le avec Ctrl+Z dans Revit. Chaque écriture de paramètre est sa propre transaction nommée, donc un plan peut demander plusieurs appuis. Une annulation en une seule étape pour un plan entier est prévue, pas encore construite. `rollback_plan` réécrit les valeurs d'origine enregistrées dans l'ordre inverse et peut ignorer une action si aucune valeur d'origine n'a été enregistrée ; lisez donc ses avertissements. Aucune des deux voies n'est encore vérifiée dans une vraie session Revit (UNVERIFIED). Les opérations irréversibles, comme l'écriture de fichiers, ne sont annulées par aucune des deux voies et ne demandent pas encore de seconde confirmation (prévu). Le cycle de vie est décrit dans l'[ADR 0008](../0008-approval-gate-lifecycle.md).
+Si un plan se révèle erroné, annulez-le avec Ctrl+Z dans Revit. Chaque écriture de paramètre est sa propre transaction nommée, donc un plan peut demander plusieurs appuis. Une annulation en une seule étape pour un plan entier est prévue, pas encore construite. `rollback_plan` réécrit les valeurs d'origine enregistrées dans l'ordre inverse et peut ignorer une action si aucune valeur d'origine n'a été enregistrée ; lisez donc ses avertissements. Aucune des deux voies n'est encore vérifiée dans une vraie session Revit (UNVERIFIED). Les opérations irréversibles, comme l'écriture de fichiers, ne sont annulées par aucune des deux voies et ne demandent pas encore de seconde confirmation (prévu). La liste Plans du panneau n'affiche que les plans en attente ; `aec-model-bridge-approve show <plan_id>` fonctionne pour un plan dans n'importe quel état, tandis que les lots `proofs/` n'existent que pour les plans exécutés (ou tentés). Le cycle de vie est décrit dans l'[ADR 0008](../0008-approval-gate-lifecycle.md).
 
 Pour les pipelines sans surveillance, vous pouvez définir `MCP_REVIT_APPROVAL_MODE=auto`. Cela désactive la vérification par un humain ; ne l'utilisez donc que dans un environnement maîtrisé.
 

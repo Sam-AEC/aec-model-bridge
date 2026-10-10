@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="../../assets/logo-mark.svg" alt="AEC Model Bridge logo" height="120">
+<img src="../../assets/logo.svg" alt="AEC Model Bridge logo: an isometric model cube with a bridge arch" height="120">
 
 [English](../../README.md) | [简体中文](README.zh-CN.md) | [Español](README.es.md) | [हिन्दी](README.hi.md) | [العربية](README.ar.md) | [Português (BR)](README.pt-BR.md) | [Русский](README.ru.md) | [日本語](README.ja.md) | **Deutsch** | [Français](README.fr.md) | [Bahasa Indonesia](README.id.md) | [Türkçe](README.tr.md) | [한국어](README.ko.md) | [Tiếng Việt](README.vi.md) | [Italiano](README.it.md) | [Polski](README.pl.md) | [繁體中文](README.zh-TW.md)
 
@@ -157,7 +157,7 @@ Der Hub stoppt jeden Werkzeugaufruf, der das Modell ändert, sofern er keinen fr
 
 <sub>Diagrammquelle: [approval-flow.mmd](../diagrams/approval-flow.mmd). Die Bilder erzeugen Sie mit `python scripts/render_diagrams.py` neu.</sub>
 
-Erweist sich ein Plan als falsch, machen Sie ihn mit Strg+Z in Revit rückgängig. Jeder Parameterschreibvorgang ist eine eigene benannte Transaktion, daher kann ein Plan mehrere Tastendrücke brauchen. Ein Rückgängig in einem Schritt für einen ganzen Plan ist geplant, aber nicht gebaut. `rollback_plan` schreibt die aufgezeichneten Vorher-Werte in umgekehrter Reihenfolge zurück und kann eine Aktion überspringen, wenn kein Vorher-Wert aufgezeichnet wurde; lesen Sie daher seine Warnungen. Beide Wege sind noch nicht in einer echten Revit-Sitzung geprüft (UNVERIFIED). Nicht umkehrbare Vorgänge, etwa das Schreiben von Dateien, lassen sich auf keinem der beiden Wege rückgängig machen und verlangen noch keine zweite Bestätigung (geplant). Der Ablauf ist in [ADR 0008](../0008-approval-gate-lifecycle.md) beschrieben.
+Erweist sich ein Plan als falsch, machen Sie ihn mit Strg+Z in Revit rückgängig. Jeder Parameterschreibvorgang ist eine eigene benannte Transaktion, daher kann ein Plan mehrere Tastendrücke brauchen. Ein Rückgängig in einem Schritt für einen ganzen Plan ist geplant, aber nicht gebaut. `rollback_plan` schreibt die aufgezeichneten Vorher-Werte in umgekehrter Reihenfolge zurück und kann eine Aktion überspringen, wenn kein Vorher-Wert aufgezeichnet wurde; lesen Sie daher seine Warnungen. Beide Wege sind noch nicht in einer echten Revit-Sitzung geprüft (UNVERIFIED). Nicht umkehrbare Vorgänge, etwa das Schreiben von Dateien, lassen sich auf keinem der beiden Wege rückgängig machen und verlangen noch keine zweite Bestätigung (geplant). Die Plans-Liste des Panels zeigt nur ausstehende Pläne; `aec-model-bridge-approve show <plan_id>` funktioniert für einen Plan in jedem Zustand, während `proofs/`-Bündel nur für Pläne existieren, die ausgeführt (oder versucht) wurden. Der Ablauf ist in [ADR 0008](../0008-approval-gate-lifecycle.md) beschrieben.
 
 Für unbeaufsichtigte Pipelines können Sie `MCP_REVIT_APPROVAL_MODE=auto` setzen. Das schaltet die Prüfung durch den Menschen ab; verwenden Sie es daher nur in einer kontrollierten Umgebung.
 
