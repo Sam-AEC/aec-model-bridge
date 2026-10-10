@@ -75,7 +75,11 @@ class RevitProvider(AECProvider):
             "ungroup",
         }
         enrich_mutation_metadata(
-            self._capabilities, mutating_verbs=mutating_verbs, destructive={"revit_execute_python"}
+            self._capabilities,
+            mutating_verbs=mutating_verbs,
+            # render_3d_view opens a transaction and writes an image file to disk.
+            mutating_names=frozenset({"revit_render_3d"}),
+            destructive={"revit_execute_python"},
         )
 
     def get_identity(self) -> str:

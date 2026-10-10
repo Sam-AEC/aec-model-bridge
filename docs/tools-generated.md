@@ -133,8 +133,8 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
-| `navisworks_activate_viewpoint` | Switch the Navisworks view to a saved viewpoint identified by its Guid. | No | sync |
-| `navisworks_append_file` | Append a model file (for example NWD, NWC or IFC) from the allowed workspace to the active Navisworks document. | No | sync |
+| `navisworks_activate_viewpoint` | Switch the Navisworks view to a saved viewpoint identified by its Guid. | Yes | sync |
+| `navisworks_append_file` | Append a model file (for example NWD, NWC or IFC) from the allowed workspace to the active Navisworks document. | Yes | sync |
 | `navisworks_create_viewpoint` | Create a saved viewpoint with the given name from the current view. | Yes | sync |
 | `navisworks_get_clash_results` | Return the results of one clash test, with paging by skip and limit. | No | sync |
 | `navisworks_get_document_info` | Return metadata about the active Navisworks document. | No | sync |
@@ -146,7 +146,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `navisworks_list_viewpoints` | List the saved viewpoints of the active Navisworks document. | No | sync |
 | `navisworks_reflect_get` | Advanced: read a C# property of a Navisworks object through reflection. | No | sync |
 | `navisworks_reflect_set` | Advanced escape hatch: set a C# property of a Navisworks object through reflection. | Yes | sync |
-| `navisworks_refresh` | Refresh all appended files that changed on disk in the active Navisworks document. | No | sync |
+| `navisworks_refresh` | Refresh all appended files that changed on disk in the active Navisworks document. | Yes | sync |
 | `navisworks_run_clash_test` | Run one Clash Detective test, identified by Guid, and update its results. | Yes | sync |
 
 ## Revit Provider
@@ -244,7 +244,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_reflect_get` | Advanced: read any public Revit API property of an object identified by target_id, through reflection. | No | sync |
 | `revit_reflect_set` | Advanced escape hatch: set any writable Revit API property of an object identified by target_id, through reflection. | Yes | sync |
 | `revit_relinquish_all` | Relinquish every element and workset the current user owns in a workshared model. | Yes | sync |
-| `revit_render_3d` | Render a 3D view to an image file at a chosen quality level. | No | sync |
+| `revit_render_3d` | Render a 3D view to an image file at a chosen quality level. | Yes | sync |
 | `revit_renumber_sheets` | Renumber all sheets in one batch using a prefix and a starting number. | Yes | sync |
 | `revit_replace_family_type` | Replace all instances of one family/type combination with another, identified by name. | Yes | sync |
 | `revit_rotate_element` | Rotate one element about a vertical axis through a centre point by an angle in radians. | Yes | sync |
@@ -269,7 +269,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `rhino_create_box` | Create a box (rectangular prism) from two corner points in metres. | Yes | sync |
 | `rhino_create_cylinder` | Create a capped cylinder from base point, height, and radius in metres. | Yes | sync |
 | `rhino_create_sphere` | Create a sphere by centre point and radius in metres. | Yes | sync |
-| `rhino_generate_diagrid_tower` | Generate a parametric diagrid skyscraper with aluminum mullion sweeps and glass panel solids. | No | sync |
+| `rhino_generate_diagrid_tower` | Generate a parametric diagrid skyscraper with aluminum mullion sweeps and glass panel solids. | Yes | sync |
 | `rhino_get_document_info` | Return the active Rhino document name, path, unit system and object count. | No | sync |
 | `rhino_get_lines` | Return all curves and lines in the active Rhino document. | No | sync |
 | `rhino_get_scene` | Return every object in the Rhino scene with its type, layer and bounding box. | No | sync |
