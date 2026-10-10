@@ -37,7 +37,7 @@ class RhinoProvider(AECProvider):
         # mutating+destructive treatment. reflect_get/invoke_method/reflect_set are
         # left at the same risk level revit.py uses for their Revit-side equivalents
         # (mutating via the "invoke"/"set" verbs, not separately marked destructive).
-        mutating_verbs = {"create", "clear", "set", "transform", "run", "boolean", "invoke"}
+        mutating_verbs = {"create", "clear", "set", "transform", "run", "boolean", "invoke", "generate"}
         enrich_mutation_metadata(self._capabilities, mutating_verbs=mutating_verbs, destructive={"rhino_run_python"})
 
     def get_identity(self) -> str:
@@ -57,7 +57,9 @@ class RhinoProvider(AECProvider):
         return {"status": "healthy", "mode": "mock"}
 
     async def shutdown(self) -> None:
-        pass
+        close = getattr(getattr(self, "_bridge", None), "close", None)
+        if callable(close):
+            close()
 
     async def execute_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         if name not in self._tool_mapping:

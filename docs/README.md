@@ -8,9 +8,12 @@ Start with the [installation guide](install.md). The main [README](../README.md)
 - [VS Code extension](../extensions/vscode/README.md): build and install the extension locally.
 - [configuration-reference.md](configuration-reference.md): environment variables, package metadata and runtime settings.
 - [tools-generated.md](tools-generated.md): the tool catalog, generated from the server (do not edit by hand).
+- [rule-packs.md](rule-packs.md): write, validate, import and share QA/QC rule packs.
 - [security.md](security.md): trust boundaries, workspace sandboxing and enterprise hardening.
 - [logging-and-audit.md](logging-and-audit.md): Python-side audit log and add-in logging.
-- [marketplaces.md](marketplaces.md): MCP Registry, bundle and client distribution.
+- [marketplaces.md](marketplaces.md): MCP Registry, Claude Code plugin, extension stores and client distribution.
+- [privacy.md](privacy.md): what stays on your computer, what leaves it, and how to delete it (draft, awaiting owner sign-off).
+- Client setup guides (snippets not yet tested on live installs): [Visual Studio](clients/visual-studio.md), [JetBrains](clients/jetbrains.md), [Codex](clients/codex.md), [Gemini CLI](clients/gemini-cli.md), [Windsurf](clients/windsurf.md), [Cline](clients/cline.md).
 - [versioning.md](versioning.md): version numbers, release tags and release assets.
 - [clash-triage.md](clash-triage.md): read-only matching of Navisworks clashes to Revit elements, with a confidence label (unverified on live projects).
 - [roadmap.md](roadmap.md): coordinator workflows, demo scope and the next fixes.

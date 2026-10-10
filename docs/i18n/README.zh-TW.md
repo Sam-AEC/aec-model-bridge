@@ -6,7 +6,7 @@
 
 > 本文由 AI 輔助翻譯。內容以英文版 [README](../../README.md) 為準；若發現錯誤或有改進建議，歡迎透過 Pull Request 提出，詳見 [CONTRIBUTING.md](../../CONTRIBUTING.md)。
 
-**就你開啟中的 Revit 模型向 AI 提問。預設情況下，未經你核准，不會有任何變更。**
+**就你開啟中的 Revit 模型向 AI 提問。預設情況下，在你核准計畫之前，寫入類工具會被攔截。**
 
 適用於 Revit 2024 – 2027 的開源 MCP 伺服器與原生增益集，可搭配 Claude、Codex 及其他 MCP 用戶端使用。
 
@@ -157,7 +157,7 @@ MCP 用戶端與一個 Python hub 溝通。hub 會把每次呼叫轉送給擁有
 
 <sub>圖表來源：[approval-flow.mmd](../diagrams/approval-flow.mmd)。使用 `python scripts/render_diagrams.py` 重新產生圖片。</sub>
 
-若已核准的計畫之後發現有誤，可用 `rollback_plan` 復原。復原會在同一個工作階段中使用 Revit 的復原功能，或套用相反的參數值。無法復原的操作（例如檔案輸出）會要求再次確認。完整生命週期請見 [ADR 0008](../0008-approval-gate-lifecycle.md)。
+若計畫有誤，請在 Revit 中用 Ctrl+Z 復原。每次參數寫入都是各自獨立的具名交易，因此一個計畫可能需要按多次。整個計畫一步復原的功能已列入規劃，尚未實作。`rollback_plan` 會依相反順序寫回已記錄的原值，若某個動作沒有記錄原值，它可能會略過該動作，請查看其警告。這兩種方式目前都尚未在真實的 Revit 工作階段中驗證（UNVERIFIED）。無法復原的操作（例如檔案輸出）會要求再次確認。完整生命週期請見 [ADR 0008](../0008-approval-gate-lifecycle.md)。
 
 對於無人值守的流程，可以設定 `MCP_REVIT_APPROVAL_MODE=auto`。這會關閉人工檢查，因此請只在受控環境中使用。
 
@@ -350,6 +350,20 @@ CI 會建置 Python 伺服器，以及適用於 Revit 2024 至 2027 的增益集
 - [全部文件](../README.md)
 - [貢獻指南](../../CONTRIBUTING.md) 與 [行為準則](../../CODE_OF_CONDUCT.md)
 - [貢獻者](../../CONTRIBUTORS.md)
+
+## Built with
+
+AEC Model Bridge stands on open-source work. It is independent and is not affiliated with or endorsed by any project named here.
+
+- [Model Context Protocol](https://modelcontextprotocol.io) Python SDK (MIT) for the MCP server
+- [IfcOpenShell](https://ifcopenshell.org) (LGPL-3.0-or-later) for IFC files
+- [specklepy](https://github.com/specklesystems/specklepy) (Apache-2.0) for Speckle
+- [pydantic](https://docs.pydantic.dev), [httpx](https://www.python-httpx.org), [NetworkX](https://networkx.org), [openpyxl](https://openpyxl.readthedocs.io) and [PyYAML](https://pyyaml.org) (MIT or BSD)
+- [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) (MIT) for the built-in agent chat
+- [Serilog](https://serilog.net), [IronPython](https://ironpython.net) and [Microsoft WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) in the Revit add-in
+- Autodesk Revit and Navisworks and McNeel Rhino are separate products that you license yourself. This project does not include their code.
+
+Licence texts and the full list of packages are in [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md). Licences were read from package metadata; rows that could not be verified are marked as such.
 
 ## 專案與授權
 

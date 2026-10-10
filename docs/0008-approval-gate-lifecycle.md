@@ -77,7 +77,7 @@ stateDiagram-v2
 - **Approved**: Human checked the parameter diffs and element counts, giving explicit consent.
 - **Rejected**: Human rejected the plan; it is closed and archived.
 - **Executed**: The changes are applied to the model inside host transactions.
-- **Rolled Back**: The executed changes are reversed using Revit Undo (same session) or inverse parameters.
+- **Rolled Back**: The recorded changes are reversed by `rollback_plan`, which applies inverse parameter values and can skip an action that has no recorded before-value. Revit's own Ctrl+Z is the other route. Neither is verified in a live Revit session (UNVERIFIED).
 
 ### 2. ActionPlan Schema
 The ActionPlan represents a batch of modifications:
@@ -121,11 +121,11 @@ The ActionPlan represents a batch of modifications:
 - **Auto-Approval**: For headless CI/CD pipelines, `approval_mode=auto` can be set via environment variable (`MCP_REVIT_APPROVAL_MODE=auto`).
 
 ### 4. Rollback Strategies
-- **Revit Undo (`undo`)**: If executed inside the same Revit session, the add-in wraps the execution in a single named transaction (`"AMB: Plan <plan_id>"`). The add-in can trigger Revit's native Undo command.
-- **Inverse Counter-Plan (`inverse`)**: For persistent history rollbacks, the hub generates an inverse counter-plan by capturing the before-state (e.g., parameter values) and executing a compensating batch of updates.
+- **Revit Undo (`undo`)**: Design target, not built. The intent is one named transaction per plan (`"AMB: Plan <plan_id>"`), so that a single Ctrl+Z reverts the whole plan. Today the add-in names one transaction per action (for example one per parameter write), so undoing a plan takes one Ctrl+Z per action. A one-step undo for a whole plan is planned. Live-Revit behaviour is UNVERIFIED.
+- **Inverse Counter-Plan (`inverse`)**: For persistent history rollbacks, the hub records the before-state (e.g., parameter values) and `rollback_plan` writes those values back in reverse order. An action with no recorded before-value (including an empty one) is skipped and reported as a warning, so a rollback can be partial. `plan_revert` drafts the same reversal as a new plan that needs approval. Live-Revit behaviour is UNVERIFIED.
 - **Irreversible (`none`)**: High-risk operations (e.g., deleting models, file outputs) cannot be rolled back and require a double-confirmation from the human operator.
 
 ## Consequences
-- **Trust & Safety**: Eliminates the risk of hallucinated or malicious AI writes damaging BIM models.
+- **Trust & Safety**: Reduces the risk of hallucinated or malicious AI writes damaging BIM models. The gate is enforced in the hub; behaviour in a live Revit session is UNVERIFIED.
 - **Audit Trails**: Every write corresponds to a versioned ActionPlan, a specific approving user, and an audit ledger entry.
 - **Decoupled Orchestration**: AI agents can generate plans asynchronously while running long-running processes (e.g., clash detection), leaving the execution to the user.

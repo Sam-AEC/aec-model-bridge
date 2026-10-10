@@ -5,7 +5,7 @@
 **English** | [简体中文](docs/i18n/README.zh-CN.md) | [Español](docs/i18n/README.es.md) | [हिन्दी](docs/i18n/README.hi.md) | [العربية](docs/i18n/README.ar.md) | [Português (BR)](docs/i18n/README.pt-BR.md) | [Русский](docs/i18n/README.ru.md) | [日本語](docs/i18n/README.ja.md) | [Deutsch](docs/i18n/README.de.md) | [Français](docs/i18n/README.fr.md) | [Bahasa Indonesia](docs/i18n/README.id.md) | [Türkçe](docs/i18n/README.tr.md) | [한국어](docs/i18n/README.ko.md) | [Tiếng Việt](docs/i18n/README.vi.md) | [Italiano](docs/i18n/README.it.md) | [Polski](docs/i18n/README.pl.md) | [繁體中文](docs/i18n/README.zh-TW.md)
 
 
-**Ask your AI about the Revit model you have open. By default, nothing changes until you approve it.**
+**Ask your AI about the Revit model you have open. By default, write tools are blocked until you approve a plan.**
 
 Open-source MCP server and native add-in for Revit 2024 – 2027. Works with Claude, Codex and other MCP clients.
 
@@ -205,10 +205,13 @@ thread in a named transaction.
 
 <sub>Diagram source: [approval-flow.mmd](docs/diagrams/approval-flow.mmd). Regenerate the images with `python scripts/render_diagrams.py`.</sub>
 
-If a plan is approved and later turns out wrong, `rollback_plan` reverses it.
-Rollback uses Revit Undo in the same session or inverse parameter values.
-Operations that cannot be reversed, such as file output, ask for a second
-confirmation. The lifecycle is in
+If a plan turns out wrong, undo it with Revit's Ctrl+Z. Each parameter write is
+its own named transaction, so one plan can take several presses. A one-step undo
+for a whole plan is planned, not built. `rollback_plan` writes the recorded
+before-values back in reverse order, and it can skip an action when no
+before-value was recorded, so read its warnings. Neither path is verified in a
+live Revit session yet (UNVERIFIED). Operations that cannot be reversed, such as
+file output, ask for a second confirmation. The lifecycle is in
 [ADR 0008](docs/0008-approval-gate-lifecycle.md).
 
 For unattended pipelines you can set `MCP_REVIT_APPROVAL_MODE=auto`. That turns
@@ -453,6 +456,20 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 - [All documentation](docs/README.md)
 - [Contributing](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Contributors](CONTRIBUTORS.md)
+
+## Built with
+
+AEC Model Bridge stands on open-source work. It is independent and is not affiliated with or endorsed by any project named here.
+
+- [Model Context Protocol](https://modelcontextprotocol.io) Python SDK (MIT) for the MCP server
+- [IfcOpenShell](https://ifcopenshell.org) (LGPL-3.0-or-later) for IFC files
+- [specklepy](https://github.com/specklesystems/specklepy) (Apache-2.0) for Speckle
+- [pydantic](https://docs.pydantic.dev), [httpx](https://www.python-httpx.org), [NetworkX](https://networkx.org), [openpyxl](https://openpyxl.readthedocs.io) and [PyYAML](https://pyyaml.org) (MIT or BSD)
+- [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) (MIT) for the built-in agent chat
+- [Serilog](https://serilog.net), [IronPython](https://ironpython.net) and [Microsoft WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) in the Revit add-in
+- Autodesk Revit and Navisworks and McNeel Rhino are separate products that you license yourself. This project does not include their code.
+
+Licence texts and the full list of packages are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Licences were read from package metadata; rows that could not be verified are marked as such.
 
 ## Project and license
 

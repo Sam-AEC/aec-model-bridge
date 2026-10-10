@@ -6,7 +6,7 @@
 
 > Esta traducción se ha realizado con ayuda de IA. El [README](../../README.md) en inglés es la fuente de referencia; las correcciones son bienvenidas mediante pull request (consulta [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
-**Pregunta a tu IA sobre el modelo de Revit que tienes abierto. De forma predeterminada, nada cambia hasta que lo apruebes.**
+**Pregunta a tu IA sobre el modelo de Revit que tienes abierto. De forma predeterminada, las herramientas de escritura quedan bloqueadas hasta que apruebes un plan.**
 
 Servidor MCP de código abierto y complemento nativo para Revit 2024 – 2027. Funciona con Claude, Codex y otros clientes MCP.
 
@@ -202,8 +202,12 @@ con una transacción con nombre.
 
 <sub>Origen del diagrama: [approval-flow.mmd](../diagrams/approval-flow.mmd). Regenera las imágenes con `python scripts/render_diagrams.py`.</sub>
 
-Si un plan se aprueba y después resulta ser erróneo, `rollback_plan` lo revierte.
-La reversión usa Deshacer de Revit en la misma sesión o los valores de parámetros inversos.
+Si un plan resulta ser erróneo, deshazlo con Ctrl+Z en Revit. Cada escritura de parámetro
+es su propia transacción con nombre, así que un plan puede requerir varias pulsaciones.
+Un deshacer en un solo paso para un plan completo está planificado, no construido.
+`rollback_plan` vuelve a escribir los valores previos registrados en orden inverso y
+puede omitir una acción si no se registró un valor previo, así que lee sus advertencias.
+Ninguna de las dos vías está verificada todavía en una sesión real de Revit (UNVERIFIED).
 Las operaciones que no se pueden revertir, como la escritura de archivos, piden una segunda
 confirmación. El ciclo de vida está descrito en
 [ADR 0008](../0008-approval-gate-lifecycle.md).
@@ -448,6 +452,20 @@ Consulta [CONTRIBUTING.md](../../CONTRIBUTING.md) antes de abrir un pull request
 - [Toda la documentación](../README.md)
 - [Guía de contribución](../../CONTRIBUTING.md) y [Código de conducta](../../CODE_OF_CONDUCT.md)
 - [Colaboradores](../../CONTRIBUTORS.md)
+
+## Built with
+
+AEC Model Bridge stands on open-source work. It is independent and is not affiliated with or endorsed by any project named here.
+
+- [Model Context Protocol](https://modelcontextprotocol.io) Python SDK (MIT) for the MCP server
+- [IfcOpenShell](https://ifcopenshell.org) (LGPL-3.0-or-later) for IFC files
+- [specklepy](https://github.com/specklesystems/specklepy) (Apache-2.0) for Speckle
+- [pydantic](https://docs.pydantic.dev), [httpx](https://www.python-httpx.org), [NetworkX](https://networkx.org), [openpyxl](https://openpyxl.readthedocs.io) and [PyYAML](https://pyyaml.org) (MIT or BSD)
+- [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) (MIT) for the built-in agent chat
+- [Serilog](https://serilog.net), [IronPython](https://ironpython.net) and [Microsoft WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) in the Revit add-in
+- Autodesk Revit and Navisworks and McNeel Rhino are separate products that you license yourself. This project does not include their code.
+
+Licence texts and the full list of packages are in [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md). Licences were read from package metadata; rows that could not be verified are marked as such.
 
 ## Proyecto y licencia
 

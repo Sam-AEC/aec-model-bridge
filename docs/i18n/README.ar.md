@@ -10,7 +10,7 @@
 
 </div>
 
-**اسأل الذكاء الاصطناعي عن نموذج Revit المفتوح لديك. افتراضيًا، لا يتغيّر شيء قبل أن توافق أنت.**
+**اسأل الذكاء الاصطناعي عن نموذج Revit المفتوح لديك. افتراضيًا، تُحظر أدوات الكتابة حتى توافق على خطة.**
 
 خادم MCP مفتوح المصدر وإضافة أصلية لبرنامج Revit 2024 – 2027. يعمل مع Claude وCodex وعملاء MCP الآخرين.
 
@@ -175,7 +175,7 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 <sub>مصدر المخطط: [approval-flow.mmd](../diagrams/approval-flow.mmd). أعد توليد الصور بالأمر `python scripts/render_diagrams.py`.</sub>
 
-إذا اعتُمدت خطة ثم تبيّن لاحقًا أنها خاطئة، فإن `rollback_plan` يعكسها. يستخدم التراجع أمر Undo في Revit ضمن الجلسة نفسها أو القيم العكسية للمعاملات. أما العمليات التي لا يمكن عكسها، مثل كتابة الملفات، فتطلب تأكيدًا ثانيًا. دورة الحياة موضحة في [ADR 0008](../0008-approval-gate-lifecycle.md).
+إذا تبيّن أن خطة ما خاطئة، فتراجع عنها بـ Ctrl+Z في Revit. كل كتابة لمعامل هي معاملة مسمّاة مستقلة، لذا قد تحتاج خطة واحدة إلى عدة ضغطات. التراجع بخطوة واحدة عن خطة كاملة مخطَّط له ولم يُبنَ بعد. يعيد `rollback_plan` كتابة القيم المسجّلة قبل التغيير بترتيب عكسي، وقد يتخطى إجراءً لم تُسجَّل له قيمة سابقة، لذا اقرأ تحذيراته. لم يُتحقَّق من أيٍّ من المسارين في جلسة Revit حقيقية بعد (UNVERIFIED). أما العمليات التي لا يمكن عكسها، مثل كتابة الملفات، فتطلب تأكيدًا ثانيًا. دورة الحياة موضحة في [ADR 0008](../0008-approval-gate-lifecycle.md).
 
 في خطوط المعالجة الآلية غير المراقَبة يمكنك ضبط `MCP_REVIT_APPROVAL_MODE=auto`. يؤدي ذلك إلى إيقاف المراجعة البشرية، لذا استخدمه في بيئة خاضعة للتحكم فقط.
 
@@ -400,6 +400,20 @@ python -m pytest packages/mcp-server-revit/tests
 - [كل التوثيق](../README.md)
 - [دليل المساهمة](../../CONTRIBUTING.md) و [مدونة السلوك](../../CODE_OF_CONDUCT.md)
 - [المساهمون](../../CONTRIBUTORS.md)
+
+## Built with
+
+AEC Model Bridge stands on open-source work. It is independent and is not affiliated with or endorsed by any project named here.
+
+- [Model Context Protocol](https://modelcontextprotocol.io) Python SDK (MIT) for the MCP server
+- [IfcOpenShell](https://ifcopenshell.org) (LGPL-3.0-or-later) for IFC files
+- [specklepy](https://github.com/specklesystems/specklepy) (Apache-2.0) for Speckle
+- [pydantic](https://docs.pydantic.dev), [httpx](https://www.python-httpx.org), [NetworkX](https://networkx.org), [openpyxl](https://openpyxl.readthedocs.io) and [PyYAML](https://pyyaml.org) (MIT or BSD)
+- [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) (MIT) for the built-in agent chat
+- [Serilog](https://serilog.net), [IronPython](https://ironpython.net) and [Microsoft WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) in the Revit add-in
+- Autodesk Revit and Navisworks and McNeel Rhino are separate products that you license yourself. This project does not include their code.
+
+Licence texts and the full list of packages are in [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md). Licences were read from package metadata; rows that could not be verified are marked as such.
 
 ## المشروع والترخيص
 

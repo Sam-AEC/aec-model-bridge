@@ -75,7 +75,11 @@ class RevitProvider(AECProvider):
             "ungroup",
         }
         enrich_mutation_metadata(
-            self._capabilities, mutating_verbs=mutating_verbs, destructive={"revit_execute_python"}
+            self._capabilities,
+            mutating_verbs=mutating_verbs,
+            # render_3d_view opens a transaction and writes an image file to disk.
+            mutating_names=frozenset({"revit_render_3d"}),
+            destructive={"revit_execute_python"},
         )
 
     def get_identity(self) -> str:
@@ -438,6 +442,15 @@ class RevitProvider(AECProvider):
                 "revit.select_by_unique_ids",
                 lambda args: {"element_uids": args.get("element_uids")},
             ),
+            "revit_preview_elements": (
+                "revit.preview_elements",
+                lambda args: {
+                    "element_uids": args.get("element_uids") or [],
+                    "element_ids": args.get("element_ids") or [],
+                    "isolate": args.get("isolate", True),
+                },
+            ),
+            "revit_clear_preview": ("revit.clear_preview", lambda args: {}),
             "revit_create_text_note": (
                 "revit.create_text_note",
                 lambda args: {
@@ -1254,6 +1267,25 @@ class RevitProvider(AECProvider):
                 "required": ["element_uids"],
             },
         ),
+        # Not flagged mutating: selects/zooms and uses Revit's temporary isolate
+        # mode only; nothing is saved to the model. See docs/preview-in-model.md.
+        ProviderTool(
+            name="revit_preview_elements",
+            description="Preview elements in the active view (select, zoom, temporary isolate)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "element_uids": {"type": "array", "items": {"type": "string"}},
+                    "element_ids": {"type": "array", "items": {"type": "integer"}},
+                    "isolate": {"type": "boolean", "default": True},
+                },
+            },
+        ),
+        ProviderTool(
+            name="revit_clear_preview",
+            description="Clear the element preview and restore the active view",
+            inputSchema={"type": "object", "properties": {}},
+        ),
         ProviderTool(
             name="revit_create_text_note",
             description="Create a text note",
@@ -1890,4 +1922,6 @@ class RevitProvider(AECProvider):
     ]
 
     async def shutdown(self) -> None:
-        pass
+        close = getattr(getattr(self, "_bridge", None), "close", None)
+        if callable(close):
+            close()

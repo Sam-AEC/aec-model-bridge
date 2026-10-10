@@ -6,7 +6,7 @@
 
 > Bản dịch này được thực hiện với sự hỗ trợ của AI. [README](../../README.md) tiếng Anh là bản gốc; rất hoan nghênh các chỉnh sửa qua pull request (xem [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
-**Hỏi AI về mô hình Revit bạn đang mở. Theo mặc định, không có gì thay đổi cho đến khi bạn phê duyệt.**
+**Hỏi AI về mô hình Revit bạn đang mở. Theo mặc định, các công cụ ghi bị chặn cho đến khi bạn phê duyệt một kế hoạch.**
 
 Máy chủ MCP mã nguồn mở và add-in gốc cho Revit 2024 – 2027. Hoạt động với Claude, Codex và các ứng dụng khách MCP khác.
 
@@ -157,7 +157,7 @@ Hub chặn mọi lệnh gọi công cụ làm thay đổi mô hình nếu không
 
 <sub>Nguồn sơ đồ: [approval-flow.mmd](../diagrams/approval-flow.mmd). Tạo lại hình ảnh bằng `python scripts/render_diagrams.py`.</sub>
 
-Nếu một kế hoạch đã được phê duyệt sau đó hóa ra sai, `rollback_plan` sẽ hoàn tác nó. Việc hoàn tác dùng Undo của Revit trong cùng phiên hoặc các giá trị tham số nghịch đảo. Các thao tác không thể đảo ngược, chẳng hạn xuất tệp, sẽ yêu cầu xác nhận lần hai. Vòng đời được mô tả trong [ADR 0008](../0008-approval-gate-lifecycle.md).
+Nếu một kế hoạch hóa ra sai, hãy hoàn tác bằng Ctrl+Z trong Revit. Mỗi lần ghi tham số là một giao dịch có tên riêng, nên một kế hoạch có thể cần nhấn nhiều lần. Hoàn tác cả kế hoạch chỉ trong một bước đã được lên kế hoạch nhưng chưa được xây dựng. `rollback_plan` ghi lại các giá trị trước đó đã được ghi nhận theo thứ tự ngược, và có thể bỏ qua một hành động nếu không có giá trị trước đó được ghi nhận, vì vậy hãy đọc các cảnh báo của nó. Cả hai cách đều chưa được xác minh trong một phiên Revit thực tế (UNVERIFIED). Các thao tác không thể đảo ngược, chẳng hạn xuất tệp, sẽ yêu cầu xác nhận lần hai. Vòng đời được mô tả trong [ADR 0008](../0008-approval-gate-lifecycle.md).
 
 Với các pipeline chạy tự động, bạn có thể đặt `MCP_REVIT_APPROVAL_MODE=auto`. Thiết lập này tắt bước kiểm tra của con người, vì vậy chỉ dùng trong môi trường được kiểm soát.
 
@@ -350,6 +350,20 @@ CI build máy chủ Python và các mục tiêu add-in cho Revit 2024 đến 202
 - [Toàn bộ tài liệu](../README.md)
 - [Hướng dẫn đóng góp](../../CONTRIBUTING.md) và [Quy tắc ứng xử](../../CODE_OF_CONDUCT.md)
 - [Những người đóng góp](../../CONTRIBUTORS.md)
+
+## Built with
+
+AEC Model Bridge stands on open-source work. It is independent and is not affiliated with or endorsed by any project named here.
+
+- [Model Context Protocol](https://modelcontextprotocol.io) Python SDK (MIT) for the MCP server
+- [IfcOpenShell](https://ifcopenshell.org) (LGPL-3.0-or-later) for IFC files
+- [specklepy](https://github.com/specklesystems/specklepy) (Apache-2.0) for Speckle
+- [pydantic](https://docs.pydantic.dev), [httpx](https://www.python-httpx.org), [NetworkX](https://networkx.org), [openpyxl](https://openpyxl.readthedocs.io) and [PyYAML](https://pyyaml.org) (MIT or BSD)
+- [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) (MIT) for the built-in agent chat
+- [Serilog](https://serilog.net), [IronPython](https://ironpython.net) and [Microsoft WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) in the Revit add-in
+- Autodesk Revit and Navisworks and McNeel Rhino are separate products that you license yourself. This project does not include their code.
+
+Licence texts and the full list of packages are in [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md). Licences were read from package metadata; rows that could not be verified are marked as such.
 
 ## Dự án và giấy phép
 
