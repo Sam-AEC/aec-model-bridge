@@ -149,6 +149,11 @@ A model that wants to change a model must draft a plan, and a person must approv
 - **Write access to the workspace defeats the hash check.** The hashes detect a plan that was changed after drafting or approval. Software that can write the plans folder can still replace a plan's actions and its stored hashes together, or delete claim files. Keep AI clients' file-write tools out of the workspace folder.
 - Plans drafted before this change have no `plan_hash` and cannot be approved; draft them again.
 
+### Before any release
+
+- **The panel approves review-bearing plans without showing the review (M1).** The panel sends back the stored `plan_hash`, which covers `review`, but renders only the actions. A revert plan with conflict warnings can therefore be approved from the panel without the person seeing them. The panel route must either refuse plans with `hash_version` 2 and non-empty review content (and point to `aec-model-bridge-approve show`) or render the review escaped. This is planned as a separate change after the panel token work (PR #115) merges, because both touch `panel_server.py` and `panel/`.
+- **Release note:** reject any pending revert plan drafted before upgrading. Older revert plans keep their conflicts, notes and warnings outside the hash; `show` prints them under "NOT covered by the approval".
+
 ---
 
 ## 5. Audit logging and sensitive data redaction
