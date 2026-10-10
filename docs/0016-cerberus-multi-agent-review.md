@@ -8,7 +8,7 @@ Proposed. Not accepted. Nothing in this record is built. Only throwaway spikes e
 No part of this product has ever run in a live Revit session, so every claim about Revit behaviour here is UNVERIFIED. Claims about vendor terms, vendor CLIs and library facts carry a grade in "What was and was not verified". Anything marked UNVERIFIED needs a check before it is relied on.
 
 ## Context
-A coordinator who asks for a full model review today gets one agent that sees more than 240 tools. Most of the review checks (naming, sheets and views, model bloat, schedules, clashes, QA/QC rules) are already deterministic Python modules that read a snapshot. They need no model. What a model adds is triage, explanation, fuzzy matching and a second opinion.
+A coordinator who asks for a full model review today gets one agent that sees about 200 tools. Most of the review checks (naming, sheets and views, model bloat, schedules, clashes, QA/QC rules) are already deterministic Python modules that read a snapshot. They need no model. What a model adds is triage, explanation, fuzzy matching and a second opinion.
 
 The owner asked for a mode, named Cerberus, that combines several agents on one task so they cross-check each other. Different vendors have different strengths and different blind spots. The same model run three times shares one set of blind spots.
 
@@ -163,7 +163,7 @@ Costs and risks:
 ## Alternatives considered
 | Alternative | Why not |
 |---|---|
-| One agent with all 240+ tools | Pays for the schema every turn, no cross-check. Stays the default for small questions |
+| One agent with all 200 tools | Pays for the schema every turn, no cross-check. Stays the default for small questions |
 | One agent with a curated tool subset | May match Cerberus at lower cost. This is a kill criterion and the spike must test it |
 | Adopt an agent framework (LangGraph, OpenAI Agents SDK, Claude Agent SDK, CrewAI, AutoGen, smolagents, Temporal) | Churn, vendor lock-in, a 110 MB bundle, default-on telemetry (CrewAI), model-written code (smolagents, against ADR 0013 rule 6), or a server dependency (Temporal). We borrow patterns instead: checkpoints, event history and replay, guardrails |
 | Free-form group chat between heads | Spreads prompt injection from head to head |
