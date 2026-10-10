@@ -1,10 +1,11 @@
 # Dev branch test plan (Windows + Revit)
 
-This is the plan for testing the `dev` branch by hand. `dev` is `main` plus a
-set of open pull requests merged together, so nobody has run it end to end.
-Everything here is **UNVERIFIED** unless a line says otherwise. The only things
-checked so far are the Python unit tests and CI on Linux and Windows runners.
-None of that touches a real Revit.
+This is the plan for testing the `dev` branch by hand before a `dev` to `main`
+pull request. `dev` is `main` plus a set of pull requests merged together, so
+nobody has run it end to end. Everything here is **UNVERIFIED** unless a line
+says otherwise. The only things checked so far are the Python unit tests and CI
+on Linux and Windows runners. None of that touches a real Revit, and **nothing
+has ever run in live Revit**, including the first real write.
 
 Fill in the results table at the end as you go. Treat every difference from
 "working looks like" as a finding, not as something to explain away.
@@ -23,12 +24,33 @@ changes), #81 (door and room consistency), #84 (naming checker), #69, #71, #74,
 #65 (rule packs), #61 (pyRevit bridge), #64 (preview in model), #60 (panel
 first-run check).
 
-Not on dev: #92 (panel token, on hold because it breaks multi-Revit) and #99
-(approval v2, under security review).
+Merged since the first version of this plan:
 
-Because #95 and #64 are now in, parts of
-[demo-runbook.md](demo-runbook.md) that say "open PR, not merged" are out of
-date on this branch.
+- **#99 approval v2.** Approval is human-only (panel or the
+  `aec-model-bridge-approve` command). A `plan_id` is bound to the exact tool
+  and arguments, each approved action runs at most once, and approve, reject and
+  rollback are hidden from MCP. Report writers are confined to the workspace,
+  plan ids with a trailing newline are refused, tool names that are not
+  registered are refused when drafting, and the panel shows escaped arguments
+  before approval.
+- **#105.** `rhino_generate_diagrid_tower`, `navisworks_append_file`,
+  `navisworks_refresh`, `navisworks_activate_viewpoint` and `revit_render_3d` now
+  go through the approval gate.
+- **#106.** Honest undo wording: Ctrl+Z per step; one-step undo for a whole plan
+  is **not built**; rollback can skip actions.
+- **#107.** Panel step 1: AA contrast, narrow layout, finished plans show a
+  badge only, Approve Selected sends one approve per ticked plan with its plan
+  hash, the active view scrolls inside a bounded row, focus ring and aria labels.
+- **#108.** Design tokens doc (docs only, nothing to test by hand).
+- **#109.** Approval modes `look_only`, `ask_first` and `auto`, set with
+  `MCP_REVIT_APPROVAL_MODE`. Unknown values fail closed to `ask_first`. No MCP
+  tool can change the mode.
+
+Not on dev: #92 (panel token, on hold because it breaks multi-Revit). The panel
+hub is therefore still unauthenticated; see section H.
+
+[demo-runbook.md](demo-runbook.md) was brought up to date with this list.
+Known limits you should expect to hit are collected in section H.
 
 ## A. Install from the dev branch
 
@@ -82,7 +104,7 @@ Checks:
    appear.
 5. Optional, no Revit needed: from the checkout, with the venv active,
    `cd packages\mcp-server-revit; $env:PYTHONPATH="src"; python -m pytest tests -q --ignore=tests/e2e --deselect tests/test_wheel_contents.py`.
-   On Linux this gave 749 passed, 2 skipped. Record your number.
+   On Linux this gave 921 passed, 2 skipped (2 deselected). Record your number.
 
 ## B. First: the minimal safe write test
 
@@ -98,8 +120,10 @@ until Revit crashed. Save everything in other Revit sessions first. Do it on a
    `Comments`. Note its element id and the current value.
 4. Ask the assistant to plan exactly one `revit_set_parameter_value` on that
    element (parameter `Comments`, value `dev-test-1`) using `plan_actions`.
-   Do not let it execute.
-5. In the Revit panel, open the plan. Press **Approve** on it.
+   Do not let it execute. The approval mode must be `ask_first` (the default).
+5. In the Revit panel, open the plan. Check the arguments shown match what you
+   asked for, then press **Approve** on it. (Or approve with the command line,
+   section G.)
 6. Ask the assistant to execute the plan (`execute_plan`).
 7. In Revit, read the parameter in the Properties palette.
    - Working looks like: value is `dev-test-1`, and Revit did not hang or
@@ -107,9 +131,11 @@ until Revit crashed. Save everything in other Revit sessions first. Do it on a
    - Failure signs: Revit freezes or closes (the old recursion), an error
      in the panel, or the value is unchanged.
 8. Press Ctrl+Z once in Revit. Read the parameter again.
-   - Working looks like: back to the original value.
-   - If not, note how many undo steps it took. The runbook warns this may not be
-     one.
+   - Working looks like: back to the original value. With one action in the
+     plan, one step is the best case.
+   - If not, note how many undo steps it took. Undo is per step (each action is
+     its own Revit transaction); one-step undo for a whole plan is not built.
+     That is documented behaviour, not a bug, for plans of several actions.
 9. Record: pass or fail for the write, pass or fail for undo, any message text,
    and `%APPDATA%\AECModelBridge\Logs\bridge.jsonl` lines around the time.
 
@@ -124,6 +150,10 @@ rejected-plan run. Differences on this branch:
 - Writes are now possible because of #95. Only do steps 6 to 8 after B passed.
 - Preview in the model (#64) is merged. Step 4 can use it: see
   [preview-in-model.md](preview-in-model.md). UNVERIFIED in Revit.
+- Approval is now human-only (#99). Step 5 is done by you in the panel or with
+  `aec-model-bridge-approve`; the assistant cannot do it.
+- Undo (step 8) is Ctrl+Z once per action, so 12 presses for the 12 doors.
+  `rollback_plan` may skip the doors that started empty (see the runbook).
 - Expected baseline from the manifest: 12 doors without Mark and 3 rooms
   without Number, 15 findings in total. Nobody has recorded this on a live
   model.
@@ -141,6 +171,11 @@ full name. All of these are read-only unless noted. Tool name is
 its `snapshot_id`. Many tools can also run on built-in sample data when you
 leave the id empty or run in mock mode. Do not count a sample-data result as a
 live test.
+
+Tools that go through the approval gate (#105) and so need an approved plan
+before they act: `rhino_generate_diagrid_tower`, `navisworks_append_file`,
+`navisworks_refresh`, `navisworks_activate_viewpoint`, `revit_render_3d`. They
+are tested in section G, not here.
 
 **What "not enough data" means.** The add-in's snapshot does not yet carry
 every field these checks would like. When a snapshot lacks a field, the tool is
@@ -180,24 +215,45 @@ Open the panel from the **AEC Bridge** tab.
    with a "What to do" per failing check
    ([first-check.md](first-check.md)). Break one on purpose (set mock mode) and
    confirm the card says so.
-2. **Narrow width.** Dock the panel and drag it to its narrowest. Working looks
-   like: no horizontal scroll, buttons and badges still readable, rail labels
-   not cut off. Note the width in pixels where it breaks.
-3. **Finished plans still showing live buttons (known bug).** After B, look at
-   the executed plan in the panel. Known: executed, rejected or reverted plans
-   may still show Approve or Reject buttons. Record what buttons show on a
-   finished plan, and what happens if you press one (expected: an error, and
-   no second execution).
-4. **Approve Selected (known bug).** Make two or more pending plans, tick them,
-   press Approve Selected. Known to misbehave. Record exactly what happens:
-   which plans changed state, and any error text. Do not use it on a model you
-   care about.
-5. **Panel shim checks (#93).** The panel hub should refuse requests with a
+2. **Narrow width (#107).** Dock the panel and drag it to its narrowest, and
+   also try 360 px wide if you can (a docked pane, or a browser window at
+   360 px if you load the panel page outside Revit). Working looks like: no
+   horizontal scroll, buttons and badges readable, rail labels not cut off, and
+   a tighter layout below 480 px. Note the width in pixels where it breaks.
+   UNVERIFIED in Revit's embedded browser.
+3. **Finished plans show a badge only (#107).** After B, look at the executed
+   plan in the panel. Working looks like: a status badge such as "executed", and
+   no Approve or Reject buttons. Do the same for a rejected plan. Buttons appear
+   only while a decision is open. If a button is still there, record which plan
+   state, and what happens if you press it (expected: an error, and no second
+   execution).
+4. **Approve Selected (#107).** Make two pending plans, tick both, press
+   Approve Selected. Working looks like: one approve is sent per ticked plan,
+   each carrying that plan's hash, and both plans leave the pending list. Then
+   tick one plan and confirm only that plan changed. Untick everything and
+   confirm the button is disabled. Record any error text. Do not use it on a
+   model you care about.
+5. **Long plan list scrolls inside the view (#107).** Create enough plans (or
+   findings or log lines) that the list is longer than the panel. Working looks
+   like: the top bar and the Setup check stay in place and only the active view
+   scrolls. If the whole page grows and the top bar scrolls away, record it.
+6. **Keyboard and focus (#107).** Tab through the panel. Working looks like: a
+   visible focus ring on every button, tick box and rail item, and controls
+   announce a name to a screen reader (aria labels) if you have one. Check text
+   contrast by eye in light and dark themes. UNVERIFIED.
+7. **Arguments shown before approval (#99).** Open a pending plan in the panel.
+   Working looks like: each action lists its tool, its arguments and its current
+   (before) value, with control characters shown as visible escapes. If you can,
+   have the assistant draft a plan with an argument containing `<b>x</b>` or an
+   escape sequence and confirm it is shown as text, not rendered.
+8. **Panel shim checks (#93).** The panel hub should refuse requests with a
    foreign Host, Origin or Content-Type. From PowerShell,
    `Invoke-RestMethod http://127.0.0.1:8787/health` should work, and
    `curl.exe -i -H "Origin: http://evil.example" http://127.0.0.1:8787/health`
    should be refused. UNVERIFIED which status code; record it. The panel itself
-   must still work after this change. That is the main thing to check.
+   must still work after this change. That is the main thing to check. The hub
+   has no token: a request with a valid Host and no Origin is accepted from any
+   local program. That is a known limit (section H), not a finding about #93.
 
 ## F. Multi-Revit check
 
@@ -212,7 +268,165 @@ Working today would be each panel answering for its own Revit. The expected
 result is that both answer for the same Revit. Record which, and do **not**
 approve any write plan in this setup.
 
-## G. Results table and where to report
+## G. Approval v2 and modes (#99, #105, #106, #109)
+
+Do these on a scratch model, in order. Where a step says "draft a plan", ask the
+assistant to use `plan_actions` for one harmless parameter write (the
+`Comments` write from section B is fine) and stop before it executes. List
+pending plans with `aec-model-bridge-approve list` or in the panel.
+
+The approval mode is set with the environment variable
+`MCP_REVIT_APPROVAL_MODE` for the process that starts the MCP server and the
+panel hub (restart Revit and the MCP client after you change it). Leave it
+unset for the default, `ask_first`.
+
+**G1. The assistant cannot approve (MCP refusal).** Ask the assistant, in plain
+words, to approve its own plan. Also ask it to call `approve_plan`,
+`reject_plan` and `rollback_plan` by name.
+- Working looks like: the three names are not in the tool list; the assistant
+  says it cannot, or gets a plain refusal. The plan stays `pending`.
+- Failure sign: the plan changes state without you pressing anything.
+- Result: ______
+
+**G2. The approve command line.** From the venv, run
+`aec-model-bridge-approve list`, then `show <plan_id>`, then
+`approve <plan_id>`.
+- Working looks like: `list` shows the plan with its action count and tool
+  names. `show` prints the plan in plain language (tool, arguments, current
+  value) and a `Plan hash`. `approve` asks you to type the plan id, and only an
+  exact match approves it; anything else prints "Cancelled; plan unchanged."
+  The plan file then has `approved_via` `cli` and your Windows account as
+  `approved_by`.
+- Also run `approve` with no terminal (input piped in): expected refusal unless
+  you pass `--yes`.
+- Also `reject <plan_id>` on a second pending plan, and on an approved plan that
+  has not run: both should work. Rejecting an executed plan should be refused.
+- Result: ______
+
+**G3. Edit the plan file, expect a hash rejection.** Draft a plan. Before
+approving, open `<workspace>\plans\<plan_id>.json`, change one action's
+argument (for example the `value`) and save.
+- Working looks like: `show` prints a different hash than before the edit.
+  Approving with a hash from before the edit (the panel sends the hash of the
+  list it rendered) is refused with a message that the plan changed.
+- Then draft a second plan, approve it, edit its file, and ask the assistant to
+  execute it. Working looks like: execution is refused because the plan no
+  longer matches what was approved.
+- This only covers editing the actions. Someone who can rewrite the hashes too
+  is not stopped (section H).
+- Result: ______
+
+**G4. Plan id bound to the exact tool and arguments.** Approve a plan for
+`Comments` = `dev-test-1`. Ask the assistant to make the same
+`revit_set_parameter_value` call with a different value or element, passing the
+approved `plan_id`.
+- Working looks like: refused, saying no matching approved action exists. The
+  original action can still run unchanged.
+- Result: ______
+
+**G5. At most once.** Execute the approved plan from G4 once. Ask the assistant
+to execute it again, and to repeat the single action by hand with the `plan_id`.
+- Working looks like: the second attempt is refused. The action is consumed
+  after the first attempt, including when the first attempt failed. Look in
+  `<workspace>\plans\.claims\` for a claim file per action.
+- Result: ______
+
+**G6. Bad plan ids and unregistered tool names.** Call a gated tool with a
+`plan_id` of `plan_` plus 12 hex characters followed by a newline, then
+`../plan_x`, then an id of another shape. Then ask the assistant to draft a plan
+containing a tool name that does not exist, for example `revit_not_a_tool`.
+- Working looks like: each bad id is refused with a plain error, and the
+  drafting call with an unknown tool name is refused.
+- Result: ______
+
+**G7. Report writers are confined.** Ask the assistant to export an Excel or
+SQLite report with an output file name that leaves the workspace
+(`..\..\x.xlsx`), and one aimed at the `plans` or `proofs` folder.
+- Working looks like: both refused; nothing written outside the workspace and
+  nothing written into `plans` or `proofs`.
+- Result: ______
+
+**G8. Newly gated tools (#105).** With no approved plan, ask the assistant to
+call `revit_render_3d`, then `navisworks_append_file`, `navisworks_refresh`,
+`navisworks_activate_viewpoint` (needs Navisworks; mark N/A without it) and
+`rhino_generate_diagrid_tower` (needs the Rhino bridge; N/A without it).
+- Working looks like: each is refused with an error naming the missing or
+  unapproved `plan_id`. After a plan for that exact call is approved, the call
+  runs. UNVERIFIED against the real applications.
+- Result: ______
+
+**G9. Look only mode (#109).** Set `MCP_REVIT_APPROVAL_MODE=look_only`, restart,
+and open the panel. Ask the assistant to run a read (a model summary), then a
+write (set the `Comments` parameter, with and without a plan).
+- Working looks like: the read works. Every write is refused with "Look only
+  mode: this tool changes the model. Switch to Ask me first in the panel or
+  settings." even for an approved plan, including from the panel chat, from
+  `execute_plan` and from `rollback_plan`. A plan can still be drafted.
+- UNVERIFIED: whether the panel shows or switches the mode. Record what it
+  shows.
+- Result: ______
+
+**G10. Unknown mode value falls back to Ask me first.** Set
+`MCP_REVIT_APPROVAL_MODE` to `lookonly`, then `off`, then an empty string,
+restarting each time. Draft a plan and try to run its action without approving
+it.
+- Working looks like: each behaves as `ask_first`: an unapproved write is
+  refused, and the server log shows a warning about the unknown value. None of
+  them turns the gate off. Also check `Ask_First` and ` LOOK_ONLY ` (case and
+  surrounding spaces are ignored) and `required` (same as `ask_first`).
+- Result: ______
+
+**G11. No MCP route can change the mode.** Ask the assistant to change the
+approval mode to `auto`, or to turn approvals off.
+- Working looks like: there is no tool for it, and the assistant says so. The
+  mode is unchanged afterwards.
+- Do not set `auto` on a model you care about. If you test `auto` at all, use a
+  scratch model and expect writes to run with no plan.
+- Result: ______
+
+**G12. Rollback of a plan with a skipped action (#106).** Use the demo's 12-door
+plan (the doors started with an empty Mark), or any plan where an action had no
+recorded before-value. Run it, then roll it back from a person-run route
+(rollback is not available to the assistant).
+- Working looks like: the result carries warnings such as "Skipped rollback for
+  action ...: no before-value recorded", and the doors keep their new Marks. The
+  plan is not reported as fully restored. Verify with a new snapshot, then
+  restore with Ctrl+Z (one press per action).
+- Rollback only restores `revit_set_parameter_value` actions; any other tool in
+  the plan gives a "No rollback handler" warning and is skipped.
+- Result: ______
+
+## H. Known limits (do not report as new findings)
+
+These are known and accepted for this dev drop. Check they behave as described;
+do not spend time trying to prove them wrong.
+
+- **The panel hub is unauthenticated** until the shared token (#92) lands. Any
+  local program that sends a valid `Host` and no `Origin` to `127.0.0.1:8787`
+  can use `/execute`, including to approve a plan. #93 only stops browser pages.
+- **Approvals are not bound to a document or a view, and never expire.** A plan
+  approved on one model can in principle be run later after you switch
+  documents, if the element ids and arguments still match. Reject plans you no
+  longer want.
+- **An action can stay `running`** if the submit to Revit fails part-way. Such
+  an action is consumed and will not rerun; ask for a new plan.
+- **Some Navisworks and proxy tools are still ungated.** #105 covered five tools,
+  not every mutating tool. Treat other Navisworks and proxy tools as able to act
+  without an approved plan.
+- **The add-in snapshot extractor is not built** for every field, so several
+  checks report "not enough data" (section D). That is expected.
+- **Nothing has ever run in live Revit, and the first real write is
+  unverified** (section B). A crash there is the most important finding.
+- **No one-step undo for a whole plan.** Undo is Ctrl+Z once per action.
+  Rollback can skip actions and only handles parameter writes.
+- **Write access to the workspace defeats the hash check.** Software that can
+  write the plans folder can replace a plan and its hashes together. Keep AI
+  clients' file tools out of the workspace.
+- **The command line does not authenticate who is typing.** A program that can
+  run shell commands as you can run `aec-model-bridge-approve approve <id> --yes`.
+- **Two Revits can share one hub** (section F).
+
+## I. Results table and where to report
 
 Mark each row PASS, FAIL, or N/A, add the exact message on a failure, and
 attach `bridge.jsonl` lines if it is a failure.
@@ -239,11 +453,26 @@ attach `bridge.jsonl` lines if it is a failure.
 | D | review pack | | |
 | D | rule packs, pyRevit discover | | |
 | E | First-run Setup check | | |
-| E | Narrow width | | |
-| E | Finished plans, live buttons | | |
-| E | Approve Selected | | |
+| E | Narrow width, 360 px | | |
+| E | Finished plans show badge only | | |
+| E | Approve Selected, two plans | | |
+| E | Long list scrolls inside the view | | |
+| E | Focus ring and aria | | |
+| E | Arguments shown, escaped | | |
 | E | Panel shim Host/Origin | | |
 | F | Two Revits, one hub | | |
+| G1 | Approve over MCP refused | | |
+| G2 | Approve command line | | |
+| G3 | Edited plan file rejected | | |
+| G4 | Plan bound to exact arguments | | |
+| G5 | Action runs at most once | | |
+| G6 | Bad plan ids, unknown tool names | | |
+| G7 | Report writers confined | | |
+| G8 | Newly gated tools refuse | | |
+| G9 | Look only refuses a write | | |
+| G10 | Unknown mode falls back to Ask me first | | |
+| G11 | Mode cannot be changed over MCP | | |
+| G12 | Rollback warns on skipped action | | |
 
 Report results as an issue on
 [Sam-AEC/aec-model-bridge](https://github.com/Sam-AEC/aec-model-bridge/issues)
