@@ -32,11 +32,8 @@ const systemAlerts = document.getElementById("system-alerts");
 const title = document.getElementById("view-title");
 const subtitle = document.getElementById("view-subtitle");
 const viewIcon = document.getElementById("view-icon");
-const chatFeed = document.getElementById("chat-feed");
-const chatForm = document.getElementById("chat-form");
-const chatInput = document.getElementById("chat-input");
-const chatProvider = document.getElementById("chat-provider");
-const chatReset = document.getElementById("chat-reset");
+const chatRoot = document.getElementById("chat-root");
+const modeChip = document.getElementById("mode-chip");
 const planList = document.getElementById("plan-list");
 const findingList = document.getElementById("finding-list");
 const reportList = document.getElementById("report-list");
@@ -54,6 +51,27 @@ function postToHost(type, payload = {}) {
   if (window.chrome && window.chrome.webview) {
     window.chrome.webview.postMessage(JSON.stringify({ type, ...payload }));
   }
+}
+
+// ---- Chat (panel/chat.js). Non-streaming: the host sends one whole chat.response. ----
+// The chat renders model text with textContent / createElement only (never innerHTML).
+let chat = null;
+let chatProvider = null;
+if (window.AMBChat) {
+  chat = window.AMBChat.mount(chatRoot, {
+    postToHost: (type, payload) => {
+      postToHost(type, payload);
+      if (type === "chat.message") {
+        addLog("Chat message sent", `[${payload.provider}] ${payload.message}`);
+      } else if (type === "chat.reset") {
+        addLog("Chat reset", "Started a new conversation.");
+      }
+    },
+    onReview: reviewPlan
+  });
+  chatProvider = document.getElementById("chat-provider");
+} else {
+  chatRoot.textContent = "Chat could not load: the panel's chat scripts are missing. Reinstall the add-in.";
 }
 
 function escapeHtml(value) {
@@ -257,12 +275,13 @@ function updateToolAvailability() {
     control.disabled = blocked;
   });
   syncApproveSelected();
-  chatInput.disabled = chatBlocked;
-  chatForm.querySelector("button").disabled = chatBlocked;
+  if (chat) {
+    chat.setDisabled(chatBlocked, chatBlocked ? "Chat is unavailable. See the alerts above." : "");
+  }
 }
 
 function applyProviderAvailability() {
-  if (!state.providers) {
+  if (!state.providers || !chatProvider) {
     return;
   }
   Array.from(chatProvider.options).forEach((option) => {
@@ -285,35 +304,35 @@ function renderSystemState() {
   updateToolAvailability();
 }
 
-function renderChat() {
-  chatFeed.innerHTML = "";
-  [
-    { role: "assistant", text: "Ready for the active model." },
-    { role: "assistant", text: "Pending plans and findings will appear in their tabs." }
-  ].forEach((message) => appendMessage(message.role, message.text));
-}
+// Mode chip + chat banner. The hub reports approval_mode in /diagnostics; the panel
+// only displays it (changing it is not done from the panel yet).
+const MODE_CHIP = {
+  look_only: ["Look only", "Look only: the assistant reads the model and cannot change it. Change in settings."],
+  ask_first: ["Ask me first", "Ask me first: changes need your approval in this panel. Change in settings."],
+  auto: ["Auto: not recommended", "Auto: approvals are skipped. Not recommended. Change in settings."]
+};
 
-function appendMessage(role, text) {
-  const item = document.createElement("article");
-  item.className = `message ${role === "user" ? "user" : "assistant"}`;
-  item.innerHTML = `<div class="meta">${role === "user" ? "You" : '<svg class="mini-mark" width="14" height="14" aria-hidden="true"><use href="#brand-mark"/></svg> AMB'}</div><div>${escapeHtml(text)}</div>`;
-  chatFeed.appendChild(item);
-  chatFeed.scrollTop = chatFeed.scrollHeight;
-  return item;
-}
-
-let pendingChatMessage = null;
-
-function resolvePendingChatMessage(text, isError) {
-  if (!pendingChatMessage) {
-    appendMessage("assistant", text);
-    return;
+function renderMode() {
+  const mode = state.diagnostics && state.diagnostics.approval_mode;
+  const known = Object.prototype.hasOwnProperty.call(MODE_CHIP, mode) ? mode : null;
+  modeChip.dataset.mode = known || "unknown";
+  modeChip.textContent = known ? MODE_CHIP[known][0] : "Mode unknown";
+  modeChip.title = known ? MODE_CHIP[known][1] : "The hub has not reported its approval mode yet.";
+  if (chat) {
+    chat.setApprovalMode(known);
   }
-  pendingChatMessage.classList.remove("pending");
-  pendingChatMessage.classList.toggle("error", !!isError);
-  pendingChatMessage.querySelector("div:last-child").textContent = text;
-  pendingChatMessage = null;
-  chatFeed.scrollTop = chatFeed.scrollHeight;
+}
+
+// Chat card "Review N changes": approval itself only exists in the Plans view.
+function reviewPlan(planId) {
+  setView("plans");
+  const item = Array.from(planList.children).find((child) => child.dataset && child.dataset.planId === planId);
+  if (item) {
+    item.focus();
+    if (item.scrollIntoView) {
+      item.scrollIntoView({ block: "nearest" });
+    }
+  }
 }
 
 function planStatusBadgeClass(status) {
@@ -351,6 +370,8 @@ function renderPlans() {
   state.plans.forEach((plan) => {
     const item = document.createElement("article");
     item.className = "item";
+    item.dataset.planId = plan.id;
+    item.tabIndex = -1;
     const id = escapeHtml(plan.id);
     const label = escapeHtml(plan.title);
     const hash = escapeHtml(plan.hash);
@@ -542,27 +563,6 @@ document.body.addEventListener("change", (event) => {
   syncApproveSelected();
 });
 
-chatForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const text = chatInput.value.trim();
-  if (!text) {
-    return;
-  }
-  appendMessage("user", text);
-  chatInput.value = "";
-  postToHost("chat.message", { message: text, provider: chatProvider.value });
-  pendingChatMessage = appendMessage("assistant", "Thinking…");
-  pendingChatMessage.classList.add("pending");
-  addLog("Chat message sent", `[${chatProvider.value}] ${text}`);
-});
-
-chatReset.addEventListener("click", () => {
-  postToHost("chat.reset");
-  pendingChatMessage = null;
-  renderChat();
-  addLog("Chat reset", "Started a new conversation.");
-});
-
 severityFilter.addEventListener("change", renderFindings);
 
 settingsForm.addEventListener("submit", (event) => {
@@ -633,7 +633,13 @@ function mapPlans(hubResult) {
       status: plan.state,
       title: actions.length === 1 ? actions[0].tool : `${actions.length} action(s)`,
       detail: actions.map((action) => action.tool).join(", ") || "No actions",
-      review: planActionLines(actions).join("\n") || "No actions"
+      review: planActionLines(actions).join("\n") || "No actions",
+      // Facts for the chat card, from the same real actions: tool, arguments, captured before value.
+      actions: actions.map((action) => ({
+        tool: action && action.tool,
+        arguments: action && action.arguments,
+        before: action && action.diff && action.diff.before
+      }))
     };
   });
 }
@@ -693,6 +699,9 @@ if (window.chrome && window.chrome.webview) {
       const known = new Set(state.plans.map((plan) => plan.id));
       state.selectedPlanIds.forEach((id) => { if (!known.has(id)) state.selectedPlanIds.delete(id); });
       renderPlans();
+      if (chat) {
+        chat.setProposals(state.plans);
+      }
       addLog("Plans updated", `${state.plans.filter(isPlanActionable).length} pending of ${state.plans.length}`);
     }
     if (event.data?.type === "reports.updated") {
@@ -716,6 +725,7 @@ if (window.chrome && window.chrome.webview) {
     }
     if (event.data?.type === "diagnostics.updated") {
       state.diagnostics = event.data.diagnostics;
+      renderMode();
       renderSetup();
       renderSystemState();
       addLog("Setup check", failingChecks().length ? `${failingChecks().length} step(s) need attention` : "Ready");
@@ -727,12 +737,19 @@ if (window.chrome && window.chrome.webview) {
       addLog(`Error: ${event.data.action || "tool"}`, friendlyError(event.data.message) || "Unknown error");
     }
     if (event.data?.type === "chat.response") {
-      resolvePendingChatMessage(event.data.message || "(empty response)", false);
+      if (chat) {
+        chat.onHostMessage({ type: "chat.response", message: event.data.message });
+      }
       addLog("Chat response received", "");
+      // The assistant may have drafted a plan: ask the host for the pending list so the
+      // chat can show it as a proposal card (the panel never calls the hub itself).
+      postToHost("plans.refresh");
     }
     if (event.data?.type === "chat.error") {
       const chatMessage = friendlyError(event.data.message) || "Unknown error";
-      resolvePendingChatMessage(`Error: ${chatMessage}`, true);
+      if (chat) {
+        chat.onHostMessage({ type: "chat.error", message: chatMessage });
+      }
       addLog("Chat error", chatMessage);
     }
     if (event.data?.type === "panel.view" && views[event.data.view]) {
@@ -749,7 +766,7 @@ if (window.chrome && window.chrome.webview) {
   });
 }
 
-renderChat();
+renderMode();
 renderPlans();
 renderFindings();
 renderReports();

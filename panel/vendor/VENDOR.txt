@@ -1,0 +1,15 @@
+Vendored libraries (classic <script>, no ESM, no CDN at runtime)
+
+smd.min.js              streaming-markdown 0.2.15  MIT          published 2025-05-04
+                        git 5c331f58870b9f823c9384b76b23c9ff7596a9a4
+                        npm sha512-eSWjdvLSTznl2+FIzuxw1TRXwhjZiY1RfSygGCMpcNY8CrsaUM2zHtxe/JFcPoXCQxeO3TSJ72QMDIN5B/Ui1w==
+                        15,612 B min / 4,642 B gzip   sha256 d007a7ea91a039b9f00cfecd0cf571164cf2fde9993a424c01a8656c116924e0
+highlight.core-min.js   highlight.js 11.12.0 (core + json python csharp sql bash xml javascript)
+                        BSD-3-Clause  published 2026-08-12  git f7f7d3803bd898e37c017ffb881317f0cde04a70
+                        npm sha512-nbfWpyRMcMrPMmDwJB+dhX/eiaPKtc2RB+0QZskqJ3WjRA/FDS0e9hZrx8EC/lbEv8gXy98FcDbNa/dspAaJMg==
+                        47,812 B min / 17,188 B gzip  sha256 7edeebb51b75a30af517b7d5a328d1c6e993e76db508aad7f8762ab571ebe9db
+
+Rebuild (one-off, dev machine only; output is committed):
+  npm i esbuild@0.25.0 highlight.js@11.12.0 streaming-markdown@0.2.15
+  npx esbuild hl-entry.js  --bundle --minify --format=iife --legal-comments=none --outfile=highlight.core-min.js
+  npx esbuild smd-entry.js --bundle --minify --format=iife --global-name=smd --legal-comments=none --outfile=smd.min.js

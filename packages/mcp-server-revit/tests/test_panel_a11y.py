@@ -92,6 +92,12 @@ PAIRS = [
     ("danger", "surface", 4.5, "setup blocked text / error message"),
     ("rail-ink", "rail", 4.5, "nav label"),
     ("brand", "surface", 3.0, "focus ring / graphics"),
+    ("info", "surface-raised", 4.5, "mode chip: Look only"),
+    ("pending", "surface-raised", 4.5, "mode chip: Ask me first"),
+    ("ink", "surface-raised", 4.5, "mode chip: Auto"),
+    ("warning", "surface", 4.5, "look-only / auto note in chat cards"),
+    ("ink", "danger-wash", 4.5, "chat error text on its wash"),
+    ("brand-strong", "surface", 4.5, "chat link text"),
 ]
 LIGHT_BADGES = ("danger", "warning", "info", "success", "pending", "idle")
 
@@ -347,10 +353,8 @@ def test_visible_focus_ring_survives_forced_colors():
 
 def test_form_controls_have_accessible_names():
     for ident in (
-        "chat-input",
         "hub-url",
         "approval-mode",
-        "chat-provider",
         "severity-filter",
     ):
         tag = re.search(r'<(?:input|select)\b[^>]*\bid="%s"[^>]*>' % ident, HTML)
@@ -363,11 +367,22 @@ def test_form_controls_have_accessible_names():
         )
 
 
+def test_chat_controls_are_named_in_the_chat_renderer():
+    """The chat form is built by panel/chat.js, so its names are checked there."""
+    chat_js = (PANEL / "chat.js").read_text(encoding="utf-8")
+    assert 'id="chat-root"' in HTML
+    assert 'feed.id = "chat-feed"' in chat_js
+    assert 'feed.setAttribute("role", "log")' in chat_js
+    assert 'input.id = "chat-input"' in chat_js
+    assert 'input.setAttribute("aria-label", "Message to the agent")' in chat_js
+    assert 'provider.id = "chat-provider"' in chat_js
+    assert 'provider.setAttribute("aria-label", "Agent")' in chat_js
+    assert 'reset.id = "chat-reset"' in chat_js
+    assert 'reset.setAttribute("aria-label", "Start a new conversation")' in chat_js
+    assert 'send.setAttribute("aria-label", "Send message")' in chat_js
+
+
 def test_icon_buttons_and_landmarks_are_named():
-    assert 'id="chat-feed"' in HTML and re.search(
-        r'id="chat-feed"[^>]*role="log"', HTML
-    )
-    assert re.search(r'id="chat-reset"[^>]*aria-label=', HTML)
     assert re.search(r"<main\b[^>]*aria-label=", HTML) or "<main" in HTML
     assert re.search(r'<nav\b|<aside class="rail" aria-label="Primary"', HTML)
     assert re.search(r'id="plan-list"[^>]*aria-label=', HTML)

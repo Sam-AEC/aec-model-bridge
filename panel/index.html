@@ -3,11 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>AEC Model Bridge</title>
   <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./chat.css">
 </head>
 <body>
-  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <svg class="sprite" width="0" height="0" aria-hidden="true" focusable="false">
     <defs>
       <symbol id="brand-mark" viewBox="0 0 96 96">
         <rect width="96" height="96" rx="20" fill="#111923"/>
@@ -20,6 +22,12 @@
         <path fill="#111923" transform="matrix(28,-16,0,32,48,48)" d="M0.24,1.02 V0.66 A0.26,0.26 0 0 1 0.76,0.66 V1.02 Z"/>
         <rect x="0.5" y="0.5" width="95" height="95" rx="19.5" fill="none" stroke="rgba(255,255,255,0.16)"/>
       </symbol>
+      <!-- 24px line icons for the chat controls (stroke = currentColor) -->
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></symbol>
+      <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
+      <symbol id="i-send" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+      <symbol id="i-new" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></symbol>
       <symbol id="nav-chat" viewBox="0 0 32 32">
         <path class="o f" d="M5 5h22a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H15l-6 5v-5H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/>
         <path class="a" d="M9 11h14M9 16h8"/>
@@ -94,9 +102,12 @@
           <p id="view-subtitle">AEC Model Bridge</p>
         </div>
       </div>
-      <div class="status-pill" role="status" id="host-status">
-        <span class="dot"></span>
-        <span>Host pending</span>
+      <div class="top-status">
+        <span class="mode-chip" id="mode-chip" data-mode="unknown" role="status">Mode: checking&hellip;</span>
+        <div class="status-pill" role="status" id="host-status">
+          <span class="dot"></span>
+          <span>Host pending</span>
+        </div>
       </div>
     </header>
     <div class="alerts" id="system-alerts" aria-live="polite" hidden></div>
@@ -112,16 +123,7 @@
     </section>
 
     <section class="view is-active" id="view-chat" aria-labelledby="view-title">
-      <div class="chat-feed" id="chat-feed" role="log" aria-live="polite" aria-label="Conversation"></div>
-      <form class="composer" id="chat-form" aria-label="Send a message">
-        <select id="chat-provider" aria-label="Agent">
-          <option value="claude">Claude</option>
-          <option value="codex">Codex</option>
-        </select>
-        <input id="chat-input" name="message" autocomplete="off" aria-label="Message to the agent" placeholder="Ask about the active model">
-        <button type="submit" class="primary">Send</button>
-        <button type="button" id="chat-reset" title="Start a new conversation" aria-label="Start a new conversation">New</button>
-      </form>
+      <div class="chat-root" id="chat-root"></div>
     </section>
 
     <section class="view" id="view-plans" aria-labelledby="view-title">
@@ -176,6 +178,9 @@
     </section>
   </main>
 
+  <script src="./vendor/smd.min.js"></script>
+  <script src="./vendor/highlight.core-min.js"></script>
+  <script src="./chat.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>
