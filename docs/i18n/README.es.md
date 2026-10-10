@@ -6,7 +6,7 @@
 
 > Esta traducción se ha realizado con ayuda de IA. El [README](../../README.md) en inglés es la fuente de referencia; las correcciones son bienvenidas mediante pull request (consulta [CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
-**Pregunta a tu IA sobre el modelo de Revit que tienes abierto. De forma predeterminada, nada cambia hasta que lo apruebes.**
+**Pregunta a tu IA sobre el modelo de Revit que tienes abierto. De forma predeterminada, las herramientas de escritura quedan bloqueadas hasta que apruebes un plan.**
 
 Servidor MCP de código abierto y complemento nativo para Revit 2024 – 2027. Funciona con Claude, Codex y otros clientes MCP.
 
@@ -202,8 +202,12 @@ con una transacción con nombre.
 
 <sub>Origen del diagrama: [approval-flow.mmd](../diagrams/approval-flow.mmd). Regenera las imágenes con `python scripts/render_diagrams.py`.</sub>
 
-Si un plan se aprueba y después resulta ser erróneo, `rollback_plan` lo revierte.
-La reversión usa Deshacer de Revit en la misma sesión o los valores de parámetros inversos.
+Si un plan resulta ser erróneo, deshazlo con Ctrl+Z en Revit. Cada escritura de parámetro
+es su propia transacción con nombre, así que un plan puede requerir varias pulsaciones.
+Un deshacer en un solo paso para un plan completo está planificado, no construido.
+`rollback_plan` vuelve a escribir los valores previos registrados en orden inverso y
+puede omitir una acción si no se registró un valor previo, así que lee sus advertencias.
+Ninguna de las dos vías está verificada todavía en una sesión real de Revit (UNVERIFIED).
 Las operaciones que no se pueden revertir, como la escritura de archivos, piden una segunda
 confirmación. El ciclo de vida está descrito en
 [ADR 0008](../0008-approval-gate-lifecycle.md).
