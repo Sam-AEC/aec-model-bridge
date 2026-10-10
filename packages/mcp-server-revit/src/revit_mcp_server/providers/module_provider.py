@@ -257,7 +257,7 @@ class ModuleProvider(AECProvider):
 
         if tool_def and tool_def.is_mutating and gate and isinstance(arguments, dict) and "plan_id" in arguments:
             try:
-                gate.update_plan_state(arguments["plan_id"], "executed")
+                gate.mark_action_executed(tool_name, arguments)
             except Exception:
                 pass
 

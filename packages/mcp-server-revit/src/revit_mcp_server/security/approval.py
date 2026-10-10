@@ -10,6 +10,33 @@ from . import proof as proof_mod
 
 logger = logging.getLogger(__name__)
 
+# Tools that move a plan between approval states. They stay registered (the Revit
+# panel and the command-line tool use them) but are never offered to a model: an
+# agent that can approve its own plan has no human gate at all.
+HUMAN_ONLY_TOOLS = frozenset({"approve_plan", "reject_plan", "rollback_plan"})
+
+# Arguments that identify or schedule a call rather than describe the change, so
+# they are ignored when matching a call to an approved action.
+VOLATILE_ARGUMENT_KEYS = frozenset({"plan_id", "run_async", "idempotency_key"})
+
+
+def _canonical(value: Any) -> Any:
+    """Normalise JSON-ish data so equal calls compare equal (key order, 5 vs 5.0)."""
+    if isinstance(value, dict):
+        return {str(k): _canonical(v) for k, v in sorted(value.items(), key=lambda kv: str(kv[0]))}
+    if isinstance(value, (list, tuple)):
+        return [_canonical(v) for v in value]
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    return value
+
+
+def canonical_arguments(arguments: Any) -> str:
+    args = arguments if isinstance(arguments, dict) else {}
+    kept = {k: v for k, v in args.items() if k not in VOLATILE_ARGUMENT_KEYS}
+    return json.dumps(_canonical(kept), sort_keys=True, default=str, separators=(",", ":"))
+
+
 class ApprovalGate:
     def __init__(self, workspace_dir: Path, approval_mode: str = config.approval_mode) -> None:
         self.workspace_dir = workspace_dir
@@ -103,16 +130,27 @@ class ApprovalGate:
                 continue
         return plans
 
-    def update_plan_state(self, plan_id: str, state: str, approver: Optional[str] = None) -> Dict[str, Any]:
+    def update_plan_state(self, plan_id: str, state: str, approver: Optional[str] = None,
+                          via: Optional[str] = None) -> Dict[str, Any]:
         plan = self.load_plan(plan_id)
         if not plan:
             raise ValueError(f"Plan {plan_id} not found")
+        if state in ("approved", "rejected") and plan.get("state") != "pending":
+            raise ValueError(
+                f"Plan {plan_id} is in state '{plan.get('state')}'; only a pending plan can be {state}."
+            )
         plan["state"] = state
         now = datetime.now(timezone.utc).isoformat()
         if state == "approved":
             plan["approved_at"] = now
             if approver:
                 plan["approved_by"] = str(approver)
+            if via:
+                plan["approved_via"] = str(via)
+        elif state == "rejected":
+            plan["rejected_at"] = now
+            if via:
+                plan["rejected_via"] = str(via)
         fill_proof = False
         if state == "executed":
             plan["executed_at"] = now
@@ -157,6 +195,45 @@ class ApprovalGate:
 
         if plan.get("state") != "approved":
             raise BridgeError(f"Plan '{plan_id}' is in state '{plan.get('state')}', not 'approved'. Execution blocked.")
+
+        if self._find_open_action(plan, tool_name, arguments) is None:
+            raise BridgeError(
+                f"Plan '{plan_id}' does not approve this call: it has no remaining approved action for "
+                f"'{tool_name}' with these arguments (an action can only run once, exactly as approved). "
+                "Draft a new plan for this change and ask the person to approve it."
+            )
+
+    @staticmethod
+    def _find_open_action(plan: Dict[str, Any], tool_name: str, arguments: Any) -> Optional[Dict[str, Any]]:
+        wanted = canonical_arguments(arguments)
+        for action in plan.get("actions", []):
+            if action.get("state") == "executed" or action.get("tool") != tool_name:
+                continue
+            if canonical_arguments(action.get("arguments", {})) == wanted:
+                return action
+        return None
+
+    def mark_action_executed(self, tool_name: str, arguments: Any) -> Optional[Dict[str, Any]]:
+        """Record that a gated call ran: consume the matching approved action and, once
+        every action in the plan has run, move the plan to 'executed'.
+
+        Runs on every execution path (MCP, panel, chat, recipes, run_async). Does nothing
+        when the call carries no plan_id or matches no open action. Returns the plan.
+        """
+        plan_id = arguments.get("plan_id") if isinstance(arguments, dict) else None
+        if not plan_id:
+            return None
+        plan = self.load_plan(plan_id)
+        if not plan:
+            return None
+        action = self._find_open_action(plan, tool_name, arguments)
+        if action is None:
+            return plan
+        action["state"] = "executed"
+        self.save_plan(plan)
+        if all(a.get("state") == "executed" for a in plan.get("actions", [])):
+            return self.update_plan_state(plan_id, "executed")
+        return plan
 
     async def rollback_plan(self, plan_id: str, execute_fn) -> Dict[str, Any]:
         """Roll back an executed plan.

@@ -102,6 +102,16 @@ The server checks all tool arguments before it passes them to a provider.
 
 ---
 
+## 4a. Plan approval: what is and is not protected
+
+A model that wants to change a model must draft a plan, and a person must approve it.
+
+- **Humans approve.** `approve_plan`, `reject_plan` and `rollback_plan` are not listed to MCP clients, are refused if an MCP client calls them anyway, and are denied to the panel's Claude chat. A person approves in the Revit panel's Plans view or with the command-line tool `aec-model-bridge-approve list | show <plan_id> | approve <plan_id> | reject <plan_id>`. The tool prints the plan in plain language, asks you to type the plan id, and refuses piped input unless you pass `--yes`. It records `approved_by: "cli"`, `approved_via: "cli"` and a timestamp.
+- **An approval covers exactly what was shown.** A tool call that carries a `plan_id` must match a not-yet-run action in that plan (same tool, same arguments; `plan_id`, `run_async` and `idempotency_key` are ignored). Anything else is refused, and each action runs once, so an approved plan cannot be replayed or used to run a different change.
+- **Not protected:** `MCP_REVIT_APPROVAL_MODE=auto` turns the gate off entirely. The command-line tool does not authenticate who is typing; software that can run shell commands as you can run it with `--yes`, so do not give an AI client a shell on the same account. `approved_by` is self-reported. A `run_async` call consumes its action when it is queued, so a job that fails later needs a new plan. Direct edits to the plan files in the workspace are not detected.
+
+---
+
 ## 5. Audit logging and sensitive data redaction
 
 The audit recorder writes one line per tool call to an append-only file. See [Logging and audit](logging-and-audit.md) for what each log covers and for a caveat about which server writes the file.
