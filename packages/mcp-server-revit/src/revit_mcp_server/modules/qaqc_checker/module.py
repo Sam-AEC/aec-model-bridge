@@ -6,6 +6,8 @@ Commands:
   list_issues   — Query issue store (filtered by status/severity).
   resolve_issue — Mark an issue as resolved.
   list_rules    — Enumerate rules in a pack.
+  list_rule_packs / validate_rule_pack / import_rule_pack / export_rule_pack
+                — Shareable packs: built-ins plus <workspace>/rule_packs/*.yaml.
 
 Architecture:
   - Rule packs: YAML files in modules/qaqc_checker/rules/ (P10.2)
@@ -16,6 +18,8 @@ from __future__ import annotations
 
 import json
 import logging
+import re
+import shutil
 import sqlite3
 import uuid
 from datetime import datetime, timezone
@@ -23,6 +27,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
+
+from revit_mcp_server.errors import WorkspaceViolation
 
 logger = logging.getLogger(__name__)
 
@@ -70,19 +76,186 @@ def _now() -> str:
 # Rule engine
 # ---------------------------------------------------------------------------
 
-def _load_rule_pack(pack_name: str) -> List[Dict[str, Any]]:
-    # Support path or name
-    path = Path(pack_name)
-    if not path.is_absolute() or not path.exists():
-        path = RULES_DIR / f"{pack_name}.yaml"
-    
-    if not path.exists():
-        raise ValueError(f"Rule pack '{pack_name}' not found at {path}")
-    
+USER_PACKS_DIRNAME = "rule_packs"
+MAX_PACK_BYTES = 1_000_000
+PACK_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
+RULE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$")
+SEVERITIES = ("error", "warning", "info")
+# Exactly what _match_element / _run_rule implement. Do not add names here
+# without adding engine support.
+FILTER_KEYS = ("category", "placed", "parameter", "workset", "family_source")
+PARAMETER_KEYS = ("name", "empty", "value")
+RULE_KEYS = ("id", "severity", "category", "description", "filter", "assertion", "fix_template")
+ASSERTION_COUNT = "element_count == 0"
+ASSERTION_PREFIX = "all elements have "
+
+
+def _workspace_root(workspace: Any) -> Path:
+    return Path(workspace.allowed_directories[0])
+
+
+def _assert_in_workspace(workspace: Any, candidate: Path) -> Path:
+    """Resolve candidate (following symlinks) and require it inside the workspace."""
+    checker = getattr(workspace, "assert_in_workspace", None)
+    if callable(checker):
+        return checker(candidate)
+    resolved = Path(candidate).resolve()
+    roots = [Path(d).resolve() for d in workspace.allowed_directories]
+    if not any(resolved.is_relative_to(r) for r in roots):
+        raise WorkspaceViolation(f"{resolved} is outside the allowed workspace directories")
+    return resolved
+
+
+def _check_pack_name(name: Any) -> str:
+    if not isinstance(name, str) or not PACK_NAME_RE.match(name) or name.endswith("."):
+        raise ValueError(
+            f"Invalid rule pack name {name!r}: use letters, digits, '_', '-' or '.' only "
+            "(max 64 chars, no path separators)."
+        )
+    return name
+
+
+def _user_packs_dir(workspace: Any) -> Path:
+    return _workspace_root(workspace) / USER_PACKS_DIRNAME
+
+
+def _resolve_pack_path(pack_name: str, workspace: Any = None) -> Path:
+    """Resolve a pack name to a YAML file: built-in first, then workspace rule_packs/."""
+    _check_pack_name(pack_name)
+    builtin = RULES_DIR / f"{pack_name}.yaml"
+    if builtin.is_file():
+        return builtin
+    if workspace is not None:
+        user = _user_packs_dir(workspace) / f"{pack_name}.yaml"
+        if user.is_file():
+            return _assert_in_workspace(workspace, user)
+    raise ValueError(
+        f"Rule pack '{pack_name}' not found (looked for a built-in pack and "
+        f"'{USER_PACKS_DIRNAME}/{pack_name}.yaml' in the workspace)."
+    )
+
+
+def _load_yaml_file(path: Path) -> Any:
+    if path.stat().st_size > MAX_PACK_BYTES:
+        raise ValueError(f"Rule pack file is larger than {MAX_PACK_BYTES} bytes.")
     with open(path, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
-    
+        return yaml.safe_load(f)
+
+
+def _load_rule_pack(pack_name: str, workspace: Any = None) -> List[Dict[str, Any]]:
+    path = _resolve_pack_path(pack_name, workspace)
+    data = _load_yaml_file(path)
+    errors = _validate_pack_data(data)["errors"]
+    if errors:
+        first = errors[0]
+        raise ValueError(
+            f"Rule pack '{pack_name}' is invalid ({len(errors)} error(s)); first: "
+            f"{first.get('rule_id') or 'pack'}: {first['message']}"
+        )
     return data.get("rules", [])
+
+
+def _err(rule_id: Any, field: str, message: str) -> Dict[str, Any]:
+    return {"rule_id": rule_id, "field": field, "message": message}
+
+
+def _validate_filter(rid: Any, flt: Any, errors: List[Dict[str, Any]]) -> None:
+    if not isinstance(flt, dict):
+        errors.append(_err(rid, "filter", "filter must be a mapping."))
+        return
+    for key, val in flt.items():
+        f = f"filter.{key}"
+        if key not in FILTER_KEYS:
+            errors.append(_err(rid, f, f"Unknown filter operator '{key}'. Supported: {', '.join(FILTER_KEYS)}."))
+        elif key == "category":
+            cats = val if isinstance(val, list) else [val]
+            if not cats or not all(isinstance(c, str) and c for c in cats):
+                errors.append(_err(rid, f, "category must be a non-empty string or list of strings (e.g. OST_Doors)."))
+        elif key == "placed":
+            if not isinstance(val, bool):
+                errors.append(_err(rid, f, "placed must be true or false."))
+        elif key in ("workset", "family_source"):
+            if not isinstance(val, str) or not val:
+                errors.append(_err(rid, f, f"{key} must be a non-empty string."))
+        elif key == "parameter":
+            if not isinstance(val, dict):
+                errors.append(_err(rid, f, "parameter must be a mapping with 'name' and 'empty' or 'value'."))
+                continue
+            for k in val:
+                if k not in PARAMETER_KEYS:
+                    errors.append(_err(rid, f"{f}.{k}", f"Unknown parameter operator '{k}'. Supported: {', '.join(PARAMETER_KEYS)}."))
+            if not isinstance(val.get("name"), str) or not val.get("name"):
+                errors.append(_err(rid, f"{f}.name", "parameter.name is required and must be a non-empty string."))
+            has_empty, has_value = "empty" in val, "value" in val
+            if has_empty == has_value:
+                errors.append(_err(rid, f, "parameter needs exactly one of 'empty: true' or 'value: <text>'."))
+            if has_empty and val["empty"] is not True:
+                errors.append(_err(rid, f"{f}.empty", "parameter.empty only supports true."))
+            if has_value and isinstance(val["value"], (dict, list)):
+                errors.append(_err(rid, f"{f}.value", "parameter.value must be a scalar (compared as text)."))
+
+
+def _validate_pack_data(data: Any) -> Dict[str, Any]:
+    """Schema-check parsed pack data. Pure: never evaluates anything."""
+    errors: List[Dict[str, Any]] = []
+    warnings: List[Dict[str, Any]] = []
+    if not isinstance(data, dict):
+        errors.append(_err(None, "", "Top level must be a mapping with a 'rules' list."))
+        return {"errors": errors, "warnings": warnings, "rules_count": 0}
+    rules = data.get("rules")
+    if not isinstance(rules, list) or not rules:
+        errors.append(_err(None, "rules", "'rules' must be a non-empty list."))
+        return {"errors": errors, "warnings": warnings, "rules_count": 0}
+    seen: set = set()
+    for i, rule in enumerate(rules):
+        if not isinstance(rule, dict):
+            errors.append(_err(f"rules[{i}]", "", "Each rule must be a mapping."))
+            continue
+        rid = rule.get("id")
+        label: Any = rid if isinstance(rid, str) and rid else f"rules[{i}]"
+        if not isinstance(rid, str) or not RULE_ID_RE.match(rid):
+            errors.append(_err(label, "id", "id is required: letters, digits, '_', '-' or '.' (e.g. door_missing_mark)."))
+        elif rid in seen:
+            errors.append(_err(label, "id", f"Duplicate rule id '{rid}'."))
+        else:
+            seen.add(rid)
+        if rule.get("severity") not in SEVERITIES:
+            errors.append(_err(label, "severity", f"severity is required and must be one of {', '.join(SEVERITIES)}."))
+        desc = rule.get("description")
+        if not isinstance(desc, str) or not desc.strip():
+            errors.append(_err(label, "description", "description is required (it becomes the issue message)."))
+        for opt in ("category", "fix_template"):
+            if opt in rule and not isinstance(rule[opt], str):
+                errors.append(_err(label, opt, f"{opt} must be a string."))
+        for k in rule:
+            if k not in RULE_KEYS:
+                warnings.append(_err(label, k, f"Unknown rule field '{k}' is ignored."))
+        if "filter" not in rule:
+            warnings.append(_err(label, "filter", "No filter: the rule applies to every element."))
+        else:
+            _validate_filter(label, rule["filter"], errors)
+        assertion = rule.get("assertion", ASSERTION_COUNT)
+        if not isinstance(assertion, str):
+            errors.append(_err(label, "assertion", "assertion must be a string."))
+        elif assertion != ASSERTION_COUNT and not (
+            assertion.startswith(ASSERTION_PREFIX) and assertion[len(ASSERTION_PREFIX):].strip()
+        ):
+            errors.append(_err(
+                label, "assertion",
+                f"Unknown assertion '{assertion}'. Supported: '{ASSERTION_COUNT}' or '{ASSERTION_PREFIX}<field>'.",
+            ))
+    return {"errors": errors, "warnings": warnings, "rules_count": len(rules)}
+
+
+def _validate_file(path: Path) -> Dict[str, Any]:
+    try:
+        data = _load_yaml_file(path)
+    except yaml.YAMLError as e:
+        return {"errors": [_err(None, "", f"YAML parse error: {e}")], "warnings": [], "rules_count": 0}
+    except (OSError, UnicodeDecodeError, ValueError) as e:
+        return {"errors": [_err(None, "", f"Cannot read file: {e}")], "warnings": [], "rules_count": 0}
+    return _validate_pack_data(data)
+
 
 def _match_element(el: Dict[str, Any], filter_dsl: Dict[str, Any]) -> bool:
     """Apply DSL filter (subset of full DSL — covers common YAML rule patterns)."""
@@ -252,7 +425,7 @@ class QaqcCheckerModule:
         **_,
     ) -> Dict[str, Any]:
         elements, types = self._get_data(snapshot_id, workspace)
-        rules = _load_rule_pack(rule_pack)
+        rules = _load_rule_pack(rule_pack, workspace)
         
         # Derive doc_guid from snapshot or fallback
         doc_guid = "mock-doc"
@@ -346,8 +519,8 @@ class QaqcCheckerModule:
         
         return {"status": "resolved", "issue_id": issue_id}
 
-    def list_rules(self, rule_pack: str = "core", **_) -> Dict[str, Any]:
-        rules = _load_rule_pack(rule_pack)
+    def list_rules(self, rule_pack: str = "core", workspace: Any = None, **_) -> Dict[str, Any]:
+        rules = _load_rule_pack(rule_pack, workspace)
         return {
             "rule_pack": rule_pack,
             "rules_count": len(rules),
@@ -361,6 +534,109 @@ class QaqcCheckerModule:
                 for r in rules
             ],
         }
+
+    # -----------------------------------------------------------------------
+    # Shareable rule packs
+    # -----------------------------------------------------------------------
+
+    def list_rule_packs(self, workspace: Any = None, **_) -> Dict[str, Any]:
+        packs: List[Dict[str, Any]] = []
+
+        def describe(path: Path, source: str) -> Dict[str, Any]:
+            result = _validate_file(path)
+            return {
+                "name": path.stem,
+                "source": source,
+                "path": str(path),
+                "rules_count": result["rules_count"],
+                "valid": not result["errors"],
+                "error_count": len(result["errors"]),
+            }
+
+        for p in sorted(RULES_DIR.glob("*.yaml")):
+            packs.append(describe(p, "builtin"))
+        if workspace is not None:
+            udir = _user_packs_dir(workspace)
+            if udir.is_dir():
+                for p in sorted(udir.glob("*.yaml")):
+                    if p.is_file() and PACK_NAME_RE.match(p.stem):
+                        try:
+                            _assert_in_workspace(workspace, p)
+                        except WorkspaceViolation:
+                            continue
+                        packs.append(describe(p, "user"))
+        return {"total": len(packs), "packs": packs}
+
+    def validate_rule_pack(self, path: str = "", rule_pack: str = "", workspace: Any = None, **_) -> Dict[str, Any]:
+        if bool(path) == bool(rule_pack):
+            raise ValueError("Provide exactly one of 'path' (YAML file in the workspace) or 'rule_pack' (pack name).")
+        if rule_pack:
+            target = _resolve_pack_path(rule_pack, workspace)
+        else:
+            target = _assert_in_workspace(workspace, Path(path))
+            if not target.is_file():
+                raise ValueError(f"File not found: {path}")
+        result = _validate_file(target)
+        return {
+            "path": str(target),
+            "valid": not result["errors"],
+            "rules_count": result["rules_count"],
+            "errors": result["errors"],
+            "warnings": result["warnings"],
+        }
+
+    def import_rule_pack(
+        self, source_path: str, name: str = "", overwrite: bool = False, workspace: Any = None, **_
+    ) -> Dict[str, Any]:
+        src = _assert_in_workspace(workspace, Path(source_path))
+        if not src.is_file():
+            raise ValueError(f"File not found: {source_path}")
+        if src.suffix.lower() not in (".yaml", ".yml"):
+            raise ValueError("Rule pack files must have a .yaml or .yml extension.")
+        pack_name = _check_pack_name(name or src.stem)
+        if (RULES_DIR / f"{pack_name}.yaml").exists():
+            raise ValueError(f"'{pack_name}' is a built-in pack name; choose another name.")
+        result = _validate_file(src)
+        if result["errors"]:
+            raise ValueError(
+                f"Refusing to import invalid rule pack ({len(result['errors'])} error(s)): "
+                + "; ".join(f"{e['rule_id'] or 'pack'}: {e['message']}" for e in result["errors"][:5])
+            )
+        udir = _user_packs_dir(workspace)
+        _assert_in_workspace(workspace, udir)
+        dest = udir / f"{pack_name}.yaml"
+        _assert_in_workspace(workspace, dest)
+        if dest.exists() and not overwrite:
+            raise ValueError(f"Rule pack '{pack_name}' already exists; pass overwrite=true to replace it.")
+        udir.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(src, dest)
+        return {
+            "status": "imported", "name": pack_name, "path": str(dest),
+            "rules_count": result["rules_count"], "warnings": result["warnings"],
+        }
+
+    def export_rule_pack(
+        self, rule_pack: str, destination: str = "", overwrite: bool = False, workspace: Any = None, **_
+    ) -> Dict[str, Any]:
+        src = _resolve_pack_path(rule_pack, workspace)
+        result = _validate_file(src)
+        if result["errors"]:
+            raise ValueError(f"Refusing to export invalid rule pack '{rule_pack}'; run validate_rule_pack.")
+        if destination:
+            dest = _assert_in_workspace(workspace, Path(destination))
+            if dest.is_dir():
+                dest = dest / f"{rule_pack}.yaml"
+                _assert_in_workspace(workspace, dest)
+        else:
+            dest = _workspace_root(workspace) / "exports" / f"{rule_pack}.yaml"
+            _assert_in_workspace(workspace, dest)
+        if dest.suffix.lower() not in (".yaml", ".yml"):
+            raise ValueError("Destination must end in .yaml or .yml.")
+        if dest.exists() and not overwrite:
+            raise ValueError(f"Destination '{dest}' already exists; pass overwrite=true to replace it.")
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(src, dest)
+        return {"status": "exported", "name": rule_pack, "path": str(dest), "rules_count": result["rules_count"]}
 
     # -----------------------------------------------------------------------
     # Helpers

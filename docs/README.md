@@ -8,6 +8,7 @@ Start with the [installation guide](install.md). The main [README](../README.md)
 - [VS Code extension](../extensions/vscode/README.md): build and install the extension locally.
 - [configuration-reference.md](configuration-reference.md): environment variables, package metadata and runtime settings.
 - [tools-generated.md](tools-generated.md): the tool catalog, generated from the server (do not edit by hand).
+- [rule-packs.md](rule-packs.md): write, validate, import and share QA/QC rule packs.
 - [security.md](security.md): trust boundaries, workspace sandboxing and enterprise hardening.
 - [logging-and-audit.md](logging-and-audit.md): Python-side audit log and add-in logging.
 - [marketplaces.md](marketplaces.md): MCP Registry, Claude Code plugin, extension stores and client distribution.
