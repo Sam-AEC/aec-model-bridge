@@ -53,9 +53,11 @@ REPORT_EXTENSIONS = {".xlsx", ".csv", ".db"}
 NON_REPORT_FILENAMES = {"qaqc_issues.db", "clash_triage.db"}
 
 
+# (plan_actions is NOT here: it reads before-values from Revit, so it must be routed or refused like
+# any tool that reaches Revit.)
 # Tools that only touch the hub's own plan files and never call a Revit bridge. With several
 # Revits open they do not need an `instance`; everything else does (see resolve_instance).
-HUB_LOCAL_TOOLS = frozenset({"plan_actions", "list_pending_plans", "approve_plan", "reject_plan", "get_proof_bundle"})
+HUB_LOCAL_TOOLS = frozenset({"list_pending_plans", "approve_plan", "reject_plan", "get_proof_bundle"})
 
 MAX_BODY_BYTES = 1_048_576
 MAX_TOKEN_HEADER_CHARS = 256
@@ -78,7 +80,7 @@ class FailureLimiter:
     def __init__(self, limit: int = FAILURE_LIMIT, window: float = FAILURE_WINDOW_SECONDS) -> None:
         self.limit = limit
         self.window = window
-        self._events: collections.deque = collections.deque()
+        self._events: collections.deque = collections.deque(maxlen=limit + 1)
         self._lock = threading.Lock()
 
     def record_failure(self) -> bool:
@@ -573,6 +575,25 @@ def _mask_known_secrets(record: logging.LogRecord) -> bool:
     return True
 
 
+class _RedactingFormatter(logging.Formatter):
+    """Wraps another formatter and masks known secrets in the whole formatted line, tracebacks included."""
+
+    def __init__(self, inner: logging.Formatter | None = None) -> None:
+        super().__init__()
+        self._inner = inner or logging.Formatter()
+
+    def format(self, record: logging.LogRecord) -> str:
+        return redact_known_secrets(self._inner.format(record))
+
+
+def mask_secrets_on_all_handlers() -> None:
+    """Install the redacting formatter on every handler of the package and root loggers (console too)."""
+    for lg in (logging.getLogger(__name__.rsplit(".", 1)[0]), logging.getLogger()):
+        for h in lg.handlers:
+            if not isinstance(h.formatter, _RedactingFormatter):
+                h.setFormatter(_RedactingFormatter(h.formatter))
+
+
 def configure_file_logging(log_path: Path | None = None) -> Path | None:
     """Persist hub logs to a rotating file.
 
@@ -589,7 +610,7 @@ def configure_file_logging(log_path: Path | None = None) -> Path | None:
         logger.warning("Could not open panel hub log file %s", path, exc_info=True)
         return None
     handler.addFilter(_mask_known_secrets)
-    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    handler.setFormatter(_RedactingFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")))
     package_logger = logging.getLogger(__name__.rsplit(".", 1)[0])
     package_logger.addHandler(handler)
     if package_logger.getEffectiveLevel() > logging.INFO:
@@ -602,6 +623,7 @@ def run_panel_server() -> None:
     configure_file_logging()
     try:
         server = build_server()
+        mask_secrets_on_all_handlers()
     except PanelTokenError as e:
         logger.error("Panel hub not started: %s", e)
         raise SystemExit(f"Panel hub not started: {e}") from None

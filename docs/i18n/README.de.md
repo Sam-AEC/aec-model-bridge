@@ -139,7 +139,7 @@ Türkise Kästen funktionieren bereits. Die gelb gestrichelten Kästen sind in A
 
 ### So funktioniert die Freigabe
 
-Der Hub stoppt jeden Werkzeugaufruf, der das Modell ändert, sofern er keinen freigegebenen Plan mitbringt. Der Standardmodus ist `required`. Die KI schlägt einen Plan vor, Sie prüfen ihn im Revit-Seitenpanel, und das Add-in führt ihn im Hauptthread von Revit in einer benannten Transaktion aus.
+Der Hub stoppt jeden Werkzeugaufruf, der das Modell ändert, sofern er keinen freigegebenen Plan mitbringt. Der Standardmodus ist `required`. Die KI schlägt einen Plan vor, Sie prüfen ihn im Revit-Seitenpanel, und das Add-in führt ihn im Hauptthread von Revit aus, Parameter- und Modellbearbeitungsaktionen jeweils in ihrer eigenen benannten Transaktion; Speichern, Synchronisieren und Skripte nicht, daher deckt Strg+Z sie nicht ab.
 
 <p align="center">
   <picture>
@@ -151,13 +151,13 @@ Der Hub stoppt jeden Werkzeugaufruf, der das Modell ändert, sofern er keinen fr
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant proposes a plan, the MCP hub and ApprovalGate show it in the Revit side panel, and only after you approve does execute_plan forward the commands to the Revit add-in, which runs them in one named transaction. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
+    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant drafts a plan with plan_actions, the side panel shows the proposed changes (counts, scope, before and after), and a human approves in the panel or with the aec-model-bridge-approve CLI, never over MCP. The hub checks that the plan matches the approved tool and arguments, once only. Revit then runs each action in its own transaction, so Ctrl+Z undoes one action per press. After verifying, you can also use rollback_plan, which may skip actions with no recorded before-value. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
   </picture>
 </p>
 
 <sub>Diagrammquelle: [approval-flow.mmd](../diagrams/approval-flow.mmd). Die Bilder erzeugen Sie mit `python scripts/render_diagrams.py` neu.</sub>
 
-Erweist sich ein Plan als falsch, machen Sie ihn mit Strg+Z in Revit rückgängig. Jeder Parameterschreibvorgang ist eine eigene benannte Transaktion, daher kann ein Plan mehrere Tastendrücke brauchen. Ein Rückgängig in einem Schritt für einen ganzen Plan ist geplant, aber nicht gebaut. `rollback_plan` schreibt die aufgezeichneten Vorher-Werte in umgekehrter Reihenfolge zurück und kann eine Aktion überspringen, wenn kein Vorher-Wert aufgezeichnet wurde; lesen Sie daher seine Warnungen. Beide Wege sind noch nicht in einer echten Revit-Sitzung geprüft (UNVERIFIED). Nicht umkehrbare Vorgänge, etwa das Schreiben von Dateien, verlangen eine zweite Bestätigung. Der Ablauf ist in [ADR 0008](../0008-approval-gate-lifecycle.md) beschrieben.
+Erweist sich ein Plan als falsch, machen Sie ihn mit Strg+Z in Revit rückgängig. Jeder Parameterschreibvorgang ist eine eigene benannte Transaktion, daher kann ein Plan mehrere Tastendrücke brauchen. Ein Rückgängig in einem Schritt für einen ganzen Plan ist geplant, aber nicht gebaut. `rollback_plan` schreibt die aufgezeichneten Vorher-Werte in umgekehrter Reihenfolge zurück und kann eine Aktion überspringen, wenn kein Vorher-Wert aufgezeichnet wurde; lesen Sie daher seine Warnungen. Beide Wege sind noch nicht in einer echten Revit-Sitzung geprüft (UNVERIFIED). Nicht umkehrbare Vorgänge, etwa das Schreiben von Dateien, lassen sich auf keinem der beiden Wege rückgängig machen und verlangen noch keine zweite Bestätigung (geplant). Der Ablauf ist in [ADR 0008](../0008-approval-gate-lifecycle.md) beschrieben.
 
 Für unbeaufsichtigte Pipelines können Sie `MCP_REVIT_APPROVAL_MODE=auto` setzen. Das schaltet die Prüfung durch den Menschen ab; verwenden Sie es daher nur in einer kontrollierten Umgebung.
 

@@ -106,6 +106,11 @@ namespace RevitBridge.UI
             "The AEC Model Bridge hub token file was not found. The hub creates it when it starts: " +
             "start the hub (restart Revit, or run 'aec-model-bridge-panel-server') and try again.";
 
+        private const string TokenFileGoneMessage =
+            "The AEC Model Bridge hub token file is gone (it was deleted after the hub started). " +
+            "Restart the panel hub (end the 'revit_mcp_server.panel_server' python process) and restart Revit " +
+            "so a new token file is created.";
+
         private const string RejectedTokenMessage =
             "The hub rejected the panel's access token (token changed). The token file was replaced after the " +
             "hub started, or this hub was started by another user. Restart the panel hub " +
@@ -133,11 +138,22 @@ namespace RevitBridge.UI
             public string Body = string.Empty;
         }
 
+        // Process.GetCurrentProcess() returns a new disposable object each call; the id never changes.
+        private static readonly int ProcessId = GetProcessId();
+
+        private static int GetProcessId()
+        {
+            using (var current = Process.GetCurrentProcess())
+            {
+                return current.Id;
+            }
+        }
+
         private static object InstanceInfo()
         {
             return new
             {
-                pid = Process.GetCurrentProcess().Id,
+                pid = ProcessId,
                 document = App.ActiveDocumentName ?? string.Empty,
             };
         }
@@ -186,15 +202,22 @@ namespace RevitBridge.UI
             }
 
             var result = await SendOnceAsync(client, method, path, json, token).ConfigureAwait(false);
-            if (result.Status == 401)
+            // 429 is treated like 401: after a burst of failures the hub answers 429 even to a stale
+            // token, and the panel must still get to re-read the file once.
+            if (result.Status == 401 || result.Status == 429)
             {
                 var fresh = HubTokenStore.Get(true);
-                if (fresh != null && fresh != token)
+                if (fresh == null)
+                {
+                    throw new HubTokenException(TokenFileGoneMessage);
+                }
+
+                if (fresh != token)
                 {
                     result = await SendOnceAsync(client, method, path, json, fresh).ConfigureAwait(false);
                 }
 
-                if (result.Status == 401)
+                if (result.Status == 401 || result.Status == 429)
                 {
                     throw new HubTokenException(RejectedTokenMessage);
                 }

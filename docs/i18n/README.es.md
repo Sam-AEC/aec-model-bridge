@@ -184,7 +184,7 @@ formas índigo son datos y servicios externos.
 El hub bloquea cualquier llamada a una herramienta que modifique el modelo salvo que lleve un
 plan aprobado. El modo predeterminado es `required`. La IA propone un plan, tú
 lo revisas en el panel lateral de Revit y el complemento lo ejecuta en el hilo principal de Revit
-con una transacción con nombre.
+y las acciones de parámetros y de edición del modelo van cada una en su propia transacción con nombre; guardar, sincronizar y los scripts no, así que Ctrl+Z no los cubre.
 
 <p align="center">
   <picture>
@@ -196,7 +196,7 @@ con una transacción con nombre.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../images/approval-flow-dark.png">
-    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant proposes a plan, the MCP hub and ApprovalGate show it in the Revit side panel, and only after you approve does execute_plan forward the commands to the Revit add-in, which runs them in one named transaction. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
+    <img src="../images/approval-flow-light.png" alt="Approval flow: the AI assistant drafts a plan with plan_actions, the side panel shows the proposed changes (counts, scope, before and after), and a human approves in the panel or with the aec-model-bridge-approve CLI, never over MCP. The hub checks that the plan matches the approved tool and arguments, once only. Revit then runs each action in its own transaction, so Ctrl+Z undoes one action per press. After verifying, you can also use rollback_plan, which may skip actions with no recorded before-value. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
   </picture>
 </p>
 
@@ -208,8 +208,8 @@ Un deshacer en un solo paso para un plan completo está planificado, no construi
 `rollback_plan` vuelve a escribir los valores previos registrados en orden inverso y
 puede omitir una acción si no se registró un valor previo, así que lee sus advertencias.
 Ninguna de las dos vías está verificada todavía en una sesión real de Revit (UNVERIFIED).
-Las operaciones que no se pueden revertir, como la escritura de archivos, piden una segunda
-confirmación. El ciclo de vida está descrito en
+Las operaciones que no se pueden revertir, como la escritura de archivos, no se deshacen
+por ninguna de las dos vías y todavía no piden una segunda confirmación (planificado). El ciclo de vida está descrito en
 [ADR 0008](../0008-approval-gate-lifecycle.md).
 
 Para pipelines desatendidos puedes definir `MCP_REVIT_APPROVAL_MODE=auto`. Eso desactiva

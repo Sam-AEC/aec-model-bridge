@@ -88,7 +88,12 @@ class RevitProvider(AECProvider):
             self._capabilities,
             mutating_verbs=mutating_verbs,
             # render_3d_view opens a transaction and writes an image file to disk.
-            mutating_names=frozenset({"revit_render_3d"}),
+            mutating_names=frozenset({
+                "revit_render_3d",
+                # Reflection getter on an arbitrary object: a property getter can have side
+                # effects, so fail closed and gate it.
+                "revit_reflect_get",
+            }),
             destructive={"revit_execute_python"},
         )
 
@@ -1835,7 +1840,7 @@ class RevitProvider(AECProvider):
         ),
         ProviderTool(
             name="revit_reflect_get",
-            description="Get any Revit property value dynamically",
+            description="Get any Revit property value dynamically. Requires plan approval because a getter on an arbitrary object can have side effects.",
             inputSchema={
                 "type": "object",
                 "properties": {"target_id": {"type": "string"}, "property_name": {"type": "string"}},

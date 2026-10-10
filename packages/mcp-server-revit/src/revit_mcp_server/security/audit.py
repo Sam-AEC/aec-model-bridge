@@ -45,7 +45,7 @@ def register_secret_value(value: str) -> None:
 
 
 def redact_known_secrets(text: str) -> str:
-    for secret in _KNOWN_SECRET_VALUES:
+    for secret in tuple(_KNOWN_SECRET_VALUES):
         if secret in text:
             text = text.replace(secret, "<redacted>")
     return text

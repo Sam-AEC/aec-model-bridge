@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import dataclasses
 import inspect
 import math
@@ -485,7 +486,7 @@ class JobManager:
             return await func(*args, **kwargs)
 
         loop = asyncio.get_running_loop()
-        result = await loop.run_in_executor(None, lambda: func(*args, **kwargs))
+        result = await loop.run_in_executor(None, contextvars.copy_context().run, lambda: func(*args, **kwargs))
         if inspect.isawaitable(result):
             return await result
         return result
