@@ -139,7 +139,7 @@ Các khung màu xanh mòng két đã hoạt động. Các khung nét đứt màu
 
 ### Cách phê duyệt hoạt động
 
-Hub chặn mọi lệnh gọi công cụ làm thay đổi mô hình nếu không kèm kế hoạch đã được phê duyệt. Chế độ mặc định là `required`. AI đề xuất kế hoạch, bạn xem xét trong bảng bên của Revit, và add-in chạy nó trên luồng chính của Revit, mỗi hành động trong một transaction có tên riêng.
+Hub chặn mọi lệnh gọi công cụ làm thay đổi mô hình nếu không kèm kế hoạch đã được phê duyệt. Chế độ mặc định là `required`. AI đề xuất kế hoạch, bạn xem xét trong bảng bên của Revit, và add-in chạy nó trên luồng chính của Revit, các hành động sửa tham số và chỉnh sửa mô hình mỗi hành động chạy trong một transaction có tên riêng; các hành động lưu, đồng bộ và script thì không, nên Ctrl+Z không bao gồm chúng.
 
 <p align="center">
   <picture>

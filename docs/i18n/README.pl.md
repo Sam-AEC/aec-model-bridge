@@ -139,7 +139,7 @@ Turkusowe ramki działają już dziś. Bursztynowe ramki z linią przerywaną s�
 
 ### Jak działa zatwierdzanie
 
-Hub zatrzymuje każde wywołanie narzędzia zmieniającego model, jeśli nie towarzyszy mu zatwierdzony plan. Tryb domyślny to `required`. AI proponuje plan, Ty przeglądasz go w panelu bocznym Revit, a dodatek wykonuje go w głównym wątku Revit, każda akcja w osobnej nazwanej transakcji.
+Hub zatrzymuje każde wywołanie narzędzia zmieniającego model, jeśli nie towarzyszy mu zatwierdzony plan. Tryb domyślny to `required`. AI proponuje plan, Ty przeglądasz go w panelu bocznym Revit, a dodatek wykonuje go w głównym wątku Revit, akcje parametrów i edycji modelu każda w osobnej nazwanej transakcji; zapis, synchronizacja i skrypty nie, więc Ctrl+Z ich nie obejmuje.
 
 <p align="center">
   <picture>

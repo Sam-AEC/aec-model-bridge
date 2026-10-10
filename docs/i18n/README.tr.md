@@ -139,7 +139,7 @@ Turkuaz kutular bugün çalışıyor. Kehribar rengi kesikli kutuların üzerind
 
 ### Onay nasıl çalışır
 
-Hub, onaylanmış bir plan taşımayan ve modeli değiştiren her araç çağrısını durdurur. Varsayılan mod `required`'dır. Yapay zekâ bir plan önerir, siz Revit yan panelinde incelersiniz ve eklenti planı Revit'in ana iş parçacığında çalıştırır; her eylem kendi adlandırılmış transaction'ı içinde yürür.
+Hub, onaylanmış bir plan taşımayan ve modeli değiştiren her araç çağrısını durdurur. Varsayılan mod `required`'dır. Yapay zekâ bir plan önerir, siz Revit yan panelinde incelersiniz ve eklenti planı Revit'in ana iş parçacığında çalıştırır; parametre ve model düzenleme eylemlerinin her biri kendi adlandırılmış transaction'ı içinde yürür; kaydetme, senkronizasyon ve betik eylemleri böyle değildir, bu yüzden Ctrl+Z onları kapsamaz.
 
 <p align="center">
   <picture>

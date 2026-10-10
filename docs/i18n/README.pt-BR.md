@@ -139,7 +139,7 @@ As caixas verde-azuladas já funcionam. As caixas âmbar tracejadas estão em de
 
 ### Como funciona a aprovação
 
-O hub bloqueia qualquer chamada de ferramenta que altere o modelo, a menos que ela traga um plano aprovado. O modo padrão é `required`. A IA propõe um plano, você o revisa no painel lateral do Revit e o add-in o executa na thread principal do Revit, cada ação em sua própria transação nomeada.
+O hub bloqueia qualquer chamada de ferramenta que altere o modelo, a menos que ela traga um plano aprovado. O modo padrão é `required`. A IA propõe um plano, você o revisa no painel lateral do Revit e o add-in o executa na thread principal do Revit, as ações de parâmetro e de edição do modelo, cada uma em sua própria transação nomeada; salvar, sincronizar e scripts não, então o Ctrl+Z não os cobre.
 
 <p align="center">
   <picture>

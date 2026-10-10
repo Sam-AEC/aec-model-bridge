@@ -139,7 +139,7 @@ Les cadres turquoise fonctionnent aujourd'hui. Les cadres ambre en pointillés s
 
 ### Fonctionnement de l'approbation
 
-Le hub bloque tout appel d'outil qui modifie le modèle s'il n'est pas accompagné d'un plan approuvé. Le mode par défaut est `required`. L'IA propose un plan, vous l'examinez dans le panneau latéral de Revit, et l'add-in l'exécute dans le thread principal de Revit, chaque action dans sa propre transaction nommée.
+Le hub bloque tout appel d'outil qui modifie le modèle s'il n'est pas accompagné d'un plan approuvé. Le mode par défaut est `required`. L'IA propose un plan, vous l'examinez dans le panneau latéral de Revit, et l'add-in l'exécute dans le thread principal de Revit, les actions de paramètres et de modification du modèle dans leur propre transaction nommée ; l'enregistrement, la synchronisation et les scripts n'en ont pas, donc Ctrl+Z ne les couvre pas.
 
 <p align="center">
   <picture>

@@ -139,7 +139,7 @@ I riquadri verde acqua funzionano oggi. I riquadri ambra tratteggiati sono in sv
 
 ### Come funziona l'approvazione
 
-L'hub blocca qualsiasi chiamata a uno strumento che modifica il modello, a meno che non porti con sé un piano approvato. La modalità predefinita è `required`. L'IA propone un piano, tu lo esamini nel pannello laterale di Revit e l'add-in lo esegue nel thread principale di Revit, ogni azione in una propria transazione con nome.
+L'hub blocca qualsiasi chiamata a uno strumento che modifica il modello, a meno che non porti con sé un piano approvato. La modalità predefinita è `required`. L'IA propone un piano, tu lo esamini nel pannello laterale di Revit e l'add-in lo esegue nel thread principale di Revit, le azioni sui parametri e di modifica del modello ciascuna in una propria transazione con nome; salvataggio, sincronizzazione e script no, quindi Ctrl+Z non le copre.
 
 <p align="center">
   <picture>

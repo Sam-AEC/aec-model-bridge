@@ -139,7 +139,7 @@ Türkise Kästen funktionieren bereits. Die gelb gestrichelten Kästen sind in A
 
 ### So funktioniert die Freigabe
 
-Der Hub stoppt jeden Werkzeugaufruf, der das Modell ändert, sofern er keinen freigegebenen Plan mitbringt. Der Standardmodus ist `required`. Die KI schlägt einen Plan vor, Sie prüfen ihn im Revit-Seitenpanel, und das Add-in führt ihn im Hauptthread von Revit aus, jede Aktion in ihrer eigenen benannten Transaktion.
+Der Hub stoppt jeden Werkzeugaufruf, der das Modell ändert, sofern er keinen freigegebenen Plan mitbringt. Der Standardmodus ist `required`. Die KI schlägt einen Plan vor, Sie prüfen ihn im Revit-Seitenpanel, und das Add-in führt ihn im Hauptthread von Revit aus, Parameter- und Modellbearbeitungsaktionen jeweils in ihrer eigenen benannten Transaktion; Speichern, Synchronisieren und Skripte nicht, daher deckt Strg+Z sie nicht ab.
 
 <p align="center">
   <picture>
