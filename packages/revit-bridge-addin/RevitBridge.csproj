@@ -70,6 +70,8 @@
       <Link>IronPython.StdLib.LICENSE.txt</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- Cut-slate ribbon icons (scripts/make_ribbon_icons.py); IconGenerator loads them by theme. -->
+    <EmbeddedResource Include="Resources\RibbonIcons\*.png" LogicalName="RevitBridge.RibbonIcons.%(Filename)%(Extension)" />
     <Content Include="..\..\panel\**\*">
       <Link>panel\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
