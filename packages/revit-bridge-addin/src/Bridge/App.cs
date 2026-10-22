@@ -295,8 +295,9 @@ namespace RevitBridge.Bridge
             );
             aboutBtnData.ToolTip = "About AEC Model Bridge";
             aboutBtnData.LongDescription = "View the installed version, maintainer, documentation, and support links.";
-            aboutBtnData.Image = brandIcon16;
-            aboutBtnData.LargeImage = brandIcon32;
+            // The About button carries the cut-slate cerberus icon; the brand tile stays the tooltip image.
+            aboutBtnData.Image = LoadIcon(Path.Combine(iconPath, "about_16.png"), IconGenerator.CreateAboutIcon, 16);
+            aboutBtnData.LargeImage = LoadIcon(Path.Combine(iconPath, "about_32.png"), IconGenerator.CreateAboutIcon, 32);
 
             // Every button: brand tooltip image, F1 opens the docs.
             foreach (var data in new[]
@@ -319,7 +320,7 @@ namespace RevitBridge.Bridge
             var toolsStack = toolsPanel.AddStackedItems(settingsBtnData, helpBtnData, aboutBtnData);
             Track(toolsStack[0], IconGenerator.CreateSettingsIcon);
             Track(toolsStack[1], IconGenerator.CreateHelpIcon);
-            Track(toolsStack[2], IconGenerator.CreateBrandIcon);
+            Track(toolsStack[2], IconGenerator.CreateAboutIcon);
 
             Log.Information("Modern ribbon interface created with icons");
         }
