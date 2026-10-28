@@ -136,6 +136,13 @@
     "package": "vsce package --no-dependencies",
     "vscode:prepublish": "npm run compile"
   },
+  "overrides": {
+    "@vscode/vsce": {
+      "@azure/identity": {
+        "@azure/msal-node": "^7.1.2"
+      }
+    }
+  },
   "devDependencies": {
     "@types/node": "^20.14.0",
     "@types/vscode": "1.101.0",

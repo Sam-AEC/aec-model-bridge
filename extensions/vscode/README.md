@@ -43,6 +43,15 @@ code --install-extension aec-model-bridge-1.3.3.vsix
 
 Use the filename printed by the package command if the repository version has
 changed. Compilation and automated tests do not establish live Revit behavior.
+
+The packaging tool's Azure Identity dependency currently requires MSAL 6, which
+is affected by [GHSA-xcx6-jx8p-x3h5](https://github.com/advisories/GHSA-xcx6-jx8p-x3h5).
+A scoped npm override uses MSAL 7.1.2 or newer within major 7 for `@vscode/vsce`
+only. MSAL 7 removes the interactive browser `responseMode` option; VSCE's Azure
+credential chain does not use that flow. The tests exercise Azure Identity's
+client-secret authentication with simulated HTTP responses. Remove the override
+when VSCE's dependencies accept a patched MSAL release themselves.
+
 Before publishing, check registration in a real VS Code instance, mock startup,
 the approval warning and cancellation, configuration changes and restarts,
 and connection status against a running Revit add-in. Use a disposable model
