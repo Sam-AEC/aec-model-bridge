@@ -22,7 +22,11 @@ dependencies = [
     "mcp>=1.30.0,<2",
     "ifcopenshell>=0.7.0",
     "networkx>=3.0",
-    "specklepy>=3,<4",
+    # Speckle 3.x pins gql<4, which requires vulnerable graphql-core<3.2.7.
+    # The calendar-versioned SDK supports gql 4 and patched GraphQL releases.
+    "specklepy>=2026.9.1,<2027",
+    # Fix both GraphQL validation and comment-token denial-of-service issues.
+    "graphql-core>=3.2.12",
     "pyyaml>=6.0",
     "openpyxl>=3.1",
     # agent_native.py replays response.content (incl. thinking blocks, which
