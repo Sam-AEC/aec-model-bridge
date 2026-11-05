@@ -37,7 +37,8 @@ def size(text):
 
 
 async def measure(workspace, *, profile="full", profile_file=None,
-                  compact_read_results=False, project_module_commands=False):
+                  compact_read_results=False, project_module_commands=False,
+                  plan_script_chars=0, omit_plan_arguments=False):
     # Deliberately stable default catalogue; no credentials/proxies/user modules.
     for key in list(os.environ):
         if key.startswith(("APS_", "SPECKLE_", "MCP_PROXY_", "MCP_REVIT_")):
@@ -101,6 +102,8 @@ async def measure(workspace, *, profile="full", profile_file=None,
                    "profile": profile, "profile_file": str(profile_file) if profile_file else None,
                    "compact_read_results": compact_read_results,
                    "project_module_commands": project_module_commands,
+                   "plan_script_chars": plan_script_chars,
+                   "omit_plan_arguments": omit_plan_arguments,
                    "serialization": "MCP SDK model_dump_json(by_alias=True, exclude_none=True), compact UTF-8 JSON",
                    "catalogue_payload": "ListToolsResult; excludes JSON-RPC envelope/transport framing",
                    "raw_baseline": "same providers, Tool(name, description, inputSchema) without enrich_tool",
@@ -122,12 +125,20 @@ async def measure(workspace, *, profile="full", profile_file=None,
         ("plan_actions", {"actions": [{"tool": "revit_set_parameter_value", "arguments": {
             "element_id": 123, "parameter_name": "Comments", "value": "Measurement only"}}]}),
     ]
+    if plan_script_chars:
+        # Pending plan only: this script is never approved or executed.
+        calls[-1] = ("plan_actions", {"actions": [{"tool": "revit_execute_python", "arguments": {
+            "script": "#" + "x" * (plan_script_chars - 1), "mode": "write"}}]})
     if compact_read_results:
         calls = [(name, {**arguments, "response_options": {"compact": True}})
                  for name, arguments in calls]
     if project_module_commands:
         calls.append(("module_list_commands", {"response_options": {
             "compact": True, "fields": ["modules.id", "modules.commands.id"]}}))
+    if omit_plan_arguments:
+        calls = [(name, {**arguments, "response_options": {
+            **arguments.get("response_options", {}), "omit_action_arguments": True}})
+                 if name == "plan_actions" else (name, arguments) for name, arguments in calls]
     result["calls"] = []
     for name, arguments in calls:
         response = await mcp_server.call_tool(name, arguments)
@@ -160,14 +171,22 @@ def main():
                         help="Request compact text on the same five reads and pending plan fixture")
     parser.add_argument("--project-module-commands", action="store_true",
                         help="Add a compact module listing projected to module and command IDs")
+    parser.add_argument("--plan-script-chars", type=int, default=0,
+                        help="Replace the parameter plan with an unexecuted script of this many characters")
+    parser.add_argument("--omit-plan-arguments", action="store_true",
+                        help="Request omission of echoed action arguments in the pending-plan response")
     args = parser.parse_args()
     if args.profile == "custom" and args.profile_file is None:
         parser.error("--profile custom requires --profile-file")
+    if args.plan_script_chars < 0:
+        parser.error("--plan-script-chars must be nonnegative")
     with tempfile.TemporaryDirectory(prefix="aec-token-measure-") as directory:
         result = asyncio.run(measure(Path(directory), profile=args.profile,
                                     profile_file=args.profile_file,
                                     compact_read_results=args.compact_read_results,
-                                    project_module_commands=args.project_module_commands))
+                                    project_module_commands=args.project_module_commands,
+                                    plan_script_chars=args.plan_script_chars,
+                                    omit_plan_arguments=args.omit_plan_arguments))
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({key: result[key] for key in ("tool_count", "catalogue", "raw_catalogue", "metadata_delta", "names_only_json")}, indent=2))

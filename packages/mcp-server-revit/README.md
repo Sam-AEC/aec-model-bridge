@@ -91,8 +91,19 @@ That example lists module/command IDs without echoing every command schema.
 Field selection affects only the returned payload, after redaction; provider
 execution and stored data are unchanged. Errors and running-result diagnostics
 are never field-filtered. Options require a synchronous call.
-`plan_actions` supports only `{"response_options": {"compact": true}}`:
-the complete pending plan and human review data remain stored and returned.
+`plan_actions` supports compact JSON and optional omission of its echoed arguments:
+
+```json
+{"actions": [{"tool": "revit_execute_python", "arguments": {"script": "...", "mode": "write"}}], "response_options": {"compact": true, "omit_action_arguments": true}}
+```
+
+This returns a marked summary without `actions[].arguments` or identical
+`actions[].diff.after` copies. It retains plan/action IDs, state, review,
+before evidence and the hash of the full stored plan. A person reviews that
+complete plan in the Revit panel or approval CLI before approving it.
+Stored arguments and approval checks are unchanged; execution remains blocked
+until human approval. Omission defaults to false and never applies to errors
+or running-result diagnostics. Arbitrary field projection is unavailable for plans.
 The shared server instructions explain approval once; every write tool still
 has its `plan_id` schema and behavior annotations.
 
