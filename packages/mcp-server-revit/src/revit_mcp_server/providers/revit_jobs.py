@@ -51,6 +51,8 @@ class RevitJobProvider(AECProvider):
         poll_s: float = 5.0,
     ) -> None:
         self.revit = revit
+        # Set only by MCP's frozen tool profile; the panel remains unrestricted.
+        self.tool_registry = None
         self.manager = manager
         self.default_wait_s = default_wait_s
         self.max_wait_s = max_wait_s
@@ -174,6 +176,8 @@ class RevitJobProvider(AECProvider):
         if bool(command) == bool(script):
             raise ValueError("revit_run_job needs exactly one of command or script")
         if script:
+            if self.tool_registry is not None:
+                self.tool_registry.lookup_tool(PYTHON_TOOL)
             return PYTHON_TOOL, {"script": script, "mode": normalize_mode(arguments.get("mode"))}
 
         mapping = getattr(self.revit, "_tool_mapping", {})
@@ -181,6 +185,8 @@ class RevitJobProvider(AECProvider):
         tool_name = command if command in mapping else by_bridge_name.get(command)
         if tool_name is None or tool_name not in self._revit_tools():
             raise ValueError(f"Unknown Revit command '{command}'. Use a Revit tool name such as revit_list_levels.")
+        if self.tool_registry is not None:
+            self.tool_registry.lookup_tool(tool_name)
         tool_args = dict(arguments.get("args") or {})
         if tool_name == PYTHON_TOOL and arguments.get("mode") is not None:
             tool_args.setdefault("mode", arguments["mode"])

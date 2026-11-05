@@ -22,6 +22,7 @@ from .security.dispatch import (
 from .security.audit import redact_data
 from .security.module_execution import authorized_module_execution
 from .tool_metadata import enrich_tool
+from .tool_profiles import ToolProfileBlocked, load_tool_profile
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +77,7 @@ async def list_tools() -> list[Tool]:
     # destructiveHint, idempotentHint, openWorldHint) without changing behaviour.
     return [
         enrich_tool(provider.get_identity(), t)
-        for provider in registry.get_all_providers()
-        for t in provider.get_capabilities()
+        for provider, t in registry.get_tools_with_providers()
         if t.name not in HUMAN_ONLY_TOOLS
     ]
 
@@ -90,7 +90,10 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
             "plans in the Revit panel or with the aec-model-bridge-approve command. Ask them to do it."
         ))
 
-    provider = registry.lookup_tool_provider(name)
+    try:
+        provider = registry.lookup_tool_provider(name)
+    except ToolProfileBlocked as exc:
+        return _tool_error("tool_profile_blocked", str(exc))
     if not provider:
         return _tool_error("unknown_tool", f"Error: Unknown tool '{name}'")
 
@@ -99,6 +102,8 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
     gate = approval_provider.gate
     try:
         claim = gate_before(registry, gate, name, arguments)
+    except ToolProfileBlocked as e:
+        return _tool_error("tool_profile_blocked", str(e))
     except Exception as e:
         return _tool_error("approval_blocked", f"Approval Gate Blocked: {str(e)}")
 
@@ -178,6 +183,8 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
 
     except CommandFailed as e:
         return _tool_error("bridge_error", f"Revit Bridge Error: {str(e)}", result=e.payload)
+    except ToolProfileBlocked as e:
+        return _tool_error("tool_profile_blocked", str(e))
     except BridgeError as e:
         return _tool_error("bridge_error", f"Revit Bridge Error: {str(e)}")
 
@@ -204,8 +211,10 @@ def _tool_error(kind: str, message: str, result: dict | None = None) -> CallTool
 async def main():
     """Run the MCP server."""
     global registry, approval_provider, job_manager
+    profile = load_tool_profile()  # fail invalid settings before provider construction
     registry, approval_provider, job_manager, _module_registry, _workspace = build_registry()
     try:
+        registry.freeze_tool_profile(profile)
         async with stdio_server() as (read_stream, write_stream):
             await app.run(
                 read_stream,
