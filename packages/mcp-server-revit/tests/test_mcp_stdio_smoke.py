@@ -128,3 +128,20 @@ async def test_static_profiles_and_compact_reads_over_stdio(tmp_path: Path, prof
             payload = json.loads(text.split("Result:\n", 1)[1])
             assert all(set(module) == {"id", "commands"} for module in payload["modules"])
             assert "revit_mep" not in {module["id"] for module in payload["modules"]}
+            script = "#" + "x" * 1023
+            planned = await session.call_tool("plan_actions", {
+                "actions": [{"tool": "revit_execute_python", "arguments": {"script": script, "mode": "write"}}],
+                "response_options": {"compact": True, "omit_action_arguments": True},
+            })
+            assert not planned.isError
+            plan_text = "".join(c.text for c in planned.content if c.type == "text")
+            summary = json.loads(plan_text.split("Result:\n", 1)[1])
+            assert script not in plan_text
+            assert summary["actions"][0]["arguments_omitted"] is True
+            assert summary["actions"][0]["diff"]["after_omitted"] is True
+            assert "full stored plan" in summary["response_note"]
+            unapproved = await session.call_tool("revit_execute_python", {
+                "script": script, "mode": "write", "plan_id": summary["plan_id"],
+            })
+            assert unapproved.isError
+            assert unapproved.structuredContent["error"]["kind"] == "approval_blocked"

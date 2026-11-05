@@ -6,7 +6,7 @@ import json
 from typing import Any
 
 
-# Measured readers, not write tools. Plans may be minified but never projected.
+# Measured readers, not write tools. Plans cannot use arbitrary field projection.
 READERS = frozenset({
     "module_list_commands", "revit_list_elements", "revit_list_families",
     "revit_get_element_parameters", "revit_list_views",
@@ -26,6 +26,11 @@ def add_response_schema(name: str, schema: dict) -> None:
             "items": {"type": "string", "minLength": 1},
             "description": "Return only these dotted result paths (arrays traversed automatically); omitted returns all fields.",
         }
+    else:
+        properties["omit_action_arguments"] = {
+            "type": "boolean",
+            "description": "Omit echoed action arguments and identical diff.after copies from this response only. Full stored plan requires human review; default false.",
+        }
     schema.setdefault("properties", {})["response_options"] = {
         "type": "object", "additionalProperties": False, "properties": properties,
         "description": "Optional synchronous response formatting; does not change execution or stored data.",
@@ -39,11 +44,13 @@ def split_response_options(name: str, arguments: Any) -> tuple[Any, dict]:
     options = arguments["response_options"]
     if not isinstance(options, dict):
         raise ValueError("response_options must be an object")
-    allowed = {"compact", "fields"} if name in READERS else {"compact"}
+    allowed = {"compact", "fields"} if name in READERS else {"compact", "omit_action_arguments"}
     if options.keys() - allowed:
         raise ValueError(f"response_options supports only {', '.join(sorted(allowed))} for {name}")
     if "compact" in options and not isinstance(options["compact"], bool):
         raise ValueError("response_options.compact must be a boolean")
+    if "omit_action_arguments" in options and not isinstance(options["omit_action_arguments"], bool):
+        raise ValueError("response_options.omit_action_arguments must be a boolean")
     if "fields" in options:
         fields = options["fields"]
         if (not isinstance(fields, list) or not fields
@@ -70,8 +77,35 @@ def _project(value: Any, paths: list[list[str]]) -> Any:
     return {key: _project(value[key], tails) for key, tails in branches.items() if key in value}
 
 
+def _omit_plan_arguments(result: Any) -> Any:
+    """Summarize only a response copy; its hash still identifies the full stored plan."""
+    if not isinstance(result, dict) or not isinstance(result.get("actions"), list):
+        return result
+    summary = copy.deepcopy(result)
+    omitted = False
+    for action in summary["actions"]:
+        if not isinstance(action, dict) or "arguments" not in action:
+            continue
+        arguments = action.pop("arguments")
+        action["arguments_omitted"] = True
+        diff = action.get("diff")
+        # Preserve actual differences if a future provider returns a distinct after-state.
+        if isinstance(diff, dict) and "after" in diff and diff["after"] == arguments:
+            del diff["after"]
+            diff["after_omitted"] = True
+        omitted = True
+    if omitted:
+        summary["response_note"] = (
+            "Summary only: action arguments are omitted. A person must review the full stored plan "
+            "in the Revit panel or approval CLI before approval. plan_hash identifies that stored plan."
+        )
+    return summary
+
+
 def result_json(result: Any, options: dict, *, project: bool = True) -> str:
     """Call after redaction and outcome bookkeeping; errors/progress bypass projection."""
+    if project and options.get("omit_action_arguments"):
+        result = _omit_plan_arguments(result)
     if project and options.get("fields"):
         result = _project(result, [p.split(".") for p in options["fields"]])
     if options.get("compact"):
