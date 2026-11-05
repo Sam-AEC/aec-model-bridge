@@ -4,7 +4,7 @@ Measured 2026-11-05 with `MCP_REVIT_MODE=mock`, the supplied Python interpreter,
 
 The checkout exposes **302** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
 
-## Before and after
+## Initial profile and response pass
 
 | Payload | Before characters | After characters | Before ~tokens | After ~tokens |
 | --- | ---: | ---: | ---: | ---: |
@@ -32,6 +32,31 @@ The assertion that plan echoes and results burn more than names is **partly conf
 The sample plan request is 136 characters with one `revit_set_parameter_value` action, a 16-character value, and zero script characters. It creates a pending plan only. No approval or execution is performed. Its 590-character compact data payload expands to a 1,058-character serialized default response. The real module catalogue payload expands from 35,367 compact data characters to 55,697 serialized response characters.
 
 The first probe also sampled health (197 response characters), document info (313), selection (305), one parameter value (385), and context (506). The definitive five-read benchmark below uses module commands, elements, families, element parameters, and views.
+
+## Follow-up: large script-plan echoes
+
+A second measurement, taken before the follow-up code changes, creates a pending
+plan with a 16,384-character comment-only Python script. It never approves or
+executes the plan. The script is echoed twice in the default plan structure:
+`actions[].arguments.script` and `actions[].diff.after.script`.
+
+| Payload | Before characters | After characters | Before ~tokens | After ~tokens |
+| --- | ---: | ---: | ---: | ---: |
+| Compact script-plan response | 33,412 | 795 | 8,353 | 199 |
+| Daily catalogue including the new option | 255,533 | 255,733 | 63,883 | 63,933 |
+
+Request `response_options: {"compact": true, "omit_action_arguments": true}`
+on `plan_actions` to omit these argument echoes from its returned summary.
+This saves **97.62%** of the measured response, with a 50-token schema cost per
+catalogue. The original script input cost remains. Default responses, stored
+arguments, before evidence, complete review, plan hash and human approval rules
+are preserved. The summary explicitly directs human review to the complete
+stored plan; its hash identifies that full plan. Distinct after-state data,
+errors and running-result diagnostics remain visible. This option does not
+enable arbitrary plan field selection.
+
+Before: [script fixture](mcp-token-measurement-plan-script-before.json).
+After: [same fixture with argument omission](mcp-token-measurement-plan-script-after.json).
 
 ## Baseline by provider
 
@@ -116,7 +141,7 @@ Profiles select provider/manifest IDs, including aliased commands. Native duct/p
 
 ## Validation
 
-Final package suite: **2,747 passed, 150 skipped** in 190.28 seconds using
+Initial implementation package suite: **2,747 passed, 150 skipped** in 190.28 seconds using
 `C:/Users/samo3/.aec-tools/venv/Scripts/python.exe`. The two wheel-build tests
 skip because `build` is not installed; browser, live-Revit and platform-specific
 checks account for the other skips. No live Revit writes were performed.
@@ -125,6 +150,10 @@ New coverage includes static full/daily/custom discovery, file/glob validation,
 alias ownership, hidden direct and nested calls, untouched blocked approved
 plans, human-only approval rules, redaction, default response compatibility,
 opt-in projection/minification, and daily/custom subprocess MCP round trips.
+The follow-up argument-echo change passes **109 targeted tests**, including
+approval/review/hash invariants, default-response compatibility, invalid options,
+error/progress preservation, and real MCP subprocess round trips. All changed
+Python files pass Ruff. Independent review found no remaining concrete defects.
 
 ## Reproduce
 
@@ -132,6 +161,7 @@ opt-in projection/minification, and daily/custom subprocess MCP round trips.
 & C:/Users/samo3/.aec-tools/venv/Scripts/python.exe scripts/measure_mcp_tokens.py --profile full --output docs/mcp-token-measurement-after-full.json
 & C:/Users/samo3/.aec-tools/venv/Scripts/python.exe scripts/measure_mcp_tokens.py --profile full --compact-read-results --project-module-commands --output docs/mcp-token-measurement-after-compact.json
 & C:/Users/samo3/.aec-tools/venv/Scripts/python.exe scripts/measure_mcp_tokens.py --profile daily --compact-read-results --project-module-commands --output docs/mcp-token-measurement-after-daily.json
+& C:/Users/samo3/.aec-tools/venv/Scripts/python.exe scripts/measure_mcp_tokens.py --profile daily --compact-read-results --plan-script-chars 16384 --omit-plan-arguments --output docs/mcp-token-measurement-plan-script-after.json
 ```
 
 To reproduce the original baseline, run the initial measurement script against the original source commit. Do not overwrite the preserved before artifact. Optional `--profile-file` accepts a custom include/exclude file. Each run records its Git HEAD and settings; after snapshots were captured on the working tree during implementation.
