@@ -13,14 +13,14 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-from collections import defaultdict
-from datetime import datetime, timezone
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from collections import defaultdict
+from datetime import datetime, timezone
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -94,7 +94,9 @@ async def measure(workspace, *, profile="full", profile_file=None,
     full_text, raw_text = dump(full), dump(ListToolsResult(tools=raw))
     result = {
         "captured_at_utc": datetime.now(timezone.utc).isoformat(),
-        "git_head": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
+        "git_head": (await asyncio.to_thread(
+            subprocess.check_output, ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
+        )).strip(),
         "method": {"entrypoints": ["mcp_server.list_tools", "mcp_server.call_tool"],
                    "profile": profile, "profile_file": str(profile_file) if profile_file else None,
                    "compact_read_results": compact_read_results,
