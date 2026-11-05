@@ -141,6 +141,39 @@
     expect(document.querySelector(".error-text").textContent === "Error: Start the server.", "friendlyError lost");
   });
 
+  test("hub transport errors preserve their cause when another setup check failed", () => {
+    fresh();
+    deliver({ type: "diagnostics.updated", diagnostics: { checks: [{ id: "workspace", ok: false, next_step: "Fix the folder." }] } });
+    deliver({ type: "chat.error", message: "Could not reach the AEC Model Bridge hub." });
+    expect(document.querySelector(".error-text").textContent === "Error: Could not reach the AEC Model Bridge hub.", "unrelated check hid the hub failure");
+  });
+
+  test("failed setup retries the panel hub independently of the Revit bridge", () => {
+    fresh();
+    let retry = null;
+    const original = window.setTimeout;
+    window.setTimeout = (callback, delay) => {
+      if (delay === 5000) { retry = callback; return 0; }
+      return original(callback, delay);
+    };
+    try {
+      deliver({ type: "tool.error", action: "diagnostics.refresh", message: "Hub is starting" });
+    } finally { window.setTimeout = original; }
+    expect(retry && /aec-model-bridge-panel-server/.test($("setup-list").textContent), "missing retry or wrong recovery");
+    sent().length = 0;
+    retry();
+    expect(sentOf("diagnostics.refresh").length === 1, "hub readiness was not retried");
+    diag("ask_first");
+    expect($("setup-check").dataset.state === "ready", "setup did not recover");
+  });
+
+  test("malformed diagnostics show a recoverable setup failure", () => {
+    fresh();
+    deliver({ type: "diagnostics.updated", diagnostics: { checks: {} } });
+    expect($("setup-check").dataset.state === "blocked" && /invalid diagnostics/.test($("setup-list").textContent), "bad diagnostics crashed or passed");
+    diag("ask_first");
+  });
+
   test("model text is never parsed as HTML (user bubble, response, hostile markdown)", () => {
     fresh();
     const evil = '<img src=x onerror="window.__pwn=1"><script>window.__pwn=2</script>';
