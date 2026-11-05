@@ -22,6 +22,7 @@ from .security.dispatch import (
 from .security.audit import redact_data
 from .security.module_execution import authorized_module_execution
 from .tool_metadata import enrich_tool
+from .result_presentation import result_json, split_response_options
 from .tool_profiles import ToolProfileBlocked, load_tool_profile
 
 logger = logging.getLogger(__name__)
@@ -97,6 +98,11 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
     if not provider:
         return _tool_error("unknown_tool", f"Error: Unknown tool '{name}'")
 
+    try:
+        arguments, response_options = split_response_options(name, arguments)
+    except ValueError as exc:
+        return _tool_error("invalid_response_options", str(exc))
+
     # Approval gate: a mutating call consumes its approved action here, before it
     # runs, so it can run at most once even if it fails or is called concurrently.
     gate = approval_provider.gate
@@ -166,13 +172,13 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
             text = (
                 f"{name} is still running. It has not finished and it has not failed{kept}. "
                 f"Resume with {outcome.resume}. Do not repeat the call.\n\n"
-                f"Result:\n{json.dumps(redacted_result, indent=2)}"
+                f"Result:\n{result_json(redacted_result, response_options, project=False)}"
             )
             return [TextContent(type="text", text=text)]
 
         # Format the response
         response_text = f"{name} returned a failure\n\n" if failed else f"✓ {name} executed successfully\n\n"
-        response_text += f"Result:\n{json.dumps(redacted_result, indent=2)}"
+        response_text += f"Result:\n{result_json(redacted_result, response_options, project=not failed)}"
 
         if failed:
             return CallToolResult(
