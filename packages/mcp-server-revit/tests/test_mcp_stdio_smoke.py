@@ -97,3 +97,34 @@ async def test_server_boots_lists_tools_and_answers_health(tmp_path: Path) -> No
             assert unknown.structuredContent["error"]["kind"] == "unknown_tool"
     # Leaving both context managers must terminate the child without hanging;
     # reaching this line is the "closes cleanly" assertion.
+
+
+@pytest.mark.parametrize("profile", ["daily", "custom"])
+async def test_static_profiles_and_compact_reads_over_stdio(tmp_path: Path, profile: str) -> None:
+    params = _server_params(tmp_path)
+    params.env["MCP_REVIT_TOOL_PROFILE"] = profile
+    if profile == "custom":
+        profile_file = tmp_path / "profile.json"
+        profile_file.write_text(json.dumps({"exclude": ["rhino*", "revit_mep"]}), encoding="utf-8")
+        params.env["MCP_REVIT_TOOL_PROFILE_FILE"] = str(profile_file)
+    async with stdio_client(params) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            names = {tool.name for tool in (await session.list_tools()).tools}
+            assert "revit_create_wall" in names
+            assert "revit_sparing_find" in names
+            assert "plan_actions" in names and "execute_plan" in names
+            assert "rhino_create_box" not in names
+            assert "revit_create_duct" not in names
+            assert ("ifc_get_metadata" in names) == (profile == "custom")
+            blocked = await session.call_tool("rhino_create_box", {})
+            assert blocked.isError
+            assert blocked.structuredContent["error"]["kind"] == "tool_profile_blocked"
+            projected = await session.call_tool("module_list_commands", {
+                "response_options": {"compact": True, "fields": ["modules.id", "modules.commands.id"]},
+            })
+            assert not projected.isError
+            text = "".join(c.text for c in projected.content if c.type == "text")
+            payload = json.loads(text.split("Result:\n", 1)[1])
+            assert all(set(module) == {"id", "commands"} for module in payload["modules"])
+            assert "revit_mep" not in {module["id"] for module in payload["modules"]}
