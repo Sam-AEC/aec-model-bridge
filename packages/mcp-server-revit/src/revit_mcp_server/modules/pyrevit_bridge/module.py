@@ -13,8 +13,8 @@ Every path is resolved and confined to those dirs.
 
 Execution inside Revit is delegated to the bridge call `revit.run_pyrevit_script`
 (tool name `revit_run_pyrevit_script`). That provider tool and the add-in handler do
-NOT exist yet: see docs/pyrevit-bridge.md. Until they do, run_pyrevit_script performs
-all checks and then reports status "bridge_unavailable" instead of running anything.
+NOT exist yet: see docs/pyrevit-bridge.md. Until they do, run_pyrevit_script raises
+BridgeError so the approval layer cannot record a no-op as executed.
 """
 from __future__ import annotations
 
@@ -112,16 +112,29 @@ def _resolve_script(script_id: str, dirs: List[Path]) -> Path:
 
 
 def _read_script(path: Path) -> Tuple[bytes, str]:
-    data = path.read_bytes()
+    with path.open("rb") as stream:
+        data = stream.read(MAX_SCRIPT_BYTES + 1)
     if len(data) > MAX_SCRIPT_BYTES:
         raise BridgeError(f"pyRevit script exceeds {MAX_SCRIPT_BYTES} bytes.")
+    try:
+        data.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise BridgeError("pyRevit scripts must be UTF-8 encoded; convert this script before planning a run.") from exc
     return data, hashlib.sha256(data).hexdigest()
 
 
 def _load_approved_plan(plan_id: str, workspace: Any) -> Dict[str, Any]:
     if not plan_id or not re.fullmatch(r"[A-Za-z0-9_\-]+", plan_id):
         raise BridgeError("A valid plan_id of an approved plan is required.")
-    path = Path(workspace.allowed_directories[0]) / "plans" / f"{plan_id}.json"
+    if workspace is None or not workspace.allowed_directories:
+        raise BridgeError("An allowed workspace is required to load an approved plan.")
+    # Reading approval-owned files is intentional; WorkspaceMonitor reserves them
+    # against generic tools, so enforce read confinement explicitly here.
+    root = Path(workspace.allowed_directories[0]).resolve()
+    plans = (root / "plans").resolve()
+    path = (plans / f"{plan_id}.json").resolve()
+    if not plans.is_relative_to(root) or path.parent != plans:
+        raise BridgeError("Approved plan path is outside the workspace plans folder.")
     try:
         plan = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
@@ -224,26 +237,17 @@ class PyrevitBridgeModule:
             )
 
         if tool_executor is None:
-            return self._unavailable(script_id, sha, "no tool executor available")
+            raise BridgeError("pyRevit bridge unavailable: no tool executor available; script was not executed.")
         try:
             result = tool_executor(BRIDGE_TOOL, {
                 "script_id": script_id,
                 "script_sha256": sha,
-                "script_source": data.decode("utf-8", errors="replace"),
+                "script_source": data.decode("utf-8"),
                 "plan_id": plan_id,
             })
         except BridgeError as exc:
-            return self._unavailable(script_id, sha, str(exc))
+            raise BridgeError(f"pyRevit bridge unavailable or failed: {exc}") from exc
+        from revit_mcp_server.security.dispatch import result_failed
+        if result_failed(result):
+            raise BridgeError(f"pyRevit bridge reported a failed execution: {result}")
         return {"status": "executed", "script_id": script_id, "script_sha256": sha, "result": result}
-
-    @staticmethod
-    def _unavailable(script_id: str, sha: str, reason: str) -> Dict[str, Any]:
-        return {
-            "status": "bridge_unavailable",
-            "executed": False,
-            "script_id": script_id,
-            "script_sha256": sha,
-            "required_bridge_call": BRIDGE_CALL,
-            "reason": reason,
-            "note": "All approval and hash checks passed, but the Revit-side runner is not implemented.",
-        }
