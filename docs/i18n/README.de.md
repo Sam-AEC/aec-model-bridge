@@ -141,6 +141,8 @@ Türkise Kästen funktionieren bereits. Die gelb gestrichelten Kästen sind in A
 
 Der Hub stoppt jeden Werkzeugaufruf, der das Modell ändert, sofern er keinen freigegebenen Plan mitbringt. Der Standardmodus ist `required`. Die KI schlägt einen Plan vor, Sie prüfen ihn im Revit-Seitenpanel, und das Add-in führt ihn im Hauptthread von Revit aus, Parameter- und Modellbearbeitungsaktionen jeweils in ihrer eigenen benannten Transaktion; Speichern, Synchronisieren und Skripte nicht, daher deckt Strg+Z sie nicht ab.
 
+Das Panel zeigt die Planprüfung über "Show the review to enable Approve"; vor der Freigabe müssen Sie sie öffnen. Ungültige, nicht unterstützte oder zu große Prüftexte sperren die Freigabe; `aec-model-bridge-approve show <plan_id>` zeigt den vollständigen Plan. Automatisierte Tests decken dieses Verhalten ab; die Freigabe in WebView2 braucht noch Live-Abnahme. Der [Validierungsbericht](../revit-addin-live-validation-2026-10-14.md) dokumentiert nur begrenzte Leseprüfungen in Revit 2024, keine Abnahme von Schreibvorgängen, Rücksetzen, Wiederherstellung oder anderen Revit-Jahren.
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-dark.png">

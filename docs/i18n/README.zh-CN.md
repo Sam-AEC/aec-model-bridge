@@ -142,6 +142,8 @@ MCP 客户端与一个 Python hub 通信。hub 将每次调用转发给拥有该
 
 hub 会拦截任何会修改模型的工具调用，除非它附带已批准的计划。默认模式为 `required`。AI 提出计划，你在 Revit 侧边面板中审阅，然后插件在 Revit 主线程中执行，参数和模型编辑类操作各自在独立的命名事务（transaction）中运行；保存、同步和脚本类操作则不是，因此 Ctrl+Z 无法撤销它们。
 
+面板通过 "Show the review to enable Approve" 显示计划审阅内容，批准前必须先打开。无效、不受支持或过大的审阅内容会阻止批准；`aec-model-bridge-approve show <plan_id>` 可显示完整计划。此行为有自动化测试，但 WebView2 中的批准仍需实机验收。[验证报告](../revit-addin-live-validation-2026-10-14.md) 仅记录 Revit 2024 中有限的只读检查，不代表写入、回退、恢复或其他 Revit 年份版本已通过验证。
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-dark.png">

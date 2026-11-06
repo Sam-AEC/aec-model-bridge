@@ -141,6 +141,8 @@ MCP クライアントは 1 つの Python ハブと通信します。ハブは�
 
 ハブは、承認済みのプランを伴わない限り、モデルを変更するツール呼び出しをすべて止めます。デフォルトのモードは `required` です。AI がプランを提案し、あなたが Revit のサイドパネルで確認すると、アドインが Revit のメインスレッド上で実行します。パラメータ編集やモデル編集のアクションはそれぞれ個別の名前付きトランザクションですが、保存・同期・スクリプトのアクションはそうではないため、Ctrl+Z では戻せません。
 
+パネルの "Show the review to enable Approve" でプランのレビューを開いてから承認します。不正、未対応、または大きすぎるレビューでは承認できません。`aec-model-bridge-approve show <plan_id>` でプラン全体を確認できます。この動作には自動テストがありますが、WebView2 での承認は実機検証が必要です。[検証レポート](../revit-addin-live-validation-2026-10-14.md) は Revit 2024 の限定的な読み取り確認のみを記録しており、書き込み、取り消し、復旧、他の Revit 年版を検証するものではありません。
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-dark.png">

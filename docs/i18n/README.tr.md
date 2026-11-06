@@ -141,6 +141,8 @@ Turkuaz kutular bugün çalışıyor. Kehribar rengi kesikli kutuların üzerind
 
 Hub, onaylanmış bir plan taşımayan ve modeli değiştiren her araç çağrısını durdurur. Varsayılan mod `required`'dır. Yapay zekâ bir plan önerir, siz Revit yan panelinde incelersiniz ve eklenti planı Revit'in ana iş parçacığında çalıştırır; parametre ve model düzenleme eylemlerinin her biri kendi adlandırılmış transaction'ı içinde yürür; kaydetme, senkronizasyon ve betik eylemleri böyle değildir, bu yüzden Ctrl+Z onları kapsamaz.
 
+Panel, plan incelemesini "Show the review to enable Approve" ile gösterir; onaylamadan önce açmanız gerekir. Geçersiz, desteklenmeyen veya çok büyük incelemeler onayı engeller; `aec-model-bridge-approve show <plan_id>` planın tamamını gösterir. Bu davranış otomatik testlerle kapsanır; WebView2 onayı hâlâ canlı doğrulama gerektirir. [Doğrulama raporu](../revit-addin-live-validation-2026-10-14.md) yalnızca Revit 2024’te sınırlı okuma kontrollerini belgeler; yazma, geri alma, kurtarma veya diğer Revit yıllarını doğrulamaz.
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-dark.png">

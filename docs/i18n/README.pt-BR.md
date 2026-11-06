@@ -141,6 +141,8 @@ As caixas verde-azuladas já funcionam. As caixas âmbar tracejadas estão em de
 
 O hub bloqueia qualquer chamada de ferramenta que altere o modelo, a menos que ela traga um plano aprovado. O modo padrão é `required`. A IA propõe um plano, você o revisa no painel lateral do Revit e o add-in o executa na thread principal do Revit, as ações de parâmetro e de edição do modelo, cada uma em sua própria transação nomeada; salvar, sincronizar e scripts não, então o Ctrl+Z não os cobre.
 
+O painel mostra a revisão do plano com "Show the review to enable Approve" e exige abri-la antes da aprovação. Revisões inválidas, não suportadas ou grandes demais bloqueiam a aprovação; `aec-model-bridge-approve show <plan_id>` mostra o plano completo. Há testes automatizados desse comportamento; a aprovação no WebView2 ainda precisa de validação ao vivo. O [relatório de validação](../revit-addin-live-validation-2026-10-14.md) registra apenas verificações limitadas de leitura no Revit 2024, sem validar gravações, reversão, recuperação ou outros anos do Revit.
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-dark.png">
