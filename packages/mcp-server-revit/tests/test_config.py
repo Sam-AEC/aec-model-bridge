@@ -140,3 +140,15 @@ def test_other_missing_allowed_directories_still_fail(tmp_path, monkeypatch):
     monkeypatch.setenv("MCP_REVIT_ALLOWED_DIRECTORIES", f"{ws};{tmp_path / 'elsewhere'}")
     with pytest.raises(ValidationError):
         Config()
+
+
+def test_addin_preserves_explicit_allowlist_and_uses_effective_workspace():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[3] / "packages/revit-bridge-addin/src/Bridge"
+    monitor = (root / "WorkspaceMonitor.cs").read_text(encoding="utf-8")
+    assert "if (allowedDirsEnv == null && !string.IsNullOrEmpty(workspaceDir))" in monitor
+    launcher = (root / "PanelHubLauncher.cs").read_text(encoding="utf-8")
+    assert 'Environment.GetEnvironmentVariable("MCP_REVIT_ALLOWED_DIRECTORIES") == null' in launcher
+    assert 'startInfo.EnvironmentVariables["MCP_REVIT_ALLOWED_DIRECTORIES"] = workspace;' in launcher
+    assert 'SetEnvironmentDefault(startInfo, "MCP_REVIT_ALLOWED_DIRECTORIES", defaultWorkspace)' not in launcher
