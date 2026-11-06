@@ -4871,6 +4871,52 @@ public static partial class BridgeCommandFactory
         }
     }
 
+    private static object? GetSnapshotPointLocation(Element elem)
+    {
+        try
+        {
+            if (elem.Location is not LocationPoint point) return null;
+            // Snapshot source.units is SI; Revit coordinates are internal feet and rotation is radians.
+            return new
+            {
+                kind = "point",
+                xyz = new[]
+                {
+                    UnitUtils.ConvertFromInternalUnits(point.Point.X, UnitTypeId.Meters),
+                    UnitUtils.ConvertFromInternalUnits(point.Point.Y, UnitTypeId.Meters),
+                    UnitUtils.ConvertFromInternalUnits(point.Point.Z, UnitTypeId.Meters)
+                },
+                rotation = point.Rotation
+            };
+        }
+        catch
+        {
+            // Some point-based elements do not expose rotation. Leave their location uncovered
+            // instead of substituting zero; movement checks report that missing coverage.
+            return null;
+        }
+    }
+
+    private static void AddSnapshotNameAliases(Element elem, Dictionary<string, object> parameters)
+    {
+        foreach (var key in new[]
+        {
+            BuiltInParameter.SHEET_NUMBER, BuiltInParameter.SHEET_NAME,
+            BuiltInParameter.VIEW_NAME, BuiltInParameter.DATUM_TEXT
+        })
+        {
+            var parameter = elem.get_Parameter(key);
+            if (parameter == null || !parameter.HasValue || parameter.StorageType != StorageType.String) continue;
+            parameters[key.ToString()] = new
+            {
+                v = parameter.AsString() ?? string.Empty,
+                storage = parameter.StorageType.ToString(),
+                instance = true,
+                @readonly = parameter.IsReadOnly
+            };
+        }
+    }
+
     [BridgeCommand("revit.extract_snapshot", IsMutating = false)]
     private static object ExecuteExtractSnapshot(UIApplication app, JsonElement payload)
     {
@@ -4974,6 +5020,8 @@ public static partial class BridgeCommandFactory
                 };
             }
 
+            // Retain localized labels while also supplying stable built-in names for consumers.
+            AddSnapshotNameAliases(elem, paramsDict);
             string catName = elem.Category?.BuiltInCategory.ToString() ?? elem.Category?.Name ?? "None";
 
             elementRecords.Add(new
@@ -4983,10 +5031,13 @@ public static partial class BridgeCommandFactory
                 element_id = elem.Id.Value,
                 category = catName,
                 @class = elem.GetType().Name,
+                name = elem.Name,
+                sheet_number = (elem as ViewSheet)?.SheetNumber,
                 type_uid = elem.GetTypeId().Value.ToString(),
                 family = typeElem?.get_Parameter(BuiltInParameter.ALL_MODEL_FAMILY_NAME)?.AsString() ?? typeElem?.Name ?? string.Empty,
                 type_name = typeElem?.Name ?? string.Empty,
-                level_uid = (elem as FamilyInstance)?.LevelId.Value.ToString() ?? (elem as Wall)?.LevelId.Value.ToString() ?? string.Empty,
+                level_uid = elem.LevelId != ElementId.InvalidElementId ? elem.LevelId.Value.ToString() : null,
+                location = GetSnapshotPointLocation(elem),
                 // The QA rules (door_no_host, window_no_host) test host_uid. Without it every hosted door
                 // was reported as unhosted (1,006 false errors on a real model).
                 host_uid = (elem as FamilyInstance)?.Host?.UniqueId,
@@ -5005,6 +5056,7 @@ public static partial class BridgeCommandFactory
             ["candidates"] = totalCandidates,
             ["captured"] = elementRecords.Count,
             ["truncated"] = truncated,
+            ["dirty_only"] = dirtyOnly,
             ["max_elements"] = maxElements,
             ["time_budget_ms"] = budgetMs,
             ["elapsed_ms"] = clock.ElapsedMilliseconds,
@@ -5026,6 +5078,7 @@ public static partial class BridgeCommandFactory
                 units = "SI"
             },
             elements = elementRecords,
+            dirty_only = dirtyOnly,
             counts,
             deleted = deletedIdsList
         };

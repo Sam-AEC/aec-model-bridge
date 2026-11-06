@@ -70,7 +70,7 @@ def _get_data(snapshot_id: str, workspace: Any) -> Tuple[List[dict], List[dict],
         )
     data = _load_snapshot(snapshot_id, workspace)
     counts = data.get("counts") or {}
-    partial = bool(counts.get("truncated") or counts.get("categories") or data.get("dirty_only"))
+    partial = bool(counts.get("truncated") or counts.get("categories") or counts.get("dirty_only") or data.get("dirty_only"))
     return data.get("elements", []), data.get("types", []), data.get("cad_scanned") is True, partial
 
 

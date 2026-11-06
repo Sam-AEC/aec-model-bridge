@@ -26,6 +26,8 @@ class ElementRecord(BaseModel):
     element_id: int
     category: str
     cls: str = Field(..., alias="class")
+    name: Optional[str] = None
+    sheet_number: Optional[str] = None
     type_uid: Optional[str] = None
     family: Optional[str] = None
     type_name: Optional[str] = None
@@ -78,6 +80,7 @@ class Snapshot(BaseModel):
     relations: List[RelationRecord] = Field(default_factory=list)
     types: List[TypeRecord] = Field(default_factory=list)
     counts: Dict[str, Any] = Field(default_factory=dict)
+    dirty_only: bool = False
 
     model_config = ConfigDict(populate_by_name=True)
 

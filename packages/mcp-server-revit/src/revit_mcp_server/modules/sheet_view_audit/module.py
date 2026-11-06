@@ -314,9 +314,10 @@ class SheetViewAuditModule:
                 + "Details are under 'checks'."
             )
         result["checks"] = report
-        if (data.get("counts") or {}).get("truncated"):
+        coverage = data.get("counts") or {}
+        if coverage.get("truncated") or coverage.get("categories") or coverage.get("dirty_only") or data.get("dirty_only"):
             result["status"] = "partial"
-            result["message"] = (result.get("message", "") + " Snapshot capture was truncated; findings cover only the captured records.").strip()
+            result["message"] = (result.get("message", "") + " Snapshot capture was truncated, category-filtered, or dirty-only; findings cover only the captured records.").strip()
         result["data_source"] = source
         result["snapshot_id"] = snapshot_id
         result["required_sheet_parameters"] = required

@@ -145,10 +145,11 @@ def test_no_cad_records_is_unknown_unless_scan_declared(tmp_path):
     assert r2["checks"]["imported_cad"]["status"] == "ran" and r2["cleanliness"]["score"] == 100
 
 
-def test_partial_capture_never_proposes_unused_types(tmp_path):
+@pytest.mark.parametrize('counts', [{'truncated': True}, {'categories': ['OST_Furniture']}, {'dirty_only': True}])
+def test_partial_capture_never_proposes_unused_types(tmp_path, counts):
     sid = _write(tmp_path, [_el(1, 'Chair', 'Std', 't1')],
                  [_ty('t1', 'Chair', 'Std'), _ty('t2', 'Chair', 'Spare')],
-                 cad_scanned=True, counts={'truncated': True})
+                 cad_scanned=True, counts=counts)
     res = ModelBloatModule().audit(snapshot_id=sid, workspace=WS(tmp_path))
     assert res['unused_types']['total'] is None
     assert res['cleanliness']['score'] is None
