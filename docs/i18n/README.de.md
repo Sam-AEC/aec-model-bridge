@@ -33,6 +33,16 @@ Die Einrichtung ist für Claude Desktop, VS Code mit GitHub Copilot, Cursor und 
 
 Derselbe Server enthält außerdem IFC-Prüfung, Rhino- und Grasshopper-Automatisierung sowie die Speckle-Anbindung. Der [Status der Integrationen](#weitere-integrationen) trennt verfügbare Provider von solchen, die noch in Arbeit sind.
 
+## Sterneverlauf
+
+<a href="https://www.star-history.com/?repos=sam-aec%2Faec-model-bridge&type=date&legend=top-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+ </picture>
+</a>
+
 ## Beispiel-Workflows
 
 Für BIM-Koordinatoren: Modellqualität prüfen, betroffene Elemente ansehen, eine Parameterkorrektur freigeben, dann das Ergebnis kontrollieren und einen Bericht exportieren. Die Beispiele nutzen Werkzeuge aus dem [aktuellen Katalog](../tools-generated.md).
@@ -140,6 +150,8 @@ Türkise Kästen funktionieren bereits. Die gelb gestrichelten Kästen sind in A
 ### So funktioniert die Freigabe
 
 Der Hub stoppt jeden Werkzeugaufruf, der das Modell ändert, sofern er keinen freigegebenen Plan mitbringt. Der Standardmodus ist `required`. Die KI schlägt einen Plan vor, Sie prüfen ihn im Revit-Seitenpanel, und das Add-in führt ihn im Hauptthread von Revit aus, Parameter- und Modellbearbeitungsaktionen jeweils in ihrer eigenen benannten Transaktion; Speichern, Synchronisieren und Skripte nicht, daher deckt Strg+Z sie nicht ab.
+
+Das Panel zeigt die Planprüfung über "Show the review to enable Approve"; vor der Freigabe müssen Sie sie öffnen. Ungültige, nicht unterstützte oder zu große Prüftexte sperren die Freigabe; `aec-model-bridge-approve show <plan_id>` zeigt den vollständigen Plan. Automatisierte Tests decken dieses Verhalten ab; die Freigabe in WebView2 braucht noch Live-Abnahme. Der [Validierungsbericht](../revit-addin-live-validation-2026-10-14.md) dokumentiert nur begrenzte Leseprüfungen in Revit 2024, keine Abnahme von Schreibvorgängen, Rücksetzen, Wiederherstellung oder anderen Revit-Jahren.
 
 <p align="center">
   <picture>

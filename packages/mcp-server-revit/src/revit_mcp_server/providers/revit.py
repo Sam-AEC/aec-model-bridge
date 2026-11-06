@@ -1555,6 +1555,7 @@ class RevitProvider(AECProvider):
         ),
         ProviderTool(
             name="revit_create_duct",
+            module_id="revit_mep",
             description="Create duct",
             inputSchema={
                 "type": "object",
@@ -1573,6 +1574,7 @@ class RevitProvider(AECProvider):
         ),
         ProviderTool(
             name="revit_create_pipe",
+            module_id="revit_mep",
             description="Create pipe",
             inputSchema={
                 "type": "object",

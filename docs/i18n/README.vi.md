@@ -33,6 +33,16 @@ Có tài liệu thiết lập cho Claude Desktop, VS Code với GitHub Copilot, 
 
 Cùng máy chủ này còn có chức năng kiểm tra IFC, tự động hóa Rhino và Grasshopper, và tích hợp Speckle. [Trạng thái tích hợp](#các-tích-hợp-khác) phân biệt các nhà cung cấp đã sẵn sàng với những phần đang được phát triển.
 
+## Lịch sử sao
+
+<a href="https://www.star-history.com/?repos=sam-aec%2Faec-model-bridge&type=date&legend=top-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+ </picture>
+</a>
+
 ## Quy trình mẫu
 
 Dành cho điều phối viên BIM: kiểm tra chất lượng mô hình, xem xét các phần tử bị ảnh hưởng, phê duyệt việc sửa tham số (parameter), sau đó kiểm tra kết quả và xuất báo cáo. Các ví dụ này dùng công cụ trong [danh mục hiện tại](../tools-generated.md).
@@ -140,6 +150,8 @@ Các khung màu xanh mòng két đã hoạt động. Các khung nét đứt màu
 ### Cách phê duyệt hoạt động
 
 Hub chặn mọi lệnh gọi công cụ làm thay đổi mô hình nếu không kèm kế hoạch đã được phê duyệt. Chế độ mặc định là `required`. AI đề xuất kế hoạch, bạn xem xét trong bảng bên của Revit, và add-in chạy nó trên luồng chính của Revit, các hành động sửa tham số và chỉnh sửa mô hình mỗi hành động chạy trong một transaction có tên riêng; các hành động lưu, đồng bộ và script thì không, nên Ctrl+Z không bao gồm chúng.
+
+Bảng điều khiển hiển thị nội dung xem xét kế hoạch qua "Show the review to enable Approve" và yêu cầu mở trước khi phê duyệt. Nội dung không hợp lệ, không được hỗ trợ hoặc quá lớn sẽ chặn phê duyệt; `aec-model-bridge-approve show <plan_id>` hiển thị toàn bộ kế hoạch. Hành vi này có kiểm thử tự động; phê duyệt trong WebView2 vẫn cần xác nhận trực tiếp. [Báo cáo xác nhận](../revit-addin-live-validation-2026-10-14.md) chỉ ghi nhận kiểm tra đọc có giới hạn trong Revit 2024, không xác nhận thao tác ghi, hoàn tác, khôi phục hay các năm Revit khác.
 
 <p align="center">
   <picture>

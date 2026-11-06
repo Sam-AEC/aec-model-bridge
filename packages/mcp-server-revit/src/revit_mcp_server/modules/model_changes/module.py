@@ -81,7 +81,7 @@ def _resolve(ref: str, workspace: Any) -> str:
 
 
 def _load(snapshot_id: str, workspace: Any) -> Dict[str, Any]:
-    if "/" in snapshot_id or "\\" in snapshot_id or ".." in snapshot_id:
+    if any(part in snapshot_id for part in ("/", "\\", "..", ":")):
         raise ValueError(f"Invalid snapshot id '{snapshot_id}'.")
     path = _snap_dir(workspace) / f"{snapshot_id}.json"
     if not path.exists():
@@ -99,14 +99,14 @@ def _label(el: Dict[str, Any]) -> str:
 
 def _pval(el: Dict[str, Any], name: str) -> Any:
     p = (el.get("params") or {}).get(name)
-    return p.get("v") if isinstance(p, dict) else None
+    return p.get("v") if isinstance(p, dict) else p
 
 
 _LOC_TOL = 1e-6
 
 LOCATION_MISSING_REASON = (
-    "These snapshots do not record where elements are, so moved or rotated elements "
-    "could not be detected. The Revit add-in needs to save each element's `location` "
+    "One or more shared elements have no location in both snapshots, so movement or rotation "
+    "cannot be checked for those elements. The Revit add-in needs to save each element's `location` "
     "(`xyz` and `rotation`) in the snapshot."
 )
 
@@ -224,16 +224,18 @@ def compare_snapshot_data(snap_a: Dict[str, Any], snap_b: Dict[str, Any], max_it
         "unchanged": unchanged, "parameter_changes": len(param_changes),
     }
     not_enough_data: List[Dict[str, str]] = []
-    if (els_a or els_b) and location_compared == 0:
+    common_count = len(els_a.keys() & els_b.keys())
+    if common_count > location_compared:
         not_enough_data.append({"check": "location", "reason": LOCATION_MISSING_REASON})
     summary = _summary(totals, per_category, len(els_a), len(els_b))
     if not_enough_data:
-        summary += (" Not enough data to tell whether anything moved or rotated: "
+        summary += (" Not enough data to check movement or rotation for every shared element: "
                     + LOCATION_MISSING_REASON)
     return {
         "totals": totals,
         "location_checked": location_compared > 0,
         "elements_compared_on_location": location_compared,
+        "elements_missing_location": common_count - location_compared,
         "not_enough_data": not_enough_data,
         "counts_per_category": per_category,
         "added": [brief(e) for e in added[:cap]],
@@ -310,6 +312,12 @@ class ModelChangesModule:
         newer_id = _resolve(newer_snapshot_id, workspace)
         snap_a = _load(older_id, workspace)
         snap_b = _load(newer_id, workspace)
+        for sid, snap in ((older_id, snap_a), (newer_id, snap_b)):
+            counts = snap.get("counts") or {}
+            if counts.get("truncated") or counts.get("dirty_only") or snap.get("dirty_only"):
+                raise ValueError(f"Snapshot '{sid}' is a partial capture; comparing it would report uncaptured elements as removed. Capture two complete snapshots first.")
+        if set((snap_a.get("counts") or {}).get("categories") or []) != set((snap_b.get("counts") or {}).get("categories") or []):
+            raise ValueError("Snapshots cover different category filters. Capture both with the same categories before comparing.")
         guid_a = (snap_a.get("source") or {}).get("doc_guid")
         guid_b = (snap_b.get("source") or {}).get("doc_guid")
         if guid_a and guid_b and guid_a != guid_b:

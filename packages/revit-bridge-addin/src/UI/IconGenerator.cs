@@ -93,11 +93,40 @@ namespace RevitBridge.UI
         }
 
         // ---- Ribbon icons ----
+        // The 'cut slate' PNGs (scripts/make_ribbon_icons.py, docs/RIBBON_ICONS.md) are embedded as
+        // RevitBridge.RibbonIcons.<name>_<16|32>_<light|dark>.png; the vector drawings below are the fallback.
+
+        /// <summary>Embedded cut-slate icon for the current Revit theme, or null when it is not in the assembly.</summary>
+        internal static BitmapSource? LoadEmbedded(string name, int size)
+        {
+            try
+            {
+                int px = size <= 16 ? 16 : 32;
+                string resource = $"RevitBridge.RibbonIcons.{name}_{px}_{(IsDarkTheme() ? "dark" : "light")}.png";
+                using (Stream? stream = typeof(IconGenerator).Assembly.GetManifestResourceStream(resource))
+                {
+                    if (stream == null)
+                    {
+                        return null;
+                    }
+
+                    var decoder = new PngBitmapDecoder(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+                    BitmapSource frame = decoder.Frames[0];
+                    frame.Freeze();
+                    return frame;
+                }
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
 
         /// <summary>Connect: two model blocks joined by the accent link, green "run" badge.</summary>
         public static BitmapSource CreateConnectIcon(int size = 32)
         {
-            return Render32(size, (c, p) =>
+            return LoadEmbedded("connect", size) ?? Render32(size, (c, p) =>
             {
                 var ink = P(p.Ink, 2);
                 Shape(c, p.Fill, ink, "M4.5,5 H10.5 A1.5,1.5 0 0 1 12,6.5 V14.5 A1.5,1.5 0 0 1 10.5,16 H4.5 A1.5,1.5 0 0 1 3,14.5 V6.5 A1.5,1.5 0 0 1 4.5,5 Z");
@@ -111,7 +140,7 @@ namespace RevitBridge.UI
         /// <summary>Disconnect: the same blocks with a broken link and a red "stop" badge.</summary>
         public static BitmapSource CreateDisconnectIcon(int size = 32)
         {
-            return Render32(size, (c, p) =>
+            return LoadEmbedded("disconnect", size) ?? Render32(size, (c, p) =>
             {
                 var ink = P(p.Ink, 2);
                 Shape(c, p.Face, ink, "M4.5,5 H10.5 A1.5,1.5 0 0 1 12,6.5 V14.5 A1.5,1.5 0 0 1 10.5,16 H4.5 A1.5,1.5 0 0 1 3,14.5 V6.5 A1.5,1.5 0 0 1 4.5,5 Z");
@@ -127,7 +156,7 @@ namespace RevitBridge.UI
         /// <summary>Status: monitor with an accent pulse line.</summary>
         public static BitmapSource CreateStatusIcon(int size = 32)
         {
-            return Render32(size, (c, p) =>
+            return LoadEmbedded("status", size) ?? Render32(size, (c, p) =>
             {
                 var ink = P(p.Ink, 2);
                 c.DrawRoundedRectangle(p.Surface, ink, new Rect(3, 4, 26, 18), 2, 2);
@@ -140,7 +169,7 @@ namespace RevitBridge.UI
         /// <summary>Settings: gear with an accent hub.</summary>
         public static BitmapSource CreateSettingsIcon(int size = 32)
         {
-            return Render32(size, (c, p) =>
+            return LoadEmbedded("settings", size) ?? Render32(size, (c, p) =>
             {
                 for (int i = 0; i < 4; i++)
                 {
@@ -158,7 +187,7 @@ namespace RevitBridge.UI
         /// <summary>Help: filled round with an accent question mark.</summary>
         public static BitmapSource CreateHelpIcon(int size = 32)
         {
-            return Render32(size, (c, p) =>
+            return LoadEmbedded("help", size) ?? Render32(size, (c, p) =>
             {
                 c.DrawEllipse(p.Fill, P(p.Ink, 2), new Point(16, 16), 12.5, 12.5);
                 Shape(c, null, P(p.Accent, 2.6), "M12.4,12.6 A3.7,3.7 0 1 1 17.8,15.9 C16.5,16.6 16,17.3 16,18.6");
@@ -169,7 +198,7 @@ namespace RevitBridge.UI
         /// <summary>About: filled round with an accent "i".</summary>
         public static BitmapSource CreateAboutIcon(int size = 32)
         {
-            return Render32(size, (c, p) =>
+            return LoadEmbedded("about", size) ?? Render32(size, (c, p) =>
             {
                 c.DrawEllipse(p.Fill, P(p.Ink, 2), new Point(16, 16), 12.5, 12.5);
                 c.DrawEllipse(p.Accent, null, new Point(16, 10.4), 1.8, 1.8);
@@ -180,7 +209,7 @@ namespace RevitBridge.UI
         /// <summary>Open Panel: window with an accent docked side panel.</summary>
         public static BitmapSource CreatePanelIcon(int size = 32)
         {
-            return Render32(size, (c, p) =>
+            return LoadEmbedded("panel", size) ?? Render32(size, (c, p) =>
             {
                 var ink = P(p.Ink, 2);
                 c.DrawRoundedRectangle(p.Surface, ink, new Rect(3, 4, 26, 24), 2, 2);
@@ -195,7 +224,7 @@ namespace RevitBridge.UI
         /// <summary>Health Check: isometric model cube with a green check badge.</summary>
         public static BitmapSource CreateHealthIcon(int size = 32)
         {
-            return Render32(size, (c, p) =>
+            return LoadEmbedded("healthcheck", size) ?? Render32(size, (c, p) =>
             {
                 var ink = P(p.Ink, 1.8);
                 Shape(c, p.Fill, ink, "M14,2 L25,8 L14,14 L3,8 Z");
@@ -209,7 +238,7 @@ namespace RevitBridge.UI
         /// <summary>Pending Actions: checklist page with an amber clock badge.</summary>
         public static BitmapSource CreatePendingIcon(int size = 32)
         {
-            return Render32(size, (c, p) =>
+            return LoadEmbedded("pending", size) ?? Render32(size, (c, p) =>
             {
                 var ink = P(p.Ink, 2);
                 c.DrawRoundedRectangle(p.Surface, ink, new Rect(4, 3, 19, 25), 2, 2);
@@ -224,7 +253,7 @@ namespace RevitBridge.UI
         /// <summary>Reports: document with an accent bar chart.</summary>
         public static BitmapSource CreateReportsIcon(int size = 32)
         {
-            return Render32(size, (c, p) =>
+            return LoadEmbedded("reports", size) ?? Render32(size, (c, p) =>
             {
                 c.DrawRoundedRectangle(p.Surface, P(p.Ink, 2), new Rect(6, 3, 20, 26), 2, 2);
                 c.DrawLine(P(p.Mid, 2), new Point(10.5, 8.5), new Point(21.5, 8.5));

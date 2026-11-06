@@ -33,6 +33,16 @@ AEC Model Bridge 是開源的 Revit MCP 伺服器，讓 Claude、Codex、Cursor 
 
 同一個伺服器還包含 IFC 檢查、Rhino 與 Grasshopper 自動化，以及 Speckle 整合。[整合狀態](#其他整合)會區分哪些提供者已可使用、哪些仍在開發中。
 
+## 星標歷史
+
+<a href="https://www.star-history.com/?repos=sam-aec%2Faec-model-bridge&type=date&legend=top-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+ </picture>
+</a>
+
 ## 範例工作流程
 
 適用於 BIM 協調人員：檢查模型品質、檢視受影響的元件、核准參數修正，接著確認結果並匯出報告。這些範例使用[目前工具目錄](../tools-generated.md)中的工具。
@@ -140,6 +150,8 @@ MCP 用戶端與一個 Python hub 溝通。hub 會把每次呼叫轉送給擁有
 ### 核准如何運作
 
 除非附有已核准的計畫，否則 hub 會攔下任何會變更模型的工具呼叫。預設模式為 `required`。AI 提出計畫，你在 Revit 側邊面板中檢視，接著增益集會在 Revit 主執行緒中執行，參數與模型編輯類動作各自在獨立的具名交易（transaction）中運行；儲存、同步與腳本類動作則不是，因此 Ctrl+Z 無法復原它們。
+
+面板透過 "Show the review to enable Approve" 顯示計畫審閱內容，核准前必須先開啟。無效、不支援或過大的審閱內容會阻止核准；`aec-model-bridge-approve show <plan_id>` 可顯示完整計畫。此行為有自動化測試，但 WebView2 中的核准仍需實機驗收。[驗證報告](../revit-addin-live-validation-2026-10-14.md) 僅記錄 Revit 2024 中有限的唯讀檢查，不代表寫入、復原、恢復或其他 Revit 年度版本已通過驗證。
 
 <p align="center">
   <picture>

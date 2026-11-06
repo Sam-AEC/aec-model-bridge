@@ -39,6 +39,16 @@ AEC Model Bridge هو خادم MCP مفتوح المصدر لبرنامج Revit�
 
 يتضمن الخادم نفسه فحص ملفات IFC وأتمتة Rhino وGrasshopper والتكامل مع Speckle. يبيّن [حالة التكاملات](#تكاملات-أخرى) المزوّدات المتاحة وتلك التي ما زالت قيد التطوير.
 
+## سجل النجوم
+
+<a href="https://www.star-history.com/?repos=sam-aec%2Faec-model-bridge&type=date&legend=top-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+ </picture>
+</a>
+
 ## أمثلة على سير العمل
 
 لمنسّقي BIM: افحص جودة النموذج، وراجع العناصر المتأثرة، ووافق على تصحيح المعاملات (parameters)، ثم تحقق من النتائج وصدّر تقريرًا. تستخدم هذه الأمثلة أدوات من [الفهرس الحالي](../tools-generated.md).
@@ -158,6 +168,8 @@ the plan in Revit, apply it and read the values back to confirm the result.
 ### كيف تعمل الموافقة
 
 يوقف الموزّع أي استدعاء لأداة يغيّر النموذج ما لم يحمل خطة معتمدة. الوضع الافتراضي هو `required`. يقترح الذكاء الاصطناعي خطة، وتراجعها أنت في اللوحة الجانبية في Revit، ثم تنفّذها الإضافة على الخيط الرئيسي (main thread) في Revit وتنفّذ إجراءات تعديل المعاملات (parameters) والنموذج كلًّا ضمن معاملة (transaction) مسمّاة مستقلة؛ أما إجراءات الحفظ والمزامنة والسكربتات فلا، لذا لا يشملها Ctrl+Z.
+
+تعرض اللوحة مراجعة الخطة عبر "Show the review to enable Approve"، ويجب فتحها قبل الموافقة. تُعطّل الموافقة إذا كانت المراجعة غير صالحة أو غير مدعومة أو تتجاوز حدود العرض؛ يعرض `aec-model-bridge-approve show <plan_id>` الخطة كاملة. تغطي الاختبارات الآلية هذا السلوك، لكن الموافقة في WebView2 ما زالت تحتاج تحققًا حيًا. يوثق [تقرير التحقق](../revit-addin-live-validation-2026-10-14.md) فحوص قراءة محدودة في Revit 2024 فقط؛ ولا يثبت نجاح الكتابة أو التراجع أو الاستعادة أو إصدارات Revit الأخرى.
 
 <p align="center">
   <picture>

@@ -30,10 +30,12 @@ dependencies = [
     # tool_metadata.py sets on every listed tool. Capped below 2: mcp 2.x (Python
     # 3.12+) removed the low-level `Server.list_tools()` decorators this server is
     # built on, so an unpinned install crashed at import time.
-    "mcp>=1.10,<2",
+    "mcp>=1.30.0,<2",
     "ifcopenshell>=0.7.0",
     "networkx>=3.0",
-    "specklepy>=3,<4",
+    # Calendar-versioned SDK supports patched GraphQL dependencies.
+    "specklepy>=2026.9.1,<2027",
+    "graphql-core>=3.2.12",
     "pyyaml>=6.0",
     "openpyxl>=3.1",
     # agent_native.py replays response.content (incl. thinking blocks, which
@@ -114,8 +116,13 @@ filterwarnings = [
 
 [tool.coverage.run]
 branch = true
-source_pkgs = ["revit_mcp_server"]
+# Include modules loaded by file path, not only the canonical package name.
+source = ["src/revit_mcp_server"]
+relative_files = true
 omit = ["*/tests/*", "*/_version.py"]
+
+[tool.coverage.paths]
+source = ["src/revit_mcp_server", "*/site-packages/revit_mcp_server"]
 
 [tool.coverage.report]
 # Measured at 59% (line + branch) when this gate was introduced; the floor sits a

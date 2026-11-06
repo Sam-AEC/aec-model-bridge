@@ -33,6 +33,16 @@ AEC Model Bridge — это MCP-сервер для Revit с открытым и
 
 В тот же сервер входят проверка IFC, автоматизация Rhino и Grasshopper и интеграция со Speckle. В разделе [Статус интеграций](#другие-интеграции) указано, какие провайдеры уже доступны, а какие ещё в разработке.
 
+## История звёзд
+
+<a href="https://www.star-history.com/?repos=sam-aec%2Faec-model-bridge&type=date&legend=top-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+ </picture>
+</a>
+
 ## Примеры рабочих процессов
 
 Для BIM-координаторов: проверить качество модели, просмотреть затронутые элементы, согласовать исправление параметров, затем проверить результат и выгрузить отчёт. В примерах используются инструменты из [текущего каталога](../tools-generated.md).
@@ -140,6 +150,8 @@ MCP-клиент обращается к одному Python-хабу. Хаб п
 ### Как работает согласование
 
 Хаб останавливает любой вызов инструмента, меняющий модель, если с ним не передан согласованный план. Режим по умолчанию — `required`. ИИ предлагает план, вы просматриваете его на боковой панели Revit, а плагин выполняет его в основном потоке Revit, действия с параметрами и правки модели выполняются каждое в своей именованной транзакции; сохранение, синхронизация и скрипты — нет, поэтому Ctrl+Z их не охватывает.
+
+Панель показывает обзор плана через "Show the review to enable Approve"; перед одобрением его нужно открыть. Некорректный, неподдерживаемый или слишком большой обзор блокирует одобрение; `aec-model-bridge-approve show <plan_id>` показывает план целиком. Это поведение проверено автоматическими тестами; одобрение в WebView2 ещё требует живой проверки. [Отчёт о проверке](../revit-addin-live-validation-2026-10-14.md) фиксирует только ограниченные проверки чтения в Revit 2024, но не подтверждает запись, откат, восстановление или другие годовые версии Revit.
 
 <p align="center">
   <picture>

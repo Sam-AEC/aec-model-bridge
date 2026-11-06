@@ -338,6 +338,18 @@ def test_diagnostics_flags_mock_mode_with_next_step(running_server):
     assert body["ok"] is False
 
 
+@pytest.mark.parametrize("available", [None, "claude", "codex", "api-key"])
+def test_diagnostics_accepts_every_supported_chat_provider(tmp_path, monkeypatch, available):
+    monkeypatch.setattr(panel_server.config, "anthropic_api_key", "test-key" if available == "api-key" else None)
+    monkeypatch.setattr(panel_server.shutil, "which", lambda name: f"/tools/{name}" if name == available else None)
+    check = next(c for c in panel_server.collect_diagnostics(tmp_path)["checks"] if c["id"] == "ai_provider")
+    assert check["ok"] is (available is not None)
+    if available is None:
+        assert "codex" in check["next_step"] and "claude" in check["next_step"]
+    else:
+        assert check["next_step"] == ""
+
+
 def test_diagnostics_reports_missing_revit_bridge(running_server, monkeypatch):
     from revit_mcp_server.config import BridgeMode
 

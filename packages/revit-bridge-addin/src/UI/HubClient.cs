@@ -265,7 +265,10 @@ namespace RevitBridge.UI
                 {
                     using (var doc = JsonDocument.Parse(text))
                     {
-                        if (doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty("checks", out _))
+                        if (response.Status >= 200 && response.Status < 300
+                            && doc.RootElement.ValueKind == JsonValueKind.Object
+                            && doc.RootElement.TryGetProperty("checks", out var checks)
+                            && checks.ValueKind == JsonValueKind.Array)
                         {
                             // The whole payload is the result: {ok, checks:[...]}; ok=false is still a valid answer.
                             return HubResult.Success(doc.RootElement.Clone());

@@ -67,7 +67,19 @@ jobs:
 
       - name: Verify tag, VERSION, manifests and changelog agree
         shell: pwsh
-        run: python scripts/version.py check --tag "${{ steps.tag.outputs.tag }}"
+        env:
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          python scripts/version.py check --tag $env:RELEASE_TAG
+          if ($LASTEXITCODE -ne 0) { throw "Release metadata does not match the tag" }
+          # Attestations identify the workflow event's commit, not an arbitrary checkout.
+          # A manual publishing rebuild must be dispatched on the requested tag itself.
+          $builtCommit = (git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0) { throw "Cannot resolve the built commit" }
+          if ($env:DRY_RUN -ne 'true' -and $builtCommit -ne $env:GITHUB_SHA) {
+            throw "Publishing requires dispatching on $env:RELEASE_TAG so the attested commit matches the checkout. Use dry_run for a different ref."
+          }
 
       - name: Set up .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
@@ -87,7 +99,7 @@ jobs:
         run: python -m pytest packages/mcp-server-revit/tests
 
       - name: Set up Node for the VS Code extension
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24   # npm 11; npm 10 cannot install the extension's dependencies
           cache: npm
@@ -105,6 +117,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Extension tests failed" }
           npm run package
           if ($LASTEXITCODE -ne 0) { throw "Extension packaging failed" }
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          enable-cache: false
 
       - name: Build release artifacts
         shell: pwsh
@@ -140,6 +157,24 @@ jobs:
           -Installer "dist/release/AECModelBridge-Setup-${{ steps.tag.outputs.version }}.exe"
           -AllowOverwrite
 
+      - name: Generate the shipped Python SBOM and refresh checksums
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          $bundlePython = Join-Path $env:GITHUB_WORKSPACE 'dist/AECModelBridge/python/python.exe'
+          $sbom = Join-Path $env:GITHUB_WORKSPACE "dist/release/aec-model-bridge-$env:RELEASE_VERSION.cdx.json"
+          # The generator runs separately; it must not install itself into the shipped environment.
+          uvx --from cyclonedx-bom==7.2.1 cyclonedx-py environment $bundlePython --pyproject packages/mcp-server-revit/pyproject.toml --sv 1.6 --of JSON --output-reproducible --validate -o $sbom
+          if ($LASTEXITCODE -ne 0) { throw "Shipped environment SBOM generation failed" }
+          python scripts/validate_release_sbom.py $sbom --python $bundlePython --version $env:RELEASE_VERSION
+          if ($LASTEXITCODE -ne 0) { throw "SBOM does not match the shipped environment" }
+          Get-ChildItem -Path dist/release -File |
+            Where-Object Name -ne 'SHA256SUMS.txt' |
+            Sort-Object Name |
+            ForEach-Object { "$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant())  $($_.Name)" } |
+            Set-Content -LiteralPath dist/release/SHA256SUMS.txt -Encoding ascii
+
       - name: Write release notes from CHANGELOG
         shell: pwsh
         run: |
@@ -148,13 +183,13 @@ jobs:
           if (Test-Path "dist/release/AECModelBridge-Setup-$version.exe") {
             Add-Content -Encoding utf8 release-notes.md @"
 
-          **Easiest install:** download ``AECModelBridge-Setup-$version.exe`` below, double-click it and follow the wizard. It detects your Revit versions and sets everything up. Checksums are in ``SHA256SUMS.txt``.
+          **Easiest install:** download ``AECModelBridge-Setup-$version.exe`` below, double-click it and follow the wizard. It detects your Revit versions and sets everything up. Checksums are in ``SHA256SUMS.txt``. The shipped Python dependency inventory is ``aec-model-bridge-$version.cdx.json``; see docs/supply-chain.md for its scope and verification.
           "@
           }
 
       - name: Upload artifacts (dry run)
         if: ${{ inputs.dry_run }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-dry-run-${{ steps.tag.outputs.version }}
           path: |
@@ -194,3 +229,14 @@ jobs:
         # A release created with the default token does not fire release-event workflows,
         # but workflow_dispatch does, so start the registry publish explicitly.
         run: gh workflow run publish-mcp.yml --ref "${{ steps.tag.outputs.tag }}"
+
+      # Releases created with GITHUB_TOKEN do not trigger release-event workflows.
+      - name: Start extension store publishing
+        if: ${{ steps.tag.outputs.prerelease == 'false' && !inputs.dry_run }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          gh workflow run vscode-extension.yml --ref $env:RELEASE_TAG -f "publish_tag=$env:RELEASE_TAG"
+          if ($LASTEXITCODE -ne 0) { throw "Extension publish dispatch failed" }

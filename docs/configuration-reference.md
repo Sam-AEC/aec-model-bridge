@@ -31,6 +31,11 @@ The server has two modes. Set the mode with `MCP_REVIT_MODE`.
 | `MCP_REVIT_LEGACY_PORT` | No | unset | Read by the Revit add-in, not the Python server. Set to `true` or `1` to bind the add-in to fixed port `3000` with no authentication. See [Security](security.md). |
 | `REVIT_SDK` | Build only | unset | Optional path used by the add-in build scripts. |
 
+The Revit add-in honors the same explicit directory allowlist as the hub; it
+does not add its default workspace to an explicit list. When the add-in launches
+the hub without an allowlist, it scopes the hub to the effective workspace,
+including a custom `MCP_REVIT_WORKSPACE_DIR`.
+
 ## Package and registry files
 
 These files define the Python package and the MCP registry entry:

@@ -95,6 +95,7 @@ class ModuleProvider(AECProvider):
                 # Carry over all metadata
                 tools.append(ProviderTool(
                     name=tool_name_of(m.manifest.id, cmd),
+                    module_id=m.manifest.id,
                     description=cmd.title,
                     inputSchema=cmd.input_schema or {"type": "object", "properties": {}, "required": []},
                     is_mutating=cmd.is_mutating,
@@ -216,6 +217,8 @@ class ModuleProvider(AECProvider):
         for m in self.registry.get_all_modules():
             cmd_list = []
             for cmd in m.manifest.commands:
+                if self.tool_registry and not self.tool_registry.is_tool_visible(tool_name_of(m.manifest.id, cmd)):
+                    continue
                 cmd_list.append({
                     "id": cmd.id,
                     "title": cmd.title,
@@ -225,6 +228,8 @@ class ModuleProvider(AECProvider):
                     "destructive": cmd.destructive,
                     "requires_plan": cmd.requires_plan
                 })
+            if not cmd_list and m.manifest.commands:
+                continue
             module_list.append({
                 "id": m.manifest.id,
                 "name": m.manifest.name,

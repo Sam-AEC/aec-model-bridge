@@ -33,6 +33,16 @@ La configurazione è documentata per Claude Desktop, VS Code con GitHub Copilot,
 
 Lo stesso server include l'ispezione IFC, l'automazione di Rhino e Grasshopper e l'integrazione con Speckle. Lo [stato delle integrazioni](#altre-integrazioni) distingue i provider disponibili da quelli ancora in sviluppo.
 
+## Cronologia delle stelle
+
+<a href="https://www.star-history.com/?repos=sam-aec%2Faec-model-bridge&type=date&legend=top-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+ </picture>
+</a>
+
 ## Flussi di lavoro di esempio
 
 Per i coordinatori BIM: controllare la qualità del modello, esaminare gli elementi interessati, approvare una correzione dei parametri, poi verificare i risultati ed esportare un report. Questi esempi usano strumenti del [catalogo attuale](../tools-generated.md).
@@ -140,6 +150,8 @@ I riquadri verde acqua funzionano oggi. I riquadri ambra tratteggiati sono in sv
 ### Come funziona l'approvazione
 
 L'hub blocca qualsiasi chiamata a uno strumento che modifica il modello, a meno che non porti con sé un piano approvato. La modalità predefinita è `required`. L'IA propone un piano, tu lo esamini nel pannello laterale di Revit e l'add-in lo esegue nel thread principale di Revit, le azioni sui parametri e di modifica del modello ciascuna in una propria transazione con nome; salvataggio, sincronizzazione e script no, quindi Ctrl+Z non le copre.
+
+Il pannello mostra la revisione del piano con "Show the review to enable Approve" e richiede di aprirla prima dell’approvazione. Revisioni non valide, non supportate o troppo grandi bloccano l’approvazione; `aec-model-bridge-approve show <plan_id>` mostra il piano completo. Il comportamento è coperto da test automatici; l’approvazione in WebView2 richiede ancora verifica dal vivo. Il [rapporto di validazione](../revit-addin-live-validation-2026-10-14.md) documenta solo controlli di lettura limitati in Revit 2024, senza convalidare scritture, annullamento, recupero o altri anni di Revit.
 
 <p align="center">
   <picture>

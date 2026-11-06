@@ -90,21 +90,19 @@ public sealed class PanelHubLauncher
                 RedirectStandardError = true,
             };
 
-            // Config() (config.py) requires MCP_REVIT_WORKSPACE_DIR and
-            // MCP_REVIT_ALLOWED_DIRECTORIES and has no fallback for an installed
-            // layout with no discoverable .env - without these the subprocess crashed
-            // on import every time and never became reachable. Respect any value the
-            // user already has set system-wide; otherwise default to Documents, same
-            // as install.ps1's own default.json.
+            // Match config.py's defaults and preserve the person's allowlist.
             SetEnvironmentDefault(startInfo, "MCP_REVIT_MODE", "bridge");
             var defaultWorkspace = WorkspaceDirectory.Default(); // same as config.py's default_workspace_dir()
             SetEnvironmentDefault(startInfo, "MCP_REVIT_WORKSPACE_DIR", defaultWorkspace);
-            SetEnvironmentDefault(startInfo, "MCP_REVIT_ALLOWED_DIRECTORIES", defaultWorkspace);
+            var workspace = startInfo.EnvironmentVariables["MCP_REVIT_WORKSPACE_DIR"];
+            if (Environment.GetEnvironmentVariable("MCP_REVIT_ALLOWED_DIRECTORIES") == null)
+            {
+                startInfo.EnvironmentVariables["MCP_REVIT_ALLOWED_DIRECTORIES"] = workspace;
+            }
 
             // The hub refuses to start if its workspace folder does not exist, and the default
             // (~/Documents/AEC Model Bridge) does not exist on a fresh install or when Documents
             // is redirected (OneDrive). Create it here rather than let the hub die unseen.
-            var workspace = startInfo.EnvironmentVariables["MCP_REVIT_WORKSPACE_DIR"];
             if (!string.IsNullOrWhiteSpace(workspace))
             {
                 try

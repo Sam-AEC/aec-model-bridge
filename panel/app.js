@@ -160,6 +160,8 @@ const CHECK_LABELS = {
 };
 
 let setupExpanded = false;
+let diagnosticsRetry = null;
+const HUB_RECOVERY = "Restart Revit to start the panel hub, or run 'aec-model-bridge-panel-server' in a terminal, then press Refresh. See docs/first-check.md if it keeps failing.";
 
 // approval_mode is a choice the person made (the mode chip shows it), not a fault: it must not
 // count as a step to fix or replace a real error such as "hub unreachable" with its advice.
@@ -177,7 +179,7 @@ function nextStepFor(checkId) {
 // Replaces the generic "Could not reach the hub" transport error with the
 // failing check's next step when diagnostics know better.
 function friendlyError(message) {
-  const step = nextStepFor();
+  const step = nextStepFor("hub");
   if (step && /could not reach the aec model bridge hub/i.test(message || "")) {
     return step;
   }
@@ -219,6 +221,8 @@ function renderSetup() {
 }
 
 function requestDiagnostics() {
+  clearTimeout(diagnosticsRetry);
+  diagnosticsRetry = null;
   setupCard.dataset.state = "checking";
   setupStatus.textContent = "Checking setup\u2026";
   postToHost("diagnostics.refresh");
@@ -233,11 +237,15 @@ function setHubUnreachable(message) {
       id: "hub",
       ok: false,
       detail: message || "The panel could not reach the AEC Model Bridge hub.",
-      next_step: "Start the bridge server (Connection panel > Start Server), then press Refresh. If it keeps failing, see docs/first-check.md."
+        next_step: HUB_RECOVERY
     }]
   };
   renderSetup();
   renderSystemState();
+  // Revit's bridge can already be online while the separate Python hub starts.
+  // Retry the diagnostics endpoint itself; serverRunning is not its readiness signal.
+  clearTimeout(diagnosticsRetry);
+  diagnosticsRetry = setTimeout(requestDiagnostics, 5000);
 }
 
 function renderAlerts() {
@@ -1123,6 +1131,13 @@ if (window.chrome && window.chrome.webview) {
       addLog("Selection updated", detail);
     }
     if (event.data?.type === "diagnostics.updated") {
+      clearTimeout(diagnosticsRetry);
+      diagnosticsRetry = null;
+      if (!event.data.diagnostics || !Array.isArray(event.data.diagnostics.checks)
+          || event.data.diagnostics.checks.some((check) => !check || typeof check !== "object")) {
+        setHubUnreachable("The panel hub returned an invalid diagnostics response.");
+        return;
+      }
       state.diagnostics = event.data.diagnostics;
       renderMode();
       syncAutoControls();

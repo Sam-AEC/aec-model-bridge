@@ -33,6 +33,16 @@ AEC Model Bridge 是开源的 Revit MCP 服务器，让 Claude、Codex、Cursor 
 
 同一个服务器还包含 IFC 检查、Rhino 与 Grasshopper 自动化以及 Speckle 集成。[集成状态](#其他集成)区分了已可用的提供程序和仍在开发中的部分。
 
+## 星标历史
+
+<a href="https://www.star-history.com/?repos=sam-aec%2Faec-model-bridge&type=date&legend=top-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+ </picture>
+</a>
+
 ## 示例工作流
 
 面向 BIM 协调人员：检查模型质量，审阅受影响的构件，批准参数修复，然后核对结果并导出报告。
@@ -141,6 +151,8 @@ MCP 客户端与一个 Python hub 通信。hub 将每次调用转发给拥有该
 ### 审批如何运作
 
 hub 会拦截任何会修改模型的工具调用，除非它附带已批准的计划。默认模式为 `required`。AI 提出计划，你在 Revit 侧边面板中审阅，然后插件在 Revit 主线程中执行，参数和模型编辑类操作各自在独立的命名事务（transaction）中运行；保存、同步和脚本类操作则不是，因此 Ctrl+Z 无法撤销它们。
+
+面板通过 "Show the review to enable Approve" 显示计划审阅内容，批准前必须先打开。无效、不受支持或过大的审阅内容会阻止批准；`aec-model-bridge-approve show <plan_id>` 可显示完整计划。此行为有自动化测试，但 WebView2 中的批准仍需实机验收。[验证报告](../revit-addin-live-validation-2026-10-14.md) 仅记录 Revit 2024 中有限的只读检查，不代表写入、回退、恢复或其他 Revit 年份版本已通过验证。
 
 <p align="center">
   <picture>

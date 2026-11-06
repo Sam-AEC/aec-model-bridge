@@ -165,8 +165,28 @@ def test_run_reports_bridge_unavailable(env):
     def boom(name, args):
         raise BridgeError("Recipe step tool 'revit_run_pyrevit_script' not found in registry")
 
-    res = _mod.PyrevitBridgeModule().run_pyrevit_script(
-        _sid(env), sha, pid, workspace=env["ws"], tool_executor=boom)
-    assert res["status"] == "bridge_unavailable"
-    assert res["executed"] is False
-    assert res["required_bridge_call"] == "revit.run_pyrevit_script"
+    with pytest.raises(BridgeError, match="bridge unavailable"):
+        _mod.PyrevitBridgeModule().run_pyrevit_script(
+            _sid(env), sha, pid, workspace=env["ws"], tool_executor=boom)
+
+
+def test_run_without_executor_is_a_failure(env):
+    sha = hashlib.sha256(WRITE_SCRIPT.encode()).hexdigest()
+    pid = _approved_plan(env, sha)
+    with pytest.raises(BridgeError, match="not executed"):
+        _mod.PyrevitBridgeModule().run_pyrevit_script(_sid(env), sha, pid, workspace=env["ws"])
+
+
+def test_non_utf8_script_is_rejected_before_approval(env):
+    env["script"].write_bytes('# coding: cp1252\nprint("caf\u00e9")\n'.encode("cp1252"))
+    with pytest.raises(BridgeError, match="UTF-8"):
+        _mod.PyrevitBridgeModule().plan_run_pyrevit_script(_sid(env))
+    assert _sid(env) not in [s["id"] for s in _mod.PyrevitBridgeModule().list_pyrevit_scripts()["scripts"]]
+
+
+def test_explicit_bridge_failure_is_not_executed(env):
+    sha = hashlib.sha256(WRITE_SCRIPT.encode()).hexdigest()
+    pid = _approved_plan(env, sha)
+    with pytest.raises(BridgeError, match="failed execution"):
+        _mod.PyrevitBridgeModule().run_pyrevit_script(
+            _sid(env), sha, pid, workspace=env["ws"], tool_executor=lambda *a: {"ok": False})

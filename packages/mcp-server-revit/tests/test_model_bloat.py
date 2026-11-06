@@ -143,3 +143,34 @@ def test_no_cad_records_is_unknown_unless_scan_declared(tmp_path):
     r2 = ModelBloatModule().audit(snapshot_id=_write(tmp_path, els, types, "s2", cad_scanned=True),
                                   workspace=WS(tmp_path))
     assert r2["checks"]["imported_cad"]["status"] == "ran" and r2["cleanliness"]["score"] == 100
+
+
+@pytest.mark.parametrize('counts', [{'truncated': True}, {'categories': ['OST_Furniture']}, {'dirty_only': True}])
+def test_partial_capture_never_proposes_unused_types(tmp_path, counts):
+    sid = _write(tmp_path, [_el(1, 'Chair', 'Std', 't1')],
+                 [_ty('t1', 'Chair', 'Std'), _ty('t2', 'Chair', 'Spare')],
+                 cad_scanned=True, counts=counts)
+    res = ModelBloatModule().audit(snapshot_id=sid, workspace=WS(tmp_path))
+    assert res['unused_types']['total'] is None
+    assert res['cleanliness']['score'] is None
+    assert 'untruncated' in str(res['checks']['unused_families_and_types']['missing'])
+
+
+def test_live_mode_requires_snapshot(monkeypatch, tmp_path):
+    from revit_mcp_server.config import BridgeMode, config
+    monkeypatch.setattr(config, 'mode', BridgeMode.bridge)
+    with pytest.raises(ValueError, match='requires a snapshot_id'):
+        ModelBloatModule().audit(workspace=WS(tmp_path))
+
+
+@pytest.mark.parametrize('snapshot_id', ['../secret', r'..\secret', 'C:secret'])
+def test_snapshot_path_traversal_is_rejected(tmp_path, snapshot_id):
+    with pytest.raises(ValueError, match='Invalid snapshot'):
+        ModelBloatModule().audit(snapshot_id=snapshot_id, workspace=WS(tmp_path))
+
+
+def test_unmatched_instance_types_do_not_prove_usage_coverage(tmp_path):
+    sid = _write(tmp_path, [_el(1, 'Chair', 'Std', 'unknown')], [_ty('t1', 'Chair', 'Std')], cad_scanned=True)
+    res = ModelBloatModule().audit(snapshot_id=sid, workspace=WS(tmp_path))
+    assert res['unused_families']['total'] is None
+    assert res['usage_counts_available'] is False

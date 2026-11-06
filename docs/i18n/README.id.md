@@ -33,6 +33,16 @@ Pengaturan didokumentasikan untuk Claude Desktop, VS Code dengan GitHub Copilot,
 
 Server yang sama juga mencakup pemeriksaan IFC, otomatisasi Rhino dan Grasshopper, serta integrasi Speckle. [Status integrasi](#integrasi-lainnya) membedakan provider yang sudah tersedia dari yang masih dalam pengerjaan.
 
+## Riwayat bintang
+
+<a href="https://www.star-history.com/?repos=sam-aec%2Faec-model-bridge&type=date&legend=top-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+ </picture>
+</a>
+
 ## Contoh alur kerja
 
 Untuk koordinator BIM: periksa kualitas model, tinjau elemen yang terdampak, setujui perbaikan parameter, lalu cek hasilnya dan ekspor laporan. Contoh-contoh ini memakai tool dalam [katalog saat ini](../tools-generated.md).
@@ -140,6 +150,8 @@ Kotak berwarna teal sudah berfungsi saat ini. Kotak putus-putus berwarna amber m
 ### Cara kerja persetujuan
 
 Hub menghentikan setiap panggilan tool yang mengubah model kecuali panggilan itu membawa rencana yang sudah disetujui. Mode default-nya adalah `required`. AI mengusulkan rencana, Anda meninjaunya di panel samping Revit, lalu add-in menjalankannya di main thread Revit, aksi parameter dan pengeditan model masing-masing dalam transaksi bernamanya sendiri; aksi simpan, sinkronisasi, dan skrip tidak, sehingga Ctrl+Z tidak mencakupnya.
+
+Panel menampilkan tinjauan rencana melalui "Show the review to enable Approve" dan mewajibkan Anda membukanya sebelum persetujuan. Tinjauan yang tidak valid, tidak didukung, atau terlalu besar memblokir persetujuan; `aec-model-bridge-approve show <plan_id>` menampilkan rencana lengkap. Perilaku ini diuji otomatis; persetujuan di WebView2 masih perlu validasi langsung. [Laporan validasi](../revit-addin-live-validation-2026-10-14.md) hanya mencatat pemeriksaan baca terbatas di Revit 2024, bukan validasi penulisan, pembatalan, pemulihan, atau tahun Revit lainnya.
 
 <p align="center">
   <picture>

@@ -65,14 +65,28 @@ if (-not $testImport) {
     }
     Remove-Item -LiteralPath $getPipPath -Force
 
-    # 4. Install revit_mcp_server package and dependencies
-    $mcpServerPackage = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\packages\mcp-server-revit"))
-    Write-Host "  Installing revit_mcp_server from $mcpServerPackage..." -ForegroundColor Yellow
-    & "$pythonExe" -m pip install --no-warn-script-location "$mcpServerPackage"
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "Failed to install mcp-server-revit into embedded Python."
-        exit $LASTEXITCODE
-    }
+}
+
+# Refresh even an existing bundle: importing an old installation does not prove
+# it matches this checkout. Runtime versions come from uv.lock; the project is
+# installed separately without allowing pip to resolve those ranges again.
+$mcpServerPackage = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\packages\mcp-server-revit"))
+if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
+    throw "uv is required to export the locked runtime dependencies before bundling Python."
+}
+$requirements = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
+try {
+    uv export --frozen --no-dev --no-emit-project --no-hashes --format requirements-txt --directory $mcpServerPackage --output-file $requirements
+    if ($LASTEXITCODE -ne 0) { throw "Exporting locked runtime dependencies failed" }
+    & "$pythonExe" -m pip install --no-warn-script-location -r $requirements
+    if ($LASTEXITCODE -ne 0) { throw "Installing locked runtime dependencies failed" }
+    & "$pythonExe" -m pip install --no-warn-script-location --no-deps --upgrade --force-reinstall $mcpServerPackage
+    if ($LASTEXITCODE -ne 0) { throw "Installing the current MCP server failed" }
+    & "$pythonExe" -m pip check
+    if ($LASTEXITCODE -ne 0) { throw "Bundled Python dependency check failed" }
+}
+finally {
+    Remove-Item -LiteralPath $requirements -Force -ErrorAction SilentlyContinue
 }
 
 Write-Host "  Verifying bundled Python runtime..." -ForegroundColor Yellow

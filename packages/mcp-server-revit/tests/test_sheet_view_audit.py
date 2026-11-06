@@ -211,3 +211,32 @@ def test_snapshot_id_declared_required():
     mj = Path(_mod.__file__).with_name("module.json")
     cmd = json.loads(mj.read_text(encoding="utf-8"))["commands"][0]
     assert cmd["input_schema"]["required"] == ["snapshot_id"]
+
+
+def test_view_side_placement_runs_empty_and_unplaced_checks(tmp_path):
+    data = {
+        'sheets': [{'uid': 's1', 'number': 'A1', 'name': 'Empty'}],
+        'views': [{'uid': 'v1', 'name': 'Plan', 'view_type': 'FloorPlan', 'sheet_uid': None}],
+    }
+    res = _run(tmp_path, data)
+    assert res['checks']['empty_sheets']['status'] == 'ran'
+    assert res['checks']['views_not_on_sheet']['status'] == 'ran'
+    assert _by_check(res)['empty_sheets']['unique_ids'] == ['s1']
+    assert _by_check(res)['views_not_on_sheet']['unique_ids'] == ['v1']
+
+
+@pytest.mark.parametrize('snapshot_id', ['../secret', r'..\secret', 'C:secret'])
+def test_snapshot_path_traversal_is_rejected(tmp_path, snapshot_id):
+    with pytest.raises(ValueError, match='Invalid snapshot'):
+        _mod.SheetViewAuditModule().run_audit(snapshot_id=snapshot_id, workspace=WS(tmp_path))
+
+
+@pytest.mark.parametrize('counts', [{'truncated': True}, {'categories': ['OST_Views']}, {'dirty_only': True}])
+def test_partial_capture_is_disclosed(tmp_path, counts):
+    result = _run(tmp_path, {
+        'counts': counts,
+        'sheets': [{'uid': 's1', 'number': 'A1', 'name': 'Plan', 'view_uids': ['v1']}],
+        'views': [{'uid': 'v1', 'name': 'Plan', 'view_type': 'FloorPlan', 'sheet_uid': 's1'}],
+    })
+    assert result['status'] == 'partial'
+    assert 'captured records' in result['message']

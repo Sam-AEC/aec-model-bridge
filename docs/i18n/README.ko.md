@@ -33,6 +33,16 @@ Claude Desktop, GitHub Copilot과 함께 쓰는 VS Code, Cursor, Codex에 대한
 
 같은 서버에 IFC 검사, Rhino 및 Grasshopper 자동화, Speckle 연동도 포함되어 있습니다. [연동 현황](#기타-연동)에서 사용 가능한 프로바이더와 개발 중인 항목을 구분해 보여 줍니다.
 
+## 스타 기록
+
+<a href="https://www.star-history.com/?repos=sam-aec%2Faec-model-bridge&type=date&legend=top-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+ </picture>
+</a>
+
 ## 워크플로 예시
 
 BIM 코디네이터를 위한 흐름입니다. 모델 품질을 점검하고, 영향받는 요소를 검토하고, 매개변수 수정을 승인한 뒤, 결과를 확인하고 보고서를 내보냅니다. 이 예시는 [현재 도구 카탈로그](../tools-generated.md)의 도구를 사용합니다.
@@ -140,6 +150,8 @@ MCP 클라이언트는 하나의 Python 허브와 통신합니다. 허브는 각
 ### 승인 방식
 
 허브는 승인된 계획이 없는 한 모델을 변경하는 모든 도구 호출을 막습니다. 기본 모드는 `required`입니다. AI가 계획을 제안하면 Revit 사이드 패널에서 검토하고, 애드인이 Revit 메인 스레드에서 실행하며, 매개변수 및 모델 편집 작업은 각각 이름이 붙은 별도 트랜잭션으로 실행되지만, 저장·동기화·스크립트 작업은 그렇지 않아 Ctrl+Z로 되돌릴 수 없습니다.
+
+패널에서 "Show the review to enable Approve"로 계획 검토 내용을 연 뒤 승인해야 합니다. 잘못되었거나 지원되지 않거나 너무 큰 검토 내용은 승인을 차단하며, `aec-model-bridge-approve show <plan_id>`는 전체 계획을 표시합니다. 자동 테스트로 확인한 동작이며 WebView2 승인은 아직 실제 환경 검증이 필요합니다. [검증 보고서](../revit-addin-live-validation-2026-10-14.md)는 Revit 2024의 제한된 읽기 검사만 기록하며 쓰기, 되돌리기, 복구 또는 다른 Revit 연도 버전을 검증하지 않습니다.
 
 <p align="center">
   <picture>
