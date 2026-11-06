@@ -10,7 +10,7 @@ Do these steps in order. Stop and tell the person if a step fails. Do not guess.
 2. Ask the person which mode they want.
    - Mock mode (sample data, no Revit): set `MCP_REVIT_MODE` to `mock`.
    - Live mode (their open Revit): set `MCP_REVIT_MODE` to `bridge`. Tell them the Revit add-in must be installed from https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/install.md and that you cannot install it for them.
-3. Add this to the MCP settings file (`cline_mcp_settings.json`), keeping any servers already there:
+3. Add this to the MCP settings file (`cline_mcp_settings.json`), keeping any servers already there. Set `MCP_REVIT_MODE` to the mode chosen in step 2: use `mock` for sample data or keep `bridge` for live Revit in the example below.
 
 ```json
 {
