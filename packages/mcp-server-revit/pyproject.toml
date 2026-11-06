@@ -25,6 +25,8 @@ dependencies = [
     "pydantic>=2.5",
     "pydantic-settings>=1.3",
     "httpx>=0.24",
+    # Exclude trust stores affected by GHSA-6q48-6c7w-9gw2.
+    "certifi>=2026.10.19",
     "python-dotenv>=1.0",
     # 1.10 added Tool.title and Tool.annotations (readOnlyHint etc.), which
     # tool_metadata.py sets on every listed tool. Capped below 2: mcp 2.x (Python

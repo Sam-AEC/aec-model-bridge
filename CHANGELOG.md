@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Require `certifi>=2026.10.19` and refresh its lock entry so the release bundle cannot restore the affected emSign trust root (GHSA-6q48-6c7w-9gw2). Regression checks cover the dependency floor and the actual bundled trust store.
+
 - Audited the 19 open PRs from oldest to newest and consolidated their current implementations and fixes. Setup recovery supports Codex-only chat; previews clear stale state and accept 64-bit IDs; QA issues are isolated by rule pack; explicit workspace allowlists are preserved. Snapshot audits disclose partial data and no longer invent full-model findings from incomplete captures. Snapshot point locations use SI units and stable names survive serialization. See `docs/release-audit-2026-11-06.md` for coverage and remaining live acceptance work.
 - MCP token use: static `full` (default), `daily` and custom module profiles; hidden direct/plan/job targets are refused without weakening approval. Optional compact/read-field responses and `plan_actions` argument-echo omission reduce returned text while retaining full human-review data in storage. Measurements and reproduction commands are in `docs/mcp-token-budget.md`.
 - Release preparation: restore patched MCP/Speckle/GraphQL and VS Code packaging dependencies, regenerate complete third-party notices, install portable runtime dependencies from the lock and validate the release SBOM against its actual installed distributions. Correct extension release dispatch, provenance checks, checksums, support routes and setup documentation. No live model writes were used for these checks.
