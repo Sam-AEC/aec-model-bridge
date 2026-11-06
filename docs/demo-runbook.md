@@ -9,17 +9,20 @@ rejected and nothing changes.
 
 **Writes are untested in a real Revit.** An architecture review found that
 `BridgeCommandFactory.CreateTransaction(Document, string)` in the add-in called
-itself, so on `main` every model write (including `revit_set_parameter_value`)
-would recurse until Revit crashes. The fix, hotfix PR #95, is merged into `dev`
-but has never run in live Revit. Build the add-in from `dev` (or a release that
+itself, so builds without hotfix PR #95 could recurse on every model write
+(including `revit_set_parameter_value`) until Revit crashes. The fix is merged
+into `dev`; the current build passed read-only smoke checks, but its mutating
+path has not passed live acceptance. Build the add-in from `dev` (or a release that
 contains #95), do not run Step 6 or the undo steps against anything you care
 about, and treat the first real write on a throwaway copy as a test in its own
 right. Steps 1 to 5 and the rejected-plan run do not write to the model.
 
-This runbook matches `dev`, not the last release. The test plan for `dev` is
-[dev-test-plan.md](dev-test-plan.md); it also lists the known limits.
+This runbook matches `dev`, not the last release. The pre-release checks and
+known limits are in [release-checklist.md](release-checklist.md).
 
-Nobody has run this end to end against live Revit yet. The expected counts come
+Bounded read-only Revit 2024 checks passed on 14 October 2026; see
+[the live validation report](revit-addin-live-validation-2026-10-14.md).
+Nobody has run this demo end to end against live Revit yet. The expected counts come
 from the [seeded defect manifest](../fixtures/canonical-model/seeded-defects.json)
 and the rule pack, not from a recorded session. Record what you actually see
 and treat any difference as a finding. Background on why the demo looks like
@@ -32,7 +35,8 @@ this is in the [roadmap](roadmap.md).
 - **UNVERIFIED (live Revit)**: it needs a running Revit session with the
   add-in. Nothing in this runbook has been confirmed that way.
 - **UNVERIFIED (not in a release)**: it is merged into `dev` but not yet in a
-  release or on `main`. Preview in the model (#64), the write-path crash fix
+  release. This describes the current dev checkout; presence on `main` alone
+  does not establish release or live acceptance. Preview in the model (#64), the write-path crash fix
   (#95) and approval v2 (#99, #105, #109) are in this group. They are tagged
   "checked in code" or "UNVERIFIED (live Revit)" below, as appropriate. Proof
   bundles, `plan_revert` (#62) and the draft-plan gate fix (#63) are merged.
@@ -43,7 +47,8 @@ this is in the [roadmap](roadmap.md).
   installed. See the [install guide](install.md).
 - The MCP server connected to an MCP client, and the Revit side panel open.
 - A throwaway copy of the fixture. Never run this on a project model.
-- Approval mode left at its default, `ask_first` (the older name `required`
+- In Settings, switch Dev off and leave timed Auto off for this approval demo.
+  Approval mode is its default, `ask_first` (the older name `required`
   means the same). Do not set `MCP_REVIT_APPROVAL_MODE=auto`; that turns the
   human check off. `look_only` refuses every model change; use it only to show
   that writes are blocked. An unknown value falls back to `ask_first`.
@@ -218,9 +223,10 @@ The assistant cannot approve its own plan: `approve_plan`, `reject_plan` and
 `rollback_plan` are not listed to MCP clients, are denied to the panel chat, and
 are refused on every other path a model can reach. The approval is bound to a
 content hash of the plan. If the plan file changed after you looked at it, the
-approval is refused. The panel shows the tools, arguments and before-values; it
-does not show any review text the assistant attached to the plan, so run
-`aec-model-bridge-approve show <plan_id>` first if you want the full review. The plan records `approved_via` (`panel` or `cli`) and
+approval is refused. The dev panel shows tools, arguments, before-values and
+validated review text when you open the plan review. Malformed, unsupported or
+oversized reviews block approval. Compare with
+`aec-model-bridge-approve show <plan_id>` if anything is unclear. The plan records `approved_via` (`panel` or `cli`) and
 `approved_by` (your account name).
 
 Expected: the plan leaves the Plans list. The panel lists pending plans only, so
@@ -351,7 +357,7 @@ file, the audit log and both snapshot ids.
 | Counts are not 12 and 3 | The baseline is off; I am not going to hide that. | Rebuild the fixture, retake the snapshot, record both runs. |
 | Error naming a missing or unapproved `plan_id` | The gate is blocking an unapproved write. | Create or approve the plan. |
 | Approve does nothing in the panel | I will confirm the plan state before going on. | Refresh, look for an `Error:` entry in the Run Log, check the plan state. |
-| Revit crashes or hangs on the first write | Known risk: this is the first real write, and #95 has never run in live Revit. | Stop. Check the add-in was built from `dev`, record the log, report it. |
+| Revit crashes or hangs on the first write | Mutating acceptance is pending; confirm the installed build contains the #95 recursion fix. | Stop. Check the add-in was built from `dev`, record the log, report it. |
 | "Look only mode: this tool changes the model..." | The mode is Look only on purpose; nothing can change the model. | Set `MCP_REVIT_APPROVAL_MODE` to `ask_first` and restart, if you meant to write. |
 | Approval refused, plan changed | The plan on disk no longer matches what you were shown. | Run `show` again, check the hash, reject or redraft the plan. |
 | Assistant says it cannot approve | Correct: only a person approves. | Approve in the panel or with `aec-model-bridge-approve`. |
@@ -371,11 +377,12 @@ file, the audit log and both snapshot ids.
 - Some Navisworks and proxy tools are still outside the approval gate.
 - The add-in's snapshot extractor does not carry every field, so some checks say
   "not enough data".
-- Nothing here has run in live Revit, and the first real write is unverified.
+- The demo and mutating acceptance remain unverified in live Revit. The separate
+  14 October 2026 read-only smoke checks do not establish this workflow.
 - Undo is Ctrl+Z once per action. There is no one-step undo for a plan.
 
-The fuller list, with how to check each, is in
-[dev-test-plan.md](dev-test-plan.md#h-known-limits-do-not-report-as-new-findings).
+The fuller list is in
+[release-checklist.md](release-checklist.md#6-known-limits-of-the-dev-drop).
 
 ## Record for each run
 
@@ -383,3 +390,11 @@ Date, commit, Revit version, fixture generation command, snapshot ids (before
 and after), prompts used, the actual counts at each step, plan ids, and
 what failed. The roadmap asks for the same list. Publish a recording only after a
 run matches the expected counts twice.
+
+## Recording a GIF
+
+[scripts/demo/shot-list.md](../scripts/demo/shot-list.md) lists the shots and
+`scripts/demo/demo-commands.ps1` prints the prompts and commands for each step
+above. The script records nothing and changes nothing. Record only after a run
+has matched the expected counts twice, and leave out the write steps until a
+write has passed on a throwaway model.

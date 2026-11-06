@@ -12,3 +12,13 @@ class SchemaValidationError(RevitMCPError):
 
 class BridgeError(RevitMCPError):
     """Signals communication or response issues with the bridge."""
+
+
+class CommandFailed(BridgeError):
+    """Revit ran the command and it failed (as opposed to a lost connection or an expired id).
+
+    Only this error settles an in-flight approved action as failed; the others leave the outcome unknown."""
+
+    def __init__(self, message: str, payload: dict | None = None) -> None:
+        super().__init__(message)
+        self.payload = payload

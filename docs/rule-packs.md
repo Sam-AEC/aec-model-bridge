@@ -55,12 +55,19 @@ Filter keys (all must match):
   `value` is an exact text comparison.
 - `workset`: exact workset name.
 - `family_source`: matches family types by source (for example `inplace`).
+  Use it alone; combining it with element filter keys is rejected.
 
 Assertions:
 
 - `element_count == 0`: every element that matches the filter is an issue.
 - `all elements have <field>`: matched elements missing that top-level element
   field are issues.
+
+Stored findings belong to their rule pack. Running one pack only reconciles that
+pack's issues, and identical rule IDs in different packs stay independent.
+Overwriting a pack refreshes its open issues' severity and message on the next run.
+Existing databases migrate without deleting history; older issues without a pack
+identity are assigned to `core`.
 
 The validator rejects anything else, with the list of supported names in the
 message. There is no regular-expression operator and no uniqueness operator in
@@ -70,7 +77,7 @@ validated as "supported" and are not in the example pack.
 
 ## Example pack
 
-`rule_packs/examples/door-room-basics.yaml` (dev branch only)
+[`rule_packs/examples/door-room-basics.yaml`](../rule_packs/examples/door-room-basics.yaml)
 covers door Mark, unplaced doors and room Number. To use it:
 
 1. Copy the file into your workspace, for example `<workspace>/door-room-basics.yaml`.

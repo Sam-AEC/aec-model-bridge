@@ -35,6 +35,8 @@ def enrich_mutation_metadata(
 class ProviderTool(BaseModel):
     name: str
     description: str
+    # Explicit ownership for native provider tools that belong to a module family.
+    module_id: str | None = None
     input_schema: Dict[str, Any] = Field(..., alias="inputSchema")
     is_mutating: bool = False
     destructive: bool = False

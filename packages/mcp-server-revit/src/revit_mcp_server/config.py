@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import logging
 from enum import Enum
 from json import JSONDecodeError
 from pathlib import Path
-from typing import List
+from typing import Any, List
 
 from dotenv import load_dotenv
 from pydantic import DirectoryPath, Field, PrivateAttr, field_validator, model_validator
@@ -50,6 +51,30 @@ def default_workspace_dir() -> Path:
     return Path.home() / "Documents" / "AEC Model Bridge"
 
 
+APPROVAL_MODES = ("look_only", "ask_first", "auto")
+_APPROVAL_MODE_ALIASES = {"look_only": "look_only", "ask_first": "ask_first", "required": "ask_first", "auto": "auto"}
+_config_logger = logging.getLogger(__name__)
+
+
+def normalize_approval_mode(value: Any) -> str:
+    """Return 'look_only', 'ask_first' or 'auto'.
+
+    'required' is the older name for 'ask_first'. Fails closed: anything that is not
+    an explicit, known mode (typos, empty, None) becomes 'ask_first' and logs a warning.
+    Only an explicit 'auto' turns the approval gate off.
+    """
+    text = value.strip().lower() if isinstance(value, str) else ""
+    mode = _APPROVAL_MODE_ALIASES.get(text)
+    if mode is None:
+        _config_logger.warning(
+            "Unknown approval_mode %r; treating it as 'ask_first'. Valid values: look_only, ask_first "
+            "(alias: required), auto. Only 'auto' turns the approval gate off.",
+            value,
+        )
+        return "ask_first"
+    return mode
+
+
 class Config(BaseSettings):
     # Both default safely so a one-click install works with no configuration.
     # An explicit MCP_REVIT_* value always wins. The default directory is only
@@ -61,7 +86,7 @@ class Config(BaseSettings):
     mode: BridgeMode = Field(default=BridgeMode.mock)
     audit_log: Path = Field(default_factory=lambda: Path("audit.log"))
     log_level: str = Field("INFO")
-    approval_mode: str = Field(default="required")
+    approval_mode: str = Field(default="ask_first")
     enable_user_modules: bool = Field(default=False)
     allow_python_host: bool = Field(default=False)
     anthropic_api_key: str | None = Field(default=None)
@@ -74,10 +99,40 @@ class Config(BaseSettings):
         extra="forbid",
     )
 
-    @field_validator("allowed_directories", mode="before")
-    def split_directories(cls, value):
+    @field_validator("bridge_url", mode="before")
+    def ignore_legacy_default_bridge_url(cls, value):
+        """An empty value, or the old shipped default http://127.0.0.1:3000, means "not set".
+
+        The add-in picks a random port at every Revit start and publishes it in the registry, so a config
+        that still pins :3000 (the old default in the DXT manifest, smithery and client configs) could
+        never connect. Treating that exact value as unset lets discovery find the live Revit. Any other
+        explicit URL stays pinned."""
         if isinstance(value, str):
-            return [Path(p.strip()) for p in value.split(";") if p.strip()]
+            text = value.strip().rstrip("/").lower()
+            if text in ("", "http://127.0.0.1:3000", "http://localhost:3000"):
+                return None
+        return value
+
+    @field_validator("approval_mode", mode="before")
+    def check_approval_mode(cls, value):
+        return normalize_approval_mode(value)
+
+    @field_validator("allowed_directories", mode="before")
+    def split_directories(cls, value, info):
+        if isinstance(value, str):
+            value = [Path(p.strip()) for p in value.split(";") if p.strip()]
+        # The workspace itself is created on first use. Without this, a fresh install whose
+        # workspace folder does not exist yet (for example ~/Documents when Documents is
+        # redirected) made Config() fail on import and the hub died before it logged anything.
+        # Any other allowed directory must already exist: the sandbox is never widened by guessing.
+        workspace = info.data.get("workspace_dir")
+        if workspace is not None and isinstance(value, list):
+            for entry in value:
+                if Path(entry) == Path(workspace):
+                    try:
+                        Path(entry).mkdir(parents=True, exist_ok=True)
+                    except OSError:
+                        pass  # DirectoryPath then reports the real problem
         return value
 
     @model_validator(mode="after")
@@ -90,6 +145,17 @@ class Config(BaseSettings):
             self.allowed_directories = [self.workspace_dir]
             if self.workspace_dir not in auto:
                 auto.append(self.workspace_dir)
+        else:
+            # Every module reads/writes under allowed_directories[0], while the Revit
+            # add-in writes snapshots under workspace_dir. Keep them the same directory
+            # whenever the workspace is on the explicit allowed list (order only; the
+            # sandbox is never widened).
+            allowed = list(self.allowed_directories)
+            for index, directory in enumerate(allowed):
+                if index and directory.resolve() == self.workspace_dir.resolve():
+                    allowed.insert(0, allowed.pop(index))
+                    self.allowed_directories = allowed
+                    break
         self._auto_dirs = auto
         return self
 

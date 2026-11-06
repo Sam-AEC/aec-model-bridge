@@ -144,16 +144,16 @@ publicado en el Marketplace.
 
 | Área | Herramientas | Qué hacen |
 | --- | --- | --- |
-| Revit | 103 | Leer el modelo, crear y editar elementos, parámetros, vistas, hojas, tablas de planificación, exportaciones, trabajo compartido |
-| Aprobación | 6 | Planificar, revisar, aprobar, ejecutar y revertir cambios en el modelo |
-| Módulos | 34 | Inspección de instantáneas, cuadrículas de parámetros, comprobaciones de QA/QC, recetas, informes, selecciones |
+| Revit | 110 | Leer el modelo, crear y editar elementos, parámetros, vistas, hojas, tablas de planificación, exportaciones, trabajo compartido |
+| Aprobación | 5 | Planificar, revisar, aprobar, ejecutar y revertir cambios en el modelo |
+| Módulos | 108 | Inspección de instantáneas, cuadrículas de parámetros, comprobaciones de QA/QC, recetas, informes, selecciones |
 | Rhino y Grasshopper | 19 | Geometría, capas, materiales, operaciones booleanas |
 | Speckle | 17 | Proyectos, modelos, versiones, envío y recepción |
 | Navisworks | 15 | Árbol del modelo, puntos de vista, pruebas de interferencias (en desarrollo) |
 | IFC | 7 | Leer archivos IFC sin Revit: estructura, propiedades, validación |
-| Grafo, instantáneas, exportaciones, tareas | 18 | Auditorías del grafo semántico, diferencias entre instantáneas, exportación a SQLite, tareas en segundo plano |
+| Grafo, instantáneas, exportaciones, tareas | 21 | Auditorías del grafo semántico, diferencias entre instantáneas, exportación a SQLite, tareas en segundo plano |
 
-En la configuración predeterminada aparecen 219 herramientas (contadas desde el servidor actual en modo
+En la configuración predeterminada aparecen 302 herramientas (contadas desde el servidor actual en modo
 mock). Las herramientas de Autodesk Data aparecen cuando se configuran credenciales de APS. La
 [referencia de herramientas](../tools-generated.md) las enumera todas. Cada herramienta incluye
 anotaciones MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`,
@@ -195,6 +195,8 @@ El hub bloquea cualquier llamada a una herramienta que modifique el modelo salvo
 plan aprobado. El modo predeterminado es `required`. La IA propone un plan, tú
 lo revisas en el panel lateral de Revit y el complemento lo ejecuta en el hilo principal de Revit
 y las acciones de parámetros y de edición del modelo van cada una en su propia transacción con nombre; guardar, sincronizar y los scripts no, así que Ctrl+Z no los cubre.
+
+El panel muestra la revisión del plan con "Show the review to enable Approve" y exige abrirla antes de aprobar. Una revisión no válida, no compatible o demasiado grande bloquea la aprobación; `aec-model-bridge-approve show <plan_id>` muestra el plan completo. Hay pruebas automatizadas; la aprobación en WebView2 aún requiere validación en vivo. El [informe de validación](../revit-addin-live-validation-2026-10-14.md) solo acredita comprobaciones limitadas de lectura en Revit 2024, no escrituras, reversión, recuperación ni otros años de Revit.
 
 <p align="center">
   <picture>

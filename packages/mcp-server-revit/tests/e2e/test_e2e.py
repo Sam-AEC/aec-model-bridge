@@ -98,11 +98,14 @@ def test_mutating_tools_require_approved_plan(tmp_path):
         [{"tool": tool_def.name, "arguments": {"start_x": 0, "end_x": 10}}],
         [{"status": "before-state-captured"}],
     )
+    exact = {"start_x": 0, "end_x": 10, "plan_id": plan["plan_id"]}
     with pytest.raises(BridgeError, match="not 'approved'"):
-        approval.gate.check_tool_execution(tool_def.name, {"plan_id": plan["plan_id"]})
+        approval.gate.check_tool_execution(tool_def.name, exact)
 
-    approval.gate.update_plan_state(plan["plan_id"], "approved")
-    approval.gate.check_tool_execution(tool_def.name, {"plan_id": plan["plan_id"]})
+    from revit_mcp_server.security.approval import plan_hash
+    approval.gate.update_plan_state(plan["plan_id"], "approved", via="cli",
+                                    expected_hash=plan_hash(approval.gate.load_plan(plan["plan_id"])))
+    approval.gate.check_tool_execution(tool_def.name, exact)
 
 
 def test_hub_reaches_revit_addin(bridge_switch, tmp_path):

@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List
 import uuid
-import ifcopenshell.guid
 
 from revit_mcp_server.errors import BridgeError
 from revit_mcp_server.providers.base import AECProvider, ProviderTool
@@ -43,8 +42,15 @@ class SemanticProvider(AECProvider):
         self._capabilities = [
             ProviderTool(
                 name="snapshot_take",
-                description="Extract and save a complete semantic BIM snapshot of the active Revit model.",
-                inputSchema={"type": "object", "properties": {}, "required": []}
+                description="Extract and save a semantic BIM snapshot of the active Revit model. Large models are captured within a size and time limit; pass categories to capture only what a check needs.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "categories": {"type": "array", "items": {"type": "string"}},
+                        "max_elements": {"type": "integer", "minimum": 1},
+                    },
+                    "required": [],
+                }
             ),
             ProviderTool(
                 name="snapshot_query",
@@ -96,13 +102,16 @@ class SemanticProvider(AECProvider):
         if self.registry:
             revit_prov = self.registry.get_provider("revit")
             
-        snapshot = await engine.snapshot_take(self.workspace, revit_prov)
+        options = {k: arguments[k] for k in ("categories", "max_elements") if arguments.get(k) is not None}
+        snapshot = await engine.snapshot_take(self.workspace, revit_prov, options)
         
         # Identity mapper integration: register mappings in memory
         if self.registry:
             mapper = self.registry.get_provider("mapper")
             if mapper:
                 mappings = []
+                import ifcopenshell.guid  # lazy: heavy import, only needed here
+
                 for el in snapshot.elements:
                     if el.uid:
                         # Extract GUID prefix deterministically
@@ -124,7 +133,14 @@ class SemanticProvider(AECProvider):
             "status": "success",
             "snapshot_id": snapshot.snapshot_id,
             "taken_at": snapshot.taken_at.isoformat(),
-            "elements_count": len(snapshot.elements)
+            "elements_count": len(snapshot.elements),
+            "truncated": bool(snapshot.counts.get("truncated")),
+            "candidates": snapshot.counts.get("candidates"),
+            "note": (
+                "Partial snapshot: the model is larger than one capture allows. Re-run snapshot_take with "
+                "categories (for example [\"Doors\", \"Rooms\"]) for the elements a check needs, and do not "
+                "read results from this snapshot as covering the whole model."
+            ) if snapshot.counts.get("truncated") else None,
         }
 
     async def _snapshot_query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:

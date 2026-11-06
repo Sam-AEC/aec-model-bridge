@@ -79,6 +79,7 @@ Copy-Item (Join-Path $pythonPackage "uv.lock") $mcpbStage -Force
 Copy-Item (Join-Path $pythonPackage "README.md") $mcpbStage -Force
 Copy-Item (Join-Path $pythonPackage "LICENSE") $mcpbStage -Force
 Copy-Item (Join-Path $pythonPackage "NOTICE") $mcpbStage -Force
+Copy-Item (Join-Path $repoRoot "THIRD_PARTY_NOTICES.md") $mcpbStage -Force
 Copy-Item (Join-Path $pythonPackage "LICENSING.md") $mcpbStage -Force
 Copy-Item (Join-Path $pythonPackage "LICENSES") $mcpbStage -Recurse -Force
 Copy-Item (Join-Path $pythonPackage "src") $mcpbStage -Recurse -Force

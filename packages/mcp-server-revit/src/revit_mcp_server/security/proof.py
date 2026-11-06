@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import re
 from datetime import datetime, timezone
@@ -21,11 +22,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 SCHEMA = "amb.proof/1"
 PARAM_TOOL = "revit_set_parameter_value"
-_ID_RE = re.compile(r"^[A-Za-z0-9_\-]{1,128}$")
+_ID_RE = re.compile(r"[A-Za-z0-9_\-]{1,128}")
 
 
 def validate_plan_id(plan_id: Any) -> str:
-    if not isinstance(plan_id, str) or not _ID_RE.match(plan_id):
+    if not isinstance(plan_id, str) or not _ID_RE.fullmatch(plan_id):
         raise ValueError("Invalid plan_id.")
     return plan_id
 
@@ -34,8 +35,295 @@ def proof_path(workspace_dir: Path, plan_id: str) -> Path:
     return Path(workspace_dir) / "proofs" / f"{validate_plan_id(plan_id)}.json"
 
 
+def _hashable_arguments(arguments: Any) -> Any:
+    if isinstance(arguments, dict):
+        return {k: v for k, v in arguments.items() if k != "plan_id"}
+    return {"__not_an_object__": arguments}
+
+
+# --- review block ---------------------------------------------------------------
+# A plan may carry a ``review`` block: the rationale a person reads next to the actions
+# (summary, reasoning, citations, assumptions, elements left out, warnings). It is
+# canonicalised, size-capped and part of the plan hash (hash_version 2), so editing it
+# after approval invalidates the approval. Plans without a review keep the original
+# hash rule (hash_version absent) and still verify.
+HASH_VERSION_REVIEW = 2
+REVIEW_MAX_BYTES = 65536
+REVIEW_LIMITS = {
+    "summary": 2000, "reasoning": 8000, "citation_field": 500, "assumption": 1000,
+    "excluded_reason": 500, "warning": 1000, "element_id": 128,
+}
+REVIEW_MAX_ITEMS = {"citations": 100, "assumptions": 100, "excluded": 500, "warnings": 200, "conflicts": 500}
+REVIEW_KEYS = ("summary", "reasoning", "citations", "assumptions", "excluded", "warnings", "conflicts")
+CITATION_KEYS = ("rule_id", "clause", "source")
+CONFLICT_KEYS = ("element_id", "parameter", "expected_current", "actual_current", "revert_to")
+CONFLICT_FIELD_LIMIT = 200
+REVIEW_BUDGET_BYTES = 56000  # builders stay under this so a review never hits REVIEW_MAX_BYTES
+EXCLUDED_KEYS = ("element_id", "reason")
+
+# Plan keys outside ``actions`` and ``review`` that are NOT covered by the hash. They are
+# bookkeeping or caller-supplied metadata: never shown as approved content, and editing
+# them does not invalidate an approval.
+HASHED_PLAN_KEYS_V1 = ("plan_id", "created_at", "snapshot_id", "skipped", "actions")
+HASHED_PLAN_KEYS_V2 = HASHED_PLAN_KEYS_V1 + ("hash_version", "review", "reverts_plan_id")
+STATE_PLAN_KEYS = frozenset({
+    "state", "plan_hash", "approved_hash", "approved_at", "approved_by", "approved_via",
+    "rejected_at", "rejected_via", "rejected_after_approval", "executed_at", "results",
+    "is_reversible", "reversible_strategy",
+})
+
+
+def unhashed_metadata_keys(plan: Dict[str, Any]) -> List[str]:
+    """Keys on the plan that are not part of the approval hash (excluding the plan's own
+    lifecycle state). Treat their content as metadata, not approved content."""
+    hashed = HASHED_PLAN_KEYS_V2 if plan.get("hash_version") == HASH_VERSION_REVIEW else HASHED_PLAN_KEYS_V1
+    return sorted(str(k) for k in plan if k not in hashed and k not in STATE_PLAN_KEYS)
+
+
+def _review_str(value: Any, field: str, limit: int, required: bool = False) -> str:
+    if value is None and not required:
+        return ""
+    if not isinstance(value, str):
+        raise ValueError(f"review.{field} must be a string.")
+    if len(value) > limit:
+        raise ValueError(f"review.{field} is longer than {limit} characters.")
+    return value
+
+
+def _review_list(value: Any, field: str) -> List[Any]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ValueError(f"review.{field} must be a list.")
+    if len(value) > REVIEW_MAX_ITEMS[field]:
+        raise ValueError(f"review.{field} has more than {REVIEW_MAX_ITEMS[field]} entries.")
+    return value
+
+
+def _review_obj(item: Any, field: str, allowed: Tuple[str, ...]) -> Dict[str, Any]:
+    if not isinstance(item, dict):
+        raise ValueError(f"review.{field} entries must be objects.")
+    unknown = sorted(str(k)[:40] for k in item if k not in allowed)
+    if unknown:
+        raise ValueError(f"review.{field} entry has unknown key(s): {', '.join(unknown)}.")
+    return item
+
+
+def normalize_review(review: Any) -> Dict[str, Any]:
+    """Validate and canonicalise a review block. Strict: unknown keys, wrong types and
+    over-long or over-large content raise ValueError. Text is stored as given (control and
+    bidi characters included); it is escaped when displayed (approve_cli.safe_text)."""
+    if not isinstance(review, dict):
+        raise ValueError("review must be an object.")
+    unknown = sorted(str(k)[:40] for k in review if k not in REVIEW_KEYS)
+    if unknown:
+        raise ValueError(f"review has unknown key(s): {', '.join(unknown)}.")
+    out: Dict[str, Any] = {
+        "summary": _review_str(review.get("summary"), "summary", REVIEW_LIMITS["summary"]),
+        "reasoning": _review_str(review.get("reasoning"), "reasoning", REVIEW_LIMITS["reasoning"]),
+        "citations": [], "assumptions": [], "excluded": [], "warnings": [], "conflicts": [],
+    }
+    for c in _review_list(review.get("citations"), "citations"):
+        c = _review_obj(c, "citations", CITATION_KEYS)
+        out["citations"].append({
+            "rule_id": _review_str(c.get("rule_id"), "citations.rule_id", REVIEW_LIMITS["citation_field"], True),
+            "clause": _review_str(c.get("clause"), "citations.clause", REVIEW_LIMITS["citation_field"]),
+            "source": _review_str(c.get("source"), "citations.source", REVIEW_LIMITS["citation_field"]),
+        })
+    for a in _review_list(review.get("assumptions"), "assumptions"):
+        out["assumptions"].append(_review_str(a, "assumptions", REVIEW_LIMITS["assumption"], True))
+    for x in _review_list(review.get("excluded"), "excluded"):
+        x = _review_obj(x, "excluded", EXCLUDED_KEYS)
+        eid = x.get("element_id")
+        if isinstance(eid, bool) or not isinstance(eid, (int, str)):
+            raise ValueError("review.excluded.element_id must be an integer or string.")
+        if isinstance(eid, str) and (not eid or len(eid) > REVIEW_LIMITS["element_id"]):
+            raise ValueError("review.excluded.element_id is empty or too long.")
+        out["excluded"].append({
+            "element_id": eid,
+            "reason": _review_str(x.get("reason"), "excluded.reason", REVIEW_LIMITS["excluded_reason"]),
+        })
+    for c in _review_list(review.get("conflicts"), "conflicts"):
+        c = _review_obj(c, "conflicts", CONFLICT_KEYS)
+        eid = c.get("element_id")
+        if isinstance(eid, bool) or not isinstance(eid, (int, str)):
+            raise ValueError("review.conflicts.element_id must be an integer or string.")
+        entry: Dict[str, Any] = {"element_id": eid}
+        for key in CONFLICT_KEYS[1:]:
+            entry[key] = _review_str(c.get(key), f"conflicts.{key}", CONFLICT_FIELD_LIMIT)
+        out["conflicts"].append(entry)
+    for w in _review_list(review.get("warnings"), "warnings"):
+        out["warnings"].append(_review_str(w, "warnings", REVIEW_LIMITS["warning"], True))
+    size = len(json.dumps(out, sort_keys=True, ensure_ascii=False).encode("utf-8"))
+    if size > REVIEW_MAX_BYTES:
+        raise ValueError(f"review is too large ({size} bytes; the limit is {REVIEW_MAX_BYTES}).")
+    return out
+
+
+SAFE_INT = 2 ** 53 - 1
+
+
+def has_unsafe_int(value: Any) -> bool:
+    """True if a JSON-ish value holds an integer a JavaScript page would display rounded."""
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, int):
+        return abs(value) > SAFE_INT
+    if isinstance(value, dict):
+        return any(has_unsafe_int(v) for v in value.values())
+    if isinstance(value, list):
+        return any(has_unsafe_int(v) for v in value)
+    return False
+
+
+def approved_content(plan: Dict[str, Any]) -> Dict[str, Any]:
+    """What an approval covers and the panel displays: actions (tool, arguments, before
+    values), the review, the reverted plan id and the unhashed revert metadata. The hub
+    compares this before and after output redaction (panel_plans_redacted)."""
+    view = plan.get("review_view")
+    return {
+        "actions": plan.get("actions"),
+        "review": view.get("review") if isinstance(view, dict) else None,
+        "reverts_plan_id": plan.get("reverts_plan_id"),
+        "legacy": {k: plan.get(k) for k in ("conflicts", "warnings", "notes") if k in plan},
+    }
+
+
+def review_view(plan: Dict[str, Any]) -> Dict[str, Any]:
+    """What the panel may show of a plan's review, computed here so the page never has to
+    trust the raw plan file. ``status`` is ``none`` (a clean hash_version 1 plan: no review),
+    ``ok`` (a v2 plan whose review is canonical and whose stored hash matches) or
+    ``invalid`` (anything else; the panel must not offer Approve). ``review`` is present
+    only when ``ok`` and is the normalised block that the plan hash covers."""
+    view: Dict[str, Any] = {"status": "invalid", "hash_version": None, "reverts_plan_id": None,
+                            "review": None, "error": ""}
+    try:
+        version = plan_hash_version(plan)
+        view["hash_version"] = version
+        if has_unsafe_int(plan.get("actions")) or has_unsafe_int(plan.get("review")):
+            raise ValueError("The plan holds a number too large to display exactly.")
+        if version != HASH_VERSION_REVIEW:
+            extra = unhashed_metadata_keys(plan)
+            if plan.get("reverts_plan_id") is not None or extra:
+                raise ValueError(
+                    "Legacy plan with content outside the approval hash"
+                    + (f" ({', '.join(extra)[:120]})" if extra else "") + "."
+                )
+            view["status"] = "none"
+            return view
+        review = plan["review"]
+        if normalize_review(review) != review:
+            raise ValueError("The review block is not in canonical form.")
+        reverts = plan.get("reverts_plan_id")
+        if reverts is not None:
+            from .approval import PLAN_ID_RE  # local: approval imports this module
+            if not isinstance(reverts, str) or not PLAN_ID_RE.fullmatch(reverts):
+                raise ValueError("reverts_plan_id is not a plan id.")
+        if plan.get("plan_hash") != plan_content_hash(plan):
+            raise ValueError("The plan content does not match its stored hash.")
+        view.update(status="ok", review=review, reverts_plan_id=reverts)
+    except Exception as exc:  # noqa: BLE001 - any failure means "do not show as approvable"
+        view.update(status="invalid", review=None, error=str(exc)[:300])
+    return view
+
+
+PANEL_PLAN_LIMIT = 50
+
+
+def has_nonfinite_float(value: Any) -> bool:
+    """True if a JSON-ish value holds NaN or Infinity (not valid JSON; breaks the host's parser)."""
+    if isinstance(value, float):
+        return not math.isfinite(value)
+    if isinstance(value, dict):
+        return any(has_nonfinite_float(v) for v in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(has_nonfinite_float(v) for v in value)
+    return False
+
+
+def _invalid_view(error: str) -> Dict[str, Any]:
+    return {"status": "invalid", "hash_version": None, "reverts_plan_id": None, "review": None, "error": error}
+
+
+def panel_plans(plans: Any) -> Any:
+    """Shape a ``list_pending_plans`` result for the panel: newest first, at most
+    PANEL_PLAN_LIMIT plans (``omitted`` says how many were left out), each with
+    ``review_view`` and without its raw ``review``. A plan holding NaN/Infinity is sent as
+    a stub that fails closed so one bad plan cannot break the whole queue. Read-only."""
+    if not isinstance(plans, dict) or not isinstance(plans.get("plans"), list):
+        return plans
+    ordered = sorted(plans["plans"], key=lambda p: str(p.get("created_at", "")) if isinstance(p, dict) else "", reverse=True)
+    out = []
+    for plan in ordered[:PANEL_PLAN_LIMIT]:
+        if not isinstance(plan, dict):
+            out.append(plan)
+            continue
+        if has_nonfinite_float(plan):
+            out.append({"plan_id": plan.get("plan_id"), "state": plan.get("state"),
+                        "plan_hash": plan.get("plan_hash"), "created_at": plan.get("created_at"), "actions": [],
+                        "review_view": _invalid_view("The plan holds a number (NaN or Infinity) that cannot be shown.")})
+            continue
+        shaped = {k: v for k, v in plan.items() if k != "review"}
+        shaped["review_view"] = review_view(plan)
+        out.append(shaped)
+    return {**plans, "plans": out, "omitted": max(0, len(ordered) - PANEL_PLAN_LIMIT)}
+
+
+REDACTED_ERROR = ("This plan contains a credential-like value (a password, key or token) that the panel masks, "
+                  "so what you would approve cannot be shown here.")
+
+
+def panel_plans_redacted(result: Any, redact_full: Any, redact_narrow: Any) -> Any:
+    """``panel_plans`` followed by output redaction, failing closed.
+
+    Fields that are not approved content get ``redact_full`` (paths, secrets, everything).
+    The approved content (``approved_content``: actions, review, reverts id, legacy revert
+    metadata) gets only ``redact_narrow`` (real credentials). It is shown unchanged when the
+    narrow pass changes nothing; if it would mask anything, the plan is sent as ``invalid`` so
+    the panel disables Approve. The command-line tool does not redact, so ``show`` can read it."""
+    shaped = panel_plans(result)
+    redacted = redact_full(shaped)
+    if not isinstance(shaped, dict) or not isinstance(shaped.get("plans"), list):
+        return redacted
+    plans_out = redacted.get("plans") if isinstance(redacted, dict) else None
+    if not isinstance(plans_out, list) or len(plans_out) != len(shaped["plans"]):
+        raise ValueError("Redaction changed the plan list.")
+    for before, after in zip(shaped["plans"], plans_out):
+        if not isinstance(before, dict) or not isinstance(after, dict):
+            continue
+        approved = approved_content(before)
+        narrow = redact_narrow(approved)
+        after["actions"] = narrow["actions"]
+        for key, value in narrow["legacy"].items():
+            after[key] = value
+        if "reverts_plan_id" in before:
+            after["reverts_plan_id"] = narrow["reverts_plan_id"]
+        if narrow != approved:
+            after["review_view"] = _invalid_view(REDACTED_ERROR)
+        elif isinstance(after.get("review_view"), dict) and before["review_view"].get("status") == "ok":
+            after["review_view"]["review"] = narrow["review"]
+    return redacted
+
+
+def plan_hash_version(plan: Dict[str, Any]) -> int:
+    """1 for plans without a review block, 2 for plans that carry one. A plan that mixes
+    the two (a review without hash_version 2, or version 2 without a review) is refused."""
+    has_review = "review" in plan
+    if "hash_version" not in plan and not has_review:
+        return 1
+    version = plan.get("hash_version")
+    # Strict: exactly the integer 2 (not 2.0, True, "2" or null).
+    if type(version) is int and version == HASH_VERSION_REVIEW and isinstance(plan.get("review"), dict):
+        return HASH_VERSION_REVIEW
+    raise ValueError("Plan has an inconsistent review/hash_version combination; it cannot be verified.")
+
+
 def plan_content_hash(plan: Dict[str, Any]) -> str:
-    """SHA-256 over the immutable content of a plan (not its mutable state/results)."""
+    """SHA-256 over the immutable content of a plan (not its mutable state/results).
+
+    Version 1 (no ``review``): ids, snapshot, skipped list and each action. Version 2
+    additionally covers ``hash_version``, ``review`` and ``reverts_plan_id``."""
+    version = plan_hash_version(plan)
     content = {
         "plan_id": plan.get("plan_id"),
         "created_at": plan.get("created_at"),
@@ -45,12 +333,16 @@ def plan_content_hash(plan: Dict[str, Any]) -> str:
             {
                 "action_id": a.get("action_id"),
                 "tool": a.get("tool"),
-                "arguments": {k: v for k, v in (a.get("arguments") or {}).items() if k != "plan_id"},
+                "arguments": _hashable_arguments(a.get("arguments")),
                 "before": (a.get("diff") or {}).get("before"),
             }
             for a in plan.get("actions", [])
         ],
     }
+    if version == HASH_VERSION_REVIEW:
+        content["hash_version"] = HASH_VERSION_REVIEW
+        content["review"] = plan["review"]
+        content["reverts_plan_id"] = plan.get("reverts_plan_id")
     blob = json.dumps(content, sort_keys=True, separators=(",", ":"), default=str)
     return "sha256:" + hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
@@ -62,7 +354,7 @@ def _load_snapshot_doc(workspace_dir: Path, snapshot_id: Optional[str]) -> Tuple
     doc: Dict[str, Any] = {"snapshot_id": snapshot_id, "doc_guid": None, "doc_title": None}
     uids: Dict[str, str] = {}
     try:
-        if not _ID_RE.match(snapshot_id):
+        if not _ID_RE.fullmatch(snapshot_id):
             raise ValueError("bad snapshot id")
         with open(Path(workspace_dir) / "snapshots" / f"{snapshot_id}.json", "r", encoding="utf-8") as f:
             snap = json.load(f)
@@ -146,10 +438,13 @@ def build_proof(
         "approved_at": plan.get("approved_at"),
         "executed_at": plan.get("executed_at") or datetime.now(timezone.utc).isoformat(),
         "approved_by": plan.get("approved_by"),
-        "approver_note": "self-reported by the approving client; not authenticated"
+        "approver_note": "OS account running the approving panel hub or command-line tool "
+                         f"(approved via {plan.get('approved_via') or 'unknown'}); not an authenticated identity"
         if plan.get("approved_by") else "approver identity was not recorded",
         "document": document,
         "plan_hash": plan_content_hash(plan),
+        "hash_version": plan_hash_version(plan),
+        "review": plan.get("review"),
         "outcome": outcome,
         "reverts_plan_id": plan.get("reverts_plan_id"),
         "elements": elements,

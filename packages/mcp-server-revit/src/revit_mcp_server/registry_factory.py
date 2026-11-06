@@ -22,6 +22,7 @@ from .providers import (
     SpeckleProvider,
     AutodeskDataProvider,
     JobProvider,
+    RevitJobProvider,
     SQLiteExporterProvider,
     McpProxyProvider,
     NavisworksProvider,
@@ -56,7 +57,9 @@ def build_registry(
     registry = ProviderRegistry()
     approval_provider = ApprovalProvider(workspace=workspace, registry=registry)
     registry.register(approval_provider)
-    registry.register(RevitProvider(workspace=workspace))
+    revit_provider = RevitProvider(workspace=workspace)
+    registry.register(revit_provider)
+    revit_provider.approval_state_source = approval_provider.gate.approval_state
     registry.register(IfcProvider(workspace=workspace))
     registry.register(AECMapperProvider(workspace=workspace))
     registry.register(SQLiteExporterProvider(workspace=workspace, registry=registry))
@@ -71,6 +74,7 @@ def build_registry(
     # Initialize Job Manager and Job Provider
     job_manager = JobManager()
     registry.register(JobProvider(manager=job_manager))
+    registry.register(RevitJobProvider(revit=revit_provider, manager=job_manager))
 
     # Rhino Provider
     try:

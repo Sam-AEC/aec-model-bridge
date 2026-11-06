@@ -78,7 +78,7 @@ def test_rhino_capabilities_match_the_bridge_command_table(tmp_path):
         ("rhino_health", False, False),
         ("rhino_get_scene", False, False),
         ("rhino_list_layers", False, False),
-        ("rhino_reflect_get", False, False),
+        ("rhino_reflect_get", True, False),
         ("rhino_clear_scene", True, False),
         ("rhino_create_box", True, False),
         ("rhino_boolean_union", True, False),

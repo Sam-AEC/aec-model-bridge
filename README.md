@@ -38,17 +38,17 @@ person stays in control of every change. You do not need to write scripts.
 
 **Status and limits.** This is pre-release software.
 
-- Nothing in this product has been verified in a live Revit session yet. The
-  Python server is tested with mock providers, and CI compiles the add-in for
-  Revit 2024 to 2027 but does not start Revit. Treat every Revit behaviour
-  described here as UNVERIFIED until a person has checked it. The ordered list
-  is in the [release checklist](docs/release-checklist.md).
+- Bounded read-only checks in Revit 2024 are recorded in the
+  [live validation report](docs/revit-addin-live-validation-2026-10-14.md).
+  These checks do not establish that writes, rollback, recovery or other Revit
+  years work. Those paths still need live acceptance. The Python server also
+  has automated tests; CI builds do not start Revit. See the
+  [release checklist](docs/release-checklist.md).
 - This page describes the dev branch. The latest GitHub release may not include
   everything described here.
 - Try it on a copy of a project first. Approving a plan changes the open model.
 - Some limits are known and listed under [How approval works](#how-approval-works)
   and in [docs/security.md](docs/security.md).
-- The dev branch registers more tools (241 in mock mode at the time of writing; see the dev branch).
 
 ## Star History
 
@@ -180,16 +180,16 @@ published to the Marketplace.
 
 | Area | Tools | What they do |
 | --- | --- | --- |
-| Revit | 103 | Read the model, create and edit elements, parameters, views, sheets, schedules, exports, worksharing |
-| Approval | 6 | Plan, review, approve, execute and roll back model changes |
-| Modules | 34 | Snapshot inspection, parameter grids, QA/QC checks, recipes, reports, selections |
+| Revit | 110 | Read the model, create and edit elements, parameters, views, sheets, schedules, exports, worksharing |
+| Approval | 5 | Plan, review, approve, execute and roll back model changes |
+| Modules | 108 | Snapshot inspection, parameter grids, QA/QC checks, recipes, reports, selections |
 | Rhino and Grasshopper | 19 | Geometry, layers, materials, boolean operations |
 | Speckle | 17 | Projects, models, versions, send and receive |
 | Navisworks | 15 | Model tree, viewpoints, clash tests (in progress) |
 | IFC | 7 | Read IFC files without Revit: structure, properties, validation |
-| Graph, snapshots, exports, jobs | 18 | Semantic graph audits, snapshot diffs, SQLite export, background jobs |
+| Graph, snapshots, exports, jobs | 21 | Semantic graph audits, snapshot diffs, SQLite export, background jobs |
 
-219 tools are listed in the default setup (counted from the current server in mock
+302 tools are listed in the default setup (counted from the current server in mock
 mode). The Autodesk Data tools appear when APS credentials are configured. The
 [tool reference](docs/tools-generated.md) lists every tool. Each tool carries
 MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`,
@@ -245,10 +245,15 @@ In plain words:
 The hub stops any tool call that changes the model unless it carries an
 approved plan. The AI proposes a plan, you review it, and the add-in runs it on
 Revit's main thread. The panel's Plans list shows each pending plan's tools,
-arguments and, when one was captured, the before-value. For the full review of
-a plan, including any reasoning and warnings the assistant attached, run
-`aec-model-bridge-approve show <plan_id>`; the panel does not show that review
-text. Parameter and model-edit actions each run in their own named
+arguments and, when one was captured, the before-value. When a plan carries
+review text (reasoning, citations, assumptions or warnings), the card offers
+"Show the review to enable Approve" and requires you to open it before approval.
+Malformed, unsupported or oversized reviews block approval. If the panel cannot
+show the approved content completely, it disables Approve and points to
+`aec-model-bridge-approve show <plan_id>` for the full plan. See
+[plan review in the panel](docs/security.md#plan-review-in-the-panel).
+This UI is covered by automated browser checks; live WebView2 approval still
+needs acceptance. Parameter and model-edit actions each run in their own named
 transaction; some actions (save, sync, scripts) do not, so Ctrl+Z does not
 cover them.
 

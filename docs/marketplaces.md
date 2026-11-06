@@ -42,10 +42,10 @@ The repository also includes [.vscode/mcp.json](../.vscode/mcp.json) so users ca
 
 ### Claude Code plugin and Claude directory
 
-Status: files on the dev branch only (they are not on `main`), not submitted anywhere. The plugin schema was written from the Claude Code plugin docs and is UNVERIFIED against the live validator (`claude plugin validate`).
+Status: files in the repository, not submitted anywhere. The plugin schema was written from the Claude Code plugin docs and is UNVERIFIED against the live validator (`claude plugin validate`).
 
-- `.claude-plugin/marketplace.json` (dev branch only) makes this repository a plugin marketplace. Users add it with `/plugin marketplace add Sam-AEC/aec-model-bridge`, then `/plugin install aec-model-bridge@aec-model-bridge`.
-- `plugin/` (dev branch; only the `revit-review` skill file is on `main`) holds the plugin: `.claude-plugin/plugin.json`, `.mcp.json` (the same `uvx` server entry as the README install buttons) and the `revit-review` skill, which teaches an assistant to read, check, draft a plan and then stop for a human to approve.
+- [.claude-plugin/marketplace.json](../.claude-plugin/marketplace.json) makes this repository a plugin marketplace. Users add it with `/plugin marketplace add Sam-AEC/aec-model-bridge`, then `/plugin install aec-model-bridge@aec-model-bridge`.
+- [plugin/](../plugin/) holds the plugin: `.claude-plugin/plugin.json`, `.mcp.json` (the same `uvx` server entry as the README install buttons) and the `revit-review` skill, which teaches an assistant to read, check, draft a plan and then stop for a human to approve.
 - Anthropic's directory no longer takes local MCPB (desktop extension) listings as of the 2026-10-09 research (UNVERIFIED: read from a docs page by a research agent, not re-checked here). A local server such as this one goes in as a plugin, submitted by the maintainer in the Claude developer portal (`claude.ai/directory/manage`, "Plugin bundle"). The `.mcpb` file still works when a user installs it by hand.
 - A local connector needs a privacy policy. Draft: [privacy.md](privacy.md), referenced from the `privacy_policies` array in [manifest.json](../packages/mcp-server-revit/manifest.json). The field name is from the MCPB manifest spec as remembered and is UNVERIFIED. Nothing is published until the owner signs off on the policy.
 - claude.ai on the web and phones only accepts remote HTTPS connectors, so it cannot reach a Revit running on your own computer.
@@ -56,7 +56,7 @@ Status: publish steps are in [vscode-extension.yml](../.github/workflows/vscode-
 
 ## Client Configurations
 
-Setup guides for further clients, each marked UNVERIFIED until tested on a live install: [Visual Studio](clients/visual-studio.md), [JetBrains](clients/jetbrains.md), [Codex](clients/codex.md), [Gemini CLI](clients/gemini-cli.md), [Windsurf](clients/windsurf.md) and [Cline](clients/cline.md). Cline can also install from [llms-install.md](../llms-install.md).
+Setup guides for further clients (Visual Studio, JetBrains, Codex, Gemini CLI, Windsurf, Cline) are in [clients.md](clients.md), each marked UNVERIFIED until tested on a live install. Cline can also install from [llms-install.md](../llms-install.md).
 
 ### VS Code / GitHub Copilot
 
@@ -119,6 +119,38 @@ These directories usually need either an official registry entry, repository URL
 | Smithery | This Revit server is local stdio and Windows/Revit-dependent, so use MCPB/local distribution or a manual listing rather than hosted HTTP unless a remote bridge is added. The container in `smithery.yaml` runs mock mode only, so any listing should say it needs Revit for live use. |
 | Cline MCP Marketplace | Open an issue in the Cline marketplace repository (UNVERIFIED process: repository link, a 400x400 logo, a reason). Cline installs from [llms-install.md](../llms-install.md). There is no 400x400 logo in this repository yet. |
 | MCP.so / MCP Market / MCP Store / Conare / Aibase | Submit the GitHub repository URL and use the client config above. These sites generally crawl README, GitHub metadata, and registry data. |
+
+## What the owner still has to do by hand
+
+Checked on 2026-10-15 from the repository. Nothing below has been done, and nothing has been published.
+
+### PyPI
+
+State: `python -m build` makes the sdist and wheel, `twine check --strict` passes, and the wheel installs in a fresh virtualenv, `import revit_mcp_server` reports 1.5.0, all four console scripts answer `--help` and the installed server lists the same 277 tools as a source checkout. The name `aec-model-bridge` was free on PyPI when checked.
+
+1. Create or sign in to a PyPI account with two-factor login (and the same on test.pypi.org if you want a dry run).
+2. At pypi.org/manage/account/publishing add a pending publisher: project `aec-model-bridge`, owner `Sam-AEC`, repository `aec-model-bridge`, workflow `publish-pypi.yml`, environment left empty (the workflow does not use one).
+3. Run the "Publish Python Package" workflow by hand (Actions, Run workflow) from the commit you want to ship. No token is needed.
+4. Check pypi.org/project/aec-model-bridge, then `uvx aec-model-bridge --help` on a clean machine.
+5. Add the PyPI package to `server.json` only if you want the registry to list it next to the `.mcpb` file; the `mcp-name` marker is already in the package README.
+
+### VS Code Marketplace and Open VSX
+
+State: `npm ci`, compile, tests and `vsce package` pass; the `.vsix` has the manifest, icon (512x512 PNG), licence, README and changelog and nothing else.
+
+1. Create the publisher `Sam-AEC` at marketplace.visualstudio.com/manage (needs a Microsoft account; the publisher ID must match `publisher` in `extensions/vscode/package.json`).
+2. In Azure DevOps create a personal access token with the scope Marketplace, Manage, for all accessible organizations. Add it as the repository secret `VSCE_PAT`.
+3. For Open VSX: sign in at open-vsx.org with GitHub, sign the publisher agreement, create the namespace `Sam-AEC`, create a token and add it as `OVSX_PAT`.
+4. Before the first release, edit the README section "Build and install locally", which still says the extension is not published.
+5. Publishing then happens when you publish a GitHub release whose tag equals the extension version (`v1.5.0`).
+
+### Glama
+
+State: `glama.json` matches Glama's published schema (`maintainers` is the only required property; `$schema` is allowed).
+
+1. The file must be on the default branch (`main`) at the repository root.
+2. Sign in to glama.ai with the GitHub account `Sam-AEC` (the repository is on a personal account, so that login claims it) and use "Claim ownership" on the server page. If you change `glama.json` later, claim again.
+3. After claiming, Glama lets you configure how it builds the server (the root `Dockerfile` runs mock mode only). Check that the listing says it needs Revit for live use.
 
 ## Release Checklist
 

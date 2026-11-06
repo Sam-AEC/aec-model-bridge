@@ -115,16 +115,16 @@ Usa o VS Code? O [código da extensão e os passos de instalação local](../../
 
 | Área | Ferramentas | O que fazem |
 | --- | --- | --- |
-| Revit | 103 | Ler o modelo, criar e editar elementos, parâmetros, vistas, folhas, tabelas de quantitativos, exportações, trabalho compartilhado |
-| Aprovação | 6 | Planejar, revisar, aprovar, executar e reverter alterações no modelo |
-| Módulos | 34 | Inspeção de snapshots, grades de parâmetros, verificações de QA/QC, receitas, relatórios, seleções |
+| Revit | 110 | Ler o modelo, criar e editar elementos, parâmetros, vistas, folhas, tabelas de quantitativos, exportações, trabalho compartilhado |
+| Aprovação | 5 | Planejar, revisar, aprovar, executar e reverter alterações no modelo |
+| Módulos | 108 | Inspeção de snapshots, grades de parâmetros, verificações de QA/QC, receitas, relatórios, seleções |
 | Rhino e Grasshopper | 19 | Geometria, camadas, materiais, operações booleanas |
 | Speckle | 17 | Projetos, modelos, versões, envio e recebimento |
 | Navisworks | 15 | Árvore do modelo, pontos de vista, testes de interferência (em desenvolvimento) |
 | IFC | 7 | Ler arquivos IFC sem o Revit: estrutura, propriedades, validação |
-| Grafo, snapshots, exportações, tarefas | 18 | Auditorias do grafo semântico, diferenças entre snapshots, exportação para SQLite, tarefas em segundo plano |
+| Grafo, snapshots, exportações, tarefas | 21 | Auditorias do grafo semântico, diferenças entre snapshots, exportação para SQLite, tarefas em segundo plano |
 
-219 ferramentas são listadas na configuração padrão (contadas no servidor atual em modo mock). As ferramentas do Autodesk Data aparecem quando as credenciais do APS estão configuradas. A [referência de ferramentas](../tools-generated.md) lista todas elas. Cada ferramenta traz anotações MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), para que os clientes distingam leituras de escritas.
+302 ferramentas são listadas na configuração padrão (contadas no servidor atual em modo mock). As ferramentas do Autodesk Data aparecem quando as credenciais do APS estão configuradas. A [referência de ferramentas](../tools-generated.md) lista todas elas. Cada ferramenta traz anotações MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), para que os clientes distingam leituras de escritas.
 
 ### Automação avançada do Revit
 
@@ -150,6 +150,8 @@ As caixas verde-azuladas já funcionam. As caixas âmbar tracejadas estão em de
 ### Como funciona a aprovação
 
 O hub bloqueia qualquer chamada de ferramenta que altere o modelo, a menos que ela traga um plano aprovado. O modo padrão é `required`. A IA propõe um plano, você o revisa no painel lateral do Revit e o add-in o executa na thread principal do Revit, as ações de parâmetro e de edição do modelo, cada uma em sua própria transação nomeada; salvar, sincronizar e scripts não, então o Ctrl+Z não os cobre.
+
+O painel mostra a revisão do plano com "Show the review to enable Approve" e exige abri-la antes da aprovação. Revisões inválidas, não suportadas ou grandes demais bloqueiam a aprovação; `aec-model-bridge-approve show <plan_id>` mostra o plano completo. Há testes automatizados desse comportamento; a aprovação no WebView2 ainda precisa de validação ao vivo. O [relatório de validação](../revit-addin-live-validation-2026-10-14.md) registra apenas verificações limitadas de leitura no Revit 2024, sem validar gravações, reversão, recuperação ou outros anos do Revit.
 
 <p align="center">
   <picture>

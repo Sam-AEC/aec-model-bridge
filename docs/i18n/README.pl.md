@@ -115,16 +115,16 @@ Używasz VS Code? [Kod źródłowy rozszerzenia i kroki lokalnej instalacji](../
 
 | Obszar | Narzędzia | Co robią |
 | --- | --- | --- |
-| Revit | 103 | Odczyt modelu, tworzenie i edycja elementów, parametrów, widoków, arkuszy, zestawień, eksporty, współpraca (worksharing) |
-| Zatwierdzanie | 6 | Planowanie, przegląd, zatwierdzanie, wykonywanie i wycofywanie zmian modelu |
-| Moduły | 34 | Inspekcja migawek, siatki parametrów, kontrole QA/QC, receptury, raporty, zaznaczenia |
+| Revit | 110 | Odczyt modelu, tworzenie i edycja elementów, parametrów, widoków, arkuszy, zestawień, eksporty, współpraca (worksharing) |
+| Zatwierdzanie | 5 | Planowanie, przegląd, zatwierdzanie, wykonywanie i wycofywanie zmian modelu |
+| Moduły | 108 | Inspekcja migawek, siatki parametrów, kontrole QA/QC, receptury, raporty, zaznaczenia |
 | Rhino i Grasshopper | 19 | Geometria, warstwy, materiały, operacje boolowskie |
 | Speckle | 17 | Projekty, modele, wersje, wysyłanie i odbieranie |
 | Navisworks | 15 | Drzewo modelu, punkty widzenia, testy kolizji (w trakcie prac) |
 | IFC | 7 | Odczyt plików IFC bez Revit: struktura, właściwości, walidacja |
-| Graf, migawki, eksporty, zadania | 18 | Audyty grafu semantycznego, różnice migawek, eksport do SQLite, zadania w tle |
+| Graf, migawki, eksporty, zadania | 21 | Audyty grafu semantycznego, różnice migawek, eksport do SQLite, zadania w tle |
 
-W konfiguracji domyślnej widocznych jest 219 narzędzi (policzone na aktualnym serwerze w trybie mock). Narzędzia Autodesk Data pojawiają się po skonfigurowaniu poświadczeń APS. [Opis narzędzi](../tools-generated.md) zawiera listę wszystkich. Każde narzędzie ma adnotacje MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), dzięki czemu klienci odróżniają odczyty od zapisów.
+W konfiguracji domyślnej widocznych jest 302 narzędzi (policzone na aktualnym serwerze w trybie mock). Narzędzia Autodesk Data pojawiają się po skonfigurowaniu poświadczeń APS. [Opis narzędzi](../tools-generated.md) zawiera listę wszystkich. Każde narzędzie ma adnotacje MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), dzięki czemu klienci odróżniają odczyty od zapisów.
 
 ### Zaawansowana automatyzacja Revit
 
@@ -150,6 +150,8 @@ Turkusowe ramki działają już dziś. Bursztynowe ramki z linią przerywaną s�
 ### Jak działa zatwierdzanie
 
 Hub zatrzymuje każde wywołanie narzędzia zmieniającego model, jeśli nie towarzyszy mu zatwierdzony plan. Tryb domyślny to `required`. AI proponuje plan, Ty przeglądasz go w panelu bocznym Revit, a dodatek wykonuje go w głównym wątku Revit, akcje parametrów i edycji modelu każda w osobnej nazwanej transakcji; zapis, synchronizacja i skrypty nie, więc Ctrl+Z ich nie obejmuje.
+
+Panel pokazuje ocenę planu przez "Show the review to enable Approve"; trzeba ją otworzyć przed zatwierdzeniem. Nieprawidłowa, nieobsługiwana lub zbyt duża ocena blokuje zatwierdzenie; `aec-model-bridge-approve show <plan_id>` pokazuje cały plan. Zachowanie obejmują testy automatyczne; zatwierdzanie w WebView2 wymaga jeszcze odbioru na żywo. [Raport walidacji](../revit-addin-live-validation-2026-10-14.md) dokumentuje tylko ograniczone kontrole odczytu w Revit 2024, bez potwierdzenia zapisu, cofania, odzyskiwania ani innych roczników Revit.
 
 <p align="center">
   <picture>

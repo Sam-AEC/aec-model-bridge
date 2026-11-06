@@ -34,7 +34,7 @@ There is no fixed ladder. In practice, a person might be asked to become a maint
 - shown good judgement on security-sensitive code
 - followed the [Code of Conduct](CODE_OF_CONDUCT.md)
 
-The maintainer chooses. A new maintainer must sign the contributor agreement and would be added to `.github/CODEOWNERS` (dev branch only). If you are interested, open an issue or write to the address in the Code of Conduct. Do not expect a quick answer.
+The maintainer chooses. A new maintainer must sign the contributor agreement and would be added to [.github/CODEOWNERS](.github/CODEOWNERS). If you are interested, open an issue or write to the address in the Code of Conduct. Do not expect a quick answer.
 
 ## Disputes and conduct
 

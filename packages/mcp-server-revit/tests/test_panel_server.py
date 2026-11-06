@@ -34,9 +34,16 @@ def running_server(tmp_path):
         thread.join(timeout=2)
 
 
+def _token() -> str:
+    from revit_mcp_server.security.panel_token import read_token
+
+    return read_token()
+
+
 def _get(port: int, path: str):
+    req = urllib.request.Request(f"http://127.0.0.1:{port}{path}", headers={"X-AMB-Token": _token()})
     try:
-        with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=5) as resp:
             return resp.status, json.loads(resp.read())
     except urllib.error.HTTPError as e:
         return e.code, json.loads(e.read())
@@ -46,7 +53,7 @@ def _post(port: int, path: str, body: dict):
     req = urllib.request.Request(
         f"http://127.0.0.1:{port}{path}",
         data=json.dumps(body).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", "X-AMB-Token": _token()},
         method="POST",
     )
     try:
@@ -159,7 +166,8 @@ def test_plan_actions_approve_execute_round_trip_over_http(running_server):
     plan_id = plan["result"]["plan_id"]
     assert plan["result"]["state"] == "pending"
 
-    status, approved = _post(running_server, "/execute", {"tool": "approve_plan", "arguments": {"plan_id": plan_id}})
+    status, approved = _post(running_server, "/execute", {"tool": "approve_plan", "arguments": {
+        "plan_id": plan_id, "expected_hash": plan["result"]["plan_hash"]}})
     assert status == 200
     assert approved["result"]["state"] == "approved"
 
@@ -330,6 +338,18 @@ def test_diagnostics_flags_mock_mode_with_next_step(running_server):
     assert body["ok"] is False
 
 
+@pytest.mark.parametrize("available", [None, "claude", "codex", "api-key"])
+def test_diagnostics_accepts_every_supported_chat_provider(tmp_path, monkeypatch, available):
+    monkeypatch.setattr(panel_server.config, "anthropic_api_key", "test-key" if available == "api-key" else None)
+    monkeypatch.setattr(panel_server.shutil, "which", lambda name: f"/tools/{name}" if name == available else None)
+    check = next(c for c in panel_server.collect_diagnostics(tmp_path)["checks"] if c["id"] == "ai_provider")
+    assert check["ok"] is (available is not None)
+    if available is None:
+        assert "codex" in check["next_step"] and "claude" in check["next_step"]
+    else:
+        assert check["next_step"] == ""
+
+
 def test_diagnostics_reports_missing_revit_bridge(running_server, monkeypatch):
     from revit_mcp_server.config import BridgeMode
 
@@ -339,6 +359,43 @@ def test_diagnostics_reports_missing_revit_bridge(running_server, monkeypatch):
     checks = {c["id"]: c for c in body["checks"]}
     assert checks["revit_bridge"]["ok"] is False
     assert "add-in" in checks["revit_bridge"]["next_step"]
+
+
+@pytest.mark.parametrize(
+    "mode,note,ok",
+    [
+        ("look_only", "Look only: I read, never change the model.", True),
+        ("ask_first", "Ask me first: changes need your approval in this panel.", True),
+        ("auto", "Auto: approvals are skipped. Not recommended.", False),
+    ],
+)
+def test_diagnostics_reports_approval_mode(tmp_path, mode, note, ok):
+    # Diagnostics report the mode the hub's own approval gate is in, not a separate config read.
+    server = build_server(port=0, workspace=WorkspaceMonitor([tmp_path]))
+    server.RequestHandlerClass.approval_provider.gate.approval_mode = mode
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        status, body = _get(server.server_address[1], "/diagnostics")
+    finally:
+        server.shutdown()
+        thread.join(timeout=2)
+    assert status == 200
+    assert body["approval_mode"] == mode
+    assert body["approval_mode_note"] == note
+    check = {c["id"]: c for c in body["checks"]}["approval_mode"]
+    assert check["ok"] is ok and check["detail"] == note
+    assert bool(check["next_step"]) is (not ok)
+
+
+def test_diagnostics_normalises_approval_mode_alias(running_server, monkeypatch):
+    monkeypatch.setattr(panel_server.PanelRequestHandler, "approval_provider", Mock(approval_mode="required"))
+    _, body = _get(running_server, "/diagnostics")
+    assert body["approval_mode"] == "ask_first"
+
+
+def test_health_stays_minimal(running_server):
+    assert _get(running_server, "/health") == (200, {"status": "healthy"})
 
 
 # --- Host / Origin / Content-Type checks ------------------------------------
@@ -351,7 +408,7 @@ def _raw(port, method, path, headers=None, body=None):
     conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
     try:
         conn.putrequest(method, path, skip_host=True, skip_accept_encoding=True)
-        hdrs = {"Host": f"127.0.0.1:{port}"}
+        hdrs = {"Host": f"127.0.0.1:{port}", "X-AMB-Token": _token()}
         hdrs.update(headers or {})
         data = body.encode("utf-8") if body is not None else None
         if data is not None:

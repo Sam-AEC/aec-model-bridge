@@ -1,0 +1,5282 @@
+{
+  "captured_at_utc": "2026-11-05T10:47:56.061776+00:00",
+  "git_head": "8ab0a7a149917a0379b80095225687cc0f7b822f",
+  "method": {
+    "entrypoints": [
+      "mcp_server.list_tools",
+      "mcp_server.call_tool"
+    ],
+    "profile": "full",
+    "profile_file": null,
+    "compact_read_results": false,
+    "project_module_commands": false,
+    "serialization": "MCP SDK model_dump_json(by_alias=True, exclude_none=True), compact UTF-8 JSON",
+    "catalogue_payload": "ListToolsResult; excludes JSON-RPC envelope/transport framing",
+    "raw_baseline": "same providers, Tool(name, description, inputSchema) without enrich_tool",
+    "environment": "mock; credentials/proxy env scrubbed; user modules disabled; temporary isolated workspace",
+    "token_estimate": "characters / 4; not actual model tokenizer or client context billing",
+    "live_results_limit": "Mock returns tiny canned payloads; these cannot establish live Revit result sizes."
+  },
+  "tool_count": 302,
+  "human_only_not_listed": [
+    "approve_plan",
+    "reject_plan",
+    "rollback_plan"
+  ],
+  "catalogue": {
+    "chars": 330418,
+    "utf8_bytes": 330420,
+    "approx_tokens_chars_div_4": 82604.5
+  },
+  "raw_catalogue": {
+    "chars": 225411,
+    "utf8_bytes": 225413,
+    "approx_tokens_chars_div_4": 56352.75
+  },
+  "metadata_delta": {
+    "chars": 105007,
+    "utf8_bytes": 105007,
+    "approx_tokens_chars_div_4": 26251.75
+  },
+  "names_only_json": {
+    "chars": 7538,
+    "utf8_bytes": 7538,
+    "approx_tokens_chars_div_4": 1884.5
+  },
+  "by_provider": {
+    "approval": {
+      "tools": 5,
+      "chars": 3851,
+      "utf8_bytes": 3851,
+      "approx_tokens_chars_div_4": 962.75
+    },
+    "exporter": {
+      "tools": 3,
+      "chars": 2548,
+      "utf8_bytes": 2548,
+      "approx_tokens_chars_div_4": 637.0
+    },
+    "graph": {
+      "tools": 7,
+      "chars": 5346,
+      "utf8_bytes": 5346,
+      "approx_tokens_chars_div_4": 1336.5
+    },
+    "ifc": {
+      "tools": 7,
+      "chars": 3800,
+      "utf8_bytes": 3800,
+      "approx_tokens_chars_div_4": 950.0
+    },
+    "jobs": {
+      "tools": 2,
+      "chars": 875,
+      "utf8_bytes": 875,
+      "approx_tokens_chars_div_4": 218.75
+    },
+    "mapper": {
+      "tools": 3,
+      "chars": 2177,
+      "utf8_bytes": 2177,
+      "approx_tokens_chars_div_4": 544.25
+    },
+    "module": {
+      "tools": 108,
+      "chars": 194409,
+      "utf8_bytes": 194411,
+      "approx_tokens_chars_div_4": 48602.25
+    },
+    "navisworks": {
+      "tools": 15,
+      "chars": 8159,
+      "utf8_bytes": 8159,
+      "approx_tokens_chars_div_4": 2039.75
+    },
+    "revit": {
+      "tools": 110,
+      "chars": 80506,
+      "utf8_bytes": 80506,
+      "approx_tokens_chars_div_4": 20126.5
+    },
+    "revit_jobs": {
+      "tools": 3,
+      "chars": 2701,
+      "utf8_bytes": 2701,
+      "approx_tokens_chars_div_4": 675.25
+    },
+    "rhino": {
+      "tools": 19,
+      "chars": 12712,
+      "utf8_bytes": 12712,
+      "approx_tokens_chars_div_4": 3178.0
+    },
+    "semantic": {
+      "tools": 3,
+      "chars": 2412,
+      "utf8_bytes": 2412,
+      "approx_tokens_chars_div_4": 603.0
+    },
+    "speckle": {
+      "tools": 17,
+      "chars": 11054,
+      "utf8_bytes": 11054,
+      "approx_tokens_chars_div_4": 2763.5
+    }
+  },
+  "by_module": {
+    "bcf_exchange": {
+      "tools": 2,
+      "chars": 1817,
+      "utf8_bytes": 1817,
+      "approx_tokens_chars_div_4": 454.25
+    },
+    "clash_triage": {
+      "tools": 2,
+      "chars": 1728,
+      "utf8_bytes": 1728,
+      "approx_tokens_chars_div_4": 432.0
+    },
+    "familytype_mapper": {
+      "tools": 2,
+      "chars": 1234,
+      "utf8_bytes": 1234,
+      "approx_tokens_chars_div_4": 308.5
+    },
+    "hello_world": {
+      "tools": 1,
+      "chars": 460,
+      "utf8_bytes": 460,
+      "approx_tokens_chars_div_4": 115.0
+    },
+    "links_worksets_audit": {
+      "tools": 1,
+      "chars": 1687,
+      "utf8_bytes": 1687,
+      "approx_tokens_chars_div_4": 421.75
+    },
+    "model_bloat": {
+      "tools": 1,
+      "chars": 1042,
+      "utf8_bytes": 1042,
+      "approx_tokens_chars_div_4": 260.5
+    },
+    "model_changes": {
+      "tools": 2,
+      "chars": 1425,
+      "utf8_bytes": 1425,
+      "approx_tokens_chars_div_4": 356.25
+    },
+    "model_inspector": {
+      "tools": 7,
+      "chars": 3696,
+      "utf8_bytes": 3696,
+      "approx_tokens_chars_div_4": 924.0
+    },
+    "naming_checker": {
+      "tools": 2,
+      "chars": 2213,
+      "utf8_bytes": 2213,
+      "approx_tokens_chars_div_4": 553.25
+    },
+    "parameter_manager": {
+      "tools": 5,
+      "chars": 4180,
+      "utf8_bytes": 4182,
+      "approx_tokens_chars_div_4": 1045.0
+    },
+    "pyrevit_bridge": {
+      "tools": 3,
+      "chars": 2122,
+      "utf8_bytes": 2122,
+      "approx_tokens_chars_div_4": 530.5
+    },
+    "qaqc_checker": {
+      "tools": 8,
+      "chars": 5024,
+      "utf8_bytes": 5024,
+      "approx_tokens_chars_div_4": 1256.0
+    },
+    "recipe_runner": {
+      "tools": 4,
+      "chars": 1884,
+      "utf8_bytes": 1884,
+      "approx_tokens_chars_div_4": 471.0
+    },
+    "report_generator": {
+      "tools": 3,
+      "chars": 2580,
+      "utf8_bytes": 2580,
+      "approx_tokens_chars_div_4": 645.0
+    },
+    "revit": {
+      "tools": 11,
+      "chars": 28408,
+      "utf8_bytes": 28408,
+      "approx_tokens_chars_div_4": 7102.0
+    },
+    "revit_api": {
+      "tools": 1,
+      "chars": 2034,
+      "utf8_bytes": 2034,
+      "approx_tokens_chars_div_4": 508.5
+    },
+    "revit_cleanup": {
+      "tools": 1,
+      "chars": 3283,
+      "utf8_bytes": 3283,
+      "approx_tokens_chars_div_4": 820.75
+    },
+    "revit_docs": {
+      "tools": 17,
+      "chars": 40959,
+      "utf8_bytes": 40959,
+      "approx_tokens_chars_div_4": 10239.75
+    },
+    "revit_family": {
+      "tools": 1,
+      "chars": 4532,
+      "utf8_bytes": 4532,
+      "approx_tokens_chars_div_4": 1133.0
+    },
+    "revit_ifc": {
+      "tools": 1,
+      "chars": 3172,
+      "utf8_bytes": 3172,
+      "approx_tokens_chars_div_4": 793.0
+    },
+    "revit_mep": {
+      "tools": 8,
+      "chars": 32531,
+      "utf8_bytes": 32531,
+      "approx_tokens_chars_div_4": 8132.75
+    },
+    "revit_params": {
+      "tools": 2,
+      "chars": 7175,
+      "utf8_bytes": 7175,
+      "approx_tokens_chars_div_4": 1793.75
+    },
+    "revit_recipes": {
+      "tools": 5,
+      "chars": 6756,
+      "utf8_bytes": 6756,
+      "approx_tokens_chars_div_4": 1689.0
+    },
+    "revit_sparing": {
+      "tools": 8,
+      "chars": 28332,
+      "utf8_bytes": 28332,
+      "approx_tokens_chars_div_4": 7083.0
+    },
+    "schedule_consistency": {
+      "tools": 1,
+      "chars": 1211,
+      "utf8_bytes": 1211,
+      "approx_tokens_chars_div_4": 302.75
+    },
+    "selection_tools": {
+      "tools": 8,
+      "chars": 4833,
+      "utf8_bytes": 4833,
+      "approx_tokens_chars_div_4": 1208.25
+    },
+    "sheet_view_audit": {
+      "tools": 1,
+      "chars": 772,
+      "utf8_bytes": 772,
+      "approx_tokens_chars_div_4": 193.0
+    },
+    "warnings_triage": {
+      "tools": 1,
+      "chars": 1143,
+      "utf8_bytes": 1143,
+      "approx_tokens_chars_div_4": 285.75
+    }
+  },
+  "top_15_tools": [
+    {
+      "name": "revit_mep_route",
+      "provider": "module",
+      "module": "revit_mep",
+      "tool": {
+        "chars": 8131,
+        "utf8_bytes": 8131,
+        "approx_tokens_chars_div_4": 2032.75
+      },
+      "input_schema": {
+        "chars": 7505,
+        "utf8_bytes": 7505,
+        "approx_tokens_chars_div_4": 1876.25
+      }
+    },
+    {
+      "name": "revit_mep_hanger_place",
+      "provider": "module",
+      "module": "revit_mep",
+      "tool": {
+        "chars": 7532,
+        "utf8_bytes": 7532,
+        "approx_tokens_chars_div_4": 1883.0
+      },
+      "input_schema": {
+        "chars": 6852,
+        "utf8_bytes": 6852,
+        "approx_tokens_chars_div_4": 1713.0
+      }
+    },
+    {
+      "name": "revit_sparing_place",
+      "provider": "module",
+      "module": "revit_sparing",
+      "tool": {
+        "chars": 6023,
+        "utf8_bytes": 6023,
+        "approx_tokens_chars_div_4": 1505.75
+      },
+      "input_schema": {
+        "chars": 5424,
+        "utf8_bytes": 5424,
+        "approx_tokens_chars_div_4": 1356.0
+      }
+    },
+    {
+      "name": "revit_mep_connect",
+      "provider": "module",
+      "module": "revit_mep",
+      "tool": {
+        "chars": 4974,
+        "utf8_bytes": 4974,
+        "approx_tokens_chars_div_4": 1243.5
+      },
+      "input_schema": {
+        "chars": 4414,
+        "utf8_bytes": 4414,
+        "approx_tokens_chars_div_4": 1103.5
+      }
+    },
+    {
+      "name": "revit_mep_hanger_plan",
+      "provider": "module",
+      "module": "revit_mep",
+      "tool": {
+        "chars": 4725,
+        "utf8_bytes": 4725,
+        "approx_tokens_chars_div_4": 1181.25
+      },
+      "input_schema": {
+        "chars": 4071,
+        "utf8_bytes": 4071,
+        "approx_tokens_chars_div_4": 1017.75
+      }
+    },
+    {
+      "name": "revit_make_family",
+      "provider": "module",
+      "module": "revit_family",
+      "tool": {
+        "chars": 4520,
+        "utf8_bytes": 4520,
+        "approx_tokens_chars_div_4": 1130.0
+      },
+      "input_schema": {
+        "chars": 3903,
+        "utf8_bytes": 3903,
+        "approx_tokens_chars_div_4": 975.75
+      }
+    },
+    {
+      "name": "revit_sparing_place_spec",
+      "provider": "module",
+      "module": "revit_sparing",
+      "tool": {
+        "chars": 4243,
+        "utf8_bytes": 4243,
+        "approx_tokens_chars_div_4": 1060.75
+      },
+      "input_schema": {
+        "chars": 3636,
+        "utf8_bytes": 3636,
+        "approx_tokens_chars_div_4": 909.0
+      }
+    },
+    {
+      "name": "revit_make_view",
+      "provider": "module",
+      "module": "revit_docs",
+      "tool": {
+        "chars": 4097,
+        "utf8_bytes": 4097,
+        "approx_tokens_chars_div_4": 1024.25
+      },
+      "input_schema": {
+        "chars": 3673,
+        "utf8_bytes": 3673,
+        "approx_tokens_chars_div_4": 918.25
+      }
+    },
+    {
+      "name": "revit_set_parameters",
+      "provider": "module",
+      "module": "revit_params",
+      "tool": {
+        "chars": 4055,
+        "utf8_bytes": 4055,
+        "approx_tokens_chars_div_4": 1013.75
+      },
+      "input_schema": {
+        "chars": 3183,
+        "utf8_bytes": 3183,
+        "approx_tokens_chars_div_4": 795.75
+      }
+    },
+    {
+      "name": "revit_make_schedule",
+      "provider": "module",
+      "module": "revit_docs",
+      "tool": {
+        "chars": 4026,
+        "utf8_bytes": 4026,
+        "approx_tokens_chars_div_4": 1006.5
+      },
+      "input_schema": {
+        "chars": 3608,
+        "utf8_bytes": 3608,
+        "approx_tokens_chars_div_4": 902.0
+      }
+    },
+    {
+      "name": "revit_place_views",
+      "provider": "module",
+      "module": "revit_docs",
+      "tool": {
+        "chars": 3765,
+        "utf8_bytes": 3765,
+        "approx_tokens_chars_div_4": 941.25
+      },
+      "input_schema": {
+        "chars": 2914,
+        "utf8_bytes": 2914,
+        "approx_tokens_chars_div_4": 728.5
+      }
+    },
+    {
+      "name": "revit_sparing_find",
+      "provider": "module",
+      "module": "revit_sparing",
+      "tool": {
+        "chars": 3684,
+        "utf8_bytes": 3684,
+        "approx_tokens_chars_div_4": 921.0
+      },
+      "input_schema": {
+        "chars": 3084,
+        "utf8_bytes": 3084,
+        "approx_tokens_chars_div_4": 771.0
+      }
+    },
+    {
+      "name": "revit_sparing_export_spec",
+      "provider": "module",
+      "module": "revit_sparing",
+      "tool": {
+        "chars": 3547,
+        "utf8_bytes": 3547,
+        "approx_tokens_chars_div_4": 886.75
+      },
+      "input_schema": {
+        "chars": 2954,
+        "utf8_bytes": 2954,
+        "approx_tokens_chars_div_4": 738.5
+      }
+    },
+    {
+      "name": "revit_add_revision_clouds",
+      "provider": "module",
+      "module": "revit_docs",
+      "tool": {
+        "chars": 3405,
+        "utf8_bytes": 3405,
+        "approx_tokens_chars_div_4": 851.25
+      },
+      "input_schema": {
+        "chars": 2562,
+        "utf8_bytes": 2562,
+        "approx_tokens_chars_div_4": 640.5
+      }
+    },
+    {
+      "name": "revit_audit_roofs",
+      "provider": "module",
+      "module": "revit",
+      "tool": {
+        "chars": 3386,
+        "utf8_bytes": 3386,
+        "approx_tokens_chars_div_4": 846.5
+      },
+      "input_schema": {
+        "chars": 2932,
+        "utf8_bytes": 2932,
+        "approx_tokens_chars_div_4": 733.0
+      }
+    }
+  ],
+  "tools": [
+    {
+      "name": "plan_actions",
+      "provider": "approval",
+      "module": null,
+      "tool": {
+        "chars": 1608,
+        "utf8_bytes": 1608,
+        "approx_tokens_chars_div_4": 402.0
+      },
+      "input_schema": {
+        "chars": 1202,
+        "utf8_bytes": 1202,
+        "approx_tokens_chars_div_4": 300.5
+      }
+    },
+    {
+      "name": "list_pending_plans",
+      "provider": "approval",
+      "module": null,
+      "tool": {
+        "chars": 316,
+        "utf8_bytes": 316,
+        "approx_tokens_chars_div_4": 79.0
+      },
+      "input_schema": {
+        "chars": 33,
+        "utf8_bytes": 33,
+        "approx_tokens_chars_div_4": 8.25
+      }
+    },
+    {
+      "name": "execute_plan",
+      "provider": "approval",
+      "module": null,
+      "tool": {
+        "chars": 573,
+        "utf8_bytes": 573,
+        "approx_tokens_chars_div_4": 143.25
+      },
+      "input_schema": {
+        "chars": 140,
+        "utf8_bytes": 140,
+        "approx_tokens_chars_div_4": 35.0
+      }
+    },
+    {
+      "name": "get_proof_bundle",
+      "provider": "approval",
+      "module": null,
+      "tool": {
+        "chars": 524,
+        "utf8_bytes": 524,
+        "approx_tokens_chars_div_4": 131.0
+      },
+      "input_schema": {
+        "chars": 140,
+        "utf8_bytes": 140,
+        "approx_tokens_chars_div_4": 35.0
+      }
+    },
+    {
+      "name": "plan_revert",
+      "provider": "approval",
+      "module": null,
+      "tool": {
+        "chars": 814,
+        "utf8_bytes": 814,
+        "approx_tokens_chars_div_4": 203.5
+      },
+      "input_schema": {
+        "chars": 352,
+        "utf8_bytes": 352,
+        "approx_tokens_chars_div_4": 88.0
+      }
+    },
+    {
+      "name": "revit_extract_snapshot",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 517,
+        "utf8_bytes": 517,
+        "approx_tokens_chars_div_4": 129.25
+      },
+      "input_schema": {
+        "chars": 174,
+        "utf8_bytes": 174,
+        "approx_tokens_chars_div_4": 43.5
+      }
+    },
+    {
+      "name": "revit_get_snapshot_delta",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 379,
+        "utf8_bytes": 379,
+        "approx_tokens_chars_div_4": 94.75
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "revit_health",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 372,
+        "utf8_bytes": 372,
+        "approx_tokens_chars_div_4": 93.0
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "revit_create_wall",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 1468,
+        "utf8_bytes": 1468,
+        "approx_tokens_chars_div_4": 367.0
+      },
+      "input_schema": {
+        "chars": 1105,
+        "utf8_bytes": 1105,
+        "approx_tokens_chars_div_4": 276.25
+      }
+    },
+    {
+      "name": "revit_create_floor",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 956,
+        "utf8_bytes": 956,
+        "approx_tokens_chars_div_4": 239.0
+      },
+      "input_schema": {
+        "chars": 618,
+        "utf8_bytes": 618,
+        "approx_tokens_chars_div_4": 154.5
+      }
+    },
+    {
+      "name": "revit_create_roof",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 1033,
+        "utf8_bytes": 1033,
+        "approx_tokens_chars_div_4": 258.25
+      },
+      "input_schema": {
+        "chars": 673,
+        "utf8_bytes": 673,
+        "approx_tokens_chars_div_4": 168.25
+      }
+    },
+    {
+      "name": "revit_list_levels",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 343,
+        "utf8_bytes": 343,
+        "approx_tokens_chars_div_4": 85.75
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "revit_list_views",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 801,
+        "utf8_bytes": 801,
+        "approx_tokens_chars_div_4": 200.25
+      },
+      "input_schema": {
+        "chars": 504,
+        "utf8_bytes": 504,
+        "approx_tokens_chars_div_4": 126.0
+      }
+    },
+    {
+      "name": "revit_list_elements",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 950,
+        "utf8_bytes": 950,
+        "approx_tokens_chars_div_4": 237.5
+      },
+      "input_schema": {
+        "chars": 608,
+        "utf8_bytes": 608,
+        "approx_tokens_chars_div_4": 152.0
+      }
+    },
+    {
+      "name": "revit_get_document_info",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 379,
+        "utf8_bytes": 379,
+        "approx_tokens_chars_div_4": 94.75
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "revit_create_level",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 748,
+        "utf8_bytes": 748,
+        "approx_tokens_chars_div_4": 187.0
+      },
+      "input_schema": {
+        "chars": 425,
+        "utf8_bytes": 425,
+        "approx_tokens_chars_div_4": 106.25
+      }
+    },
+    {
+      "name": "revit_save_document",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 545,
+        "utf8_bytes": 545,
+        "approx_tokens_chars_div_4": 136.25
+      },
+      "input_schema": {
+        "chars": 224,
+        "utf8_bytes": 224,
+        "approx_tokens_chars_div_4": 56.0
+      }
+    },
+    {
+      "name": "revit_create_grid",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 994,
+        "utf8_bytes": 994,
+        "approx_tokens_chars_div_4": 248.5
+      },
+      "input_schema": {
+        "chars": 671,
+        "utf8_bytes": 671,
+        "approx_tokens_chars_div_4": 167.75
+      }
+    },
+    {
+      "name": "revit_create_room",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 914,
+        "utf8_bytes": 914,
+        "approx_tokens_chars_div_4": 228.5
+      },
+      "input_schema": {
+        "chars": 553,
+        "utf8_bytes": 553,
+        "approx_tokens_chars_div_4": 138.25
+      }
+    },
+    {
+      "name": "revit_delete_element",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 621,
+        "utf8_bytes": 621,
+        "approx_tokens_chars_div_4": 155.25
+      },
+      "input_schema": {
+        "chars": 255,
+        "utf8_bytes": 255,
+        "approx_tokens_chars_div_4": 63.75
+      }
+    },
+    {
+      "name": "revit_place_family_instance",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 1099,
+        "utf8_bytes": 1099,
+        "approx_tokens_chars_div_4": 274.75
+      },
+      "input_schema": {
+        "chars": 721,
+        "utf8_bytes": 721,
+        "approx_tokens_chars_div_4": 180.25
+      }
+    },
+    {
+      "name": "revit_place_door",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 1584,
+        "utf8_bytes": 1584,
+        "approx_tokens_chars_div_4": 396.0
+      },
+      "input_schema": {
+        "chars": 1271,
+        "utf8_bytes": 1271,
+        "approx_tokens_chars_div_4": 317.75
+      }
+    },
+    {
+      "name": "revit_place_window",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 1594,
+        "utf8_bytes": 1594,
+        "approx_tokens_chars_div_4": 398.5
+      },
+      "input_schema": {
+        "chars": 1273,
+        "utf8_bytes": 1273,
+        "approx_tokens_chars_div_4": 318.25
+      }
+    },
+    {
+      "name": "revit_list_families",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 796,
+        "utf8_bytes": 796,
+        "approx_tokens_chars_div_4": 199.0
+      },
+      "input_schema": {
+        "chars": 490,
+        "utf8_bytes": 490,
+        "approx_tokens_chars_div_4": 122.5
+      }
+    },
+    {
+      "name": "revit_create_floor_plan_view",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 662,
+        "utf8_bytes": 662,
+        "approx_tokens_chars_div_4": 165.5
+      },
+      "input_schema": {
+        "chars": 333,
+        "utf8_bytes": 333,
+        "approx_tokens_chars_div_4": 83.25
+      }
+    },
+    {
+      "name": "revit_create_3d_view",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 527,
+        "utf8_bytes": 527,
+        "approx_tokens_chars_div_4": 131.75
+      },
+      "input_schema": {
+        "chars": 226,
+        "utf8_bytes": 226,
+        "approx_tokens_chars_div_4": 56.5
+      }
+    },
+    {
+      "name": "revit_create_section_view",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 1086,
+        "utf8_bytes": 1086,
+        "approx_tokens_chars_div_4": 271.5
+      },
+      "input_schema": {
+        "chars": 712,
+        "utf8_bytes": 712,
+        "approx_tokens_chars_div_4": 178.0
+      }
+    },
+    {
+      "name": "revit_get_element_parameters",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 960,
+        "utf8_bytes": 960,
+        "approx_tokens_chars_div_4": 240.0
+      },
+      "input_schema": {
+        "chars": 613,
+        "utf8_bytes": 613,
+        "approx_tokens_chars_div_4": 153.25
+      }
+    },
+    {
+      "name": "revit_set_parameter_value",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 836,
+        "utf8_bytes": 836,
+        "approx_tokens_chars_div_4": 209.0
+      },
+      "input_schema": {
+        "chars": 506,
+        "utf8_bytes": 506,
+        "approx_tokens_chars_div_4": 126.5
+      }
+    },
+    {
+      "name": "revit_get_parameter_value",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 549,
+        "utf8_bytes": 549,
+        "approx_tokens_chars_div_4": 137.25
+      },
+      "input_schema": {
+        "chars": 252,
+        "utf8_bytes": 252,
+        "approx_tokens_chars_div_4": 63.0
+      }
+    },
+    {
+      "name": "revit_list_shared_parameters",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 350,
+        "utf8_bytes": 350,
+        "approx_tokens_chars_div_4": 87.5
+      },
+      "input_schema": {
+        "chars": 33,
+        "utf8_bytes": 33,
+        "approx_tokens_chars_div_4": 8.25
+      }
+    },
+    {
+      "name": "revit_create_shared_parameter",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 884,
+        "utf8_bytes": 884,
+        "approx_tokens_chars_div_4": 221.0
+      },
+      "input_schema": {
+        "chars": 524,
+        "utf8_bytes": 524,
+        "approx_tokens_chars_div_4": 131.0
+      }
+    },
+    {
+      "name": "revit_list_project_parameters",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 392,
+        "utf8_bytes": 392,
+        "approx_tokens_chars_div_4": 98.0
+      },
+      "input_schema": {
+        "chars": 33,
+        "utf8_bytes": 33,
+        "approx_tokens_chars_div_4": 8.25
+      }
+    },
+    {
+      "name": "revit_create_project_parameter",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 865,
+        "utf8_bytes": 865,
+        "approx_tokens_chars_div_4": 216.25
+      },
+      "input_schema": {
+        "chars": 518,
+        "utf8_bytes": 518,
+        "approx_tokens_chars_div_4": 129.5
+      }
+    },
+    {
+      "name": "revit_batch_set_parameters",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 862,
+        "utf8_bytes": 862,
+        "approx_tokens_chars_div_4": 215.5
+      },
+      "input_schema": {
+        "chars": 511,
+        "utf8_bytes": 511,
+        "approx_tokens_chars_div_4": 127.75
+      }
+    },
+    {
+      "name": "revit_get_type_parameters",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 479,
+        "utf8_bytes": 479,
+        "approx_tokens_chars_div_4": 119.75
+      },
+      "input_schema": {
+        "chars": 162,
+        "utf8_bytes": 162,
+        "approx_tokens_chars_div_4": 40.5
+      }
+    },
+    {
+      "name": "revit_set_type_parameter",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 844,
+        "utf8_bytes": 844,
+        "approx_tokens_chars_div_4": 211.0
+      },
+      "input_schema": {
+        "chars": 505,
+        "utf8_bytes": 505,
+        "approx_tokens_chars_div_4": 126.25
+      }
+    },
+    {
+      "name": "revit_list_sheets",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 331,
+        "utf8_bytes": 331,
+        "approx_tokens_chars_div_4": 82.75
+      },
+      "input_schema": {
+        "chars": 33,
+        "utf8_bytes": 33,
+        "approx_tokens_chars_div_4": 8.25
+      }
+    },
+    {
+      "name": "revit_create_sheet",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 714,
+        "utf8_bytes": 714,
+        "approx_tokens_chars_div_4": 178.5
+      },
+      "input_schema": {
+        "chars": 405,
+        "utf8_bytes": 405,
+        "approx_tokens_chars_div_4": 101.25
+      }
+    },
+    {
+      "name": "revit_delete_sheet",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 551,
+        "utf8_bytes": 551,
+        "approx_tokens_chars_div_4": 137.75
+      },
+      "input_schema": {
+        "chars": 242,
+        "utf8_bytes": 242,
+        "approx_tokens_chars_div_4": 60.5
+      }
+    },
+    {
+      "name": "revit_place_viewport_on_sheet",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 807,
+        "utf8_bytes": 807,
+        "approx_tokens_chars_div_4": 201.75
+      },
+      "input_schema": {
+        "chars": 486,
+        "utf8_bytes": 486,
+        "approx_tokens_chars_div_4": 121.5
+      }
+    },
+    {
+      "name": "revit_batch_create_sheets_from_csv",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 705,
+        "utf8_bytes": 705,
+        "approx_tokens_chars_div_4": 176.25
+      },
+      "input_schema": {
+        "chars": 339,
+        "utf8_bytes": 339,
+        "approx_tokens_chars_div_4": 84.75
+      }
+    },
+    {
+      "name": "revit_populate_titleblock",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 643,
+        "utf8_bytes": 643,
+        "approx_tokens_chars_div_4": 160.75
+      },
+      "input_schema": {
+        "chars": 334,
+        "utf8_bytes": 334,
+        "approx_tokens_chars_div_4": 83.5
+      }
+    },
+    {
+      "name": "revit_list_titleblocks",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 341,
+        "utf8_bytes": 341,
+        "approx_tokens_chars_div_4": 85.25
+      },
+      "input_schema": {
+        "chars": 33,
+        "utf8_bytes": 33,
+        "approx_tokens_chars_div_4": 8.25
+      }
+    },
+    {
+      "name": "revit_get_sheet_info",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 471,
+        "utf8_bytes": 471,
+        "approx_tokens_chars_div_4": 117.75
+      },
+      "input_schema": {
+        "chars": 142,
+        "utf8_bytes": 142,
+        "approx_tokens_chars_div_4": 35.5
+      }
+    },
+    {
+      "name": "revit_duplicate_sheet",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 787,
+        "utf8_bytes": 787,
+        "approx_tokens_chars_div_4": 196.75
+      },
+      "input_schema": {
+        "chars": 468,
+        "utf8_bytes": 468,
+        "approx_tokens_chars_div_4": 117.0
+      }
+    },
+    {
+      "name": "revit_renumber_sheets",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 611,
+        "utf8_bytes": 611,
+        "approx_tokens_chars_div_4": 152.75
+      },
+      "input_schema": {
+        "chars": 308,
+        "utf8_bytes": 308,
+        "approx_tokens_chars_div_4": 77.0
+      }
+    },
+    {
+      "name": "revit_get_selection",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 332,
+        "utf8_bytes": 332,
+        "approx_tokens_chars_div_4": 83.0
+      },
+      "input_schema": {
+        "chars": 33,
+        "utf8_bytes": 33,
+        "approx_tokens_chars_div_4": 8.25
+      }
+    },
+    {
+      "name": "revit_set_selection",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 589,
+        "utf8_bytes": 589,
+        "approx_tokens_chars_div_4": 147.25
+      },
+      "input_schema": {
+        "chars": 270,
+        "utf8_bytes": 270,
+        "approx_tokens_chars_div_4": 67.5
+      }
+    },
+    {
+      "name": "revit_select_by_unique_ids",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 565,
+        "utf8_bytes": 565,
+        "approx_tokens_chars_div_4": 141.25
+      },
+      "input_schema": {
+        "chars": 192,
+        "utf8_bytes": 192,
+        "approx_tokens_chars_div_4": 48.0
+      }
+    },
+    {
+      "name": "revit_preview_elements",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 843,
+        "utf8_bytes": 843,
+        "approx_tokens_chars_div_4": 210.75
+      },
+      "input_schema": {
+        "chars": 454,
+        "utf8_bytes": 454,
+        "approx_tokens_chars_div_4": 113.5
+      }
+    },
+    {
+      "name": "revit_clear_preview",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 378,
+        "utf8_bytes": 378,
+        "approx_tokens_chars_div_4": 94.5
+      },
+      "input_schema": {
+        "chars": 33,
+        "utf8_bytes": 33,
+        "approx_tokens_chars_div_4": 8.25
+      }
+    },
+    {
+      "name": "revit_create_text_note",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 753,
+        "utf8_bytes": 753,
+        "approx_tokens_chars_div_4": 188.25
+      },
+      "input_schema": {
+        "chars": 439,
+        "utf8_bytes": 439,
+        "approx_tokens_chars_div_4": 109.75
+      }
+    },
+    {
+      "name": "revit_create_tag",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 751,
+        "utf8_bytes": 751,
+        "approx_tokens_chars_div_4": 187.75
+      },
+      "input_schema": {
+        "chars": 487,
+        "utf8_bytes": 487,
+        "approx_tokens_chars_div_4": 121.75
+      }
+    },
+    {
+      "name": "revit_create_column",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 943,
+        "utf8_bytes": 943,
+        "approx_tokens_chars_div_4": 235.75
+      },
+      "input_schema": {
+        "chars": 613,
+        "utf8_bytes": 613,
+        "approx_tokens_chars_div_4": 153.25
+      }
+    },
+    {
+      "name": "revit_create_beam",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 1064,
+        "utf8_bytes": 1064,
+        "approx_tokens_chars_div_4": 266.0
+      },
+      "input_schema": {
+        "chars": 735,
+        "utf8_bytes": 735,
+        "approx_tokens_chars_div_4": 183.75
+      }
+    },
+    {
+      "name": "revit_create_foundation",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 1059,
+        "utf8_bytes": 1059,
+        "approx_tokens_chars_div_4": 264.75
+      },
+      "input_schema": {
+        "chars": 721,
+        "utf8_bytes": 721,
+        "approx_tokens_chars_div_4": 180.25
+      }
+    },
+    {
+      "name": "revit_create_duct",
+      "provider": "revit",
+      "module": "revit_mep",
+      "tool": {
+        "chars": 1180,
+        "utf8_bytes": 1180,
+        "approx_tokens_chars_div_4": 295.0
+      },
+      "input_schema": {
+        "chars": 828,
+        "utf8_bytes": 828,
+        "approx_tokens_chars_div_4": 207.0
+      }
+    },
+    {
+      "name": "revit_create_pipe",
+      "provider": "revit",
+      "module": "revit_mep",
+      "tool": {
+        "chars": 1175,
+        "utf8_bytes": 1175,
+        "approx_tokens_chars_div_4": 293.75
+      },
+      "input_schema": {
+        "chars": 827,
+        "utf8_bytes": 827,
+        "approx_tokens_chars_div_4": 206.75
+      }
+    },
+    {
+      "name": "revit_get_categories",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 321,
+        "utf8_bytes": 321,
+        "approx_tokens_chars_div_4": 80.25
+      },
+      "input_schema": {
+        "chars": 33,
+        "utf8_bytes": 33,
+        "approx_tokens_chars_div_4": 8.25
+      }
+    },
+    {
+      "name": "revit_get_element_type",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 566,
+        "utf8_bytes": 566,
+        "approx_tokens_chars_div_4": 141.5
+      },
+      "input_schema": {
+        "chars": 256,
+        "utf8_bytes": 256,
+        "approx_tokens_chars_div_4": 64.0
+      }
+    },
+    {
+      "name": "revit_close_document",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 533,
+        "utf8_bytes": 533,
+        "approx_tokens_chars_div_4": 133.25
+      },
+      "input_schema": {
+        "chars": 238,
+        "utf8_bytes": 238,
+        "approx_tokens_chars_div_4": 59.5
+      }
+    },
+    {
+      "name": "revit_create_new_document",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 577,
+        "utf8_bytes": 577,
+        "approx_tokens_chars_div_4": 144.25
+      },
+      "input_schema": {
+        "chars": 242,
+        "utf8_bytes": 242,
+        "approx_tokens_chars_div_4": 60.5
+      }
+    },
+    {
+      "name": "revit_export_dwg",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 601,
+        "utf8_bytes": 601,
+        "approx_tokens_chars_div_4": 150.25
+      },
+      "input_schema": {
+        "chars": 274,
+        "utf8_bytes": 274,
+        "approx_tokens_chars_div_4": 68.5
+      }
+    },
+    {
+      "name": "revit_export_ifc",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 511,
+        "utf8_bytes": 511,
+        "approx_tokens_chars_div_4": 127.75
+      },
+      "input_schema": {
+        "chars": 180,
+        "utf8_bytes": 180,
+        "approx_tokens_chars_div_4": 45.0
+      }
+    },
+    {
+      "name": "revit_export_navisworks",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 542,
+        "utf8_bytes": 542,
+        "approx_tokens_chars_div_4": 135.5
+      },
+      "input_schema": {
+        "chars": 180,
+        "utf8_bytes": 180,
+        "approx_tokens_chars_div_4": 45.0
+      }
+    },
+    {
+      "name": "revit_export_image",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 754,
+        "utf8_bytes": 754,
+        "approx_tokens_chars_div_4": 188.5
+      },
+      "input_schema": {
+        "chars": 394,
+        "utf8_bytes": 394,
+        "approx_tokens_chars_div_4": 98.5
+      }
+    },
+    {
+      "name": "revit_render_3d",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 797,
+        "utf8_bytes": 797,
+        "approx_tokens_chars_div_4": 199.25
+      },
+      "input_schema": {
+        "chars": 480,
+        "utf8_bytes": 480,
+        "approx_tokens_chars_div_4": 120.0
+      }
+    },
+    {
+      "name": "revit_move_element",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 784,
+        "utf8_bytes": 784,
+        "approx_tokens_chars_div_4": 196.0
+      },
+      "input_schema": {
+        "chars": 515,
+        "utf8_bytes": 515,
+        "approx_tokens_chars_div_4": 128.75
+      }
+    },
+    {
+      "name": "revit_copy_element",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 822,
+        "utf8_bytes": 822,
+        "approx_tokens_chars_div_4": 205.5
+      },
+      "input_schema": {
+        "chars": 515,
+        "utf8_bytes": 515,
+        "approx_tokens_chars_div_4": 128.75
+      }
+    },
+    {
+      "name": "revit_rotate_element",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 965,
+        "utf8_bytes": 965,
+        "approx_tokens_chars_div_4": 241.25
+      },
+      "input_schema": {
+        "chars": 648,
+        "utf8_bytes": 648,
+        "approx_tokens_chars_div_4": 162.0
+      }
+    },
+    {
+      "name": "revit_mirror_element",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 1231,
+        "utf8_bytes": 1231,
+        "approx_tokens_chars_div_4": 307.75
+      },
+      "input_schema": {
+        "chars": 923,
+        "utf8_bytes": 923,
+        "approx_tokens_chars_div_4": 230.75
+      }
+    },
+    {
+      "name": "revit_pin_element",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 525,
+        "utf8_bytes": 525,
+        "approx_tokens_chars_div_4": 131.25
+      },
+      "input_schema": {
+        "chars": 255,
+        "utf8_bytes": 255,
+        "approx_tokens_chars_div_4": 63.75
+      }
+    },
+    {
+      "name": "revit_unpin_element",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 541,
+        "utf8_bytes": 541,
+        "approx_tokens_chars_div_4": 135.25
+      },
+      "input_schema": {
+        "chars": 255,
+        "utf8_bytes": 255,
+        "approx_tokens_chars_div_4": 63.75
+      }
+    },
+    {
+      "name": "revit_sync_to_central",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 729,
+        "utf8_bytes": 729,
+        "approx_tokens_chars_div_4": 182.25
+      },
+      "input_schema": {
+        "chars": 348,
+        "utf8_bytes": 348,
+        "approx_tokens_chars_div_4": 87.0
+      }
+    },
+    {
+      "name": "revit_relinquish_all",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 443,
+        "utf8_bytes": 443,
+        "approx_tokens_chars_div_4": 110.75
+      },
+      "input_schema": {
+        "chars": 132,
+        "utf8_bytes": 132,
+        "approx_tokens_chars_div_4": 33.0
+      }
+    },
+    {
+      "name": "revit_get_worksets",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 329,
+        "utf8_bytes": 329,
+        "approx_tokens_chars_div_4": 82.25
+      },
+      "input_schema": {
+        "chars": 33,
+        "utf8_bytes": 33,
+        "approx_tokens_chars_div_4": 8.25
+      }
+    },
+    {
+      "name": "revit_create_schedule",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 641,
+        "utf8_bytes": 641,
+        "approx_tokens_chars_div_4": 160.25
+      },
+      "input_schema": {
+        "chars": 349,
+        "utf8_bytes": 349,
+        "approx_tokens_chars_div_4": 87.25
+      }
+    },
+    {
+      "name": "revit_get_schedule_data",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 441,
+        "utf8_bytes": 441,
+        "approx_tokens_chars_div_4": 110.25
+      },
+      "input_schema": {
+        "chars": 151,
+        "utf8_bytes": 151,
+        "approx_tokens_chars_div_4": 37.75
+      }
+    },
+    {
+      "name": "revit_get_element_bounding_box",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 492,
+        "utf8_bytes": 492,
+        "approx_tokens_chars_div_4": 123.0
+      },
+      "input_schema": {
+        "chars": 155,
+        "utf8_bytes": 155,
+        "approx_tokens_chars_div_4": 38.75
+      }
+    },
+    {
+      "name": "revit_get_phases",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 303,
+        "utf8_bytes": 303,
+        "approx_tokens_chars_div_4": 75.75
+      },
+      "input_schema": {
+        "chars": 33,
+        "utf8_bytes": 33,
+        "approx_tokens_chars_div_4": 8.25
+      }
+    },
+    {
+      "name": "revit_get_phase_filters",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 323,
+        "utf8_bytes": 323,
+        "approx_tokens_chars_div_4": 80.75
+      },
+      "input_schema": {
+        "chars": 33,
+        "utf8_bytes": 33,
+        "approx_tokens_chars_div_4": 8.25
+      }
+    },
+    {
+      "name": "revit_get_design_options",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 343,
+        "utf8_bytes": 343,
+        "approx_tokens_chars_div_4": 85.75
+      },
+      "input_schema": {
+        "chars": 33,
+        "utf8_bytes": 33,
+        "approx_tokens_chars_div_4": 8.25
+      }
+    },
+    {
+      "name": "revit_create_group",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 626,
+        "utf8_bytes": 626,
+        "approx_tokens_chars_div_4": 156.5
+      },
+      "input_schema": {
+        "chars": 341,
+        "utf8_bytes": 341,
+        "approx_tokens_chars_div_4": 85.25
+      }
+    },
+    {
+      "name": "revit_ungroup",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 499,
+        "utf8_bytes": 499,
+        "approx_tokens_chars_div_4": 124.75
+      },
+      "input_schema": {
+        "chars": 242,
+        "utf8_bytes": 242,
+        "approx_tokens_chars_div_4": 60.5
+      }
+    },
+    {
+      "name": "revit_get_group_members",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 422,
+        "utf8_bytes": 422,
+        "approx_tokens_chars_div_4": 105.5
+      },
+      "input_schema": {
+        "chars": 142,
+        "utf8_bytes": 142,
+        "approx_tokens_chars_div_4": 35.5
+      }
+    },
+    {
+      "name": "revit_get_rvt_links",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 324,
+        "utf8_bytes": 324,
+        "approx_tokens_chars_div_4": 81.0
+      },
+      "input_schema": {
+        "chars": 33,
+        "utf8_bytes": 33,
+        "approx_tokens_chars_div_4": 8.25
+      }
+    },
+    {
+      "name": "revit_get_link_instances",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 346,
+        "utf8_bytes": 346,
+        "approx_tokens_chars_div_4": 86.5
+      },
+      "input_schema": {
+        "chars": 33,
+        "utf8_bytes": 33,
+        "approx_tokens_chars_div_4": 8.25
+      }
+    },
+    {
+      "name": "revit_create_conduit",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 1123,
+        "utf8_bytes": 1123,
+        "approx_tokens_chars_div_4": 280.75
+      },
+      "input_schema": {
+        "chars": 775,
+        "utf8_bytes": 775,
+        "approx_tokens_chars_div_4": 193.75
+      }
+    },
+    {
+      "name": "revit_check_clashes",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 1002,
+        "utf8_bytes": 1002,
+        "approx_tokens_chars_div_4": 250.5
+      },
+      "input_schema": {
+        "chars": 675,
+        "utf8_bytes": 675,
+        "approx_tokens_chars_div_4": 168.75
+      }
+    },
+    {
+      "name": "revit_create_material",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 1025,
+        "utf8_bytes": 1025,
+        "approx_tokens_chars_div_4": 256.25
+      },
+      "input_schema": {
+        "chars": 715,
+        "utf8_bytes": 715,
+        "approx_tokens_chars_div_4": 178.75
+      }
+    },
+    {
+      "name": "revit_set_element_material",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 758,
+        "utf8_bytes": 758,
+        "approx_tokens_chars_div_4": 189.5
+      },
+      "input_schema": {
+        "chars": 446,
+        "utf8_bytes": 446,
+        "approx_tokens_chars_div_4": 111.5
+      }
+    },
+    {
+      "name": "revit_convert_to_group",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 621,
+        "utf8_bytes": 621,
+        "approx_tokens_chars_div_4": 155.25
+      },
+      "input_schema": {
+        "chars": 334,
+        "utf8_bytes": 334,
+        "approx_tokens_chars_div_4": 83.5
+      }
+    },
+    {
+      "name": "revit_edit_family",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 704,
+        "utf8_bytes": 704,
+        "approx_tokens_chars_div_4": 176.0
+      },
+      "input_schema": {
+        "chars": 430,
+        "utf8_bytes": 430,
+        "approx_tokens_chars_div_4": 107.5
+      }
+    },
+    {
+      "name": "revit_create_dimension",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 1053,
+        "utf8_bytes": 1053,
+        "approx_tokens_chars_div_4": 263.25
+      },
+      "input_schema": {
+        "chars": 736,
+        "utf8_bytes": 736,
+        "approx_tokens_chars_div_4": 184.0
+      }
+    },
+    {
+      "name": "revit_get_revision_sequences",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 351,
+        "utf8_bytes": 351,
+        "approx_tokens_chars_div_4": 87.75
+      },
+      "input_schema": {
+        "chars": 33,
+        "utf8_bytes": 33,
+        "approx_tokens_chars_div_4": 8.25
+      }
+    },
+    {
+      "name": "revit_tag_all_in_view",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 550,
+        "utf8_bytes": 550,
+        "approx_tokens_chars_div_4": 137.5
+      },
+      "input_schema": {
+        "chars": 265,
+        "utf8_bytes": 265,
+        "approx_tokens_chars_div_4": 66.25
+      }
+    },
+    {
+      "name": "revit_get_view_templates",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 337,
+        "utf8_bytes": 337,
+        "approx_tokens_chars_div_4": 84.25
+      },
+      "input_schema": {
+        "chars": 33,
+        "utf8_bytes": 33,
+        "approx_tokens_chars_div_4": 8.25
+      }
+    },
+    {
+      "name": "revit_apply_view_template",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 649,
+        "utf8_bytes": 649,
+        "approx_tokens_chars_div_4": 162.25
+      },
+      "input_schema": {
+        "chars": 344,
+        "utf8_bytes": 344,
+        "approx_tokens_chars_div_4": 86.0
+      }
+    },
+    {
+      "name": "revit_calculate_material_quantities",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 518,
+        "utf8_bytes": 518,
+        "approx_tokens_chars_div_4": 129.5
+      },
+      "input_schema": {
+        "chars": 165,
+        "utf8_bytes": 165,
+        "approx_tokens_chars_div_4": 41.25
+      }
+    },
+    {
+      "name": "revit_get_warnings",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 360,
+        "utf8_bytes": 360,
+        "approx_tokens_chars_div_4": 90.0
+      },
+      "input_schema": {
+        "chars": 33,
+        "utf8_bytes": 33,
+        "approx_tokens_chars_div_4": 8.25
+      }
+    },
+    {
+      "name": "revit_invoke_method",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 1273,
+        "utf8_bytes": 1273,
+        "approx_tokens_chars_div_4": 318.25
+      },
+      "input_schema": {
+        "chars": 842,
+        "utf8_bytes": 842,
+        "approx_tokens_chars_div_4": 210.5
+      }
+    },
+    {
+      "name": "revit_reflect_get",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 762,
+        "utf8_bytes": 762,
+        "approx_tokens_chars_div_4": 190.5
+      },
+      "input_schema": {
+        "chars": 356,
+        "utf8_bytes": 356,
+        "approx_tokens_chars_div_4": 89.0
+      }
+    },
+    {
+      "name": "revit_reflect_set",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 779,
+        "utf8_bytes": 779,
+        "approx_tokens_chars_div_4": 194.75
+      },
+      "input_schema": {
+        "chars": 418,
+        "utf8_bytes": 418,
+        "approx_tokens_chars_div_4": 104.5
+      }
+    },
+    {
+      "name": "revit_list_commands",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 721,
+        "utf8_bytes": 721,
+        "approx_tokens_chars_div_4": 180.25
+      },
+      "input_schema": {
+        "chars": 271,
+        "utf8_bytes": 271,
+        "approx_tokens_chars_div_4": 67.75
+      }
+    },
+    {
+      "name": "revit_raw_command",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 1039,
+        "utf8_bytes": 1039,
+        "approx_tokens_chars_div_4": 259.75
+      },
+      "input_schema": {
+        "chars": 360,
+        "utf8_bytes": 360,
+        "approx_tokens_chars_div_4": 90.0
+      }
+    },
+    {
+      "name": "revit_execute_python",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 2041,
+        "utf8_bytes": 2041,
+        "approx_tokens_chars_div_4": 510.25
+      },
+      "input_schema": {
+        "chars": 608,
+        "utf8_bytes": 608,
+        "approx_tokens_chars_div_4": 152.0
+      }
+    },
+    {
+      "name": "revit_change_element_type",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 764,
+        "utf8_bytes": 764,
+        "approx_tokens_chars_div_4": 191.0
+      },
+      "input_schema": {
+        "chars": 464,
+        "utf8_bytes": 464,
+        "approx_tokens_chars_div_4": 116.0
+      }
+    },
+    {
+      "name": "revit_get_elements_by_type",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 1002,
+        "utf8_bytes": 1002,
+        "approx_tokens_chars_div_4": 250.5
+      },
+      "input_schema": {
+        "chars": 678,
+        "utf8_bytes": 678,
+        "approx_tokens_chars_div_4": 169.5
+      }
+    },
+    {
+      "name": "revit_batch_set_parameters_by_filter",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 1191,
+        "utf8_bytes": 1191,
+        "approx_tokens_chars_div_4": 297.75
+      },
+      "input_schema": {
+        "chars": 814,
+        "utf8_bytes": 814,
+        "approx_tokens_chars_div_4": 203.5
+      }
+    },
+    {
+      "name": "revit_replace_family_type",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 824,
+        "utf8_bytes": 824,
+        "approx_tokens_chars_div_4": 206.0
+      },
+      "input_schema": {
+        "chars": 493,
+        "utf8_bytes": 493,
+        "approx_tokens_chars_div_4": 123.25
+      }
+    },
+    {
+      "name": "revit_inspect_elements",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 1580,
+        "utf8_bytes": 1580,
+        "approx_tokens_chars_div_4": 395.0
+      },
+      "input_schema": {
+        "chars": 771,
+        "utf8_bytes": 771,
+        "approx_tokens_chars_div_4": 192.75
+      }
+    },
+    {
+      "name": "revit_get_element_geometry",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 480,
+        "utf8_bytes": 480,
+        "approx_tokens_chars_div_4": 120.0
+      },
+      "input_schema": {
+        "chars": 117,
+        "utf8_bytes": 117,
+        "approx_tokens_chars_div_4": 29.25
+      }
+    },
+    {
+      "name": "revit_get_context",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 781,
+        "utf8_bytes": 781,
+        "approx_tokens_chars_div_4": 195.25
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "revit_get_result",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 784,
+        "utf8_bytes": 784,
+        "approx_tokens_chars_div_4": 196.0
+      },
+      "input_schema": {
+        "chars": 294,
+        "utf8_bytes": 294,
+        "approx_tokens_chars_div_4": 73.5
+      }
+    },
+    {
+      "name": "ifc_health",
+      "provider": "ifc",
+      "module": null,
+      "tool": {
+        "chars": 295,
+        "utf8_bytes": 295,
+        "approx_tokens_chars_div_4": 73.75
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "ifc_get_metadata",
+      "provider": "ifc",
+      "module": null,
+      "tool": {
+        "chars": 454,
+        "utf8_bytes": 454,
+        "approx_tokens_chars_div_4": 113.5
+      },
+      "input_schema": {
+        "chars": 153,
+        "utf8_bytes": 153,
+        "approx_tokens_chars_div_4": 38.25
+      }
+    },
+    {
+      "name": "ifc_get_spatial_structure",
+      "provider": "ifc",
+      "module": null,
+      "tool": {
+        "chars": 503,
+        "utf8_bytes": 503,
+        "approx_tokens_chars_div_4": 125.75
+      },
+      "input_schema": {
+        "chars": 153,
+        "utf8_bytes": 153,
+        "approx_tokens_chars_div_4": 38.25
+      }
+    },
+    {
+      "name": "ifc_query_elements",
+      "provider": "ifc",
+      "module": null,
+      "tool": {
+        "chars": 969,
+        "utf8_bytes": 969,
+        "approx_tokens_chars_div_4": 242.25
+      },
+      "input_schema": {
+        "chars": 667,
+        "utf8_bytes": 667,
+        "approx_tokens_chars_div_4": 166.75
+      }
+    },
+    {
+      "name": "ifc_get_properties",
+      "provider": "ifc",
+      "module": null,
+      "tool": {
+        "chars": 569,
+        "utf8_bytes": 569,
+        "approx_tokens_chars_div_4": 142.25
+      },
+      "input_schema": {
+        "chars": 256,
+        "utf8_bytes": 256,
+        "approx_tokens_chars_div_4": 64.0
+      }
+    },
+    {
+      "name": "ifc_get_bounding_box",
+      "provider": "ifc",
+      "module": null,
+      "tool": {
+        "chars": 561,
+        "utf8_bytes": 561,
+        "approx_tokens_chars_div_4": 140.25
+      },
+      "input_schema": {
+        "chars": 256,
+        "utf8_bytes": 256,
+        "approx_tokens_chars_div_4": 64.0
+      }
+    },
+    {
+      "name": "ifc_validate",
+      "provider": "ifc",
+      "module": null,
+      "tool": {
+        "chars": 431,
+        "utf8_bytes": 431,
+        "approx_tokens_chars_div_4": 107.75
+      },
+      "input_schema": {
+        "chars": 153,
+        "utf8_bytes": 153,
+        "approx_tokens_chars_div_4": 38.25
+      }
+    },
+    {
+      "name": "aec_translate_id",
+      "provider": "mapper",
+      "module": null,
+      "tool": {
+        "chars": 761,
+        "utf8_bytes": 761,
+        "approx_tokens_chars_div_4": 190.25
+      },
+      "input_schema": {
+        "chars": 437,
+        "utf8_bytes": 437,
+        "approx_tokens_chars_div_4": 109.25
+      }
+    },
+    {
+      "name": "aec_register_mapping",
+      "provider": "mapper",
+      "module": null,
+      "tool": {
+        "chars": 768,
+        "utf8_bytes": 768,
+        "approx_tokens_chars_div_4": 192.0
+      },
+      "input_schema": {
+        "chars": 426,
+        "utf8_bytes": 426,
+        "approx_tokens_chars_div_4": 106.5
+      }
+    },
+    {
+      "name": "aec_map_workspace_path",
+      "provider": "mapper",
+      "module": null,
+      "tool": {
+        "chars": 634,
+        "utf8_bytes": 634,
+        "approx_tokens_chars_div_4": 158.5
+      },
+      "input_schema": {
+        "chars": 294,
+        "utf8_bytes": 294,
+        "approx_tokens_chars_div_4": 73.5
+      }
+    },
+    {
+      "name": "exporter_db_health",
+      "provider": "exporter",
+      "module": null,
+      "tool": {
+        "chars": 314,
+        "utf8_bytes": 314,
+        "approx_tokens_chars_div_4": 78.5
+      },
+      "input_schema": {
+        "chars": 33,
+        "utf8_bytes": 33,
+        "approx_tokens_chars_div_4": 8.25
+      }
+    },
+    {
+      "name": "exporter_to_sqlite",
+      "provider": "exporter",
+      "module": null,
+      "tool": {
+        "chars": 1655,
+        "utf8_bytes": 1655,
+        "approx_tokens_chars_div_4": 413.75
+      },
+      "input_schema": {
+        "chars": 1311,
+        "utf8_bytes": 1311,
+        "approx_tokens_chars_div_4": 327.75
+      }
+    },
+    {
+      "name": "exporter_graph_to_sqlite",
+      "provider": "exporter",
+      "module": null,
+      "tool": {
+        "chars": 565,
+        "utf8_bytes": 565,
+        "approx_tokens_chars_div_4": 141.25
+      },
+      "input_schema": {
+        "chars": 188,
+        "utf8_bytes": 188,
+        "approx_tokens_chars_div_4": 47.0
+      }
+    },
+    {
+      "name": "navisworks_health",
+      "provider": "navisworks",
+      "module": null,
+      "tool": {
+        "chars": 335,
+        "utf8_bytes": 335,
+        "approx_tokens_chars_div_4": 83.75
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "navisworks_get_document_info",
+      "provider": "navisworks",
+      "module": null,
+      "tool": {
+        "chars": 364,
+        "utf8_bytes": 364,
+        "approx_tokens_chars_div_4": 91.0
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "navisworks_get_model_tree",
+      "provider": "navisworks",
+      "module": null,
+      "tool": {
+        "chars": 480,
+        "utf8_bytes": 480,
+        "approx_tokens_chars_div_4": 120.0
+      },
+      "input_schema": {
+        "chars": 135,
+        "utf8_bytes": 135,
+        "approx_tokens_chars_div_4": 33.75
+      }
+    },
+    {
+      "name": "navisworks_get_selection",
+      "provider": "navisworks",
+      "module": null,
+      "tool": {
+        "chars": 349,
+        "utf8_bytes": 349,
+        "approx_tokens_chars_div_4": 87.25
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "navisworks_append_file",
+      "provider": "navisworks",
+      "module": null,
+      "tool": {
+        "chars": 619,
+        "utf8_bytes": 619,
+        "approx_tokens_chars_div_4": 154.75
+      },
+      "input_schema": {
+        "chars": 271,
+        "utf8_bytes": 271,
+        "approx_tokens_chars_div_4": 67.75
+      }
+    },
+    {
+      "name": "navisworks_refresh",
+      "provider": "navisworks",
+      "module": null,
+      "tool": {
+        "chars": 452,
+        "utf8_bytes": 452,
+        "approx_tokens_chars_div_4": 113.0
+      },
+      "input_schema": {
+        "chars": 146,
+        "utf8_bytes": 146,
+        "approx_tokens_chars_div_4": 36.5
+      }
+    },
+    {
+      "name": "navisworks_list_viewpoints",
+      "provider": "navisworks",
+      "module": null,
+      "tool": {
+        "chars": 365,
+        "utf8_bytes": 365,
+        "approx_tokens_chars_div_4": 91.25
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "navisworks_create_viewpoint",
+      "provider": "navisworks",
+      "module": null,
+      "tool": {
+        "chars": 565,
+        "utf8_bytes": 565,
+        "approx_tokens_chars_div_4": 141.25
+      },
+      "input_schema": {
+        "chars": 246,
+        "utf8_bytes": 246,
+        "approx_tokens_chars_div_4": 61.5
+      }
+    },
+    {
+      "name": "navisworks_activate_viewpoint",
+      "provider": "navisworks",
+      "module": null,
+      "tool": {
+        "chars": 586,
+        "utf8_bytes": 586,
+        "approx_tokens_chars_div_4": 146.5
+      },
+      "input_schema": {
+        "chars": 258,
+        "utf8_bytes": 258,
+        "approx_tokens_chars_div_4": 64.5
+      }
+    },
+    {
+      "name": "navisworks_list_clash_tests",
+      "provider": "navisworks",
+      "module": null,
+      "tool": {
+        "chars": 356,
+        "utf8_bytes": 356,
+        "approx_tokens_chars_div_4": 89.0
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "navisworks_run_clash_test",
+      "provider": "navisworks",
+      "module": null,
+      "tool": {
+        "chars": 577,
+        "utf8_bytes": 577,
+        "approx_tokens_chars_div_4": 144.25
+      },
+      "input_schema": {
+        "chars": 258,
+        "utf8_bytes": 258,
+        "approx_tokens_chars_div_4": 64.5
+      }
+    },
+    {
+      "name": "navisworks_get_clash_results",
+      "provider": "navisworks",
+      "module": null,
+      "tool": {
+        "chars": 681,
+        "utf8_bytes": 681,
+        "approx_tokens_chars_div_4": 170.25
+      },
+      "input_schema": {
+        "chars": 349,
+        "utf8_bytes": 349,
+        "approx_tokens_chars_div_4": 87.25
+      }
+    },
+    {
+      "name": "navisworks_invoke_method",
+      "provider": "navisworks",
+      "module": null,
+      "tool": {
+        "chars": 922,
+        "utf8_bytes": 922,
+        "approx_tokens_chars_div_4": 230.5
+      },
+      "input_schema": {
+        "chars": 575,
+        "utf8_bytes": 575,
+        "approx_tokens_chars_div_4": 143.75
+      }
+    },
+    {
+      "name": "navisworks_reflect_get",
+      "provider": "navisworks",
+      "module": null,
+      "tool": {
+        "chars": 746,
+        "utf8_bytes": 746,
+        "approx_tokens_chars_div_4": 186.5
+      },
+      "input_schema": {
+        "chars": 356,
+        "utf8_bytes": 356,
+        "approx_tokens_chars_div_4": 89.0
+      }
+    },
+    {
+      "name": "navisworks_reflect_set",
+      "provider": "navisworks",
+      "module": null,
+      "tool": {
+        "chars": 736,
+        "utf8_bytes": 736,
+        "approx_tokens_chars_div_4": 184.0
+      },
+      "input_schema": {
+        "chars": 418,
+        "utf8_bytes": 418,
+        "approx_tokens_chars_div_4": 104.5
+      }
+    },
+    {
+      "name": "snapshot_take",
+      "provider": "semantic",
+      "module": null,
+      "tool": {
+        "chars": 913,
+        "utf8_bytes": 913,
+        "approx_tokens_chars_div_4": 228.25
+      },
+      "input_schema": {
+        "chars": 483,
+        "utf8_bytes": 483,
+        "approx_tokens_chars_div_4": 120.75
+      }
+    },
+    {
+      "name": "snapshot_query",
+      "provider": "semantic",
+      "module": null,
+      "tool": {
+        "chars": 924,
+        "utf8_bytes": 924,
+        "approx_tokens_chars_div_4": 231.0
+      },
+      "input_schema": {
+        "chars": 636,
+        "utf8_bytes": 636,
+        "approx_tokens_chars_div_4": 159.0
+      }
+    },
+    {
+      "name": "snapshot_diff",
+      "provider": "semantic",
+      "module": null,
+      "tool": {
+        "chars": 561,
+        "utf8_bytes": 561,
+        "approx_tokens_chars_div_4": 140.25
+      },
+      "input_schema": {
+        "chars": 266,
+        "utf8_bytes": 266,
+        "approx_tokens_chars_div_4": 66.5
+      }
+    },
+    {
+      "name": "module_list_commands",
+      "provider": "module",
+      "module": null,
+      "tool": {
+        "chars": 829,
+        "utf8_bytes": 829,
+        "approx_tokens_chars_div_4": 207.25
+      },
+      "input_schema": {
+        "chars": 504,
+        "utf8_bytes": 504,
+        "approx_tokens_chars_div_4": 126.0
+      }
+    },
+    {
+      "name": "bcf_exchange_export_bcf",
+      "provider": "module",
+      "module": "bcf_exchange",
+      "tool": {
+        "chars": 1231,
+        "utf8_bytes": 1231,
+        "approx_tokens_chars_div_4": 307.75
+      },
+      "input_schema": {
+        "chars": 805,
+        "utf8_bytes": 805,
+        "approx_tokens_chars_div_4": 201.25
+      }
+    },
+    {
+      "name": "bcf_exchange_import_bcf",
+      "provider": "module",
+      "module": "bcf_exchange",
+      "tool": {
+        "chars": 573,
+        "utf8_bytes": 573,
+        "approx_tokens_chars_div_4": 143.25
+      },
+      "input_schema": {
+        "chars": 177,
+        "utf8_bytes": 177,
+        "approx_tokens_chars_div_4": 44.25
+      }
+    },
+    {
+      "name": "clash_triage_match_clashes",
+      "provider": "module",
+      "module": "clash_triage",
+      "tool": {
+        "chars": 986,
+        "utf8_bytes": 986,
+        "approx_tokens_chars_div_4": 246.5
+      },
+      "input_schema": {
+        "chars": 479,
+        "utf8_bytes": 479,
+        "approx_tokens_chars_div_4": 119.75
+      }
+    },
+    {
+      "name": "clash_triage_list_clash_issues",
+      "provider": "module",
+      "module": "clash_triage",
+      "tool": {
+        "chars": 729,
+        "utf8_bytes": 729,
+        "approx_tokens_chars_div_4": 182.25
+      },
+      "input_schema": {
+        "chars": 360,
+        "utf8_bytes": 360,
+        "approx_tokens_chars_div_4": 90.0
+      }
+    },
+    {
+      "name": "familytype_mapper_audit_families",
+      "provider": "module",
+      "module": "familytype_mapper",
+      "tool": {
+        "chars": 562,
+        "utf8_bytes": 562,
+        "approx_tokens_chars_div_4": 140.5
+      },
+      "input_schema": {
+        "chars": 181,
+        "utf8_bytes": 181,
+        "approx_tokens_chars_div_4": 45.25
+      }
+    },
+    {
+      "name": "familytype_mapper_list_type_mappings",
+      "provider": "module",
+      "module": "familytype_mapper",
+      "tool": {
+        "chars": 659,
+        "utf8_bytes": 659,
+        "approx_tokens_chars_div_4": 164.75
+      },
+      "input_schema": {
+        "chars": 290,
+        "utf8_bytes": 290,
+        "approx_tokens_chars_div_4": 72.5
+      }
+    },
+    {
+      "name": "hello_world_say_hello",
+      "provider": "module",
+      "module": "hello_world",
+      "tool": {
+        "chars": 448,
+        "utf8_bytes": 448,
+        "approx_tokens_chars_div_4": 112.0
+      },
+      "input_schema": {
+        "chars": 126,
+        "utf8_bytes": 126,
+        "approx_tokens_chars_div_4": 31.5
+      }
+    },
+    {
+      "name": "links_worksets_audit_audit",
+      "provider": "module",
+      "module": "links_worksets_audit",
+      "tool": {
+        "chars": 1675,
+        "utf8_bytes": 1675,
+        "approx_tokens_chars_div_4": 418.75
+      },
+      "input_schema": {
+        "chars": 1176,
+        "utf8_bytes": 1176,
+        "approx_tokens_chars_div_4": 294.0
+      }
+    },
+    {
+      "name": "model_bloat_audit",
+      "provider": "module",
+      "module": "model_bloat",
+      "tool": {
+        "chars": 1030,
+        "utf8_bytes": 1030,
+        "approx_tokens_chars_div_4": 257.5
+      },
+      "input_schema": {
+        "chars": 513,
+        "utf8_bytes": 513,
+        "approx_tokens_chars_div_4": 128.25
+      }
+    },
+    {
+      "name": "model_changes_list_snapshots",
+      "provider": "module",
+      "module": "model_changes",
+      "tool": {
+        "chars": 541,
+        "utf8_bytes": 541,
+        "approx_tokens_chars_div_4": 135.25
+      },
+      "input_schema": {
+        "chars": 153,
+        "utf8_bytes": 153,
+        "approx_tokens_chars_div_4": 38.25
+      }
+    },
+    {
+      "name": "model_changes_compare_snapshots",
+      "provider": "module",
+      "module": "model_changes",
+      "tool": {
+        "chars": 871,
+        "utf8_bytes": 871,
+        "approx_tokens_chars_div_4": 217.75
+      },
+      "input_schema": {
+        "chars": 456,
+        "utf8_bytes": 456,
+        "approx_tokens_chars_div_4": 114.0
+      }
+    },
+    {
+      "name": "model_inspector_summarize_model",
+      "provider": "module",
+      "module": "model_inspector",
+      "tool": {
+        "chars": 496,
+        "utf8_bytes": 496,
+        "approx_tokens_chars_div_4": 124.0
+      },
+      "input_schema": {
+        "chars": 156,
+        "utf8_bytes": 156,
+        "approx_tokens_chars_div_4": 39.0
+      }
+    },
+    {
+      "name": "model_inspector_ask",
+      "provider": "module",
+      "module": "model_inspector",
+      "tool": {
+        "chars": 640,
+        "utf8_bytes": 640,
+        "approx_tokens_chars_div_4": 160.0
+      },
+      "input_schema": {
+        "chars": 309,
+        "utf8_bytes": 309,
+        "approx_tokens_chars_div_4": 77.25
+      }
+    },
+    {
+      "name": "model_inspector_list_groups",
+      "provider": "module",
+      "module": "model_inspector",
+      "tool": {
+        "chars": 425,
+        "utf8_bytes": 425,
+        "approx_tokens_chars_div_4": 106.25
+      },
+      "input_schema": {
+        "chars": 116,
+        "utf8_bytes": 116,
+        "approx_tokens_chars_div_4": 29.0
+      }
+    },
+    {
+      "name": "model_inspector_inspect_selection",
+      "provider": "module",
+      "module": "model_inspector",
+      "tool": {
+        "chars": 597,
+        "utf8_bytes": 597,
+        "approx_tokens_chars_div_4": 149.25
+      },
+      "input_schema": {
+        "chars": 254,
+        "utf8_bytes": 254,
+        "approx_tokens_chars_div_4": 63.5
+      }
+    },
+    {
+      "name": "model_inspector_save_query",
+      "provider": "module",
+      "module": "model_inspector",
+      "tool": {
+        "chars": 555,
+        "utf8_bytes": 555,
+        "approx_tokens_chars_div_4": 138.75
+      },
+      "input_schema": {
+        "chars": 218,
+        "utf8_bytes": 218,
+        "approx_tokens_chars_div_4": 54.5
+      }
+    },
+    {
+      "name": "model_inspector_run_saved_query",
+      "provider": "module",
+      "module": "model_inspector",
+      "tool": {
+        "chars": 607,
+        "utf8_bytes": 607,
+        "approx_tokens_chars_div_4": 151.75
+      },
+      "input_schema": {
+        "chars": 274,
+        "utf8_bytes": 274,
+        "approx_tokens_chars_div_4": 68.5
+      }
+    },
+    {
+      "name": "model_inspector_list_saved_queries",
+      "provider": "module",
+      "module": "model_inspector",
+      "tool": {
+        "chars": 358,
+        "utf8_bytes": 358,
+        "approx_tokens_chars_div_4": 89.5
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "naming_checker_check_names",
+      "provider": "module",
+      "module": "naming_checker",
+      "tool": {
+        "chars": 1756,
+        "utf8_bytes": 1756,
+        "approx_tokens_chars_div_4": 439.0
+      },
+      "input_schema": {
+        "chars": 1240,
+        "utf8_bytes": 1240,
+        "approx_tokens_chars_div_4": 310.0
+      }
+    },
+    {
+      "name": "naming_checker_list_example_conventions",
+      "provider": "module",
+      "module": "naming_checker",
+      "tool": {
+        "chars": 444,
+        "utf8_bytes": 444,
+        "approx_tokens_chars_div_4": 111.0
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "parameter_manager_filter_params",
+      "provider": "module",
+      "module": "parameter_manager",
+      "tool": {
+        "chars": 868,
+        "utf8_bytes": 868,
+        "approx_tokens_chars_div_4": 217.0
+      },
+      "input_schema": {
+        "chars": 477,
+        "utf8_bytes": 477,
+        "approx_tokens_chars_div_4": 119.25
+      }
+    },
+    {
+      "name": "parameter_manager_diff_params",
+      "provider": "module",
+      "module": "parameter_manager",
+      "tool": {
+        "chars": 726,
+        "utf8_bytes": 726,
+        "approx_tokens_chars_div_4": 181.5
+      },
+      "input_schema": {
+        "chars": 381,
+        "utf8_bytes": 381,
+        "approx_tokens_chars_div_4": 95.25
+      }
+    },
+    {
+      "name": "parameter_manager_plan_set_params",
+      "provider": "module",
+      "module": "parameter_manager",
+      "tool": {
+        "chars": 856,
+        "utf8_bytes": 858,
+        "approx_tokens_chars_div_4": 214.0
+      },
+      "input_schema": {
+        "chars": 443,
+        "utf8_bytes": 445,
+        "approx_tokens_chars_div_4": 110.75
+      }
+    },
+    {
+      "name": "parameter_manager_export_params_csv",
+      "provider": "module",
+      "module": "parameter_manager",
+      "tool": {
+        "chars": 985,
+        "utf8_bytes": 985,
+        "approx_tokens_chars_div_4": 246.25
+      },
+      "input_schema": {
+        "chars": 585,
+        "utf8_bytes": 585,
+        "approx_tokens_chars_div_4": 146.25
+      }
+    },
+    {
+      "name": "parameter_manager_import_params_csv",
+      "provider": "module",
+      "module": "parameter_manager",
+      "tool": {
+        "chars": 729,
+        "utf8_bytes": 729,
+        "approx_tokens_chars_div_4": 182.25
+      },
+      "input_schema": {
+        "chars": 281,
+        "utf8_bytes": 281,
+        "approx_tokens_chars_div_4": 70.25
+      }
+    },
+    {
+      "name": "pyrevit_bridge_list_pyrevit_scripts",
+      "provider": "module",
+      "module": "pyrevit_bridge",
+      "tool": {
+        "chars": 507,
+        "utf8_bytes": 507,
+        "approx_tokens_chars_div_4": 126.75
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "pyrevit_bridge_plan_run_pyrevit_script",
+      "provider": "module",
+      "module": "pyrevit_bridge",
+      "tool": {
+        "chars": 654,
+        "utf8_bytes": 654,
+        "approx_tokens_chars_div_4": 163.5
+      },
+      "input_schema": {
+        "chars": 230,
+        "utf8_bytes": 230,
+        "approx_tokens_chars_div_4": 57.5
+      }
+    },
+    {
+      "name": "pyrevit_bridge_run_pyrevit_script",
+      "provider": "module",
+      "module": "pyrevit_bridge",
+      "tool": {
+        "chars": 947,
+        "utf8_bytes": 947,
+        "approx_tokens_chars_div_4": 236.75
+      },
+      "input_schema": {
+        "chars": 477,
+        "utf8_bytes": 477,
+        "approx_tokens_chars_div_4": 119.25
+      }
+    },
+    {
+      "name": "qaqc_checker_run_check",
+      "provider": "module",
+      "module": "qaqc_checker",
+      "tool": {
+        "chars": 651,
+        "utf8_bytes": 651,
+        "approx_tokens_chars_div_4": 162.75
+      },
+      "input_schema": {
+        "chars": 334,
+        "utf8_bytes": 334,
+        "approx_tokens_chars_div_4": 83.5
+      }
+    },
+    {
+      "name": "qaqc_checker_list_issues",
+      "provider": "module",
+      "module": "qaqc_checker",
+      "tool": {
+        "chars": 719,
+        "utf8_bytes": 719,
+        "approx_tokens_chars_div_4": 179.75
+      },
+      "input_schema": {
+        "chars": 379,
+        "utf8_bytes": 379,
+        "approx_tokens_chars_div_4": 94.75
+      }
+    },
+    {
+      "name": "qaqc_checker_resolve_issue",
+      "provider": "module",
+      "module": "qaqc_checker",
+      "tool": {
+        "chars": 416,
+        "utf8_bytes": 416,
+        "approx_tokens_chars_div_4": 104.0
+      },
+      "input_schema": {
+        "chars": 124,
+        "utf8_bytes": 124,
+        "approx_tokens_chars_div_4": 31.0
+      }
+    },
+    {
+      "name": "qaqc_checker_list_rules",
+      "provider": "module",
+      "module": "qaqc_checker",
+      "tool": {
+        "chars": 537,
+        "utf8_bytes": 537,
+        "approx_tokens_chars_div_4": 134.25
+      },
+      "input_schema": {
+        "chars": 216,
+        "utf8_bytes": 216,
+        "approx_tokens_chars_div_4": 54.0
+      }
+    },
+    {
+      "name": "qaqc_checker_list_rule_packs",
+      "provider": "module",
+      "module": "qaqc_checker",
+      "tool": {
+        "chars": 433,
+        "utf8_bytes": 433,
+        "approx_tokens_chars_div_4": 108.25
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "qaqc_checker_validate_rule_pack",
+      "provider": "module",
+      "module": "qaqc_checker",
+      "tool": {
+        "chars": 670,
+        "utf8_bytes": 670,
+        "approx_tokens_chars_div_4": 167.5
+      },
+      "input_schema": {
+        "chars": 250,
+        "utf8_bytes": 250,
+        "approx_tokens_chars_div_4": 62.5
+      }
+    },
+    {
+      "name": "qaqc_checker_import_rule_pack",
+      "provider": "module",
+      "module": "qaqc_checker",
+      "tool": {
+        "chars": 780,
+        "utf8_bytes": 780,
+        "approx_tokens_chars_div_4": 195.0
+      },
+      "input_schema": {
+        "chars": 357,
+        "utf8_bytes": 357,
+        "approx_tokens_chars_div_4": 89.25
+      }
+    },
+    {
+      "name": "qaqc_checker_export_rule_pack",
+      "provider": "module",
+      "module": "qaqc_checker",
+      "tool": {
+        "chars": 799,
+        "utf8_bytes": 799,
+        "approx_tokens_chars_div_4": 199.75
+      },
+      "input_schema": {
+        "chars": 387,
+        "utf8_bytes": 387,
+        "approx_tokens_chars_div_4": 96.75
+      }
+    },
+    {
+      "name": "recipe_runner_run_recipe",
+      "provider": "module",
+      "module": "recipe_runner",
+      "tool": {
+        "chars": 691,
+        "utf8_bytes": 691,
+        "approx_tokens_chars_div_4": 172.75
+      },
+      "input_schema": {
+        "chars": 310,
+        "utf8_bytes": 310,
+        "approx_tokens_chars_div_4": 77.5
+      }
+    },
+    {
+      "name": "recipe_runner_list_recipes",
+      "provider": "module",
+      "module": "recipe_runner",
+      "tool": {
+        "chars": 343,
+        "utf8_bytes": 343,
+        "approx_tokens_chars_div_4": 85.75
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "recipe_runner_list_runs",
+      "provider": "module",
+      "module": "recipe_runner",
+      "tool": {
+        "chars": 411,
+        "utf8_bytes": 411,
+        "approx_tokens_chars_div_4": 102.75
+      },
+      "input_schema": {
+        "chars": 113,
+        "utf8_bytes": 113,
+        "approx_tokens_chars_div_4": 28.25
+      }
+    },
+    {
+      "name": "recipe_runner_get_run_status",
+      "provider": "module",
+      "module": "recipe_runner",
+      "tool": {
+        "chars": 424,
+        "utf8_bytes": 424,
+        "approx_tokens_chars_div_4": 106.0
+      },
+      "input_schema": {
+        "chars": 112,
+        "utf8_bytes": 112,
+        "approx_tokens_chars_div_4": 28.0
+      }
+    },
+    {
+      "name": "report_generator_export_excel",
+      "provider": "module",
+      "module": "report_generator",
+      "tool": {
+        "chars": 1032,
+        "utf8_bytes": 1032,
+        "approx_tokens_chars_div_4": 258.0
+      },
+      "input_schema": {
+        "chars": 612,
+        "utf8_bytes": 612,
+        "approx_tokens_chars_div_4": 153.0
+      }
+    },
+    {
+      "name": "report_generator_export_sqlite_summary",
+      "provider": "module",
+      "module": "report_generator",
+      "tool": {
+        "chars": 713,
+        "utf8_bytes": 713,
+        "approx_tokens_chars_div_4": 178.25
+      },
+      "input_schema": {
+        "chars": 313,
+        "utf8_bytes": 313,
+        "approx_tokens_chars_div_4": 78.25
+      }
+    },
+    {
+      "name": "report_generator_build_review_pack",
+      "provider": "module",
+      "module": "report_generator",
+      "tool": {
+        "chars": 821,
+        "utf8_bytes": 821,
+        "approx_tokens_chars_div_4": 205.25
+      },
+      "input_schema": {
+        "chars": 373,
+        "utf8_bytes": 373,
+        "approx_tokens_chars_div_4": 93.25
+      }
+    },
+    {
+      "name": "revit_check_joins",
+      "provider": "module",
+      "module": "revit",
+      "tool": {
+        "chars": 2360,
+        "utf8_bytes": 2360,
+        "approx_tokens_chars_div_4": 590.0
+      },
+      "input_schema": {
+        "chars": 1639,
+        "utf8_bytes": 1639,
+        "approx_tokens_chars_div_4": 409.75
+      }
+    },
+    {
+      "name": "revit_check_intersections",
+      "provider": "module",
+      "module": "revit",
+      "tool": {
+        "chars": 3112,
+        "utf8_bytes": 3112,
+        "approx_tokens_chars_div_4": 778.0
+      },
+      "input_schema": {
+        "chars": 2313,
+        "utf8_bytes": 2313,
+        "approx_tokens_chars_div_4": 578.25
+      }
+    },
+    {
+      "name": "revit_warnings_delta",
+      "provider": "module",
+      "module": "revit",
+      "tool": {
+        "chars": 1866,
+        "utf8_bytes": 1866,
+        "approx_tokens_chars_div_4": 466.5
+      },
+      "input_schema": {
+        "chars": 1132,
+        "utf8_bytes": 1132,
+        "approx_tokens_chars_div_4": 283.0
+      }
+    },
+    {
+      "name": "revit_check_orientation",
+      "provider": "module",
+      "module": "revit",
+      "tool": {
+        "chars": 2572,
+        "utf8_bytes": 2572,
+        "approx_tokens_chars_div_4": 643.0
+      },
+      "input_schema": {
+        "chars": 1901,
+        "utf8_bytes": 1901,
+        "approx_tokens_chars_div_4": 475.25
+      }
+    },
+    {
+      "name": "revit_audit_openings",
+      "provider": "module",
+      "module": "revit",
+      "tool": {
+        "chars": 2853,
+        "utf8_bytes": 2853,
+        "approx_tokens_chars_div_4": 713.25
+      },
+      "input_schema": {
+        "chars": 2395,
+        "utf8_bytes": 2395,
+        "approx_tokens_chars_div_4": 598.75
+      }
+    },
+    {
+      "name": "revit_audit_roofs",
+      "provider": "module",
+      "module": "revit",
+      "tool": {
+        "chars": 3386,
+        "utf8_bytes": 3386,
+        "approx_tokens_chars_div_4": 846.5
+      },
+      "input_schema": {
+        "chars": 2932,
+        "utf8_bytes": 2932,
+        "approx_tokens_chars_div_4": 733.0
+      }
+    },
+    {
+      "name": "revit_probe_family",
+      "provider": "module",
+      "module": "revit",
+      "tool": {
+        "chars": 2330,
+        "utf8_bytes": 2330,
+        "approx_tokens_chars_div_4": 582.5
+      },
+      "input_schema": {
+        "chars": 1890,
+        "utf8_bytes": 1890,
+        "approx_tokens_chars_div_4": 472.5
+      }
+    },
+    {
+      "name": "revit_system_report",
+      "provider": "module",
+      "module": "revit",
+      "tool": {
+        "chars": 2363,
+        "utf8_bytes": 2363,
+        "approx_tokens_chars_div_4": 590.75
+      },
+      "input_schema": {
+        "chars": 1916,
+        "utf8_bytes": 1916,
+        "approx_tokens_chars_div_4": 479.0
+      }
+    },
+    {
+      "name": "revit_check_naming_and_params",
+      "provider": "module",
+      "module": "revit",
+      "tool": {
+        "chars": 2708,
+        "utf8_bytes": 2708,
+        "approx_tokens_chars_div_4": 677.0
+      },
+      "input_schema": {
+        "chars": 2245,
+        "utf8_bytes": 2245,
+        "approx_tokens_chars_div_4": 561.25
+      }
+    },
+    {
+      "name": "revit_check_levels_grids",
+      "provider": "module",
+      "module": "revit",
+      "tool": {
+        "chars": 1780,
+        "utf8_bytes": 1780,
+        "approx_tokens_chars_div_4": 445.0
+      },
+      "input_schema": {
+        "chars": 1347,
+        "utf8_bytes": 1347,
+        "approx_tokens_chars_div_4": 336.75
+      }
+    },
+    {
+      "name": "revit_review",
+      "provider": "module",
+      "module": "revit",
+      "tool": {
+        "chars": 3056,
+        "utf8_bytes": 3056,
+        "approx_tokens_chars_div_4": 764.0
+      },
+      "input_schema": {
+        "chars": 2581,
+        "utf8_bytes": 2581,
+        "approx_tokens_chars_div_4": 645.25
+      }
+    },
+    {
+      "name": "revit_api_lookup",
+      "provider": "module",
+      "module": "revit_api",
+      "tool": {
+        "chars": 2022,
+        "utf8_bytes": 2022,
+        "approx_tokens_chars_div_4": 505.5
+      },
+      "input_schema": {
+        "chars": 1180,
+        "utf8_bytes": 1180,
+        "approx_tokens_chars_div_4": 295.0
+      }
+    },
+    {
+      "name": "revit_cleanup_audit",
+      "provider": "module",
+      "module": "revit_cleanup",
+      "tool": {
+        "chars": 3271,
+        "utf8_bytes": 3271,
+        "approx_tokens_chars_div_4": 817.75
+      },
+      "input_schema": {
+        "chars": 2352,
+        "utf8_bytes": 2352,
+        "approx_tokens_chars_div_4": 588.0
+      }
+    },
+    {
+      "name": "revit_list_views_sheets_schedules",
+      "provider": "module",
+      "module": "revit_docs",
+      "tool": {
+        "chars": 1477,
+        "utf8_bytes": 1477,
+        "approx_tokens_chars_div_4": 369.25
+      },
+      "input_schema": {
+        "chars": 1061,
+        "utf8_bytes": 1061,
+        "approx_tokens_chars_div_4": 265.25
+      }
+    },
+    {
+      "name": "revit_render_check",
+      "provider": "module",
+      "module": "revit_docs",
+      "tool": {
+        "chars": 909,
+        "utf8_bytes": 909,
+        "approx_tokens_chars_div_4": 227.25
+      },
+      "input_schema": {
+        "chars": 448,
+        "utf8_bytes": 448,
+        "approx_tokens_chars_div_4": 112.0
+      }
+    },
+    {
+      "name": "revit_make_view",
+      "provider": "module",
+      "module": "revit_docs",
+      "tool": {
+        "chars": 4097,
+        "utf8_bytes": 4097,
+        "approx_tokens_chars_div_4": 1024.25
+      },
+      "input_schema": {
+        "chars": 3673,
+        "utf8_bytes": 3673,
+        "approx_tokens_chars_div_4": 918.25
+      }
+    },
+    {
+      "name": "revit_make_sheet",
+      "provider": "module",
+      "module": "revit_docs",
+      "tool": {
+        "chars": 2873,
+        "utf8_bytes": 2873,
+        "approx_tokens_chars_div_4": 718.25
+      },
+      "input_schema": {
+        "chars": 2448,
+        "utf8_bytes": 2448,
+        "approx_tokens_chars_div_4": 612.0
+      }
+    },
+    {
+      "name": "revit_make_schedule",
+      "provider": "module",
+      "module": "revit_docs",
+      "tool": {
+        "chars": 4026,
+        "utf8_bytes": 4026,
+        "approx_tokens_chars_div_4": 1006.5
+      },
+      "input_schema": {
+        "chars": 3608,
+        "utf8_bytes": 3608,
+        "approx_tokens_chars_div_4": 902.0
+      }
+    },
+    {
+      "name": "revit_export",
+      "provider": "module",
+      "module": "revit_docs",
+      "tool": {
+        "chars": 2040,
+        "utf8_bytes": 2040,
+        "approx_tokens_chars_div_4": 510.0
+      },
+      "input_schema": {
+        "chars": 1610,
+        "utf8_bytes": 1610,
+        "approx_tokens_chars_div_4": 402.5
+      }
+    },
+    {
+      "name": "revit_place_views",
+      "provider": "module",
+      "module": "revit_docs",
+      "tool": {
+        "chars": 3765,
+        "utf8_bytes": 3765,
+        "approx_tokens_chars_div_4": 941.25
+      },
+      "input_schema": {
+        "chars": 2914,
+        "utf8_bytes": 2914,
+        "approx_tokens_chars_div_4": 728.5
+      }
+    },
+    {
+      "name": "revit_list_view_templates",
+      "provider": "module",
+      "module": "revit_docs",
+      "tool": {
+        "chars": 1559,
+        "utf8_bytes": 1559,
+        "approx_tokens_chars_div_4": 389.75
+      },
+      "input_schema": {
+        "chars": 948,
+        "utf8_bytes": 948,
+        "approx_tokens_chars_div_4": 237.0
+      }
+    },
+    {
+      "name": "revit_set_view_templates",
+      "provider": "module",
+      "module": "revit_docs",
+      "tool": {
+        "chars": 2312,
+        "utf8_bytes": 2312,
+        "approx_tokens_chars_div_4": 578.0
+      },
+      "input_schema": {
+        "chars": 1549,
+        "utf8_bytes": 1549,
+        "approx_tokens_chars_div_4": 387.25
+      }
+    },
+    {
+      "name": "revit_make_view_template",
+      "provider": "module",
+      "module": "revit_docs",
+      "tool": {
+        "chars": 1970,
+        "utf8_bytes": 1970,
+        "approx_tokens_chars_div_4": 492.5
+      },
+      "input_schema": {
+        "chars": 1277,
+        "utf8_bytes": 1277,
+        "approx_tokens_chars_div_4": 319.25
+      }
+    },
+    {
+      "name": "revit_align_crop",
+      "provider": "module",
+      "module": "revit_docs",
+      "tool": {
+        "chars": 3020,
+        "utf8_bytes": 3020,
+        "approx_tokens_chars_div_4": 755.0
+      },
+      "input_schema": {
+        "chars": 2183,
+        "utf8_bytes": 2183,
+        "approx_tokens_chars_div_4": 545.75
+      }
+    },
+    {
+      "name": "revit_list_revisions",
+      "provider": "module",
+      "module": "revit_docs",
+      "tool": {
+        "chars": 1396,
+        "utf8_bytes": 1396,
+        "approx_tokens_chars_div_4": 349.0
+      },
+      "input_schema": {
+        "chars": 822,
+        "utf8_bytes": 822,
+        "approx_tokens_chars_div_4": 205.5
+      }
+    },
+    {
+      "name": "revit_add_revision",
+      "provider": "module",
+      "module": "revit_docs",
+      "tool": {
+        "chars": 1956,
+        "utf8_bytes": 1956,
+        "approx_tokens_chars_div_4": 489.0
+      },
+      "input_schema": {
+        "chars": 1249,
+        "utf8_bytes": 1249,
+        "approx_tokens_chars_div_4": 312.25
+      }
+    },
+    {
+      "name": "revit_add_revision_clouds",
+      "provider": "module",
+      "module": "revit_docs",
+      "tool": {
+        "chars": 3405,
+        "utf8_bytes": 3405,
+        "approx_tokens_chars_div_4": 851.25
+      },
+      "input_schema": {
+        "chars": 2562,
+        "utf8_bytes": 2562,
+        "approx_tokens_chars_div_4": 640.5
+      }
+    },
+    {
+      "name": "revit_issue_revision",
+      "provider": "module",
+      "module": "revit_docs",
+      "tool": {
+        "chars": 2345,
+        "utf8_bytes": 2345,
+        "approx_tokens_chars_div_4": 586.25
+      },
+      "input_schema": {
+        "chars": 1577,
+        "utf8_bytes": 1577,
+        "approx_tokens_chars_div_4": 394.25
+      }
+    },
+    {
+      "name": "revit_sheet_index",
+      "provider": "module",
+      "module": "revit_docs",
+      "tool": {
+        "chars": 1628,
+        "utf8_bytes": 1628,
+        "approx_tokens_chars_div_4": 407.0
+      },
+      "input_schema": {
+        "chars": 998,
+        "utf8_bytes": 998,
+        "approx_tokens_chars_div_4": 249.5
+      }
+    },
+    {
+      "name": "revit_update_sheets",
+      "provider": "module",
+      "module": "revit_docs",
+      "tool": {
+        "chars": 2153,
+        "utf8_bytes": 2153,
+        "approx_tokens_chars_div_4": 538.25
+      },
+      "input_schema": {
+        "chars": 1336,
+        "utf8_bytes": 1336,
+        "approx_tokens_chars_div_4": 334.0
+      }
+    },
+    {
+      "name": "revit_make_family",
+      "provider": "module",
+      "module": "revit_family",
+      "tool": {
+        "chars": 4520,
+        "utf8_bytes": 4520,
+        "approx_tokens_chars_div_4": 1130.0
+      },
+      "input_schema": {
+        "chars": 3903,
+        "utf8_bytes": 3903,
+        "approx_tokens_chars_div_4": 975.75
+      }
+    },
+    {
+      "name": "revit_ifc_check",
+      "provider": "module",
+      "module": "revit_ifc",
+      "tool": {
+        "chars": 3160,
+        "utf8_bytes": 3160,
+        "approx_tokens_chars_div_4": 790.0
+      },
+      "input_schema": {
+        "chars": 2418,
+        "utf8_bytes": 2418,
+        "approx_tokens_chars_div_4": 604.5
+      }
+    },
+    {
+      "name": "revit_mep_check_elements",
+      "provider": "module",
+      "module": "revit_mep",
+      "tool": {
+        "chars": 1715,
+        "utf8_bytes": 1715,
+        "approx_tokens_chars_div_4": 428.75
+      },
+      "input_schema": {
+        "chars": 1132,
+        "utf8_bytes": 1132,
+        "approx_tokens_chars_div_4": 283.0
+      }
+    },
+    {
+      "name": "revit_mep_route",
+      "provider": "module",
+      "module": "revit_mep",
+      "tool": {
+        "chars": 8131,
+        "utf8_bytes": 8131,
+        "approx_tokens_chars_div_4": 2032.75
+      },
+      "input_schema": {
+        "chars": 7505,
+        "utf8_bytes": 7505,
+        "approx_tokens_chars_div_4": 1876.25
+      }
+    },
+    {
+      "name": "revit_mep_connect",
+      "provider": "module",
+      "module": "revit_mep",
+      "tool": {
+        "chars": 4974,
+        "utf8_bytes": 4974,
+        "approx_tokens_chars_div_4": 1243.5
+      },
+      "input_schema": {
+        "chars": 4414,
+        "utf8_bytes": 4414,
+        "approx_tokens_chars_div_4": 1103.5
+      }
+    },
+    {
+      "name": "revit_mep_circuit",
+      "provider": "module",
+      "module": "revit_mep",
+      "tool": {
+        "chars": 3080,
+        "utf8_bytes": 3080,
+        "approx_tokens_chars_div_4": 770.0
+      },
+      "input_schema": {
+        "chars": 2439,
+        "utf8_bytes": 2439,
+        "approx_tokens_chars_div_4": 609.75
+      }
+    },
+    {
+      "name": "revit_mep_hanger_plan",
+      "provider": "module",
+      "module": "revit_mep",
+      "tool": {
+        "chars": 4725,
+        "utf8_bytes": 4725,
+        "approx_tokens_chars_div_4": 1181.25
+      },
+      "input_schema": {
+        "chars": 4071,
+        "utf8_bytes": 4071,
+        "approx_tokens_chars_div_4": 1017.75
+      }
+    },
+    {
+      "name": "revit_mep_hanger_place",
+      "provider": "module",
+      "module": "revit_mep",
+      "tool": {
+        "chars": 7532,
+        "utf8_bytes": 7532,
+        "approx_tokens_chars_div_4": 1883.0
+      },
+      "input_schema": {
+        "chars": 6852,
+        "utf8_bytes": 6852,
+        "approx_tokens_chars_div_4": 1713.0
+      }
+    },
+    {
+      "name": "revit_get_parameters",
+      "provider": "module",
+      "module": "revit_params",
+      "tool": {
+        "chars": 3107,
+        "utf8_bytes": 3107,
+        "approx_tokens_chars_div_4": 776.75
+      },
+      "input_schema": {
+        "chars": 2354,
+        "utf8_bytes": 2354,
+        "approx_tokens_chars_div_4": 588.5
+      }
+    },
+    {
+      "name": "revit_set_parameters",
+      "provider": "module",
+      "module": "revit_params",
+      "tool": {
+        "chars": 4055,
+        "utf8_bytes": 4055,
+        "approx_tokens_chars_div_4": 1013.75
+      },
+      "input_schema": {
+        "chars": 3183,
+        "utf8_bytes": 3183,
+        "approx_tokens_chars_div_4": 795.75
+      }
+    },
+    {
+      "name": "revit_recipe_save",
+      "provider": "module",
+      "module": "revit_recipes",
+      "tool": {
+        "chars": 2656,
+        "utf8_bytes": 2656,
+        "approx_tokens_chars_div_4": 664.0
+      },
+      "input_schema": {
+        "chars": 1917,
+        "utf8_bytes": 1917,
+        "approx_tokens_chars_div_4": 479.25
+      }
+    },
+    {
+      "name": "revit_recipe_list",
+      "provider": "module",
+      "module": "revit_recipes",
+      "tool": {
+        "chars": 830,
+        "utf8_bytes": 830,
+        "approx_tokens_chars_div_4": 207.5
+      },
+      "input_schema": {
+        "chars": 335,
+        "utf8_bytes": 335,
+        "approx_tokens_chars_div_4": 83.75
+      }
+    },
+    {
+      "name": "revit_recipe_get",
+      "provider": "module",
+      "module": "revit_recipes",
+      "tool": {
+        "chars": 622,
+        "utf8_bytes": 622,
+        "approx_tokens_chars_div_4": 155.5
+      },
+      "input_schema": {
+        "chars": 147,
+        "utf8_bytes": 147,
+        "approx_tokens_chars_div_4": 36.75
+      }
+    },
+    {
+      "name": "revit_recipe_run",
+      "provider": "module",
+      "module": "revit_recipes",
+      "tool": {
+        "chars": 1982,
+        "utf8_bytes": 1982,
+        "approx_tokens_chars_div_4": 495.5
+      },
+      "input_schema": {
+        "chars": 1185,
+        "utf8_bytes": 1185,
+        "approx_tokens_chars_div_4": 296.25
+      }
+    },
+    {
+      "name": "revit_recipe_delete",
+      "provider": "module",
+      "module": "revit_recipes",
+      "tool": {
+        "chars": 650,
+        "utf8_bytes": 650,
+        "approx_tokens_chars_div_4": 162.5
+      },
+      "input_schema": {
+        "chars": 247,
+        "utf8_bytes": 247,
+        "approx_tokens_chars_div_4": 61.75
+      }
+    },
+    {
+      "name": "revit_sparing_find",
+      "provider": "module",
+      "module": "revit_sparing",
+      "tool": {
+        "chars": 3684,
+        "utf8_bytes": 3684,
+        "approx_tokens_chars_div_4": 921.0
+      },
+      "input_schema": {
+        "chars": 3084,
+        "utf8_bytes": 3084,
+        "approx_tokens_chars_div_4": 771.0
+      }
+    },
+    {
+      "name": "revit_sparing_place",
+      "provider": "module",
+      "module": "revit_sparing",
+      "tool": {
+        "chars": 6023,
+        "utf8_bytes": 6023,
+        "approx_tokens_chars_div_4": 1505.75
+      },
+      "input_schema": {
+        "chars": 5424,
+        "utf8_bytes": 5424,
+        "approx_tokens_chars_div_4": 1356.0
+      }
+    },
+    {
+      "name": "revit_sparing_status_get",
+      "provider": "module",
+      "module": "revit_sparing",
+      "tool": {
+        "chars": 2827,
+        "utf8_bytes": 2827,
+        "approx_tokens_chars_div_4": 706.75
+      },
+      "input_schema": {
+        "chars": 2206,
+        "utf8_bytes": 2206,
+        "approx_tokens_chars_div_4": 551.5
+      }
+    },
+    {
+      "name": "revit_sparing_status_summary",
+      "provider": "module",
+      "module": "revit_sparing",
+      "tool": {
+        "chars": 2607,
+        "utf8_bytes": 2607,
+        "approx_tokens_chars_div_4": 651.75
+      },
+      "input_schema": {
+        "chars": 1997,
+        "utf8_bytes": 1997,
+        "approx_tokens_chars_div_4": 499.25
+      }
+    },
+    {
+      "name": "revit_sparing_status_set",
+      "provider": "module",
+      "module": "revit_sparing",
+      "tool": {
+        "chars": 3367,
+        "utf8_bytes": 3367,
+        "approx_tokens_chars_div_4": 841.75
+      },
+      "input_schema": {
+        "chars": 2780,
+        "utf8_bytes": 2780,
+        "approx_tokens_chars_div_4": 695.0
+      }
+    },
+    {
+      "name": "revit_sparing_status_setup",
+      "provider": "module",
+      "module": "revit_sparing",
+      "tool": {
+        "chars": 2015,
+        "utf8_bytes": 2015,
+        "approx_tokens_chars_div_4": 503.75
+      },
+      "input_schema": {
+        "chars": 1384,
+        "utf8_bytes": 1384,
+        "approx_tokens_chars_div_4": 346.0
+      }
+    },
+    {
+      "name": "revit_sparing_export_spec",
+      "provider": "module",
+      "module": "revit_sparing",
+      "tool": {
+        "chars": 3547,
+        "utf8_bytes": 3547,
+        "approx_tokens_chars_div_4": 886.75
+      },
+      "input_schema": {
+        "chars": 2954,
+        "utf8_bytes": 2954,
+        "approx_tokens_chars_div_4": 738.5
+      }
+    },
+    {
+      "name": "revit_sparing_place_spec",
+      "provider": "module",
+      "module": "revit_sparing",
+      "tool": {
+        "chars": 4243,
+        "utf8_bytes": 4243,
+        "approx_tokens_chars_div_4": 1060.75
+      },
+      "input_schema": {
+        "chars": 3636,
+        "utf8_bytes": 3636,
+        "approx_tokens_chars_div_4": 909.0
+      }
+    },
+    {
+      "name": "schedule_consistency_check_doors_and_rooms",
+      "provider": "module",
+      "module": "schedule_consistency",
+      "tool": {
+        "chars": 1199,
+        "utf8_bytes": 1199,
+        "approx_tokens_chars_div_4": 299.75
+      },
+      "input_schema": {
+        "chars": 618,
+        "utf8_bytes": 618,
+        "approx_tokens_chars_div_4": 154.5
+      }
+    },
+    {
+      "name": "selection_tools_set_selection",
+      "provider": "module",
+      "module": "selection_tools",
+      "tool": {
+        "chars": 623,
+        "utf8_bytes": 623,
+        "approx_tokens_chars_div_4": 155.75
+      },
+      "input_schema": {
+        "chars": 283,
+        "utf8_bytes": 283,
+        "approx_tokens_chars_div_4": 70.75
+      }
+    },
+    {
+      "name": "selection_tools_save_selection",
+      "provider": "module",
+      "module": "selection_tools",
+      "tool": {
+        "chars": 613,
+        "utf8_bytes": 613,
+        "approx_tokens_chars_div_4": 153.25
+      },
+      "input_schema": {
+        "chars": 290,
+        "utf8_bytes": 290,
+        "approx_tokens_chars_div_4": 72.5
+      }
+    },
+    {
+      "name": "selection_tools_restore_selection",
+      "provider": "module",
+      "module": "selection_tools",
+      "tool": {
+        "chars": 592,
+        "utf8_bytes": 592,
+        "approx_tokens_chars_div_4": 148.0
+      },
+      "input_schema": {
+        "chars": 262,
+        "utf8_bytes": 262,
+        "approx_tokens_chars_div_4": 65.5
+      }
+    },
+    {
+      "name": "selection_tools_select_by_query",
+      "provider": "module",
+      "module": "selection_tools",
+      "tool": {
+        "chars": 707,
+        "utf8_bytes": 707,
+        "approx_tokens_chars_div_4": 176.75
+      },
+      "input_schema": {
+        "chars": 375,
+        "utf8_bytes": 375,
+        "approx_tokens_chars_div_4": 93.75
+      }
+    },
+    {
+      "name": "selection_tools_list_saved_selections",
+      "provider": "module",
+      "module": "selection_tools",
+      "tool": {
+        "chars": 370,
+        "utf8_bytes": 370,
+        "approx_tokens_chars_div_4": 92.5
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "selection_tools_group_rename",
+      "provider": "module",
+      "module": "selection_tools",
+      "tool": {
+        "chars": 635,
+        "utf8_bytes": 635,
+        "approx_tokens_chars_div_4": 158.75
+      },
+      "input_schema": {
+        "chars": 333,
+        "utf8_bytes": 333,
+        "approx_tokens_chars_div_4": 83.25
+      }
+    },
+    {
+      "name": "selection_tools_group_ungroup",
+      "provider": "module",
+      "module": "selection_tools",
+      "tool": {
+        "chars": 689,
+        "utf8_bytes": 689,
+        "approx_tokens_chars_div_4": 172.25
+      },
+      "input_schema": {
+        "chars": 331,
+        "utf8_bytes": 331,
+        "approx_tokens_chars_div_4": 82.75
+      }
+    },
+    {
+      "name": "selection_tools_group_convert_to_detail",
+      "provider": "module",
+      "module": "selection_tools",
+      "tool": {
+        "chars": 585,
+        "utf8_bytes": 585,
+        "approx_tokens_chars_div_4": 146.25
+      },
+      "input_schema": {
+        "chars": 256,
+        "utf8_bytes": 256,
+        "approx_tokens_chars_div_4": 64.0
+      }
+    },
+    {
+      "name": "sheet_view_audit_run_audit",
+      "provider": "module",
+      "module": "sheet_view_audit",
+      "tool": {
+        "chars": 760,
+        "utf8_bytes": 760,
+        "approx_tokens_chars_div_4": 190.0
+      },
+      "input_schema": {
+        "chars": 348,
+        "utf8_bytes": 348,
+        "approx_tokens_chars_div_4": 87.0
+      }
+    },
+    {
+      "name": "warnings_triage_review_warnings",
+      "provider": "module",
+      "module": "warnings_triage",
+      "tool": {
+        "chars": 1131,
+        "utf8_bytes": 1131,
+        "approx_tokens_chars_div_4": 282.75
+      },
+      "input_schema": {
+        "chars": 640,
+        "utf8_bytes": 640,
+        "approx_tokens_chars_div_4": 160.0
+      }
+    },
+    {
+      "name": "job_status",
+      "provider": "jobs",
+      "module": null,
+      "tool": {
+        "chars": 459,
+        "utf8_bytes": 459,
+        "approx_tokens_chars_div_4": 114.75
+      },
+      "input_schema": {
+        "chars": 161,
+        "utf8_bytes": 161,
+        "approx_tokens_chars_div_4": 40.25
+      }
+    },
+    {
+      "name": "job_cancel",
+      "provider": "jobs",
+      "module": null,
+      "tool": {
+        "chars": 403,
+        "utf8_bytes": 403,
+        "approx_tokens_chars_div_4": 100.75
+      },
+      "input_schema": {
+        "chars": 162,
+        "utf8_bytes": 162,
+        "approx_tokens_chars_div_4": 40.5
+      }
+    },
+    {
+      "name": "revit_run_job",
+      "provider": "revit_jobs",
+      "module": null,
+      "tool": {
+        "chars": 1610,
+        "utf8_bytes": 1610,
+        "approx_tokens_chars_div_4": 402.5
+      },
+      "input_schema": {
+        "chars": 1049,
+        "utf8_bytes": 1049,
+        "approx_tokens_chars_div_4": 262.25
+      }
+    },
+    {
+      "name": "revit_job_status",
+      "provider": "revit_jobs",
+      "module": null,
+      "tool": {
+        "chars": 549,
+        "utf8_bytes": 549,
+        "approx_tokens_chars_div_4": 137.25
+      },
+      "input_schema": {
+        "chars": 160,
+        "utf8_bytes": 160,
+        "approx_tokens_chars_div_4": 40.0
+      }
+    },
+    {
+      "name": "revit_job_cancel",
+      "provider": "revit_jobs",
+      "module": null,
+      "tool": {
+        "chars": 528,
+        "utf8_bytes": 528,
+        "approx_tokens_chars_div_4": 132.0
+      },
+      "input_schema": {
+        "chars": 160,
+        "utf8_bytes": 160,
+        "approx_tokens_chars_div_4": 40.0
+      }
+    },
+    {
+      "name": "rhino_health",
+      "provider": "rhino",
+      "module": null,
+      "tool": {
+        "chars": 305,
+        "utf8_bytes": 305,
+        "approx_tokens_chars_div_4": 76.25
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "rhino_get_document_info",
+      "provider": "rhino",
+      "module": null,
+      "tool": {
+        "chars": 370,
+        "utf8_bytes": 370,
+        "approx_tokens_chars_div_4": 92.5
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "rhino_get_lines",
+      "provider": "rhino",
+      "module": null,
+      "tool": {
+        "chars": 329,
+        "utf8_bytes": 329,
+        "approx_tokens_chars_div_4": 82.25
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "rhino_get_scene",
+      "provider": "rhino",
+      "module": null,
+      "tool": {
+        "chars": 349,
+        "utf8_bytes": 349,
+        "approx_tokens_chars_div_4": 87.25
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "rhino_list_layers",
+      "provider": "rhino",
+      "module": null,
+      "tool": {
+        "chars": 361,
+        "utf8_bytes": 361,
+        "approx_tokens_chars_div_4": 90.25
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "rhino_clear_scene",
+      "provider": "rhino",
+      "module": null,
+      "tool": {
+        "chars": 531,
+        "utf8_bytes": 531,
+        "approx_tokens_chars_div_4": 132.75
+      },
+      "input_schema": {
+        "chars": 235,
+        "utf8_bytes": 235,
+        "approx_tokens_chars_div_4": 58.75
+      }
+    },
+    {
+      "name": "rhino_set_view",
+      "provider": "rhino",
+      "module": null,
+      "tool": {
+        "chars": 547,
+        "utf8_bytes": 547,
+        "approx_tokens_chars_div_4": 136.75
+      },
+      "input_schema": {
+        "chars": 280,
+        "utf8_bytes": 280,
+        "approx_tokens_chars_div_4": 70.0
+      }
+    },
+    {
+      "name": "rhino_create_box",
+      "provider": "rhino",
+      "module": null,
+      "tool": {
+        "chars": 764,
+        "utf8_bytes": 764,
+        "approx_tokens_chars_div_4": 191.0
+      },
+      "input_schema": {
+        "chars": 480,
+        "utf8_bytes": 480,
+        "approx_tokens_chars_div_4": 120.0
+      }
+    },
+    {
+      "name": "rhino_create_sphere",
+      "provider": "rhino",
+      "module": null,
+      "tool": {
+        "chars": 801,
+        "utf8_bytes": 801,
+        "approx_tokens_chars_div_4": 200.25
+      },
+      "input_schema": {
+        "chars": 521,
+        "utf8_bytes": 521,
+        "approx_tokens_chars_div_4": 130.25
+      }
+    },
+    {
+      "name": "rhino_create_cylinder",
+      "provider": "rhino",
+      "module": null,
+      "tool": {
+        "chars": 903,
+        "utf8_bytes": 903,
+        "approx_tokens_chars_div_4": 225.75
+      },
+      "input_schema": {
+        "chars": 599,
+        "utf8_bytes": 599,
+        "approx_tokens_chars_div_4": 149.75
+      }
+    },
+    {
+      "name": "rhino_boolean_union",
+      "provider": "rhino",
+      "module": null,
+      "tool": {
+        "chars": 617,
+        "utf8_bytes": 617,
+        "approx_tokens_chars_div_4": 154.25
+      },
+      "input_schema": {
+        "chars": 320,
+        "utf8_bytes": 320,
+        "approx_tokens_chars_div_4": 80.0
+      }
+    },
+    {
+      "name": "rhino_boolean_difference",
+      "provider": "rhino",
+      "module": null,
+      "tool": {
+        "chars": 665,
+        "utf8_bytes": 665,
+        "approx_tokens_chars_div_4": 166.25
+      },
+      "input_schema": {
+        "chars": 359,
+        "utf8_bytes": 359,
+        "approx_tokens_chars_div_4": 89.75
+      }
+    },
+    {
+      "name": "rhino_set_material",
+      "provider": "rhino",
+      "module": null,
+      "tool": {
+        "chars": 987,
+        "utf8_bytes": 987,
+        "approx_tokens_chars_div_4": 246.75
+      },
+      "input_schema": {
+        "chars": 707,
+        "utf8_bytes": 707,
+        "approx_tokens_chars_div_4": 176.75
+      }
+    },
+    {
+      "name": "rhino_transform_objects",
+      "provider": "rhino",
+      "module": null,
+      "tool": {
+        "chars": 983,
+        "utf8_bytes": 983,
+        "approx_tokens_chars_div_4": 245.75
+      },
+      "input_schema": {
+        "chars": 649,
+        "utf8_bytes": 649,
+        "approx_tokens_chars_div_4": 162.25
+      }
+    },
+    {
+      "name": "rhino_run_python",
+      "provider": "rhino",
+      "module": null,
+      "tool": {
+        "chars": 559,
+        "utf8_bytes": 559,
+        "approx_tokens_chars_div_4": 139.75
+      },
+      "input_schema": {
+        "chars": 232,
+        "utf8_bytes": 232,
+        "approx_tokens_chars_div_4": 58.0
+      }
+    },
+    {
+      "name": "rhino_generate_diagrid_tower",
+      "provider": "rhino",
+      "module": null,
+      "tool": {
+        "chars": 1258,
+        "utf8_bytes": 1258,
+        "approx_tokens_chars_div_4": 314.5
+      },
+      "input_schema": {
+        "chars": 890,
+        "utf8_bytes": 890,
+        "approx_tokens_chars_div_4": 222.5
+      }
+    },
+    {
+      "name": "rhino_invoke_method",
+      "provider": "rhino",
+      "module": null,
+      "tool": {
+        "chars": 911,
+        "utf8_bytes": 911,
+        "approx_tokens_chars_div_4": 227.75
+      },
+      "input_schema": {
+        "chars": 575,
+        "utf8_bytes": 575,
+        "approx_tokens_chars_div_4": 143.75
+      }
+    },
+    {
+      "name": "rhino_reflect_get",
+      "provider": "rhino",
+      "module": null,
+      "tool": {
+        "chars": 726,
+        "utf8_bytes": 726,
+        "approx_tokens_chars_div_4": 181.5
+      },
+      "input_schema": {
+        "chars": 356,
+        "utf8_bytes": 356,
+        "approx_tokens_chars_div_4": 89.0
+      }
+    },
+    {
+      "name": "rhino_reflect_set",
+      "provider": "rhino",
+      "module": null,
+      "tool": {
+        "chars": 716,
+        "utf8_bytes": 716,
+        "approx_tokens_chars_div_4": 179.0
+      },
+      "input_schema": {
+        "chars": 418,
+        "utf8_bytes": 418,
+        "approx_tokens_chars_div_4": 104.5
+      }
+    },
+    {
+      "name": "graph_health",
+      "provider": "graph",
+      "module": null,
+      "tool": {
+        "chars": 303,
+        "utf8_bytes": 303,
+        "approx_tokens_chars_div_4": 75.75
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "graph_compile",
+      "provider": "graph",
+      "module": null,
+      "tool": {
+        "chars": 941,
+        "utf8_bytes": 941,
+        "approx_tokens_chars_div_4": 235.25
+      },
+      "input_schema": {
+        "chars": 653,
+        "utf8_bytes": 653,
+        "approx_tokens_chars_div_4": 163.25
+      }
+    },
+    {
+      "name": "graph_add_relation",
+      "provider": "graph",
+      "module": null,
+      "tool": {
+        "chars": 763,
+        "utf8_bytes": 763,
+        "approx_tokens_chars_div_4": 190.75
+      },
+      "input_schema": {
+        "chars": 491,
+        "utf8_bytes": 491,
+        "approx_tokens_chars_div_4": 122.75
+      }
+    },
+    {
+      "name": "graph_query_relations",
+      "provider": "graph",
+      "module": null,
+      "tool": {
+        "chars": 908,
+        "utf8_bytes": 908,
+        "approx_tokens_chars_div_4": 227.0
+      },
+      "input_schema": {
+        "chars": 608,
+        "utf8_bytes": 608,
+        "approx_tokens_chars_div_4": 152.0
+      }
+    },
+    {
+      "name": "graph_audit_clashes",
+      "provider": "graph",
+      "module": null,
+      "tool": {
+        "chars": 786,
+        "utf8_bytes": 786,
+        "approx_tokens_chars_div_4": 196.5
+      },
+      "input_schema": {
+        "chars": 490,
+        "utf8_bytes": 490,
+        "approx_tokens_chars_div_4": 122.5
+      }
+    },
+    {
+      "name": "graph_audit_disconnected",
+      "provider": "graph",
+      "module": null,
+      "tool": {
+        "chars": 955,
+        "utf8_bytes": 955,
+        "approx_tokens_chars_div_4": 238.75
+      },
+      "input_schema": {
+        "chars": 639,
+        "utf8_bytes": 639,
+        "approx_tokens_chars_div_4": 159.75
+      }
+    },
+    {
+      "name": "graph_audit_structural_loads",
+      "provider": "graph",
+      "module": null,
+      "tool": {
+        "chars": 672,
+        "utf8_bytes": 672,
+        "approx_tokens_chars_div_4": 168.0
+      },
+      "input_schema": {
+        "chars": 336,
+        "utf8_bytes": 336,
+        "approx_tokens_chars_div_4": 84.0
+      }
+    },
+    {
+      "name": "speckle_health",
+      "provider": "speckle",
+      "module": null,
+      "tool": {
+        "chars": 340,
+        "utf8_bytes": 340,
+        "approx_tokens_chars_div_4": 85.0
+      },
+      "input_schema": {
+        "chars": 33,
+        "utf8_bytes": 33,
+        "approx_tokens_chars_div_4": 8.25
+      }
+    },
+    {
+      "name": "speckle_auth_status",
+      "provider": "speckle",
+      "module": null,
+      "tool": {
+        "chars": 347,
+        "utf8_bytes": 347,
+        "approx_tokens_chars_div_4": 86.75
+      },
+      "input_schema": {
+        "chars": 33,
+        "utf8_bytes": 33,
+        "approx_tokens_chars_div_4": 8.25
+      }
+    },
+    {
+      "name": "speckle_oauth_start",
+      "provider": "speckle",
+      "module": null,
+      "tool": {
+        "chars": 343,
+        "utf8_bytes": 343,
+        "approx_tokens_chars_div_4": 85.75
+      },
+      "input_schema": {
+        "chars": 62,
+        "utf8_bytes": 62,
+        "approx_tokens_chars_div_4": 15.5
+      }
+    },
+    {
+      "name": "speckle_oauth_exchange_code",
+      "provider": "speckle",
+      "module": null,
+      "tool": {
+        "chars": 554,
+        "utf8_bytes": 554,
+        "approx_tokens_chars_div_4": 138.5
+      },
+      "input_schema": {
+        "chars": 259,
+        "utf8_bytes": 259,
+        "approx_tokens_chars_div_4": 64.75
+      }
+    },
+    {
+      "name": "speckle_oauth_refresh",
+      "provider": "speckle",
+      "module": null,
+      "tool": {
+        "chars": 369,
+        "utf8_bytes": 369,
+        "approx_tokens_chars_div_4": 92.25
+      },
+      "input_schema": {
+        "chars": 62,
+        "utf8_bytes": 62,
+        "approx_tokens_chars_div_4": 15.5
+      }
+    },
+    {
+      "name": "speckle_list_projects",
+      "provider": "speckle",
+      "module": null,
+      "tool": {
+        "chars": 467,
+        "utf8_bytes": 467,
+        "approx_tokens_chars_div_4": 116.75
+      },
+      "input_schema": {
+        "chars": 165,
+        "utf8_bytes": 165,
+        "approx_tokens_chars_div_4": 41.25
+      }
+    },
+    {
+      "name": "speckle_list_models",
+      "provider": "speckle",
+      "module": null,
+      "tool": {
+        "chars": 571,
+        "utf8_bytes": 571,
+        "approx_tokens_chars_div_4": 142.75
+      },
+      "input_schema": {
+        "chars": 265,
+        "utf8_bytes": 265,
+        "approx_tokens_chars_div_4": 66.25
+      }
+    },
+    {
+      "name": "speckle_list_versions",
+      "provider": "speckle",
+      "module": null,
+      "tool": {
+        "chars": 682,
+        "utf8_bytes": 682,
+        "approx_tokens_chars_div_4": 170.5
+      },
+      "input_schema": {
+        "chars": 407,
+        "utf8_bytes": 407,
+        "approx_tokens_chars_div_4": 101.75
+      }
+    },
+    {
+      "name": "speckle_get_version_metadata",
+      "provider": "speckle",
+      "module": null,
+      "tool": {
+        "chars": 578,
+        "utf8_bytes": 578,
+        "approx_tokens_chars_div_4": 144.5
+      },
+      "input_schema": {
+        "chars": 248,
+        "utf8_bytes": 248,
+        "approx_tokens_chars_div_4": 62.0
+      }
+    },
+    {
+      "name": "speckle_checkout_version",
+      "provider": "speckle",
+      "module": null,
+      "tool": {
+        "chars": 584,
+        "utf8_bytes": 584,
+        "approx_tokens_chars_div_4": 146.0
+      },
+      "input_schema": {
+        "chars": 248,
+        "utf8_bytes": 248,
+        "approx_tokens_chars_div_4": 62.0
+      }
+    },
+    {
+      "name": "speckle_create_model",
+      "provider": "speckle",
+      "module": null,
+      "tool": {
+        "chars": 846,
+        "utf8_bytes": 846,
+        "approx_tokens_chars_div_4": 211.5
+      },
+      "input_schema": {
+        "chars": 562,
+        "utf8_bytes": 562,
+        "approx_tokens_chars_div_4": 140.5
+      }
+    },
+    {
+      "name": "speckle_create_branch",
+      "provider": "speckle",
+      "module": null,
+      "tool": {
+        "chars": 870,
+        "utf8_bytes": 870,
+        "approx_tokens_chars_div_4": 217.5
+      },
+      "input_schema": {
+        "chars": 564,
+        "utf8_bytes": 564,
+        "approx_tokens_chars_div_4": 141.0
+      }
+    },
+    {
+      "name": "speckle_publish_version",
+      "provider": "speckle",
+      "module": null,
+      "tool": {
+        "chars": 1065,
+        "utf8_bytes": 1065,
+        "approx_tokens_chars_div_4": 266.25
+      },
+      "input_schema": {
+        "chars": 763,
+        "utf8_bytes": 763,
+        "approx_tokens_chars_div_4": 190.75
+      }
+    },
+    {
+      "name": "speckle_merge_model",
+      "provider": "speckle",
+      "module": null,
+      "tool": {
+        "chars": 1014,
+        "utf8_bytes": 1014,
+        "approx_tokens_chars_div_4": 253.5
+      },
+      "input_schema": {
+        "chars": 725,
+        "utf8_bytes": 725,
+        "approx_tokens_chars_div_4": 181.25
+      }
+    },
+    {
+      "name": "speckle_merge_branch",
+      "provider": "speckle",
+      "module": null,
+      "tool": {
+        "chars": 1028,
+        "utf8_bytes": 1028,
+        "approx_tokens_chars_div_4": 257.0
+      },
+      "input_schema": {
+        "chars": 725,
+        "utf8_bytes": 725,
+        "approx_tokens_chars_div_4": 181.25
+      }
+    },
+    {
+      "name": "speckle_send_object",
+      "provider": "speckle",
+      "module": null,
+      "tool": {
+        "chars": 804,
+        "utf8_bytes": 804,
+        "approx_tokens_chars_div_4": 201.0
+      },
+      "input_schema": {
+        "chars": 498,
+        "utf8_bytes": 498,
+        "approx_tokens_chars_div_4": 124.5
+      }
+    },
+    {
+      "name": "speckle_receive_object",
+      "provider": "speckle",
+      "module": null,
+      "tool": {
+        "chars": 564,
+        "utf8_bytes": 564,
+        "approx_tokens_chars_div_4": 141.0
+      },
+      "input_schema": {
+        "chars": 262,
+        "utf8_bytes": 262,
+        "approx_tokens_chars_div_4": 65.5
+      }
+    }
+  ],
+  "calls": [
+    {
+      "name": "module_list_commands",
+      "arguments": {},
+      "request_arguments": {
+        "chars": 2,
+        "utf8_bytes": 2,
+        "approx_tokens_chars_div_4": 0.5
+      },
+      "script_chars": 0,
+      "response": {
+        "chars": 55697,
+        "utf8_bytes": 55699,
+        "approx_tokens_chars_div_4": 13924.25
+      },
+      "text_content": {
+        "chars": 51186,
+        "utf8_bytes": 51188,
+        "approx_tokens_chars_div_4": 12796.5
+      },
+      "parsed_result_compact": {
+        "chars": 35367,
+        "utf8_bytes": 35367,
+        "approx_tokens_chars_div_4": 8841.75
+      },
+      "is_error": false,
+      "observed": {
+        "content": [
+          {
+            "type": "text",
+            "text": "✓ module_list_commands executed successfully\n\nResult:\n{\n  \"modules\": [\n    {\n      \"id\": \"bcf_exchange\",\n      \"name\": \"BCF Issue Exchange\",\n      \"version\": \"1.0.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"export_bcf\",\n          \"title\": \"Export Issues to BCF\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"import_bcf\",\n          \"title\": \"Import Issues from BCF\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"clash_triage\",\n      \"name\": \"Clash Triage\",\n      \"version\": \"1.0.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"match_clashes\",\n          \"title\": \"Match Clashes to Revit Elements\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"list_clash_issues\",\n          \"title\": \"List Clash Issues\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"familytype_mapper\",\n      \"name\": \"Family Type Mapper\",\n      \"version\": \"1.0.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"audit_families\",\n          \"title\": \"Audit Families\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"list_type_mappings\",\n          \"title\": \"List Type Mappings\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"hello_world\",\n      \"name\": \"Hello World Module\",\n      \"version\": \"1.0.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"say_hello\",\n          \"title\": \"Say Hello\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"links_worksets_audit\",\n      \"name\": \"Links and Worksets Audit\",\n      \"version\": \"1.0.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"audit\",\n          \"title\": \"Audit Links and Worksets\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"model_bloat\",\n      \"name\": \"Model Bloat Audit\",\n      \"version\": \"1.0.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"audit\",\n          \"title\": \"Model Bloat Audit\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"model_changes\",\n      \"name\": \"Model Changes\",\n      \"version\": \"1.0.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"list_snapshots\",\n          \"title\": \"List Saved Snapshots\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"compare_snapshots\",\n          \"title\": \"What Changed Between Snapshots\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"model_inspector\",\n      \"name\": \"Model Inspector\",\n      \"version\": \"1.0.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"summarize_model\",\n          \"title\": \"Summarize Model\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"ask\",\n          \"title\": \"Ask About Model\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"list_groups\",\n          \"title\": \"List Model Groups\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"inspect_selection\",\n          \"title\": \"Inspect Selection\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"save_query\",\n          \"title\": \"Save Query\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"run_saved_query\",\n          \"title\": \"Run Saved Query\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"list_saved_queries\",\n          \"title\": \"List Saved Queries\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"naming_checker\",\n      \"name\": \"Naming Checker\",\n      \"version\": \"1.0.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"check_names\",\n          \"title\": \"Check Names Against Your Convention\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"list_example_conventions\",\n          \"title\": \"List Example Conventions\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"parameter_manager\",\n      \"name\": \"Parameter Manager\",\n      \"version\": \"1.0.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"filter_params\",\n          \"title\": \"Filter Parameter Grid\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"diff_params\",\n          \"title\": \"Diff Parameter Values\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"plan_set_params\",\n          \"title\": \"Plan Parameter Set\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"export_params_csv\",\n          \"title\": \"Export Parameters to CSV\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"import_params_csv\",\n          \"title\": \"Import Parameters from CSV\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"pyrevit_bridge\",\n      \"name\": \"pyRevit Bridge\",\n      \"version\": \"0.1.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"list_pyrevit_scripts\",\n          \"title\": \"List pyRevit Scripts\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"plan_run_pyrevit_script\",\n          \"title\": \"Plan pyRevit Script Run\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"run_pyrevit_script\",\n          \"title\": \"Run pyRevit Script\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": true,\n          \"requires_plan\": true\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"qaqc_checker\",\n      \"name\": \"QA/QC Checker\",\n      \"version\": \"1.0.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"run_check\",\n          \"title\": \"Run QA/QC Check\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"list_issues\",\n          \"title\": \"List QA/QC Issues\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"resolve_issue\",\n          \"title\": \"Resolve Issue\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"list_rules\",\n          \"title\": \"List Available Rules\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"list_rule_packs\",\n          \"title\": \"List Rule Packs\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"validate_rule_pack\",\n          \"title\": \"Validate Rule Pack\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"import_rule_pack\",\n          \"title\": \"Import Rule Pack\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"export_rule_pack\",\n          \"title\": \"Export Rule Pack\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"recipe_runner\",\n      \"name\": \"Recipe Runner\",\n      \"version\": \"1.0.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"run_recipe\",\n          \"title\": \"Run Recipe\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"list_recipes\",\n          \"title\": \"List Recipes\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"list_runs\",\n          \"title\": \"List Recipe Runs\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"get_run_status\",\n          \"title\": \"Get Recipe Run Status\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"report_generator\",\n      \"name\": \"Report Generator\",\n      \"version\": \"1.0.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"export_excel\",\n          \"title\": \"Export to Excel\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"export_sqlite_summary\",\n          \"title\": \"Export SQLite Summary\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"build_review_pack\",\n          \"title\": \"Build Model Review Workbook\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"revit\",\n      \"name\": \"Revit Checks (read-only eyes)\",\n      \"version\": \"0.2.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"check_joins\",\n          \"title\": \"Check Wall Joins (per wall end)\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"check_intersections\",\n          \"title\": \"Check Solid Intersections (volume in m3)\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"warnings_delta\",\n          \"title\": \"Warnings Baseline and Delta\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"check_orientation\",\n          \"title\": \"Check Wall Orientation (exterior side probe)\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"audit_openings\",\n          \"title\": \"Audit Doors and Windows (host, cut, sill, swing)\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"audit_roofs\",\n          \"title\": \"Audit Roofs (top, slope, coverage, edges, stair openings)\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"probe_family\",\n          \"title\": \"Probe a Family (nested content, connectors, extents)\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"system_report\",\n          \"title\": \"Piping and Duct System Report (open ends, ports, sizes)\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"check_naming_and_params\",\n          \"title\": \"Check Required Parameters, Duplicate Marks and Names\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"check_levels_grids\",\n          \"title\": \"Check Level Plan Views, Duplicate Elevations and Overlapping Grids (Read-only)\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"review\",\n          \"title\": \"Review a Build Phase (all audits in one call)\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"revit_api\",\n      \"name\": \"Revit API Lookup (offline documentation)\",\n      \"version\": \"0.1.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"lookup\",\n          \"title\": \"Look Up a Revit API Type, Member or Signature\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"revit_cleanup\",\n      \"name\": \"Revit Cleanup Audit (read-only)\",\n      \"version\": \"0.1.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"cleanup_audit\",\n          \"title\": \"Audit the open model for cleanup: eleven read-only checks, each with a count, up to max_ids element ids and a severity (FAIL, WARN, INFO). Returns a summary with a verdict (FAIL, INCOMPLETE, WARN or PASS), fails and warns lines, per-check status, and a separate purge_candidates field with element ids a later, approved tool could act on (candidates by one stated rule, never a claim that removal is safe). The whole model is bounded by time_budget_s and max_elements; a check that cannot finish says truncated, and the verdict is then INCOMPLETE, never PASS. Narrow it with scope (categories or one view). Nothing is changed or deleted. Use revit_review for checks on elements you just built.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"revit_docs\",\n      \"name\": \"Revit Documentation (views, sheets, schedules, revisions, export)\",\n      \"version\": \"0.2.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"list_views_sheets_schedules\",\n          \"title\": \"List Views, Sheets, Schedules and View Templates\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"render_check\",\n          \"title\": \"Render a Revit View and Verify the PNG Contains Visible Content\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"make_view\",\n          \"title\": \"Make a View (3D, Plan, Section or Elevation)\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": true\n        },\n        {\n          \"id\": \"make_sheet\",\n          \"title\": \"Make a Sheet and Place Views on a Grid\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": true\n        },\n        {\n          \"id\": \"make_schedule\",\n          \"title\": \"Make a Revit Schedule with Fields, Filters, Sorting and Totals\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": true\n        },\n        {\n          \"id\": \"export\",\n          \"title\": \"Export Sheets or the Model (PDF, DWG, IFC, NWC)\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": true\n        },\n        {\n          \"id\": \"place_views\",\n          \"title\": \"Place views on an existing sheet as viewports, on a grid, in one row or in one column, centred or aligned to the top left of each cell, inside the title block outline (or area_mm). Refuses a view that is already on a sheet (names the sheet and viewport id) and a sheet number that is not exactly one sheet; legends may go on several sheets. Never moves or deletes anything. Returns the viewport id of every view placed, its position and size, and notes for oversize or overlapping viewports. Write tool: needs an approved plan; one transaction per viewport; positions are read back; rolls back on failure unless on_error is skip.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": true\n        },\n        {\n          \"id\": \"list_view_templates\",\n          \"title\": \"List the view templates of the document: id, name, view type, how many views use each (used_by) and how many view parameters it controls. Unused templates are reported. Read-only. Use it before revit_apply_view_template (which assigns a template to views) or revit_make_view_template (which creates one from a view); revit_list_views_sheets_schedules lists the views.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"apply_view_template\",\n          \"title\": \"Assign one view template, by name or id, to a list of views. A view that already has it is reported as unchanged and not touched; a view the template does not fit (wrong view type) fails with its id and Revit's reason. Never edits the template and never removes a template from a view. Returns previous and new template per view. Write tool: needs an approved plan; one transaction per view; every assignment is read back; rolls back on failure unless on_error is skip. List templates first with revit_list_view_templates.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": true\n        },\n        {\n          \"id\": \"make_view_template\",\n          \"title\": \"Create a view template from the settings of an existing view and name it. Refuses a name that another view template already has and never replaces or edits one. With assign_to_view the source view is switched to the new template. Returns the new template id. Write tool: needs an approved plan; one transaction; the template, its name and its type are read back; rolls back on failure. Apply the template to other views with revit_apply_view_template.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": true\n        },\n        {\n          \"id\": \"align_crop\",\n          \"title\": \"Align the crop regions of a set of plan views to a reference plan view: each view gets the same crop rectangle in model coordinates, its crop switched on and its height range kept. Optionally sets the annotation crop (on, off, or match the reference including its four offsets). Refuses non-plan views, custom crop shapes and plan views rotated against the reference, with ids; views that already match are reported as unchanged. Returns the shift per view. Write tool: needs an approved plan; one transaction per view; the crop corners are read back in model coordinates; rolls back on failure unless on_error is skip.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": true\n        },\n        {\n          \"id\": \"list_revisions\",\n          \"title\": \"List the revisions of the document in sequence order: id, sequence, revision number, date, description, issued state, issued by and to, visibility, how many revision clouds each has and on how many sheets it shows. Read-only. Use the id or revision number in revit_add_revision_clouds and revit_issue_revision; revit_add_revision adds a new one.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"add_revision\",\n          \"title\": \"Add a new revision at the end of the revision sequence, with description, date, issued by and to, and visibility. Existing revisions are never changed; a revision with the same description and date is refused so a repeated call cannot add it twice. Returns the new revision id and number. Write tool: needs an approved plan; one transaction; every property is read back; rolls back on failure. Then draw clouds with revit_add_revision_clouds and release it with revit_issue_revision.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": true\n        },\n        {\n          \"id\": \"add_revision_clouds\",\n          \"title\": \"Draw rectangular revision clouds in one plan, section or elevation view around elements (their extent in that view) and/or a model-space box, for a revision given by id or number. One cloud around everything, or one per element with per_element. Refuses an issued revision, elements that have no extent in the view and views that cannot hold clouds. Reports the sheets the view is on, or that it is on none. Never moves or deletes anything. Write tool: needs an approved plan; one transaction per cloud; revision, view and sheet listing are read back; rolls back on failure unless on_error is skip.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": true\n        },\n        {\n          \"id\": \"issue_revision\",\n          \"title\": \"Assign a revision to sheets (adds it to each sheet's revisions on sheet) and/or mark it issued, with issued by and to. Sheets are assigned first, then the revision is issued; a sheet that already shows the revision is reported as unchanged. Issuing locks the revision and its clouds, so run it with dry_run first. Never removes a revision from a sheet. Write tool: needs an approved plan; one transaction per sheet and one for the issue; the sheet listing and the issued state are read back; rolls back on failure unless on_error is skip.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": true\n        },\n        {\n          \"id\": \"sheet_index\",\n          \"title\": \"Index of all sheets: number, name, title block, number of views and their names, schedules, current revision and all revisions shown. Findings: duplicate sheet numbers and empty sheets (fails), near-duplicate numbers (case or spaces), sheets without a title block and placeholder sheets (info). Read-only. Use revit_update_sheets to renumber or rename from a table and revit_place_views to fill an empty sheet.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"update_sheets\",\n          \"title\": \"Bulk renumber and rename sheets from a table (number = the current number; new_number and/or new_name). The final numbering of the whole document is checked first: if two sheets would share a number, including a sheet that is not in the table, nothing is changed. Swaps and chains (A1 to A2 while A2 to A3) go through temporary numbers and need on_error abort. Only the number and name are written; sheets outside the table are never touched. Write tool: needs an approved plan; one transaction per sheet; every number and name is read back, uniqueness is re-checked; rolls back on failure.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": true\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"revit_family\",\n      \"name\": \"Revit Families (make a family from data)\",\n      \"version\": \"0.1.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"make_family\",\n          \"title\": \"Make a Family From a Spec (box body and connectors)\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": true\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"revit_ifc\",\n      \"name\": \"Revit IFC Check (exported IFC vs live model)\",\n      \"version\": \"0.1.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"check\",\n          \"title\": \"Compare an exported IFC with the live Revit model and list what the export dropped: elements per category, classification (NL/SfB, Assembly Code), materials, storey assignment, expected parameters, duplicates at one placement, and the origin offset against the survey point. Read-only, no plan needed. Run it after revit_export with format ifc; use the revit_check_* tools for problems inside the model itself. The verdict is PASS, FAIL or UNVERIFIED (never PASS when the model side was cut short or the file could not be read).\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"revit_mep\",\n      \"name\": \"Revit MEP (route, connect, circuits, hangers)\",\n      \"version\": \"0.2.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"check_elements\",\n          \"title\": \"Dry run of the category guard: say whether elements would be accepted for a pipe, duct or electrical system, and why not (wrong category, no connectors, wrong domain, wrong system, no free connector). Read-only. Use it before revit_mep_route, revit_mep_connect or revit_mep_circuit; for a family that is not placed yet use revit_probe_family.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"route\",\n          \"title\": \"Run pipe or duct between connectors or points, or branch it off a trunk, with elbows, unions, transitions, takeoffs and tees. Use revit_mep_connect when the ends already touch; use this when pipe or duct has to be drawn. Families that are not MEP for the system are refused before anything changes. Write tool: replaces only what it made under the same tag and id; rolls back on failure unless on_error is skip.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": true\n        },\n        {\n          \"id\": \"connect\",\n          \"title\": \"Join pairs of connectors that already touch (equipment to a pipe or duct end, or two pipe or duct ends) directly or with a union, transition or elbow, then list the open ends left. Use revit_mep_route to draw pipe or duct between connectors that are apart. Write tool: needs an approved plan; rolls back on failure unless on_error is skip.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": true\n        },\n        {\n          \"id\": \"circuit\",\n          \"title\": \"Make native electrical circuits (ElectricalSystem) from a list of placed elements and a panel. Use after the families are placed; a circuit is replaced when you run it again with the same tag and id. Elements already on a circuit this tool did not make are refused; run revit_mep_check_elements first to see whether the families qualify. Write tool: needs an approved plan; rolls back on failure unless on_error is skip.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": true\n        },\n        {\n          \"id\": \"hanger_plan\",\n          \"title\": \"Plan hanger positions along straight pipes, ducts and cable trays: spread at the maximum spacing of a rule you supplied (a rule needs a named source, otherwise 'no spacing rule'), no closer to fittings than a minimum distance, with the floor, beam or ceiling above each position and the rod length, or 'no support host'. A layout aid, not an engineering calculation. Read-only; then place them with revit_mep_hanger_place.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"hanger_place\",\n          \"title\": \"Place a loaded hanger family at hanger positions: planned from a scope with the same rules as revit_mep_hanger_plan, or taken from its positions. Skips positions that already have a hanger of the family, so a rerun adds nothing; refuses a family in the wrong category or with MEP connectors; reads every hanger back. Write tool: needs an approved plan; rolls back on failure unless on_error is skip. Layout aid, not an engineering calculation.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": true\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"revit_params\",\n      \"name\": \"Revit Parameters (read and batch-set instance or type parameters)\",\n      \"version\": \"0.1.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"get_parameters\",\n          \"title\": \"Read parameter values of elements picked by id, ids or a selector (category, name, level, tag): one row per element and parameter with the value in the unit revit_set_parameters expects, Revit's display text, read-only, and whether revit_set_parameters would write it and why not. Leave params empty to list every parameter. Read-only; use it before revit_set_parameters. Capped by max_elements and a time budget; truncated says the list is not complete. For one element's raw record revit_get_element_parameters also works.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"set_parameters\",\n          \"title\": \"Batch-set instance or type parameters of up to 500 elements from data: items pick elements by id, ids or a selector (category, name, level, tag) and give params {name: value} with explicit units (mm, m, deg, number, int, bool, text, elementid by name). Never creates parameters; refuses read-only and critical built-in ones (type, workset, phase, level, host) with a reason per element. Run revit_get_parameters first to see names, units and what is writable. Write tool: needs an approved plan; one transaction per element; every value is read back; returns old and new values and a revert list; rolls back on failure unless on_error is skip.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": true\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"revit_recipes\",\n      \"name\": \"Revit Recipes (saved IronPython scripts with parameters and a code hash)\",\n      \"version\": \"0.1.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"recipe_save\",\n          \"title\": \"Save a recipe: IronPython 2.7 code plus a manifest (title, description, typed params schema, mode read or write) under the workspace recipes folder. Free: it only writes files and never runs anything. Saving over an existing id raises its version and removes any standing approval. mode 'read' is refused unless the code passes read mode. The script gets PARAMS_JSON and load_params(); print the SUMMARY/ROW line protocol (see revit_recipe_list for starters). Use revit_recipe_get for the sha256 you need to plan a run.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"recipe_list\",\n          \"title\": \"List the saved recipes and the built-in starters: id, version, title, mode, approval (per_run or standing), source, sha256 and parameter names. Read-only. A recipe whose files disagree shows a problem instead of its details. revit_recipe_get returns one recipe with its code.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"recipe_get\",\n          \"title\": \"Read one recipe: manifest, params schema, code, sha256, the approval it needs now and the plan_arguments to put in a plan action for revit_recipe_run. Read-only. The code hash is recomputed from the file; a recipe whose manifest and code disagree is refused.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"recipe_run\",\n          \"title\": \"Run a saved recipe in Revit with checked parameters. dry_run true validates the params and shows the code hash and approval state without running anything or needing approval. A read recipe whose code passes read mode (rechecked now) runs without approval. A write recipe needs an approved plan_id whose action carries exactly the plan_arguments from revit_recipe_get (id, version, sha256, params); if the recipe was edited since, the run is refused. Values reach the script only as the JSON string PARAMS_JSON, never as code. Returns the same result contract as the check tools.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": true\n        },\n        {\n          \"id\": \"recipe_delete\",\n          \"title\": \"Delete a saved recipe and any standing approval for it. Gated: needs an approved plan. A built-in starter recipe cannot be deleted; save your own with the same id to replace it.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": true,\n          \"requires_plan\": true\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"revit_sparing\",\n      \"name\": \"Revit sparingen (MEP openings)\",\n      \"version\": \"0.2.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"find\",\n          \"title\": \"Find where MEP runs (pipes, ducts, conduits, cable trays) pass through walls and floors, also in links, and suggest a sparing per crossing: MEP size plus clearance, rounded up, with host thickness, angle and any existing opening. Read-only and budgeted. For general clashes use revit_check_clashes or revit_check_intersections; for sparingen use this, then revit_sparing_place.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"place\",\n          \"title\": \"Place sparingen at the crossings revit_sparing_find reports: a loaded sparing family or a native opening, sized, with an approval status. Write tool: needs an approved plan, one transaction per sparing, rolls back on failure unless on_error is skip, replaces only what it made under the same tag. Run revit_sparing_find first; dry_run shows the result without keeping it.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": true\n        },\n        {\n          \"id\": \"status_get\",\n          \"title\": \"Read the approval status of each sparing (proposed, requested, approved, rejected, built): one row per sparing with family, level, host, discipline and the stored text. Read-only. If the status parameter is missing it says so and points to revit_sparing_status_setup; nothing is created. Use revit_sparing_status_summary for counts and revit_sparing_status_set to change a status.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"status_summary\",\n          \"title\": \"Count sparingen by approval status and optionally by discipline, level, host category, family, tag or kind. Read-only; one row per combination. Same selection and status parameter as revit_sparing_status_get. A missing status parameter is reported, not hidden. Use it before a coordination meeting; use revit_sparing_status_get for the individual sparingen.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"status_set\",\n          \"title\": \"Set the approval status of sparingen, with a transition table: proposed > requested > approved or rejected, approved > built or rejected, rejected > proposed. Write tool: needs an approved plan. Refuses the whole call, changing nothing, on an illegal move, an unknown stored text or a missing parameter. Reads every value back; dry_run available.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": true\n        },\n        {\n          \"id\": \"status_setup\",\n          \"title\": \"Create the shared parameter that holds the approval status and bind it to the sparing categories, or add categories to it. Write tool: needs an approved plan, never runs on its own. Adds a definition to the shared parameter file (a rollback does not undo that) and binds it in one transaction. dry_run changes nothing. Use when revit_sparing_status_get reports the parameter missing.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": true\n        },\n        {\n          \"id\": \"export_spec\",\n          \"title\": \"Export the placement spec for the linked discipline models from this model's placed sparingen: per link instance the family and type, host id and category, location and direction in the link's own coordinates (inverse link transform), size and status, as JSON. Read-only. Pair with revit_sparing_place_spec, which places them in the active document.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"place_spec\",\n          \"title\": \"Place sparingen in the ACTIVE document from a spec made by revit_sparing_export_spec. The bridge writes to the active document only: make the discipline model active first; a document that does not match the spec is refused. Write tool: needs an approved plan; tagged and idempotent like revit_sparing_place; dry_run, read-back checks, one transaction per sparing.\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": true\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"schedule_consistency\",\n      \"name\": \"Door and Room Schedule Consistency\",\n      \"version\": \"1.0.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"check_doors_and_rooms\",\n          \"title\": \"Check Door and Room Schedules\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"selection_tools\",\n      \"name\": \"Selection Tools\",\n      \"version\": \"1.0.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"set_selection\",\n          \"title\": \"Set Selection\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"save_selection\",\n          \"title\": \"Save Selection\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"restore_selection\",\n          \"title\": \"Restore Selection\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"select_by_query\",\n          \"title\": \"Select By Query\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"list_saved_selections\",\n          \"title\": \"List Saved Selections\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        },\n        {\n          \"id\": \"group_rename\",\n          \"title\": \"Rename Group\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": true\n        },\n        {\n          \"id\": \"group_ungroup\",\n          \"title\": \"Ungroup Group\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": true,\n          \"requires_plan\": true\n        },\n        {\n          \"id\": \"group_convert_to_detail\",\n          \"title\": \"Convert Group to Detail Group\",\n          \"surface\": [\n            \"mcp\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": true,\n          \"destructive\": false,\n          \"requires_plan\": true\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"sheet_view_audit\",\n      \"name\": \"Sheet and View Audit\",\n      \"version\": \"1.0.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"run_audit\",\n          \"title\": \"Audit Sheets and Views\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        }\n      ],\n      \"ui\": null\n    },\n    {\n      \"id\": \"warnings_triage\",\n      \"name\": \"Warnings Triage\",\n      \"version\": \"1.0.0\",\n      \"description\": \"\",\n      \"commands\": [\n        {\n          \"id\": \"review_warnings\",\n          \"title\": \"Review Revit Warnings (grouped, ranked, with next steps)\",\n          \"surface\": [\n            \"mcp\",\n            \"panel\"\n          ],\n          \"execution_mode\": \"sync\",\n          \"is_mutating\": false,\n          \"destructive\": false,\n          \"requires_plan\": false\n        }\n      ],\n      \"ui\": null\n    }\n  ]\n}"
+          }
+        ],
+        "isError": false
+      }
+    },
+    {
+      "name": "revit_list_elements",
+      "arguments": {
+        "category": "Walls"
+      },
+      "request_arguments": {
+        "chars": 20,
+        "utf8_bytes": 20,
+        "approx_tokens_chars_div_4": 5.0
+      },
+      "script_chars": 0,
+      "response": {
+        "chars": 350,
+        "utf8_bytes": 352,
+        "approx_tokens_chars_div_4": 87.5
+      },
+      "text_content": {
+        "chars": 260,
+        "utf8_bytes": 262,
+        "approx_tokens_chars_div_4": 65.0
+      },
+      "parsed_result_compact": {
+        "chars": 168,
+        "utf8_bytes": 168,
+        "approx_tokens_chars_div_4": 42.0
+      },
+      "is_error": false,
+      "observed": {
+        "content": [
+          {
+            "type": "text",
+            "text": "✓ revit_list_elements executed successfully\n\nResult:\n{\n  \"tool\": \"revit.list_elements_by_category\",\n  \"mock\": true,\n  \"timestamp\": \"2026-11-05T10:47:56.153548+00:00\",\n  \"payload\": {\n    \"category\": \"Walls\"\n  },\n  \"result\": {\n    \"status\": \"mock-response\"\n  }\n}"
+          }
+        ],
+        "isError": false
+      }
+    },
+    {
+      "name": "revit_list_families",
+      "arguments": {},
+      "request_arguments": {
+        "chars": 2,
+        "utf8_bytes": 2,
+        "approx_tokens_chars_div_4": 0.5
+      },
+      "script_chars": 0,
+      "response": {
+        "chars": 305,
+        "utf8_bytes": 307,
+        "approx_tokens_chars_div_4": 76.25
+      },
+      "text_content": {
+        "chars": 221,
+        "utf8_bytes": 223,
+        "approx_tokens_chars_div_4": 55.25
+      },
+      "parsed_result_compact": {
+        "chars": 138,
+        "utf8_bytes": 138,
+        "approx_tokens_chars_div_4": 34.5
+      },
+      "is_error": false,
+      "observed": {
+        "content": [
+          {
+            "type": "text",
+            "text": "✓ revit_list_families executed successfully\n\nResult:\n{\n  \"tool\": \"revit.list_families\",\n  \"mock\": true,\n  \"timestamp\": \"2026-11-05T10:47:56.154553+00:00\",\n  \"payload\": {},\n  \"result\": {\n    \"status\": \"mock-response\"\n  }\n}"
+          }
+        ],
+        "isError": false
+      }
+    },
+    {
+      "name": "revit_get_element_parameters",
+      "arguments": {
+        "element_id": 123
+      },
+      "request_arguments": {
+        "chars": 18,
+        "utf8_bytes": 18,
+        "approx_tokens_chars_div_4": 4.5
+      },
+      "script_chars": 0,
+      "response": {
+        "chars": 352,
+        "utf8_bytes": 354,
+        "approx_tokens_chars_div_4": 88.0
+      },
+      "text_content": {
+        "chars": 264,
+        "utf8_bytes": 266,
+        "approx_tokens_chars_div_4": 66.0
+      },
+      "parsed_result_compact": {
+        "chars": 163,
+        "utf8_bytes": 163,
+        "approx_tokens_chars_div_4": 40.75
+      },
+      "is_error": false,
+      "observed": {
+        "content": [
+          {
+            "type": "text",
+            "text": "✓ revit_get_element_parameters executed successfully\n\nResult:\n{\n  \"tool\": \"revit.get_element_parameters\",\n  \"mock\": true,\n  \"timestamp\": \"2026-11-05T10:47:56.154553+00:00\",\n  \"payload\": {\n    \"element_id\": 123\n  },\n  \"result\": {\n    \"status\": \"mock-response\"\n  }\n}"
+          }
+        ],
+        "isError": false
+      }
+    },
+    {
+      "name": "revit_list_views",
+      "arguments": {},
+      "request_arguments": {
+        "chars": 2,
+        "utf8_bytes": 2,
+        "approx_tokens_chars_div_4": 0.5
+      },
+      "script_chars": 0,
+      "response": {
+        "chars": 373,
+        "utf8_bytes": 375,
+        "approx_tokens_chars_div_4": 93.25
+      },
+      "text_content": {
+        "chars": 276,
+        "utf8_bytes": 278,
+        "approx_tokens_chars_div_4": 69.0
+      },
+      "parsed_result_compact": {
+        "chars": 150,
+        "utf8_bytes": 150,
+        "approx_tokens_chars_div_4": 37.5
+      },
+      "is_error": false,
+      "observed": {
+        "content": [
+          {
+            "type": "text",
+            "text": "✓ revit_list_views executed successfully\n\nResult:\n{\n  \"views\": [\n    {\n      \"view_id\": \"view-1\",\n      \"name\": \"Floor Plan\",\n      \"discipline\": \"Architectural\"\n    },\n    {\n      \"view_id\": \"view-2\",\n      \"name\": \"Ceiling Plan\",\n      \"discipline\": \"Mechanical\"\n    }\n  ]\n}"
+          }
+        ],
+        "isError": false
+      }
+    },
+    {
+      "name": "plan_actions",
+      "arguments": {
+        "actions": [
+          {
+            "tool": "revit_set_parameter_value",
+            "arguments": {
+              "element_id": 123,
+              "parameter_name": "Comments",
+              "value": "Measurement only"
+            }
+          }
+        ]
+      },
+      "request_arguments": {
+        "chars": 136,
+        "utf8_bytes": 136,
+        "approx_tokens_chars_div_4": 34.0
+      },
+      "script_chars": 0,
+      "response": {
+        "chars": 1058,
+        "utf8_bytes": 1060,
+        "approx_tokens_chars_div_4": 264.5
+      },
+      "text_content": {
+        "chars": 893,
+        "utf8_bytes": 895,
+        "approx_tokens_chars_div_4": 223.25
+      },
+      "parsed_result_compact": {
+        "chars": 590,
+        "utf8_bytes": 590,
+        "approx_tokens_chars_div_4": 147.5
+      },
+      "is_error": false,
+      "observed": {
+        "content": [
+          {
+            "type": "text",
+            "text": "✓ plan_actions executed successfully\n\nResult:\n{\n  \"plan_id\": \"plan_fb50c30321d0\",\n  \"state\": \"pending\",\n  \"created_at\": \"2026-11-05T10:47:56.155553+00:00\",\n  \"actions\": [\n    {\n      \"action_id\": \"act_138e0314afee\",\n      \"tool\": \"revit_set_parameter_value\",\n      \"arguments\": {\n        \"element_id\": 123,\n        \"parameter_name\": \"Comments\",\n        \"value\": \"Measurement only\"\n      },\n      \"diff\": {\n        \"type\": \"parameter_change\",\n        \"before\": {\n          \"123\": {\n            \"Comments\": null\n          }\n        },\n        \"after\": {\n          \"element_id\": 123,\n          \"parameter_name\": \"Comments\",\n          \"value\": \"Measurement only\"\n        },\n        \"element_count\": 1\n      },\n      \"state\": \"pending\"\n    }\n  ],\n  \"is_reversible\": true,\n  \"reversible_strategy\": \"inverse\",\n  \"plan_hash\": \"sha256:e8906c655fccfec60f76b1d58979b295de55b1cca9b33bafbe545c698b492f77\"\n}"
+          }
+        ],
+        "isError": false
+      }
+    }
+  ]
+}

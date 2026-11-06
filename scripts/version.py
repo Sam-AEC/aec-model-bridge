@@ -52,6 +52,8 @@ TARGETS: list[tuple[str, str, object]] = [
     ("packages/mcp-server-revit/pyproject.toml", r'(?m)^version = "(?P<v>[^"]+)"', str),
     ("packages/mcp-server-revit/uv.lock", r'(?m)^name = "aec-model-bridge"\r?\nversion = "(?P<v>[^"]+)"', str),
     ("packages/mcp-server-revit/manifest.json", r'(?m)^  "version": "(?P<v>[^"]+)"', str),
+    ("plugin/.claude-plugin/plugin.json", r'(?m)^  "version": "(?P<v>[^"]+)"', str),
+    (".claude-plugin/marketplace.json", r'(?m)^      "version": "(?P<v>[^"]+)"', str),
     ("server.json", r'(?m)^    "version":  "(?P<v>[^"]+)"', str),
     ("server.json", r'(?m)^ +"version":  "(?P<v>[^"]+)",\s*\n\s*"transport"', str),
     ("server.json", r"releases/download/v(?P<v>[^/]+)/aec-model-bridge-", str),

@@ -34,6 +34,23 @@ SEVERITY_COLORS = {
 def _ws_dir(workspace: Any) -> Path:
     return workspace.allowed_directories[0]
 
+def _confined(workspace: Any, filename: str) -> Path:
+    """Join an output file name under the workspace; refuse '..', absolute paths, symlinks
+    that leave it, and the plans/ and proofs/ folders."""
+    from revit_mcp_server.security.workspace import is_reserved_path
+
+    base = _ws_dir(workspace)
+    candidate = (base / filename).resolve()
+    checker = getattr(workspace, "assert_in_workspace", None)
+    if checker is not None:
+        candidate = checker(candidate)
+    elif not candidate.is_relative_to(base.resolve()):
+        raise ValueError(f"{candidate} is outside the allowed workspace directories")
+    if is_reserved_path(candidate, base):
+        raise ValueError(f"{candidate} is in a folder reserved for plans and proofs")
+    return candidate
+
+
 def _get_data(snapshot_id: str, workspace: Any):
     if not snapshot_id:
         from revit_mcp_server.semantic.engine import generate_mock_snapshot, require_snapshot_or_mock
@@ -318,7 +335,7 @@ class ReportGeneratorModule:
                         ws_qa.cell(row=r, column=col).fill = fill
 
         # --- Save ---
-        out_path = _ws_dir(workspace) / output_filename
+        out_path = _confined(workspace, output_filename)
         wb.save(str(out_path))
 
         return {
@@ -447,7 +464,7 @@ class ReportGeneratorModule:
         **_,
     ) -> Dict[str, Any]:
         elements, types = _get_data(snapshot_id, workspace)
-        out_path = _ws_dir(workspace) / output_filename
+        out_path = _confined(workspace, output_filename)
 
         conn = sqlite3.connect(str(out_path))
         conn.executescript("""

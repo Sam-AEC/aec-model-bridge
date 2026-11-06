@@ -11,20 +11,30 @@ from typing import Any
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import Tool, TextContent
+from mcp.types import CallToolResult, Tool, TextContent
 
-from .errors import BridgeError
+from .errors import BridgeError, CommandFailed
 from .registry_factory import build_registry
+from .security.approval import HUMAN_ONLY_TOOLS
+from .security.dispatch import (
+    gate_after, gate_after_result, gate_before, result_failed, settle_in_flight,
+)
 from .security.audit import redact_data
+from .security.module_execution import authorized_module_execution
 from .tool_metadata import enrich_tool
+from .result_presentation import result_json, split_response_options
+from .tool_profiles import ToolProfileBlocked, load_tool_profile
 
 logger = logging.getLogger(__name__)
 
 SERVER_INSTRUCTIONS = (
     "AEC Model Bridge exposes Autodesk Revit (and Navisworks, Rhino, IFC, Speckle) as MCP tools. "
     "Read-only tools run immediately. Every tool that changes a model requires an approved plan: "
-    "call plan_actions with the proposed changes, have the human approve it (approve_plan or the Revit panel), "
-    "then call execute_plan or pass the plan_id to the write tool. Revit lengths are in feet. "
+    "call plan_actions with the proposed changes, then STOP and ask the person to review and approve the plan "
+    "themselves, in the Revit panel's Plans view or with the command-line tool `aec-model-bridge-approve`. "
+    "You cannot approve, reject or roll back a plan, and must not try to work around that. "
+    "Only after the person tells you the plan is approved, call execute_plan (or pass the plan_id to the write tool "
+    "with exactly the arguments that were approved; an approved action runs once). Revit lengths are in feet. "
     "In MCP_REVIT_MODE=mock the server returns canned responses and needs no Revit."
 )
 
@@ -68,30 +78,40 @@ async def list_tools() -> list[Tool]:
     # destructiveHint, idempotentHint, openWorldHint) without changing behaviour.
     return [
         enrich_tool(provider.get_identity(), t)
-        for provider in registry.get_all_providers()
-        for t in provider.get_capabilities()
+        for provider, t in registry.get_tools_with_providers()
+        if t.name not in HUMAN_ONLY_TOOLS
     ]
 
 @app.call_tool()
-async def call_tool(name: str, arguments: Any) -> list[TextContent]:
+async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolResult:
     """Execute a registered AEC tool."""
-    provider = registry.lookup_tool_provider(name)
-    if not provider:
-        return [TextContent(
-            type="text",
-            text=f"Error: Unknown tool '{name}'"
-        )]
+    if name in HUMAN_ONLY_TOOLS:
+        return _tool_error("human_only", (
+            f"Error: '{name}' is not available to AI clients. A person approves, rejects and rolls back "
+            "plans in the Revit panel or with the aec-model-bridge-approve command. Ask them to do it."
+        ))
 
-    # Approval Gate Middleware Check
-    tool_def = registry.lookup_tool(name)
-    if tool_def and tool_def.is_mutating:
-        try:
-            approval_provider.gate.check_tool_execution(name, arguments)
-        except Exception as e:
-            return [TextContent(
-                type="text",
-                text=f"Approval Gate Blocked: {str(e)}"
-            )]
+    try:
+        provider = registry.lookup_tool_provider(name)
+    except ToolProfileBlocked as exc:
+        return _tool_error("tool_profile_blocked", str(exc))
+    if not provider:
+        return _tool_error("unknown_tool", f"Error: Unknown tool '{name}'")
+
+    try:
+        arguments, response_options = split_response_options(name, arguments)
+    except ValueError as exc:
+        return _tool_error("invalid_response_options", str(exc))
+
+    # Approval gate: a mutating call consumes its approved action here, before it
+    # runs, so it can run at most once even if it fails or is called concurrently.
+    gate = approval_provider.gate
+    try:
+        claim = gate_before(registry, gate, name, arguments)
+    except ToolProfileBlocked as e:
+        return _tool_error("tool_profile_blocked", str(e))
+    except Exception as e:
+        return _tool_error("approval_blocked", f"Approval Gate Blocked: {str(e)}")
 
     try:
         # Check if deferred execution is requested.
@@ -106,8 +126,21 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             idempotency_key = args_copy.get("idempotency_key")
 
         if run_async:
+            # The action was consumed above, when the job is queued; the job records
+            # how it ended. A job that fails needs a new plan.
             async def run_tool_job(context=None):
-                return await provider.execute_tool(name, arguments)
+                try:
+                    with authorized_module_execution(name):
+                        result = await provider.execute_tool(name, arguments)
+                except BaseException as e:
+                    gate_after(gate, claim, ok=False, error=str(e) or type(e).__name__)
+                    raise
+                # A 'running' answer keeps the claim consumed and the action in flight until
+                # revit_get_result returns the final result; it is not booked as done here.
+                outcome = gate_after_result(gate, claim, name, result)
+                if outcome.state == "failed":
+                    raise BridgeError(f"Tool returned failure: {json.dumps(redact_data(result))}")
+                return result
 
             job_ref = await job_manager.submit(
                 run_tool_job,
@@ -118,51 +151,76 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             return [TextContent(type="text", text=response_text)]
 
         # Execute the tool on the provider
-        result = await provider.execute_tool(name, arguments)
-
-        # If mutating tool and plan_id is provided, transition state to executed
-        if tool_def and tool_def.is_mutating and isinstance(arguments, dict) and "plan_id" in arguments:
-            plan_id = arguments["plan_id"]
-            try:
-                approval_provider.gate.update_plan_state(plan_id, "executed")
-            except Exception:
-                # The tool has already run, so don't fail the call and invite a
-                # retry of a completed mutation; make the stale plan visible instead.
-                logger.exception(
-                    "Tool '%s' executed but plan '%s' could not be marked executed",
-                    name,
-                    plan_id,
-                )
+        try:
+            with authorized_module_execution(name):
+                result = await provider.execute_tool(name, arguments)
+        except BaseException as e:
+            gate_after(gate, claim, ok=False, error=str(e) or type(e).__name__)
+            settle_in_flight(gate, name, arguments, error=e)
+            raise
+        if claim is None:
+            settle_in_flight(gate, name, arguments, result=result)
+        outcome = gate_after_result(gate, claim, name, result)
+        failed = outcome.state == "failed" or _result_failed(result)
 
         redacted_result = redact_data(result)
 
-        # Format the response
-        response_text = f"✓ {name} executed successfully\n\n"
-        response_text += f"Result:\n{json.dumps(redacted_result, indent=2)}"
+        if outcome.state == "running":
+            # Not an error and not done: Revit is still working and the approved action stays
+            # consumed (it cannot be replayed) until revit_get_result brings the final result.
+            kept = ("; the approved action stays used and cannot be run again" if claim else "")
+            text = (
+                f"{name} is still running. It has not finished and it has not failed{kept}. "
+                f"Resume with {outcome.resume}. Do not repeat the call.\n\n"
+                f"Result:\n{result_json(redacted_result, response_options, project=False)}"
+            )
+            return [TextContent(type="text", text=text)]
 
+        # Format the response
+        response_text = f"{name} returned a failure\n\n" if failed else f"✓ {name} executed successfully\n\n"
+        response_text += f"Result:\n{result_json(redacted_result, response_options, project=not failed)}"
+
+        if failed:
+            return CallToolResult(
+                isError=True, content=[TextContent(type="text", text=response_text)],
+                structuredContent=redacted_result,
+            )
         return [TextContent(type="text", text=response_text)]
 
+    except CommandFailed as e:
+        return _tool_error("bridge_error", f"Revit Bridge Error: {str(e)}", result=e.payload)
+    except ToolProfileBlocked as e:
+        return _tool_error("tool_profile_blocked", str(e))
     except BridgeError as e:
-        error_msg = f"Revit Bridge Error: {redact_data(str(e))}\n\n"
-        error_msg += "Make sure:\n"
-        error_msg += "1. Revit is running\n"
-        error_msg += "2. A project is open in Revit\n"
-        error_msg += "3. The AEC Model Bridge add-in is loaded\n"
-        error_msg += "4. The bridge is accessible at http://localhost:3000"
-
-        return [TextContent(type="text", text=error_msg)]
+        return _tool_error("bridge_error", f"Revit Bridge Error: {str(e)}")
 
     except Exception as e:
-        return [TextContent(
-            type="text",
-            text=f"Error: {redact_data(str(e))}"
-        )]
+        return _tool_error("execution_error", f"Error: {str(e)}")
+
+
+_result_failed = result_failed
+
+
+def _tool_error(kind: str, message: str, result: dict | None = None) -> CallToolResult:
+    """Preserve readable diagnostics while telling MCP clients the call failed."""
+    message = redact_data(message)
+    structured = {"ok": False, "error": {"kind": kind, "message": message}}
+    if result is not None:
+        structured["result"] = redact_data(result)
+        message += "\n\nResult:\n" + json.dumps(structured["result"], indent=2)
+    return CallToolResult(
+        isError=True,
+        content=[TextContent(type="text", text=message)],
+        structuredContent=structured,
+    )
 
 async def main():
     """Run the MCP server."""
     global registry, approval_provider, job_manager
+    profile = load_tool_profile()  # fail invalid settings before provider construction
     registry, approval_provider, job_manager, _module_registry, _workspace = build_registry()
     try:
+        registry.freeze_tool_profile(profile)
         async with stdio_server() as (read_stream, write_stream):
             await app.run(
                 read_stream,
@@ -174,6 +232,13 @@ async def main():
 
 def run_mcp_server():
     """Entry point for running the MCP server."""
+    from .cli_flags import handle_standard_flags
+
+    handle_standard_flags(
+        "aec-model-bridge",
+        "AEC Model Bridge MCP server (stdio). MCP clients start it with no arguments; "
+        "settings come from MCP_REVIT_* environment variables (see docs/configuration-reference.md).",
+    )
     asyncio.run(main())
 
 

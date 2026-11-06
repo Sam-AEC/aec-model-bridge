@@ -1,4 +1,9 @@
+import asyncio
+import re
+import contextlib
+import contextvars
 import logging
+import threading
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -9,11 +14,27 @@ from ..bridge.mock import MockBridge
 from ..config import BridgeMode, config
 from ..errors import BridgeError, WorkspaceViolation
 from ..legacy.tools import TOOL_HANDLERS
+from ..security.read_mode import execute_python_payload, is_read_mode_call
 from ..security.workspace import WorkspaceMonitor
 from .base import AECProvider, ProviderTool, enrich_mutation_metadata
+from .element_inspection import INSPECTION_SCHEMA, inspect_elements, validate_inspection
+from . import revit_context
 
 logger = logging.getLogger(__name__)
 
+
+def _optional(args: Dict[str, Any], *names: str) -> Dict[str, Any]:
+    """Forward only the arguments the caller actually gave, so the add-in applies its own defaults."""
+    return {name: args[name] for name in names if args.get(name) is not None}
+
+
+# Per-request bridge chosen by the panel hub's instance routing. A ContextVar so concurrent
+# requests aimed at different Revit instances cannot see each other's choice.
+_BRIDGE_OVERRIDE: contextvars.ContextVar = contextvars.ContextVar("revit_bridge_override", default=None)
+
+
+
+_RAW_COMMAND_RE = re.compile(r"revit\.[a-z][a-z0-9_]{1,63}")
 
 class UnavailableBridge:
     def __init__(self, message: str) -> None:
@@ -42,9 +63,24 @@ class RevitProvider(AECProvider):
         self.mode = mode
         self.bridge_url = bridge_url
         self.host_version = host_version
+        self._bridge_factory = bridge_factory
+        # Set by build_registry to ApprovalGate.approval_state, so revit_get_context reports the
+        # live mode (with any temporary Auto window), not only the configured one.
+        self.approval_state_source = None
         self._bridge = self._build_bridge(bridge_factory)
+        self._routed_bridges: Dict[tuple, Any] = {}
+        self._routed_lock = threading.Lock()
         self._init_tool_mapping()
         self._enrich_tool_metadata()
+
+    def _approval_state(self) -> Dict[str, Any] | None:
+        source = self.approval_state_source
+        if source is None:
+            return None
+        try:
+            return source()
+        except Exception:
+            return None
 
     def _enrich_tool_metadata(self) -> None:
         mutating_verbs = {
@@ -75,11 +111,50 @@ class RevitProvider(AECProvider):
             "ungroup",
         }
         enrich_mutation_metadata(
-            self._capabilities, mutating_verbs=mutating_verbs, destructive={"revit_execute_python"}
+            self._capabilities,
+            mutating_verbs=mutating_verbs,
+            # render_3d_view opens a transaction and writes an image file to disk.
+            mutating_names=frozenset({
+                "revit_render_3d",
+                # Reflection getter on an arbitrary object: a property getter can have side
+                # effects, so fail closed and gate it.
+                "revit_reflect_get",
+            }),
+            destructive={"revit_execute_python", "revit_raw_command"},
         )
 
     def get_identity(self) -> str:
         return "revit"
+
+    def _active_bridge(self):
+        return _BRIDGE_OVERRIDE.get() or self._bridge
+
+    @contextlib.contextmanager
+    def routed_to(self, endpoint: str, token: str | None):
+        """Send every Revit call made inside this block (same task/thread context) to the
+        bridge at ``endpoint`` instead of the one chosen at hub start-up. Used by the panel
+        hub's instance routing; the registry decides the endpoint, never the request."""
+        key = (endpoint, token)
+        with self._routed_lock:
+            bridge = self._routed_bridges.get(key)
+            if bridge is None:
+                factory = self._bridge_factory or (lambda u, t=None: BridgeClient(u, token=t))
+                bridge = factory(endpoint, token)
+                if hasattr(bridge, "initialize"):
+                    try:
+                        bridge.initialize()
+                    except Exception as e:
+                        logger.error("Failed to initialize routed Revit bridge client: %s", type(e).__name__)
+                self._routed_bridges[key] = bridge
+        reset = _BRIDGE_OVERRIDE.set(bridge)
+        try:
+            yield bridge
+        finally:
+            _BRIDGE_OVERRIDE.reset(reset)
+
+    def call_is_read_only(self, name: str, arguments: Dict[str, Any]) -> bool:
+        """Lets the approval gate skip a revit_execute_python call made with mode='read'."""
+        return name == "revit_execute_python" and is_read_mode_call(arguments)
 
     def _build_bridge(self, factory=None):
         if self.mode == BridgeMode.bridge:
@@ -87,9 +162,10 @@ class RevitProvider(AECProvider):
 
             url = self.bridge_url
             token = None
+            switch = None
 
             if not url:
-                switch = select_switch("revit", self.host_version)
+                switch = select_switch("revit", self.host_version, prune=False)
                 if switch:
                     url = switch.endpoint
                     token = switch.session_token
@@ -99,7 +175,7 @@ class RevitProvider(AECProvider):
                         url,
                     )
                 elif self.host_version:
-                    versions = available_host_versions("revit")
+                    versions = available_host_versions("revit", prune=False)
                     available = ", ".join(versions) if versions else "none"
                     message = (
                         f"No live Revit {self.host_version} bridge found. "
@@ -127,6 +203,8 @@ class RevitProvider(AECProvider):
 
             bridge_factory = factory or (lambda u, t=None: BridgeClient(u, token=t))
             bridge = bridge_factory(url, token)
+            if switch is not None and hasattr(bridge, "bind_registry_session"):
+                bridge.bind_registry_session(switch)
             if hasattr(bridge, "initialize"):
                 try:
                     bridge.initialize()
@@ -143,16 +221,54 @@ class RevitProvider(AECProvider):
         if self.mode == BridgeMode.bridge:
             try:
                 # Direct check
-                if hasattr(self._bridge, "_get"):
-                    return self._bridge._get("/health")
+                bridge = self._active_bridge()
+                if hasattr(bridge, "_get"):
+                    return bridge._get("/health")
                 return {"status": "healthy", "mode": "bridge"}
             except Exception as e:
                 return {"status": "unhealthy", "error": str(e)}
         return {"status": "healthy", "mode": "mock"}
 
+    def _list_commands(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        if self.mode != BridgeMode.bridge:
+            raise ValueError("revit_list_commands asks the live Revit add-in; it is not available in mock mode.")
+        listed = self._active_bridge().list_commands()
+        needle = str(arguments.get("contains") or "").lower()
+        want = arguments.get("mutating")
+        commands = [
+            {"command": c.get("name"), "mutating": bool(c.get("is_mutating"))}
+            for c in listed
+            if (not needle or needle in str(c.get("name", "")).lower())
+            and (want is None or bool(c.get("is_mutating")) == bool(want))
+        ]
+        commands.sort(key=lambda c: c["command"] or "")
+        return {"count": len(commands), "commands": commands}
+
     async def execute_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        if name == "revit_inspect_elements":
+            validate_inspection(arguments)
+            if self.mode != BridgeMode.bridge:
+                raise ValueError("revit_inspect_elements requires a live Revit connection; it is not available in mock mode.")
+            return await inspect_elements(self.execute_tool, arguments)
+
+        if name == "revit_get_context":
+            return await asyncio.to_thread(
+                revit_context.get_context,
+                self._active_bridge(),
+                live=self.mode == BridgeMode.bridge,
+                approval_mode=config.approval_mode,
+                approval=self._approval_state(),
+            )
+        if name == "revit_get_result":
+            if self.mode != BridgeMode.bridge:
+                raise ValueError("revit_get_result needs a live Revit connection; it is not available in mock mode.")
+            return await asyncio.to_thread(revit_context.get_result, self._active_bridge(), arguments)
+
         # Check path parameters for workspace compliance
         self._assert_paths_in_workspace(arguments)
+
+        if name == "revit_list_commands":
+            return self._list_commands(arguments)
 
         if "." in name:
             # Legacy dot notation (e.g. "revit.health")
@@ -164,6 +280,12 @@ class RevitProvider(AECProvider):
             if normalized_name not in self._tool_mapping:
                 raise ValueError(f"Unknown Revit tool '{name}'")
             bridge_tool, payload_builder = self._tool_mapping[normalized_name]
+            if normalized_name == "revit_raw_command":
+                bridge_tool = str(arguments.get("command") or "")
+                if not _RAW_COMMAND_RE.fullmatch(bridge_tool):
+                    raise ValueError("revit_raw_command needs a command like 'revit.create_wall'.")
+                if self.mode != BridgeMode.bridge:
+                    raise ValueError("revit_raw_command talks to a live Revit add-in; it is not available in mock mode.")
             payload = payload_builder(arguments)
             if "request_id" in arguments and "request_id" not in payload:
                 payload["request_id"] = arguments["request_id"]
@@ -188,8 +310,10 @@ class RevitProvider(AECProvider):
                     # and can drift out of sync with what the bridge actually accepts.
                     logger.warning(f"Revit legacy handler validation warning: {e}")
 
-            # Send to bridge client
-            return self._bridge.send_tool(bridge_tool, payload)
+            # Send to bridge client. send_tool blocks (HTTP plus polling for up to the soft
+            # wait), so run it off the event loop; the loop keeps serving other calls (B-16).
+            bridge = self._active_bridge()
+            return await asyncio.to_thread(bridge.send_tool, bridge_tool, payload)
         else:
             # Mock mode
             legacy_dot_name = bridge_tool
@@ -202,7 +326,8 @@ class RevitProvider(AECProvider):
                 return handler({"request_id": "mcp-mock", **payload}, self.workspace)
 
             # Fallback to general mock response
-            return self._bridge.send_tool(bridge_tool, payload)
+            bridge = self._active_bridge()
+            return await asyncio.to_thread(bridge.send_tool, bridge_tool, payload)
 
     def _assert_paths_in_workspace(self, arguments: Dict[str, Any]) -> None:
         path_keys = ["path", "csv_path", "output_path", "file_path", "template_path"]
@@ -231,6 +356,7 @@ class RevitProvider(AECProvider):
     def _init_tool_mapping(self):
         self._tool_mapping = {
             "revit_health": ("revit.health", lambda args: {}),
+            "revit_get_context": ("revit.get_context", lambda args: {}),
             "revit_list_levels": ("revit.list_levels", lambda args: {}),
             "revit_list_views": ("revit.list_views", lambda args: {}),
             "revit_get_document_info": ("revit.get_document_info", lambda args: {}),
@@ -249,6 +375,7 @@ class RevitProvider(AECProvider):
                     "end_point": {"x": args.get("end_x", 0), "y": args.get("end_y", 0), "z": args.get("end_z", 0)},
                     "height": args.get("height", 10),
                     "level": args.get("level", "L1"),
+                    **_optional(args, "wall_type", "reverse"),
                 },
             ),
             "revit_create_floor": (
@@ -258,6 +385,7 @@ class RevitProvider(AECProvider):
                         {"x": p.get("x", 0), "y": p.get("y", 0), "z": p.get("z", 0)} for p in args.get("points", [])
                     ],
                     "level": args.get("level", "L1"),
+                    **_optional(args, "floor_type"),
                 },
             ),
             "revit_create_roof": (
@@ -267,12 +395,16 @@ class RevitProvider(AECProvider):
                         {"x": p.get("x", 0), "y": p.get("y", 0), "z": p.get("z", 0)} for p in args.get("points", [])
                     ],
                     "level": args.get("level", "Level 2"),
-                    "slope": args.get("slope", 0.5),
+                    **_optional(args, "roof_type", "slope"),
                 },
             ),
             "revit_create_level": (
                 "revit.create_level",
-                lambda args: {"name": args.get("name", "New Level"), "elevation": args.get("elevation", 10)},
+                lambda args: {
+                    "name": args.get("name", "New Level"),
+                    "elevation": args.get("elevation", 10),
+                    **_optional(args, "create_plan_view"),
+                },
             ),
             "revit_save_document": ("revit.save_document", lambda args: {"path": args.get("path", "")}),
             "revit_create_grid": (
@@ -309,6 +441,8 @@ class RevitProvider(AECProvider):
                     "family_name": args.get("family_name"),
                     "type_name": args.get("type_name"),
                     "location": self._placement_location(args),
+                    "hand_flipped": args.get("hand_flipped"),
+                    "facing_flipped": args.get("facing_flipped"),
                 },
             ),
             "revit_place_window": (
@@ -318,6 +452,8 @@ class RevitProvider(AECProvider):
                     "family_name": args.get("family_name"),
                     "type_name": args.get("type_name"),
                     "location": self._placement_location(args),
+                    "hand_flipped": args.get("hand_flipped"),
+                    "facing_flipped": args.get("facing_flipped"),
                 },
             ),
             "revit_list_families": ("revit.list_families", lambda args: {}),
@@ -438,6 +574,15 @@ class RevitProvider(AECProvider):
                 "revit.select_by_unique_ids",
                 lambda args: {"element_uids": args.get("element_uids")},
             ),
+            "revit_preview_elements": (
+                "revit.preview_elements",
+                lambda args: {
+                    "element_uids": args.get("element_uids") or [],
+                    "element_ids": args.get("element_ids") or [],
+                    "isolate": args.get("isolate", True),
+                },
+            ),
+            "revit_clear_preview": ("revit.clear_preview", lambda args: {}),
             "revit_create_text_note": (
                 "revit.create_text_note",
                 lambda args: {
@@ -632,6 +777,8 @@ class RevitProvider(AECProvider):
                     "category1": args.get("category1"),
                     "category2": args.get("category2"),
                     "tolerance": args.get("tolerance", 0.01),
+                    "max_pairs": args.get("max_pairs", 200000),
+                    "time_budget_s": args.get("time_budget_s", 20),
                 },
             ),
             "revit_create_material": (
@@ -707,7 +854,9 @@ class RevitProvider(AECProvider):
                     "value": args.get("value"),
                 },
             ),
-            "revit_execute_python": ("revit.execute_python", lambda args: {"script": args.get("script")}),
+            "revit_execute_python": ("revit.execute_python", execute_python_payload),
+            # Direct mode: the real command name and payload come from the call itself (checked in execute_tool).
+            "revit_raw_command": ("", lambda args: dict(args.get("payload") or {})),
             "revit_change_element_type": (
                 "revit.change_element_type",
                 lambda args: {
@@ -796,6 +945,15 @@ class RevitProvider(AECProvider):
                     "end_z": {"type": "number", "description": "End point Z coordinate in feet", "default": 0},
                     "height": {"type": "number", "description": "Wall height in feet", "default": 10},
                     "level": {"type": "string", "description": "Level name (e.g., 'L1', 'L2')", "default": "L1"},
+                    "wall_type": {
+                        "type": "string",
+                        "description": "Wall type name. Omit to use the project's default basic wall type; an unknown name fails.",
+                    },
+                    "reverse": {
+                        "type": "boolean",
+                        "description": "Flip the wall so its exterior face is on the other side of the drawn line. Default false.",
+                        "default": False,
+                    },
                 },
                 "required": ["start_x", "start_y", "end_x", "end_y"],
             },
@@ -820,6 +978,10 @@ class RevitProvider(AECProvider):
                         },
                     },
                     "level": {"type": "string", "description": "Level name", "default": "L1"},
+                    "floor_type": {
+                        "type": "string",
+                        "description": "Floor type name. Omit to use the first non-foundation floor type; an unknown name fails.",
+                    },
                 },
                 "required": ["points"],
             },
@@ -839,7 +1001,14 @@ class RevitProvider(AECProvider):
                         },
                     },
                     "level": {"type": "string", "description": "Level name"},
-                    "slope": {"type": "number", "description": "Roof slope", "default": 0.5},
+                    "roof_type": {
+                        "type": "string",
+                        "description": "Roof type name. Omit to use the project's default roof type; an unknown name fails.",
+                    },
+                    "slope": {
+                        "type": "number",
+                        "description": "Roof slope as rise over run (0.5 = 1:2) applied to every boundary edge. Omit or 0 for a flat roof.",
+                    },
                 },
                 "required": ["points", "level"],
             },
@@ -878,6 +1047,11 @@ class RevitProvider(AECProvider):
                 "properties": {
                     "name": {"type": "string", "description": "Level name"},
                     "elevation": {"type": "number", "description": "Elevation in feet"},
+                    "create_plan_view": {
+                        "type": "boolean",
+                        "description": "Also create a floor plan view for the level in the same step. Default true.",
+                        "default": True,
+                    },
                 },
                 "required": ["name", "elevation"],
             },
@@ -951,7 +1125,11 @@ class RevitProvider(AECProvider):
         ),
         ProviderTool(
             name="revit_place_door",
-            description="Place a door in a wall",
+            description=(
+                "Place a door in a wall. Coordinates are in feet (project units). Refuses, naming the wall id and the "
+                "numbers in mm, when the door is wider than the wall at that point or taller than the wall; "
+                "returns host_wall_id and volume_delta_m3."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -968,8 +1146,19 @@ class RevitProvider(AECProvider):
                         },
                         "required": ["x", "y"],
                     },
-                    "family_name": {"type": "string"},
-                    "type_name": {"type": "string"},
+                    "family_name": {
+                        "type": "string",
+                        "description": "Family name. Omit family_name and type_name to use the first loaded door type (the result reports which one).",
+                    },
+                    "type_name": {"type": "string", "description": "Type name inside the family."},
+                    "hand_flipped": {
+                        "type": "boolean",
+                        "description": "Flip the hand (swing side) after placing. Fails if the family cannot flip.",
+                    },
+                    "facing_flipped": {
+                        "type": "boolean",
+                        "description": "Flip the facing (inside/outside) after placing. Fails if the family cannot flip.",
+                    },
                 },
                 "required": ["wall_id"],
                 "oneOf": [{"required": ["x", "y"]}, {"required": ["location"]}],
@@ -977,7 +1166,11 @@ class RevitProvider(AECProvider):
         ),
         ProviderTool(
             name="revit_place_window",
-            description="Place a window in a wall",
+            description=(
+                "Place a window in a wall. Coordinates are in feet (project units); z is the sill. Refuses, naming the "
+                "wall id and the numbers in mm, when the window does not fit the wall width or height; "
+                "returns host_wall_id and volume_delta_m3."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -994,8 +1187,19 @@ class RevitProvider(AECProvider):
                         },
                         "required": ["x", "y"],
                     },
-                    "family_name": {"type": "string"},
-                    "type_name": {"type": "string"},
+                    "family_name": {
+                        "type": "string",
+                        "description": "Family name. Omit family_name and type_name to use the first loaded window type (the result reports which one).",
+                    },
+                    "type_name": {"type": "string", "description": "Type name inside the family."},
+                    "hand_flipped": {
+                        "type": "boolean",
+                        "description": "Flip the hand (swing side) after placing. Fails if the family cannot flip.",
+                    },
+                    "facing_flipped": {
+                        "type": "boolean",
+                        "description": "Flip the facing (inside/outside) after placing. Fails if the family cannot flip.",
+                    },
                 },
                 "required": ["wall_id"],
                 "oneOf": [{"required": ["x", "y"]}, {"required": ["location"]}],
@@ -1254,6 +1458,25 @@ class RevitProvider(AECProvider):
                 "required": ["element_uids"],
             },
         ),
+        # Not flagged mutating: selects/zooms and uses Revit's temporary isolate
+        # mode only; nothing is saved to the model. See docs/preview-in-model.md.
+        ProviderTool(
+            name="revit_preview_elements",
+            description="Preview elements in the active view (select, zoom, temporary isolate)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "element_uids": {"type": "array", "items": {"type": "string"}},
+                    "element_ids": {"type": "array", "items": {"type": "integer"}},
+                    "isolate": {"type": "boolean", "default": True},
+                },
+            },
+        ),
+        ProviderTool(
+            name="revit_clear_preview",
+            description="Clear the element preview and restore the active view",
+            inputSchema={"type": "object", "properties": {}},
+        ),
         ProviderTool(
             name="revit_create_text_note",
             description="Create a text note",
@@ -1332,6 +1555,7 @@ class RevitProvider(AECProvider):
         ),
         ProviderTool(
             name="revit_create_duct",
+            module_id="revit_mep",
             description="Create duct",
             inputSchema={
                 "type": "object",
@@ -1350,6 +1574,7 @@ class RevitProvider(AECProvider):
         ),
         ProviderTool(
             name="revit_create_pipe",
+            module_id="revit_mep",
             description="Create pipe",
             inputSchema={
                 "type": "object",
@@ -1628,13 +1853,29 @@ class RevitProvider(AECProvider):
         ),
         ProviderTool(
             name="revit_check_clashes",
-            description="Check clashes between categories",
+            description=(
+                "Check clashes between categories by bounding-box overlap (false positives likely). "
+                "Stops at max_pairs or time_budget_s and then returns truncated=true with the counts examined."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
                     "category1": {"type": "string"},
                     "category2": {"type": "string"},
-                    "tolerance": {"type": "number", "default": 0.01},
+                    "tolerance": {"type": "number", "default": 0.01, "description": "Box expansion in feet."},
+                    "max_pairs": {
+                        "type": "integer",
+                        "default": 200000,
+                        "minimum": 1,
+                        "description": "Stop after this many bounding-box pairs examined (a count, not a length).",
+                    },
+                    "time_budget_s": {
+                        "type": "number",
+                        "default": 20,
+                        "minimum": 0.5,
+                        "maximum": 25,
+                        "description": "Stop after this many seconds (default 20, capped at 25; the bridge waits 30 s).",
+                    },
                 },
                 "required": ["category1", "category2"],
             },
@@ -1751,7 +1992,14 @@ class RevitProvider(AECProvider):
         ),
         ProviderTool(
             name="revit_invoke_method",
-            description="Invoke any Revit API method dynamically using Reflection",
+            description=(
+                "Advanced: call a public Revit API method by reflection. class_name is a type such as Wall "
+                "or Autodesk.Revit.DB.Wall. target_id is an element id (string) or an obj_N handle for an "
+                "instance method, and is omitted for a static method. arguments is a JSON array of numbers, "
+                "strings, booleans, {x, y, z} (converted to XYZ) or {\"type\": \"reference\", \"id\": \"<element id or obj_N>\"}. "
+                "use_transaction defaults to true (the call runs in its own transaction); set it to false for "
+                "a read-only call. For several related calls, revit_execute_python is the better tool."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -1766,7 +2014,11 @@ class RevitProvider(AECProvider):
         ),
         ProviderTool(
             name="revit_reflect_get",
-            description="Get any Revit property value dynamically",
+            description=(
+                "Advanced: read a public property of a Revit object by reflection. target_id is an element id "
+                "(string) or an obj_N handle returned by an earlier call. Treated as a model change for approval "
+                "purposes, because a property getter on an arbitrary object can have side effects."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {"target_id": {"type": "string"}, "property_name": {"type": "string"}},
@@ -1775,7 +2027,10 @@ class RevitProvider(AECProvider):
         ),
         ProviderTool(
             name="revit_reflect_set",
-            description="Set any Revit property value dynamically",
+            description=(
+                "Advanced: set a public property of a Revit object by reflection. target_id is an element id "
+                "(string) or an obj_N handle. This changes the model; lengths are in Revit internal units (feet)."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {"target_id": {"type": "string"}, "property_name": {"type": "string"}, "value": {}},
@@ -1783,11 +2038,74 @@ class RevitProvider(AECProvider):
             },
         ),
         ProviderTool(
-            name="revit_execute_python",
-            description="Execute arbitrary Python/IronPython code inside Revit with broad access to the public Revit API.",
+            name="revit_list_commands",
+            description=(
+                "List the commands the open Revit add-in supports (for example revit.create_wall) and whether each "
+                "one changes the model. Use this before revit_raw_command or revit_execute_python. Read-only; "
+                "requires a live Revit connection."
+            ),
             inputSchema={
                 "type": "object",
-                "properties": {"script": {"type": "string", "description": "Python script to execute"}},
+                "properties": {
+                    "contains": {"type": "string", "description": "Only commands whose name contains this text, for example wall."},
+                    "mutating": {"type": "boolean", "description": "true: only commands that change the model; false: only read-only ones."},
+                },
+                "required": [],
+            },
+        ),
+        ProviderTool(
+            name="revit_raw_command",
+            description=(
+                "Advanced: send any Revit add-in command (for example revit.create_wall) with its native payload "
+                "directly to the open Revit session, bypassing the curated tool wrappers. Use revit_list_commands to "
+                "see what exists. Approval rules match revit_execute_python: refused in look-only mode, requires an "
+                "approved plan in ask-first mode, and runs immediately while the panel's timed Auto window is on. "
+                "Intended for prototyping; prefer a dedicated tool when one exists."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "command": {"type": "string", "description": "Add-in command name, for example revit.create_wall."},
+                    "payload": {"type": "object", "description": "Native payload for that command (units are Revit internal feet)."},
+                },
+                "required": ["command"],
+            },
+        ),
+        ProviderTool(
+            name="revit_execute_python",
+            description=(
+                "Advanced: run IronPython 2.7 inside the open Revit session with full Revit API access. "
+                "Predefined variables: doc (active Document), uidoc, uiapp and app. Results are returned as "
+                "{success, output, error}; write output with print() or by setting __output__. "
+                "Scripts in the default mode='write', including read-only scripts, follow the approval rules: refused "
+                "in look-only mode, requires an approved plan in ask-first mode, and runs while the panel's timed Auto "
+                "window is on. "
+                "mode='read' needs no approval but cannot open transactions: the script is refused if it mentions "
+                "Transaction, SubTransaction or TransactionGroup, and the add-in blocks them at run time. "
+                "To change the model, open your own transaction: "
+                "t = Transaction(doc, 'name'); t.Start(); ...; t.Commit(). "
+                "Lengths are in Revit internal units (feet; divide millimetres by 304.8). "
+                "The script runs on Revit's user-interface thread and cannot be cancelled, so keep it short "
+                "(well under 20 seconds) and work from element ids rather than whole-model geometry. "
+                "Use revit_list_commands first: a dedicated command is safer when one exists. "
+                "Check unfamiliar API members with revit_api_lookup first: it confirms the name and signature from the Revit docs."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "script": {"type": "string", "description": "IronPython 2.7 source. Example: print(doc.Title)"},
+                    "mode": {
+                        "type": "string",
+                        "enum": ["read", "write"],
+                        "default": "write",
+                        "description": (
+                            "'write' (default) may change the model and needs an approved plan_id. "
+                            "'read' needs no approval; the script is refused if it mentions Transaction, "
+                            "SubTransaction or TransactionGroup, and the add-in blocks them at run time. "
+                            "A safety rail against mistakes, not a security boundary."
+                        ),
+                    },
+                },
                 "required": ["script"],
             },
         ),
@@ -1879,6 +2197,18 @@ class RevitProvider(AECProvider):
             },
         ),
         ProviderTool(
+            name="revit_inspect_elements",
+            description=(
+                "Read-only bounded inspection of explicit element IDs using existing dedicated document, geometry "
+                "and selected parameter reads. Up to 50 IDs, 20 exact parameter names, and 200 total element sections. "
+                "Reads run sequentially and return per-section outcomes and completeness. Geometry uses internal "
+                "feet (area ft^2, volume ft^3); parameter values retain the host's formatting. Document identity is "
+                "checked before and after; this is not an atomic snapshot. Requires a live Revit connection. "
+                "One MCP retrieval replaces repeated agent retrieval; internal Revit reads are unchanged."
+            ),
+            inputSchema=INSPECTION_SCHEMA,
+        ),
+        ProviderTool(
             name="revit_get_element_geometry",
             description="Get geometric data for an element: location point or curve endpoints, bounding box, level, area, volume, and length.",
             inputSchema={
@@ -1888,6 +2218,13 @@ class RevitProvider(AECProvider):
             },
         ),
     ]
+    _capabilities += revit_context.CONTEXT_TOOLS
 
     async def shutdown(self) -> None:
-        pass
+        close = getattr(getattr(self, "_bridge", None), "close", None)
+        if callable(close):
+            close()
+        for routed in list(getattr(self, "_routed_bridges", {}).values()):
+            routed_close = getattr(routed, "close", None)
+            if callable(routed_close):
+                routed_close()
