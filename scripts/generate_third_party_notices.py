@@ -10,9 +10,8 @@ Sources (all read locally, nothing is fetched, so it runs offline):
   package that is not installed, or installed at a different version than the
   lock, is marked "unverified".
 * NuGet: <PackageReference> items in packages/*/*.csproj (id, version,
-  condition only). The licence column says "see package" unless a licence can
-  be read from a local NuGet cache (NUGET_PACKAGES or ~/.nuget/packages); such
-  a value is marked "unverified" because it is the package author's claim.
+  condition only). The licence column says "see package"; local NuGet caches
+  are deliberately not consulted, so restoring packages cannot change it.
 * npm: extensions/vscode/package.json and package-lock.json (licence strings
   come from the lock file; "dev only" means the package is not a runtime
   dependency of the extension).
@@ -27,7 +26,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import sys
 import tomllib
@@ -42,7 +40,6 @@ VSCODE = ROOT / "extensions" / "vscode"
 DEFAULT_OUTPUT = ROOT / "THIRD_PARTY_NOTICES.md"
 UNVERIFIED = "unverified"
 LICENCE_FILE_RE = re.compile(r"(^|/)(licen[sc]e|copying|notice|authors)[^/]*$", re.I)
-MAX_LICENCE_TEXT = 40_000
 
 
 def norm(name: str) -> str:
@@ -117,7 +114,7 @@ def python_licence_texts(dist: metadata.Distribution) -> list[tuple[str, str]]:
         except (OSError, UnicodeDecodeError):
             continue
         if text:
-            out.append((posix.split("/")[-1], text[:MAX_LICENCE_TEXT]))
+            out.append((posix.split("/")[-1], text))
     return out
 
 
@@ -137,8 +134,11 @@ def python_section() -> list[str]:
         elif lic == UNVERIFIED:
             lic = f"{UNVERIFIED} (no licence field in package metadata)"
         rows.append((name, locked, lic, home))
-        for fname, text in python_licence_texts(dist):
-            texts.append((name, locked, fname, text))
+        # Texts belong to the installed distribution, never to a different
+        # locked version. Keep mismatched rows visible without mislabelling text.
+        if dist.version == locked:
+            for fname, text in python_licence_texts(dist):
+                texts.append((name, dist.version, fname, text))
     lines = [
         "## Python packages (runtime)",
         "",
@@ -150,7 +150,7 @@ def python_section() -> list[str]:
         "| Package | Locked version | Licence | Home page |",
         "|---|---|---|---|",
     ]
-    lines += [f"| {cell(n)} | {cell(v)} | {cell(l)} | {cell(h)} |" for n, v, l, h in rows]
+    lines += [f"| {cell(n)} | {cell(v)} | {cell(lic)} | {cell(h)} |" for n, v, lic, h in rows]
     lines += ["", f"{len(rows)} packages.", ""]
     if texts:
         lines += [
@@ -178,36 +178,6 @@ def python_section() -> list[str]:
 # --------------------------------------------------------------------------- NuGet
 
 
-def nuget_cache_dirs() -> list[Path]:
-    dirs = []
-    env = os.environ.get("NUGET_PACKAGES")
-    if env:
-        dirs.append(Path(env))
-    dirs.append(Path.home() / ".nuget" / "packages")
-    return [d for d in dirs if d.is_dir()]
-
-
-def nuget_cache_licence(pkg_id: str, version: str) -> str | None:
-    if "*" in version or "$(" in version:
-        return None
-    for base in nuget_cache_dirs():
-        nuspec = base / pkg_id.lower() / version.lower() / f"{pkg_id.lower()}.nuspec"
-        if not nuspec.is_file():
-            continue
-        try:
-            tree = ET.parse(nuspec)
-        except ET.ParseError:
-            continue
-        for el in tree.iter():
-            tag = el.tag.rsplit("}", 1)[-1]
-            if tag == "license" and (el.text or "").strip():
-                return el.text.strip()
-        for el in tree.iter():
-            if el.tag.rsplit("}", 1)[-1] == "licenseUrl" and (el.text or "").strip():
-                return el.text.strip()
-    return None
-
-
 def nuget_section() -> list[str]:
     rows = set()
     for csproj in sorted((ROOT / "packages").glob("*/*.csproj")):
@@ -226,17 +196,15 @@ def nuget_section() -> list[str]:
         "## NuGet packages (.NET add-ins and tools)",
         "",
         "Source: `<PackageReference>` items in `packages/*/*.csproj`. Only the package id and "
-        "version are read from the repository. The licence column says `see package` unless a "
-        "licence could be read from a local NuGet cache on the machine that ran the generator; "
-        f"such a value is the package author's own claim and is marked `{UNVERIFIED}`.",
+        "version are read from the repository. The licence column says `see package`; "
+        "local NuGet caches are not used. Verify licences against the shipped packages.",
         "",
         "| Package | Version | Applies to | Licence | Project |",
         "|---|---|---|---|---|",
     ]
     for pid, version, only, rel in sorted(rows, key=lambda r: (r[0].lower(), r[1], r[3])):
-        found = nuget_cache_licence(pid, version)
-        lic = f"{found} ({UNVERIFIED}, from local NuGet cache)" if found else "see package"
-        lines.append(f"| {cell(pid)} | {cell(version)} | {cell(only or "all targets")} | {cell(lic)} | `{rel}` |")
+        lic = "see package"
+        lines.append(f"| {cell(pid)} | {cell(version)} | {cell(only or 'all targets')} | {cell(lic)} | `{rel}` |")
     lines += [
         "",
         "The Revit, Navisworks and Rhino host assemblies (`RevitAPI.dll`, `RevitAPIUI.dll`, "
@@ -294,7 +262,7 @@ def npm_section() -> list[str]:
     ]
     if runtime:
         lines += ["### Runtime", "", "| Package | Version | Licence |", "|---|---|---|"]
-        lines += [f"| {cell(n)} | {cell(v)} | {cell(l)} |" for n, v, l, _ in sorted(runtime, key=lambda r: (r[0].lower(), r[1]))]
+        lines += [f"| {cell(n)} | {cell(v)} | {cell(lic)} |" for n, v, lic, _ in sorted(runtime, key=lambda r: (r[0].lower(), r[1]))]
         lines.append("")
     # Summarise dev-only packages by licence, then list direct dev dependencies.
     by_lic: dict[str, int] = {}
@@ -311,7 +279,7 @@ def npm_section() -> list[str]:
             lines.append(f"| {cell(name)} | - | {UNVERIFIED} (not in lock file) |")
     lines += ["", "All dev-only packages in the lock file, counted by licence string:", "",
               "| Licence | Packages |", "|---|---|"]
-    lines += [f"| {cell(l)} | {c} |" for l, c in sorted(by_lic.items(), key=lambda kv: (-kv[1], kv[0]))]
+    lines += [f"| {cell(lic)} | {c} |" for lic, c in sorted(by_lic.items(), key=lambda kv: (-kv[1], kv[0]))]
     lines.append("")
     return lines
 
@@ -341,8 +309,8 @@ it with another version of the library (for example with
 `C:\\ProgramData\\AECModelBridge\\LICENSES`) and the GPL-3.0 text is in [LICENSE](LICENSE).
 The IfcOpenShell wheel itself ships no licence file. Source code for IfcOpenShell is available from
 <https://github.com/IfcOpenShell/IfcOpenShell>; the version in `uv.lock` is listed in the
-Python table below (the installer build runs `pip install` without the lock file, so the
-bundled version is the one in `python\\Lib\\site-packages\\ifcopenshell-*.dist-info`).
+Python table below. The installer installs runtime dependencies from an export of
+`uv.lock`; its release SBOM records the distributions actually installed in the bundle.
 See [NOTICE](NOTICE).
 """
 
