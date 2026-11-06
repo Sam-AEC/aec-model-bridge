@@ -332,3 +332,35 @@ def test_split_honours_length_constraints():
     r = m.check_names(convention=conv, names={"file_names": ["ab-cd-ef", "ab-cd"]})
     assert r["results"][0]["passed"] is True and r["results"][0]["fields"]["a"] == "ab-cd"
     assert r["results"][1]["passed"] is False
+
+
+@pytest.mark.parametrize('rule,value', [({'length': 3}, 'AB'), ({'min_length': 3}, 'AB'), ({'max_length': 3}, 'ABCDE')])
+def test_length_failure_identifies_field(module, rule, value):
+    conv = {'pattern': '{a}-{b}', 'fields': {'a': rule, 'b': {'allowed': ['X']}}}
+    result = _one(module, value + '-X', conv)
+    assert result['failures'][0]['field'] == 'a'
+    assert 'characters' in result['failures'][0]['reason']
+
+
+def test_snapshot_reads_explicit_and_stable_names():
+    names, info = _nc._names_from_snapshot({'elements': [
+        {'category': 'OST_Sheets', 'sheet_number': 'A01', 'name': 'Plan',
+         'params': {'Sheet Number': {'v': 'wrong'}, 'Sheet Name': {'v': 'wrong'}}},
+        {'category': 'OST_Views', 'params': {'VIEW_NAME': {'v': 'General plan'}}},
+        {'category': 'OST_Grids', 'params': {'DATUM_TEXT': '1'}},
+    ]})
+    assert names['sheet_numbers'] == ['A01']
+    assert names['sheet_names'] == ['Plan']
+    assert names['view_names'] == ['General plan']
+    assert names['grid_names'] == ['1']
+    assert not info['missing'] and not info['typed']
+
+
+@pytest.mark.parametrize('counts', [{'truncated': True}, {'categories': ['OST_Views']}, {'dirty_only': True}])
+def test_partial_snapshot_is_not_complete(module, tmp_path, counts):
+    folder = tmp_path / 'snapshots'
+    folder.mkdir()
+    (folder / 's.json').write_text(json.dumps({'counts': counts, 'elements': []}), encoding='utf-8')
+    res = module.check_names(convention=CONVENTION, snapshot_id='s', kinds=['sheet_names'], workspace=MockWorkspace(tmp_path))
+    assert res['complete'] is False
+    assert 'truncated' in res['not_enough_data'][0]['reason']
