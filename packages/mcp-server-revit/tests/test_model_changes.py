@@ -189,3 +189,43 @@ def test_location_present_has_no_caveat(mod, ws):
     _write(ws, "n", [_el("a")], "2026-10-09T00:00:00Z")
     r = mod.compare_snapshots("o", "n", workspace=ws)
     assert r["location_checked"] is True and r["not_enough_data"] == []
+
+
+def test_partial_location_coverage_is_disclosed(mod, ws):
+    els = [_el('a'), _el('b', location=None)]
+    _write(ws, 'o', els, '2026-10-08T00:00:00Z')
+    _write(ws, 'n', els, '2026-10-09T00:00:00Z')
+    res = mod.compare_snapshots('o', 'n', workspace=ws)
+    assert res['elements_compared_on_location'] == 1
+    assert res['elements_missing_location'] == 1
+    assert res['not_enough_data'][0]['check'] == 'location'
+
+
+def test_truncated_comparison_is_rejected(mod, ws):
+    _write(ws, 'o', [_el('a')], '2026-10-08T00:00:00Z')
+    _write(ws, 'n', [], '2026-10-09T00:00:00Z')
+    path = ws.allowed_directories[0] / 'snapshots' / 'n.json'
+    data = json.loads(path.read_text(encoding='utf-8'))
+    data['counts'] = {'truncated': True}
+    path.write_text(json.dumps(data), encoding='utf-8')
+    with pytest.raises(ValueError, match='partial capture'):
+        mod.compare_snapshots('o', 'n', workspace=ws)
+
+
+def test_raw_parameter_changes_are_compared(mod, ws):
+    _write(ws, 'o', [_el('a', params={'Mark': 'A'})], '2026-10-08T00:00:00Z')
+    _write(ws, 'n', [_el('a', params={'Mark': 'B'})], '2026-10-09T00:00:00Z')
+    res = mod.compare_snapshots('o', 'n', workspace=ws)
+    assert res['parameter_changes'][0]['old'] == 'A'
+    assert res['parameter_changes'][0]['new'] == 'B'
+
+
+def test_category_mismatch_is_rejected(mod, ws):
+    _write(ws, 'o', [_el('a')], '2026-10-08T00:00:00Z')
+    _write(ws, 'n', [], '2026-10-09T00:00:00Z')
+    path = ws.allowed_directories[0] / 'snapshots' / 'n.json'
+    data = json.loads(path.read_text(encoding='utf-8'))
+    data['counts'] = {'categories': ['OST_Rooms']}
+    path.write_text(json.dumps(data), encoding='utf-8')
+    with pytest.raises(ValueError, match='different category filters'):
+        mod.compare_snapshots('o', 'n', workspace=ws)
