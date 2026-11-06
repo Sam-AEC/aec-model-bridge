@@ -31,7 +31,9 @@ def validate(bom: dict, installed: list[dict], version: str) -> None:
     if (canonical_name(root.get("name", "")) != "aec-model-bridge"
             or package_version(root.get("version", "")) != package_version(version)):
         raise ValueError("SBOM root component does not match the release")
-    actual: dict[str, str] = {}
+    # CycloneDX may represent the installed project only as the root component,
+    # or repeat it in components (for example for an editable installation).
+    actual: dict[str, str] = {canonical_name(root["name"]): package_version(root["version"])}
     for component in bom.get("components", []):
         name = canonical_name(component["name"])
         if name in actual and actual[name] != component.get("version"):
