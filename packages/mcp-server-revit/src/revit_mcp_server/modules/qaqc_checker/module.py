@@ -55,6 +55,7 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
         CREATE TABLE IF NOT EXISTS issues (
             id TEXT PRIMARY KEY,
             doc_guid TEXT NOT NULL,
+            rule_pack TEXT NOT NULL DEFAULT 'core',
             rule_id TEXT NOT NULL,
             severity TEXT NOT NULL,
             element_uid TEXT,
@@ -66,6 +67,11 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             updated_at TEXT NOT NULL
         )
     """)
+    # Databases from before shareable packs have no pack identity. Preserve those
+    # findings as core, the original default, instead of discarding their history.
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(issues)")}
+    if "rule_pack" not in columns:
+        conn.execute("ALTER TABLE issues ADD COLUMN rule_pack TEXT NOT NULL DEFAULT 'core'")
     conn.commit()
 
 def _now() -> str:
@@ -163,6 +169,11 @@ def _validate_filter(rid: Any, flt: Any, errors: List[Dict[str, Any]]) -> None:
     if not isinstance(flt, dict):
         errors.append(_err(rid, "filter", "filter must be a mapping."))
         return
+    if "family_source" in flt and len(flt) > 1:
+        errors.append(_err(
+            rid, "filter.family_source",
+            "family_source filters type records and cannot be combined with element filter operators.",
+        ))
     for key, val in flt.items():
         f = f"filter.{key}"
         if key not in FILTER_KEYS:
@@ -351,21 +362,24 @@ def _run_rule(
         ]
 
 
-def _upsert_issues(conn: sqlite3.Connection, findings: List[Dict[str, Any]], doc_guid: str, elements_uids: set) -> None:
+def _upsert_issues(
+    conn: sqlite3.Connection, findings: List[Dict[str, Any]], doc_guid: str,
+    elements_uids: set, rule_pack: str = "core",
+) -> None:
     """
     Upsert findings into issue store:
     - New issues → inserted as 'open'
-    - Existing issues for same (doc_guid, rule_id, element_uid) already 'open' → keep open (updated_at)
+    - Existing issues for same (doc_guid, rule_pack, rule_id, element_uid) already 'open' → refresh details
     - Issues previously open but NOT in current findings → resolved (element still exists) or orphaned (uid gone)
     """
     now = _now()
     
-    # Load existing open issues for this doc
+    # Reconcile only this pack: other packs own independent issue lifecycles.
     existing = {
         (row["rule_id"], row["element_uid"]): row["id"]
         for row in conn.execute(
-            "SELECT id, rule_id, element_uid FROM issues WHERE doc_guid=? AND status='open'",
-            (doc_guid,)
+            "SELECT id, rule_id, element_uid FROM issues WHERE doc_guid=? AND rule_pack=? AND status='open'",
+            (doc_guid, rule_pack)
         )
     }
     
@@ -375,18 +389,23 @@ def _upsert_issues(conn: sqlite3.Connection, findings: List[Dict[str, Any]], doc
         new_keys.add(key)
         
         if key in existing:
-            # Update timestamp
-            conn.execute("UPDATE issues SET updated_at=? WHERE id=?", (now, existing[key]))
+            # An overwritten pack can change severity or wording without changing
+            # its rule IDs. Keep the stable issue ID but refresh its current facts.
+            conn.execute(
+                "UPDATE issues SET severity=?, label=?, message=?, fix_template=?, updated_at=? WHERE id=?",
+                (f["severity"], f.get("label", ""), f["message"], f.get("fix_template", ""), now, existing[key]),
+            )
         else:
             # Insert new issue
             conn.execute(
                 """
-                INSERT INTO issues (id, doc_guid, rule_id, severity, element_uid, label, message, fix_template, status, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)
+                INSERT INTO issues (id, doc_guid, rule_pack, rule_id, severity, element_uid, label, message, fix_template, status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)
                 """,
                 (
                     str(uuid.uuid4()),
                     doc_guid,
+                    rule_pack,
                     f["rule_id"],
                     f["severity"],
                     f.get("element_uid"),
@@ -436,7 +455,7 @@ class QaqcCheckerModule:
                     data = json.load(f)
                 doc_guid = data.get("source", {}).get("doc_guid", snapshot_id)
         
-        elements_uids = {el.get("uid") for el in elements if el.get("uid")}
+        elements_uids = {el.get("uid") for el in elements + types if el.get("uid")}
         
         all_findings = []
         rules_run = []
@@ -457,7 +476,7 @@ class QaqcCheckerModule:
         # Persist to issue store
         if workspace:
             conn = _get_conn(workspace)
-            _upsert_issues(conn, all_findings, doc_guid, elements_uids)
+            _upsert_issues(conn, all_findings, doc_guid, elements_uids, rule_pack)
             conn.close()
         
         return {
