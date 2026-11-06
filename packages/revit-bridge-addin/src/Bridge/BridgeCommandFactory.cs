@@ -2824,11 +2824,14 @@ public static partial class BridgeCommandFactory
             foreach (var x in idsProp.EnumerateArray())
             {
                 requested++;
-                var element = doc.GetElement(new ElementId((long)x.GetInt32()));
+                var element = doc.GetElement(new ElementId(x.GetInt64()));
                 if (element != null) ids.Add(element.Id);
             }
         }
 
+        // Every proposal replaces the previous preview, including an empty or
+        // stale proposal and requests that turn isolation off.
+        ExecuteClearPreview(app);
         if (ids.Count == 0)
         {
             return new { previewed_count = 0, not_found_count = requested, isolated = false };
@@ -2838,6 +2841,8 @@ public static partial class BridgeCommandFactory
 
         uidoc.Selection.SetElementIds(ids);
         uidoc.ShowElements(ids);
+        // ShowElements may activate another view (for example from a sheet).
+        view = uidoc.ActiveView;
 
         var isolated = false;
         if (isolate && view.CanUseTemporaryVisibilityModes())
