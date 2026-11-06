@@ -141,6 +141,8 @@ Kotak berwarna teal sudah berfungsi saat ini. Kotak putus-putus berwarna amber m
 
 Hub menghentikan setiap panggilan tool yang mengubah model kecuali panggilan itu membawa rencana yang sudah disetujui. Mode default-nya adalah `required`. AI mengusulkan rencana, Anda meninjaunya di panel samping Revit, lalu add-in menjalankannya di main thread Revit, aksi parameter dan pengeditan model masing-masing dalam transaksi bernamanya sendiri; aksi simpan, sinkronisasi, dan skrip tidak, sehingga Ctrl+Z tidak mencakupnya.
 
+Panel menampilkan tinjauan rencana melalui "Show the review to enable Approve" dan mewajibkan Anda membukanya sebelum persetujuan. Tinjauan yang tidak valid, tidak didukung, atau terlalu besar memblokir persetujuan; `aec-model-bridge-approve show <plan_id>` menampilkan rencana lengkap. Perilaku ini diuji otomatis; persetujuan di WebView2 masih perlu validasi langsung. [Laporan validasi](../revit-addin-live-validation-2026-10-14.md) hanya mencatat pemeriksaan baca terbatas di Revit 2024, bukan validasi penulisan, pembatalan, pemulihan, atau tahun Revit lainnya.
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-dark.png">

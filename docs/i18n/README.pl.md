@@ -141,6 +141,8 @@ Turkusowe ramki działają już dziś. Bursztynowe ramki z linią przerywaną s�
 
 Hub zatrzymuje każde wywołanie narzędzia zmieniającego model, jeśli nie towarzyszy mu zatwierdzony plan. Tryb domyślny to `required`. AI proponuje plan, Ty przeglądasz go w panelu bocznym Revit, a dodatek wykonuje go w głównym wątku Revit, akcje parametrów i edycji modelu każda w osobnej nazwanej transakcji; zapis, synchronizacja i skrypty nie, więc Ctrl+Z ich nie obejmuje.
 
+Panel pokazuje ocenę planu przez "Show the review to enable Approve"; trzeba ją otworzyć przed zatwierdzeniem. Nieprawidłowa, nieobsługiwana lub zbyt duża ocena blokuje zatwierdzenie; `aec-model-bridge-approve show <plan_id>` pokazuje cały plan. Zachowanie obejmują testy automatyczne; zatwierdzanie w WebView2 wymaga jeszcze odbioru na żywo. [Raport walidacji](../revit-addin-live-validation-2026-10-14.md) dokumentuje tylko ograniczone kontrole odczytu w Revit 2024, bez potwierdzenia zapisu, cofania, odzyskiwania ani innych roczników Revit.
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-dark.png">

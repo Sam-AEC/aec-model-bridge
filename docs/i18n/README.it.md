@@ -141,6 +141,8 @@ I riquadri verde acqua funzionano oggi. I riquadri ambra tratteggiati sono in sv
 
 L'hub blocca qualsiasi chiamata a uno strumento che modifica il modello, a meno che non porti con sé un piano approvato. La modalità predefinita è `required`. L'IA propone un piano, tu lo esamini nel pannello laterale di Revit e l'add-in lo esegue nel thread principale di Revit, le azioni sui parametri e di modifica del modello ciascuna in una propria transazione con nome; salvataggio, sincronizzazione e script no, quindi Ctrl+Z non le copre.
 
+Il pannello mostra la revisione del piano con "Show the review to enable Approve" e richiede di aprirla prima dell’approvazione. Revisioni non valide, non supportate o troppo grandi bloccano l’approvazione; `aec-model-bridge-approve show <plan_id>` mostra il piano completo. Il comportamento è coperto da test automatici; l’approvazione in WebView2 richiede ancora verifica dal vivo. Il [rapporto di validazione](../revit-addin-live-validation-2026-10-14.md) documenta solo controlli di lettura limitati in Revit 2024, senza convalidare scritture, annullamento, recupero o altri anni di Revit.
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-dark.png">
