@@ -243,6 +243,8 @@ class SheetViewAuditModule:
     ) -> Dict[str, Any]:
         if not snapshot_id:
             raise ValueError("sheet_view_audit_run_audit needs a snapshot_id. Take a snapshot first and pass its id.")
+        if any(part in snapshot_id for part in ("/", "\\", "..", ":")):
+            raise ValueError(f"Invalid snapshot id '{snapshot_id}'.")
         path = workspace.allowed_directories[0] / "snapshots" / f"{snapshot_id}.json"
         if not path.exists():
             raise ValueError(f"Snapshot '{snapshot_id}' not found.")
@@ -268,15 +270,18 @@ class SheetViewAuditModule:
                 "findings": [],
             }
 
-        placement_known = bool(sheets) and all("view_uids" in s for s in sheets) if explicit else False
         have_views_list = explicit and "views" in data
+        placement_known = explicit and (
+            (bool(sheets) and all("view_uids" in s for s in sheets))
+            or (have_views_list and all("sheet_uid" in v for v in views))
+        )
         checks = {
             "duplicate_sheet_numbers": (bool(sheets), "No sheets were found in the snapshot.", ["sheet records"]),
             "missing_sheet_parameter": (bool(sheets), "No sheets were found in the snapshot.", ["sheet records"]),
             "empty_sheets": (
                 placement_known and bool(sheets),
                 "The snapshot does not say which views are placed on which sheet, so empty sheets cannot be told apart.",
-                ["which views are on each sheet (view_uids per sheet)"],
+                ["which views are on each sheet (view_uids per sheet or sheet_uid per view)"],
             ),
             "views_not_on_sheet": (
                 placement_known and have_views_list,
@@ -309,6 +314,9 @@ class SheetViewAuditModule:
                 + "Details are under 'checks'."
             )
         result["checks"] = report
+        if (data.get("counts") or {}).get("truncated"):
+            result["status"] = "partial"
+            result["message"] = (result.get("message", "") + " Snapshot capture was truncated; findings cover only the captured records.").strip()
         result["data_source"] = source
         result["snapshot_id"] = snapshot_id
         result["required_sheet_parameters"] = required
