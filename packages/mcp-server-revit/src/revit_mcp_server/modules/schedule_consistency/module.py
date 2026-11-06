@@ -103,7 +103,7 @@ class ScheduleConsistencyModule:
         workspace: Any = None,
         **_,
     ) -> Dict[str, Any]:
-        elements = self._get_elements(snapshot_id, workspace)
+        elements, coverage = self._get_data(snapshot_id, workspace)
         doors = sorted((e for e in elements if e.get("category") == "OST_Doors"), key=_sort_key)
         rooms = sorted((e for e in elements if e.get("category") == "OST_Rooms"), key=_sort_key)
 
@@ -193,6 +193,10 @@ class ScheduleConsistencyModule:
         if zero and not placement_known:
             skipped.append({"check_id": "room_placement_status",
                             "reason": PLACEMENT_UNKNOWN_REASON})
+        missing_area = sum(_pv(r, "Area") is None for r in rooms)
+        if missing_area:
+            skipped.append({"check_id": "room_zero_area", "reason": (
+                f"Not enough data for {missing_area} room(s): Area was not captured, so their zero-area check was NOT run.")})
         add("room_zero_area", "error",
             "Room has zero area (not enclosed, too small, or not placed).", zero)
 
@@ -206,21 +210,36 @@ class ScheduleConsistencyModule:
                                 "reason": ROOM_DATA_MISSING_REASON})
         else:
             no_room, same, in_unnum = [], [], []
+            incomplete_doors = 0
+
+            def resolve(ref):
+                matches = by_number.get(ref, [])
+                return by_uid.get(ref) or (matches[0] if len(matches) == 1 else None)
+
             for d in doors:
-                _, frm = _room_ref(d, FROM_KEYS)
-                _, to = _room_ref(d, TO_KEYS)
+                from_known, frm = _room_ref(d, FROM_KEYS)
+                to_known, to = _room_ref(d, TO_KEYS)
+                if not (from_known and to_known):
+                    incomplete_doors += 1
+                    continue
+                from_room, to_room = resolve(frm), resolve(to)
                 if not frm or not to:
                     no_room.append(_affected(d, **{"From Room": frm or None, "To Room": to or None}))
-                elif frm == to:
+                elif frm == to or (from_room is not None and from_room is to_room):
                     same.append(_affected(d, **{"From Room": frm, "To Room": to}))
                 for side, ref in (("From Room", frm), ("To Room", to)):
-                    room = by_uid.get(ref)
+                    room = resolve(ref)
                     if room is not None and not _txt(_pv(room, "Number")):
                         in_unnum.append(_affected(d, **{side: ref, "room_unique_id": room.get("uid")}))
             add("door_missing_room", "warning", "Door has no From Room or no To Room.", no_room)
             add("door_same_room", "warning", "Door has the same From Room and To Room.", same)
             add("door_in_unnumbered_room", "warning",
                 "Door opens into a room that has no Number.", in_unnum)
+            if incomplete_doors:
+                for cid in ("door_missing_room", "door_same_room", "door_in_unnumbered_room"):
+                    skipped.append({"check_id": cid, "reason": (
+                        f"Not enough data for {incomplete_doors} door(s): both From Room and To Room keys must be captured. "
+                        "Those doors were not checked; an absent field is not evidence of a missing room.")})
 
         counts: Dict[str, int] = {}
         for f in findings:
@@ -233,13 +252,19 @@ class ScheduleConsistencyModule:
         else:
             summary = "No problems found by the checks that could run."
         if room_checks_skipped:
-            summary += (" The door-to-room checks were NOT run (not enough data: no From Room / To Room "
-                        "in this snapshot), so door/room problems may exist that are not shown here.")
+            summary += (" The door-to-room checks were NOT run (not enough data) for doors without complete From Room / To Room "
+                        "data, so door/room problems may exist that are not shown here.")
         if any(x["check_id"] == "room_placement_status" for x in skipped):
             summary += " Whether zero-area rooms are placed is unknown (no room level or location saved)."
+        if missing_area:
+            summary += f" Not enough data to check zero area for {missing_area} room(s) without Area."
+        if coverage.get("truncated") or coverage.get("categories") or coverage.get("dirty_only"):
+            summary += " Snapshot capture was truncated, category-filtered, or dirty-only; these results cover only the captured doors and rooms."
 
         return {
             "read_only": True,
+            "complete": not bool(coverage.get("truncated") or coverage.get("categories") or coverage.get("dirty_only") or any(
+                row["check_id"] != "door_mark_pattern_mismatch" for row in skipped)),
             "snapshot_id": snapshot_id or "(mock)",
             "doors_checked": len(doors),
             "rooms_checked": len(rooms),
@@ -300,14 +325,19 @@ class ScheduleConsistencyModule:
             })
         return out
 
-    def _get_elements(self, snapshot_id: str, workspace: Any) -> List[Dict[str, Any]]:
+    def _get_data(self, snapshot_id: str, workspace: Any) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         if not snapshot_id:
             from revit_mcp_server.semantic.engine import generate_mock_snapshot, require_snapshot_or_mock
             require_snapshot_or_mock(snapshot_id, "schedule_consistency")
             snap = generate_mock_snapshot()
-            return [el.model_dump(by_alias=True) for el in snap.elements]
+            return [el.model_dump(by_alias=True) for el in snap.elements], {}
+        if any(part in snapshot_id for part in ("/", "\\", "..", ":")):
+            raise ValueError(f"Invalid snapshot id '{snapshot_id}'.")
         path = workspace.allowed_directories[0] / "snapshots" / f"{snapshot_id}.json"
         if not path.exists():
             raise ValueError(f"Snapshot '{snapshot_id}' not found.")
         with open(path, encoding="utf-8") as f:
-            return json.load(f).get("elements", [])
+            data = json.load(f)
+        coverage = dict(data.get("counts") or {})
+        coverage["dirty_only"] = bool(coverage.get("dirty_only") or data.get("dirty_only"))
+        return data.get("elements", []), coverage
