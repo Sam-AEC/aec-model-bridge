@@ -100,6 +100,7 @@ jobs:
         working-directory: packages/mcp-server-revit
         run: uv lock --check
 
+      # Run from the package directory: [tool.coverage.run] source is a relative path.
       - name: Run Python tests with coverage
         working-directory: packages/mcp-server-revit
         run: |
