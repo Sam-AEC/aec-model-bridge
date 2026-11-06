@@ -47,6 +47,8 @@ COUNT_CAVEAT = (
 
 
 def _load_snapshot(snapshot_id: str, workspace: Any) -> Dict[str, Any]:
+    if any(part in snapshot_id for part in ("/", "\\", "..", ":")):
+        raise ValueError(f"Invalid snapshot id '{snapshot_id}'.")
     path = Path(workspace.allowed_directories[0]) / "snapshots" / f"{snapshot_id}.json"
     if not path.exists():
         raise ValueError(f"Snapshot '{snapshot_id}' not found.")
@@ -54,18 +56,22 @@ def _load_snapshot(snapshot_id: str, workspace: Any) -> Dict[str, Any]:
         return json.load(f)
 
 
-def _get_data(snapshot_id: str, workspace: Any) -> Tuple[List[dict], List[dict], bool]:
+def _get_data(snapshot_id: str, workspace: Any) -> Tuple[List[dict], List[dict], bool, bool]:
     if not snapshot_id:
-        from revit_mcp_server.semantic.engine import generate_mock_snapshot
+        from revit_mcp_server.semantic.engine import generate_mock_snapshot, require_snapshot_or_mock
 
+        require_snapshot_or_mock(snapshot_id, "model_bloat_audit")
         snap = generate_mock_snapshot()
         return (
             [el.model_dump(by_alias=True) for el in snap.elements],
             [t.model_dump() for t in snap.types],
             False,
+            False,
         )
     data = _load_snapshot(snapshot_id, workspace)
-    return data.get("elements", []), data.get("types", []), data.get("cad_scanned") is True
+    counts = data.get("counts") or {}
+    partial = bool(counts.get("truncated") or counts.get("categories") or data.get("dirty_only"))
+    return data.get("elements", []), data.get("types", []), data.get("cad_scanned") is True, partial
 
 
 def _param_value(el: dict, *names: str) -> Any:
@@ -121,12 +127,11 @@ class ModelBloatModule:
     ) -> Dict[str, Any]:
         threshold = int(large_type_threshold or DEFAULT_LARGE_TYPE_THRESHOLD)
         limit = max(1, int(max_items or DEFAULT_MAX_ITEMS))
-        elements, types, cad_scanned = _get_data(snapshot_id, workspace)
+        elements, types, cad_scanned, partial = _get_data(snapshot_id, workspace)
 
         # Usage counting (derived; the snapshot has no instance-count field).
         by_uid: Dict[str, int] = defaultdict(int)
         by_name: Dict[Tuple[str, str], int] = defaultdict(int)
-        placed_total = 0
         cad_items: List[dict] = []
         for el in elements:
             kind = _cad_kind(el)
@@ -139,20 +144,20 @@ class ModelBloatModule:
                 continue
             if el.get("type_uid"):
                 by_uid[el["type_uid"]] += 1
-                placed_total += 1
             elif el.get("family") and el.get("type_name"):
                 by_name[(el["family"], el["type_name"])] += 1
-                placed_total += 1
 
         types_available = bool(types)
-        usage_available = placed_total > 0 and types_available
+
+        def used(t: dict) -> int:
+            return by_uid.get(t.get("uid"), 0) + by_name.get((t.get("family"), t.get("type_name")), 0)
+
+        matched_instances = any(used(t) for t in types)
+        usage_available = matched_instances and types_available and not partial
         # A CAD scan is trusted only if the snapshot says it looked for CAD
         # (cad_scanned) or actually found some. "No CAD records" alone could just
         # mean the extractor never collects them.
         cad_available = cad_scanned or bool(cad_items)
-
-        def used(t: dict) -> int:
-            return by_uid.get(t.get("uid"), 0) + by_name.get((t.get("family"), t.get("type_name")), 0)
 
         fam_types: Dict[str, List[dict]] = defaultdict(list)
         for t in types:
@@ -233,7 +238,8 @@ class ModelBloatModule:
                 usage_available,
                 "Unused families and types cannot be worked out from this snapshot.",
                 [] if types_available else ["a type list (the 'types' catalog of every loaded family type)"],
-                [] if placed_total > 0 else ["placed-instance records that point at their type"],
+                [] if matched_instances else ["placed-instance records that match the type catalog"],
+                ["an unfiltered, untruncated snapshot of placed instances"] if partial else [],
             ),
             "in_place_families": _check(
                 types_available,
@@ -267,6 +273,8 @@ class ModelBloatModule:
         notes = [PURGE_NOTE]
         if usage_available:
             notes.append(COUNT_CAVEAT)
+        elif partial:
+            notes.append("This snapshot is filtered or truncated; unused families and types are not inferred from incomplete instance records.")
         elif types_available:
             notes.append(
                 "This snapshot has no placed-instance records that point at types "
@@ -296,6 +304,8 @@ class ModelBloatModule:
 
         return {
             "read_only": True,
+            "mock": not bool(snapshot_id),
+            "data_source": "Saved snapshot" if snapshot_id else "MOCK DATA - generated sample, not your model.",
             "summary": summary,
             "checks": checks,
             "cleanliness": {
