@@ -34,7 +34,7 @@ Source: `packages/mcp-server-revit/uv.lock`, runtime closure of the `aec-model-b
 | anthropic | 1.12.1 | MIT License | https://github.com/anthropics/anthropic-sdk-python |
 | anyio | 4.14.2 | MIT | https://anyio.readthedocs.io/en/latest/ |
 | attrs | 26.1.0 | MIT | https://www.attrs.org/ |
-| certifi | 2026.5.20 | Mozilla Public License 2.0 (MPL 2.0) | https://github.com/certifi/python-certifi |
+| certifi | 2026.10.23 | Mozilla Public License 2.0 (MPL 2.0) | https://github.com/certifi/python-certifi |
 | click | 8.4.1 | BSD-3-Clause | https://github.com/pallets/click/ |
 | colorama | 0.4.6 | BSD License | https://github.com/tartley/colorama |
 | deprecated | 1.3.1 | MIT License | https://github.com/laurent-laporte-pro/deprecated |
@@ -192,7 +192,7 @@ SOFTWARE.
 
 </details>
 
-<details><summary>certifi 2026.5.20: LICENSE</summary>
+<details><summary>certifi 2026.10.23: LICENSE</summary>
 
 ~~~~text
 This package contains a modified version of ca-bundle.crt:

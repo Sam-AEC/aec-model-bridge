@@ -44,6 +44,10 @@ No Revit model writes or add-in deployment were performed during this audit.
 - VS Code extension: 25 tests passed, TypeScript/bundle compilation passed, VSIX
   packaging passed, and npm audit reported zero known vulnerabilities. Packaging
   dependencies include patched MSAL, minimatch and qs with authentication tests.
+- After restoring the certifi security floor, pip-audit 2.10.1 reported zero known
+  vulnerabilities and zero skipped packages for all 65 applicable locked runtime
+  packages on Windows/Python 3.12. Environment markers exclude nonapplicable
+  platform dependencies; this does not audit application or native code.
 - Actual portable Python 3.11.9 bundle: installation, imports and `pip check`
   passed; its MCP stdio smoke tests passed (3 tests). Its CycloneDX inventory
   matched all 70 installed distributions. The audit venv inventory matched 83.
@@ -62,3 +66,8 @@ created by this audit. Publishing remains a separate release operation.
 The original checkout's Git index was write-restricted. Release integration was
 therefore committed in a separate worktree without altering its ACLs or discarding
 the original checkout's prepared changes.
+
+The `main` promotion dependency review caught an older certifi entry retained
+from development. The bundle now requires certifi 2026.10.19 or later and tests
+that its trust store excludes the affected emSign root; see
+[the upstream advisory](https://github.com/advisories/GHSA-6q48-6c7w-9gw2).
