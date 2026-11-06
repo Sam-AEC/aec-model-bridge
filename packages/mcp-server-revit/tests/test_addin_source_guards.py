@@ -79,6 +79,14 @@ def test_hub_is_never_launched_from_the_bundled_python_folder():
     assert "startInfo.WorkingDirectory = workspace" in source
 
 
+def test_preview_replaces_stale_state_and_accepts_64_bit_element_ids():
+    source = FACTORY.read_text(encoding="utf-8")
+    body = _method_body(source, r"private static object ExecutePreviewElements\(")
+    assert "x.GetInt64()" in body and "x.GetInt32()" not in body
+    assert body.index("ExecuteClearPreview(app)") < body.index("if (ids.Count == 0)")
+    assert body.index("view = uidoc.ActiveView", body.index("uidoc.ShowElements(ids)")) > body.index("uidoc.ShowElements(ids)")
+
+
 # --- door/window fit checks and the clash budget (B-13, B-04) ------------------------------------
 
 def _factory_text() -> str:

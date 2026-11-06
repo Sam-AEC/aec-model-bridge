@@ -14,6 +14,9 @@ Arguments for `revit_preview_elements`: `element_uids` (UniqueId strings),
 `element_ids` (integers), both optional and combined, and `isolate`
 (boolean, default `true`; `false` selects and zooms only). Ids that do not
 resolve are counted in `not_found_count` and skipped.
+Each call clears the active view's previous preview first, including calls whose
+IDs are all stale and calls with `isolate: false`. Numeric IDs support Revit's
+64-bit `ElementId` values.
 
 ## Design
 
