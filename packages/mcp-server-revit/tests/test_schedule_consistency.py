@@ -74,10 +74,10 @@ def test_door_room_checks(tmp_path):
         door(1, "A", "r1", "r1"),          # same room
         door(2, "B", "r1", None),          # missing To
         door(3, "C", "r1", "r2"),          # opens into unnumbered room
-        door(4, "D", "101", "r1"),         # fine
+        door(4, "D", "101", "r1"),         # same room referenced by number and UniqueId
     ]
     res = run(tmp_path, els)
-    assert res["counts"]["door_same_room"] == 1
+    assert res["counts"]["door_same_room"] == 2
     assert res["counts"]["door_missing_room"] == 1
     assert res["counts"]["door_in_unnumbered_room"] == 1
 
@@ -170,3 +170,34 @@ def test_missing_room_data_is_not_a_clean_pass(tmp_path):
     assert res["total_findings"] == 0
     assert "NOT run" in res["summary"] and "not enough data" in res["summary"]
     assert all("Not enough data" in s["reason"] for s in res["skipped"] if s["check_id"].startswith("door_") and s["check_id"] != "door_mark_pattern_mismatch")
+
+
+def test_partial_room_data_does_not_invent_missing_rooms(tmp_path):
+    res = run(tmp_path, [door(1, 'A', 'r1', 'r2'), door(2, 'B', False)])
+    assert 'door_missing_room' not in res['counts']
+    assert any('1 door(s)' in row['reason'] for row in res['skipped'])
+
+
+@pytest.mark.parametrize('snapshot_id', ['../secret', r'..\secret', 'C:secret'])
+def test_snapshot_path_traversal_is_rejected(tmp_path, snapshot_id):
+    with pytest.raises(ValueError, match='Invalid snapshot'):
+        Mod().check_doors_and_rooms(snapshot_id=snapshot_id, workspace=WS(tmp_path))
+
+
+@pytest.mark.parametrize('counts', [{'truncated': True}, {'categories': ['OST_Rooms']}, {'dirty_only': True}])
+def test_partial_snapshot_is_disclosed(tmp_path, counts):
+    folder = tmp_path / 'snapshots'
+    folder.mkdir()
+    (folder / 's.json').write_text(json.dumps({'counts': counts, 'elements': []}), encoding='utf-8')
+    res = Mod().check_doors_and_rooms(snapshot_id='s', workspace=WS(tmp_path))
+    assert res['complete'] is False
+    assert 'truncated' in res['summary']
+
+
+def test_missing_room_area_is_not_a_clean_pass(tmp_path):
+    record = room(1, '101')
+    del record['params']['Area']
+    res = run(tmp_path, [record])
+    assert any(row['check_id'] == 'room_zero_area' for row in res['skipped'])
+    assert res['complete'] is False
+    assert 'without Area' in res['summary']
