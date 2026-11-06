@@ -406,8 +406,11 @@ async def test_speckle_local_tools_no_account_error() -> None:
 
 @pytest.mark.anyio
 async def test_speckle_local_tools_send_and_receive_success() -> None:
-    from unittest.mock import MagicMock, patch
-    from specklepy.core.api.models.current import Model, ResourceCollection
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock, create_autospec, patch
+    from specklepy.api.client import SpeckleClient
+    from specklepy.api.inputs.version_inputs import CreateVersionInput
+    from specklepy.api.models.current import Model, ResourceCollection
     from specklepy.objects.base import Base
 
     provider = SpeckleProvider()
@@ -417,6 +420,7 @@ async def test_speckle_local_tools_send_and_receive_success() -> None:
     mock_account.serverInfo.url = "https://speckle.example"
 
     mock_client = MagicMock()
+    sdk_client = SpeckleClient(host="https://speckle.example")
     
     # Mock get_models
     mock_model_1 = MagicMock(spec=Model)
@@ -431,12 +435,16 @@ async def test_speckle_local_tools_send_and_receive_success() -> None:
     mock_client.model.get_models.return_value = mock_collection
 
     # Mock version.create
-    mock_client.version.create.return_value = "v1-created-id"
+    mock_client.version.create = create_autospec(
+        sdk_client.version.create,
+        return_value=SimpleNamespace(id="v1-created-id"),
+    )
 
     # Mock version.get
-    mock_version = MagicMock()
-    mock_version.referencedObject = "obj-123"
-    mock_client.version.get.return_value = mock_version
+    mock_client.version.get = create_autospec(
+        sdk_client.version.get,
+        return_value=SimpleNamespace(referenced_object="obj-123"),
+    )
 
     # Mock get_default_account & SpeckleClient
     with patch("revit_mcp_server.providers.cloud.get_default_account", return_value=mock_account), \
@@ -459,11 +467,13 @@ async def test_speckle_local_tools_send_and_receive_success() -> None:
         # Verify models were queried and name main was resolved to m1-id
         mock_client.model.get_models.assert_called_once_with("p1", models_limit=100)
         mock_client.version.create.assert_called_once_with(
-            project_id="p1",
-            model_id="m1-id",
-            object_id="obj-123",
-            message="my commit message",
-            source_application="AECModelBridge"
+            CreateVersionInput(
+                project_id="p1",
+                model_id="m1-id",
+                object_id="obj-123",
+                message="my commit message",
+                source_application="AECModelBridge",
+            )
         )
         
         # Verify operations.send received a Base object with correct attributes
@@ -484,7 +494,14 @@ async def test_speckle_local_tools_send_and_receive_success() -> None:
             "project_id": "p1",
             "version_id": "v1-created-id"
         }
-        receive_res = await provider.execute_tool("speckle_receive_object", receive_args)
+        # The patched SDK retains JSON transport but deprecates it in favour of
+        # bundles. Keep exercising real JSON serialization during the migration.
+        with pytest.warns(DeprecationWarning, match="Since 2026.9"):
+            receive_res = await provider.execute_tool("speckle_receive_object", receive_args)
+
+        mock_client.version.get.assert_called_once_with(
+            version_id="v1-created-id", project_id="p1"
+        )
         
         # Verify result structure
         mock_receive.assert_called_once_with(obj_id="obj-123", remote_transport=mock_receive.call_args[1]["remote_transport"])
