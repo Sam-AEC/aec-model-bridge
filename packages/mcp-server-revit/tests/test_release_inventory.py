@@ -70,6 +70,13 @@ def test_release_sbom_matches_installed_distributions():
     sbom.validate(_bom(installed), installed, "1.5.0")
 
 
+def test_release_sbom_counts_project_represented_only_as_root():
+    sbom = _script("validate_release_sbom")
+    installed = [{"name": "aec-model-bridge", "version": "1.5.0"},
+                 {"name": "example", "version": "1.0"}]
+    sbom.validate(_bom(installed[1:]), installed, "1.5.0")
+
+
 @pytest.mark.parametrize("fault", ["missing", "wrong_dependency_version", "extra", "stale_project", "duplicate"])
 def test_release_sbom_rejects_misreported_or_stale_bundle(fault):
     sbom = _script("validate_release_sbom")
