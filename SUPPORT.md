@@ -8,6 +8,7 @@ AEC Model Bridge is maintained by one person, in their own time. This page says 
 |---|---|
 | Report a bug | [Open a bug report](https://github.com/Sam-AEC/aec-model-bridge/issues/new?template=bug_report.yml) |
 | Suggest a feature | [Open a feature request](https://github.com/Sam-AEC/aec-model-bridge/issues/new?template=feature_request.yml) |
+| Ask an installation or usage question | [Open a support question](https://github.com/Sam-AEC/aec-model-bridge/issues/new) and include the details below |
 | Report a security problem | Use [private reporting](https://github.com/Sam-AEC/aec-model-bridge/security/advisories/new). Read [SECURITY.md](SECURITY.md) first. Do not open a public issue. |
 | Report unacceptable behaviour | See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
 | Ask about licensing or a commercial licence | Read [LICENSING.md](LICENSING.md) |
