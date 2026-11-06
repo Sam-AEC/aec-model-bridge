@@ -58,6 +58,12 @@ def Base(*args: Any, **kwargs: Any) -> Any:  # noqa: N802
     return _Base(*args, **kwargs)
 
 
+def CreateVersionInput(*args: Any, **kwargs: Any) -> Any:  # noqa: N802
+    from specklepy.api.inputs.version_inputs import CreateVersionInput as _CreateVersionInput
+
+    return _CreateVersionInput(*args, **kwargs)
+
+
 CredentialCallback = Callable[[str], str | None] | Callable[[str], Awaitable[str | None]]
 SpeckleMergeBuilder = Callable[[Dict[str, Any]], Dict[str, Any]]
 
@@ -809,13 +815,16 @@ class SpeckleProvider(CloudProviderBase):
 
         # Create the version/commit using client
         try:
-            version_id = client.version.create(
-                project_id=project_id,
-                model_id=model_id,
-                object_id=obj_id,
-                message=message,
-                source_application="AECModelBridge"
+            version = client.version.create(
+                CreateVersionInput(
+                    project_id=project_id,
+                    model_id=model_id,
+                    object_id=obj_id,
+                    message=message,
+                    source_application="AECModelBridge",
+                )
             )
+            version_id = version.id
             return {"result": f"Successfully sent data to Speckle. Version ID: {version_id}", "version_id": version_id}
         except Exception as e:
             raise RevitMCPError(f"Data sent to transport but version creation failed: {e}") from e
@@ -827,12 +836,12 @@ class SpeckleProvider(CloudProviderBase):
         client, transport = self._ensure_local_account(project_id)
 
         try:
-            version = client.version.get(project_id, version_id)
+            version = client.version.get(version_id=version_id, project_id=project_id)
         except Exception as e:
             raise RevitMCPError(f"Failed to retrieve version metadata: {e}") from e
 
         try:
-            base_obj = operations.receive(obj_id=version.referencedObject, remote_transport=transport)
+            base_obj = operations.receive(obj_id=version.referenced_object, remote_transport=transport)
         except Exception as e:
             raise RevitMCPError(f"Failed to receive object data: {e}") from e
 
