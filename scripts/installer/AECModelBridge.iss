@@ -109,6 +109,7 @@ Source: "..\..\scripts\configure-mcp-clients.ps1"; DestDir: "{app}\scripts"; Fla
 ; Licence texts.
 Source: "{#Dist}\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Dist}\NOTICE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#Dist}\THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Dist}\LICENSING.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Dist}\LICENSES\*"; DestDir: "{app}\LICENSES"; Flags: ignoreversion recursesubdirs createallsubdirs
 
