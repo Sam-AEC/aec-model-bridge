@@ -233,11 +233,12 @@ def collect_diagnostics(workspace_dir: Path, approval_mode: Any = None, auto_win
             "Set MCP_REVIT_WORKSPACE_DIR to a folder you can write to and restart the hub.",
         )
 
-    claude_ok = bool(config.anthropic_api_key) or shutil.which("claude") is not None
+    ai_ok = (bool(config.anthropic_api_key) or shutil.which("claude") is not None
+             or shutil.which("codex") is not None)
     add(
-        "ai_provider", claude_ok,
-        "An AI provider is available for panel chat." if claude_ok else "No AI provider for panel chat.",
-        "Set MCP_REVIT_ANTHROPIC_API_KEY, or install and sign in to the claude CLI, then restart Revit.",
+        "ai_provider", ai_ok,
+        "An AI provider is available for panel chat." if ai_ok else "No AI provider for panel chat.",
+        "Set MCP_REVIT_ANTHROPIC_API_KEY, or install and sign in to the claude or codex CLI, then restart Revit.",
     )
 
     add(

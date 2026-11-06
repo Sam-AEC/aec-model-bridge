@@ -33,6 +33,16 @@ A configuração está documentada para Claude Desktop, VS Code com GitHub Copil
 
 O mesmo servidor inclui inspeção de IFC, automação do Rhino e do Grasshopper e integração com o Speckle. O [status das integrações](#outras-integrações) separa os provedores disponíveis dos que ainda estão em desenvolvimento.
 
+## Histórico de estrelas
+
+<a href="https://www.star-history.com/?repos=sam-aec%2Faec-model-bridge&type=date&legend=top-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+ </picture>
+</a>
+
 ## Exemplos de fluxos de trabalho
 
 Para coordenadores BIM: inspecionar a qualidade do modelo, revisar os elementos afetados, aprovar uma correção de parâmetros, conferir os resultados e exportar um relatório. Estes exemplos usam ferramentas do [catálogo atual](../tools-generated.md).
@@ -140,6 +150,8 @@ As caixas verde-azuladas já funcionam. As caixas âmbar tracejadas estão em de
 ### Como funciona a aprovação
 
 O hub bloqueia qualquer chamada de ferramenta que altere o modelo, a menos que ela traga um plano aprovado. O modo padrão é `required`. A IA propõe um plano, você o revisa no painel lateral do Revit e o add-in o executa na thread principal do Revit, as ações de parâmetro e de edição do modelo, cada uma em sua própria transação nomeada; salvar, sincronizar e scripts não, então o Ctrl+Z não os cobre.
+
+O painel mostra a revisão do plano com "Show the review to enable Approve" e exige abri-la antes da aprovação. Revisões inválidas, não suportadas ou grandes demais bloqueiam a aprovação; `aec-model-bridge-approve show <plan_id>` mostra o plano completo. Há testes automatizados desse comportamento; a aprovação no WebView2 ainda precisa de validação ao vivo. O [relatório de validação](../revit-addin-live-validation-2026-10-14.md) registra apenas verificações limitadas de leitura no Revit 2024, sem validar gravações, reversão, recuperação ou outros anos do Revit.
 
 <p align="center">
   <picture>

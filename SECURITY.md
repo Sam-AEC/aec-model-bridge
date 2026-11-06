@@ -6,7 +6,8 @@ We actively support and provide security updates for the following versions:
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.x     | Supported          |
+| Latest 1.x release | Supported |
+| Older 1.x releases | Upgrade to the latest release; no separate fixes |
 | < 1.0   | Not supported      |
 
 Security fixes go into the latest 1.x release. For the Revit and Python versions that are built and tested, see the table below and the [deprecation policy](docs/deprecation-policy.md).

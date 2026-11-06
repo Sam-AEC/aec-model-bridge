@@ -188,6 +188,54 @@ def test_builtin_core_pack_validates(module, workspace):
     assert module.validate_rule_pack(rule_pack="core", workspace=workspace)["valid"]
 
 
+def test_pack_runs_preserve_other_packs_and_refresh_their_own_findings(module, workspace, monkeypatch):
+    monkeypatch.setattr(module, "_get_data", lambda *args: ([{"uid": "door-1", "category": "OST_Doors", "params": {}}], []))
+    _write(workspace, "rule_packs/alpha.yaml", VALID_PACK)
+    _write(workspace, "rule_packs/beta.yaml", VALID_PACK.replace("warning", "error").replace("Door has no Mark.", "Beta message."))
+    module.run_check(rule_pack="alpha", workspace=workspace)
+    alpha = module.list_issues(workspace=workspace)["issues"][0]
+    module.run_check(rule_pack="beta", workspace=workspace)
+    issues = module.list_issues(status="open", workspace=workspace)["issues"]
+    assert len(issues) == 2
+    assert {(i["rule_pack"], i["message"], i["severity"]) for i in issues} == {
+        ("alpha", "Door has no Mark.", "warning"), ("beta", "Beta message.", "error"),
+    }
+    # Fix beta's matches; alpha still owns its open issue with the same rule ID.
+    _write(workspace, "rule_packs/beta.yaml", VALID_PACK.replace("OST_Doors", "OST_Windows"))
+    module.run_check(rule_pack="beta", workspace=workspace)
+    assert [i["id"] for i in module.list_issues(status="open", workspace=workspace)["issues"]] == [alpha["id"]]
+    _write(workspace, "rule_packs/alpha.yaml", VALID_PACK.replace("warning", "error").replace("Door has no Mark.", "Updated alpha."))
+    module.run_check(rule_pack="alpha", workspace=workspace)
+    updated = module.list_issues(status="open", workspace=workspace)["issues"][0]
+    assert (updated["id"], updated["message"], updated["severity"]) == (alpha["id"], "Updated alpha.", "error")
+
+
+def test_legacy_issue_database_migrates_without_losing_history(tmp_path):
+    import sqlite3
+
+    conn = sqlite3.connect(tmp_path / "legacy.db")
+    conn.execute("""CREATE TABLE issues (
+        id TEXT PRIMARY KEY, doc_guid TEXT NOT NULL, rule_id TEXT NOT NULL,
+        severity TEXT NOT NULL, element_uid TEXT, label TEXT, message TEXT NOT NULL,
+        fix_template TEXT, status TEXT NOT NULL DEFAULT 'open', created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL)""")
+    conn.execute("INSERT INTO issues VALUES ('old', 'doc', 'door', 'warning', 'uid', '', 'Keep me', '', 'open', 't', 't')")
+    _qaqc._ensure_schema(conn)
+    _qaqc._ensure_schema(conn)  # migration is idempotent
+    assert conn.execute("SELECT id, rule_pack, message, status FROM issues").fetchall() == [("old", "core", "Keep me", "open")]
+    conn.close()
+
+
+def test_family_source_combinations_are_rejected_before_running(module, workspace):
+    pack = VALID_PACK.replace("category: OST_Doors", "family_source: inplace")
+    src = _write(workspace, "mixed.yaml", pack)
+    result = module.validate_rule_pack(path=str(src), workspace=workspace)
+    assert not result["valid"]
+    assert any(e["field"] == "filter.family_source" and "cannot be combined" in e["message"] for e in result["errors"])
+    with pytest.raises(ValueError, match="invalid rule pack"):
+        module.import_rule_pack(source_path=str(src), workspace=workspace)
+
+
 def test_validate_reports_actionable_errors_per_rule(module, workspace):
     p = _write(workspace, "bad.yaml", """rules:
   - id: ok_rule

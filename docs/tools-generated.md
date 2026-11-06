@@ -206,7 +206,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
-| `revit_apply_view_template` | Apply a view template to a view. | Yes | sync |
+| `revit_apply_view_template` | Apply a view template to a view in the active Revit document. | Yes | sync |
 | `revit_batch_create_sheets_from_csv` | Create many sheets from a CSV file inside the allowed workspace, using the named title block. | Yes | sync |
 | `revit_batch_set_parameters` | Set the same parameter to the same value on many elements, given by ElementId, in one Revit transaction. | Yes | sync |
 | `revit_batch_set_parameters_by_filter` | Set a parameter value on all elements matching a filter (category, type, level, or parameter value). | Yes | sync |
@@ -368,13 +368,13 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `speckle_auth_status` | Report the current Speckle OAuth authentication status of this server (signed in or not). | No | sync |
 | `speckle_checkout_version` | Retrieve the metadata of one Speckle version by ID. | No | sync |
 | `speckle_create_branch` | Create an isolated Speckle branch for compatibility with model workflows. | Yes | sync |
-| `speckle_create_model` | Create an isolated Speckle model. | Yes | sync |
+| `speckle_create_model` | Create a named model in the specified Speckle project. | Yes | sync |
 | `speckle_get_version_metadata` | Read the metadata of one Speckle version by project and version ID. | No | sync |
 | `speckle_health` | Check that the Speckle provider is configured and report whether it can reach the Speckle server. | No | sync |
 | `speckle_list_models` | List Speckle models for a project. | No | sync |
 | `speckle_list_projects` | List the Speckle projects the signed-in user can access, up to a limit. | No | sync |
 | `speckle_list_versions` | List Speckle versions for a model or branch. | No | sync |
-| `speckle_merge_branch` | Compatibility alias for merge_model. | Yes | sync |
+| `speckle_merge_branch` | Merge a source Speckle model into a target model in the specified project. | Yes | sync |
 | `speckle_merge_model` | Merge one Speckle model or branch into another through GraphQL. | Yes | sync |
 | `speckle_oauth_exchange_code` | Exchange a Speckle OAuth authorization code. | No | sync |
 | `speckle_oauth_refresh` | Refresh the Speckle OAuth access token so later Speckle calls keep working. | No | sync |

@@ -31,26 +31,34 @@ native Revit add-in. Read-only tools inspect the model straight away. Model
 changes need an approved plan by default.
 [See the approval flow](#how-approval-works).
 
+
 **Who it is for.** BIM coordinators and managers who want an AI assistant to
 check model quality, find affected elements and prepare parameter fixes, while a
 person stays in control of every change. You do not need to write scripts.
 
 **Status and limits.** This is pre-release software.
 
-- Nothing in this product has been verified in a live Revit session yet. The
-  Python server is tested with mock providers, and CI compiles the add-in for
-  Revit 2024 to 2027 but does not start Revit. Treat every Revit behaviour
-  described here as UNVERIFIED until a person has checked it. The ordered list
-  is in the [release checklist](docs/release-checklist.md).
+- Bounded read-only checks in Revit 2024 are recorded in the
+  [live validation report](docs/revit-addin-live-validation-2026-10-14.md).
+  These checks do not establish that writes, rollback, recovery or other Revit
+  years work. Those paths still need live acceptance. The Python server also
+  has automated tests; CI builds do not start Revit. See the
+  [release checklist](docs/release-checklist.md).
 - This page describes the dev branch. The latest GitHub release may not include
   everything described here.
 - Try it on a copy of a project first. Approving a plan changes the open model.
 - Some limits are known and listed under [How approval works](#how-approval-works)
   and in [docs/security.md](docs/security.md).
 
-<p align="center">
-  <img src="docs/images/readme/works-with.svg" alt="Works with: Claude Desktop, VS Code with GitHub Copilot, Cursor and Codex have documented setup. Other MCP clients such as Claude Code, Windsurf, Cline, Continue, Zed and Gemini CLI should work too. Applications: Revit 2024 to 2027, Rhino, Grasshopper, Navisworks (in progress). Data: IFC, Speckle, Excel, SQLite. Protocol: MCP over stdio with an approval gate." width="900">
-</p>
+## Star History
+
+<a href="https://www.star-history.com/?repos=sam-aec%2Faec-model-bridge&type=date&legend=top-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+ </picture>
+</a>
 
 Setup is documented for Claude Desktop, VS Code with GitHub Copilot, Cursor and
 Codex. The server is a standard MCP stdio server, so other clients such as
@@ -237,10 +245,15 @@ In plain words:
 The hub stops any tool call that changes the model unless it carries an
 approved plan. The AI proposes a plan, you review it, and the add-in runs it on
 Revit's main thread. The panel's Plans list shows each pending plan's tools,
-arguments and, when one was captured, the before-value. For the full review of
-a plan, including any reasoning and warnings the assistant attached, run
-`aec-model-bridge-approve show <plan_id>`; the panel does not show that review
-text. Parameter and model-edit actions each run in their own named
+arguments and, when one was captured, the before-value. When a plan carries
+review text (reasoning, citations, assumptions or warnings), the card offers
+"Show the review to enable Approve" and requires you to open it before approval.
+Malformed, unsupported or oversized reviews block approval. If the panel cannot
+show the approved content completely, it disables Approve and points to
+`aec-model-bridge-approve show <plan_id>` for the full plan. See
+[plan review in the panel](docs/security.md#plan-review-in-the-panel).
+This UI is covered by automated browser checks; live WebView2 approval still
+needs acceptance. Parameter and model-edit actions each run in their own named
 transaction; some actions (save, sync, scripts) do not, so Ctrl+Z does not
 cover them.
 

@@ -20,16 +20,9 @@ from typing import Any
 from mcp.types import Tool, ToolAnnotations
 
 from .providers.base import ProviderTool
+from .result_presentation import add_response_schema
 
-APPROVAL_SUFFIX = (
-    " Write operation: when approval mode is 'required' (the default) it only runs "
-    "with the plan_id of an approved plan (see plan_actions and approve_plan)."
-)
-
-PLAN_ID_DESCRIPTION = (
-    "ID of an approved ActionPlan authorising this write (created with plan_actions, "
-    "approved with approve_plan). Required while approval mode is 'required'."
-)
+PLAN_ID_DESCRIPTION = "Approved plan ID; see the server approval instructions."
 
 # --------------------------------------------------------------------------- #
 # Tool descriptions (only tools whose provider-defined text is too terse)
@@ -127,7 +120,9 @@ DESCRIPTIONS: dict[str, str] = {
     "revit_get_revision_sequences": "List the revision sequences defined in the active Revit document.",
     "revit_tag_all_in_view": "Tag every element of a category in the active view.",
     "revit_get_view_templates": "List the view templates available in the active Revit document.",
-    "revit_apply_view_template": "Apply a view template to a view.",
+    "revit_apply_view_template": "Apply a view template to a view in the active Revit document.",
+    "speckle_create_model": "Create a named model in the specified Speckle project.",
+    "speckle_merge_branch": "Merge a source Speckle model into a target model in the specified project.",
     "revit_calculate_material_quantities": "Calculate material volumes and areas for all elements of a category. Read-only.",
     "revit_get_warnings": "Return the current warnings of the active Revit project (for example overlapping or duplicate elements).",
     "revit_invoke_method": (
@@ -624,12 +619,10 @@ def annotations_for(provider_id: str, tool: ProviderTool) -> ToolAnnotations:
 def enrich_tool(provider_id: str, tool: ProviderTool) -> Tool:
     """Return the MCP `Tool` for a provider tool, with fuller metadata.
 
-    The provider's own description is kept when it is already substantial; the
-    approval requirement is appended to every mutating tool.
+    Approval guidance is shared in SERVER_INSTRUCTIONS. Keep each write's
+    plan_id schema and behaviour annotations without repeating that guidance.
     """
     description = DESCRIPTIONS.get(tool.name, tool.description)
-    if tool.is_mutating and "plan_id" not in description:
-        description += APPROVAL_SUFFIX
 
     schema = copy.deepcopy(tool.input_schema) if tool.input_schema else {"type": "object"}
     schema.setdefault("type", "object")
@@ -645,6 +638,7 @@ def enrich_tool(provider_id: str, tool: ProviderTool) -> Tool:
         )
         if text:
             prop["description"] = text
+    add_response_schema(tool.name, schema)
     return Tool(
         name=tool.name,
         title=humanize(tool.name),

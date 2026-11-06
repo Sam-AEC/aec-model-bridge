@@ -246,6 +246,15 @@ class ApprovalProvider(AECProvider):
             )
         self.gate.verify_approved(plan)
 
+        # A profile is a discovery/dispatch choice, not a failed model action.
+        # Refuse the entire pending plan before consuming anything or saving a
+        # partial state, so the person can still run it in a full-profile process.
+        profile_check = getattr(self.registry, "validate_profile_call", None)
+        if profile_check is not None:
+            for action in plan["actions"]:
+                if action.get("state") in ("pending", None):
+                    profile_check(action["tool"], action.get("arguments", {}))
+
         results = []
         pending_results = []
         for previous in plan["actions"]:

@@ -33,6 +33,16 @@ AEC Model Bridge ओपन-सोर्स Revit MCP सर्वर है, ज
 
 इसी सर्वर में IFC जाँच, Rhino और Grasshopper ऑटोमेशन तथा Speckle इंटीग्रेशन भी शामिल हैं। [इंटीग्रेशन की स्थिति](#अन्य-इंटीग्रेशन) बताती है कि कौन-से प्रोवाइडर उपलब्ध हैं और कौन-से अभी बन रहे हैं।
 
+## स्टार इतिहास
+
+<a href="https://www.star-history.com/?repos=sam-aec%2Faec-model-bridge&type=date&legend=top-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+ </picture>
+</a>
+
 ## वर्कफ़्लो के उदाहरण
 
 BIM समन्वयकों के लिए: मॉडल की गुणवत्ता जाँचें, प्रभावित एलिमेंट देखें, पैरामीटर सुधार को मंज़ूरी दें, फिर नतीजे जाँचें और रिपोर्ट एक्सपोर्ट करें। ये उदाहरण [मौजूदा कैटलॉग](../tools-generated.md) के टूल इस्तेमाल करते हैं।
@@ -140,6 +150,8 @@ MCP क्लाइंट एक Python हब से बात करता ह
 ### मंज़ूरी कैसे काम करती है
 
 हब मॉडल बदलने वाली हर टूल कॉल को रोक देता है, जब तक उसके साथ मंज़ूर की हुई योजना न हो। डिफ़ॉल्ट मोड `required` है। AI योजना सुझाता है, आप उसे Revit साइड पैनल में देखते हैं, और ऐड-इन उसे Revit के मुख्य थ्रेड पर चलाता है, पैरामीटर और मॉडल-संपादन वाले एक्शन अपने-अपने नामित ट्रांज़ैक्शन में चलते हैं; सेव, सिंक और स्क्रिप्ट एक्शन ऐसे नहीं चलते, इसलिए Ctrl+Z उन्हें कवर नहीं करता।
+
+पैनल "Show the review to enable Approve" से योजना की समीक्षा दिखाता है; अनुमोदन से पहले इसे खोलना आवश्यक है। अमान्य, असमर्थित या बहुत बड़ी समीक्षा अनुमोदन रोकती है; `aec-model-bridge-approve show <plan_id>` पूरी योजना दिखाता है। स्वचालित परीक्षण इस व्यवहार को जाँचते हैं; WebView2 में अनुमोदन का लाइव सत्यापन अभी बाकी है। [सत्यापन रिपोर्ट](../revit-addin-live-validation-2026-10-14.md) केवल Revit 2024 में सीमित रीड-ओनली जाँचें दर्ज करती है; लिखने, वापस करने, पुनर्प्राप्ति या अन्य Revit वर्षों की पुष्टि नहीं करती।
 
 <p align="center">
   <picture>

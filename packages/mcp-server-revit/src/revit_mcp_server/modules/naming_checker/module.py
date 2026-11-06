@@ -71,7 +71,7 @@ class _Convention:
         tokens = self.tokens
         n = len(name)
 
-        def candidates(field: str, pos: int):
+        def candidates(field: str, pos: int, token_index: int):
             spec = self.fields[field]
             if use_allowed and spec["allowed"]:
                 for alt in sorted(spec["allowed"], key=len, reverse=True):
@@ -82,12 +82,13 @@ class _Convention:
                     ):
                         yield end
                 return
-            if spec["length"] is not None:
+            adjacent = token_index + 1 < len(tokens) and tokens[token_index + 1][0] == "field"
+            if spec["length"] is not None and (validate or adjacent):
                 if pos + spec["length"] <= n:
                     yield pos + spec["length"]
                 return
-            lo = pos + (spec["min_length"] or 0)
-            hi = n if spec["max_length"] is None else min(n, pos + spec["max_length"])
+            lo = pos + (spec["min_length"] or 0) if validate else pos
+            hi = n if not validate or spec["max_length"] is None else min(n, pos + spec["max_length"])
             yield from range(lo, hi + 1)
 
         def walk(i: int, pos: int, acc: List[str]):
@@ -100,7 +101,7 @@ class _Convention:
                 if name.startswith(value, pos):
                     yield from walk(i + 1, pos + len(value), acc)
                 return
-            for end in candidates(value, pos):
+            for end in candidates(value, pos, i):
                 piece = name[pos:end]
                 if validate and _check_field(value, self.fields[value], piece) is not None:
                     continue
@@ -328,10 +329,10 @@ def _check_name(conv: _Convention, raw_name: Any) -> Dict[str, Any]:
 
 # Parameter labels are stored by Revit in the user's language. Known aliases
 # (best effort, not exhaustive); anything else is reported, never guessed.
-SHEET_NUMBER_KEYS = ("Sheet Number", "Number", "Blattnummer", "Numéro de feuille", "Numero foglio", "Número de plano")
-SHEET_NAME_KEYS = ("Sheet Name", "Name", "Blattname", "Nom de la feuille", "Nome foglio", "Nombre de plano")
-VIEW_NAME_KEYS = ("View Name", "Name", "Ansichtsname", "Nom de la vue", "Nome vista", "Nombre de vista")
-GENERIC_NAME_KEYS = ("Name", "Name (Bezeichnung)", "Nom", "Nome", "Nombre")
+SHEET_NUMBER_KEYS = ("SHEET_NUMBER", "Sheet Number", "Number", "Blattnummer", "Numéro de feuille", "Numero foglio", "Número de plano")
+SHEET_NAME_KEYS = ("SHEET_NAME", "Sheet Name", "Name", "Blattname", "Nom de la feuille", "Nome foglio", "Nombre de plano")
+VIEW_NAME_KEYS = ("VIEW_NAME", "View Name", "Name", "Ansichtsname", "Nom de la vue", "Nome vista", "Nombre de vista")
+GENERIC_NAME_KEYS = ("DATUM_TEXT", "Name", "Name (Bezeichnung)", "Nom", "Nome", "Nombre")
 
 VIEWS_INCOMPLETE_REASON = (
     "Not enough data for view names: this snapshot may not contain every view in the model "
@@ -346,14 +347,15 @@ VIEWS_MISSING_REASON = (
 
 
 def _param_text(el: Dict[str, Any], *keys: str) -> Optional[str]:
+    explicit = el.get("sheet_number") if "SHEET_NUMBER" in keys else el.get("name")
+    if explicit not in (None, ""):
+        return str(explicit)
     params = el.get("params") or {}
     for key in keys:
         p = params.get(key)
-        if isinstance(p, dict) and p.get("v") not in (None, ""):
-            return str(p["v"])
-    explicit = el.get("name")
-    if explicit not in (None, "") and "Name" in keys:
-        return str(explicit)
+        value = p.get("v") if isinstance(p, dict) else p
+        if value not in (None, ""):
+            return str(value)
     return None
 
 
@@ -471,6 +473,11 @@ class NamingCheckerModule:
         if snapshot_id:
             snap = self._load_snapshot(snapshot_id, workspace)
             snap_names, info = _names_from_snapshot(snap)
+            coverage = snap.get("counts") or {}
+            if coverage.get("truncated") or coverage.get("categories") or coverage.get("dirty_only") or snap.get("dirty_only"):
+                incomplete.append({"kind": "snapshot", "reason": (
+                    "Snapshot capture was truncated, category-filtered, or dirty-only; only captured names were checked, "
+                    "so this result does not cover all model names.")})
             for kind, values in snap_names.items():
                 to_check[kind].extend(values)
             incomplete.extend(_lookup_notes(info, selected))

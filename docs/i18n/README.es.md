@@ -42,6 +42,16 @@ El mismo servidor incluye inspección de IFC, automatización de Rhino y Grassho
 e integración con Speckle. El [estado de las integraciones](#otras-integraciones) distingue
 los proveedores disponibles de los que están en desarrollo.
 
+## Historial de estrellas
+
+<a href="https://www.star-history.com/?repos=sam-aec%2Faec-model-bridge&type=date&legend=top-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+ </picture>
+</a>
+
 ## Flujos de trabajo de ejemplo
 
 Para coordinadores BIM: inspeccionar la calidad del modelo, revisar los elementos afectados,
@@ -185,6 +195,8 @@ El hub bloquea cualquier llamada a una herramienta que modifique el modelo salvo
 plan aprobado. El modo predeterminado es `required`. La IA propone un plan, tú
 lo revisas en el panel lateral de Revit y el complemento lo ejecuta en el hilo principal de Revit
 y las acciones de parámetros y de edición del modelo van cada una en su propia transacción con nombre; guardar, sincronizar y los scripts no, así que Ctrl+Z no los cubre.
+
+El panel muestra la revisión del plan con "Show the review to enable Approve" y exige abrirla antes de aprobar. Una revisión no válida, no compatible o demasiado grande bloquea la aprobación; `aec-model-bridge-approve show <plan_id>` muestra el plan completo. Hay pruebas automatizadas; la aprobación en WebView2 aún requiere validación en vivo. El [informe de validación](../revit-addin-live-validation-2026-10-14.md) solo acredita comprobaciones limitadas de lectura en Revit 2024, no escrituras, reversión, recuperación ni otros años de Revit.
 
 <p align="center">
   <picture>

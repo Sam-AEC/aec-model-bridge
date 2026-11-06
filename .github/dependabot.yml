@@ -25,9 +25,9 @@ updates:
       # is ported, then lift it by hand.
       - dependency-name: mcp
         versions: [">=2"]
-      # specklepy is capped below 4 on purpose; a major needs a manual port.
+      # Keep calendar-year SDK upgrades deliberate; 2026 is tested here.
       - dependency-name: specklepy
-        versions: [">=4"]
+        versions: [">=2027"]
 
   - package-ecosystem: github-actions
     directory: /

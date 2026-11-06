@@ -203,8 +203,8 @@ def test_tool_metadata_marks_write_tools_gated_and_the_check_read_only(tmp_path,
         enriched = enrich_tool("module", tool)
         if tool.name in MUTATING + HANGER_MUTATING:
             assert enriched.annotations.readOnlyHint is False
-            assert "plan_id" in enriched.description
             assert "plan_id" in enriched.inputSchema["properties"]
+            assert "server approval instructions" in enriched.inputSchema["properties"]["plan_id"]["description"]
         else:
             assert enriched.annotations.readOnlyHint is True
             assert "plan_id" not in enriched.inputSchema["properties"]

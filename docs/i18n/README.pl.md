@@ -33,6 +33,16 @@ Konfiguracja jest udokumentowana dla Claude Desktop, VS Code z GitHub Copilot, C
 
 Ten sam serwer obejmuje też kontrolę plików IFC, automatyzację Rhino i Grasshoppera oraz integrację ze Speckle. [Stan integracji](#inne-integracje) rozróżnia dostawców już dostępnych od tych, nad którymi trwają prace.
 
+## Historia gwiazdek
+
+<a href="https://www.star-history.com/?repos=sam-aec%2Faec-model-bridge&type=date&legend=top-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
+ </picture>
+</a>
+
 ## Przykładowe procesy pracy
 
 Dla koordynatorów BIM: sprawdź jakość modelu, przejrzyj elementy, których dotyczą, zatwierdź poprawkę parametrów, a potem zweryfikuj wyniki i wyeksportuj raport. Przykłady korzystają z narzędzi z [aktualnego katalogu](../tools-generated.md).
@@ -140,6 +150,8 @@ Turkusowe ramki działają już dziś. Bursztynowe ramki z linią przerywaną s�
 ### Jak działa zatwierdzanie
 
 Hub zatrzymuje każde wywołanie narzędzia zmieniającego model, jeśli nie towarzyszy mu zatwierdzony plan. Tryb domyślny to `required`. AI proponuje plan, Ty przeglądasz go w panelu bocznym Revit, a dodatek wykonuje go w głównym wątku Revit, akcje parametrów i edycji modelu każda w osobnej nazwanej transakcji; zapis, synchronizacja i skrypty nie, więc Ctrl+Z ich nie obejmuje.
+
+Panel pokazuje ocenę planu przez "Show the review to enable Approve"; trzeba ją otworzyć przed zatwierdzeniem. Nieprawidłowa, nieobsługiwana lub zbyt duża ocena blokuje zatwierdzenie; `aec-model-bridge-approve show <plan_id>` pokazuje cały plan. Zachowanie obejmują testy automatyczne; zatwierdzanie w WebView2 wymaga jeszcze odbioru na żywo. [Raport walidacji](../revit-addin-live-validation-2026-10-14.md) dokumentuje tylko ograniczone kontrole odczytu w Revit 2024, bez potwierdzenia zapisu, cofania, odzyskiwania ani innych roczników Revit.
 
 <p align="center">
   <picture>
