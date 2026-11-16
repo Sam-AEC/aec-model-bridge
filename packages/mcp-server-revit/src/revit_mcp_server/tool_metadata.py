@@ -15,6 +15,7 @@ would be misleading (for example exports, which are not gated but do write files
 from __future__ import annotations
 
 import copy
+import re
 from typing import Any
 
 from mcp.types import Tool, ToolAnnotations
@@ -23,6 +24,111 @@ from .providers.base import ProviderTool
 from .result_presentation import add_response_schema
 
 PLAN_ID_DESCRIPTION = "Approved plan ID; see the server approval instructions."
+
+# Canonical short text for parameters repeated across many tools. Applied in
+# enrich_tool only when a tool's own text is one of the known long variants of
+# the same rule; a tool with a genuinely different rule keeps its own text.
+# plan_id is deliberately not handled here.
+DRY_RUN_ROLLBACK = (
+    "Default false. true: run the whole call as normal, then roll everything back, so nothing is "
+    "written. The result says dry_run true, committed false and what would change (would_change). "
+    "Still needs an approved plan like any write."
+)
+ON_ERROR_ABORT_SKIP = (
+    "abort (default): first failure rolls everything back. skip: keep what worked, list the failures."
+)
+LIMIT_DEFAULT_50 = (
+    "Most rows returned per list (default 50, max 500); the full list goes to a detail file when cut."
+)
+STATUS_LABELS = (
+    "Stored text per status key (proposed, requested, approved, rejected, built), replacing the "
+    "Dutch defaults Voorstel, Aangevraagd, Akkoord, Afgewezen, Gebouwd. "
+    'Example {"approved": "Goedgekeurd"}.'
+)
+_TAG_PHASE = re.compile(
+    r"^Your own label for this build phase \(for example (?P<ex>[^)]+)\)\. Elements made under the "
+    r"same tag and (?P<key>\w+) are replaced when you run the call again; elements this tool did "
+    r"not make are never touched\.$"
+)
+_TAG_COMMENTS = re.compile(
+    r"^Prefix of the Comments parameter that marks the elements of one build phase "
+    r"\(for example (?P<ex>[^)]+)\)\. Elements whose Comments start with it are checked\.$"
+)
+_FIELDS_ROWS = re.compile(
+    r"^Row fields to keep \(for example (?P<ex>\[[^\]]*\])\); omit for all fields\.(?P<rows> Only affects rows\.)?$"
+)
+
+
+def canonical_param_text(
+    tool_name: str, key: str, prop: dict[str, Any], *, is_mutating: bool
+) -> str | None:
+    """Short shared text for a known long variant of a repeated parameter, else None."""
+    text = prop.get("description") or ""
+    if key == "dry_run" and is_mutating and prop.get("type") == "boolean":
+        if "roll everything back" in text:
+            return DRY_RUN_ROLLBACK
+    elif key == "on_error" and prop.get("enum") == ["abort", "skip"]:
+        if text in (
+            "abort (default): the first failure rolls the whole call back and nothing is kept. "
+            "skip: keep what worked and list the failures.",
+            "abort: the first failure rolls everything back. skip: keep what worked and list what failed.",
+        ):
+            return ON_ERROR_ABORT_SKIP
+    elif key == "limit" and prop.get("type") == "integer":
+        if "default 50" in text and "detail" in text:
+            return LIMIT_DEFAULT_50
+    elif key == "status_labels":
+        return STATUS_LABELS
+    elif key == "tag":
+        m = _TAG_COMMENTS.match(text)
+        if m:
+            return f"Comments prefix of one build phase (for example {m['ex']}); only matching elements are checked."
+        m = _TAG_PHASE.match(text)
+        if m:
+            return (
+                f"Your own build-phase label (for example {m['ex']}). Re-running with the same tag "
+                f"and {m['key']} replaces only what this tool made; other elements are never touched."
+            )
+    elif key == "fields":
+        m = _FIELDS_ROWS.match(text)
+        if m:
+            return f"Row fields to keep, e.g. {m['ex']}; omit for all.{m['rows'] or ''}"
+    return None
+
+# One short 'Use X for A; use Y for B' sentence appended to the description of
+# tools that have a near-duplicate sibling. Appended only, never replacing text,
+# so every existing approval phrase stays. Names are checked by a test.
+SIBLING_HINTS: dict[str, str] = {
+    "revit_set_parameter_value": "Use this for one element; use revit_set_parameters for many with units, revit_batch_set_parameters for one value.",
+    "revit_batch_set_parameters": "Use this for one value on listed ElementIds; use revit_set_parameters for per-element values with units.",
+    "revit_batch_set_parameters_by_filter": "Use this to pick elements by filter; use revit_batch_set_parameters when you already have ElementIds.",
+    "revit_set_type_parameter": "Use this for a type parameter; use revit_set_parameter_value for an instance parameter.",
+    "revit_get_parameter_value": "Use this for one named parameter; use revit_get_element_parameters for all parameters of an element.",
+    "revit_get_element_parameters": "Use revit_get_parameter_value for one named parameter; use revit_get_type_parameters for type values.",
+    "revit_get_type_parameters": "Use this for type parameters; use revit_get_element_parameters for instance parameters.",
+    "revit_get_view_templates": "Use this for a plain name list; use revit_list_view_templates for usage counts and unused templates.",
+    "revit_apply_view_template": "Use this for one view; use revit_set_view_templates to assign a template to a list of views.",
+    "revit_list_elements": "Use this for every element of one category; use revit_get_elements_by_type to filter by type or level.",
+    "revit_get_elements_by_type": "Use this to filter by type, category or level; use revit_list_elements for a plain category list.",
+    "revit_create_sheet": "Use this for one plain sheet; use revit_make_sheet for a tagged sheet with views placed on it.",
+    "revit_make_sheet": "Use this for a tagged sheet with views; use revit_create_sheet for one plain sheet.",
+    "revit_create_schedule": "Use this for one plain schedule; use revit_make_schedule for tagged fields, sorting and filters.",
+    "revit_make_schedule": "Use this for tagged fields, sorting and filters; use revit_create_schedule for one plain schedule.",
+    "revit_create_3d_view": "Use this for one plain 3D view; use revit_make_view for a framed, tagged view.",
+    "revit_create_floor_plan_view": "Use this for one plain floor plan; use revit_make_view for a framed, tagged view.",
+    "revit_create_section_view": "Use this for one plain section; use revit_make_view for a framed, tagged view.",
+    "revit_create_tag": "Use this for one element; use revit_tag_all_in_view to tag a whole category in a view.",
+    "revit_tag_all_in_view": "Use this for a whole category in a view; use revit_create_tag for one element.",
+    "revit_set_selection": "Use this with ElementIds; use revit_select_by_unique_ids with UniqueIds, which also zooms to them.",
+    "revit_select_by_unique_ids": "Use this with UniqueIds and a zoom; use revit_set_selection with ElementIds.",
+    "revit_reflect_get": "Use this to read one property; use revit_api_lookup first to confirm the member exists.",
+    "revit_reflect_set": "Use this to set a property; use revit_invoke_method to call a method, revit_api_lookup to check names.",
+    "revit_invoke_method": "Use this to call one method; use revit_reflect_set to set a property, revit_execute_python for several steps.",
+    "revit_get_element_bounding_box": "Use this for just the box; use revit_get_element_geometry for location, area, volume and length.",
+    "revit_get_element_geometry": "Use this for location, area, volume and length; use revit_get_element_bounding_box for just the box.",
+    "revit_change_element_type": "Use this to swap by element type; use revit_replace_family_type to swap by family and type name.",
+    "revit_replace_family_type": "Use this to swap by family and type name; use revit_change_element_type to swap by element type.",
+}
 
 # --------------------------------------------------------------------------- #
 # Tool descriptions (only tools whose provider-defined text is too terse)
@@ -609,7 +715,6 @@ def annotations_for(provider_id: str, tool: ProviderTool) -> ToolAnnotations:
     if tool.destructive:
         destructive = True
     return ToolAnnotations(
-        title=humanize(tool.name),
         readOnlyHint=read_only,
         destructiveHint=destructive,
         idempotentHint=idempotent,
@@ -624,6 +729,9 @@ def enrich_tool(provider_id: str, tool: ProviderTool) -> Tool:
     plan_id schema and behaviour annotations without repeating that guidance.
     """
     description = DESCRIPTIONS.get(tool.name, tool.description)
+    hint = SIBLING_HINTS.get(tool.name)
+    if hint and hint not in description:
+        description = f"{description} {hint}"
 
     schema = copy.deepcopy(tool.input_schema) if tool.input_schema else {"type": "object"}
     schema.setdefault("type", "object")
@@ -631,7 +739,19 @@ def enrich_tool(provider_id: str, tool: ProviderTool) -> Tool:
     if tool.is_mutating and "plan_id" not in props:
         props["plan_id"] = {"type": "string", "description": PLAN_ID_DESCRIPTION}
     for key, prop in props.items():
-        if not isinstance(prop, dict) or prop.get("description"):
+        if not isinstance(prop, dict):
+            continue
+        if prop.get("description"):
+            short = canonical_param_text(tool.name, key, prop, is_mutating=tool.is_mutating)
+            if short:
+                prop["description"] = short
+                if key == "status_labels":
+                    for sub in prop.get("properties", {}).values():
+                        if isinstance(sub, dict):
+                            sub.pop("description", None)
+            elif key == "ids" and isinstance(prop.get("items"), dict):
+                # The list text already says what the ids are; drop the repeated item text.
+                prop["items"].pop("description", None)
             continue
         text = (
             TOOL_PARAM_DESCRIPTIONS.get((tool.name, key))

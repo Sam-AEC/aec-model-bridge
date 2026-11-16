@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- MCP tool text is shorter and clearer: the duplicate `annotations.title` is gone, repeated parameter text (`dry_run`, `on_error`, `limit`, `tag`, `fields`, `status_labels`) uses one short wording, and 29 look-alike tools say which sibling to use for what. About 3.5% fewer tokens in the full and daily catalogues; approval wording is unchanged.
+- Tool profiles can no longer hide the approval tools (`plan_actions`, `execute_plan`, `list_pending_plans`, `plan_revert`, `get_proof_bundle`). A custom profile file that excludes the approval provider is refused with a clear error.
 - Dev mode wording: the server instructions, panel chat prompt and `plan_actions` description now say that when `revit_get_context` shows `server.dev_mode` true, write tools are called directly with no plan or `plan_id`. In Dev, `plan_actions` still creates the plan but adds `dev_mode: true` and a note. A supplied plan that is still pending is refused as before, with a clearer message. Approval rules are unchanged.
 - `aec-model-bridge-approve reject --older-than DAYS` and `--all-pending` (with `--dry-run`) clear out old pending plans. They touch pending plans only and print each id; approved and executed plans are left alone.
 - `/diagnostics` now reports `workspace_dir` and a `dev_off_reason` when Dev reads off (for example a key or workspace mismatch). It never includes the token or nonce.
