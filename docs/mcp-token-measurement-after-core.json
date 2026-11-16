@@ -1,0 +1,1407 @@
+{
+  "captured_at_utc": "2026-11-16T09:48:58.312434+00:00",
+  "git_head": "5373615b467c47b3fd1bf7a9fcade685329df87e",
+  "method": {
+    "entrypoints": [
+      "mcp_server.list_tools",
+      "mcp_server.call_tool"
+    ],
+    "profile": "core",
+    "profile_file": null,
+    "compact_read_results": false,
+    "project_module_commands": false,
+    "plan_script_chars": 0,
+    "omit_plan_arguments": false,
+    "serialization": "MCP SDK model_dump_json(by_alias=True, exclude_none=True), compact UTF-8 JSON",
+    "catalogue_payload": "ListToolsResult; excludes JSON-RPC envelope/transport framing",
+    "raw_baseline": "same providers, Tool(name, description, inputSchema) without enrich_tool",
+    "environment": "mock; credentials/proxy env scrubbed; user modules disabled; temporary isolated workspace",
+    "token_estimate": "characters / 4; not actual model tokenizer or client context billing",
+    "live_results_limit": "Mock returns tiny canned payloads; these cannot establish live Revit result sizes."
+  },
+  "tool_count": 51,
+  "human_only_not_listed": [
+    "approve_plan",
+    "reject_plan",
+    "rollback_plan"
+  ],
+  "catalogue": {
+    "chars": 55695,
+    "utf8_bytes": 55695,
+    "approx_tokens_chars_div_4": 13923.75
+  },
+  "raw_catalogue": {
+    "chars": 38342,
+    "utf8_bytes": 38342,
+    "approx_tokens_chars_div_4": 9585.5
+  },
+  "metadata_delta": {
+    "chars": 17353,
+    "utf8_bytes": 17353,
+    "approx_tokens_chars_div_4": 4338.25
+  },
+  "names_only_json": {
+    "chars": 1220,
+    "utf8_bytes": 1220,
+    "approx_tokens_chars_div_4": 305.0
+  },
+  "by_provider": {
+    "approval": {
+      "tools": 5,
+      "chars": 4036,
+      "utf8_bytes": 4036,
+      "approx_tokens_chars_div_4": 1009.0
+    },
+    "jobs": {
+      "tools": 2,
+      "chars": 833,
+      "utf8_bytes": 833,
+      "approx_tokens_chars_div_4": 208.25
+    },
+    "module": {
+      "tools": 24,
+      "chars": 34716,
+      "utf8_bytes": 34716,
+      "approx_tokens_chars_div_4": 8679.0
+    },
+    "revit": {
+      "tools": 17,
+      "chars": 13815,
+      "utf8_bytes": 13815,
+      "approx_tokens_chars_div_4": 3453.75
+    },
+    "semantic": {
+      "tools": 3,
+      "chars": 2339,
+      "utf8_bytes": 2339,
+      "approx_tokens_chars_div_4": 584.75
+    }
+  },
+  "by_module": {
+    "links_worksets_audit": {
+      "tools": 1,
+      "chars": 1650,
+      "utf8_bytes": 1650,
+      "approx_tokens_chars_div_4": 412.5
+    },
+    "model_bloat": {
+      "tools": 1,
+      "chars": 1014,
+      "utf8_bytes": 1014,
+      "approx_tokens_chars_div_4": 253.5
+    },
+    "model_inspector": {
+      "tools": 2,
+      "chars": 1020,
+      "utf8_bytes": 1020,
+      "approx_tokens_chars_div_4": 255.0
+    },
+    "naming_checker": {
+      "tools": 1,
+      "chars": 1731,
+      "utf8_bytes": 1731,
+      "approx_tokens_chars_div_4": 432.75
+    },
+    "parameter_manager": {
+      "tools": 1,
+      "chars": 838,
+      "utf8_bytes": 838,
+      "approx_tokens_chars_div_4": 209.5
+    },
+    "qaqc_checker": {
+      "tools": 5,
+      "chars": 2589,
+      "utf8_bytes": 2589,
+      "approx_tokens_chars_div_4": 647.25
+    },
+    "revit": {
+      "tools": 4,
+      "chars": 8617,
+      "utf8_bytes": 8617,
+      "approx_tokens_chars_div_4": 2154.25
+    },
+    "revit_api": {
+      "tools": 1,
+      "chars": 2007,
+      "utf8_bytes": 2007,
+      "approx_tokens_chars_div_4": 501.75
+    },
+    "revit_cleanup": {
+      "tools": 1,
+      "chars": 3253,
+      "utf8_bytes": 3253,
+      "approx_tokens_chars_div_4": 813.25
+    },
+    "revit_docs": {
+      "tools": 1,
+      "chars": 1419,
+      "utf8_bytes": 1419,
+      "approx_tokens_chars_div_4": 354.75
+    },
+    "revit_params": {
+      "tools": 2,
+      "chars": 7061,
+      "utf8_bytes": 7061,
+      "approx_tokens_chars_div_4": 1765.25
+    },
+    "schedule_consistency": {
+      "tools": 1,
+      "chars": 1158,
+      "utf8_bytes": 1158,
+      "approx_tokens_chars_div_4": 289.5
+    },
+    "selection_tools": {
+      "tools": 1,
+      "chars": 677,
+      "utf8_bytes": 677,
+      "approx_tokens_chars_div_4": 169.25
+    },
+    "sheet_view_audit": {
+      "tools": 1,
+      "chars": 735,
+      "utf8_bytes": 735,
+      "approx_tokens_chars_div_4": 183.75
+    },
+    "warnings_triage": {
+      "tools": 1,
+      "chars": 1101,
+      "utf8_bytes": 1101,
+      "approx_tokens_chars_div_4": 275.25
+    }
+  },
+  "top_15_tools": [
+    {
+      "name": "revit_set_parameters",
+      "provider": "module",
+      "module": "revit_params",
+      "tool": {
+        "chars": 3987,
+        "utf8_bytes": 3987,
+        "approx_tokens_chars_div_4": 996.75
+      },
+      "input_schema": {
+        "chars": 3146,
+        "utf8_bytes": 3146,
+        "approx_tokens_chars_div_4": 786.5
+      }
+    },
+    {
+      "name": "revit_cleanup_audit",
+      "provider": "module",
+      "module": "revit_cleanup",
+      "tool": {
+        "chars": 3241,
+        "utf8_bytes": 3241,
+        "approx_tokens_chars_div_4": 810.25
+      },
+      "input_schema": {
+        "chars": 2352,
+        "utf8_bytes": 2352,
+        "approx_tokens_chars_div_4": 588.0
+      }
+    },
+    {
+      "name": "revit_get_parameters",
+      "provider": "module",
+      "module": "revit_params",
+      "tool": {
+        "chars": 3061,
+        "utf8_bytes": 3061,
+        "approx_tokens_chars_div_4": 765.25
+      },
+      "input_schema": {
+        "chars": 2339,
+        "utf8_bytes": 2339,
+        "approx_tokens_chars_div_4": 584.75
+      }
+    },
+    {
+      "name": "revit_review",
+      "provider": "module",
+      "module": "revit",
+      "tool": {
+        "chars": 2919,
+        "utf8_bytes": 2919,
+        "approx_tokens_chars_div_4": 729.75
+      },
+      "input_schema": {
+        "chars": 2467,
+        "utf8_bytes": 2467,
+        "approx_tokens_chars_div_4": 616.75
+      }
+    },
+    {
+      "name": "revit_system_report",
+      "provider": "module",
+      "module": "revit",
+      "tool": {
+        "chars": 2219,
+        "utf8_bytes": 2219,
+        "approx_tokens_chars_div_4": 554.75
+      },
+      "input_schema": {
+        "chars": 1802,
+        "utf8_bytes": 1802,
+        "approx_tokens_chars_div_4": 450.5
+      }
+    },
+    {
+      "name": "revit_execute_python",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 2010,
+        "utf8_bytes": 2010,
+        "approx_tokens_chars_div_4": 502.5
+      },
+      "input_schema": {
+        "chars": 608,
+        "utf8_bytes": 608,
+        "approx_tokens_chars_div_4": 152.0
+      }
+    },
+    {
+      "name": "revit_api_lookup",
+      "provider": "module",
+      "module": "revit_api",
+      "tool": {
+        "chars": 1995,
+        "utf8_bytes": 1995,
+        "approx_tokens_chars_div_4": 498.75
+      },
+      "input_schema": {
+        "chars": 1180,
+        "utf8_bytes": 1180,
+        "approx_tokens_chars_div_4": 295.0
+      }
+    },
+    {
+      "name": "plan_actions",
+      "provider": "approval",
+      "module": null,
+      "tool": {
+        "chars": 1894,
+        "utf8_bytes": 1894,
+        "approx_tokens_chars_div_4": 473.5
+      },
+      "input_schema": {
+        "chars": 1402,
+        "utf8_bytes": 1402,
+        "approx_tokens_chars_div_4": 350.5
+      }
+    },
+    {
+      "name": "revit_warnings_delta",
+      "provider": "module",
+      "module": "revit",
+      "tool": {
+        "chars": 1777,
+        "utf8_bytes": 1777,
+        "approx_tokens_chars_div_4": 444.25
+      },
+      "input_schema": {
+        "chars": 1074,
+        "utf8_bytes": 1074,
+        "approx_tokens_chars_div_4": 268.5
+      }
+    },
+    {
+      "name": "naming_checker_check_names",
+      "provider": "module",
+      "module": "naming_checker",
+      "tool": {
+        "chars": 1719,
+        "utf8_bytes": 1719,
+        "approx_tokens_chars_div_4": 429.75
+      },
+      "input_schema": {
+        "chars": 1240,
+        "utf8_bytes": 1240,
+        "approx_tokens_chars_div_4": 310.0
+      }
+    },
+    {
+      "name": "revit_check_levels_grids",
+      "provider": "module",
+      "module": "revit",
+      "tool": {
+        "chars": 1687,
+        "utf8_bytes": 1687,
+        "approx_tokens_chars_div_4": 421.75
+      },
+      "input_schema": {
+        "chars": 1289,
+        "utf8_bytes": 1289,
+        "approx_tokens_chars_div_4": 322.25
+      }
+    },
+    {
+      "name": "links_worksets_audit_audit",
+      "provider": "module",
+      "module": "links_worksets_audit",
+      "tool": {
+        "chars": 1638,
+        "utf8_bytes": 1638,
+        "approx_tokens_chars_div_4": 409.5
+      },
+      "input_schema": {
+        "chars": 1176,
+        "utf8_bytes": 1176,
+        "approx_tokens_chars_div_4": 294.0
+      }
+    },
+    {
+      "name": "revit_inspect_elements",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 1547,
+        "utf8_bytes": 1547,
+        "approx_tokens_chars_div_4": 386.75
+      },
+      "input_schema": {
+        "chars": 771,
+        "utf8_bytes": 771,
+        "approx_tokens_chars_div_4": 192.75
+      }
+    },
+    {
+      "name": "revit_list_views_sheets_schedules",
+      "provider": "module",
+      "module": "revit_docs",
+      "tool": {
+        "chars": 1407,
+        "utf8_bytes": 1407,
+        "approx_tokens_chars_div_4": 351.75
+      },
+      "input_schema": {
+        "chars": 1035,
+        "utf8_bytes": 1035,
+        "approx_tokens_chars_div_4": 258.75
+      }
+    },
+    {
+      "name": "revit_list_elements",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 1329,
+        "utf8_bytes": 1329,
+        "approx_tokens_chars_div_4": 332.25
+      },
+      "input_schema": {
+        "chars": 914,
+        "utf8_bytes": 914,
+        "approx_tokens_chars_div_4": 228.5
+      }
+    }
+  ],
+  "tools": [
+    {
+      "name": "plan_actions",
+      "provider": "approval",
+      "module": null,
+      "tool": {
+        "chars": 1894,
+        "utf8_bytes": 1894,
+        "approx_tokens_chars_div_4": 473.5
+      },
+      "input_schema": {
+        "chars": 1402,
+        "utf8_bytes": 1402,
+        "approx_tokens_chars_div_4": 350.5
+      }
+    },
+    {
+      "name": "list_pending_plans",
+      "provider": "approval",
+      "module": null,
+      "tool": {
+        "chars": 287,
+        "utf8_bytes": 287,
+        "approx_tokens_chars_div_4": 71.75
+      },
+      "input_schema": {
+        "chars": 33,
+        "utf8_bytes": 33,
+        "approx_tokens_chars_div_4": 8.25
+      }
+    },
+    {
+      "name": "execute_plan",
+      "provider": "approval",
+      "module": null,
+      "tool": {
+        "chars": 550,
+        "utf8_bytes": 550,
+        "approx_tokens_chars_div_4": 137.5
+      },
+      "input_schema": {
+        "chars": 140,
+        "utf8_bytes": 140,
+        "approx_tokens_chars_div_4": 35.0
+      }
+    },
+    {
+      "name": "get_proof_bundle",
+      "provider": "approval",
+      "module": null,
+      "tool": {
+        "chars": 497,
+        "utf8_bytes": 497,
+        "approx_tokens_chars_div_4": 124.25
+      },
+      "input_schema": {
+        "chars": 140,
+        "utf8_bytes": 140,
+        "approx_tokens_chars_div_4": 35.0
+      }
+    },
+    {
+      "name": "plan_revert",
+      "provider": "approval",
+      "module": null,
+      "tool": {
+        "chars": 792,
+        "utf8_bytes": 792,
+        "approx_tokens_chars_div_4": 198.0
+      },
+      "input_schema": {
+        "chars": 352,
+        "utf8_bytes": 352,
+        "approx_tokens_chars_div_4": 88.0
+      }
+    },
+    {
+      "name": "revit_health",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 349,
+        "utf8_bytes": 349,
+        "approx_tokens_chars_div_4": 87.25
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "revit_list_levels",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 315,
+        "utf8_bytes": 315,
+        "approx_tokens_chars_div_4": 78.75
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "revit_list_views",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 1080,
+        "utf8_bytes": 1080,
+        "approx_tokens_chars_div_4": 270.0
+      },
+      "input_schema": {
+        "chars": 810,
+        "utf8_bytes": 810,
+        "approx_tokens_chars_div_4": 202.5
+      }
+    },
+    {
+      "name": "revit_list_elements",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 1329,
+        "utf8_bytes": 1329,
+        "approx_tokens_chars_div_4": 332.25
+      },
+      "input_schema": {
+        "chars": 914,
+        "utf8_bytes": 914,
+        "approx_tokens_chars_div_4": 228.5
+      }
+    },
+    {
+      "name": "revit_get_document_info",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 345,
+        "utf8_bytes": 345,
+        "approx_tokens_chars_div_4": 86.25
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "revit_list_families",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 1072,
+        "utf8_bytes": 1072,
+        "approx_tokens_chars_div_4": 268.0
+      },
+      "input_schema": {
+        "chars": 796,
+        "utf8_bytes": 796,
+        "approx_tokens_chars_div_4": 199.0
+      }
+    },
+    {
+      "name": "revit_get_element_parameters",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 1156,
+        "utf8_bytes": 1156,
+        "approx_tokens_chars_div_4": 289.0
+      },
+      "input_schema": {
+        "chars": 746,
+        "utf8_bytes": 746,
+        "approx_tokens_chars_div_4": 186.5
+      }
+    },
+    {
+      "name": "revit_get_selection",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 302,
+        "utf8_bytes": 302,
+        "approx_tokens_chars_div_4": 75.5
+      },
+      "input_schema": {
+        "chars": 33,
+        "utf8_bytes": 33,
+        "approx_tokens_chars_div_4": 8.25
+      }
+    },
+    {
+      "name": "revit_set_selection",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 658,
+        "utf8_bytes": 658,
+        "approx_tokens_chars_div_4": 164.5
+      },
+      "input_schema": {
+        "chars": 270,
+        "utf8_bytes": 270,
+        "approx_tokens_chars_div_4": 67.5
+      }
+    },
+    {
+      "name": "revit_select_by_unique_ids",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 605,
+        "utf8_bytes": 605,
+        "approx_tokens_chars_div_4": 151.25
+      },
+      "input_schema": {
+        "chars": 192,
+        "utf8_bytes": 192,
+        "approx_tokens_chars_div_4": 48.0
+      }
+    },
+    {
+      "name": "revit_get_categories",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 462,
+        "utf8_bytes": 462,
+        "approx_tokens_chars_div_4": 115.5
+      },
+      "input_schema": {
+        "chars": 205,
+        "utf8_bytes": 205,
+        "approx_tokens_chars_div_4": 51.25
+      }
+    },
+    {
+      "name": "revit_get_warnings",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 503,
+        "utf8_bytes": 503,
+        "approx_tokens_chars_div_4": 125.75
+      },
+      "input_schema": {
+        "chars": 205,
+        "utf8_bytes": 205,
+        "approx_tokens_chars_div_4": 51.25
+      }
+    },
+    {
+      "name": "revit_execute_python",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 2010,
+        "utf8_bytes": 2010,
+        "approx_tokens_chars_div_4": 502.5
+      },
+      "input_schema": {
+        "chars": 608,
+        "utf8_bytes": 608,
+        "approx_tokens_chars_div_4": 152.0
+      }
+    },
+    {
+      "name": "revit_inspect_elements",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 1547,
+        "utf8_bytes": 1547,
+        "approx_tokens_chars_div_4": 386.75
+      },
+      "input_schema": {
+        "chars": 771,
+        "utf8_bytes": 771,
+        "approx_tokens_chars_div_4": 192.75
+      }
+    },
+    {
+      "name": "revit_get_element_geometry",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 544,
+        "utf8_bytes": 544,
+        "approx_tokens_chars_div_4": 136.0
+      },
+      "input_schema": {
+        "chars": 117,
+        "utf8_bytes": 117,
+        "approx_tokens_chars_div_4": 29.25
+      }
+    },
+    {
+      "name": "revit_get_context",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 753,
+        "utf8_bytes": 753,
+        "approx_tokens_chars_div_4": 188.25
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "revit_get_result",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 757,
+        "utf8_bytes": 757,
+        "approx_tokens_chars_div_4": 189.25
+      },
+      "input_schema": {
+        "chars": 294,
+        "utf8_bytes": 294,
+        "approx_tokens_chars_div_4": 73.5
+      }
+    },
+    {
+      "name": "snapshot_take",
+      "provider": "semantic",
+      "module": null,
+      "tool": {
+        "chars": 889,
+        "utf8_bytes": 889,
+        "approx_tokens_chars_div_4": 222.25
+      },
+      "input_schema": {
+        "chars": 483,
+        "utf8_bytes": 483,
+        "approx_tokens_chars_div_4": 120.75
+      }
+    },
+    {
+      "name": "snapshot_query",
+      "provider": "semantic",
+      "module": null,
+      "tool": {
+        "chars": 899,
+        "utf8_bytes": 899,
+        "approx_tokens_chars_div_4": 224.75
+      },
+      "input_schema": {
+        "chars": 636,
+        "utf8_bytes": 636,
+        "approx_tokens_chars_div_4": 159.0
+      }
+    },
+    {
+      "name": "snapshot_diff",
+      "provider": "semantic",
+      "module": null,
+      "tool": {
+        "chars": 537,
+        "utf8_bytes": 537,
+        "approx_tokens_chars_div_4": 134.25
+      },
+      "input_schema": {
+        "chars": 266,
+        "utf8_bytes": 266,
+        "approx_tokens_chars_div_4": 66.5
+      }
+    },
+    {
+      "name": "links_worksets_audit_audit",
+      "provider": "module",
+      "module": "links_worksets_audit",
+      "tool": {
+        "chars": 1638,
+        "utf8_bytes": 1638,
+        "approx_tokens_chars_div_4": 409.5
+      },
+      "input_schema": {
+        "chars": 1176,
+        "utf8_bytes": 1176,
+        "approx_tokens_chars_div_4": 294.0
+      }
+    },
+    {
+      "name": "model_bloat_audit",
+      "provider": "module",
+      "module": "model_bloat",
+      "tool": {
+        "chars": 1002,
+        "utf8_bytes": 1002,
+        "approx_tokens_chars_div_4": 250.5
+      },
+      "input_schema": {
+        "chars": 513,
+        "utf8_bytes": 513,
+        "approx_tokens_chars_div_4": 128.25
+      }
+    },
+    {
+      "name": "model_inspector_summarize_model",
+      "provider": "module",
+      "module": "model_inspector",
+      "tool": {
+        "chars": 454,
+        "utf8_bytes": 454,
+        "approx_tokens_chars_div_4": 113.5
+      },
+      "input_schema": {
+        "chars": 156,
+        "utf8_bytes": 156,
+        "approx_tokens_chars_div_4": 39.0
+      }
+    },
+    {
+      "name": "model_inspector_inspect_selection",
+      "provider": "module",
+      "module": "model_inspector",
+      "tool": {
+        "chars": 553,
+        "utf8_bytes": 553,
+        "approx_tokens_chars_div_4": 138.25
+      },
+      "input_schema": {
+        "chars": 254,
+        "utf8_bytes": 254,
+        "approx_tokens_chars_div_4": 63.5
+      }
+    },
+    {
+      "name": "naming_checker_check_names",
+      "provider": "module",
+      "module": "naming_checker",
+      "tool": {
+        "chars": 1719,
+        "utf8_bytes": 1719,
+        "approx_tokens_chars_div_4": 429.75
+      },
+      "input_schema": {
+        "chars": 1240,
+        "utf8_bytes": 1240,
+        "approx_tokens_chars_div_4": 310.0
+      }
+    },
+    {
+      "name": "parameter_manager_filter_params",
+      "provider": "module",
+      "module": "parameter_manager",
+      "tool": {
+        "chars": 826,
+        "utf8_bytes": 826,
+        "approx_tokens_chars_div_4": 206.5
+      },
+      "input_schema": {
+        "chars": 477,
+        "utf8_bytes": 477,
+        "approx_tokens_chars_div_4": 119.25
+      }
+    },
+    {
+      "name": "qaqc_checker_run_check",
+      "provider": "module",
+      "module": "qaqc_checker",
+      "tool": {
+        "chars": 617,
+        "utf8_bytes": 617,
+        "approx_tokens_chars_div_4": 154.25
+      },
+      "input_schema": {
+        "chars": 334,
+        "utf8_bytes": 334,
+        "approx_tokens_chars_div_4": 83.5
+      }
+    },
+    {
+      "name": "qaqc_checker_list_issues",
+      "provider": "module",
+      "module": "qaqc_checker",
+      "tool": {
+        "chars": 683,
+        "utf8_bytes": 683,
+        "approx_tokens_chars_div_4": 170.75
+      },
+      "input_schema": {
+        "chars": 379,
+        "utf8_bytes": 379,
+        "approx_tokens_chars_div_4": 94.75
+      }
+    },
+    {
+      "name": "qaqc_checker_resolve_issue",
+      "provider": "module",
+      "module": "qaqc_checker",
+      "tool": {
+        "chars": 378,
+        "utf8_bytes": 378,
+        "approx_tokens_chars_div_4": 94.5
+      },
+      "input_schema": {
+        "chars": 124,
+        "utf8_bytes": 124,
+        "approx_tokens_chars_div_4": 31.0
+      }
+    },
+    {
+      "name": "qaqc_checker_list_rules",
+      "provider": "module",
+      "module": "qaqc_checker",
+      "tool": {
+        "chars": 502,
+        "utf8_bytes": 502,
+        "approx_tokens_chars_div_4": 125.5
+      },
+      "input_schema": {
+        "chars": 216,
+        "utf8_bytes": 216,
+        "approx_tokens_chars_div_4": 54.0
+      }
+    },
+    {
+      "name": "qaqc_checker_list_rule_packs",
+      "provider": "module",
+      "module": "qaqc_checker",
+      "tool": {
+        "chars": 393,
+        "utf8_bytes": 393,
+        "approx_tokens_chars_div_4": 98.25
+      },
+      "input_schema": {
+        "chars": 47,
+        "utf8_bytes": 47,
+        "approx_tokens_chars_div_4": 11.75
+      }
+    },
+    {
+      "name": "revit_warnings_delta",
+      "provider": "module",
+      "module": "revit",
+      "tool": {
+        "chars": 1777,
+        "utf8_bytes": 1777,
+        "approx_tokens_chars_div_4": 444.25
+      },
+      "input_schema": {
+        "chars": 1074,
+        "utf8_bytes": 1074,
+        "approx_tokens_chars_div_4": 268.5
+      }
+    },
+    {
+      "name": "revit_system_report",
+      "provider": "module",
+      "module": "revit",
+      "tool": {
+        "chars": 2219,
+        "utf8_bytes": 2219,
+        "approx_tokens_chars_div_4": 554.75
+      },
+      "input_schema": {
+        "chars": 1802,
+        "utf8_bytes": 1802,
+        "approx_tokens_chars_div_4": 450.5
+      }
+    },
+    {
+      "name": "revit_check_levels_grids",
+      "provider": "module",
+      "module": "revit",
+      "tool": {
+        "chars": 1687,
+        "utf8_bytes": 1687,
+        "approx_tokens_chars_div_4": 421.75
+      },
+      "input_schema": {
+        "chars": 1289,
+        "utf8_bytes": 1289,
+        "approx_tokens_chars_div_4": 322.25
+      }
+    },
+    {
+      "name": "revit_review",
+      "provider": "module",
+      "module": "revit",
+      "tool": {
+        "chars": 2919,
+        "utf8_bytes": 2919,
+        "approx_tokens_chars_div_4": 729.75
+      },
+      "input_schema": {
+        "chars": 2467,
+        "utf8_bytes": 2467,
+        "approx_tokens_chars_div_4": 616.75
+      }
+    },
+    {
+      "name": "revit_api_lookup",
+      "provider": "module",
+      "module": "revit_api",
+      "tool": {
+        "chars": 1995,
+        "utf8_bytes": 1995,
+        "approx_tokens_chars_div_4": 498.75
+      },
+      "input_schema": {
+        "chars": 1180,
+        "utf8_bytes": 1180,
+        "approx_tokens_chars_div_4": 295.0
+      }
+    },
+    {
+      "name": "revit_cleanup_audit",
+      "provider": "module",
+      "module": "revit_cleanup",
+      "tool": {
+        "chars": 3241,
+        "utf8_bytes": 3241,
+        "approx_tokens_chars_div_4": 810.25
+      },
+      "input_schema": {
+        "chars": 2352,
+        "utf8_bytes": 2352,
+        "approx_tokens_chars_div_4": 588.0
+      }
+    },
+    {
+      "name": "revit_list_views_sheets_schedules",
+      "provider": "module",
+      "module": "revit_docs",
+      "tool": {
+        "chars": 1407,
+        "utf8_bytes": 1407,
+        "approx_tokens_chars_div_4": 351.75
+      },
+      "input_schema": {
+        "chars": 1035,
+        "utf8_bytes": 1035,
+        "approx_tokens_chars_div_4": 258.75
+      }
+    },
+    {
+      "name": "revit_get_parameters",
+      "provider": "module",
+      "module": "revit_params",
+      "tool": {
+        "chars": 3061,
+        "utf8_bytes": 3061,
+        "approx_tokens_chars_div_4": 765.25
+      },
+      "input_schema": {
+        "chars": 2339,
+        "utf8_bytes": 2339,
+        "approx_tokens_chars_div_4": 584.75
+      }
+    },
+    {
+      "name": "revit_set_parameters",
+      "provider": "module",
+      "module": "revit_params",
+      "tool": {
+        "chars": 3987,
+        "utf8_bytes": 3987,
+        "approx_tokens_chars_div_4": 996.75
+      },
+      "input_schema": {
+        "chars": 3146,
+        "utf8_bytes": 3146,
+        "approx_tokens_chars_div_4": 786.5
+      }
+    },
+    {
+      "name": "schedule_consistency_check_doors_and_rooms",
+      "provider": "module",
+      "module": "schedule_consistency",
+      "tool": {
+        "chars": 1146,
+        "utf8_bytes": 1146,
+        "approx_tokens_chars_div_4": 286.5
+      },
+      "input_schema": {
+        "chars": 618,
+        "utf8_bytes": 618,
+        "approx_tokens_chars_div_4": 154.5
+      }
+    },
+    {
+      "name": "selection_tools_select_by_query",
+      "provider": "module",
+      "module": "selection_tools",
+      "tool": {
+        "chars": 665,
+        "utf8_bytes": 665,
+        "approx_tokens_chars_div_4": 166.25
+      },
+      "input_schema": {
+        "chars": 375,
+        "utf8_bytes": 375,
+        "approx_tokens_chars_div_4": 93.75
+      }
+    },
+    {
+      "name": "sheet_view_audit_run_audit",
+      "provider": "module",
+      "module": "sheet_view_audit",
+      "tool": {
+        "chars": 723,
+        "utf8_bytes": 723,
+        "approx_tokens_chars_div_4": 180.75
+      },
+      "input_schema": {
+        "chars": 348,
+        "utf8_bytes": 348,
+        "approx_tokens_chars_div_4": 87.0
+      }
+    },
+    {
+      "name": "warnings_triage_review_warnings",
+      "provider": "module",
+      "module": "warnings_triage",
+      "tool": {
+        "chars": 1089,
+        "utf8_bytes": 1089,
+        "approx_tokens_chars_div_4": 272.25
+      },
+      "input_schema": {
+        "chars": 640,
+        "utf8_bytes": 640,
+        "approx_tokens_chars_div_4": 160.0
+      }
+    },
+    {
+      "name": "job_status",
+      "provider": "jobs",
+      "module": null,
+      "tool": {
+        "chars": 438,
+        "utf8_bytes": 438,
+        "approx_tokens_chars_div_4": 109.5
+      },
+      "input_schema": {
+        "chars": 161,
+        "utf8_bytes": 161,
+        "approx_tokens_chars_div_4": 40.25
+      }
+    },
+    {
+      "name": "job_cancel",
+      "provider": "jobs",
+      "module": null,
+      "tool": {
+        "chars": 382,
+        "utf8_bytes": 382,
+        "approx_tokens_chars_div_4": 95.5
+      },
+      "input_schema": {
+        "chars": 162,
+        "utf8_bytes": 162,
+        "approx_tokens_chars_div_4": 40.5
+      }
+    }
+  ],
+  "calls": [
+    {
+      "name": "module_list_commands",
+      "arguments": {},
+      "request_arguments": {
+        "chars": 2,
+        "utf8_bytes": 2,
+        "approx_tokens_chars_div_4": 0.5
+      },
+      "script_chars": 0,
+      "response": {
+        "chars": 526,
+        "utf8_bytes": 526,
+        "approx_tokens_chars_div_4": 131.5
+      },
+      "text_content": {
+        "chars": 193,
+        "utf8_bytes": 193,
+        "approx_tokens_chars_div_4": 48.25
+      },
+      "parsed_result_compact": {
+        "chars": 258,
+        "utf8_bytes": 258,
+        "approx_tokens_chars_div_4": 64.5
+      },
+      "is_error": true,
+      "observed": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Tool 'module_list_commands' is hidden by MCP tool profile 'core'. Set MCP_REVIT_TOOL_PROFILE=daily or full (or edit MCP_REVIT_TOOL_PROFILE_FILE) and restart the MCP server to make it available."
+          }
+        ],
+        "structuredContent": {
+          "ok": false,
+          "error": {
+            "kind": "tool_profile_blocked",
+            "message": "Tool 'module_list_commands' is hidden by MCP tool profile 'core'. Set MCP_REVIT_TOOL_PROFILE=daily or full (or edit MCP_REVIT_TOOL_PROFILE_FILE) and restart the MCP server to make it available."
+          }
+        },
+        "isError": true
+      }
+    },
+    {
+      "name": "revit_list_elements",
+      "arguments": {
+        "category": "Walls"
+      },
+      "request_arguments": {
+        "chars": 20,
+        "utf8_bytes": 20,
+        "approx_tokens_chars_div_4": 5.0
+      },
+      "script_chars": 0,
+      "response": {
+        "chars": 301,
+        "utf8_bytes": 303,
+        "approx_tokens_chars_div_4": 75.25
+      },
+      "text_content": {
+        "chars": 221,
+        "utf8_bytes": 223,
+        "approx_tokens_chars_div_4": 55.25
+      },
+      "parsed_result_compact": {
+        "chars": 168,
+        "utf8_bytes": 168,
+        "approx_tokens_chars_div_4": 42.0
+      },
+      "is_error": false,
+      "observed": {
+        "content": [
+          {
+            "type": "text",
+            "text": "✓ revit_list_elements executed successfully\n\nResult:\n{\"tool\":\"revit.list_elements_by_category\",\"mock\":true,\"timestamp\":\"2026-11-16T09:48:58.365180+00:00\",\"payload\":{\"category\":\"Walls\"},\"result\":{\"status\":\"mock-response\"}}"
+          }
+        ],
+        "isError": false
+      }
+    },
+    {
+      "name": "revit_list_families",
+      "arguments": {},
+      "request_arguments": {
+        "chars": 2,
+        "utf8_bytes": 2,
+        "approx_tokens_chars_div_4": 0.5
+      },
+      "script_chars": 0,
+      "response": {
+        "chars": 267,
+        "utf8_bytes": 269,
+        "approx_tokens_chars_div_4": 66.75
+      },
+      "text_content": {
+        "chars": 191,
+        "utf8_bytes": 193,
+        "approx_tokens_chars_div_4": 47.75
+      },
+      "parsed_result_compact": {
+        "chars": 138,
+        "utf8_bytes": 138,
+        "approx_tokens_chars_div_4": 34.5
+      },
+      "is_error": false,
+      "observed": {
+        "content": [
+          {
+            "type": "text",
+            "text": "✓ revit_list_families executed successfully\n\nResult:\n{\"tool\":\"revit.list_families\",\"mock\":true,\"timestamp\":\"2026-11-16T09:48:58.365180+00:00\",\"payload\":{},\"result\":{\"status\":\"mock-response\"}}"
+          }
+        ],
+        "isError": false
+      }
+    },
+    {
+      "name": "revit_get_element_parameters",
+      "arguments": {
+        "element_id": 123
+      },
+      "request_arguments": {
+        "chars": 18,
+        "utf8_bytes": 18,
+        "approx_tokens_chars_div_4": 4.5
+      },
+      "script_chars": 0,
+      "response": {
+        "chars": 303,
+        "utf8_bytes": 305,
+        "approx_tokens_chars_div_4": 75.75
+      },
+      "text_content": {
+        "chars": 225,
+        "utf8_bytes": 227,
+        "approx_tokens_chars_div_4": 56.25
+      },
+      "parsed_result_compact": {
+        "chars": 163,
+        "utf8_bytes": 163,
+        "approx_tokens_chars_div_4": 40.75
+      },
+      "is_error": false,
+      "observed": {
+        "content": [
+          {
+            "type": "text",
+            "text": "✓ revit_get_element_parameters executed successfully\n\nResult:\n{\"tool\":\"revit.get_element_parameters\",\"mock\":true,\"timestamp\":\"2026-11-16T09:48:58.366179+00:00\",\"payload\":{\"element_id\":123},\"result\":{\"status\":\"mock-response\"}}"
+          }
+        ],
+        "isError": false
+      }
+    },
+    {
+      "name": "revit_list_views",
+      "arguments": {},
+      "request_arguments": {
+        "chars": 2,
+        "utf8_bytes": 2,
+        "approx_tokens_chars_div_4": 0.5
+      },
+      "script_chars": 0,
+      "response": {
+        "chars": 284,
+        "utf8_bytes": 286,
+        "approx_tokens_chars_div_4": 71.0
+      },
+      "text_content": {
+        "chars": 200,
+        "utf8_bytes": 202,
+        "approx_tokens_chars_div_4": 50.0
+      },
+      "parsed_result_compact": {
+        "chars": 150,
+        "utf8_bytes": 150,
+        "approx_tokens_chars_div_4": 37.5
+      },
+      "is_error": false,
+      "observed": {
+        "content": [
+          {
+            "type": "text",
+            "text": "✓ revit_list_views executed successfully\n\nResult:\n{\"views\":[{\"view_id\":\"view-1\",\"name\":\"Floor Plan\",\"discipline\":\"Architectural\"},{\"view_id\":\"view-2\",\"name\":\"Ceiling Plan\",\"discipline\":\"Mechanical\"}]}"
+          }
+        ],
+        "isError": false
+      }
+    },
+    {
+      "name": "plan_actions",
+      "arguments": {
+        "actions": [
+          {
+            "tool": "revit_set_parameter_value",
+            "arguments": {
+              "element_id": 123,
+              "parameter_name": "Comments",
+              "value": "Measurement only"
+            }
+          }
+        ]
+      },
+      "request_arguments": {
+        "chars": 136,
+        "utf8_bytes": 136,
+        "approx_tokens_chars_div_4": 34.0
+      },
+      "script_chars": 0,
+      "response": {
+        "chars": 536,
+        "utf8_bytes": 536,
+        "approx_tokens_chars_div_4": 134.0
+      },
+      "text_content": {
+        "chars": 198,
+        "utf8_bytes": 198,
+        "approx_tokens_chars_div_4": 49.5
+      },
+      "parsed_result_compact": {
+        "chars": 263,
+        "utf8_bytes": 263,
+        "approx_tokens_chars_div_4": 65.75
+      },
+      "is_error": true,
+      "observed": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Tool 'revit_set_parameter_value' is hidden by MCP tool profile 'core'. Set MCP_REVIT_TOOL_PROFILE=daily or full (or edit MCP_REVIT_TOOL_PROFILE_FILE) and restart the MCP server to make it available."
+          }
+        ],
+        "structuredContent": {
+          "ok": false,
+          "error": {
+            "kind": "tool_profile_blocked",
+            "message": "Tool 'revit_set_parameter_value' is hidden by MCP tool profile 'core'. Set MCP_REVIT_TOOL_PROFILE=daily or full (or edit MCP_REVIT_TOOL_PROFILE_FILE) and restart the MCP server to make it available."
+          }
+        },
+        "isError": true
+      }
+    }
+  ]
+}
