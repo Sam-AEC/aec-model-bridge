@@ -87,9 +87,9 @@ def _run_rules(data: Dict[str, Any], rule_pack: str, workspace: Any, label: str,
         data["elements"], data["types"], _doc_guid(data) or data["snapshot_id"], rule_pack, workspace, failed
     )
     if failed:
-        not_verified.append(f"{label}: these rules could not run, so their result is unknown: {', '.join(map(str, failed))}.")
+        not_verified.append(rg._failed_rules_note(label, failed))
     if _is_partial(data):
-        not_verified.append(f"{label}: the snapshot is a partial capture; elements that were not captured were not checked.")
+        not_verified.append(rg._partial_snapshot_note(label))
     return groups
 
 
