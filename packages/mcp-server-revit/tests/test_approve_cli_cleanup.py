@@ -82,3 +82,13 @@ def test_reject_arguments_are_exclusive(plans, capsys):
             approve_cli.main(ws + argv)
     # a single reject by id still works
     assert approve_cli.main(ws + ["reject", ids["old"], "--yes"]) == 0
+
+
+@pytest.mark.parametrize("bad", ["nan", "inf", "-inf", "-1"])
+def test_older_than_must_be_finite_and_not_negative(plans, capsys, bad):
+    _, ids, ws = plans
+    with pytest.raises(SystemExit) as exc:
+        approve_cli.main(ws + ["reject", f"--older-than={bad}", "--yes"])
+    assert exc.value.code == 2
+    assert "--older-than must be" in capsys.readouterr().err
+    assert approve_cli.main(ws + ["reject", "--older-than", "7", "--dry-run"]) == 0

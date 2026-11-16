@@ -15,6 +15,7 @@ matters to you.
 from __future__ import annotations
 
 import argparse
+import math
 import re
 import sys
 import textwrap
@@ -338,8 +339,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             parser.error("reject needs exactly one of: a plan id, --older-than DAYS, or --all-pending")
         if args.dry_run and not bulk:
             parser.error("--dry-run goes with --older-than or --all-pending")
-        if args.older_than is not None and args.older_than < 0:
-            parser.error("--older-than must be zero or more days")
+        if args.older_than is not None and not (math.isfinite(args.older_than) and args.older_than >= 0):
+            parser.error("--older-than must be a finite number of days, zero or more")
 
     gate = _gate(args.workspace)
 

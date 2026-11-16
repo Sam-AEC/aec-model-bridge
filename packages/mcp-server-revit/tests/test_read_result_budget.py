@@ -268,6 +268,50 @@ def test_proof_bundle_and_review_material_are_never_reshaped(tmp_path, monkeypat
         asyncio.run(jobs.shutdown(cancel_running=True))
 
 
+# ---- plan-shaped material from non-approval tools is never trimmed --------------------------------
+def _plan_set_params_result():
+    return {"plan_type": "action_plan_draft", "tool": "parameter_manager_plan_set_params",
+            "arguments": {}, "preview": {}, "requires_approval": True, "snapshot_id": "s",
+            "actions": [{"tool": "revit_set_parameter_value",
+                         "arguments": {"element_id": i, "parameter_name": "Comments", "value": "v" * 60}}
+                        for i in range(400)],
+            "skipped": []}
+
+
+def _recipe_get_result():
+    return {"ok": True, "recipe": {"id": "r", "params": {"p": _rows(300)}}, "code": "x".join("print(1)" for _ in range(300)),
+            "plan_arguments": {"id": "r", "version": 1, "sha256": "h", "params": {"rows": _rows(500)}}}
+
+
+@pytest.mark.parametrize("name,make", [
+    ("parameter_manager_plan_set_params", _plan_set_params_result),
+    ("revit_recipe_get", _recipe_get_result),
+    ("revit_mep_hanger_plan", _plan_set_params_result),
+])
+def test_plan_shaped_results_pass_through_byte_identical(execution, name, make):
+    execution.result = make()
+    body = _body(asyncio.run(mcp_server.call_tool(name, {})))
+    from revit_mcp_server.security.audit import redact_data
+
+    assert len(body) > DEFAULT_MAX_CHARS
+    assert body == json.dumps(redact_data(execution.result), indent=2)  # redaction is the only change
+    assert "truncated" not in body
+
+
+def test_plan_shaped_keys_exempt_any_read_tool_but_nested_actions_do_not():
+    plan = {"plan_type": "action_plan_draft", "actions": _rows(2000)}
+    assert result_json(plan, {}, read_only=True) == json.dumps(plan, indent=2)
+    args = {"plan_arguments": {"rows": _rows(2000)}}
+    assert "truncated" not in result_json(args, {}, read_only=True)
+    generic = {"elements": [{"id": i, "actions": "x" * 40} for i in range(2000)]}
+    assert json.loads(result_json(generic, {}, read_only=True))["truncated"] is True
+
+
+def test_generic_read_tool_with_big_list_is_still_trimmed(execution):
+    body = _body(asyncio.run(mcp_server.call_tool("revit_list_elements", {})))
+    assert json.loads(body)["truncated"] is True
+
+
 # ---- C: limit / offset / count_only on the six unpaginated list tools -----------------------------
 PAGED = {
     "revit_list_elements": ("elements", {"category": "Walls"}),
@@ -330,6 +374,44 @@ def test_list_tools_page_in_the_provider(revit_provider, monkeypatch, name):
     assert counted["returned"] == 0
 
     assert all(not ({"limit", "offset", "count_only"} & p.keys()) for p in sent)
+
+
+@pytest.mark.parametrize("bad", [float("inf"), float("-inf"), float("nan"), "inf", "nan"])
+@pytest.mark.parametrize("arg", ["limit", "offset"])
+def test_non_finite_paging_numbers_are_a_validation_error(revit_provider, monkeypatch, arg, bad):
+    provider, _ = _serve(revit_provider, monkeypatch, "revit_list_views", "views", [])
+    with pytest.raises(ValueError, match=arg):
+        asyncio.run(provider.execute_tool("revit_list_views", {arg: bad}))
+
+
+def test_negative_and_huge_paging_numbers_are_clamped(revit_provider, monkeypatch):
+    provider, rows = _serve(revit_provider, monkeypatch, "revit_list_views", "views", [])
+    page = asyncio.run(provider.execute_tool("revit_list_views", {"limit": -5, "offset": -3}))
+    assert (page["returned"], page["offset"]) == (1, 0)
+    page = asyncio.run(provider.execute_tool("revit_list_views", {"limit": 10**30, "offset": 10**30}))
+    assert page["returned"] == 0 and page["total"] == len(rows)
+
+
+@pytest.mark.parametrize("value,expected", [("false", False), ("False", False), ("0", False), (0, False),
+                                            ("true", True), ("1", True), (1, True), (True, True)])
+def test_count_only_strings_are_parsed_not_truthy(revit_provider, monkeypatch, value, expected):
+    provider, rows = _serve(revit_provider, monkeypatch, "revit_list_views", "views", [])
+    out = asyncio.run(provider.execute_tool("revit_list_views", {"limit": 5, "count_only": value}))
+    assert bool(out.get("count_only")) is expected
+    assert (out["returned"] == 0) is expected
+
+
+@pytest.mark.parametrize("value", ["maybe", "", 2, 1.5, [], {}])
+def test_count_only_rejects_other_values(revit_provider, monkeypatch, value):
+    provider, _ = _serve(revit_provider, monkeypatch, "revit_list_views", "views", [])
+    with pytest.raises(ValueError, match="count_only"):
+        asyncio.run(provider.execute_tool("revit_list_views", {"count_only": value}))
+
+
+def test_count_only_false_alone_applies_no_implicit_limit(revit_provider, monkeypatch):
+    provider, rows = _serve(revit_provider, monkeypatch, "revit_list_views", "views", [])
+    out = asyncio.run(provider.execute_tool("revit_list_views", {"count_only": False}))
+    assert out["views"] == rows and "total" not in out
 
 
 def test_paging_leaves_errors_and_unexpected_shapes_alone(revit_provider, monkeypatch):

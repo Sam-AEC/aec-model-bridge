@@ -18,13 +18,14 @@ SUPPORTED = READERS | {"plan_actions"}
 DEFAULT_MAX_CHARS = 20000
 TRIM_HINT = "narrow with limit/offset/count_only/fields or filters"
 # Tools that carry plan, proof, approval or job material. They are never compacted or trimmed,
-# even where read-only. A result holding any of PLAN_KEYS gets the same treatment.
+# even where read-only, as is any tool with a 'plan' word in its name and recipe_get
+# (see tool_metadata.is_read_only_tool). A result holding any top-level PLAN_KEYS gets the same treatment.
 APPROVAL_TOOLS = frozenset({
     "plan_actions", "execute_plan", "list_pending_plans", "get_proof_bundle", "plan_revert",
     "approve_plan", "reject_plan", "rollback_plan",
     "job_status", "job_cancel", "revit_job_status", "revit_job_cancel", "revit_run_job", "revit_get_result",
 })
-PLAN_KEYS = frozenset({"plan_hash", "plan_id"})
+PLAN_KEYS = frozenset({"plan_hash", "plan_id", "plan_type", "plan_arguments"})
 
 
 def add_response_schema(name: str, schema: dict) -> None:

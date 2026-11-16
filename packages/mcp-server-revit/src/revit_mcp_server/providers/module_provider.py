@@ -245,6 +245,8 @@ class ModuleProvider(AECProvider):
         sig = inspect.signature(func)
         kwargs = {}
         for param_name, param in sig.parameters.items():
+            if param.kind is inspect.Parameter.POSITIONAL_ONLY:
+                continue  # cannot be passed by keyword; the legacy positional call below feeds it
             if param_name in ("payload", "arguments"):
                 kwargs[param_name] = arguments
             elif param_name == "workspace":
@@ -260,9 +262,10 @@ class ModuleProvider(AECProvider):
                 kwargs[param_name] = arguments[param_name]
                 
         # Legacy handlers take the whole arguments dict as one positional parameter. A handler
-        # declared with only **kwargs/*args has nothing to receive it, so it gets no arguments.
+        # declared with only **kwargs has nothing to receive it, so it gets no arguments.
         takes_positional = any(
-            p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+            p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                       inspect.Parameter.VAR_POSITIONAL)
             for p in sig.parameters.values()
         )
         if not kwargs and takes_positional:

@@ -4,6 +4,7 @@ import re
 import contextlib
 import contextvars
 import logging
+import math
 import threading
 from pathlib import Path
 from typing import Any, Dict, List
@@ -41,6 +42,34 @@ PAGED_READS = {
     "revit_get_schedule_data": "fields",
 }
 _PAGE_ARGS = ("limit", "offset", "count_only")
+
+
+def _page_args(arguments: Dict[str, Any]) -> "PageSpec | None":
+    """Validate limit/offset/count_only; None when nothing asks for paging (count_only:false alone)."""
+    for key in ("limit", "offset"):
+        value = arguments.get(key)
+        if value is None or isinstance(value, bool):
+            continue
+        try:
+            finite = math.isfinite(float(value))
+        except (TypeError, ValueError):
+            continue  # not numeric: PageSpec falls back to its default as before
+        except OverflowError:
+            finite = False
+        if not finite:
+            raise ValueError(f"{key} must be a finite number.")
+    raw = arguments.get("count_only")
+    if raw is None or isinstance(raw, bool):
+        count_only = bool(raw)
+    elif str(raw).strip().lower() in ("true", "1"):
+        count_only = True
+    elif str(raw).strip().lower() in ("false", "0"):
+        count_only = False
+    else:
+        raise ValueError("count_only must be true or false.")
+    if arguments.get("limit") is None and arguments.get("offset") is None and not count_only:
+        return None
+    return PageSpec.from_args(arguments.get("limit"), arguments.get("offset"), count_only)
 _PAGE_PROPERTIES = {
     "limit": {"type": "integer", "description": "Max items."},
     "offset": {"type": "integer", "description": "Items to skip."},
@@ -281,9 +310,10 @@ class RevitProvider(AECProvider):
 
     async def execute_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         if name in PAGED_READS and any(k in arguments for k in _PAGE_ARGS):
-            page = PageSpec.from_args(*(arguments.get(k) for k in _PAGE_ARGS))
+            page = _page_args(arguments)
             rest = {k: v for k, v in arguments.items() if k not in _PAGE_ARGS}
-            return page_read_result(await self.execute_tool(name, rest), PAGED_READS[name], page)
+            result = await self.execute_tool(name, rest)
+            return result if page is None else page_read_result(result, PAGED_READS[name], page)
 
         if name == "revit_inspect_elements":
             validate_inspection(arguments)
