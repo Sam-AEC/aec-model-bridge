@@ -29,6 +29,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from .safe_paths import safe_child
+
 RECIPE_RUN_TOOL = "revit_recipe_run"
 RECIPES_DIR = "recipes"
 STANDING_DIR = "standing"  # under <workspace>/plans
@@ -64,9 +66,12 @@ class RecipeError(ValueError):
 # --------------------------------------------------------------------------- #
 # Ids, hashes
 # --------------------------------------------------------------------------- #
+_BAD_ID_MESSAGE = "id must be 1 to 64 characters from a-z, 0-9, '_' and '-' (not a reserved device name)"
+
+
 def validate_recipe_id(value: Any) -> str:
     if not isinstance(value, str) or not ID_RE.fullmatch(value) or value in RESERVED_IDS:
-        raise RecipeError("invalid_id", "id must be 1 to 64 characters from a-z, 0-9, '_' and '-' (not a reserved device name)")
+        raise RecipeError("invalid_id", _BAD_ID_MESSAGE)
     return value
 
 
@@ -277,11 +282,13 @@ class RecipeStore:
     # ---- paths -------------------------------------------------------------- #
     def _file(self, root: Path, recipe_id: str, suffix: str) -> Path:
         validate_recipe_id(recipe_id)
-        base = root.resolve()
-        path = (base / f"{recipe_id}{suffix}").resolve()
-        if path.parent != base:
-            raise RecipeError("invalid_id", "the recipe path is outside the recipes folder")
-        return path
+
+        def refuse(reason: str) -> RecipeError:
+            if reason == "outside":
+                return RecipeError("invalid_id", "the recipe path is outside the recipes folder")
+            return RecipeError("invalid_id", _BAD_ID_MESSAGE)
+
+        return safe_child(root, recipe_id, suffix, ID_RE, refuse)
 
     # ---- reading ------------------------------------------------------------ #
     def _load_from(self, root: Path, recipe_id: str, code_suffix: str, source: str) -> Optional[Recipe]:
