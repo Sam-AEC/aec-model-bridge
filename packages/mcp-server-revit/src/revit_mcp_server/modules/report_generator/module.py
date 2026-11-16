@@ -34,6 +34,30 @@ SEVERITY_COLORS = {
 def _ws_dir(workspace: Any) -> Path:
     return workspace.allowed_directories[0]
 
+def _snapshot_path(workspace: Any, snapshot_id: str) -> Path:
+    """The snapshot file for a plain snapshot id; '..', separators and links out are refused."""
+    from revit_mcp_server.security.safe_paths import snapshot_file
+
+    return snapshot_file(_ws_dir(workspace) / "snapshots", snapshot_id)
+
+
+def _confined(workspace: Any, filename: str) -> Path:
+    """Join an output file name under the workspace; refuse '..', absolute paths, symlinks
+    that leave it, and the plans/ and proofs/ folders."""
+    from revit_mcp_server.security.workspace import is_reserved_path
+
+    base = _ws_dir(workspace)
+    candidate = (base / filename).resolve()
+    checker = getattr(workspace, "assert_in_workspace", None)
+    if checker is not None:
+        candidate = checker(candidate)
+    elif not candidate.is_relative_to(base.resolve()):
+        raise ValueError(f"{candidate} is outside the allowed workspace directories")
+    if is_reserved_path(candidate, base):
+        raise ValueError(f"{candidate} is in a folder reserved for plans and proofs")
+    return candidate
+
+
 def _get_data(snapshot_id: str, workspace: Any):
     if not snapshot_id:
         from revit_mcp_server.semantic.engine import generate_mock_snapshot, require_snapshot_or_mock
@@ -43,7 +67,7 @@ def _get_data(snapshot_id: str, workspace: Any):
             [el.model_dump(by_alias=True) for el in snap.elements],
             [t.model_dump() for t in snap.types],
         )
-    path = _ws_dir(workspace) / "snapshots" / f"{snapshot_id}.json"
+    path = _snapshot_path(workspace, snapshot_id)
     if not path.exists():
         raise ValueError(f"Snapshot '{snapshot_id}' not found.")
     with open(path, encoding="utf-8") as f:
@@ -68,7 +92,7 @@ def _load_source(snapshot_id: str, workspace: Any) -> Dict[str, Any]:
     """Document identity of the snapshot, so a report says what it describes."""
     if not snapshot_id:
         return {"doc_title": "Generated mock data (not a live model)", "doc_guid": "mock-doc"}
-    path = _ws_dir(workspace) / "snapshots" / f"{snapshot_id}.json"
+    path = _snapshot_path(workspace, snapshot_id)
     try:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
@@ -148,10 +172,7 @@ def _load_review_snapshot(snapshot_id: str, workspace: Any) -> Dict[str, Any]:
             "types": [t.model_dump() for t in snap.types],
             "is_mock": True,
         }
-    snap_dir = (_ws_dir(workspace) / "snapshots").resolve()
-    path = (snap_dir / f"{snapshot_id}.json").resolve()
-    if path.parent != snap_dir:
-        raise ValueError("snapshot_id must be a plain snapshot name inside the workspace snapshots folder.")
+    path = _snapshot_path(workspace, snapshot_id)
     if not path.exists():
         raise ValueError(f"Snapshot '{snapshot_id}' not found.")
     with open(path, encoding="utf-8") as f:
@@ -318,7 +339,7 @@ class ReportGeneratorModule:
                         ws_qa.cell(row=r, column=col).fill = fill
 
         # --- Save ---
-        out_path = _ws_dir(workspace) / output_filename
+        out_path = _confined(workspace, output_filename)
         wb.save(str(out_path))
 
         return {
@@ -447,7 +468,7 @@ class ReportGeneratorModule:
         **_,
     ) -> Dict[str, Any]:
         elements, types = _get_data(snapshot_id, workspace)
-        out_path = _ws_dir(workspace) / output_filename
+        out_path = _confined(workspace, output_filename)
 
         conn = sqlite3.connect(str(out_path))
         conn.executescript("""

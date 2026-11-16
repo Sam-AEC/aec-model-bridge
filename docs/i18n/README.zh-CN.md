@@ -116,16 +116,16 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 | 领域 | 工具数 | 功能 |
 | --- | --- | --- |
-| Revit | 103 | 读取模型，创建和编辑构件、参数、视图、图纸、明细表，导出，工作共享 |
-| 审批 | 6 | 规划、审阅、批准、执行并回滚模型变更 |
-| 模块 | 34 | 快照检查、参数网格、QA/QC 检查、配方、报告、选择集 |
+| Revit | 110 | 读取模型，创建和编辑构件、参数、视图、图纸、明细表，导出，工作共享 |
+| 审批 | 5 | 规划、审阅、批准、执行并回滚模型变更 |
+| 模块 | 108 | 快照检查、参数网格、QA/QC 检查、配方、报告、选择集 |
 | Rhino 与 Grasshopper | 19 | 几何体、图层、材质、布尔运算 |
 | Speckle | 17 | 项目、模型、版本、发送与接收 |
 | Navisworks | 15 | 模型树、视点、碰撞测试（开发中） |
 | IFC | 7 | 无需 Revit 即可读取 IFC 文件：结构、属性、校验 |
-| 图谱、快照、导出、作业 | 18 | 语义图谱审计、快照差异比对、SQLite 导出、后台作业 |
+| 图谱、快照、导出、作业 | 21 | 语义图谱审计、快照差异比对、SQLite 导出、后台作业 |
 
-默认配置下共列出 219 个工具（在 mock 模式下统计自当前服务器）。配置 APS 凭据后会出现 Autodesk Data 工具。[工具参考](../tools-generated.md)列出了所有工具。每个工具都带有 MCP 注解（`readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`），客户端据此区分读取和写入。
+默认配置下共列出 302 个工具（在 mock 模式下统计自当前服务器）。配置 APS 凭据后会出现 Autodesk Data 工具。[工具参考](../tools-generated.md)列出了所有工具。每个工具都带有 MCP 注解（`readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`），客户端据此区分读取和写入。
 
 ### 高级 Revit 自动化
 
@@ -151,6 +151,8 @@ MCP 客户端与一个 Python hub 通信。hub 将每次调用转发给拥有该
 ### 审批如何运作
 
 hub 会拦截任何会修改模型的工具调用，除非它附带已批准的计划。默认模式为 `required`。AI 提出计划，你在 Revit 侧边面板中审阅，然后插件在 Revit 主线程中执行，参数和模型编辑类操作各自在独立的命名事务（transaction）中运行；保存、同步和脚本类操作则不是，因此 Ctrl+Z 无法撤销它们。
+
+面板通过 "Show the review to enable Approve" 显示计划审阅内容，批准前必须先打开。无效、不受支持或过大的审阅内容会阻止批准；`aec-model-bridge-approve show <plan_id>` 可显示完整计划。此行为有自动化测试，但 WebView2 中的批准仍需实机验收。[验证报告](../revit-addin-live-validation-2026-10-14.md) 仅记录 Revit 2024 中有限的只读检查，不代表写入、回退、恢复或其他 Revit 年份版本已通过验证。
 
 <p align="center">
   <picture>

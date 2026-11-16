@@ -115,16 +115,16 @@ Dùng VS Code? [Mã nguồn tiện ích mở rộng và các bước cài đặt
 
 | Lĩnh vực | Công cụ | Chức năng |
 | --- | --- | --- |
-| Revit | 103 | Đọc mô hình, tạo và chỉnh sửa phần tử, tham số, view, sheet, bảng thống kê (schedule), xuất dữ liệu, làm việc chung (worksharing) |
-| Phê duyệt | 6 | Lập kế hoạch, xem xét, phê duyệt, thực thi và hoàn tác các thay đổi mô hình |
-| Mô-đun | 34 | Kiểm tra snapshot, lưới tham số, kiểm tra QA/QC, recipe, báo cáo, vùng chọn |
+| Revit | 110 | Đọc mô hình, tạo và chỉnh sửa phần tử, tham số, view, sheet, bảng thống kê (schedule), xuất dữ liệu, làm việc chung (worksharing) |
+| Phê duyệt | 5 | Lập kế hoạch, xem xét, phê duyệt, thực thi và hoàn tác các thay đổi mô hình |
+| Mô-đun | 108 | Kiểm tra snapshot, lưới tham số, kiểm tra QA/QC, recipe, báo cáo, vùng chọn |
 | Rhino và Grasshopper | 19 | Hình học, layer, vật liệu, phép toán boolean |
 | Speckle | 17 | Dự án, mô hình, phiên bản, gửi và nhận |
 | Navisworks | 15 | Cây mô hình, viewpoint, kiểm tra va chạm (đang phát triển) |
 | IFC | 7 | Đọc tệp IFC mà không cần Revit: cấu trúc, thuộc tính, xác thực |
-| Đồ thị, snapshot, xuất dữ liệu, tác vụ | 18 | Kiểm toán đồ thị ngữ nghĩa, so sánh snapshot, xuất SQLite, tác vụ nền |
+| Đồ thị, snapshot, xuất dữ liệu, tác vụ | 21 | Kiểm toán đồ thị ngữ nghĩa, so sánh snapshot, xuất SQLite, tác vụ nền |
 
-Cấu hình mặc định liệt kê 219 công cụ (đếm từ máy chủ hiện tại ở chế độ mock). Các công cụ Autodesk Data xuất hiện khi đã cấu hình thông tin xác thực APS. [Tài liệu tham khảo công cụ](../tools-generated.md) liệt kê từng công cụ. Mỗi công cụ đều có chú thích MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) để ứng dụng khách phân biệt thao tác đọc với ghi.
+Cấu hình mặc định liệt kê 302 công cụ (đếm từ máy chủ hiện tại ở chế độ mock). Các công cụ Autodesk Data xuất hiện khi đã cấu hình thông tin xác thực APS. [Tài liệu tham khảo công cụ](../tools-generated.md) liệt kê từng công cụ. Mỗi công cụ đều có chú thích MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) để ứng dụng khách phân biệt thao tác đọc với ghi.
 
 ### Tự động hóa Revit nâng cao
 
@@ -150,6 +150,8 @@ Các khung màu xanh mòng két đã hoạt động. Các khung nét đứt màu
 ### Cách phê duyệt hoạt động
 
 Hub chặn mọi lệnh gọi công cụ làm thay đổi mô hình nếu không kèm kế hoạch đã được phê duyệt. Chế độ mặc định là `required`. AI đề xuất kế hoạch, bạn xem xét trong bảng bên của Revit, và add-in chạy nó trên luồng chính của Revit, các hành động sửa tham số và chỉnh sửa mô hình mỗi hành động chạy trong một transaction có tên riêng; các hành động lưu, đồng bộ và script thì không, nên Ctrl+Z không bao gồm chúng.
+
+Bảng điều khiển hiển thị nội dung xem xét kế hoạch qua "Show the review to enable Approve" và yêu cầu mở trước khi phê duyệt. Nội dung không hợp lệ, không được hỗ trợ hoặc quá lớn sẽ chặn phê duyệt; `aec-model-bridge-approve show <plan_id>` hiển thị toàn bộ kế hoạch. Hành vi này có kiểm thử tự động; phê duyệt trong WebView2 vẫn cần xác nhận trực tiếp. [Báo cáo xác nhận](../revit-addin-live-validation-2026-10-14.md) chỉ ghi nhận kiểm tra đọc có giới hạn trong Revit 2024, không xác nhận thao tác ghi, hoàn tác, khôi phục hay các năm Revit khác.
 
 <p align="center">
   <picture>

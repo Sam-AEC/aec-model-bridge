@@ -170,8 +170,8 @@ def test_revit_provider_explicit_bridge_url_takes_precedence(tmp_path):
 async def test_revit_provider_missing_requested_host_version_reports_available(tmp_path, monkeypatch):
     workspace = WorkspaceMonitor([tmp_path])
 
-    monkeypatch.setattr("revit_mcp_server.bridge.discovery.select_switch", lambda provider_id, host_version: None)
-    monkeypatch.setattr("revit_mcp_server.bridge.discovery.available_host_versions", lambda provider_id: ["2024", "2026"])
+    monkeypatch.setattr("revit_mcp_server.bridge.discovery.select_switch", lambda provider_id, host_version, **_k: None)
+    monkeypatch.setattr("revit_mcp_server.bridge.discovery.available_host_versions", lambda provider_id, **_k: ["2024", "2026"])
 
     provider = RevitProvider(workspace=workspace, mode=BridgeMode.bridge, host_version="2025")
     health = await provider.check_health()
@@ -252,3 +252,77 @@ async def test_ifc_provider_path_traversal_protection(tmp_path):
 
     # Pydantic or WorkspaceMonitor raises ValueError or related custom errors for paths outside workspace
     assert "outside the allowed workspace" in str(exc.value).lower()
+
+
+def test_revit_preview_tools_registered_and_not_mutating(tmp_path):
+    from revit_mcp_server.tool_metadata import DESCRIPTIONS
+
+    provider = RevitProvider(workspace=WorkspaceMonitor([tmp_path]), mode=BridgeMode.mock)
+    tools = {tool.name: tool for tool in provider.get_capabilities()}
+    for name in ("revit_preview_elements", "revit_clear_preview"):
+        assert name in tools
+        assert tools[name].is_mutating is False
+        assert len(DESCRIPTIONS[name]) >= 40
+
+
+@pytest.mark.anyio
+async def test_revit_preview_elements_maps_arguments(tmp_path):
+    provider = RevitProvider(workspace=WorkspaceMonitor([tmp_path]), mode=BridgeMode.mock)
+
+    result = await provider.execute_tool(
+        "revit_preview_elements", {"element_uids": ["u1"], "element_ids": [7], "isolate": False}
+    )
+    assert result["tool"] == "revit.preview_elements"
+    assert result["payload"] == {"element_uids": ["u1"], "element_ids": [7], "isolate": False}
+
+    default = await provider.execute_tool("revit_preview_elements", {"element_uids": ["u1"]})
+    assert default["payload"]["isolate"] is True
+    assert default["payload"]["element_ids"] == []
+
+    cleared = await provider.execute_tool("revit_clear_preview", {})
+    assert cleared["tool"] == "revit.clear_preview"
+    assert cleared["payload"] == {}
+
+
+def test_revit_opening_tools_forward_swing_flips(tmp_path):
+    workspace = WorkspaceMonitor([tmp_path])
+    provider = RevitProvider(workspace=workspace, mode=BridgeMode.mock)
+
+    for tool_name in ("revit_place_window", "revit_place_door"):
+        _, build_payload = provider._tool_mapping[tool_name]
+        payload = build_payload({"wall_id": 7, "x": 1, "y": 2, "hand_flipped": True, "facing_flipped": False})
+        assert payload["hand_flipped"] is True
+        assert payload["facing_flipped"] is False
+        # Omitted flips stay None so the add-in leaves the family default alone.
+        bare = build_payload({"wall_id": 7, "x": 1, "y": 2})
+        assert bare["hand_flipped"] is None and bare["facing_flipped"] is None
+        assert bare["family_name"] is None and bare["type_name"] is None
+
+
+def test_revit_opening_and_clash_schemas_describe_new_inputs(tmp_path):
+    workspace = WorkspaceMonitor([tmp_path])
+    provider = RevitProvider(workspace=workspace, mode=BridgeMode.mock)
+    tools = {tool.name: tool for tool in provider.get_capabilities()}
+
+    for name in ("revit_place_door", "revit_place_window"):
+        props = tools[name].input_schema["properties"]
+        assert props["hand_flipped"]["type"] == "boolean"
+        assert props["facing_flipped"]["type"] == "boolean"
+        assert "first loaded" in props["family_name"]["description"]
+
+    props = tools["revit_check_clashes"].input_schema["properties"]
+    assert props["max_pairs"]["default"] == 200000
+    assert props["time_budget_s"]["default"] == 20
+    assert "feet" in props["tolerance"]["description"]
+
+
+def test_revit_check_clashes_forwards_budget(tmp_path):
+    workspace = WorkspaceMonitor([tmp_path])
+    provider = RevitProvider(workspace=workspace, mode=BridgeMode.mock)
+    _, build_payload = provider._tool_mapping["revit_check_clashes"]
+
+    default = build_payload({"category1": "walls", "category2": "doors"})
+    assert default["max_pairs"] == 200000 and default["time_budget_s"] == 20
+
+    custom = build_payload({"category1": "walls", "category2": "doors", "max_pairs": 500, "time_budget_s": 3.5})
+    assert custom["max_pairs"] == 500 and custom["time_budget_s"] == 3.5

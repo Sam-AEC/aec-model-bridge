@@ -49,19 +49,10 @@ RHINO_SRC = PACKAGES / "rhino-bridge-addin" / "src"
 # (provider, hub tool, add-in command): add-in says IsMutating=true, hub tool is not
 # is_mutating, so the approval gate does not cover it.
 KNOWN_UNGATED = {
-    # navisworks.py enrich verbs {set, invoke, delete, create, move, copy, rotate,
-    # mirror, run} do not include append / refresh / activate. append_file changes
-    # the open model; refresh reloads linked files; activate_viewpoint moves the view.
-    ("navisworks", "navisworks_append_file", "navis.append_file"),
-    ("navisworks", "navisworks_refresh", "navis.refresh"),
-    ("navisworks", "navisworks_activate_viewpoint", "navis.activate_viewpoint"),
-    # revit.py verbs do not include render / calculate / reflect. The add-in flag may
-    # be over-cautious for these two (they are probably read or export only); needs a
-    # decision with a Revit run before either side is changed.
-    ("revit", "revit_render_3d", "revit.render_3d_view"),
+    # UNVERIFIED: the add-in marks this mutating but it looks read-only (volumes and
+    # areas). Needs a Revit run before either side is changed, so it stays ungated.
+    # (revit_render_3d and revit_reflect_get are gated.)
     ("revit", "revit_calculate_material_quantities", "revit.calculate_material_quantities"),
-    # reflect_get only reads a property but the add-in marks it mutating.
-    ("revit", "revit_reflect_get", "revit.reflect_get"),
 }
 
 # (provider, add-in command): IsMutating=true commands that no hub tool forwards to.
@@ -75,11 +66,7 @@ KNOWN_UNMAPPED_MUTATING = {
 
 # Rhino has no attribute catalog: commands are ``case "name":`` labels in one switch,
 # with no mutating flag, so the check is by hub tool name (see the test below).
-KNOWN_RHINO_UNGATED = {
-    # GenerateDiagridTower bakes Breps and creates layers/materials
-    # (rhino-bridge-addin/src/BridgeCommands.cs); rhino.py verbs lack "generate".
-    "rhino_generate_diagrid_tower",
-}
+KNOWN_RHINO_UNGATED: set[str] = set()
 
 
 # --------------------------------------------------------------------------- #
@@ -204,6 +191,16 @@ def _hub_tools(provider):
     return {t.name: t for t in provider.get_capabilities()}
 
 
+# Tools the hub answers itself instead of forwarding one fixed add-in command: revit_raw_command forwards
+# whatever command the caller names (validated at call time, see tests/test_raw_command.py) and
+# revit_list_commands reads the add-in's own command list, revit_get_result asks the bridge for an
+# earlier request by id (GET /result/{id}) and runs no command, revit_inspect_elements composes several
+# existing read commands.
+LOCALLY_HANDLED = frozenset(
+    {"revit_raw_command", "revit_list_commands", "revit_get_result", "revit_inspect_elements"}
+)
+
+
 # --------------------------------------------------------------------------- #
 # Sanity: the parser really sees the add-ins
 # --------------------------------------------------------------------------- #
@@ -242,14 +239,14 @@ def test_no_command_declared_twice(surfaces, provider):
 def test_every_forwarded_command_exists_in_addin(surfaces, provider):
     commands, prov = surfaces[provider]
     catalog = {c["name"] for c in commands}
-    dangling = {tool: cmd for tool, (cmd, _) in prov._tool_mapping.items() if cmd not in catalog}
+    dangling = {tool: cmd for tool, (cmd, _) in prov._tool_mapping.items() if cmd not in catalog and tool not in LOCALLY_HANDLED}
     assert not dangling, f"{provider} hub forwards to add-in commands that do not exist: {dangling}"
 
 
 @pytest.mark.parametrize("provider", ["revit", "navisworks"])
 def test_every_hub_tool_has_a_mapping(surfaces, provider):
     _, prov = surfaces[provider]
-    unmapped = sorted(set(_hub_tools(prov)) - set(prov._tool_mapping))
+    unmapped = sorted(set(_hub_tools(prov)) - set(prov._tool_mapping) - LOCALLY_HANDLED)
     stale = sorted(set(prov._tool_mapping) - set(_hub_tools(prov)))
     assert not unmapped, f"{provider} tools with no add-in mapping: {unmapped}"
     assert not stale, f"{provider} mappings with no declared tool: {stale}"

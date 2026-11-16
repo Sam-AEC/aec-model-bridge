@@ -14,7 +14,7 @@ using Microsoft.Scripting.Hosting;
 
 namespace RevitBridge.Bridge;
 
-public static class BridgeCommandFactory
+public static partial class BridgeCommandFactory
 {
     private static readonly Dictionary<string, Func<UIApplication, JsonElement, object>> _handlers = new();
     private static readonly List<object> _capabilities = new();
@@ -23,17 +23,20 @@ public static class BridgeCommandFactory
     [ThreadStatic]
     private static string? _currentActionId;
 
+    [ThreadStatic]
+    private static List<BridgeFailureMessage>? _currentTransactionMessages;
+
     public static string? CurrentActionId
     {
         get => _currentActionId;
         set => _currentActionId = value;
     }
 
-    public static Transaction CreateTransaction(Document doc, string name)
+    public static BridgeTransaction CreateTransaction(Document doc, string name)
     {
         var actionId = CurrentActionId;
         string txName = string.IsNullOrEmpty(actionId) ? $"AMB: {name}" : $"AMB: {name} #{actionId}";
-        return new Transaction(doc, txName);
+        return new BridgeTransaction(doc, txName, messages => _currentTransactionMessages?.AddRange(messages));
     }
 
     static BridgeCommandFactory()
@@ -78,6 +81,7 @@ public static class BridgeCommandFactory
         {
             try
             {
+                _currentTransactionMessages = new List<BridgeFailureMessage>();
                 if (payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty("action_id", out var actionProp))
                 {
                     CurrentActionId = actionProp.GetString();
@@ -87,7 +91,8 @@ public static class BridgeCommandFactory
                     CurrentActionId = null;
                 }
 
-                return handler(app, payload);
+                var result = handler(app, payload);
+                return BridgeTransactionResults.AppendWarnings(result, _currentTransactionMessages);
             }
             catch (System.Reflection.TargetInvocationException ex)
             {
@@ -96,6 +101,7 @@ public static class BridgeCommandFactory
             finally
             {
                 CurrentActionId = null;
+                _currentTransactionMessages = null;
             }
         }
         return new { status = "error", message = $"Unknown tool: {tool}" };
@@ -216,7 +222,7 @@ public static class BridgeCommandFactory
                 }
             }
 
-            trans.Commit();
+            trans.CommitChecked();
         }
 
         return new { schedules = exported, count = exported.Count };
@@ -396,7 +402,12 @@ public static class BridgeCommandFactory
         var endPoint = ParseXYZ(payload.GetProperty("end_point"));
         var height = payload.GetProperty("height").GetDouble();
         var levelName = payload.GetProperty("level").GetString();
-        var wallTypeName = payload.TryGetProperty("wall_type", out var wt) ? wt.GetString() : null;
+        var wallTypeName = payload.TryGetProperty("wall_type", out var wt) && wt.ValueKind == JsonValueKind.String ? wt.GetString() : null;
+        // reverse flips the wall so its exterior face is on the other side of the drawn line.
+        var reverse = payload.TryGetProperty("reverse", out var rv) && rv.ValueKind == JsonValueKind.True;
+
+        if (height <= 0)
+            throw new ArgumentException("height must be greater than zero");
 
         using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Wall"))
         {
@@ -405,27 +416,19 @@ public static class BridgeCommandFactory
             var level = GetLevelByName(doc, levelName);
             var line = Line.CreateBound(startPoint, endPoint);
 
-            Wall wall;
-            if (!string.IsNullOrEmpty(wallTypeName))
-            {
-                var wallType = GetWallTypeByName(doc, wallTypeName);
-                wall = Wall.Create(doc, line, wallType.Id, level.Id, height, 0, false, false);
-            }
-            else
-            {
-                wall = Wall.Create(doc, line, level.Id, false);
-                var param = wall.get_Parameter(BuiltInParameter.WALL_USER_HEIGHT_PARAM);
-                if (param != null && !param.IsReadOnly)
-                {
-                    param.Set(height);
-                }
-            }
+            var wallType = !string.IsNullOrEmpty(wallTypeName)
+                ? GetWallTypeByName(doc, wallTypeName)
+                : GetDefaultWallType(doc);
 
-            trans.Commit();
+            var wall = Wall.Create(doc, line, wallType.Id, level.Id, height, 0, reverse, false);
+
+            trans.CommitChecked();
 
             return new
             {
                 wall_id = wall.Id.Value,
+                wall_type = wallType.Name,
+                reversed = reverse,
                 length = line.Length,
                 length_ft = line.Length,
                 length_m = UnitUtils.ConvertFromInternalUnits(line.Length, UnitTypeId.Meters),
@@ -443,7 +446,7 @@ public static class BridgeCommandFactory
 
         var boundaryPoints = ParsePointArray(payload.GetProperty("boundary_points"));
         var levelName = payload.GetProperty("level").GetString();
-        var floorTypeName = payload.TryGetProperty("floor_type", out var ft) ? ft.GetString() : null;
+        var floorTypeName = payload.TryGetProperty("floor_type", out var ft) && ft.ValueKind == JsonValueKind.String ? ft.GetString() : null;
 
         using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Floor"))
         {
@@ -459,32 +462,19 @@ public static class BridgeCommandFactory
                 curveLoop.Append(Line.CreateBound(start, end));
             }
 
-            Floor floor;
-            if (!string.IsNullOrEmpty(floorTypeName))
-            {
-                var floorType = GetFloorTypeByName(doc, floorTypeName);
-                floor = Floor.Create(doc, new List<CurveLoop> { curveLoop }, floorType.Id, level.Id);
-            }
-            else
-            {
-                var defaultFloorType = new FilteredElementCollector(doc)
-                    .OfClass(typeof(FloorType))
-                    .Cast<FloorType>()
-                    .FirstOrDefault();
+            var floorType = !string.IsNullOrEmpty(floorTypeName)
+                ? GetFloorTypeByName(doc, floorTypeName)
+                : GetDefaultFloorType(doc);
+            var floor = Floor.Create(doc, new List<CurveLoop> { curveLoop }, floorType.Id, level.Id);
 
-                if (defaultFloorType == null)
-                    throw new InvalidOperationException("No floor types found in document");
-
-                floor = Floor.Create(doc, new List<CurveLoop> { curveLoop }, defaultFloorType.Id, level.Id);
-            }
-
-            trans.Commit();
+            trans.CommitChecked();
 
             var area = floor.get_Parameter(BuiltInParameter.HOST_AREA_COMPUTED)?.AsDouble() ?? 0;
 
             return new
             {
                 floor_id = floor.Id.Value,
+                floor_type = floorType.Name,
                 area_sf = area,
                 area_sm = UnitUtils.ConvertFromInternalUnits(area, UnitTypeId.SquareMeters),
                 level = levelName
@@ -501,7 +491,11 @@ public static class BridgeCommandFactory
 
         var boundaryPoints = ParsePointArray(payload.GetProperty("boundary_points"));
         var levelName = payload.GetProperty("level").GetString();
-        var roofTypeName = payload.TryGetProperty("roof_type", out var rt) ? rt.GetString() : null;
+        var roofTypeName = payload.TryGetProperty("roof_type", out var rt) && rt.ValueKind == JsonValueKind.String ? rt.GetString() : null;
+        // slope is rise over run (0.5 = 1:2). Omitted or 0 gives a flat roof.
+        var slope = payload.TryGetProperty("slope", out var sl) && sl.ValueKind == JsonValueKind.Number ? sl.GetDouble() : 0.0;
+        if (slope < 0)
+            throw new ArgumentException("slope must not be negative");
 
         using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Roof"))
         {
@@ -517,20 +511,29 @@ public static class BridgeCommandFactory
                 curveArray.Append(Line.CreateBound(start, end));
             }
 
-            RoofType roofType = null;
-            if (!string.IsNullOrEmpty(roofTypeName))
-            {
-                roofType = GetRoofTypeByName(doc, roofTypeName);
-            }
+            var roofType = !string.IsNullOrEmpty(roofTypeName)
+                ? GetRoofTypeByName(doc, roofTypeName)
+                : GetDefaultRoofType(doc);
 
             var modelCurveArray = new ModelCurveArray();
             var footprint = doc.Create.NewFootPrintRoof(curveArray, level, roofType, out modelCurveArray);
 
-            trans.Commit();
+            if (slope > 0)
+            {
+                foreach (ModelCurve modelCurve in modelCurveArray)
+                {
+                    footprint.set_DefinesSlope(modelCurve, true);
+                    footprint.set_SlopeAngle(modelCurve, slope);
+                }
+            }
+
+            trans.CommitChecked();
 
             return new
             {
                 roof_id = footprint.Id.Value,
+                roof_type = roofType.Name,
+                slope = slope,
                 level = levelName,
                 curve_count = curveArray.Size
             };
@@ -546,6 +549,7 @@ public static class BridgeCommandFactory
 
         var name = payload.GetProperty("name").GetString();
         var elevation = payload.GetProperty("elevation").GetDouble();
+        var createPlanView = !payload.TryGetProperty("create_plan_view", out var cpv) || cpv.ValueKind != JsonValueKind.False;
 
         using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Create Level"))
         {
@@ -554,7 +558,20 @@ public static class BridgeCommandFactory
             var level = Level.Create(doc, elevation);
             level.Name = name;
 
-            trans.Commit();
+            // A level without a plan view is invisible in the project browser; make the view in the same transaction.
+            ViewPlan planView = null;
+            if (createPlanView)
+            {
+                var planType = new FilteredElementCollector(doc)
+                    .OfClass(typeof(ViewFamilyType))
+                    .Cast<ViewFamilyType>()
+                    .FirstOrDefault(v => v.ViewFamily == ViewFamily.FloorPlan);
+                if (planType == null)
+                    throw new InvalidOperationException("No floor plan view type found; pass create_plan_view=false to create the level only");
+                planView = ViewPlan.Create(doc, planType.Id, level.Id);
+            }
+
+            trans.CommitChecked();
 
             return new
             {
@@ -562,7 +579,9 @@ public static class BridgeCommandFactory
                 name = level.Name,
                 elevation = level.Elevation,
                 elevation_ft = level.Elevation,
-                elevation_m = UnitUtils.ConvertFromInternalUnits(level.Elevation, UnitTypeId.Meters)
+                elevation_m = UnitUtils.ConvertFromInternalUnits(level.Elevation, UnitTypeId.Meters),
+                plan_view_id = planView?.Id.Value,
+                plan_view_name = planView?.Name
             };
         }
     }
@@ -590,7 +609,7 @@ public static class BridgeCommandFactory
                 grid.Name = name;
             }
 
-            trans.Commit();
+            trans.CommitChecked();
 
             return new
             {
@@ -631,7 +650,7 @@ public static class BridgeCommandFactory
                 room.Number = roomNumber;
             }
 
-            trans.Commit();
+            trans.CommitChecked();
 
             var area = room.Area;
             var volume = room.Volume;
@@ -690,7 +709,7 @@ public static class BridgeCommandFactory
             var id = new ElementId((long)elementId);
             var deletedIds = doc.Delete(id);
 
-            trans.Commit();
+            trans.CommitChecked();
 
             return new
             {
@@ -729,7 +748,7 @@ public static class BridgeCommandFactory
 
             var instance = doc.Create.NewFamilyInstance(location, familySymbol, level, Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
 
-            trans.Commit();
+            trans.CommitChecked();
 
             return new
             {
@@ -743,90 +762,269 @@ public static class BridgeCommandFactory
 
     [BridgeCommand("revit.place_door", IsMutating = true)]
     private static object ExecutePlaceDoor(UIApplication app, JsonElement payload)
-    {
-        var doc = app.ActiveUIDocument?.Document;
-        if (doc == null)
-            throw new InvalidOperationException("No active document");
-
-        var wallId = payload.GetProperty("wall_id").GetInt32();
-        var location = ParseXYZ(payload.GetProperty("location"));
-        var familyName = payload.TryGetProperty("family_name", out var fn) ? fn.GetString() : "Single-Flush";
-        var typeName = payload.TryGetProperty("type_name", out var tn) ? tn.GetString() : "0915 x 2134mm";
-
-        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Place Door"))
-        {
-            trans.Start();
-
-            var wall = doc.GetElement(new ElementId((long)wallId)) as Wall;
-            if (wall == null)
-                throw new ArgumentException($"Wall with ID {wallId} not found");
-
-            var familySymbol = GetFamilySymbolByName(doc, familyName, typeName);
-
-            if (!familySymbol.IsActive)
-            {
-                familySymbol.Activate();
-                doc.Regenerate();
-            }
-
-            var door = doc.Create.NewFamilyInstance(location, familySymbol, wall, Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
-
-            trans.Commit();
-
-            return new
-            {
-                door_id = door.Id.Value,
-                family = familyName,
-                type = typeName,
-                wall_id = wallId
-            };
-        }
-    }
+        => PlaceHostedOpening(app, payload, BuiltInCategory.OST_Doors, "Door", "Place Door");
 
     [BridgeCommand("revit.place_window", IsMutating = true)]
     private static object ExecutePlaceWindow(UIApplication app, JsonElement payload)
+        => PlaceHostedOpening(app, payload, BuiltInCategory.OST_Windows, "Window", "Place Window");
+
+    private const double OpeningFitToleranceFt = 0.005;   // about 1.5 mm
+    private const double FeetToMm = 304.8;
+    private const double CubicFeetToCubicMetres = 0.028316846592;
+
+    /// <summary>
+    /// Shared door/window placement. All checks that can refuse run before the transaction opens, so a
+    /// refusal never touches the model. One transaction per call; the host is re-verified before and after commit.
+    /// </summary>
+    private static object PlaceHostedOpening(UIApplication app, JsonElement payload,
+        BuiltInCategory category, string label, string transactionName)
     {
         var doc = app.ActiveUIDocument?.Document;
         if (doc == null)
             throw new InvalidOperationException("No active document");
 
-        var wallId = payload.GetProperty("wall_id").GetInt32();
+        var isWindow = category == BuiltInCategory.OST_Windows;
+        var wallId = payload.GetProperty("wall_id").GetInt64();
         var location = ParseXYZ(payload.GetProperty("location"));
-        var familyName = payload.TryGetProperty("family_name", out var fn) ? fn.GetString() : "Fixed";
-        var typeName = payload.TryGetProperty("type_name", out var tn) ? tn.GetString() : "1200 x 1500mm";
+        var wall = doc.GetElement(new ElementId(wallId)) as Wall;
+        if (wall == null)
+            throw new ArgumentException($"Wall with ID {wallId} not found");
 
-        using (var trans = BridgeCommandFactory.CreateTransaction(doc, "Place Window"))
+        var familyName = OptionalString(payload, "family_name");
+        var typeName = OptionalString(payload, "type_name");
+        var wantHandFlipped = OptionalBool(payload, "hand_flipped");
+        var wantFacingFlipped = OptionalBool(payload, "facing_flipped");
+
+        var symbol = ResolveOpeningSymbol(doc, category, label, familyName, typeName, out var symbolSource);
+        var level = GetPlacementLevel(doc, wall, location);
+        var fit = CheckOpeningFit(wall, wallId, symbol, label, location, level, isWindow);
+
+        var volumeBefore = WallVolumeCubicFeet(wall);
+        FamilyInstance instance;
+        using (var trans = BridgeCommandFactory.CreateTransaction(doc, transactionName))
         {
             trans.Start();
 
-            var wall = doc.GetElement(new ElementId((long)wallId)) as Wall;
-            if (wall == null)
-                throw new ArgumentException($"Wall with ID {wallId} not found");
-
-            var familySymbol = GetFamilySymbolByName(doc, familyName, typeName);
-
-            if (!familySymbol.IsActive)
+            if (!symbol.IsActive)
             {
-                familySymbol.Activate();
+                symbol.Activate();
                 doc.Regenerate();
             }
 
-            var level = GetPlacementLevel(doc, wall, location);
-            var window = doc.Create.NewFamilyInstance(location, familySymbol, wall, level, Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
-            SetWindowSillHeight(window, location, level);
+            instance = isWindow
+                ? doc.Create.NewFamilyInstance(location, symbol, wall, level, StructuralType.NonStructural)
+                : doc.Create.NewFamilyInstance(location, symbol, wall, StructuralType.NonStructural);
+            if (isWindow)
+                SetWindowSillHeight(instance, location, level);
 
-            trans.Commit();
+            ApplyFlip(instance, wantHandFlipped, instance.CanFlipHand, instance.HandFlipped,
+                () => instance.flipHand(), "hand_flipped", label, wallId);
+            ApplyFlip(instance, wantFacingFlipped, instance.CanFlipFacing, instance.FacingFlipped,
+                () => instance.flipFacing(), "facing_flipped", label, wallId);
 
-            return new
-            {
-                window_id = window.Id.Value,
-                family = familyName,
-                type = typeName,
-                wall_id = wallId,
-                level = level.Name,
-                sill_height = location.Z - level.Elevation
-            };
+            doc.Regenerate();
+            VerifyOpeningHost(doc, instance.Id, wallId, label, committed: false);
+
+            trans.CommitChecked();
         }
+
+        var placed = VerifyOpeningHost(doc, instance.Id, wallId, label, committed: true);
+        var volumeAfter = WallVolumeCubicFeet(wall);
+        double? volumeDeltaM3 = volumeBefore.HasValue && volumeAfter.HasValue
+            ? Math.Round((volumeAfter.Value - volumeBefore.Value) * CubicFeetToCubicMetres, 6)
+            : (double?)null;
+
+        var result = new Dictionary<string, object?>
+        {
+            [isWindow ? "window_id" : "door_id"] = placed.Id.Value,
+            ["family"] = symbol.Family.Name,
+            ["type"] = symbol.Name,
+            ["symbol_source"] = symbolSource,
+            ["wall_id"] = wallId,
+            ["host_wall_id"] = placed.Host?.Id.Value,
+            ["level"] = level.Name,
+            ["hand_flipped"] = placed.HandFlipped,
+            ["facing_flipped"] = placed.FacingFlipped,
+            ["fit_check"] = fit,
+            ["volume_delta_m3"] = volumeDeltaM3
+        };
+        if (isWindow)
+            result["sill_height"] = location.Z - level.Elevation;
+        return result;
+    }
+
+    private static string? OptionalString(JsonElement payload, string name)
+        => PayloadJson.OptionalString(payload, name);
+
+    private static bool? OptionalBool(JsonElement payload, string name)
+        => PayloadJson.OptionalBool(payload, name);
+
+    /// <summary>Exact family+type when both are given; otherwise the first loaded symbol of the category (reported).</summary>
+    private static FamilySymbol ResolveOpeningSymbol(Document doc, BuiltInCategory category, string label,
+        string? familyName, string? typeName, out string source)
+    {
+        var symbols = new FilteredElementCollector(doc)
+            .OfCategory(category)
+            .OfClass(typeof(FamilySymbol))
+            .Cast<FamilySymbol>()
+            .OrderBy(s => s.Family.Name, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (symbols.Count == 0)
+            throw new InvalidOperationException(
+                $"No {label.ToLowerInvariant()} family type is loaded in this project. Load a {label.ToLowerInvariant()} family first.");
+
+        var candidates = symbols
+            .Where(s => familyName == null || s.Family.Name.Equals(familyName, StringComparison.OrdinalIgnoreCase))
+            .Where(s => typeName == null || s.Name.Equals(typeName, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (candidates.Count == 0)
+        {
+            var sample = string.Join("; ", symbols.Take(8).Select(s => $"{s.Family.Name}: {s.Name}"));
+            throw new ArgumentException(
+                $"No loaded {label.ToLowerInvariant()} type matches family '{familyName ?? "(any)"}' / type '{typeName ?? "(any)"}'. " +
+                $"Available ({symbols.Count}): {sample}");
+        }
+
+        source = familyName != null && typeName != null ? "requested" : "first_available";
+        return candidates[0];
+    }
+
+    private static double? ReadSymbolLength(FamilySymbol symbol, BuiltInParameter builtIn, params string[] names)
+    {
+        var p = symbol.get_Parameter(builtIn);
+        if (p != null && p.HasValue && p.StorageType == StorageType.Double && p.AsDouble() > 0)
+            return p.AsDouble();
+        foreach (var name in names)
+        {
+            p = symbol.LookupParameter(name);
+            if (p != null && p.HasValue && p.StorageType == StorageType.Double && p.AsDouble() > 0)
+                return p.AsDouble();
+        }
+        return null;
+    }
+
+    /// <summary>Refuses with the wall id and the numbers when the opening cannot fit; returns the numbers on success.</summary>
+    private static object CheckOpeningFit(Wall wall, long wallId, FamilySymbol symbol, string label,
+        XYZ location, Level level, bool isWindow)
+    {
+        var width = isWindow
+            ? ReadSymbolLength(symbol, BuiltInParameter.WINDOW_WIDTH, "Width", "Rough Width")
+            : ReadSymbolLength(symbol, BuiltInParameter.DOOR_WIDTH, "Width", "Rough Width");
+        var height = isWindow
+            ? ReadSymbolLength(symbol, BuiltInParameter.WINDOW_HEIGHT, "Height", "Rough Height")
+            : ReadSymbolLength(symbol, BuiltInParameter.DOOR_HEIGHT, "Height", "Rough Height");
+
+        var who = $"{label} '{symbol.Family.Name}: {symbol.Name}' in wall {wallId}";
+        var notes = new List<string>();
+        double? wallLength = null, distAlong = null, wallBottom = null, wallTop = null;
+
+        if (wall.Location is LocationCurve lc && lc.Curve != null && lc.Curve.IsBound)
+        {
+            var curve = lc.Curve;
+            // Distance from the wall is measured in plan: a window or door sits above the wall's base line.
+            var flat = new XYZ(location.X, location.Y, curve.GetEndPoint(0).Z);
+            var proj = curve.Project(flat);
+            if (proj != null)
+            {
+                wallLength = curve.Length;
+                distAlong = curve.ComputeNormalizedParameter(proj.Parameter) * curve.Length;
+                var offWall = proj.Distance;
+                if (offWall > wall.Width + 0.5)
+                    throw new ArgumentException(
+                        $"{who}: location is {offWall * FeetToMm:0} mm from the wall line (wall thickness {wall.Width * FeetToMm:0} mm). " +
+                        "Pick a point on the wall.");
+            }
+        }
+        else
+        {
+            notes.Add("wall has no bounded location curve; width check skipped");
+        }
+
+        var bb = wall.get_BoundingBox(null);
+        if (bb != null)
+        {
+            wallBottom = bb.Min.Z;
+            wallTop = bb.Max.Z;
+        }
+        else
+        {
+            notes.Add("wall has no bounding box; height check skipped");
+        }
+
+        // Windows are placed with location.Z as the sill; doors sit at the placement level.
+        var sillZ = isWindow ? location.Z : level.Elevation;
+        double? headZ = height.HasValue ? sillZ + height.Value : (double?)null;
+
+        if (width.HasValue && wallLength.HasValue && distAlong.HasValue)
+        {
+            var from = distAlong.Value - width.Value / 2;
+            var to = distAlong.Value + width.Value / 2;
+            if (from < -OpeningFitToleranceFt || to > wallLength.Value + OpeningFitToleranceFt)
+                throw new ArgumentException(
+                    $"{who} does not fit: opening width {width.Value * FeetToMm:0} mm centred {distAlong.Value * FeetToMm:0} mm along a wall " +
+                    $"{wallLength.Value * FeetToMm:0} mm long would span {from * FeetToMm:0} to {to * FeetToMm:0} mm. " +
+                    "Move the location inboard or use a narrower type.");
+        }
+        else if (!width.HasValue)
+        {
+            notes.Add("type has no readable width parameter; width check skipped");
+        }
+
+        if (height.HasValue && wallBottom.HasValue && wallTop.HasValue)
+        {
+            if (sillZ < wallBottom.Value - OpeningFitToleranceFt || headZ!.Value > wallTop.Value + OpeningFitToleranceFt)
+                throw new ArgumentException(
+                    $"{who} does not fit vertically: sill at {sillZ * FeetToMm:0} mm and head at {headZ!.Value * FeetToMm:0} mm " +
+                    $"(opening height {height.Value * FeetToMm:0} mm) against wall extent {wallBottom.Value * FeetToMm:0} to {wallTop.Value * FeetToMm:0} mm (project Z).");
+        }
+        else if (!height.HasValue)
+        {
+            notes.Add("type has no readable height parameter; height check skipped");
+        }
+
+        return new
+        {
+            checked_width = width.HasValue && wallLength.HasValue,
+            checked_height = height.HasValue && wallBottom.HasValue,
+            opening_width_mm = width.HasValue ? Math.Round(width.Value * FeetToMm, 1) : (double?)null,
+            opening_height_mm = height.HasValue ? Math.Round(height.Value * FeetToMm, 1) : (double?)null,
+            wall_length_mm = wallLength.HasValue ? Math.Round(wallLength.Value * FeetToMm, 1) : (double?)null,
+            distance_along_wall_mm = distAlong.HasValue ? Math.Round(distAlong.Value * FeetToMm, 1) : (double?)null,
+            wall_z_min_mm = wallBottom.HasValue ? Math.Round(wallBottom.Value * FeetToMm, 1) : (double?)null,
+            wall_z_max_mm = wallTop.HasValue ? Math.Round(wallTop.Value * FeetToMm, 1) : (double?)null,
+            notes
+        };
+    }
+
+    private static void ApplyFlip(FamilyInstance instance, bool? wanted, bool canFlip, bool current,
+        Action flip, string name, string label, long wallId)
+    {
+        if (!wanted.HasValue || wanted.Value == current) return;
+        if (!canFlip)
+            throw new InvalidOperationException(
+                $"{label} {instance.Id.Value} in wall {wallId} cannot be flipped ({name} was requested but this family does not support it).");
+        flip();
+    }
+
+    private static FamilyInstance VerifyOpeningHost(Document doc, ElementId id, long wallId, string label, bool committed)
+    {
+        var placed = doc.GetElement(id) as FamilyInstance;
+        var phase = committed ? "after commit" : "before commit";
+        if (placed == null)
+            throw new InvalidOperationException($"{label} {id.Value} does not exist {phase}; placement into wall {wallId} failed.");
+        if (placed.Host == null || placed.Host.Id.Value != wallId)
+            throw new InvalidOperationException(
+                $"{label} {id.Value} {phase} is hosted by {(placed.Host == null ? "nothing" : placed.Host.Id.Value.ToString())}, not wall {wallId}.");
+        return placed;
+    }
+
+    private static double? WallVolumeCubicFeet(Wall wall)
+    {
+        var p = wall.get_Parameter(BuiltInParameter.HOST_VOLUME_COMPUTED);
+        return p != null && p.HasValue ? p.AsDouble() : (double?)null;
     }
 
     [BridgeCommand("revit.list_families", IsMutating = false)]
@@ -885,7 +1083,7 @@ public static class BridgeCommandFactory
                 view.Name = viewName;
             }
 
-            trans.Commit();
+            trans.CommitChecked();
 
             return new
             {
@@ -914,7 +1112,7 @@ public static class BridgeCommandFactory
             var view3d = View3D.CreateIsometric(doc, viewFamilyType.Id);
             view3d.Name = viewName;
 
-            trans.Commit();
+            trans.CommitChecked();
 
             return new
             {
@@ -960,7 +1158,7 @@ public static class BridgeCommandFactory
             var section = ViewSection.CreateSection(doc, viewFamilyType.Id, bbox);
             section.Name = viewName;
 
-            trans.Commit();
+            trans.CommitChecked();
 
             return new
             {
@@ -1075,6 +1273,50 @@ public static class BridgeCommandFactory
         return roofType;
     }
 
+    private static WallType GetDefaultWallType(Document doc)
+    {
+        if (doc.GetElement(doc.GetDefaultElementTypeId(ElementTypeGroup.WallType)) is WallType preferred
+            && preferred.Kind == WallKind.Basic)
+            return preferred;
+
+        var basic = new FilteredElementCollector(doc)
+            .OfClass(typeof(WallType))
+            .Cast<WallType>()
+            .Where(wt => wt.Kind == WallKind.Basic)
+            .OrderBy(wt => wt.Name)
+            .FirstOrDefault();
+        return basic ?? throw new InvalidOperationException("No basic wall types found in document; pass wall_type");
+    }
+
+    private static FloorType GetDefaultFloorType(Document doc)
+    {
+        // Foundation slabs are floor types too and must not be the silent default for a storey floor.
+        if (doc.GetElement(doc.GetDefaultElementTypeId(ElementTypeGroup.FloorType)) is FloorType preferred
+            && !preferred.IsFoundationSlab)
+            return preferred;
+
+        var floorType = new FilteredElementCollector(doc)
+            .OfClass(typeof(FloorType))
+            .Cast<FloorType>()
+            .Where(ft => !ft.IsFoundationSlab)
+            .OrderBy(ft => ft.Name)
+            .FirstOrDefault();
+        return floorType ?? throw new InvalidOperationException("No non-foundation floor types found in document; pass floor_type");
+    }
+
+    private static RoofType GetDefaultRoofType(Document doc)
+    {
+        if (doc.GetElement(doc.GetDefaultElementTypeId(ElementTypeGroup.RoofType)) is RoofType preferred)
+            return preferred;
+
+        var roofType = new FilteredElementCollector(doc)
+            .OfClass(typeof(RoofType))
+            .Cast<RoofType>()
+            .OrderBy(rt => rt.Name)
+            .FirstOrDefault();
+        return roofType ?? throw new InvalidOperationException("No roof types found in document; pass roof_type");
+    }
+
     private static Category GetCategoryByName(Document doc, string name)
     {
         var category = doc.Settings.Categories.Cast<Category>()
@@ -1152,7 +1394,8 @@ public static class BridgeCommandFactory
                 storage_type = p.StorageType.ToString(),
                 is_read_only = p.IsReadOnly,
                 is_shared = p.IsShared,
-                guid = p.GUID.ToString()
+                // Revit throws when GUID is read from a non-shared parameter.
+                guid = p.IsShared ? p.GUID.ToString() : null
             })
             .ToList();
 
@@ -1194,7 +1437,7 @@ public static class BridgeCommandFactory
 
             SetParameterValue(parameter, value);
 
-            trans.Commit();
+            trans.CommitChecked();
 
             return new
             {
@@ -1379,7 +1622,7 @@ public static class BridgeCommandFactory
                 }
             }
 
-            trans.Commit();
+            trans.CommitChecked();
         }
 
         return new
@@ -1459,7 +1702,7 @@ public static class BridgeCommandFactory
 
             SetParameterValue(parameter, value);
 
-            trans.Commit();
+            trans.CommitChecked();
 
             return new
             {
@@ -1627,7 +1870,7 @@ public static class BridgeCommandFactory
             sheet.SheetNumber = sheetNumber;
             sheet.Name = sheetName;
 
-            trans.Commit();
+            trans.CommitChecked();
 
             return new
             {
@@ -1662,7 +1905,7 @@ public static class BridgeCommandFactory
 
             doc.Delete(new ElementId((long)sheetId));
 
-            trans.Commit();
+            trans.CommitChecked();
 
             return new
             {
@@ -1706,7 +1949,7 @@ public static class BridgeCommandFactory
             {
                 var viewport = Viewport.Create(doc, sheet.Id, view.Id, location);
 
-                trans.Commit();
+                trans.CommitChecked();
 
                 return new
                 {
@@ -1794,7 +2037,7 @@ public static class BridgeCommandFactory
                 }
             }
 
-            trans.Commit();
+            trans.CommitChecked();
         }
 
         return new
@@ -1849,7 +2092,7 @@ public static class BridgeCommandFactory
                 }
             }
 
-            trans.Commit();
+            trans.CommitChecked();
 
             return new
             {
@@ -1915,15 +2158,23 @@ public static class BridgeCommandFactory
             })
             .ToList();
 
-        var parameters = sheet.Parameters
-            .Cast<Parameter>()
-            .Where(p => p.HasValue)
-            .Select(p => new
+        // A sheet can carry two parameters with the same name (built-in "Category" and a shared one),
+        // so a plain ToDictionary threw "An item with the same key has already been added".
+        var parameters = new Dictionary<string, string?>();
+        foreach (Parameter p in sheet.Parameters)
+        {
+            if (!p.HasValue) continue;
+            var name = p.Definition.Name;
+            var value = GetParameterValueAsString(p);
+            if (parameters.TryGetValue(name, out var existing))
             {
-                name = p.Definition.Name,
-                value = GetParameterValueAsString(p)
-            })
-            .ToDictionary(p => p.name, p => p.value);
+                if (existing == value) continue;
+                var n = 2;
+                while (parameters.ContainsKey($"{name} ({n})")) n++;
+                name = $"{name} ({n})";
+            }
+            parameters[name] = value;
+        }
 
         return new
         {
@@ -2028,7 +2279,7 @@ public static class BridgeCommandFactory
                 }
             }
 
-            trans.Commit();
+            trans.CommitChecked();
 
             return new
             {
@@ -2098,7 +2349,7 @@ public static class BridgeCommandFactory
                 }
             }
 
-            trans.Commit();
+            trans.CommitChecked();
         }
 
         return new
@@ -2179,7 +2430,7 @@ public static class BridgeCommandFactory
                 }
             }
 
-            trans.Commit();
+            trans.CommitChecked();
         }
 
         return new
@@ -2229,7 +2480,7 @@ public static class BridgeCommandFactory
                 options
             );
 
-            trans.Commit();
+            trans.CommitChecked();
 
             return new
             {
@@ -2300,7 +2551,7 @@ public static class BridgeCommandFactory
                 exportError = ex.Message;
             }
 
-            trans.Commit();
+            trans.CommitChecked();
 
             return new
             {
@@ -2326,33 +2577,57 @@ public static class BridgeCommandFactory
 
         var viewId = payload.GetProperty("view_id").GetInt32();
         var outputPath = payload.GetProperty("output_path").GetString();
+        if (string.IsNullOrWhiteSpace(outputPath))
+            throw new ArgumentException("output_path must name an image file");
+
+        outputPath = System.IO.Path.GetFullPath(outputPath);
         var imageFormat = payload.TryGetProperty("format", out var fmt)
-            ? fmt.GetString()
-            : "PNG";
+            ? fmt.GetString()?.ToUpperInvariant()
+            : System.IO.Path.GetExtension(outputPath).TrimStart('.').ToUpperInvariant();
         var resolution = payload.TryGetProperty("resolution", out var res)
             ? res.GetInt32()
             : 150;
+        var hasWidth = payload.TryGetProperty("width", out var width) && width.ValueKind == JsonValueKind.Number;
+        var hasHeight = payload.TryGetProperty("height", out var height) && height.ValueKind == JsonValueKind.Number;
+        var pixelSize = hasWidth ? width.GetInt32() : hasHeight ? height.GetInt32() : resolution;
+
+        var fileType = imageFormat switch
+        {
+            "JPG" or "JPEG" => ImageFileType.JPEGLossless,
+            "BMP" => ImageFileType.BMP,
+            "TIF" or "TIFF" => ImageFileType.TIFF,
+            _ => ImageFileType.PNG
+        };
+        imageFormat = fileType == ImageFileType.PNG ? "PNG" : imageFormat;
 
         var view = doc.GetElement(new ElementId((long)viewId)) as View;
         if (view == null)
             throw new ArgumentException($"View with ID {viewId} not found");
 
+        var outputDirectory = System.IO.Path.GetDirectoryName(outputPath)!;
+        var filePrefix = System.IO.Path.GetFileNameWithoutExtension(outputPath);
+        if (string.IsNullOrWhiteSpace(filePrefix))
+            throw new ArgumentException("output_path must name an image file");
+        System.IO.Directory.CreateDirectory(outputDirectory);
+
+        // SetOfViews appends Revit's view name to this file prefix. Track changed
+        // artifacts so an old export cannot make a failed export look successful.
+        var existingFiles = System.IO.Directory.EnumerateFiles(outputDirectory, filePrefix + "*")
+            .ToDictionary(path => path, path =>
+            {
+                var file = new System.IO.FileInfo(path);
+                return (file.Length, file.LastWriteTimeUtc);
+            }, StringComparer.OrdinalIgnoreCase);
+
         var options = new ImageExportOptions
         {
             ZoomType = ZoomFitType.FitToPage,
-            PixelSize = resolution,
+            PixelSize = pixelSize,
             ImageResolution = ImageResolution.DPI_150,
-            FilePath = System.IO.Path.GetDirectoryName(outputPath),
-            FitDirection = FitDirectionType.Horizontal,
-            HLRandWFViewsFileType = imageFormat switch
-            {
-                "PNG" => ImageFileType.PNG,
-                "JPG" => ImageFileType.JPEGLossless,
-                "JPEG" => ImageFileType.JPEGLossless,
-                "BMP" => ImageFileType.BMP,
-                "TIFF" => ImageFileType.TIFF,
-                _ => ImageFileType.PNG
-            },
+            FilePath = System.IO.Path.Combine(outputDirectory, filePrefix),
+            FitDirection = hasHeight && !hasWidth ? FitDirectionType.Vertical : FitDirectionType.Horizontal,
+            HLRandWFViewsFileType = fileType,
+            ShadowViewsFileType = fileType,
             ExportRange = ExportRange.SetOfViews
         };
 
@@ -2364,22 +2639,37 @@ public static class BridgeCommandFactory
 
             doc.ExportImage(options);
 
-            trans.Commit();
+            trans.CommitChecked();
 
-            var expectedFile = System.IO.Path.Combine(
-                System.IO.Path.GetDirectoryName(outputPath),
-                $"{SanitizeFileName(view.Name)}.{imageFormat.ToLower()}"
-            );
+            var exportedFiles = System.IO.Directory.EnumerateFiles(outputDirectory, filePrefix + "*")
+                .Select(path => new System.IO.FileInfo(path))
+                .Where(file => file.Length > 0 &&
+                    new[] { ".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff" }
+                        .Contains(file.Extension, StringComparer.OrdinalIgnoreCase) &&
+                    (!existingFiles.TryGetValue(file.FullName, out var previous) ||
+                     previous.Length != file.Length || previous.LastWriteTimeUtc != file.LastWriteTimeUtc))
+                .OrderBy(file => file.FullName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            var actualFile = exportedFiles.FirstOrDefault()?.FullName;
+            var exportSucceeded = exportedFiles.Count > 0;
 
             return new
             {
                 view_id = viewId,
                 view_name = view.Name,
-                expected_file_path = expectedFile,
+                requested_file_path = outputPath,
+                expected_file_path = actualFile,
+                file_path = actualFile,
+                file_paths = exportedFiles.Select(file => file.FullName).ToArray(),
+                // Size of the file named in file_path; total_size_bytes covers every file Revit wrote.
+                file_size_bytes = exportedFiles.FirstOrDefault()?.Length ?? 0L,
+                total_size_bytes = exportedFiles.Sum(file => file.Length),
                 format = imageFormat,
-                resolution_dpi = resolution,
-                file_exists = System.IO.File.Exists(expectedFile),
-                status = "success"
+                resolution_dpi = 150,
+                pixel_size = pixelSize,
+                file_exists = exportSucceeded,
+                status = exportSucceeded ? "success" : "error",
+                error = exportSucceeded ? null : "Revit did not produce a new or updated image file."
             };
         }
     }
@@ -2430,7 +2720,7 @@ public static class BridgeCommandFactory
             renderOptions.SetViewsAndSheets(new List<ElementId> { view.Id });
             doc.ExportImage(renderOptions);
 
-            trans.Commit();
+            trans.CommitChecked();
 
             return new
             {
@@ -2503,6 +2793,97 @@ public static class BridgeCommandFactory
         return new { selected_count = ids.Count, not_found_count = requestedUids.Count - ids.Count };
     }
 
+    // Preview in model (UNVERIFIED: not compiled or run in live Revit by the author).
+    // Read-only by design: selects + zooms, and optionally applies Revit's TEMPORARY
+    // hide/isolate view mode, which is never saved with the model. Persistent graphic
+    // overrides (View.SetElementOverrides) are deliberately NOT used because they
+    // would be stored in the document. Reverted by revit.clear_preview.
+    [BridgeCommand("revit.preview_elements", IsMutating = false)]
+    private static object ExecutePreviewElements(UIApplication app, JsonElement payload)
+    {
+        var uidoc = app.ActiveUIDocument;
+        if (uidoc == null) throw new InvalidOperationException("No active UIDocument");
+
+        var doc = uidoc.Document;
+        var view = uidoc.ActiveView;
+        var ids = new List<ElementId>();
+        var requested = 0;
+
+        if (payload.TryGetProperty("element_uids", out var uidsProp) && uidsProp.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var x in uidsProp.EnumerateArray())
+            {
+                requested++;
+                var element = doc.GetElement(x.GetString());
+                if (element != null) ids.Add(element.Id);
+            }
+        }
+
+        if (payload.TryGetProperty("element_ids", out var idsProp) && idsProp.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var x in idsProp.EnumerateArray())
+            {
+                requested++;
+                var element = doc.GetElement(new ElementId(x.GetInt64()));
+                if (element != null) ids.Add(element.Id);
+            }
+        }
+
+        // Every proposal replaces the previous preview, including an empty or
+        // stale proposal and requests that turn isolation off.
+        ExecuteClearPreview(app);
+        if (ids.Count == 0)
+        {
+            return new { previewed_count = 0, not_found_count = requested, isolated = false };
+        }
+
+        var isolate = !payload.TryGetProperty("isolate", out var isolateProp) || isolateProp.ValueKind != JsonValueKind.False;
+
+        uidoc.Selection.SetElementIds(ids);
+        uidoc.ShowElements(ids);
+        // ShowElements may activate another view (for example from a sheet).
+        view = uidoc.ActiveView;
+
+        var isolated = false;
+        if (isolate && view.CanUseTemporaryVisibilityModes())
+        {
+            using (var tx = BridgeCommandFactory.CreateTransaction(doc, "Preview elements (temporary isolate)"))
+            {
+                tx.Start();
+                view.IsolateElementsTemporary(ids);
+                tx.CommitChecked();
+            }
+            isolated = true;
+        }
+
+        return new { previewed_count = ids.Count, not_found_count = requested - ids.Count, isolated };
+    }
+
+    [BridgeCommand("revit.clear_preview", IsMutating = false)]
+    private static object ExecuteClearPreview(UIApplication app)
+    {
+        var uidoc = app.ActiveUIDocument;
+        if (uidoc == null) throw new InvalidOperationException("No active UIDocument");
+
+        var doc = uidoc.Document;
+        var view = uidoc.ActiveView;
+        var restored = false;
+
+        if (view.IsInTemporaryViewMode(TemporaryViewMode.TemporaryHideIsolate))
+        {
+            using (var tx = BridgeCommandFactory.CreateTransaction(doc, "Clear preview (end temporary isolate)"))
+            {
+                tx.Start();
+                view.DisableTemporaryViewMode(TemporaryViewMode.TemporaryHideIsolate);
+                tx.CommitChecked();
+            }
+            restored = true;
+        }
+
+        uidoc.Selection.SetElementIds(new List<ElementId>());
+        return new { cleared = true, temporary_isolate_ended = restored };
+    }
+
     [BridgeCommand("revit.create_text_note", IsMutating = true)]
     private static object ExecuteCreateTextNote(UIApplication app, JsonElement payload)
     {
@@ -2518,7 +2899,7 @@ public static class BridgeCommandFactory
             trans.Start();
             var view = doc.GetElement(new ElementId((long)viewId)) as View;
             var note = TextNote.Create(doc, view.Id, location, text, new ElementId(BuiltInParameter.TEXT_SIZE)); // Using default type logic simplifiction
-            trans.Commit();
+            trans.CommitChecked();
 
             return new { text_note_id = note.Id.Value, text = note.Text, view_id = view.Id.Value };
         }
@@ -2543,7 +2924,7 @@ public static class BridgeCommandFactory
             var element = doc.GetElement(new ElementId((long)elementId));
             if (element == null) throw new ArgumentException($"Element {elementId} not found");
             var tag = IndependentTag.Create(doc, view.Id, new Reference(element), false, TagMode.TM_ADDBY_CATEGORY, TagOrientation.Horizontal, location);
-            trans.Commit();
+            trans.CommitChecked();
             return new { tag_id = tag.Id.Value, tagged_element_id = elementId };
         }
     }
@@ -2569,7 +2950,7 @@ public static class BridgeCommandFactory
              if(!symbol.IsActive) { symbol.Activate(); doc.Regenerate(); }
              
              var instance = doc.Create.NewFamilyInstance(location, symbol, level, StructuralType.Column);
-             trans.Commit();
+             trans.CommitChecked();
              
              return new { column_id = instance.Id.Value, family = familyName, type = typeName };
         }
@@ -2596,7 +2977,7 @@ public static class BridgeCommandFactory
              
              var line = Line.CreateBound(start, end);
              var instance = doc.Create.NewFamilyInstance(line, symbol, level, StructuralType.Beam);
-             trans.Commit();
+             trans.CommitChecked();
              
              return new { beam_id = instance.Id.Value, family = familyName, type = typeName, length = line.Length };
         }
@@ -2621,7 +3002,7 @@ public static class BridgeCommandFactory
              if(!symbol.IsActive) { symbol.Activate(); doc.Regenerate(); }
              
              var instance = doc.Create.NewFamilyInstance(location, symbol, level, StructuralType.Footing);
-             trans.Commit();
+             trans.CommitChecked();
              
              return new { foundation_id = instance.Id.Value, family = familyName, type = typeName };
         }
@@ -2662,7 +3043,7 @@ public static class BridgeCommandFactory
              if (ductType == null) throw new ArgumentException("No Duct Type found");
 
              var duct = Duct.Create(doc, mechanicalSystemType.Id, ductType.Id, level.Id, start, end);
-             trans.Commit();
+             trans.CommitChecked();
              
              return new { duct_id = duct.Id.Value, system_type = mechanicalSystemType.Name, duct_type = ductType.Name };
         }
@@ -2699,7 +3080,7 @@ public static class BridgeCommandFactory
              if (pipeType == null) throw new ArgumentException("No Pipe Type found");
 
              var pipe = Pipe.Create(doc, pipingSystemType.Id, pipeType.Id, level.Id, start, end);
-             trans.Commit();
+             trans.CommitChecked();
              
              return new { pipe_id = pipe.Id.Value, system_type = pipingSystemType.Name, pipe_type = pipeType.Name };
         }
@@ -2769,7 +3150,7 @@ public static class BridgeCommandFactory
         {
             trans.Start();
             ElementTransformUtils.MoveElement(doc, elementId, vector);
-            trans.Commit();
+            trans.CommitChecked();
             return new { status = "success", moved_element_id = elementId.Value };
         }
     }
@@ -2787,7 +3168,7 @@ public static class BridgeCommandFactory
         {
             trans.Start();
             var newIds = ElementTransformUtils.CopyElement(doc, elementId, vector);
-            trans.Commit();
+            trans.CommitChecked();
             return new { status = "success", original_id = elementId.Value, new_element_ids = newIds.Select(id => id.Value).ToList() };
         }
     }
@@ -2807,7 +3188,7 @@ public static class BridgeCommandFactory
             trans.Start();
             var axis = Line.CreateBound(axisPoint, axisPoint + XYZ.BasisZ); // Default to Z-axis rotation for now
             ElementTransformUtils.RotateElement(doc, elementId, axis, angleRadians);
-            trans.Commit();
+            trans.CommitChecked();
             return new { status = "success", element_id = elementId.Value, angle = angleRadians };
         }
     }
@@ -2831,7 +3212,7 @@ public static class BridgeCommandFactory
              trans.Start();
              var plane = Plane.CreateByNormalAndOrigin(planeNormal, planeOrigin);
              ElementTransformUtils.MirrorElement(doc, elementId, plane);
-             trans.Commit();
+             trans.CommitChecked();
              return new { status = "success", element_id = elementId.Value };
         }
     }
@@ -2849,7 +3230,7 @@ public static class BridgeCommandFactory
              trans.Start();
              var el = doc.GetElement(elementId);
              if(el != null) el.Pinned = true;
-             trans.Commit();
+             trans.CommitChecked();
              return new { status = "success", element_id = elementId.Value, pinned = true };
         }
     }
@@ -2867,7 +3248,7 @@ public static class BridgeCommandFactory
              trans.Start();
              var el = doc.GetElement(elementId);
              if(el != null) el.Pinned = false;
-             trans.Commit();
+             trans.CommitChecked();
              return new { status = "success", element_id = elementId.Value, pinned = false };
         }
     }
@@ -2954,7 +3335,7 @@ public static class BridgeCommandFactory
              trans.Start();
              var schedule = ViewSchedule.CreateSchedule(doc, category.Id);
              schedule.Name = name;
-             trans.Commit();
+             trans.CommitChecked();
              
              return new { schedule_id = schedule.Id.Value, name = schedule.Name };
         }
@@ -3076,7 +3457,7 @@ public static class BridgeCommandFactory
              {
                  group.GroupType.Name = name;
              }
-             trans.Commit();
+             trans.CommitChecked();
              
              return new { group_id = group.Id.Value, name = group.GroupType.Name };
         }
@@ -3097,7 +3478,7 @@ public static class BridgeCommandFactory
              if (group == null) throw new ArgumentException("Group not found");
              
              var memberIds = group.UngroupMembers().Select(id => id.Value).ToList();
-             trans.Commit();
+             trans.CommitChecked();
              
              return new { status = "success", ungrouped_count = memberIds.Count, member_ids = memberIds };
         }
@@ -3228,7 +3609,7 @@ public static class BridgeCommandFactory
                 diameterParam.Set(diameter);
             }
 
-            trans.Commit();
+            trans.CommitChecked();
 
             var length = startPoint.DistanceTo(endPoint);
 
@@ -3263,62 +3644,83 @@ public static class BridgeCommandFactory
 
         var category1Name = payload.GetProperty("category1").GetString();
         var category2Name = payload.GetProperty("category2").GetString();
-        var tolerance = payload.TryGetProperty("tolerance", out var tol) ? tol.GetDouble() : 0.01; // Default 0.01 ft
+        var tolerance = payload.TryGetProperty("tolerance", out var tol) && tol.ValueKind == JsonValueKind.Number
+            ? tol.GetDouble() : 0.01; // Default 0.01 ft
+        // Budgets keep a big model from holding the Revit UI thread; the bridge itself waits only 30 s.
+        var maxPairs = payload.TryGetProperty("max_pairs", out var mp) && mp.ValueKind == JsonValueKind.Number
+            ? Math.Max(1L, Math.Min(mp.GetInt64(), 100000000L)) : 200_000L;
+        var timeBudgetS = payload.TryGetProperty("time_budget_s", out var tb) && tb.ValueKind == JsonValueKind.Number
+            ? Math.Max(0.5, Math.Min(tb.GetDouble(), 25.0)) : 20.0;
+        var clock = System.Diagnostics.Stopwatch.StartNew();
 
         // Get built-in categories
         var cat1 = GetBuiltInCategoryByName(category1Name);
         var cat2 = GetBuiltInCategoryByName(category2Name);
+        var sameCategory = cat1 == cat2;
 
-        // Collect elements from both categories
-        var elements1 = new FilteredElementCollector(doc)
-            .OfCategory(cat1)
-            .WhereElementIsNotElementType()
-            .ToList();
-
-        var elements2 = new FilteredElementCollector(doc)
-            .OfCategory(cat2)
-            .WhereElementIsNotElementType()
-            .ToList();
+        // Cache each element's bounding box once, outside the pair loop (elements without one cannot clash).
+        var list1 = CollectClashCandidates(doc, cat1);
+        var list2 = sameCategory ? list1 : CollectClashCandidates(doc, cat2);
+        // Sorted by MinX so a sweep over list2 can stop as soon as MinX passes the expanded box.
+        var sorted2 = list2.OrderBy(c => c.MinX).ToArray();
 
         var clashes = new List<object>();
-
-        // Check for clashes using bounding box intersection
-        foreach (var elem1 in elements1)
+        var nameCache = new Dictionary<long, (string? Name, string? Category)>();
+        (string? Name, string? Category) Describe(Element e)
         {
-            var bb1 = elem1.get_BoundingBox(null);
-            if (bb1 == null) continue;
-
-            foreach (var elem2 in elements2)
+            if (!nameCache.TryGetValue(e.Id.Value, out var info))
             {
-                if (elem1.Id == elem2.Id) continue;
+                info = (e.Name, e.Category?.Name);
+                nameCache[e.Id.Value] = info;
+            }
+            return info;
+        }
 
-                var bb2 = elem2.get_BoundingBox(null);
-                if (bb2 == null) continue;
+        long pairsExamined = 0;
+        int firstChecked = 0;
+        string? truncatedReason = null;
 
-                // Expand bounding boxes by tolerance
-                var expandedBB1 = new BoundingBoxXYZ
+        foreach (var a in list1)
+        {
+            if (truncatedReason != null) break;
+            if (clock.Elapsed.TotalSeconds >= timeBudgetS) { truncatedReason = "time_budget_s"; break; }
+            firstChecked++;
+            var loX = a.MinX - tolerance; var hiX = a.MaxX + tolerance;
+            var loY = a.MinY - tolerance; var hiY = a.MaxY + tolerance;
+            var loZ = a.MinZ - tolerance; var hiZ = a.MaxZ + tolerance;
+
+            foreach (var b in sorted2)
+            {
+                if (b.MinX > hiX) break; // everything after this starts beyond the box
+                if (pairsExamined >= maxPairs) { truncatedReason = "max_pairs"; break; }
+                if ((pairsExamined & 1023) == 0 && clock.Elapsed.TotalSeconds >= timeBudgetS)
                 {
-                    Min = new XYZ(bb1.Min.X - tolerance, bb1.Min.Y - tolerance, bb1.Min.Z - tolerance),
-                    Max = new XYZ(bb1.Max.X + tolerance, bb1.Max.Y + tolerance, bb1.Max.Z + tolerance)
-                };
-
-                // Check if bounding boxes intersect
-                if (BoundingBoxesIntersect(expandedBB1, bb2))
-                {
-                    clashes.Add(new
-                    {
-                        element1_id = elem1.Id.Value,
-                        element1_name = elem1.Name,
-                        element1_category = elem1.Category?.Name,
-                        element2_id = elem2.Id.Value,
-                        element2_name = elem2.Name,
-                        element2_category = elem2.Category?.Name,
-                        clash_type = "bounding_box_intersection"
-                    });
+                    truncatedReason = "time_budget_s";
+                    break;
                 }
+                pairsExamined++;
+
+                if (a.Element.Id == b.Element.Id) continue;
+                // One category against itself: report each pair once.
+                if (sameCategory && a.Element.Id.Value > b.Element.Id.Value) continue;
+                if (b.MaxX < loX || b.MinY > hiY || b.MaxY < loY || b.MinZ > hiZ || b.MaxZ < loZ) continue;
+
+                var d1 = Describe(a.Element);
+                var d2 = Describe(b.Element);
+                clashes.Add(new
+                {
+                    element1_id = a.Element.Id.Value,
+                    element1_name = d1.Name,
+                    element1_category = d1.Category,
+                    element2_id = b.Element.Id.Value,
+                    element2_name = d2.Name,
+                    element2_category = d2.Category,
+                    clash_type = "bounding_box_intersection"
+                });
             }
         }
 
+        var truncated = truncatedReason != null;
         return new
         {
             clashes,
@@ -3326,9 +3728,42 @@ public static class BridgeCommandFactory
             category1 = category1Name,
             category2 = category2Name,
             tolerance_ft = tolerance,
-            elements_checked_cat1 = elements1.Count,
-            elements_checked_cat2 = elements2.Count
+            elements_checked_cat1 = list1.Count,
+            elements_checked_cat2 = list2.Count,
+            truncated,
+            truncated_reason = truncatedReason,
+            pairs_examined = pairsExamined,
+            elements_of_cat1_examined = firstChecked,
+            max_pairs = maxPairs,
+            time_budget_s = timeBudgetS,
+            elapsed_s = Math.Round(clock.Elapsed.TotalSeconds, 2),
+            note = truncated
+                ? "Budget reached: the clash list is partial. Narrow the categories or raise max_pairs / time_budget_s."
+                : null
         };
+    }
+
+    private sealed class ClashCandidate
+    {
+        public Element Element = null!;
+        public double MinX, MinY, MinZ, MaxX, MaxY, MaxZ;
+    }
+
+    private static List<ClashCandidate> CollectClashCandidates(Document doc, BuiltInCategory category)
+    {
+        var list = new List<ClashCandidate>();
+        foreach (var element in new FilteredElementCollector(doc).OfCategory(category).WhereElementIsNotElementType())
+        {
+            var bb = element.get_BoundingBox(null);
+            if (bb == null) continue;
+            list.Add(new ClashCandidate
+            {
+                Element = element,
+                MinX = bb.Min.X, MinY = bb.Min.Y, MinZ = bb.Min.Z,
+                MaxX = bb.Max.X, MaxY = bb.Max.Y, MaxZ = bb.Max.Z
+            });
+        }
+        return list;
     }
 
     // Helper method for bounding box intersection
@@ -3404,7 +3839,7 @@ public static class BridgeCommandFactory
             material.Shininess = shininess;
             material.Smoothness = smoothness;
 
-            trans.Commit();
+            trans.CommitChecked();
 
             return new
             {
@@ -3462,7 +3897,7 @@ public static class BridgeCommandFactory
                                 if (currentIndex == faceIndex.Value)
                                 {
                                     doc.Paint(elementId, face, material.Id);
-                                    trans.Commit();
+                                    trans.CommitChecked();
                                     return new
                                     {
                                         element_id = elementId.Value,
@@ -3502,7 +3937,7 @@ public static class BridgeCommandFactory
                 }
             }
 
-            trans.Commit();
+            trans.CommitChecked();
 
             return new
             {
@@ -3590,7 +4025,7 @@ public static class BridgeCommandFactory
                 }
             }
 
-            trans.Commit();
+            trans.CommitChecked();
 
             return new
             {
@@ -3701,7 +4136,7 @@ public static class BridgeCommandFactory
 
             var dim = doc.Create.NewDimension(view, line, refArray);
             
-            trans.Commit();
+            trans.CommitChecked();
 
             return new { dimension_id = dim.Id.Value, value_ft = dim.Value, value_string = dim.ValueString };
         }
@@ -3779,7 +4214,7 @@ public static class BridgeCommandFactory
                 }
             }
 
-            trans.Commit();
+            trans.CommitChecked();
             return new { tagged_count = taggedCount, view_name = view.Name, category = categoryName };
         }
     }
@@ -3831,7 +4266,7 @@ public static class BridgeCommandFactory
             if (template == null || !template.IsTemplate) throw new ArgumentException("Template not found or not a template");
 
             view.ViewTemplateId = templateId;
-            trans.Commit();
+            trans.CommitChecked();
 
             return new { view_id = viewId.Value, template_name = template.Name, status = "applied" };
         }
@@ -3941,7 +4376,7 @@ public static class BridgeCommandFactory
                 object result = ReflectionHelper.InvokeMethod(doc, className, methodName, args, targetId);
                 
                 if (trans.GetStatus() == TransactionStatus.Started)
-                    trans.Commit();
+                    trans.CommitChecked();
                     
                 return result ?? new { status = "void" };
             }
@@ -4008,7 +4443,7 @@ public static class BridgeCommandFactory
             }
 
             prop.SetValue(target, value);
-            trans.Commit();
+            trans.CommitChecked();
         }
 
         return new { status = "success", target_id = targetId, property = propertyName };
@@ -4023,59 +4458,12 @@ public static class BridgeCommandFactory
         if (doc == null) throw new InvalidOperationException("No active document");
 
         var script = payload.GetProperty("script").GetString() ?? "";
-        var outputMs = new MemoryStream();
-        var errorMs = new MemoryStream();
-        string output = "";
-        string error = "";
-        bool success = false;
+        string? mode = payload.TryGetProperty("mode", out var modeProp) && modeProp.ValueKind == JsonValueKind.String
+            ? modeProp.GetString()
+            : null;
 
-        try
-        {
-            var engine = Python.CreateEngine();
-
-            // Capture stdout and stderr into memory streams
-            engine.Runtime.IO.SetOutput(outputMs, Encoding.UTF8);
-            engine.Runtime.IO.SetErrorOutput(errorMs, Encoding.UTF8);
-
-            // Pre-load Revit assemblies so the script can use "from Autodesk.Revit.DB import *"
-            engine.Runtime.LoadAssembly(typeof(Document).Assembly);       // RevitAPI.dll
-            engine.Runtime.LoadAssembly(typeof(UIApplication).Assembly);  // RevitAPIUI.dll
-
-            var scope = engine.CreateScope();
-            scope.SetVariable("doc", doc);
-            scope.SetVariable("uidoc", app.ActiveUIDocument);
-            scope.SetVariable("uiapp", app);
-            scope.SetVariable("app", app.Application);
-            scope.SetVariable("__output__", "");
-
-            engine.Execute(script, scope);
-
-            // Read captured stdout
-            outputMs.Position = 0;
-            output = new StreamReader(outputMs, Encoding.UTF8).ReadToEnd();
-
-            // Also honour __output__ variable if the script set it explicitly
-            if (scope.TryGetVariable("__output__", out object outVar) && outVar is string outStr && !string.IsNullOrEmpty(outStr))
-                output = string.IsNullOrEmpty(output) ? outStr : outStr + "\n" + output;
-
-            success = true;
-        }
-        catch (Exception ex)
-        {
-            try
-            {
-                errorMs.Position = 0;
-                var errText = new StreamReader(errorMs, Encoding.UTF8).ReadToEnd();
-                error = string.IsNullOrEmpty(errText) ? ex.Message : errText + "\n" + ex.Message;
-            }
-            catch
-            {
-                error = ex.Message;
-            }
-            success = false;
-        }
-
-        return new { success, output, error };
+        // Engine, scope, read-mode guard and progress() live in PythonScriptRunner.cs / PythonEngineFactory.cs.
+        return PythonScriptRunner.Run(app, doc, script, mode);
     }
 
     [BridgeCommand("revit.change_element_type", IsMutating = true)]
@@ -4120,7 +4508,7 @@ public static class BridgeCommandFactory
                     failed++;
                 }
             }
-            tx.Commit();
+            tx.CommitChecked();
         }
 
         return new { success = true, changed, failed, failed_ids = failedIds };
@@ -4288,7 +4676,7 @@ public static class BridgeCommandFactory
                     failed++;
                 }
             }
-            tx.Commit();
+            tx.CommitChecked();
         }
 
         return new { success = true, updated, failed, total = elements.Count };
@@ -4350,7 +4738,7 @@ public static class BridgeCommandFactory
                     failed++;
                 }
             }
-            tx.Commit();
+            tx.CommitChecked();
         }
 
         return new { success = true, changed, failed, failed_ids = failedIds };
@@ -4427,6 +4815,108 @@ public static class BridgeCommandFactory
         };
     }
 
+    // Defaults keep a snapshot well inside the bridge's 30 s request limit. A big model is captured in
+    // scoped pieces (categories, max_elements), never as one unbounded pass on Revit's UI thread.
+    private const int SnapshotDefaultMaxElements = 5000;
+    private const int SnapshotDefaultBudgetMs = 20000;
+
+    private static int ReadSnapshotInt(JsonElement payload, string name, int fallback, int min, int max)
+        => PayloadJson.ClampedInt(payload, name, fallback, min, max);
+
+    private static List<BuiltInCategory> ReadSnapshotCategories(JsonElement payload, List<string> unknown)
+    {
+        var result = new List<BuiltInCategory>();
+        if (payload.ValueKind != JsonValueKind.Object || !payload.TryGetProperty("categories", out var arr)
+            || arr.ValueKind != JsonValueKind.Array)
+        {
+            return result;
+        }
+
+        foreach (var item in arr.EnumerateArray())
+        {
+            var name = item.ValueKind == JsonValueKind.String ? item.GetString() : null;
+            if (string.IsNullOrWhiteSpace(name)) continue;
+            var key = name!.Trim();
+            if (!key.StartsWith("OST_", StringComparison.OrdinalIgnoreCase)) key = "OST_" + key;
+            if (Enum.TryParse(key, true, out BuiltInCategory bic)) result.Add(bic);
+            else unknown.Add(name);
+        }
+
+        return result;
+    }
+
+    // Area / volume / perimeter values are computed from geometry on first read. Reading them for every
+    // element of a large model is what made Revit stop responding (journal: "reducing faceting tolerance
+    // for volume/area computation"). Rooms/spaces keep theirs: those are cheap and the QA rules need them.
+    private static readonly HashSet<BuiltInParameter> SnapshotHeavyBuiltIns = new HashSet<BuiltInParameter>
+    {
+        BuiltInParameter.HOST_AREA_COMPUTED,
+        BuiltInParameter.HOST_VOLUME_COMPUTED,
+        BuiltInParameter.HOST_PERIMETER_COMPUTED,
+    };
+
+    private static bool IsHeavySnapshotParameter(Element elem, Parameter param)
+    {
+        if (param.StorageType != StorageType.Double || elem is Autodesk.Revit.DB.SpatialElement) return false;
+        try
+        {
+            var id = param.Id.Value;
+            if (id < 0 && id > int.MinValue && SnapshotHeavyBuiltIns.Contains((BuiltInParameter)(int)id)) return true;
+            var dataType = param.Definition.GetDataType();
+            return dataType == SpecTypeId.Area || dataType == SpecTypeId.Volume;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static object? GetSnapshotPointLocation(Element elem)
+    {
+        try
+        {
+            if (elem.Location is not LocationPoint point) return null;
+            // Snapshot source.units is SI; Revit coordinates are internal feet and rotation is radians.
+            return new
+            {
+                kind = "point",
+                xyz = new[]
+                {
+                    UnitUtils.ConvertFromInternalUnits(point.Point.X, UnitTypeId.Meters),
+                    UnitUtils.ConvertFromInternalUnits(point.Point.Y, UnitTypeId.Meters),
+                    UnitUtils.ConvertFromInternalUnits(point.Point.Z, UnitTypeId.Meters)
+                },
+                rotation = point.Rotation
+            };
+        }
+        catch
+        {
+            // Some point-based elements do not expose rotation. Leave their location uncovered
+            // instead of substituting zero; movement checks report that missing coverage.
+            return null;
+        }
+    }
+
+    private static void AddSnapshotNameAliases(Element elem, Dictionary<string, object> parameters)
+    {
+        foreach (var key in new[]
+        {
+            BuiltInParameter.SHEET_NUMBER, BuiltInParameter.SHEET_NAME,
+            BuiltInParameter.VIEW_NAME, BuiltInParameter.DATUM_TEXT
+        })
+        {
+            var parameter = elem.get_Parameter(key);
+            if (parameter == null || !parameter.HasValue || parameter.StorageType != StorageType.String) continue;
+            parameters[key.ToString()] = new
+            {
+                v = parameter.AsString() ?? string.Empty,
+                storage = parameter.StorageType.ToString(),
+                instance = true,
+                @readonly = parameter.IsReadOnly
+            };
+        }
+    }
+
     [BridgeCommand("revit.extract_snapshot", IsMutating = false)]
     private static object ExecuteExtractSnapshot(UIApplication app, JsonElement payload)
     {
@@ -4434,17 +4924,23 @@ public static class BridgeCommandFactory
         if (doc == null)
             throw new InvalidOperationException("No active document");
 
-        bool dirtyOnly = payload.ValueKind == JsonValueKind.Object && 
-                         payload.TryGetProperty("dirty_only", out var dirtyProp) && 
-                         dirtyProp.GetBoolean();
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        bool dirtyOnly = payload.ValueKind == JsonValueKind.Object &&
+                         payload.TryGetProperty("dirty_only", out var dirtyProp) &&
+                         dirtyProp.ValueKind == JsonValueKind.True;
+        var maxElements = ReadSnapshotInt(payload, "max_elements", SnapshotDefaultMaxElements, 1, 200000);
+        var budgetMs = ReadSnapshotInt(payload, "time_budget_ms", SnapshotDefaultBudgetMs, 1000, 25000);
+        var unknownCategories = new List<string>();
+        var categories = ReadSnapshotCategories(payload, unknownCategories);
         string snapshotId = Guid.NewGuid().ToString("N");
 
-        var workspaceDir = Environment.GetEnvironmentVariable("MCP_REVIT_WORKSPACE_DIR") ?? Path.GetTempPath();
+        var workspaceDir = WorkspaceDirectory.Resolve();
         var snapshotDir = Path.Combine(workspaceDir, "snapshots");
         Directory.CreateDirectory(snapshotDir);
         var snapshotPath = Path.Combine(snapshotDir, $"{snapshotId}.json");
 
-        var elementsToExtract = new List<Element>();
+        // Ids first: no element objects are built until they are actually written.
+        var idsToExtract = new List<ElementId>();
         var dirtyIds = DocumentDirtyTracker.GetDirtyUniqueIds();
 
         if (dirtyOnly)
@@ -4455,44 +4951,46 @@ public static class BridgeCommandFactory
                 try
                 {
                     var elem = doc.GetElement(uid);
-                    if (elem != null) elementsToExtract.Add(elem);
+                    if (elem != null) idsToExtract.Add(elem.Id);
                 }
                 catch { }
             }
         }
+        else if (categories.Count > 0)
+        {
+            idsToExtract.AddRange(new FilteredElementCollector(doc)
+                .WhereElementIsNotElementType()
+                .WherePasses(new ElementMulticategoryFilter(categories))
+                .ToElementIds());
+        }
         else
         {
-            var classes = new[]
+            var classes = new List<Type>
             {
                 typeof(FamilyInstance), typeof(Wall), typeof(Floor), typeof(RoofBase),
                 typeof(Level), typeof(Grid), typeof(ViewSheet), typeof(ViewDrafting)
             };
-
-            foreach (var type in classes)
-            {
-                try
-                {
-                    var collector = new FilteredElementCollector(doc)
-                        .OfClass(type)
-                        .WhereElementIsNotElementType();
-                    elementsToExtract.AddRange(collector);
-                }
-                catch { }
-            }
-
-            try
-            {
-                var roomCollector = new FilteredElementCollector(doc)
-                    .OfCategory(BuiltInCategory.OST_Rooms)
-                    .WhereElementIsNotElementType();
-                elementsToExtract.AddRange(roomCollector);
-            }
-            catch { }
+            var classFilter = new ElementMulticlassFilter(classes);
+            var roomFilter = new ElementCategoryFilter(BuiltInCategory.OST_Rooms);
+            idsToExtract.AddRange(new FilteredElementCollector(doc)
+                .WhereElementIsNotElementType()
+                .WherePasses(new LogicalOrFilter(classFilter, roomFilter))
+                .ToElementIds());
         }
 
+        var totalCandidates = idsToExtract.Count;
+        var truncated = false;
+        var skippedHeavy = 0;
         var elementRecords = new List<object>();
-        foreach (var elem in elementsToExtract)
+        foreach (var id in idsToExtract)
         {
+            if (elementRecords.Count >= maxElements || clock.ElapsedMilliseconds > budgetMs)
+            {
+                truncated = true;
+                break;
+            }
+
+            var elem = doc.GetElement(id);
             if (elem == null || string.IsNullOrEmpty(elem.UniqueId)) continue;
 
             Element? typeElem = null;
@@ -4501,49 +4999,70 @@ public static class BridgeCommandFactory
             var paramsDict = new Dictionary<string, object>();
             foreach (Parameter param in elem.Parameters)
             {
-                if (param.HasValue)
-                {
-                    object val = param.StorageType switch
-                    {
-                        StorageType.Integer => param.AsInteger(),
-                        StorageType.Double => param.AsDouble(),
-                        StorageType.String => param.AsString() ?? string.Empty,
-                        StorageType.ElementId => param.AsElementId().Value.ToString(),
-                        _ => string.Empty
-                    };
+                if (!param.HasValue) continue;
+                if (IsHeavySnapshotParameter(elem, param)) { skippedHeavy++; continue; }
 
-                    paramsDict[param.Definition.Name] = new
-                    {
-                        v = val,
-                        storage = param.StorageType.ToString(),
-                        instance = true,
-                        @readonly = param.IsReadOnly
-                    };
-                }
+                object val = param.StorageType switch
+                {
+                    StorageType.Integer => param.AsInteger(),
+                    StorageType.Double => param.AsDouble(),
+                    StorageType.String => param.AsString() ?? string.Empty,
+                    StorageType.ElementId => param.AsElementId().Value.ToString(),
+                    _ => string.Empty
+                };
+
+                paramsDict[param.Definition.Name] = new
+                {
+                    v = val,
+                    storage = param.StorageType.ToString(),
+                    instance = true,
+                    @readonly = param.IsReadOnly
+                };
             }
 
+            // Retain localized labels while also supplying stable built-in names for consumers.
+            AddSnapshotNameAliases(elem, paramsDict);
             string catName = elem.Category?.BuiltInCategory.ToString() ?? elem.Category?.Name ?? "None";
 
-            var record = new
+            elementRecords.Add(new
             {
                 uid = elem.UniqueId,
                 amb_uid = elem.UniqueId,
                 element_id = elem.Id.Value,
                 category = catName,
                 @class = elem.GetType().Name,
+                name = elem.Name,
+                sheet_number = (elem as ViewSheet)?.SheetNumber,
                 type_uid = elem.GetTypeId().Value.ToString(),
                 family = typeElem?.get_Parameter(BuiltInParameter.ALL_MODEL_FAMILY_NAME)?.AsString() ?? typeElem?.Name ?? string.Empty,
                 type_name = typeElem?.Name ?? string.Empty,
-                level_uid = (elem as FamilyInstance)?.LevelId.Value.ToString() ?? (elem as Wall)?.LevelId.Value.ToString() ?? string.Empty,
+                level_uid = elem.LevelId != ElementId.InvalidElementId ? elem.LevelId.Value.ToString() : null,
+                location = GetSnapshotPointLocation(elem),
+                // The QA rules (door_no_host, window_no_host) test host_uid. Without it every hosted door
+                // was reported as unhosted (1,006 false errors on a real model).
+                host_uid = (elem as FamilyInstance)?.Host?.UniqueId,
                 @params = paramsDict
-            };
-
-            elementRecords.Add(record);
+            });
         }
 
-        var deletedIdsList = dirtyOnly 
-            ? dirtyIds.Where(id => id.StartsWith("deleted:")).Select(id => id.Substring(8)).ToList() 
+        var deletedIdsList = dirtyOnly
+            ? dirtyIds.Where(id => id.StartsWith("deleted:")).Select(id => id.Substring(8)).ToList()
             : new List<string>();
+
+        // Coverage travels with the snapshot (in "counts") so a partial capture can never be mistaken
+        // for the whole model by the QA and parameter tools that read the file later.
+        var counts = new Dictionary<string, object>
+        {
+            ["candidates"] = totalCandidates,
+            ["captured"] = elementRecords.Count,
+            ["truncated"] = truncated,
+            ["dirty_only"] = dirtyOnly,
+            ["max_elements"] = maxElements,
+            ["time_budget_ms"] = budgetMs,
+            ["elapsed_ms"] = clock.ElapsedMilliseconds,
+            ["skipped_area_volume_values"] = skippedHeavy,
+            ["categories"] = categories.Select(c => c.ToString()).ToList(),
+        };
 
         var snapshot = new
         {
@@ -4559,6 +5078,8 @@ public static class BridgeCommandFactory
                 units = "SI"
             },
             elements = elementRecords,
+            dirty_only = dirtyOnly,
+            counts,
             deleted = deletedIdsList
         };
 
@@ -4570,7 +5091,16 @@ public static class BridgeCommandFactory
             snapshot_id = snapshotId,
             path = snapshotPath,
             element_count = elementRecords.Count,
-            deleted_count = deletedIdsList.Count
+            deleted_count = deletedIdsList.Count,
+            candidates = totalCandidates,
+            truncated,
+            elapsed_ms = clock.ElapsedMilliseconds,
+            unknown_categories = unknownCategories,
+            note = truncated
+                ? $"Partial snapshot: {elementRecords.Count} of {totalCandidates} elements captured within the " +
+                  $"{maxElements}-element / {budgetMs} ms limits. Pass 'categories' (for example [\"Doors\",\"Rooms\"]) " +
+                  "or raise max_elements to capture what the check needs."
+                : null
         };
     }
 

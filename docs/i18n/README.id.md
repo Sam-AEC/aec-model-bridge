@@ -115,16 +115,16 @@ Memakai VS Code? [Sumber ekstensi dan langkah instalasi lokal](../../extensions/
 
 | Bidang | Tool | Fungsinya |
 | --- | --- | --- |
-| Revit | 103 | Membaca model, membuat dan mengedit elemen, parameter, view, sheet, schedule, ekspor, worksharing |
-| Persetujuan | 6 | Merencanakan, meninjau, menyetujui, menjalankan, dan membatalkan perubahan model |
-| Modul | 34 | Inspeksi snapshot, grid parameter, pemeriksaan QA/QC, resep, laporan, seleksi |
+| Revit | 110 | Membaca model, membuat dan mengedit elemen, parameter, view, sheet, schedule, ekspor, worksharing |
+| Persetujuan | 5 | Merencanakan, meninjau, menyetujui, menjalankan, dan membatalkan perubahan model |
+| Modul | 108 | Inspeksi snapshot, grid parameter, pemeriksaan QA/QC, resep, laporan, seleksi |
 | Rhino dan Grasshopper | 19 | Geometri, layer, material, operasi boolean |
 | Speckle | 17 | Proyek, model, versi, kirim dan terima |
 | Navisworks | 15 | Model tree, viewpoint, uji clash (dalam pengerjaan) |
 | IFC | 7 | Membaca file IFC tanpa Revit: struktur, properti, validasi |
-| Graf, snapshot, ekspor, job | 18 | Audit graf semantik, selisih snapshot, ekspor SQLite, job latar belakang |
+| Graf, snapshot, ekspor, job | 21 | Audit graf semantik, selisih snapshot, ekspor SQLite, job latar belakang |
 
-Ada 219 tool yang terdaftar pada pengaturan default (dihitung dari server saat ini dalam mode mock). Tool Autodesk Data muncul saat kredensial APS dikonfigurasi. [Referensi tool](../tools-generated.md) mencantumkan setiap tool. Setiap tool membawa anotasi MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), sehingga klien dapat membedakan operasi baca dari tulis.
+Ada 302 tool yang terdaftar pada pengaturan default (dihitung dari server saat ini dalam mode mock). Tool Autodesk Data muncul saat kredensial APS dikonfigurasi. [Referensi tool](../tools-generated.md) mencantumkan setiap tool. Setiap tool membawa anotasi MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), sehingga klien dapat membedakan operasi baca dari tulis.
 
 ### Otomatisasi Revit lanjutan
 
@@ -150,6 +150,8 @@ Kotak berwarna teal sudah berfungsi saat ini. Kotak putus-putus berwarna amber m
 ### Cara kerja persetujuan
 
 Hub menghentikan setiap panggilan tool yang mengubah model kecuali panggilan itu membawa rencana yang sudah disetujui. Mode default-nya adalah `required`. AI mengusulkan rencana, Anda meninjaunya di panel samping Revit, lalu add-in menjalankannya di main thread Revit, aksi parameter dan pengeditan model masing-masing dalam transaksi bernamanya sendiri; aksi simpan, sinkronisasi, dan skrip tidak, sehingga Ctrl+Z tidak mencakupnya.
+
+Panel menampilkan tinjauan rencana melalui "Show the review to enable Approve" dan mewajibkan Anda membukanya sebelum persetujuan. Tinjauan yang tidak valid, tidak didukung, atau terlalu besar memblokir persetujuan; `aec-model-bridge-approve show <plan_id>` menampilkan rencana lengkap. Perilaku ini diuji otomatis; persetujuan di WebView2 masih perlu validasi langsung. [Laporan validasi](../revit-addin-live-validation-2026-10-14.md) hanya mencatat pemeriksaan baca terbatas di Revit 2024, bukan validasi penulisan, pembatalan, pemulihan, atau tahun Revit lainnya.
 
 <p align="center">
   <picture>

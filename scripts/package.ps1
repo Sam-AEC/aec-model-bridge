@@ -121,6 +121,7 @@ Write-Host "  Copied install.ps1 and helper scripts" -ForegroundColor Green
 # Include license terms and required notices in every distribution.
 Copy-Item "$PSScriptRoot\..\LICENSE" "$distDir\LICENSE" -Force
 Copy-Item "$PSScriptRoot\..\NOTICE" "$distDir\NOTICE" -Force
+Copy-Item "$PSScriptRoot\..\THIRD_PARTY_NOTICES.md" "$distDir\THIRD_PARTY_NOTICES.md" -Force
 Copy-Item "$PSScriptRoot\..\LICENSING.md" "$distDir\LICENSING.md" -Force
 $distLicenses = Join-Path $distDir "LICENSES"
 New-Item -ItemType Directory -Path $distLicenses -Force | Out-Null
@@ -141,7 +142,8 @@ $defaultConfig = @{
     }
     server  = @{
         mode      = "bridge"
-        workspace = @("C:\RevitProjects", "$env:USERPROFILE\Documents")
+        # Literal %USERPROFILE%: expanding it here baked the build machine's profile path into the release.
+        workspace = @('C:\RevitProjects', '%USERPROFILE%\Documents')
     }
 }
 

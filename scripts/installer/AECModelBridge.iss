@@ -20,7 +20,7 @@
 [Setup]
 AppId={{D41A24F3-87B1-4A51-9F31-30919E371C25}
 AppName=AEC Model Bridge
-AppVersion=1.4.0
+AppVersion=1.5.0
 AppPublisher=Sam-AEC
 AppPublisherURL=https://github.com/Sam-AEC/aec-model-bridge
 AppSupportURL=https://github.com/Sam-AEC/aec-model-bridge/issues
@@ -109,6 +109,7 @@ Source: "..\..\scripts\configure-mcp-clients.ps1"; DestDir: "{app}\scripts"; Fla
 ; Licence texts.
 Source: "{#Dist}\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Dist}\NOTICE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#Dist}\THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Dist}\LICENSING.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Dist}\LICENSES\*"; DestDir: "{app}\LICENSES"; Flags: ignoreversion recursesubdirs createallsubdirs
 

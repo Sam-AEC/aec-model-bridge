@@ -115,16 +115,16 @@ Sie nutzen VS Code? Der [Quellcode der Erweiterung und die lokalen Installations
 
 | Bereich | Werkzeuge | Was sie tun |
 | --- | --- | --- |
-| Revit | 103 | Modell lesen, Elemente, Parameter, Ansichten, Pläne und Bauteillisten erstellen und bearbeiten, Exporte, Worksharing |
-| Freigabe | 6 | Modelländerungen planen, prüfen, freigeben, ausführen und zurücksetzen |
-| Module | 34 | Snapshot-Prüfung, Parametertabellen, QA/QC-Prüfungen, Rezepte, Berichte, Auswahlen |
+| Revit | 110 | Modell lesen, Elemente, Parameter, Ansichten, Pläne und Bauteillisten erstellen und bearbeiten, Exporte, Worksharing |
+| Freigabe | 5 | Modelländerungen planen, prüfen, freigeben, ausführen und zurücksetzen |
+| Module | 108 | Snapshot-Prüfung, Parametertabellen, QA/QC-Prüfungen, Rezepte, Berichte, Auswahlen |
 | Rhino und Grasshopper | 19 | Geometrie, Layer, Materialien, boolesche Operationen |
 | Speckle | 17 | Projekte, Modelle, Versionen, Senden und Empfangen |
 | Navisworks | 15 | Modellbaum, Ansichtspunkte, Kollisionsprüfungen (in Arbeit) |
 | IFC | 7 | IFC-Dateien ohne Revit lesen: Struktur, Eigenschaften, Validierung |
-| Graph, Snapshots, Exporte, Jobs | 18 | Audits des semantischen Graphen, Snapshot-Vergleiche, SQLite-Export, Hintergrundjobs |
+| Graph, Snapshots, Exporte, Jobs | 21 | Audits des semantischen Graphen, Snapshot-Vergleiche, SQLite-Export, Hintergrundjobs |
 
-In der Standardkonfiguration werden 219 Werkzeuge aufgelistet (gezählt am aktuellen Server im Mock-Modus). Die Autodesk-Data-Werkzeuge erscheinen, wenn APS-Zugangsdaten konfiguriert sind. Die [Werkzeugreferenz](../tools-generated.md) listet jedes Werkzeug auf. Jedes Werkzeug trägt MCP-Annotationen (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), sodass Clients Lese- von Schreibzugriffen unterscheiden können.
+In der Standardkonfiguration werden 302 Werkzeuge aufgelistet (gezählt am aktuellen Server im Mock-Modus). Die Autodesk-Data-Werkzeuge erscheinen, wenn APS-Zugangsdaten konfiguriert sind. Die [Werkzeugreferenz](../tools-generated.md) listet jedes Werkzeug auf. Jedes Werkzeug trägt MCP-Annotationen (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), sodass Clients Lese- von Schreibzugriffen unterscheiden können.
 
 ### Erweiterte Revit-Automatisierung
 
@@ -150,6 +150,8 @@ Türkise Kästen funktionieren bereits. Die gelb gestrichelten Kästen sind in A
 ### So funktioniert die Freigabe
 
 Der Hub stoppt jeden Werkzeugaufruf, der das Modell ändert, sofern er keinen freigegebenen Plan mitbringt. Der Standardmodus ist `required`. Die KI schlägt einen Plan vor, Sie prüfen ihn im Revit-Seitenpanel, und das Add-in führt ihn im Hauptthread von Revit aus, Parameter- und Modellbearbeitungsaktionen jeweils in ihrer eigenen benannten Transaktion; Speichern, Synchronisieren und Skripte nicht, daher deckt Strg+Z sie nicht ab.
+
+Das Panel zeigt die Planprüfung über "Show the review to enable Approve"; vor der Freigabe müssen Sie sie öffnen. Ungültige, nicht unterstützte oder zu große Prüftexte sperren die Freigabe; `aec-model-bridge-approve show <plan_id>` zeigt den vollständigen Plan. Automatisierte Tests decken dieses Verhalten ab; die Freigabe in WebView2 braucht noch Live-Abnahme. Der [Validierungsbericht](../revit-addin-live-validation-2026-10-14.md) dokumentiert nur begrenzte Leseprüfungen in Revit 2024, keine Abnahme von Schreibvorgängen, Rücksetzen, Wiederherstellung oder anderen Revit-Jahren.
 
 <p align="center">
   <picture>

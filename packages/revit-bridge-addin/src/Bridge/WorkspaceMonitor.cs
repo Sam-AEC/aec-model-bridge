@@ -10,10 +10,12 @@ namespace RevitBridge.Bridge
 
         public WorkspaceMonitor()
         {
-            var workspaceDir = Environment.GetEnvironmentVariable("MCP_REVIT_WORKSPACE_DIR");
+            var workspaceDir = WorkspaceDirectory.Resolve();
             var allowedDirsEnv = Environment.GetEnvironmentVariable("MCP_REVIT_ALLOWED_DIRECTORIES");
 
-            if (!string.IsNullOrEmpty(workspaceDir))
+            // An explicit allowlist is authoritative, including an empty one.
+            // Adding the default workspace here would widen the hub's sandbox.
+            if (allowedDirsEnv == null && !string.IsNullOrEmpty(workspaceDir))
             {
                 try
                 {
