@@ -243,9 +243,9 @@ class SheetViewAuditModule:
     ) -> Dict[str, Any]:
         if not snapshot_id:
             raise ValueError("sheet_view_audit_run_audit needs a snapshot_id. Take a snapshot first and pass its id.")
-        if any(part in snapshot_id for part in ("/", "\\", "..", ":")):
-            raise ValueError(f"Invalid snapshot id '{snapshot_id}'.")
-        path = workspace.allowed_directories[0] / "snapshots" / f"{snapshot_id}.json"
+        from revit_mcp_server.security.safe_paths import snapshot_file
+
+        path = snapshot_file(workspace.allowed_directories[0] / "snapshots", snapshot_id)
         if not path.exists():
             raise ValueError(f"Snapshot '{snapshot_id}' not found.")
         with open(path, encoding="utf-8") as f:
