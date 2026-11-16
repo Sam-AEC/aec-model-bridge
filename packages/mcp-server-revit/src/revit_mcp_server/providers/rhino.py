@@ -35,10 +35,15 @@ class RhinoProvider(AECProvider):
         # rhino_run_python executes arbitrary IronPython with full RhinoCommon access —
         # same escape-hatch risk class as revit_execute_python, so it gets the same
         # mutating+destructive treatment. reflect_get/invoke_method/reflect_set are
-        # left at the same risk level revit.py uses for their Revit-side equivalents
-        # (mutating via the "invoke"/"set" verbs, not separately marked destructive).
-        mutating_verbs = {"create", "clear", "set", "transform", "run", "boolean", "invoke"}
-        enrich_mutation_metadata(self._capabilities, mutating_verbs=mutating_verbs, destructive={"rhino_run_python"})
+        # mutating but not separately marked destructive. reflect_get is gated too
+        # (fail closed): a property getter on an arbitrary object can have side effects.
+        mutating_verbs = {"create", "clear", "set", "transform", "run", "boolean", "invoke", "generate"}
+        enrich_mutation_metadata(
+            self._capabilities,
+            mutating_verbs=mutating_verbs,
+            mutating_names=frozenset({"rhino_reflect_get"}),
+            destructive={"rhino_run_python"},
+        )
 
     def get_identity(self) -> str:
         return "rhino"
@@ -57,7 +62,9 @@ class RhinoProvider(AECProvider):
         return {"status": "healthy", "mode": "mock"}
 
     async def shutdown(self) -> None:
-        pass
+        close = getattr(getattr(self, "_bridge", None), "close", None)
+        if callable(close):
+            close()
 
     async def execute_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         if name not in self._tool_mapping:
@@ -310,7 +317,7 @@ class RhinoProvider(AECProvider):
         ),
         ProviderTool(
             name="rhino_reflect_get",
-            description="Get a C# property value from a Rhino object via reflection",
+            description="Get a C# property value from a Rhino object via reflection. Requires plan approval because a getter on an arbitrary object can have side effects.",
             inputSchema={"type": "object", "properties": {
                 "target_id":     {"type": "string"},
                 "property_name": {"type": "string"},

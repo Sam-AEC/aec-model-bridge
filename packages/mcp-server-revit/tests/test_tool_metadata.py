@@ -33,7 +33,9 @@ def test_every_tool_has_all_four_annotations(listed):
         assert ann is not None, tool.name
         for hint in ("readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint"):
             assert getattr(ann, hint) is not None, f"{tool.name}: {hint} missing"
-        assert ann.title, tool.name
+        # One title only: the top-level field. annotations.title would repeat it.
+        assert tool.title, tool.name
+        assert ann.title is None, tool.name
 
 
 def test_every_tool_has_a_substantial_description(listed):
@@ -73,7 +75,7 @@ def test_escape_hatches_are_destructive(listed):
 
 def test_file_writing_and_plan_execution_tools_are_not_read_only(listed):
     tools, _ = listed
-    for name in ("revit_export_ifc", "revit_export_dwg", "execute_plan", "rollback_plan", "plan_actions"):
+    for name in ("revit_export_ifc", "revit_export_dwg", "execute_plan", "plan_actions"):
         assert tools[name].annotations.readOnlyHint is False, name
     assert tools["execute_plan"].annotations.destructiveHint is True
 

@@ -115,16 +115,16 @@ Usi VS Code? Il [sorgente dell'estensione e i passaggi di installazione locale](
 
 | Area | Strumenti | Cosa fanno |
 | --- | --- | --- |
-| Revit | 103 | Leggere il modello, creare e modificare elementi, parametri, viste, tavole, abachi, esportazioni, condivisione del lavoro (worksharing) |
-| Approvazione | 6 | Pianificare, rivedere, approvare, eseguire e annullare le modifiche al modello |
-| Moduli | 34 | Ispezione degli snapshot, griglie di parametri, controlli QA/QC, ricette, report, selezioni |
+| Revit | 110 | Leggere il modello, creare e modificare elementi, parametri, viste, tavole, abachi, esportazioni, condivisione del lavoro (worksharing) |
+| Approvazione | 5 | Pianificare, rivedere, approvare, eseguire e annullare le modifiche al modello |
+| Moduli | 108 | Ispezione degli snapshot, griglie di parametri, controlli QA/QC, ricette, report, selezioni |
 | Rhino e Grasshopper | 19 | Geometria, layer, materiali, operazioni booleane |
 | Speckle | 17 | Progetti, modelli, versioni, invio e ricezione |
 | Navisworks | 15 | Albero del modello, punti di vista, verifiche di interferenza (in sviluppo) |
 | IFC | 7 | Leggere file IFC senza Revit: struttura, proprietà, validazione |
-| Grafo, snapshot, esportazioni, job | 18 | Audit del grafo semantico, differenze tra snapshot, esportazione SQLite, job in background |
+| Grafo, snapshot, esportazioni, job | 21 | Audit del grafo semantico, differenze tra snapshot, esportazione SQLite, job in background |
 
-Nella configurazione predefinita sono elencati 219 strumenti (contati dal server attuale in modalità mock). Gli strumenti Autodesk Data compaiono quando sono configurate le credenziali APS. Il [riferimento degli strumenti](../tools-generated.md) li elenca tutti. Ogni strumento ha annotazioni MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), così i client possono distinguere le letture dalle scritture.
+Nella configurazione predefinita sono elencati 302 strumenti (contati dal server attuale in modalità mock). Gli strumenti Autodesk Data compaiono quando sono configurate le credenziali APS. Il [riferimento degli strumenti](../tools-generated.md) li elenca tutti. Ogni strumento ha annotazioni MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), così i client possono distinguere le letture dalle scritture.
 
 ### Automazione avanzata di Revit
 
@@ -150,6 +150,8 @@ I riquadri verde acqua funzionano oggi. I riquadri ambra tratteggiati sono in sv
 ### Come funziona l'approvazione
 
 L'hub blocca qualsiasi chiamata a uno strumento che modifica il modello, a meno che non porti con sé un piano approvato. La modalità predefinita è `required`. L'IA propone un piano, tu lo esamini nel pannello laterale di Revit e l'add-in lo esegue nel thread principale di Revit, le azioni sui parametri e di modifica del modello ciascuna in una propria transazione con nome; salvataggio, sincronizzazione e script no, quindi Ctrl+Z non le copre.
+
+Il pannello mostra la revisione del piano con "Show the review to enable Approve" e richiede di aprirla prima dell’approvazione. Revisioni non valide, non supportate o troppo grandi bloccano l’approvazione; `aec-model-bridge-approve show <plan_id>` mostra il piano completo. Il comportamento è coperto da test automatici; l’approvazione in WebView2 richiede ancora verifica dal vivo. Il [rapporto di validazione](../revit-addin-live-validation-2026-10-14.md) documenta solo controlli di lettura limitati in Revit 2024, senza convalidare scritture, annullamento, recupero o altri anni di Revit.
 
 <p align="center">
   <picture>

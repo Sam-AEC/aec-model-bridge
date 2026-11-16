@@ -1,0 +1,37 @@
+# Example firm rule pack: door Mark and room Number basics.
+# Copy it into your workspace, then: import_rule_pack -> run_check(rule_pack="door-room-basics")
+# Only the operators the QA/QC engine implements are used (see docs/rule-packs.md).
+rules:
+  - id: door_mark_missing
+    severity: error
+    category: Doors
+    description: "Door has no Mark. Every door must carry a unique door number."
+    filter:
+      category: OST_Doors
+      parameter:
+        name: Mark
+        empty: true
+    assertion: "element_count == 0"
+    fix_template: "Set the Mark parameter on door '{label}'."
+
+  - id: door_not_placed
+    severity: warning
+    category: Doors
+    description: "Door is not placed in the model."
+    filter:
+      category: OST_Doors
+      placed: false
+    assertion: "element_count == 0"
+    fix_template: "Place or delete the unplaced door '{label}'."
+
+  - id: room_number_missing
+    severity: error
+    category: Rooms
+    description: "Room has no Number. Every room must carry a room number."
+    filter:
+      category: OST_Rooms
+      parameter:
+        name: Number
+        empty: true
+    assertion: "element_count == 0"
+    fix_template: "Set the Number parameter on room '{label}'."

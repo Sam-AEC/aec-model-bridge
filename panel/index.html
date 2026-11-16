@@ -3,11 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>AEC Model Bridge</title>
   <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./chat.css">
 </head>
 <body>
-  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <svg class="sprite" width="0" height="0" aria-hidden="true" focusable="false">
     <defs>
       <symbol id="brand-mark" viewBox="0 0 96 96">
         <rect width="96" height="96" rx="20" fill="#111923"/>
@@ -20,6 +22,12 @@
         <path fill="#111923" transform="matrix(28,-16,0,32,48,48)" d="M0.24,1.02 V0.66 A0.26,0.26 0 0 1 0.76,0.66 V1.02 Z"/>
         <rect x="0.5" y="0.5" width="95" height="95" rx="19.5" fill="none" stroke="rgba(255,255,255,0.16)"/>
       </symbol>
+      <!-- 24px line icons for the chat controls (stroke = currentColor) -->
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></symbol>
+      <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
+      <symbol id="i-send" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+      <symbol id="i-new" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></symbol>
       <symbol id="nav-chat" viewBox="0 0 32 32">
         <path class="o f" d="M5 5h22a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H15l-6 5v-5H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/>
         <path class="a" d="M9 11h14M9 16h8"/>
@@ -85,7 +93,7 @@
     </button>
   </aside>
 
-  <main class="app">
+  <main class="app" aria-label="AEC Model Bridge">
     <header class="topbar">
       <div class="titleblock">
         <span class="view-tile" aria-hidden="true"><svg class="ico" viewBox="0 0 32 32"><use id="view-icon" href="#nav-chat"/></svg></span>
@@ -94,32 +102,37 @@
           <p id="view-subtitle">AEC Model Bridge</p>
         </div>
       </div>
-      <div class="status-pill" role="status" id="host-status">
-        <span class="dot"></span>
-        <span>Host pending</span>
+      <div class="top-status">
+        <span class="mode-chip" id="mode-chip" data-mode="unknown" role="status">Mode: checking&hellip;</span>
+        <div class="status-pill" role="status" id="host-status">
+          <span class="dot"></span>
+          <span>Host pending</span>
+        </div>
       </div>
     </header>
     <div class="alerts" id="system-alerts" aria-live="polite" hidden></div>
 
+    <section class="setup" id="setup-check" aria-labelledby="setup-title" data-state="checking">
+      <div class="setup-head">
+        <h2 id="setup-title" class="setup-title">Setup check</h2>
+        <span class="setup-status" id="setup-status" role="status" aria-live="polite">Checking setup&hellip;</span>
+        <button type="button" id="setup-toggle" aria-expanded="false" aria-controls="setup-list" hidden>Details</button>
+        <button type="button" id="setup-refresh" aria-label="Refresh setup check">Refresh</button>
+      </div>
+      <ol class="setup-list" id="setup-list" hidden></ol>
+    </section>
+
     <section class="view is-active" id="view-chat" aria-labelledby="view-title">
-      <div class="chat-feed" id="chat-feed"></div>
-      <form class="composer" id="chat-form">
-        <select id="chat-provider" aria-label="Agent">
-          <option value="claude">Claude</option>
-          <option value="codex">Codex</option>
-        </select>
-        <input id="chat-input" name="message" autocomplete="off" placeholder="Ask about the active model">
-        <button type="submit" class="primary">Send</button>
-        <button type="button" id="chat-reset" title="Start a new conversation">New</button>
-      </form>
+      <div class="chat-root" id="chat-root"></div>
     </section>
 
     <section class="view" id="view-plans" aria-labelledby="view-title">
       <div class="toolbar">
-        <button type="button" data-action="refresh-plans">Refresh</button>
-        <button type="button" class="primary" data-action="approve-selected">Approve Selected</button>
+        <button type="button" data-action="refresh-plans" aria-label="Refresh pending plans">Refresh</button>
+        <button type="button" class="primary" data-action="approve-selected" aria-label="Approve selected plans" aria-describedby="plan-select-hint">Approve Selected</button>
+        <span class="sr-only" id="plan-select-hint">Tick the checkbox on one or more pending plans first.</span>
       </div>
-      <div class="list" id="plan-list"></div>
+      <div class="list" id="plan-list" role="group" aria-label="Pending plans"></div>
     </section>
 
     <section class="view" id="view-findings" aria-labelledby="view-title">
@@ -132,39 +145,51 @@
           <option value="info">Info</option>
         </select>
       </div>
-      <div class="list" id="finding-list"></div>
+      <div class="list" id="finding-list" role="group" aria-label="Findings"></div>
     </section>
 
     <section class="view" id="view-reports" aria-labelledby="view-title">
       <div class="toolbar">
         <button type="button" class="primary" data-action="export-excel">Export Excel</button>
-        <button type="button" data-action="refresh-reports">Refresh</button>
+        <button type="button" data-action="refresh-reports" aria-label="Refresh reports list">Refresh</button>
       </div>
-      <div class="list" id="report-list"></div>
+      <div class="list" id="report-list" role="group" aria-label="Reports"></div>
     </section>
 
     <section class="view" id="view-log" aria-labelledby="view-title">
-      <div class="timeline" id="run-log"></div>
+      <div class="timeline" id="run-log" role="group" aria-label="Run log"></div>
     </section>
 
     <section class="view" id="view-settings" aria-labelledby="view-title">
       <form class="settings" id="settings-form">
         <label>
-          Hub URL
-          <input id="hub-url" value="http://127.0.0.1:3000">
-        </label>
-        <label>
-          Approval Mode
-          <select id="approval-mode">
-            <option value="required">Required</option>
-            <option value="auto">Auto</option>
+          Approval mode
+          <select id="approval-mode" aria-describedby="approval-note">
+            <option value="ask_first">Ask me first (recommended)</option>
+            <option value="auto">Auto: skip approvals for a limited time</option>
+            <option value="dev">Dev: stay on until switched off</option>
           </select>
         </label>
-        <button type="submit" class="primary">Save</button>
+        <label id="auto-minutes-label" hidden>
+          Auto lasts for
+          <select id="auto-minutes">
+            <option value="15">15 minutes</option>
+            <option value="30" selected>30 minutes</option>
+            <option value="60">1 hour</option>
+            <option value="120">2 hours</option>
+            <option value="480">8 hours (maximum)</option>
+          </select>
+        </label>
+        <p class="settings-note" id="approval-note">Auto ends by itself. Dev lets assistants make changes without approval and stays on until you switch it off. Both apply to every AI session using this workspace, across documents. Actions are logged. Look-only mode, if set, cannot be changed here.</p>
+        <button type="submit" class="primary">Apply</button>
+        <button type="button" id="auto-off" hidden>Back to Ask me first</button>
       </form>
     </section>
   </main>
 
+  <script src="./vendor/smd.min.js"></script>
+  <script src="./vendor/highlight.core-min.js"></script>
+  <script src="./chat.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

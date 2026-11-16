@@ -25,8 +25,26 @@ class NavisworksProvider(AECProvider):
         self._enrich_tool_metadata()
 
     def _enrich_tool_metadata(self) -> None:
-        mutating_verbs = {"set", "invoke", "delete", "create", "move", "copy", "rotate", "mirror", "run"}
-        enrich_mutation_metadata(self._capabilities, mutating_verbs=mutating_verbs)
+        # Fail closed: a tool is read-only only if it is on the explicit list below;
+        # everything else (including any tool added later) goes through the approval gate.
+        #   health, get_document_info, get_model_tree, get_selection, list_viewpoints,
+        #   list_clash_tests, get_clash_results: plain getters/listers, no state change.
+        # Gated, with reason:
+        #   append_file (changes the open model), refresh (reloads linked files),
+        #   create_viewpoint (adds a saved viewpoint), activate_viewpoint (moves the live
+        #   view), run_clash_test (rewrites stored clash results), invoke_method and
+        #   reflect_set (arbitrary calls/writes), reflect_get (reads a property of an
+        #   arbitrary object; a getter can have side effects).
+        read_only = frozenset({
+            "navisworks_health", "navisworks_get_document_info", "navisworks_get_model_tree",
+            "navisworks_get_selection", "navisworks_list_viewpoints",
+            "navisworks_list_clash_tests", "navisworks_get_clash_results",
+        })
+        mutating_names = frozenset(t.name for t in self._capabilities if t.name not in read_only)
+        mutating_verbs: frozenset = frozenset()
+        enrich_mutation_metadata(
+            self._capabilities, mutating_verbs=mutating_verbs, mutating_names=mutating_names
+        )
 
     def get_identity(self) -> str:
         return "navisworks"
@@ -45,7 +63,9 @@ class NavisworksProvider(AECProvider):
         return {"status": "healthy", "mode": "mock"}
 
     async def shutdown(self) -> None:
-        pass
+        close = getattr(getattr(self, "_bridge", None), "close", None)
+        if callable(close):
+            close()
 
     async def execute_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         if name not in self._tool_mapping:

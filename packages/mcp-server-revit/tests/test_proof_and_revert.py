@@ -10,6 +10,8 @@ from revit_mcp_server.providers.registry import ProviderRegistry
 from revit_mcp_server.security.workspace import WorkspaceMonitor
 
 from test_approval_provider import FakeParamStore
+from helpers import panel_decide, human_approve
+from revit_mcp_server.security.approval import local_user
 
 
 @pytest.fixture
@@ -33,7 +35,7 @@ def _acts(*ids, value="60"):
 async def _run(approval, actions, **plan_kwargs):
     plan = await approval.execute_tool("plan_actions", {"actions": actions, **plan_kwargs})
     pid = plan["plan_id"]
-    await approval.execute_tool("approve_plan", {"plan_id": pid, "approver": "coordinator@example.com"})
+    await panel_decide(approval, "approve_plan", pid)
     result = await approval.execute_tool("execute_plan", {"plan_id": pid})
     return pid, result
 
@@ -61,7 +63,7 @@ async def test_proof_written_on_success(env):
     assert proof["outcome"] == "success"
     assert proof["plan_id"] == pid
     assert proof["tool"] == "revit_set_parameter_value"
-    assert proof["approved_by"] == "coordinator@example.com"
+    assert proof["approved_by"] == local_user()  # recorded by the code path, not the caller
     assert proof["created_at"] and proof["approved_at"] and proof["executed_at"]
     assert proof["document"] == {"snapshot_id": "snap1", "doc_guid": "guid-1", "doc_title": "Tower.rvt"}
     assert proof["plan_hash"].startswith("sha256:")
@@ -75,14 +77,15 @@ async def test_proof_written_on_success(env):
 
 
 @pytest.mark.anyio
-async def test_proof_without_approver_says_so(env):
+async def test_proof_records_the_approving_account_not_a_caller_name(env):
     tmp_path, approval, _ = env
     plan = await approval.execute_tool("plan_actions", {"actions": _acts(1)})
-    await approval.execute_tool("approve_plan", {"plan_id": plan["plan_id"]})
+    await panel_decide(approval, "approve_plan", plan["plan_id"])
     await approval.execute_tool("execute_plan", {"plan_id": plan["plan_id"]})
     proof = _proof_file(tmp_path, plan["plan_id"])
-    assert proof["approved_by"] is None
-    assert "not recorded" in proof["approver_note"]
+    # The approver is the OS account of the approving process, never a caller-supplied name.
+    assert proof["approved_by"] == local_user()
+    assert "not an authenticated identity" in proof["approver_note"]
     assert proof["document"] is None
 
 
@@ -115,7 +118,7 @@ async def test_direct_tool_path_writes_proof(env):
     tmp_path, approval, _ = env
     plan = await approval.execute_tool("plan_actions", {"actions": _acts(1)})
     pid = plan["plan_id"]
-    approval.gate.update_plan_state(pid, "approved", approver="someone")
+    human_approve(approval.gate, pid, approver="someone")
     approval.gate.update_plan_state(pid, "executed")  # what mcp_server/panel do after a direct call
     proof = _proof_file(tmp_path, pid)
     assert proof["approved_by"] == "someone"
@@ -151,13 +154,13 @@ async def test_plan_revert_content_and_never_auto_executes(env):
     got = {(a["arguments"]["element_id"], a["arguments"]["value"]) for a in revert["actions"]}
     assert got == {(1, "30"), (2, "45")}
     assert all(a["tool"] == "revit_set_parameter_value" for a in revert["actions"])
-    assert "conflicts" not in revert
+    assert not revert["review"]["conflicts"]
     # Not executed: model still holds the fixed values, and execution is gated.
     assert store.values[1]["FireRating"] == "60"
     with pytest.raises(ValueError, match="not 'approved'"):
         await approval.execute_tool("execute_plan", {"plan_id": revert["plan_id"]})
     # After approval + execution the originals are restored and the revert has its own proof.
-    await approval.execute_tool("approve_plan", {"plan_id": revert["plan_id"]})
+    await panel_decide(approval, "approve_plan", revert["plan_id"])
     await approval.execute_tool("execute_plan", {"plan_id": revert["plan_id"]})
     assert store.values[1]["FireRating"] == "30" and store.values[2]["FireRating"] == "45"
     assert _proof_file(tmp_path, revert["plan_id"])["reverts_plan_id"] == pid
@@ -196,9 +199,12 @@ async def test_plan_revert_refused_when_stale_unless_conflicts_allowed(env):
 
     revert = await approval.execute_tool("plan_revert", {"plan_id": pid, "allow_conflicts": True})
     assert revert["state"] == "pending"
-    assert len(revert["conflicts"]) == 1
-    c = revert["conflicts"][0]
-    assert (c["element_id"], c["expected_current"], c["actual_current"], c["revert_to"]) == (2, "60", "90", "45")
+    assert "conflicts" not in revert  # conflicts live in the hashed review block
+    conflicts = revert["review"]["conflicts"]
+    assert len(conflicts) == 1
+    c = conflicts[0]
+    assert (c["element_id"], c["parameter"], c["expected_current"], c["actual_current"], c["revert_to"]) == (
+        2, "FireRating", "'60'", "'90'", "'45'")
 
 
 @pytest.mark.anyio
@@ -246,7 +252,7 @@ async def test_revert_numeric_string_vs_number_is_not_a_conflict(tmp_path):
     pid, _ = await _run(approval, [_set(1, "Rating", 60)])
     assert store.values[1]["Rating"] == 60  # live read returns "60", the proof holds 60
     revert = await approval.execute_tool("plan_revert", {"plan_id": pid})
-    assert "conflicts" not in revert
+    assert not revert["review"]["conflicts"]
 
 
 @pytest.mark.anyio
@@ -257,7 +263,7 @@ async def test_revert_numeric_real_conflict_still_refused(tmp_path):
     with pytest.raises(ValueError, match="changed since"):
         await approval.execute_tool("plan_revert", {"plan_id": pid})
     revert = await approval.execute_tool("plan_revert", {"plan_id": pid, "allow_conflicts": True})
-    assert revert["conflicts"][0]["actual_current"] == "61"
+    assert revert["review"]["conflicts"][0]["actual_current"] == "'61'"
 
 
 @pytest.mark.anyio
@@ -275,7 +281,7 @@ async def test_revert_drafts_typed_values(tmp_path):
     assert got == {"Rating": 30, "Width": 0.5, "Mark": "A-1", "Fixed": 1, "Host": 12}
     assert type(got["Rating"]) is int and type(got["Width"]) is float and type(got["Mark"]) is str
     assert type(got["Fixed"]) is int and type(got["Host"]) is int
-    assert "notes" not in revert
+    assert not revert["review"]["assumptions"]
     assert _proof_file(tmp_path, pid)["elements"][0]["before_storage_type"] == "Integer"
 
 
@@ -296,4 +302,5 @@ async def test_revert_unknown_storage_type_coerces_conservatively_with_note(tmp_
     got = {a["arguments"]["parameter_name"]: a["arguments"]["value"] for a in revert["actions"]}
     assert got["Rating"] == 30 and type(got["Rating"]) is int
     assert got["Mark"] == "12"  # new value was text, so stays text
-    assert len(revert["notes"]) == 2 and all("storage type not recorded" in n for n in revert["notes"])
+    notes = revert["review"]["assumptions"]
+    assert len(notes) == 2 and all("storage type not recorded" in n for n in notes)

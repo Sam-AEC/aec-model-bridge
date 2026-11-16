@@ -1,0 +1,137 @@
+# revit_sparing_place (write mode). Places the crossings found by _sparing_detect.ipy as sparing families or native
+# openings. One Transaction per sparing, all of them in one TransactionGroup (Runner of the revit_docs write prelude).
+# ARGS = detection args (see _sparing_detect.ipy) + {tag, mode ('family'|'opening'), family_name, type_name,
+#         size_parameters {width, height, depth, diameter -> instance parameter name}, status_parameter, status_value,
+#         crossing_ids, max_sparings, on_error, dry_run}
+# Ownership: every sparing gets the Extensible Storage tag (tag, key 'sparing:' + crossing_id, kind). A crossing that
+# already has a sparing of this tag and key is replaced; any other opening or sparing at a crossing is left alone and
+# the crossing is skipped. UNVERIFIED against a live Revit: see the module docstring.
+
+
+def classify(crossings, owned):
+    plan = []
+    skipped = []
+    for g in crossings:
+        mine = owned.get(g["id"], [])
+        h = g["first"]["h"]
+        ex = g["ex"]
+        if ex is not None:
+            ours = ex["src"]["li"] is None and eid(ex["e"]) in [eid(o) for o in mine]
+            if not ours:
+                t = read_tag(ex["e"]) if ex["src"]["li"] is None else None
+                own_other = t is not None and t[0] == ARGS["tag"] and t[1].startswith(KEY_PREFIX)
+                skipped.append((g, "existing_own_other" if own_other else "existing_foreign"))
+                continue
+        if ARGS["mode"] == "opening":
+            if h["src"]["li"] is not None:
+                skipped.append((g, "host_in_link"))
+                continue
+            if h["cat"] not in ("walls", "floors", "roofs"):
+                skipped.append((g, "opening_needs_wall_floor_or_roof"))
+                continue
+        plan.append({"g": g, "old": mine, "sizes": []})
+    return plan, skipped
+
+
+def close_dry(run):
+    """dry_run: everything was done inside the group; now roll it all back and say so."""
+    if run.closed:
+        return
+    run.closed = True
+    failed = bool(run.failed_steps) or run.post_failed > 0
+    try:
+        if run.group.HasStarted():
+            if run.group.RollBack() != TransactionStatus.RolledBack:
+                raise StepError("Revit did not roll back the transaction group")
+    except Exception as ex:
+        fail("GROUP_CLOSE_FAILED", "%s: %s" % (ex.__class__.__name__, ex))
+    meta("outcome", "rolled_back" if failed else "dry_run")
+    meta("on_error", run.on_error)
+    meta("changed_ids", "")
+    meta("failed_ids", ",".join([str(i) for i in run.failed_ids]))
+    seen = []
+    for w in run.warnings:
+        if w not in seen:
+            seen.append(w)
+    for w in seen[:20]:
+        info("REVIT_WARNING_DISMISSED", w)
+    meta("warnings_dismissed", len(run.warnings))
+
+
+def main():
+    doc_meta()
+    res = detect()
+    detection_meta(res)
+    crossings = res["crossings"]
+    every_id = [g["id"] for g in crossings]
+    if ARGS["crossing_ids"]:
+        known = dict([(g["id"], g) for g in crossings])
+        missing = [c for c in ARGS["crossing_ids"] if c not in known]
+        if missing:
+            refuse("crossing_not_found", "%d crossing_id(s) were not found with these filters: %s" % (len(missing), ", ".join(missing[:20])))
+            return
+        crossings = [known[c] for c in ARGS["crossing_ids"]]
+    if ARGS["mode"] == "family":
+        sym, why = find_symbol()
+        if sym is None:
+            refuse("family_not_found", why)
+            return
+        SYM[0] = sym
+    owned = owned_map()
+    plan, skipped = classify(crossings, owned)
+    for g, reason in skipped:
+        item([("kind", "skipped"), ("crossing_id", g["id"]), ("host_id", g["first"]["h"]["id"]), ("reason", reason),
+              ("existing", existing_text(g["ex"])[0])])
+    if not ARGS["crossing_ids"]:
+        stale = [k for k in owned if k not in every_id]
+        if stale:
+            ids = []
+            for k in stale:
+                ids.extend([str(eid(e)) for e in owned[k]])
+            info("STALE_SPARING", "%d sparing(s) of tag '%s' no longer match a crossing and were left in place: ids %s" % (len(ids), ARGS["tag"], ",".join(ids[:30])))
+    if len(plan) > ARGS["max_sparings"]:
+        refuse("too_many_sparings", "%d sparingen would be placed, more than max_sparings=%d" % (len(plan), ARGS["max_sparings"]))
+        return
+    if not plan:
+        meta("outcome", "ok")
+        meta("changed_ids", "")
+        summary("nothing to place: %d crossings found, %d skipped (an opening is already there or the host does not allow it)" % (len(crossings), len(skipped)))
+        return
+    if ARGS["mode"] == "family" or ARGS["status_parameter"]:
+        problem = probe(plan[0])
+        if problem is not None:
+            refuse(problem[0], problem[1], [plan[0]["g"]["first"]["h"]["id"]])
+            return
+    run = Runner("AEC sparingen %s" % ARGS["tag"], ARGS["on_error"])
+    made = []
+    for p in plan:
+        def work(p=p):
+            if p["old"]:
+                delete_owned(p["old"])
+            e = create_sparing(p)
+            apply_values(e, p)
+            return e
+
+        f = p["g"]["first"]
+        e = run.step("Sparing %s" % p["g"]["id"], work, ids=[f["m"]["id"], f["h"]["id"]])
+        if e is None:
+            continue
+        made.append((p, e))
+        run.changed.append(eid(e))
+    replaced = 0
+    for p, e in made:
+        check(p, e)
+        g = p["g"]
+        if p["old"]:
+            replaced += 1
+        item([("kind", "sparing"), ("id", eid(e)), ("crossing_id", g["id"]), ("action", "replaced" if p["old"] else "created"),
+              ("mode", ARGS["mode"]), ("host_id", g["first"]["h"]["id"]), ("w_mm", g["sw"]), ("h_mm", g["sh"]), ("d_mm", g["sd"]),
+              ("status", ARGS["status_value"])])
+    summary("%d of %d sparingen placed (%d new, %d replaced), %d crossings skipped, %d crossings found%s" % (
+        len(made), len(plan), len(made) - replaced, replaced, len(skipped), len(res["crossings"]),
+        " - detection TRUNCATED" if res["state"]["stopped"] else ""))
+    if ARGS["dry_run"]:
+        close_dry(run)
+
+
+__output__ = run_write(main)

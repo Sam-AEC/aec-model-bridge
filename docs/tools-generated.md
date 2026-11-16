@@ -27,7 +27,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `plan_actions` | Create a draft ActionPlan describing the model changes you want to make, capturing the before-state of each. | No | sync |
 | `plan_revert` | Draft a new ActionPlan that sets each parameter back to the before value recorded in an executed plan's proof bundle. | No | sync |
 | `reject_plan` | Reject and archive a pending ActionPlan so that it can never be executed. | No | sync |
-| `rollback_plan` | Undo an already executed ActionPlan by applying the inverse of each recorded change, in reverse order. | No | sync |
+| `rollback_plan` | Write back the recorded before-values of an already executed ActionPlan, in reverse order. | No | sync |
 
 ## Autodesk Data Provider
 
@@ -81,6 +81,9 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `familytype_mapper_list_type_mappings` | List family-type mappings found in a saved snapshot, optionally for one category. | No | sync |
 | `hello_world_say_hello` | Example module command that returns a greeting; use it to confirm the module system works. | No | sync |
 | `links_worksets_audit_audit` | Check linked models and worksets for problems (unloaded or missing links, links not pinned or placed Origin to Origin, empty or default-named worksets, worksets owned by someone else, elements on the wrong workset) and give plain next steps. | No | sync |
+| `model_bloat_audit` | Check a saved snapshot for model bloat: unused families and types (purge candidates), in-place families, families with very many types, imported CAD files, and a rough cleanliness score, sorted by likely impact. | No | sync |
+| `model_changes_compare_snapshots` | Say what changed between two saved snapshots: elements added, removed or modified, parameter values before and after, and counts per category. | No | sync |
+| `model_changes_list_snapshots` | List the saved model snapshots with their timestamps, newest first, so you can pick the latest and previous ones to compare. | No | sync |
 | `model_inspector_ask` | Answer a question about a saved snapshot by filtering its element records with the filter DSL. | No | sync |
 | `model_inspector_inspect_selection` | Return the snapshot records of the given elements (by UniqueId). | No | sync |
 | `model_inspector_list_groups` | List the model groups found in a saved snapshot. | No | sync |
@@ -89,15 +92,24 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `model_inspector_save_query` | Save a named filter query so it can be re-run later with model_inspector_run_saved_query. | No | sync |
 | `model_inspector_summarize_model` | Summarise a saved snapshot, for example element counts by category. | No | sync |
 | `module_list_commands` | List all registered modules and the commands they expose to the dockable Revit panel. | No | sync |
+| `naming_checker_check_names` | Check file names, sheet numbers and names, view names and level or grid names against the naming convention you provide (a pattern of named fields with allowed values per field). | No | sync |
+| `naming_checker_list_example_conventions` | List the bundled example naming conventions. | No | sync |
 | `parameter_manager_diff_params` | Compare parameter values between two saved snapshots and list the differences. | No | sync |
 | `parameter_manager_export_params_csv` | Export parameters of the matching snapshot elements to a CSV file in the workspace. | No | sync |
 | `parameter_manager_filter_params` | Return a parameter grid for the elements of a snapshot that match a filter, optionally including read-only parameters. | No | sync |
 | `parameter_manager_import_params_csv` | Read parameter values from a CSV file in the workspace and create a draft ActionPlan that applies them. | No | sync |
 | `parameter_manager_plan_set_params` | Create a draft ActionPlan that sets parameter values on the elements of a snapshot matching a filter. | No | sync |
+| `pyrevit_bridge_list_pyrevit_scripts` | List pyRevit pushbutton scripts found in the directories named by MCP_REVIT_PYREVIT_EXTENSION_DIRS, with tab, panel, description and whether obvious write calls were detected. | No | sync |
+| `pyrevit_bridge_plan_run_pyrevit_script` | Create a draft ActionPlan for running one pyRevit script, showing its path, SHA-256 and detected write-call lines. | No | sync |
+| `pyrevit_bridge_run_pyrevit_script` | Run a pyRevit script inside Revit after its plan was approved and only if its SHA-256 still matches the plan. | Yes | sync |
+| `qaqc_checker_export_rule_pack` | Copy a validated built-in or workspace rule pack to a YAML file inside the workspace so it can be shared. | No | sync |
+| `qaqc_checker_import_rule_pack` | Validate a YAML rule pack inside the workspace and copy it into the workspace rule_packs folder. | No | sync |
 | `qaqc_checker_list_issues` | List recorded QA/QC issues for a document, optionally filtered by status and severity. | No | sync |
+| `qaqc_checker_list_rule_packs` | List the built-in QA/QC rule packs and the user packs in the workspace rule_packs folder, with a validity flag for each. | No | sync |
 | `qaqc_checker_list_rules` | List the QA/QC rules that are available, optionally for one rule pack. | No | sync |
 | `qaqc_checker_resolve_issue` | Mark one recorded QA/QC issue as resolved. | No | sync |
 | `qaqc_checker_run_check` | Run a QA/QC rule pack against a saved snapshot and record the issues it finds. | No | sync |
+| `qaqc_checker_validate_rule_pack` | Schema-check a YAML rule pack and return actionable errors per rule (id, severity, required fields, unknown operators). | No | sync |
 | `recipe_runner_get_run_status` | Return the status and results of one recipe run. | No | sync |
 | `recipe_runner_list_recipes` | List the available automation recipes. | No | sync |
 | `recipe_runner_list_runs` | List past recipe runs, optionally for one recipe. | No | sync |
@@ -105,6 +117,60 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `report_generator_build_review_pack` | Build one Excel 'Model review' workbook from a snapshot: cover, findings from the QA/QC rules, counts by category and what to do next. | No | sync |
 | `report_generator_export_excel` | Export a snapshot (optionally filtered, with chosen parameters and QA/QC findings) to an Excel workbook in the workspace. | No | sync |
 | `report_generator_export_sqlite_summary` | Export a summary of a snapshot to a SQLite database file in the workspace. | No | sync |
+| `revit_add_revision` | Add a new revision at the end of the revision sequence, with description, date, issued by and to, and visibility. | Yes | sync |
+| `revit_add_revision_clouds` | Draw rectangular revision clouds in one plan, section or elevation view around elements (their extent in that view) and/or a model-space box, for a revision given by id or number. | Yes | sync |
+| `revit_align_crop` | Align the crop regions of a set of plan views to a reference plan view: each view gets the same crop rectangle in model coordinates, its crop switched on and its height range kept. | Yes | sync |
+| `revit_api_lookup` | Check that a Revit API type, member or overload really exists before you use it in a revit_execute_python script, and get its exact signature. | No | sync |
+| `revit_audit_openings` | Inspect scoped doors and windows for host, fit, dimensions and wall cuts, using ray or volume evidence when available. | No | sync |
+| `revit_audit_roofs` | Inspect scoped roofs for heights, slopes, coverage, exposed edges and stair openings. | No | sync |
+| `revit_check_intersections` | Measure solid/solid overlaps in the live model between two sets of elements (ids, Comments tag, categories): boolean-intersection volume in m3, pairs sorted largest first, with categories, ids and location; bounding boxes are only a pre-filter. | No | sync |
+| `revit_check_joins` | Check wall joins in the live model: for every end of the selected walls (ids, or a Comments tag) report whether it is joined to another wall, to which, and the join type. | No | sync |
+| `revit_check_levels_grids` | Check scoped levels and grids for missing plan views, duplicate elevations and coincident grids, using the supplied tolerance. | No | sync |
+| `revit_check_naming_and_params` | Check scoped elements for required parameter values, duplicate Marks and names matching a supplied pattern. | No | sync |
+| `revit_check_orientation` | Check that walls face the right way: probes 0. | No | sync |
+| `revit_cleanup_audit` | Audit the open model for cleanup: eleven read-only checks, each with a count, up to max_ids element ids and a severity (FAIL, WARN, INFO). | No | sync |
+| `revit_export` | Export selected sheets or views as PDF or DWG, or the model as IFC or NWC, inside the workspace under an approved action. | Yes | sync |
+| `revit_get_parameters` | Read parameter values of elements picked by id, ids or a selector (category, name, level, tag): one row per element and parameter with the value in the unit revit_set_parameters expects, Revit's display text, read-only, and whether revit_set_parameters would write it and why not. | No | sync |
+| `revit_ifc_check` | Compare an exported IFC with the live Revit model and list what the export dropped: elements per category, classification (NL/SfB, Assembly Code), materials, storey assignment, expected parameters, duplicates at one placement, and the origin offset against the survey point. | No | sync |
+| `revit_issue_revision` | Assign a revision to sheets (adds it to each sheet's revisions on sheet) and/or mark it issued, with issued by and to. | Yes | sync |
+| `revit_list_revisions` | List the revisions of the document in sequence order: id, sequence, revision number, date, description, issued state, issued by and to, visibility, how many revision clouds each has and on how many sheets it shows. | No | sync |
+| `revit_list_view_templates` | List the view templates of the document: id, name, view type, how many views use each (used_by) and how many view parameters it controls. | No | sync |
+| `revit_list_views_sheets_schedules` | List views, sheets, schedules and view templates in the active document, with filters, placement status and pagination. | No | sync |
+| `revit_make_family` | Make loadable Revit families from data (name, category, box size, pipe, duct or electrical ports) under an approved action: builds from a family template, saves the. | Yes | sync |
+| `revit_make_schedule` | Create a tagged schedule with requested fields, sorting and filters under an approved action. | Yes | sync |
+| `revit_make_sheet` | Create a tagged sheet and place supplied views under an approved action. | Yes | sync |
+| `revit_make_view` | Create a framed 3D, plan, section or elevation view under an approved action. | Yes | sync |
+| `revit_make_view_template` | Create a view template from the settings of an existing view and name it. | Yes | sync |
+| `revit_mep_check_elements` | Dry run of the category guard: say whether elements would be accepted for a pipe, duct or electrical system, and why not (wrong category, no connectors, wrong domain, wrong system, no free connector). | No | sync |
+| `revit_mep_circuit` | Make native electrical circuits (ElectricalSystem) from a list of placed elements and a panel. | Yes | sync |
+| `revit_mep_connect` | Join pairs of connectors that already touch (equipment to a pipe or duct end, or two pipe or duct ends) directly or with a union, transition or elbow, then list the open ends left. | Yes | sync |
+| `revit_mep_hanger_place` | Place a loaded hanger family at hanger positions: planned from a scope with the same rules as revit_mep_hanger_plan, or taken from its positions. | Yes | sync |
+| `revit_mep_hanger_plan` | Plan hanger positions along straight pipes, ducts and cable trays: spread at the maximum spacing of a rule you supplied (a rule needs a named source, otherwise 'no spacing rule'), no closer to fittings than a minimum distance, with the floor, beam or ceiling above each position and the rod length, or 'no support host'. | No | sync |
+| `revit_mep_route` | Run pipe or duct between connectors or points, or branch it off a trunk, with elbows, unions, transitions, takeoffs and tees. | Yes | sync |
+| `revit_place_views` | Place views on an existing sheet as viewports, on a grid, in one row or in one column, centred or aligned to the top left of each cell, inside the title block outline (or area_mm). | Yes | sync |
+| `revit_probe_family` | Inspect a family for category, nested instances, parameters, connectors and geometry. | No | sync |
+| `revit_recipe_delete` | Delete a saved recipe and any standing approval for it. | Yes | sync |
+| `revit_recipe_get` | Read one recipe: manifest, params schema, code, sha256, the approval it needs now and the plan_arguments to put in a plan action for revit_recipe_run. | No | sync |
+| `revit_recipe_list` | List the saved recipes and the built-in starters: id, version, title, mode, approval (per_run or standing), source, sha256 and parameter names. | No | sync |
+| `revit_recipe_run` | Run a saved recipe in Revit with checked parameters. | Yes | sync |
+| `revit_recipe_save` | Save a recipe: IronPython 2. | No | sync |
+| `revit_render_check` | Export a view to a workspace PNG and inspect its pixel content for a blank image. | No | sync |
+| `revit_review` | Run selected read-only Revit checks for an explicit scope and return FAIL, PASS or INCOMPLETE with evidence. | No | sync |
+| `revit_set_parameters` | Batch-set instance or type parameters of up to 500 elements from data: items pick elements by id, ids or a selector (category, name, level, tag) and give params {name: value} with explicit units (mm, m, deg, number, int, bool, text, elementid by name). | Yes | sync |
+| `revit_set_view_templates` | Assign one view template, by name or id, to a list of views. | Yes | sync |
+| `revit_sheet_index` | Index of all sheets: number, name, title block, number of views and their names, schedules, current revision and all revisions shown. | No | sync |
+| `revit_sparing_export_spec` | Export the placement spec for the linked discipline models from this model's placed sparingen: per link instance the family and type, host id and category, location and direction in the link's own coordinates (inverse link transform), size and status, as JSON. | No | sync |
+| `revit_sparing_find` | Find where MEP runs (pipes, ducts, conduits, cable trays) pass through walls and floors, also in links, and suggest a sparing per crossing: MEP size plus clearance, rounded up, with host thickness, angle and any existing opening. | No | sync |
+| `revit_sparing_place` | Place sparingen at the crossings revit_sparing_find reports: a loaded sparing family or a native opening, sized, with an approval status. | Yes | sync |
+| `revit_sparing_place_spec` | Place sparingen in the ACTIVE document from a spec made by revit_sparing_export_spec. | Yes | sync |
+| `revit_sparing_status_get` | Read the approval status of each sparing (proposed, requested, approved, rejected, built): one row per sparing with family, level, host, discipline and the stored text. | No | sync |
+| `revit_sparing_status_set` | Set the approval status of sparingen, with a transition table: proposed > requested > approved or rejected, approved > built or rejected, rejected > proposed. | Yes | sync |
+| `revit_sparing_status_setup` | Create the shared parameter that holds the approval status and bind it to the sparing categories, or add categories to it. | Yes | sync |
+| `revit_sparing_status_summary` | Count sparingen by approval status and optionally by discipline, level, host category, family, tag or kind. | No | sync |
+| `revit_system_report` | Inspect scoped MEP elements for connector domains, system membership, connections, open ends and size differences. | No | sync |
+| `revit_update_sheets` | Bulk renumber and rename sheets from a table (number = the current number; new_number and/or new_name). | Yes | sync |
+| `revit_warnings_delta` | Track Revit warnings across a build phase. | No | sync |
+| `schedule_consistency_check_doors_and_rooms` | Check door and room schedules in a saved snapshot for duplicate or missing Marks, missing or identical From/To rooms, unnumbered or duplicate room numbers and zero-area rooms, and optionally Marks that do not fit a pattern you supply. | No | sync |
 | `selection_tools_group_convert_to_detail` | Convert a model group into a detail group. | Yes | sync |
 | `selection_tools_group_rename` | Rename a model group identified by its UniqueId. | Yes | sync |
 | `selection_tools_group_ungroup` | Ungroup a model group identified by its UniqueId. | Yes | sync |
@@ -113,14 +179,15 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `selection_tools_save_selection` | Save a set of element UniqueIds under a name for later restore. | No | sync |
 | `selection_tools_select_by_query` | Select in Revit the elements of a snapshot that match a filter query. | Yes | sync |
 | `selection_tools_set_selection` | Select the given elements (by UniqueId) in the Revit UI. | Yes | sync |
+| `sheet_view_audit_run_audit` | Check the sheets and views in a saved snapshot for empty sheets, unplaced views, duplicate sheet numbers, missing sheet parameters and default view names. | No | sync |
 | `warnings_triage_review_warnings` | Group the open project's Revit warnings by type, rank them by how many elements they touch, flag duplicate marks, overlapping elements and rooms not enclosed for the coordinator, and suggest a next step for each group. | No | sync |
 
 ## Navisworks Provider
 
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
-| `navisworks_activate_viewpoint` | Switch the Navisworks view to a saved viewpoint identified by its Guid. | No | sync |
-| `navisworks_append_file` | Append a model file (for example NWD, NWC or IFC) from the allowed workspace to the active Navisworks document. | No | sync |
+| `navisworks_activate_viewpoint` | Switch the Navisworks view to a saved viewpoint identified by its Guid. | Yes | sync |
+| `navisworks_append_file` | Append a model file (for example NWD, NWC or IFC) from the allowed workspace to the active Navisworks document. | Yes | sync |
 | `navisworks_create_viewpoint` | Create a saved viewpoint with the given name from the current view. | Yes | sync |
 | `navisworks_get_clash_results` | Return the results of one clash test, with paging by skip and limit. | No | sync |
 | `navisworks_get_document_info` | Return metadata about the active Navisworks document. | No | sync |
@@ -130,22 +197,23 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `navisworks_invoke_method` | Advanced escape hatch: call a public C# method in Navisworks through reflection. | Yes | sync |
 | `navisworks_list_clash_tests` | List the clash tests defined in Clash Detective. | No | sync |
 | `navisworks_list_viewpoints` | List the saved viewpoints of the active Navisworks document. | No | sync |
-| `navisworks_reflect_get` | Advanced: read a C# property of a Navisworks object through reflection. | No | sync |
+| `navisworks_reflect_get` | Advanced: read a C# property of a Navisworks object through reflection. | Yes | sync |
 | `navisworks_reflect_set` | Advanced escape hatch: set a C# property of a Navisworks object through reflection. | Yes | sync |
-| `navisworks_refresh` | Refresh all appended files that changed on disk in the active Navisworks document. | No | sync |
+| `navisworks_refresh` | Refresh all appended files that changed on disk in the active Navisworks document. | Yes | sync |
 | `navisworks_run_clash_test` | Run one Clash Detective test, identified by Guid, and update its results. | Yes | sync |
 
 ## Revit Provider
 
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
-| `revit_apply_view_template` | Apply a view template to a view. | Yes | sync |
+| `revit_apply_view_template` | Apply a view template to a view in the active Revit document. | Yes | sync |
 | `revit_batch_create_sheets_from_csv` | Create many sheets from a CSV file inside the allowed workspace, using the named title block. | Yes | sync |
 | `revit_batch_set_parameters` | Set the same parameter to the same value on many elements, given by ElementId, in one Revit transaction. | Yes | sync |
 | `revit_batch_set_parameters_by_filter` | Set a parameter value on all elements matching a filter (category, type, level, or parameter value). | Yes | sync |
 | `revit_calculate_material_quantities` | Calculate material volumes and areas for all elements of a category. | No | sync |
 | `revit_change_element_type` | Swap all instances of one element type to another type. | Yes | sync |
 | `revit_check_clashes` | Check for geometric clashes between elements of two categories, within a tolerance (feet). | No | sync |
+| `revit_clear_preview` | End the element preview: exit temporary isolate in the active view and clear the selection. | No | sync |
 | `revit_close_document` | Close the active Revit document, optionally saving changes first. | Yes | sync |
 | `revit_convert_to_group` | Convert a set of elements into a named model group. | Yes | sync |
 | `revit_copy_element` | Copy one element and place the copy at an offset vector in feet from the original. | Yes | sync |
@@ -178,13 +246,14 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_delete_sheet` | Delete a sheet by ElementId. | Yes | sync |
 | `revit_duplicate_sheet` | Duplicate a sheet, optionally with its views, using one of Revit's duplicate options. | Yes | sync |
 | `revit_edit_family` | Open a family for editing in the Revit family editor. | Yes | sync |
-| `revit_execute_python` | Execute arbitrary Python/IronPython code inside Revit with broad access to the public Revit API. | Yes | sync |
+| `revit_execute_python` | Advanced: run IronPython 2. | Yes | sync |
 | `revit_export_dwg` | Export a view to a DWG file at a path inside the allowed workspace. | No | sync |
 | `revit_export_ifc` | Export the model to an IFC file at a path inside the allowed workspace. | No | sync |
 | `revit_export_image` | Export a view to an image file of the given pixel size at a path inside the allowed workspace. | No | sync |
 | `revit_export_navisworks` | Export the model to a Navisworks NWC file at a path inside the allowed workspace. | No | sync |
 | `revit_extract_snapshot` | Extract a semantic BIM snapshot of the active document. | No | sync |
 | `revit_get_categories` | List the Revit categories available in the active document. | No | sync |
+| `revit_get_context` | Read-only snapshot of the live Revit session: which build of the add-in is loaded (and whether it matches this server), Revit version, active document (title, path, guid, workshared), active view, how many requests are queued, which request is running and for how long, and the approval mode in force right now (including a temporary Auto window from the panel and when it ends). | No | sync |
 | `revit_get_design_options` | List the design option sets and options of the active Revit document. | No | sync |
 | `revit_get_document_info` | Return metadata about the active Revit document, such as its title, path and workshare status. | No | sync |
 | `revit_get_element_bounding_box` | Return the axis-aligned bounding box (min and max corner, feet) of an element. | No | sync |
@@ -197,6 +266,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_get_parameter_value` | Read the value of one named parameter on one element. | No | sync |
 | `revit_get_phase_filters` | List the phase filters of the active Revit document. | No | sync |
 | `revit_get_phases` | List the project phases of the active Revit document. | No | sync |
+| `revit_get_result` | Collect the outcome of an earlier Revit call that returned status 'running' with a request_id. | No | sync |
 | `revit_get_revision_sequences` | List the revision sequences defined in the active Revit document. | No | sync |
 | `revit_get_rvt_links` | List the linked Revit models (link types) in the active document. | No | sync |
 | `revit_get_schedule_data` | Return the rows and columns of an existing schedule. | No | sync |
@@ -208,7 +278,9 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_get_warnings` | Return the current warnings of the active Revit project (for example overlapping or duplicate elements). | No | sync |
 | `revit_get_worksets` | List the worksets of a workshared model with their owners and open state. | No | sync |
 | `revit_health` | Check that the Revit bridge is reachable and return its status information. | No | sync |
+| `revit_inspect_elements` | Read-only bounded inspection of explicit element IDs using existing dedicated document, geometry and selected parameter reads. | No | sync |
 | `revit_invoke_method` | Advanced escape hatch: call any public Revit API method by class and method name through reflection, optionally inside a transaction. | Yes | sync |
+| `revit_list_commands` | List the commands the open Revit add-in supports (for example revit. | No | sync |
 | `revit_list_elements` | List the elements of one Revit category (for example Walls, Floors, Roofs, Doors or Windows) in the active document. | No | sync |
 | `revit_list_families` | List the families loaded in the active Revit document together with their types. | No | sync |
 | `revit_list_levels` | List all levels in the active Revit project with their names and elevations. | No | sync |
@@ -225,10 +297,12 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_place_viewport_on_sheet` | Place a view on a sheet at an x/y position (feet on the sheet). | Yes | sync |
 | `revit_place_window` | Place a window of a given family and type in a host wall at a location. | Yes | sync |
 | `revit_populate_titleblock` | Write a set of parameter values into the title block of a sheet. | Yes | sync |
-| `revit_reflect_get` | Advanced: read any public Revit API property of an object identified by target_id, through reflection. | No | sync |
+| `revit_preview_elements` | Preview which elements a proposed change affects: select and zoom to them in the active view and temporarily isolate them. | No | sync |
+| `revit_raw_command` | Advanced: send any Revit add-in command (for example revit. | Yes | sync |
+| `revit_reflect_get` | Advanced: read any public Revit API property of an object identified by target_id, through reflection. | Yes | sync |
 | `revit_reflect_set` | Advanced escape hatch: set any writable Revit API property of an object identified by target_id, through reflection. | Yes | sync |
 | `revit_relinquish_all` | Relinquish every element and workset the current user owns in a workshared model. | Yes | sync |
-| `revit_render_3d` | Render a 3D view to an image file at a chosen quality level. | No | sync |
+| `revit_render_3d` | Render a 3D view to an image file at a chosen quality level. | Yes | sync |
 | `revit_renumber_sheets` | Renumber all sheets in one batch using a prefix and a starting number. | Yes | sync |
 | `revit_replace_family_type` | Replace all instances of one family/type combination with another, identified by name. | Yes | sync |
 | `revit_rotate_element` | Rotate one element about a vertical axis through a centre point by an angle in radians. | Yes | sync |
@@ -243,6 +317,14 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_ungroup` | Dissolve a model group into its member elements. | Yes | sync |
 | `revit_unpin_element` | Unpin a previously pinned element so it can be moved again. | Yes | sync |
 
+## Revit Jobs Provider
+
+| Tool Name | Description | Mutating? | Execution Type |
+| --- | --- | --- | --- |
+| `revit_job_cancel` | Cancel a Revit job that is still queued. | No | sync |
+| `revit_job_status` | Get the state of a Revit job: queued, running, completed, failed or cancelled, with elapsed seconds, the last progress lines and the output once it has finished. | No | sync |
+| `revit_run_job` | Run a Revit tool or an IronPython script as a background job and get a job_id back. | Yes | sync |
+
 ## Rhino Provider
 
 | Tool Name | Description | Mutating? | Execution Type |
@@ -253,14 +335,14 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `rhino_create_box` | Create a box (rectangular prism) from two corner points in metres. | Yes | sync |
 | `rhino_create_cylinder` | Create a capped cylinder from base point, height, and radius in metres. | Yes | sync |
 | `rhino_create_sphere` | Create a sphere by centre point and radius in metres. | Yes | sync |
-| `rhino_generate_diagrid_tower` | Generate a parametric diagrid skyscraper with aluminum mullion sweeps and glass panel solids. | No | sync |
+| `rhino_generate_diagrid_tower` | Generate a parametric diagrid skyscraper with aluminum mullion sweeps and glass panel solids. | Yes | sync |
 | `rhino_get_document_info` | Return the active Rhino document name, path, unit system and object count. | No | sync |
 | `rhino_get_lines` | Return all curves and lines in the active Rhino document. | No | sync |
 | `rhino_get_scene` | Return every object in the Rhino scene with its type, layer and bounding box. | No | sync |
 | `rhino_health` | Check that the Rhino bridge is reachable and healthy. | No | sync |
 | `rhino_invoke_method` | Advanced escape hatch: call a public C# method on a Rhino object through reflection. | Yes | sync |
 | `rhino_list_layers` | List all layers of the Rhino document with name, colour, visibility and lock state. | No | sync |
-| `rhino_reflect_get` | Advanced: read a C# property of a Rhino object through reflection. | No | sync |
+| `rhino_reflect_get` | Advanced: read a C# property of a Rhino object through reflection. | Yes | sync |
 | `rhino_reflect_set` | Advanced escape hatch: set a C# property of a Rhino object through reflection. | Yes | sync |
 | `rhino_run_python` | Execute arbitrary IronPython code inside Rhino with full RhinoCommon access. | Yes | sync |
 | `rhino_set_material` | Apply a material to objects by GUID list or by layer name. | Yes | sync |
@@ -286,13 +368,13 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `speckle_auth_status` | Report the current Speckle OAuth authentication status of this server (signed in or not). | No | sync |
 | `speckle_checkout_version` | Retrieve the metadata of one Speckle version by ID. | No | sync |
 | `speckle_create_branch` | Create an isolated Speckle branch for compatibility with model workflows. | Yes | sync |
-| `speckle_create_model` | Create an isolated Speckle model. | Yes | sync |
+| `speckle_create_model` | Create a named model in the specified Speckle project. | Yes | sync |
 | `speckle_get_version_metadata` | Read the metadata of one Speckle version by project and version ID. | No | sync |
 | `speckle_health` | Check that the Speckle provider is configured and report whether it can reach the Speckle server. | No | sync |
 | `speckle_list_models` | List Speckle models for a project. | No | sync |
 | `speckle_list_projects` | List the Speckle projects the signed-in user can access, up to a limit. | No | sync |
 | `speckle_list_versions` | List Speckle versions for a model or branch. | No | sync |
-| `speckle_merge_branch` | Compatibility alias for merge_model. | Yes | sync |
+| `speckle_merge_branch` | Merge a source Speckle model into a target model in the specified project. | Yes | sync |
 | `speckle_merge_model` | Merge one Speckle model or branch into another through GraphQL. | Yes | sync |
 | `speckle_oauth_exchange_code` | Exchange a Speckle OAuth authorization code. | No | sync |
 | `speckle_oauth_refresh` | Refresh the Speckle OAuth access token so later Speckle calls keep working. | No | sync |

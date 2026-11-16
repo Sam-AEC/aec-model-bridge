@@ -6,7 +6,8 @@ We actively support and provide security updates for the following versions:
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.x     | Supported          |
+| Latest 1.x release | Supported |
+| Older 1.x releases | Upgrade to the latest release; no separate fixes |
 | < 1.0   | Not supported      |
 
 Security fixes go into the latest 1.x release. For the Revit and Python versions that are built and tested, see the table below and the [deprecation policy](docs/deprecation-policy.md).
@@ -80,6 +81,6 @@ Before relying on a deployment:
 - [ ] Access to `audit.log` and `bridge.jsonl` is restricted
 - [ ] No AI client has a shell on the account used to approve plans
 
-Nothing in this product has run in a live Revit session yet; see [docs/release-checklist.md](docs/release-checklist.md).
+The dev build passed scoped read-only smoke checks in Revit 2024; model writes, rollback and export acceptance remain pending. See the [live-validation report](docs/revit-addin-live-validation-2026-10-14.md) and [release checklist](docs/release-checklist.md).
 
 Full guide: [docs/security.md](docs/security.md)
