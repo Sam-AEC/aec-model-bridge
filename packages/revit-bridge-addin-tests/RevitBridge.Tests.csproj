@@ -39,5 +39,6 @@
     <Compile Include="..\revit-bridge-addin\src\Bridge\BridgeFailureText.cs" Link="Linked\BridgeFailureText.cs" />
     <Compile Include="..\revit-bridge-addin\src\Bridge\WorkspaceMonitor.cs" Link="Linked\WorkspaceMonitor.cs" />
     <Compile Include="..\revit-bridge-addin\src\Bridge\WorkspaceDirectory.cs" Link="Linked\WorkspaceDirectory.cs" />
+    <Compile Include="..\revit-bridge-addin\src\Bridge\SnapshotViewRecords.cs" Link="Linked\SnapshotViewRecords.cs" />
   </ItemGroup>
 </Project>
