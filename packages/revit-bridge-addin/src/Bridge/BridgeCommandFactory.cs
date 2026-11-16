@@ -5071,7 +5071,7 @@ public static partial class BridgeCommandFactory
         }
 
         // Views and sheets (issue 142): only for a whole-model capture. A category-filtered or dirty-only
-        // snapshot omits the keys, and the audit then reports "views not captured: result not rated".
+        // snapshot writes null for them, and the audit then reports "views not captured: result not rated".
         var captureViews = !dirtyOnly && categories.Count == 0;
         var viewRecords = new List<object?>();
         var sheetRecords = new List<object?>();
@@ -5170,12 +5170,14 @@ public static partial class BridgeCommandFactory
             ["sheets_truncated"] = sheetsTruncated,
         };
 
-        var snapshot = new Dictionary<string, object?>
+        // views / sheets are null (JSON null) when they were not captured; the audit treats a non-list
+        // "views" as "views not captured: result not rated".
+        var snapshot = new
         {
-            ["schema"] = "amb.snapshot/1",
-            ["snapshot_id"] = snapshotId,
-            ["taken_at"] = DateTime.UtcNow.ToString("o"),
-            ["source"] = new
+            schema = "amb.snapshot/1",
+            snapshot_id = snapshotId,
+            taken_at = DateTime.UtcNow.ToString("o"),
+            source = new
             {
                 app = "revit",
                 app_version = app.Application.VersionNumber,
@@ -5183,17 +5185,13 @@ public static partial class BridgeCommandFactory
                 doc_title = doc.Title,
                 units = "SI"
             },
-            ["elements"] = elementRecords,
-            ["dirty_only"] = dirtyOnly,
-            ["counts"] = counts,
-            ["deleted"] = deletedIdsList
+            elements = elementRecords,
+            views = captureViews ? viewRecords : null,
+            sheets = captureViews ? sheetRecords : null,
+            dirty_only = dirtyOnly,
+            counts,
+            deleted = deletedIdsList
         };
-        // Keys are omitted (not null) when views were not captured, so a consumer can tell the difference.
-        if (captureViews)
-        {
-            snapshot["views"] = viewRecords;
-            snapshot["sheets"] = sheetRecords;
-        }
 
         var json = JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = false });
         File.WriteAllText(snapshotPath, json);
