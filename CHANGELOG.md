@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- New read-only tool `qa_handover_build_report` (roadmap priority 4): a short hand-over report of QA findings per rule, before/after re-check counts, approved parameter changes from plan proof bundles and an explicit not-verified list, written as JSON and Markdown under `reports/` in the workspace. See `docs/qa-handover-report.md`. UNVERIFIED in a live Revit session.
+- Tool count is now 303 (109 module tools).
+
 ## 1.5.0 - 2026-11-16
 
 - Read-only tool results are now minified JSON by default (about 14-24% fewer characters on typical reads; pass `response_options.compact: false` for indented text) and capped at 20,000 characters. Over the cap, the largest lists are trimmed to valid JSON and marked `truncated: true` with `total`, `returned` and a hint to narrow the call; `response_options.max_chars` changes the cap (0 turns it off). Plans, proofs, approvals, jobs, errors and every tool that can write are untouched.
