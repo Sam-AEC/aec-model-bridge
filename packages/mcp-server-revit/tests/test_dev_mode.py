@@ -358,3 +358,71 @@ def test_panel_cannot_enable_dev_in_configured_look_only(hub):
     server.RequestHandlerClass.approval_provider.gate.approval_mode = "look_only"
     assert _call(hub, "dev", confirm=True)[0] == 409
     assert _call(hub)[1]["dev_mode"] is False
+
+
+# ---- Dev-aware plan_actions, refusal wording and diagnostics -----------------------------------
+
+
+def _provider(tmp_path):
+    registry, approval, _, _, _ = build_registry(WorkspaceMonitor([tmp_path / "ws"]))
+    approval.gate.override_token = TOKEN
+    return approval
+
+
+def _plan_call():
+    return {"actions": [{"tool": SET, "arguments": {"element_id": 1, "parameter_name": "Comments", "value": "x"}}]}
+
+
+def test_plan_actions_in_dev_flags_dev_but_still_creates_a_pending_plan(tmp_path):
+    approval = _provider(tmp_path)
+    off = asyncio.run(approval.execute_tool("plan_actions", _plan_call()))
+    assert "dev_mode" not in off
+    dev.enable_dev(approval.gate.workspace_dir, token=TOKEN)
+    plan = asyncio.run(approval.execute_tool("plan_actions", _plan_call()))
+    assert plan["dev_mode"] is True
+    assert "omit plan_id" in plan["note"] and "no approval needed" in plan["note"]
+    assert approval.gate.load_plan(plan["plan_id"])["state"] == "pending"
+
+
+def test_pending_plan_refusal_in_dev_says_to_omit_plan_id_but_still_refuses(tmp_path):
+    gate = _gate(tmp_path)
+    plan = gate.create_plan([{"tool": SET, "arguments": {"element_id": 1}}], [{}])
+    args = {"element_id": 1, "plan_id": plan["plan_id"]}
+    with pytest.raises(Exception, match="not 'approved'") as plain:
+        gate.claim_action(SET, args)
+    assert "Dev mode is on" not in str(plain.value)
+    dev.enable_dev(gate.workspace_dir, token=TOKEN)
+    with pytest.raises(Exception, match="not 'approved'") as in_dev:
+        gate.claim_action(SET, args)
+    assert "Dev mode is on: omit plan_id to run unplanned, or have the person approve this plan" in str(in_dev.value)
+    assert gate.load_plan(plan["plan_id"])["state"] == "pending"
+
+
+def test_diagnostics_report_workspace_and_why_dev_reads_off(tmp_path):
+    from revit_mcp_server import panel_server
+    ws = tmp_path / "ws"
+    dev.enable_dev(ws, token=TOKEN)
+    on = panel_server.collect_diagnostics(ws, "auto", None, True, dev_token=TOKEN)
+    assert on["workspace_dir"] == str(ws) and on["dev_off_reason"] is None
+    # Dev was enabled for another workspace: this one has no record or authority.
+    other = tmp_path / "other"
+    other.mkdir()
+    off = panel_server.collect_diagnostics(other, "ask_first", None, False, dev_token=TOKEN)
+    assert off["workspace_dir"] == str(other)
+    assert "no Dev record" in off["dev_off_reason"]
+    # A record copied from another workspace fails the key check.
+    other.joinpath(dev.DEV_FILENAME).write_bytes(dev.dev_path(ws).read_bytes())
+    assert "key mismatch" in panel_server.collect_diagnostics(other, "ask_first", None, False, dev_token=TOKEN)["dev_off_reason"]
+    # Authority removed (Dev switched off elsewhere) while the workspace file remains.
+    dev._authority_path(ws).unlink()
+    assert "authority" in panel_server.collect_diagnostics(ws, "ask_first", None, False, dev_token=TOKEN)["dev_off_reason"]
+    # Wrong token: signature check fails.
+    dev.enable_dev(ws, token=TOKEN)
+    wrong = panel_server.collect_diagnostics(ws, "ask_first", None, False, dev_token="B" * 43)
+    assert "key mismatch" in wrong["dev_off_reason"]
+    for payload in (on, off, wrong):
+        text = json.dumps(payload)
+        assert TOKEN not in text and "B" * 43 not in text
+        assert json.loads(dev.dev_path(ws).read_text())["nonce"] not in text
+    look = panel_server.collect_diagnostics(ws, "look_only", None, False, dev_token=TOKEN)
+    assert "look_only" in look["dev_off_reason"]

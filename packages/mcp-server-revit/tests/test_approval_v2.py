@@ -119,6 +119,19 @@ def test_server_instructions_tell_the_model_to_stop_and_ask():
     assert "have the human approve it (approve_plan" not in text
 
 
+def test_instructions_are_dev_aware_without_dropping_the_plan_flow():
+    from revit_mcp_server import agent_native
+    from revit_mcp_server.providers.approval_provider import ApprovalProvider
+    from revit_mcp_server.tool_metadata import DESCRIPTIONS
+
+    texts = [mcp_server.SERVER_INSTRUCTIONS, agent_native._SYSTEM_PROMPT, DESCRIPTIONS["plan_actions"]]
+    for text in texts:
+        assert "dev_mode" in text and "plan_id" in text
+    assert "STOP and ask the person" in mcp_server.SERVER_INSTRUCTIONS
+    provider_tool = next(t for t in ApprovalProvider._capabilities if t.name == "plan_actions")
+    assert "dev_mode" in provider_tool.description
+
+
 def test_registry_provider_can_still_approve_for_the_panel(server):
     _, approval = server
     plan = asyncio.run(approval.execute_tool("plan_actions", {"actions": [{"tool": SET, "arguments": _args()}]}))
