@@ -467,6 +467,12 @@ class ApprovalGate:
                 hint = " Dev mode is on: omit plan_id to run unplanned, or have the person approve this plan."
             raise BridgeError(
                 f"Plan '{plan_id}' is in state '{plan.get('state')}', not 'approved'. Execution blocked.{hint}")
+        self._verify_unchanged_since_approval(plan)
+
+    @staticmethod
+    def _verify_unchanged_since_approval(plan: Dict[str, Any]) -> None:
+        """Refuse unless the plan still hashes to what a person approved (any state)."""
+        plan_id = plan.get("plan_id")
         approved = plan.get("approved_hash")
         try:
             current_hash = plan_hash(plan)
@@ -523,14 +529,14 @@ class ApprovalGate:
                 return action
         return None
 
-    def _claim_marker(self, plan_id: str, action_id: Any) -> Path:
+    def _claim_marker(self, plan_id: str, action_id: Any, subdir: str = ".claims") -> Path:
         validate_plan_id(plan_id)
 
         def refuse(_reason: str) -> BridgeError:
             return BridgeError(f"Plan '{plan_id}' has a malformed action id; refusing to run it.")
 
         return safe_child(self.plans_dir, f"{plan_id}.{action_id}" if isinstance(action_id, str) else None,
-                          "", _CLAIM_NAME_RE, refuse, subdir=".claims")
+                          "", _CLAIM_NAME_RE, refuse, subdir=subdir)
 
     def claim_action(self, tool_name: str, arguments: Any) -> Optional[Dict[str, str]]:
         """Consume the matching approved action BEFORE the tool runs (at most once).
@@ -825,6 +831,45 @@ class ApprovalGate:
                 return None
         return self.finish_action(claim, ok=True)
 
+    def _check_rollback_allowed(self, plan: Optional[Dict[str, Any]], plan_id: str) -> Dict[str, Any]:
+        """The one place that decides whether a plan may be rolled back right now.
+
+        Mirrors what claim_action requires of an execution, for state 'executed':
+        the plan exists, was executed (so it is not pending, rejected, partial or
+        already rolled back) and still holds exactly what a person approved. Called
+        before the rollback starts and again, under the plan lock, before each inverse
+        action is claimed and before the final state is saved. Further gates (plan
+        expiry, document binding) belong here.
+        """
+        if not plan:
+            raise ValueError(f"Plan {plan_id} not found")
+        if plan.get("state") != "executed":
+            raise ValueError(f"Plan {plan_id} is in state '{plan.get('state')}', cannot rollback. Only executed plans can be rolled back.")
+        self._verify_unchanged_since_approval(plan)
+        return plan
+
+    def _claim_rollback_action(self, plan_id: str, action_id: Any) -> None:
+        """Consume one inverse action BEFORE its write runs (at most once, across processes).
+
+        Under the plan lock: re-checks the plan, then creates a claim marker with O_EXCL
+        in ``.rollback_claims`` (separate from the execution claims in ``.claims``). The
+        marker stays whatever the write does next, so an interrupted rollback never
+        replays an inverse write blindly; a person inspects the model first.
+        """
+        with self._plan_lock(plan_id):
+            self._check_rollback_allowed(self.load_plan(plan_id), plan_id)
+            marker = self._claim_marker(plan_id, action_id, subdir=".rollback_claims")
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                fd = os.open(str(marker), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            except FileExistsError:
+                raise BridgeError(
+                    f"Rollback of action {action_id} in plan {plan_id} was already claimed by an earlier "
+                    "rollback; its write may or may not have run. Inspect the model before trying again."
+                ) from None
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(datetime.now(timezone.utc).isoformat())
+
     async def rollback_plan(self, plan_id: str, execute_fn) -> Dict[str, Any]:
         """Roll back an executed plan.
 
@@ -832,16 +877,20 @@ class ApprovalGate:
         awaited here rather than merely invoked, otherwise the inverse tool call never
         actually runs (a bare call just constructs and discards a coroutine object).
 
+        Same discipline as execute_plan: the plan must be 'executed' and unchanged since
+        approval (_check_rollback_allowed), and every inverse action is claimed under the
+        plan lock (_claim_rollback_action) before its write runs. The plan stays
+        'executed' for the whole rollback (it is never written as 'approved'), so a crash
+        leaves it 'executed'; only the final outcome is saved, and only while the plan is
+        still 'executed'.
+
         Tools without a registered rollback handler are recorded as warnings (not
         errors) so that a mixed plan (some rollback-able, some not) still rolls back
         what it can and reports clearly what was skipped.
         """
-        self.refuse_if_look_only()  # rollback writes to the model directly, outside claim_action
-        plan = self.load_plan(plan_id)
-        if not plan:
-            raise ValueError(f"Plan {plan_id} not found")
-        if plan.get("state") != "executed":
-            raise ValueError(f"Plan {plan_id} is in state '{plan.get('state')}', cannot rollback. Only executed plans can be rolled back.")
+        self.refuse_if_look_only()  # rollback is a model write; look only refuses it before anything else
+        validate_plan_id(plan_id)
+        plan = self._check_rollback_allowed(self.load_plan(plan_id), plan_id)
 
         errors = []
         warnings = []
@@ -854,10 +903,7 @@ class ApprovalGate:
                 old_val = before.get(str(elem_id), {}).get(param_name)
                 if old_val is not None:
                     try:
-                        # Make sure to bypass or satisfy the approved state check
-                        # We temporarily set the plan state to 'approved' for the rollback calls
-                        plan["state"] = "approved"
-                        self.save_plan(plan)
+                        self._claim_rollback_action(plan_id, action.get("action_id"))
                         await execute_fn("revit_set_parameter_value", {
                             "element_id": elem_id,
                             "parameter_name": param_name,
@@ -866,21 +912,16 @@ class ApprovalGate:
                         })
                     except Exception as e:
                         errors.append(f"Failed to rollback action {action.get('action_id')}: {e}")
-                    finally:
-                        plan["state"] = "executed"
-                        self.save_plan(plan)
                 else:
                     warnings.append(f"Skipped rollback for action {action.get('action_id')}: no before-value recorded")
             else:
                 warnings.append(f"No rollback handler for tool '{tool}' (action {action.get('action_id')}) — skipped")
 
-        if errors:
-            plan["state"] = "partial_rollback"
+        with self._plan_lock(plan_id):
+            plan = self._check_rollback_allowed(self.load_plan(plan_id), plan_id)
             plan["rollback_warnings"] = warnings
+            plan["state"] = "partial_rollback" if errors else "rolled_back"
             self.save_plan(plan)
+        if errors:
             raise BridgeError(f"Rollback encountered errors: {'; '.join(errors)}")
-
-        plan["state"] = "rolled_back"
-        plan["rollback_warnings"] = warnings
-        self.save_plan(plan)
         return plan
