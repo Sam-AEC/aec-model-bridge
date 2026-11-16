@@ -635,4 +635,4 @@ def test_tools_are_registered_read_only_and_documented(listed: Any) -> None:
 def test_mock_mode_end_to_end_marks_the_result_as_mock(listed: Any) -> None:
     _, _, mcp_server = listed
     out = asyncio.run(mcp_server.call_tool("revit_check_joins", {"tag": "T:p3"}))[0].text
-    assert '"mock": true' in out and '"verified": false' in out and "UNVERIFIED" in out
+    assert '"mock":true' in out and '"verified":false' in out and "UNVERIFIED" in out  # read results are compact

@@ -259,3 +259,47 @@ def test_panel_registry_is_unfiltered_even_when_env_requests_daily(tmp_path, mon
     registry = registry_with(provider)
     assert registry.lookup_tool("native_alias") is not None
     assert registry.is_tool_visible("native_alias")
+
+
+APPROVAL_TOOLS = {"plan_actions", "execute_plan", "list_pending_plans", "plan_revert", "get_proof_bundle"}
+
+
+def _approval_names(profile):
+    registry = ProviderRegistry()
+    registry.register(ApprovalProvider.__new__(ApprovalProvider))
+    registry.register(FakeProvider("revit", [tool("native")]))
+    registry.freeze_tool_profile(profile)
+    return {t.name for t in registry.get_all_tools()}
+
+
+@pytest.mark.parametrize("profile_name", ["full", "daily"])
+def test_approval_tools_are_visible_in_every_builtin_profile(profile_name):
+    names = _approval_names(load_tool_profile({"MCP_REVIT_TOOL_PROFILE": profile_name}))
+    assert APPROVAL_TOOLS <= names
+
+
+@pytest.mark.parametrize("profile", [
+    {"include": ["revit"]},
+    {"include": ["nothing_matches"]},
+    {"exclude": ["rhino*"]},
+])
+def test_custom_profile_files_never_hide_approval_tools(tmp_path, profile):
+    path = tmp_path / "profile.json"
+    path.write_text(json.dumps(profile))
+    names = _approval_names(load_tool_profile({
+        "MCP_REVIT_TOOL_PROFILE": "custom", "MCP_REVIT_TOOL_PROFILE_FILE": str(path)}))
+    assert APPROVAL_TOOLS <= names
+
+
+@pytest.mark.parametrize("pattern", ["approval", "appro*", "*"])
+def test_custom_profile_exclusion_naming_approval_is_refused_with_clear_error(tmp_path, pattern):
+    path = tmp_path / "profile.json"
+    path.write_text(json.dumps({"exclude": [pattern]}))
+    with pytest.raises(ValueError, match="approval tools cannot be excluded"):
+        load_tool_profile({"MCP_REVIT_TOOL_PROFILE": "custom", "MCP_REVIT_TOOL_PROFILE_FILE": str(path)})
+
+
+def test_approval_provider_is_allowed_even_for_a_hand_built_excluding_profile():
+    profile = ToolProfile(name="custom", include=("revit",), exclude=("approval", "*"))
+    assert profile.allows("approval")
+    assert not profile.allows("rhino")

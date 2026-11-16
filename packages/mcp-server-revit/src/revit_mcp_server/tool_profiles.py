@@ -21,6 +21,12 @@ DAILY_EXCLUDE = (
 )
 
 
+# Provider that owns plan_actions, execute_plan, list_pending_plans and the other
+# approval tools. No profile may hide it: without it a client cannot see or follow
+# the approval flow that guards every write.
+APPROVAL_PROVIDER_ID = "approval"
+
+
 class ToolProfileBlocked(BridgeError):
     """A registered tool is unavailable in this process's static MCP profile."""
 
@@ -32,6 +38,8 @@ class ToolProfile:
     exclude: tuple[str, ...] = ()
 
     def allows(self, provider_id: str, module_id: str | None = None) -> bool:
+        if provider_id == APPROVAL_PROVIDER_ID:
+            return True
         identities = (provider_id,) if module_id is None else (provider_id, module_id)
         def matches(patterns: tuple[str, ...]) -> bool:
             return any(fnmatchcase(identity, pattern) for identity in identities for pattern in patterns)
@@ -50,7 +58,8 @@ def load_tool_profile(environ: Mapping[str, str] | None = None) -> ToolProfile:
     """Read and validate settings once. JSON include/exclude contain ID globs.
 
     The optional file narrows any profile; custom requires a file. Exclusions
-    always win, including daily's built-in exclusions. No file is reread later.
+    always win, including daily's built-in exclusions, except that the approval
+    provider is never hidden: an exclusion matching it is refused. No file is reread later.
     """
     env = os.environ if environ is None else environ
     name = env.get("MCP_REVIT_TOOL_PROFILE", "full")
@@ -78,5 +87,12 @@ def load_tool_profile(environ: Mapping[str, str] | None = None) -> ToolProfile:
             ):
                 raise ValueError(f"Tool profile '{key}' must be an array of non-empty provider/module ID globs")
         include = tuple(data.get("include", ["*"]))
+        for pattern in data.get("exclude", []):
+            if fnmatchcase(APPROVAL_PROVIDER_ID, pattern):
+                raise ValueError(
+                    f"Invalid MCP_REVIT_TOOL_PROFILE_FILE: exclude '{pattern}' matches the "
+                    f"'{APPROVAL_PROVIDER_ID}' provider; approval tools cannot be excluded "
+                    "(plan_actions, execute_plan, list_pending_plans stay visible in every profile)"
+                )
         exclude += tuple(data.get("exclude", []))
     return ToolProfile(name=name, include=include, exclude=exclude)

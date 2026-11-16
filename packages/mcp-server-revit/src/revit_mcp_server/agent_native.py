@@ -72,7 +72,9 @@ _SYSTEM_PROMPT = (
     "view - you cannot approve your own plans. Once a plan is approved, call "
     "execute_plan to run it. If a mutating call is rejected because no "
     "approved plan backs it, tell the user to review the plan in the panel "
-    "rather than retrying blindly. If any tool call returns an error, explain "
+    "rather than retrying blindly. If revit_get_context shows server.dev_mode "
+    "true, call mutating tools directly with no plan_actions and no plan_id. "
+    "If any tool call returns an error, explain "
     "the failure to the user."
 )
 

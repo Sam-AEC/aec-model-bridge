@@ -1,8 +1,10 @@
 import asyncio
+import copy
 import re
 import contextlib
 import contextvars
 import logging
+import math
 import threading
 from pathlib import Path
 from typing import Any, Dict, List
@@ -11,6 +13,7 @@ import httpx
 
 from ..bridge.client import BridgeClient
 from ..bridge.mock import MockBridge
+from ..check_contract import PageSpec, paginate
 from ..config import BridgeMode, config
 from ..errors import BridgeError, WorkspaceViolation
 from ..legacy.tools import TOOL_HANDLERS
@@ -26,6 +29,67 @@ logger = logging.getLogger(__name__)
 def _optional(args: Dict[str, Any], *names: str) -> Dict[str, Any]:
     """Forward only the arguments the caller actually gave, so the add-in applies its own defaults."""
     return {name: args[name] for name in names if args.get(name) is not None}
+
+
+# Read tools whose add-in result is one unpaginated list. limit, offset and count_only slice that
+# list here, after the add-in answered; nothing is sent to Revit differently. value = the list key.
+PAGED_READS = {
+    "revit_list_elements": "elements",
+    "revit_list_views": "views",
+    "revit_list_families": "families",
+    "revit_get_categories": "categories",
+    "revit_get_warnings": "warnings",
+    "revit_get_schedule_data": "fields",
+}
+_PAGE_ARGS = ("limit", "offset", "count_only")
+
+
+def _page_args(arguments: Dict[str, Any]) -> "PageSpec | None":
+    """Validate limit/offset/count_only; None when nothing asks for paging (count_only:false alone)."""
+    for key in ("limit", "offset"):
+        value = arguments.get(key)
+        if value is None or isinstance(value, bool):
+            continue
+        try:
+            finite = math.isfinite(float(value))
+        except (TypeError, ValueError):
+            continue  # not numeric: PageSpec falls back to its default as before
+        except OverflowError:
+            finite = False
+        if not finite:
+            raise ValueError(f"{key} must be a finite number.")
+    raw = arguments.get("count_only")
+    if raw is None or isinstance(raw, bool):
+        count_only = bool(raw)
+    elif str(raw).strip().lower() in ("true", "1"):
+        count_only = True
+    elif str(raw).strip().lower() in ("false", "0"):
+        count_only = False
+    else:
+        raise ValueError("count_only must be true or false.")
+    if arguments.get("limit") is None and arguments.get("offset") is None and not count_only:
+        return None
+    return PageSpec.from_args(arguments.get("limit"), arguments.get("offset"), count_only)
+_PAGE_PROPERTIES = {
+    "limit": {"type": "integer", "description": "Max items."},
+    "offset": {"type": "integer", "description": "Items to skip."},
+    "count_only": {"type": "boolean", "description": "Count only."},
+}
+
+
+def page_read_result(result: Any, key: str, page: PageSpec) -> Any:
+    """Slice result[key]; errors and unexpected shapes come back unchanged."""
+    if not isinstance(result, dict) or not isinstance(result.get(key), list):
+        return result
+    items = result[key]
+    window, more = paginate(items, page)
+    out = {k: v for k, v in result.items() if not (page.count_only and k == key)}
+    if not page.count_only:
+        out[key] = window
+    out.update(total=len(items), returned=len(window), offset=page.offset, has_more=more)
+    if page.count_only:
+        out["count_only"] = True
+    return out
 
 
 # Per-request bridge chosen by the panel hub's instance routing. A ContextVar so concurrent
@@ -245,6 +309,12 @@ class RevitProvider(AECProvider):
         return {"count": len(commands), "commands": commands}
 
     async def execute_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        if name in PAGED_READS and any(k in arguments for k in _PAGE_ARGS):
+            page = _page_args(arguments)
+            rest = {k: v for k, v in arguments.items() if k not in _PAGE_ARGS}
+            result = await self.execute_tool(name, rest)
+            return result if page is None else page_read_result(result, PAGED_READS[name], page)
+
         if name == "revit_inspect_elements":
             validate_inspection(arguments)
             if self.mode != BridgeMode.bridge:
@@ -2219,6 +2289,10 @@ class RevitProvider(AECProvider):
         ),
     ]
     _capabilities += revit_context.CONTEXT_TOOLS
+    for _tool in _capabilities:
+        if _tool.name in PAGED_READS:
+            _tool.input_schema.setdefault("properties", {}).update(copy.deepcopy(_PAGE_PROPERTIES))
+    del _tool
 
     async def shutdown(self) -> None:
         close = getattr(getattr(self, "_bridge", None), "close", None)

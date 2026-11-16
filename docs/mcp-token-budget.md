@@ -23,6 +23,30 @@ The checkout exposes **302** tools rather than the estimated 298. Sizes use SDK 
 
 Full catalogue savings: **7.74%**. Daily catalogue savings versus baseline: **28.65%**, hiding 71 tools. Module IDs projection with full profile saves **92.43%** of that response. The full profile retains all original tools. The five default read responses and default plan response are unchanged; response savings above require explicit opt-in formatting. The existing shared initialization approval instructions remain present and unchanged (excluded from catalogue totals).
 
+## Follow-up: metadata trims (2026-11-16)
+
+Same method (mock mode, chars / 4 over `list_tools`), measured on this branch. Tool counts are unchanged (302 full, 231 daily).
+
+| Step | Full ~tokens | Daily ~tokens |
+| --- | ---: | ---: |
+| Before | 82,604 | 63,901 |
+| Drop duplicate `annotations.title` (top-level `title` stays) | 80,114 | 61,970 |
+| Short shared text for `dry_run`, `on_error`, `tag`, `limit`, `fields`, `status_labels`; `ids` item text dropped | 79,002 | 61,053 |
+| One "Use X for A; use Y for B" sentence on 29 sibling tools | 79,688 | 61,740 |
+
+Net: about 2,900 tokens fewer in full (3.5%) and 2,160 fewer in daily (3.4%). The sibling sentences add about 690 tokens on purpose, to help a model pick between near-duplicate tools. The shared parameter texts keep units, defaults and the rule that `dry_run` rolls back and writes nothing; only variants that said the same thing are replaced, tools with a different rule keep their own text. `plan_id` text and all approval wording are unchanged. The approval provider is now always visible, in every profile.
+
+## Follow-up: compact reads, a size cap and paging (2026-11-16)
+
+This changes what a read answer costs, not what the catalogue costs. The first pass above left default reads indented; that is no longer true for read-only tools.
+
+- **Compact by default.** A tool with `readOnlyHint: true` returns minified JSON. `response_options.compact: false` brings back indented text. Tools that can write, and `plan_actions`, keep the old default (indented; compact only on request). Mock reads measured with the script below: `revit_list_elements` 260 to 221 characters, `revit_list_families` 221 to 191, `revit_get_element_parameters` 264 to 225, `revit_list_views` 276 to 200 (text content including the "executed successfully" line).
+- **One size cap.** A read-only result over 20,000 characters (`DEFAULT_MAX_CHARS`) has its largest lists trimmed until it fits, stays valid JSON, and gets `truncated: true`, `total`, `returned`, `truncated_field` and a hint to narrow with limit/offset/count_only/fields or filters. `response_options.max_chars` sets another cap (0 = off). Short results, errors, running-job answers and every tool that is not read-only are never trimmed. In the mock catalogue `module_list_commands` (51,186 characters, full profile) now answers in 12,167; ask for `fields: ["modules.id", "modules.commands.id"]` or `max_chars: 0` to see more. `max_chars` is advertised on the five tools that already advertise `response_options`; any other read-only tool accepts `compact` and `max_chars` without listing them in its schema.
+- **Never touched:** `plan_actions`, `execute_plan`, `list_pending_plans`, `get_proof_bundle`, `plan_revert`, the job tools and `revit_get_result`, and any result that carries `plan_id` or `plan_hash`. A test sends a 400-action plan (over 100,000 characters) through `call_tool` and checks the answer is byte-identical to the stored plan.
+- **Paging.** `revit_list_elements`, `revit_list_views`, `revit_list_families`, `revit_get_categories`, `revit_get_warnings` and `revit_get_schedule_data` take optional `limit`, `offset` and `count_only`. The server slices the add-in's list after Revit answers (no add-in change), so Revit still builds the full list; only the answer is smaller. Without those arguments the result is unchanged except for the cap.
+
+Catalogue cost of the new options (same method as above, mock mode): full 79,765 to 80,191 ~tokens (+0.5%), daily 61,799 to 62,225 (+0.7%); tool counts unchanged (302 and 231). The response savings above are separate from these totals and depend on what a live model returns.
+
 ## What dominates?
 
 Names-only JSON costs 7,538 characters (~1,885 tokens), versus 358,133 characters (~89,533 tokens) for the full schemas. Metadata originally adds 132,722 UTF-8 bytes (~33,181 tokens) over raw provider Tool definitions.
