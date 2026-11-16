@@ -15,10 +15,12 @@ matters to you.
 from __future__ import annotations
 
 import argparse
+import math
 import re
 import sys
 import textwrap
 import unicodedata
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -213,7 +215,7 @@ def describe_plan(plan: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _confirm(plan_id: str, verb: str, assume_yes: bool, what: str = "plan id") -> bool:
+def _confirm(plan_id: str, verb: str, assume_yes: bool, what: str = "plan id", target: str = "it") -> bool:
     if assume_yes:
         return True
     if not sys.stdin.isatty():
@@ -223,7 +225,7 @@ def _confirm(plan_id: str, verb: str, assume_yes: bool, what: str = "plan id") -
             file=sys.stderr,
         )
         return False
-    typed = input(f"Type the {what} ({plan_id}) to {verb} it, or anything else to cancel: ").strip()
+    typed = input(f"Type the {what} ({plan_id}) to {verb} {target}, or anything else to cancel: ").strip()
     return typed == plan_id
 
 
@@ -258,6 +260,47 @@ def _recipe_command(gate: ApprovalGate, args: Any) -> int:
     return 0
 
 
+def _older_than(plan: Dict[str, Any], days: float) -> bool:
+    """True only when created_at parses and is more than ``days`` days ago."""
+    try:
+        created = datetime.fromisoformat(str(plan.get("created_at")))
+    except ValueError:
+        return False
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=timezone.utc)
+    return created < datetime.now(timezone.utc) - timedelta(days=days)
+
+
+def _reject_pending(gate: ApprovalGate, args: Any) -> int:
+    """Bulk cleanup for a person: reject pending plans only, via the normal reject path."""
+    plans = gate.list_pending_plans()
+    if args.older_than is not None:
+        plans = [p for p in plans if _older_than(p, args.older_than)]
+    ids = [p["plan_id"] for p in sorted(plans, key=lambda p: str(p.get("created_at", "")))]
+    if not ids:
+        print("No pending plans match; nothing to reject.")
+        return 0
+    print(f"{'Would reject' if args.dry_run else 'Pending plans to reject'} ({len(ids)}):")
+    for plan_id in ids:
+        print(f"  {safe_text(plan_id)}")
+    if args.dry_run:
+        print("Dry run: nothing changed.")
+        return 0
+    if not _confirm("reject", "reject", args.yes, what="word", target=f"all {len(ids)} pending plan(s) above"):
+        print("Cancelled; no plan changed.", file=sys.stderr)
+        return 2
+    failed = 0
+    for plan_id in ids:
+        try:
+            gate.update_plan_state(plan_id, "rejected", via="cli", only_if_state="pending")
+        except (ValueError, BridgeError) as e:
+            failed += 1
+            print(f"Skipped {safe_text(plan_id)}: {safe_text(e)}", file=sys.stderr)
+            continue
+        print(f"Rejected {safe_text(plan_id)}")
+    return 1 if failed else 0
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         prog="aec-model-bridge-approve",
@@ -268,9 +311,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     sub.add_parser("list", help="list pending plans")
     for name in ("show", "approve", "reject"):
         p = sub.add_parser(name, help=f"{name} a plan")
-        p.add_argument("plan_id")
+        p.add_argument("plan_id", nargs="?" if name == "reject" else None)
         if name != "show":
             p.add_argument("--yes", action="store_true", help=f"{name} without the typed confirmation")
+        if name == "reject":
+            p.add_argument("--older-than", type=float, metavar="DAYS",
+                           help="instead of one plan id: reject every pending plan older than DAYS days")
+            p.add_argument("--all-pending", action="store_true",
+                           help="instead of one plan id: reject every pending plan")
+            p.add_argument("--dry-run", action="store_true",
+                           help="with --older-than or --all-pending: list what would be rejected, change nothing")
     rec = sub.add_parser("recover", help="abandon actions stuck in 'running' after a crash (never re-run)")
     rec.add_argument("plan_id")
     rec.add_argument("--reason", required=True, help="why the action is being abandoned (recorded)")
@@ -283,6 +333,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     rev = sub.add_parser("recipe-revoke", help="remove the standing approval of a recipe")
     rev.add_argument("recipe_id")
     args = parser.parse_args(argv)
+    if args.command == "reject":
+        bulk = args.all_pending or args.older_than is not None
+        if bool(args.plan_id) == bulk or (args.all_pending and args.older_than is not None):
+            parser.error("reject needs exactly one of: a plan id, --older-than DAYS, or --all-pending")
+        if args.dry_run and not bulk:
+            parser.error("--dry-run goes with --older-than or --all-pending")
+        if args.older_than is not None and not (math.isfinite(args.older_than) and args.older_than >= 0):
+            parser.error("--older-than must be a finite number of days, zero or more")
 
     gate = _gate(args.workspace)
 
@@ -299,6 +357,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             print(f"{safe_text(plan['plan_id'])}  {safe_text(plan.get('created_at', ''))}  {len(acts)} action(s)  "
                   f"{', '.join(tools)}")
         return 0
+
+    if args.command == "reject" and not args.plan_id:
+        return _reject_pending(gate, args)
 
     try:
         plan = gate.load_plan(args.plan_id)

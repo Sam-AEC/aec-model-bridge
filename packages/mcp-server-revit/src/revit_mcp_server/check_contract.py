@@ -59,11 +59,11 @@ class PageSpec:
         """Clamp user input: limit 1..500 (default 50), offset >= 0, fields = non-empty names."""
         try:
             lim = int(limit) if limit is not None else DEFAULT_LIMIT
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             lim = DEFAULT_LIMIT
         try:
             off = int(offset) if offset is not None else 0
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             off = 0
         names: Optional[Tuple[str, ...]] = None
         if fields:

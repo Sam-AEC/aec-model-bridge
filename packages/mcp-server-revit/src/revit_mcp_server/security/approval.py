@@ -371,19 +371,24 @@ class ApprovalGate:
         return plans
 
     def update_plan_state(self, plan_id: str, state: str, approver: Optional[str] = None,
-                          via: Optional[str] = None, expected_hash: Optional[str] = None) -> Dict[str, Any]:
+                          via: Optional[str] = None, expected_hash: Optional[str] = None,
+                          only_if_state: Optional[str] = None) -> Dict[str, Any]:
         """Move a plan to ``state``.
 
         Approving needs ``expected_hash``: the hash of the plan the person was shown. The
         approval is refused if the plan on disk no longer has that content, so a person
         approves exactly what they reviewed. ``via`` is the channel ('panel' or 'cli')
         and is set by the calling code path, never taken from tool arguments.
+        ``only_if_state`` makes the change conditional on the plan still being in that
+        state when the lock is held (bulk cleanup uses it to touch pending plans only).
         """
         with self._plan_lock(plan_id):
             plan = self.load_plan(plan_id)
             if not plan:
                 raise ValueError(f"Plan {plan_id} not found")
             current = plan.get("state")
+            if only_if_state is not None and current != only_if_state:
+                raise ValueError(f"Plan {plan_id} is in state '{current}', not '{only_if_state}'; left unchanged.")
             if state == "approved":
                 if current != "pending":
                     raise ValueError(f"Plan {plan_id} is in state '{current}'; only a pending plan can be approved.")
@@ -455,7 +460,11 @@ class ApprovalGate:
         """Refuse unless the plan is approved and still holds exactly what was approved."""
         plan_id = plan.get("plan_id")
         if plan.get("state") != "approved":
-            raise BridgeError(f"Plan '{plan_id}' is in state '{plan.get('state')}', not 'approved'. Execution blocked.")
+            hint = ""
+            if plan.get("state") == "pending" and self.dev_mode:
+                hint = " Dev mode is on: omit plan_id to run unplanned, or have the person approve this plan."
+            raise BridgeError(
+                f"Plan '{plan_id}' is in state '{plan.get('state')}', not 'approved'. Execution blocked.{hint}")
         approved = plan.get("approved_hash")
         try:
             current_hash = plan_hash(plan)
