@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Optional
 import yaml
 
 from revit_mcp_server.errors import WorkspaceViolation
+from revit_mcp_server.security.safe_paths import snapshot_file
 
 logger = logging.getLogger(__name__)
 
@@ -449,7 +450,7 @@ class QaqcCheckerModule:
         # Derive doc_guid from snapshot or fallback
         doc_guid = "mock-doc"
         if snapshot_id:
-            snap_path = workspace.allowed_directories[0] / "snapshots" / f"{snapshot_id}.json"
+            snap_path = snapshot_file(workspace.allowed_directories[0] / "snapshots", snapshot_id)
             if snap_path.exists():
                 with open(snap_path, encoding="utf-8") as f:
                     data = json.load(f)
@@ -670,7 +671,7 @@ class QaqcCheckerModule:
                 [el.model_dump(by_alias=True) for el in snap.elements],
                 [t.model_dump() for t in snap.types],
             )
-        snap_path = workspace.allowed_directories[0] / "snapshots" / f"{snapshot_id}.json"
+        snap_path = snapshot_file(workspace.allowed_directories[0] / "snapshots", snapshot_id)
         if not snap_path.exists():
             raise ValueError(f"Snapshot '{snapshot_id}' not found.")
         with open(snap_path, encoding="utf-8") as f:

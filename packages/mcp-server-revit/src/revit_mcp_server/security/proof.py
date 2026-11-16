@@ -20,6 +20,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from .safe_paths import safe_child, snapshot_file
+
 SCHEMA = "amb.proof/1"
 PARAM_TOOL = "revit_set_parameter_value"
 _ID_RE = re.compile(r"[A-Za-z0-9_\-]{1,128}")
@@ -32,7 +34,8 @@ def validate_plan_id(plan_id: Any) -> str:
 
 
 def proof_path(workspace_dir: Path, plan_id: str) -> Path:
-    return Path(workspace_dir) / "proofs" / f"{validate_plan_id(plan_id)}.json"
+    return safe_child(workspace_dir, plan_id, ".json", _ID_RE,
+                      lambda _reason: ValueError("Invalid plan_id."), subdir="proofs")
 
 
 def _hashable_arguments(arguments: Any) -> Any:
@@ -354,9 +357,7 @@ def _load_snapshot_doc(workspace_dir: Path, snapshot_id: Optional[str]) -> Tuple
     doc: Dict[str, Any] = {"snapshot_id": snapshot_id, "doc_guid": None, "doc_title": None}
     uids: Dict[str, str] = {}
     try:
-        if not _ID_RE.fullmatch(snapshot_id):
-            raise ValueError("bad snapshot id")
-        with open(Path(workspace_dir) / "snapshots" / f"{snapshot_id}.json", "r", encoding="utf-8") as f:
+        with open(snapshot_file(Path(workspace_dir) / "snapshots", snapshot_id), "r", encoding="utf-8") as f:
             snap = json.load(f)
         src = snap.get("source") or {}
         doc["doc_guid"] = src.get("doc_guid")

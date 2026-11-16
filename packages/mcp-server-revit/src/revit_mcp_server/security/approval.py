@@ -17,6 +17,7 @@ from . import proof as proof_mod
 from .approval_override import active_override
 from .dev_mode import active_dev, audit_dev_event
 from .recipe_store import RecipeStore, standing_authorizes
+from .safe_paths import PLAN_ID_RE, safe_child
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +41,9 @@ _RESERVED_EXTRA_KEYS = frozenset({
     "review", "hash_version", "plan_hash", "approved_hash", "plan_id", "created_at", "actions",
 }) | proof_mod.STATE_PLAN_KEYS
 
-PLAN_ID_RE = re.compile(r"plan_[0-9a-f]{12}")
 ACTION_ID_RE = re.compile(r"act_[0-9a-f]{12}")
 INFLIGHT_KEY_RE = re.compile(r"[A-Za-z0-9_-]{1,80}")
+_CLAIM_NAME_RE = re.compile(PLAN_ID_RE.pattern + r"\." + ACTION_ID_RE.pattern)
 
 # Action states. Only "pending" is open; "running", "executed" and "failed" are consumed.
 OPEN_ACTION_STATES = frozenset({"pending", None})
@@ -62,12 +63,18 @@ LOOK_ONLY_MESSAGE = (
 )
 
 
+def _refuse_plan_id(reason: str) -> BridgeError:
+    if reason == "outside":
+        return BridgeError("Invalid plan_id: the plan file is outside the plans folder.")
+    return BridgeError(
+        "Invalid plan_id: expected the id returned by plan_actions ('plan_' followed by 12 hex characters)."
+    )
+
+
 def validate_plan_id(plan_id: Any) -> str:
     """Accept only ids of the shape create_plan makes; anything else is refused."""
     if not isinstance(plan_id, str) or not PLAN_ID_RE.fullmatch(plan_id):
-        raise BridgeError(
-            "Invalid plan_id: expected the id returned by plan_actions ('plan_' followed by 12 hex characters)."
-        )
+        raise _refuse_plan_id("name")
     return plan_id
 
 
@@ -230,18 +237,13 @@ class ApprovalGate:
             raise BridgeError(LOOK_ONLY_MESSAGE)
 
     def _get_plan_path(self, plan_id: str) -> Path:
-        validate_plan_id(plan_id)
-        root = self.plans_dir.resolve()
-        path = (root / f"{plan_id}.json").resolve()
-        if path.parent != root:
-            raise BridgeError("Invalid plan_id: the plan file is outside the plans folder.")
-        return path
+        return safe_child(self.plans_dir, plan_id, ".json", PLAN_ID_RE, _refuse_plan_id)
 
     @contextlib.contextmanager
     def _plan_lock(self, plan_id: str) -> Iterator[None]:
         """Serialise read-modify-write of one plan across threads and processes."""
-        validate_plan_id(plan_id)
-        with _PROCESS_LOCK, _locked_file(self.plans_dir / ".locks" / f"{plan_id}.lock"):
+        lock_path = safe_child(self.plans_dir, plan_id, ".lock", PLAN_ID_RE, _refuse_plan_id, subdir=".locks")
+        with _PROCESS_LOCK, _locked_file(lock_path):
             yield
 
     def load_plan(self, plan_id: str) -> Optional[Dict[str, Any]]:
@@ -522,9 +524,13 @@ class ApprovalGate:
         return None
 
     def _claim_marker(self, plan_id: str, action_id: Any) -> Path:
-        if not isinstance(action_id, str) or not ACTION_ID_RE.fullmatch(action_id):
-            raise BridgeError(f"Plan '{plan_id}' has a malformed action id; refusing to run it.")
-        return self.plans_dir / ".claims" / f"{plan_id}.{action_id}"
+        validate_plan_id(plan_id)
+
+        def refuse(_reason: str) -> BridgeError:
+            return BridgeError(f"Plan '{plan_id}' has a malformed action id; refusing to run it.")
+
+        return safe_child(self.plans_dir, f"{plan_id}.{action_id}" if isinstance(action_id, str) else None,
+                          "", _CLAIM_NAME_RE, refuse, subdir=".claims")
 
     def claim_action(self, tool_name: str, arguments: Any) -> Optional[Dict[str, str]]:
         """Consume the matching approved action BEFORE the tool runs (at most once).
@@ -664,9 +670,8 @@ class ApprovalGate:
         return self.plans_dir / ".inflight"
 
     def _inflight_path(self, key: Any) -> Path:
-        if not isinstance(key, str) or not INFLIGHT_KEY_RE.fullmatch(key):
-            raise BridgeError("Invalid request id.")
-        return self.inflight_dir / f"{key}.json"
+        return safe_child(self.plans_dir, key, ".json", INFLIGHT_KEY_RE,
+                          lambda _reason: BridgeError("Invalid request id."), subdir=".inflight")
 
     def mark_in_flight(self, claim: Optional[Dict[str, str]], key: str, tool: str) -> bool:
         """Record that the claimed action is still running under ``key`` (a request id, or
