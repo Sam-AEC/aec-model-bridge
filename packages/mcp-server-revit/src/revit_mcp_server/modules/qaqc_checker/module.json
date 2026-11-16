@@ -71,6 +71,15 @@
               "warning",
               "info"
             ]
+          },
+          "snapshot_id": {
+            "type": "string",
+            "description": "Only issues last seen in this snapshot ('unknown' for rows from before snapshot tracking)."
+          },
+          "include_stale": {
+            "type": "boolean",
+            "description": "Also return stale issues: rows the latest run for their document and rule pack did not see. Default false.",
+            "default": false
           }
         },
         "required": []

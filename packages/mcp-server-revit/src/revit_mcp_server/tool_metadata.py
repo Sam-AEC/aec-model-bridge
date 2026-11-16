@@ -273,7 +273,7 @@ DESCRIPTIONS: dict[str, str] = {
     "model_changes_compare_snapshots": "Say what changed between two saved snapshots: elements added, removed or modified, parameter values before and after, and counts per category. Read-only.",
     "links_worksets_audit_audit": "Check linked models and worksets for problems (unloaded or missing links, links not pinned or placed Origin to Origin, empty or default-named worksets, worksets owned by someone else, elements on the wrong workset) and give plain next steps. Read-only.",
     "qaqc_checker_run_check": "Run a QA/QC rule pack against a saved snapshot and record the issues it finds.",
-    "qaqc_checker_list_issues": "List recorded QA/QC issues for a document, optionally filtered by status and severity. Read-only.",
+    "qaqc_checker_list_issues": "List recorded QA/QC issues for a document, optionally filtered by status, severity and snapshot. Hides stale issues (not seen in the latest run) unless include_stale is true. Read-only.",
     "qaqc_checker_resolve_issue": "Mark one recorded QA/QC issue as resolved.",
     "clash_triage_match_clashes": "Match each clash from a Navisworks clash test to the Revit elements it involves, by UniqueId or IFC GUID, and say how sure each match is (exact, ambiguous or unmatched). Never guesses and never changes the model; records the result as issues in the workspace.",
     "clash_triage_list_clash_issues": "List the clash issues recorded by clash triage, optionally filtered by status and match confidence. Read-only.",
