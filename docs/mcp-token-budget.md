@@ -23,6 +23,19 @@ The checkout exposes **302** tools rather than the estimated 298. Sizes use SDK 
 
 Full catalogue savings: **7.74%**. Daily catalogue savings versus baseline: **28.65%**, hiding 71 tools. Module IDs projection with full profile saves **92.43%** of that response. The full profile retains all original tools. The five default read responses and default plan response are unchanged; response savings above require explicit opt-in formatting. The existing shared initialization approval instructions remain present and unchanged (excluded from catalogue totals).
 
+## Follow-up: metadata trims (2026-11-16)
+
+Same method (mock mode, chars / 4 over `list_tools`), measured on this branch. Tool counts are unchanged (302 full, 231 daily).
+
+| Step | Full ~tokens | Daily ~tokens |
+| --- | ---: | ---: |
+| Before | 82,604 | 63,901 |
+| Drop duplicate `annotations.title` (top-level `title` stays) | 80,114 | 61,970 |
+| Short shared text for `dry_run`, `on_error`, `tag`, `limit`, `fields`, `status_labels`; `ids` item text dropped | 79,002 | 61,053 |
+| One "Use X for A; use Y for B" sentence on 29 sibling tools | 79,688 | 61,740 |
+
+Net: about 2,900 tokens fewer in full (3.5%) and 2,160 fewer in daily (3.4%). The sibling sentences add about 690 tokens on purpose, to help a model pick between near-duplicate tools. The shared parameter texts keep units, defaults and the rule that `dry_run` rolls back and writes nothing; only variants that said the same thing are replaced, tools with a different rule keep their own text. `plan_id` text and all approval wording are unchanged. The approval provider is now always visible, in every profile.
+
 ## What dominates?
 
 Names-only JSON costs 7,538 characters (~1,885 tokens), versus 358,133 characters (~89,533 tokens) for the full schemas. Metadata originally adds 132,722 UTF-8 bytes (~33,181 tokens) over raw provider Tool definitions.

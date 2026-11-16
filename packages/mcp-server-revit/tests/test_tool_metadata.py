@@ -33,7 +33,9 @@ def test_every_tool_has_all_four_annotations(listed):
         assert ann is not None, tool.name
         for hint in ("readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint"):
             assert getattr(ann, hint) is not None, f"{tool.name}: {hint} missing"
-        assert ann.title, tool.name
+        # One title only: the top-level field. annotations.title would repeat it.
+        assert tool.title, tool.name
+        assert ann.title is None, tool.name
 
 
 def test_every_tool_has_a_substantial_description(listed):
