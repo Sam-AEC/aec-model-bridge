@@ -21,7 +21,7 @@ from .security.dispatch import (
 )
 from .security.audit import redact_data
 from .security.module_execution import authorized_module_execution
-from .tool_metadata import enrich_tool
+from .tool_metadata import enrich_tool, is_read_only_tool
 from .result_presentation import result_json, split_response_options
 from .tool_profiles import ToolProfileBlocked, load_tool_profile
 
@@ -101,7 +101,12 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
         return _tool_error("unknown_tool", f"Error: Unknown tool '{name}'")
 
     try:
-        arguments, response_options = split_response_options(name, arguments)
+        read_only = is_read_only_tool(name, registry.lookup_tool(name))
+    except Exception:
+        read_only = False  # fail closed: full indented output, no trimming
+
+    try:
+        arguments, response_options = split_response_options(name, arguments, read_only)
     except ValueError as exc:
         return _tool_error("invalid_response_options", str(exc))
 
@@ -180,7 +185,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
 
         # Format the response
         response_text = f"{name} returned a failure\n\n" if failed else f"✓ {name} executed successfully\n\n"
-        response_text += f"Result:\n{result_json(redacted_result, response_options, project=not failed)}"
+        response_text += f"Result:\n{result_json(redacted_result, response_options, project=not failed, read_only=read_only)}"
 
         if failed:
             return CallToolResult(

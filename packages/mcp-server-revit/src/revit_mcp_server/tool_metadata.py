@@ -21,7 +21,7 @@ from typing import Any
 from mcp.types import Tool, ToolAnnotations
 
 from .providers.base import ProviderTool
-from .result_presentation import add_response_schema
+from .result_presentation import APPROVAL_TOOLS, add_response_schema
 
 PLAN_ID_DESCRIPTION = "Approved plan ID; see the server approval instructions."
 
@@ -720,6 +720,14 @@ def annotations_for(provider_id: str, tool: ProviderTool) -> ToolAnnotations:
         idempotentHint=idempotent,
         openWorldHint=open_world,
     )
+
+
+def is_read_only_tool(name: str, tool: Any) -> bool:
+    """True when the tool is read-only (same rule as readOnlyHint) and not an approval or job tool.
+    Fails closed: an unknown tool is not read-only."""
+    if tool is None or name in NOT_READ_ONLY or name in APPROVAL_TOOLS:
+        return False
+    return not getattr(tool, "is_mutating", True)
 
 
 def enrich_tool(provider_id: str, tool: ProviderTool) -> Tool:
