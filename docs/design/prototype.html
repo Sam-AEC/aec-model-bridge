@@ -87,6 +87,7 @@ button, select, input { font: inherit; color: inherit; }
 .num, code, .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 0.75rem; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .muted { color: var(--ink-muted); }
+small { font-size: var(--fs-meta); }   /* never the browser default "smaller", which lands under 11 px */
 svg { flex: none; }
 
 :focus-visible { outline: 2px solid var(--brand-text); outline-offset: 2px; border-radius: 3px; }
@@ -127,7 +128,11 @@ main { padding: 16px; display: grid; gap: 16px; grid-template-columns: minmax(0,
 .host-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 400px); min-height: 520px; }
 .proto-controls > div { min-width: 0; max-width: 100%; }
 .canvas { padding: 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.canvas svg { width: 100%; height: auto; max-height: 440px; }
+.doors { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 14px 10px; border: 2px solid var(--line-strong); padding: 14px 12px; }
+.door { display: grid; gap: 1px; font-size: var(--fs-meta); color: var(--ink-muted); }
+.door.will { color: var(--brand-text); } .door.done { color: var(--success); } .door.failed { color: var(--danger); } .door.changed { color: var(--warning); }
+.door .num { color: var(--ink); } .door .dl { color: var(--ink-muted); } .door.done .dl, .door.changed .dl { color: var(--ink); font-weight: 700; }
+.other-doc { border: 2px dashed var(--line-strong); padding: 24px 16px; color: var(--ink-muted); }
 .canvas .cap { font-size: var(--fs-meta); color: var(--ink-muted); }
 
 /* ---------- the pane (the product surface under design) ---------- */
@@ -269,7 +274,10 @@ dialog::backdrop { background: rgba(0, 0, 0, .45); }
       <option value="done">8. Result: final audit</option>
       <option value="cancelled">9. Result: cancel requested</option>
       <option value="disconnected">10. Disconnected</option>
-      <option value="stale">11. Stale plan</option>
+      <option value="stale">11. Stale plan: the model changed</option>
+      <option value="switched">12. Document switched: plan belongs to another model</option>
+      <option value="duplicate">13. Duplicate draft</option>
+      <option value="applied">14. Already applied: nothing to change</option>
     </select>
   </div>
   <div>
@@ -352,6 +360,8 @@ const FAILED = 300053;
 const PLAN_A = { id: "plan_b366ce3444a0", hash: "sha256:a3ef52fd…33f8b9f" };   // ids from the mock-mode run recorded in docs/roadmap.md
 const PLAN_B = { id: "plan_5d0c1e77a9b2", hash: "sha256:19c0be44…7a02d1c" };   // made up
 const PLAN_C = { id: "plan_e81f3a6642c0", hash: "sha256:c77a90d2…0be5f31" };   // made up
+const PLAN_D = { id: "plan_0aa41c97d3e5", hash: "sha256:5e1b07c9…d44a8f0" };   // made up
+const OTHER_DOC = "office_block_B.rvt";                                        // made up
 
 /* ============================ brand packs ============================ */
 /* Same shape as the brand.json proposed in docs/roadmap.md (identity only: no semantic colours, no behaviour). */
@@ -384,6 +394,7 @@ function pseudo(s) { const map = { a: "à", e: "é", i: "ï", o: "ô", u: "ü", 
 const S = { scenario: "setup", theme: "light", brand: "amb", locale: "en", density: "comfortable", tab: "review", selected: false, refreshed: false, busy: false, progress: 0, cancelAt: 4, showAll: false, timer: null };
 const T = s => S.locale === "pseudo" ? pseudo(s) : s;
 const docName = () => S.locale === "pseudo" ? DOC.long : DOC.name;
+const activeDoc = () => S.scenario === "switched" ? OTHER_DOC : docName();   // the document Revit shows now; plans keep docName()
 function midEllipsis(s, max) { if (s.length <= max) return s; const keep = max - 1, head = Math.ceil(keep * 0.55); return s.slice(0, head) + "…" + s.slice(s.length - (keep - head)); }
 let uidN = 0;
 
@@ -477,8 +488,8 @@ function planView() {
 /* ============================ render: host ============================ */
 function renderRibbon() {
   const b = activeBrand(), off = S.scenario === "setup" || S.scenario === "disconnected";
-  const pending = ["preview", "approve", "stale", "disconnected", "retry"].includes(S.scenario) ? 1 : 0;
-  const stateWords = off ? "Not connected" : `Connected to ${docName()}, ${pending} plan${pending === 1 ? "" : "s"} waiting`;
+  const pending = ["preview", "approve", "stale", "disconnected", "retry", "applied"].includes(S.scenario) ? 1 : S.scenario === "duplicate" ? 2 : 0;
+  const stateWords = off ? "Not connected" : S.scenario === "switched" ? `Connected to ${activeDoc()}, no plans for this document, 1 plan waiting for ${docName()}` : `Connected to ${docName()}, ${pending} plan${pending === 1 ? "" : "s"} waiting`;
   $("#ribbon").innerHTML = `
     <div class="ribbon-tabs" aria-hidden="true"><span>Architecture</span><span>Annotate</span><span>Manage</span><span class="on">${esc(b.product.ribbonTab)}</span></div>
     <div class="ribbon-body" role="toolbar" aria-label="${esc(b.product.ribbonTab)} ribbon tab (simulated)">
@@ -495,30 +506,29 @@ function renderRibbon() {
         <button type="button" class="rbtn" data-act="noop" title="Help (F1 opens the documentation in the add-in)">${glyph("help")}<span>${T("Help")}</span></button>
       </div></div><div class="gname">${T("Tools")}</div></div>
     </div>`;
-  $("#host-doc").textContent = off && S.scenario === "setup" ? "" : docName();
+  $("#host-doc").textContent = off && S.scenario === "setup" ? "" : activeDoc();
 }
 function renderCanvas() {
   const pv = planView(), sc = S.scenario, applied = new Set();
+  if (sc === "switched") { $("#canvas").innerHTML = `<p class="cap">Model view (schematic stand-in).</p><div class="other-doc"><b>${esc(OTHER_DOC)}</b> is the active document now. None of its elements belong to the waiting plan.</div>`; return; }
   if (sc === "partial") pv.changes.forEach(d => d.id !== FAILED && applied.add(d.id));
-  if (sc === "done") pv.changes.forEach(d => applied.add(d.id));
+  if (sc === "done" || sc === "applied") pv.changes.forEach(d => applied.add(d.id));
   if (sc === "cancelled") pv.changes.slice(0, S.cancelAt).forEach(d => applied.add(d.id));
   const show = S.selected || !["setup", "finding"].includes(sc);
-  let cells = "", summary = [];
-  DOORS.forEach((d, i) => {
-    const x = 30 + (i % 6) * 100, y = i < 6 ? 44 : 176, skipped = pv.skipped.some(s => s.id === d.id), failed = sc === "partial" && d.id === FAILED, done = applied.has(d.id);
-    const label = done ? d.after : (S.refreshed && d.id === 300050 ? "D-200" : "no Mark");
-    const stroke = failed ? "var(--danger)" : done ? "var(--success)" : skipped && show ? "var(--ink-muted)" : show ? "var(--brand-text)" : "var(--line-strong)";
-    const marker = !show ? "" : failed ? `<path d="M${x + 58} ${y - 6}l10 10m0-10l-10 10" stroke="var(--danger)" stroke-width="2.5"/>` : done ? `<path d="M${x + 57} ${y}l4 4 8-9" fill="none" stroke="var(--success)" stroke-width="2.5"/>` : skipped ? `<rect x="${x + 58}" y="${y - 6}" width="10" height="10" fill="none" stroke="var(--ink-muted)" stroke-width="2"/>` : `<path d="M${x + 63} ${y - 8}l7 7-7 7-7-7z" fill="var(--brand-text)"/>`;
-    cells += `<g><rect x="${x}" y="${y}" width="50" height="8" fill="${stroke}"/><path d="M${x} ${y + 8}a50 50 0 0 0 50 50" fill="none" stroke="${stroke}" stroke-width="1.5" ${skipped && show ? 'stroke-dasharray="4 3"' : ""}/><path d="M${x} ${y + 8}v50" stroke="${stroke}" stroke-width="2"/>${marker}<text x="${x}" y="${y + 78}" font-size="11" fill="var(--ink)" font-family="Consolas, monospace">${d.id}</text><text x="${x}" y="${y + 92}" font-size="11" font-weight="${done ? 700 : 400}" fill="${done ? "var(--ink)" : "var(--ink-muted)"}">${label}</text></g>`;
-    summary.push(`${d.id} ${failed ? "failed" : done ? "has Mark " + d.after : skipped && show ? "skipped" : "no Mark"}`);
-  });
-  $("#canvas").innerHTML = `<p class="cap">Model view (schematic stand-in). The 12 doors without a Mark. Marker shapes: diamond = will change, square = skipped, check = applied, cross = failed.</p>
-    <svg viewBox="0 0 640 300" role="img" aria-label="Schematic of 12 doors: ${esc(summary.join("; "))}"><rect x="10" y="20" width="620" height="270" fill="none" stroke="var(--line-strong)" stroke-width="2"/><path d="M10 153h620" stroke="var(--line)" stroke-width="5"/>${cells}</svg>`;
+  const cells = DOORS.map(d => {
+    const skipped = pv.skipped.some(x => x.id === d.id) && !(S.refreshed && d.id === 300050), failed = sc === "partial" && d.id === FAILED, done = applied.has(d.id), changed = (sc === "stale" || S.refreshed) && d.id === 300050;
+    const cls = changed ? "changed" : failed ? "failed" : done ? "done" : !show ? "" : skipped ? "skipped" : "will";
+    const word = changed ? "changed outside the plan, Mark D-200" : failed ? "failed, no Mark" : done ? "applied, Mark " + d.after : !show ? "no Mark" : skipped ? "skipped, no Mark" : "will change, no Mark";
+    const label = changed ? "D-200" : done ? d.after : "no Mark";
+    const marker = changed ? '<path d="M49 1l7 12H42z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>' : failed ? '<path d="M44 2l10 10m0-10l-10 10" stroke="currentColor" stroke-width="2.5"/>' : done ? '<path d="M43 7l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2.5"/>' : !show ? "" : skipped ? '<rect x="44" y="2" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"/>' : '<path d="M49 0l7 7-7 7-7-7z" fill="currentColor"/>';
+    return `<li class="door ${cls}"><svg width="58" height="50" viewBox="0 0 58 50" aria-hidden="true" focusable="false"><rect x="1" y="4" width="38" height="6" fill="currentColor"/><path d="M1 10a38 38 0 0 0 38 38" fill="none" stroke="currentColor" stroke-width="1.5" ${cls === "skipped" ? 'stroke-dasharray="4 3"' : ""}/><path d="M2 10v38" stroke="currentColor" stroke-width="2"/>${marker}</svg><span class="num">${d.id}</span><span class="dl" aria-hidden="true">${label}</span><span class="sr">${word}</span></li>`;
+  }).join("");
+  $("#canvas").innerHTML = `<p class="cap">Model view (schematic stand-in). The 12 doors without a Mark. Marker shapes: diamond = will change, square = skipped, check = applied, cross = failed, triangle = changed outside the plan.</p><ul class="doors" aria-label="The 12 doors in the model view">${cells}</ul>`;
 }
 
 /* ============================ render: pane ============================ */
 function renderHead() {
-  const sc = S.scenario, name = docName();
+  const sc = S.scenario, name = activeDoc();
   const chip = sc === "setup" || sc === "disconnected" ? `<span class="chip bad">${glyph("unplug", 14)}${T("Disconnected")}</span>` : S.busy ? `<span class="chip wait">${glyph("wait", 14)}${T("Connecting")}</span>` : `<span class="chip ok">${glyph("plug", 14)}${T("Connected")}</span>`;
   $("#pane-head").innerHTML = `<div class="head-row"><span id="pane-name">${lockup(16, false)}</span>${chip}</div>
     <div class="doc">${sc === "setup" ? `<span class="muted">${T("No document connected")}</span>` : `<span class="muted">${T("Document")}</span><span class="name" title="${esc(name)}" aria-label="${esc(name)}">${esc(midEllipsis(name, 38))}</span><span class="muted">${DOC.revit}</span>`}</div>`;
@@ -536,7 +546,7 @@ function changeTable(rows, caption, limit) {
   ${limit && rows.length > limit ? `<div class="actions"><button type="button" class="btn" data-act="toggle-all" aria-expanded="${S.showAll}">${S.showAll ? T("Show first " + limit) : T("Show all " + rows.length)}</button></div>` : ""}`;
 }
 const skippedList = sk => `<details ${sk.length <= 3 ? "open" : ""}><summary>${T("Skipped")} (${sk.length})</summary><ul class="list">${sk.map(s => `<li><span>${sev("skip", "Skipped")} <span class="num">${s.id}</span></span><span class="reason">${T(s.reason)}</span></li>`).join("")}</ul></details>`;
-const planFacts = pv => `<dl class="kv"><dt>${T("Plan")}</dt><dd class="mono">${pv.plan.id}</dd><dt>${T("Plan hash")}</dt><dd class="mono">${pv.plan.hash}</dd><dt>${T("Bound to")}</dt><dd>${esc(docName())}</dd><dt>${T("Read from model")}</dt><dd>${T("Today")} ${pv.snapshot}</dd><dt>${T("Parameter")}</dt><dd>Mark. ${T("Text value, so no unit conversion applies.")}</dd></dl>`;
+const planFacts = pv => `<dl class="kv"><dt>${T("Plan")}</dt><dd class="mono">${pv.plan.id}</dd><dt>${T("Plan hash")}</dt><dd class="mono">${pv.plan.hash}</dd><dt>${T("Bound to")}</dt><dd>${esc(docName())}${pv.notActive ? " <b>(" + T("not active") + ")</b>" : ""}</dd><dt>${T("Read from model")}</dt><dd>${T("Today")} ${pv.snapshot}</dd><dt>${T("Parameter")}</dt><dd>Mark. ${T("Text value, so no unit conversion applies.")}</dd></dl>`;
 
 const VIEWS = {
   setup() {
@@ -638,8 +648,38 @@ const VIEWS = {
     return `<h2 class="title" id="pane-title" tabindex="-1">${T("Change preview")}</h2>
       <div class="banner warn" role="alert">${glyph("warn")}<span class="txt">${T("Out of date. The model changed after this preview.")}<small>${T("Door 300050 now has Mark D-200. It was empty when the plan was drafted at 14:02.")}</small></span></div>
       <div class="card state warn"><div>${sev("warn", "Out of date")}</div><div class="counts"><span><span class="n">10</span>${T("to change")}</span><span><span class="n">2</span>${T("skipped")}</span></div>${planFacts({ plan: PLAN_A, snapshot: "14:02" })}
+        <table><caption>${T("What changed in the model since the preview")}</caption><thead><tr><th scope="col">${T("Element")}</th><th scope="col">${T("At preview")} 14:02</th><th scope="col">${T("Now")} 14:06</th><th scope="col">${T("Plan wanted")}</th></tr></thead><tbody><tr><th scope="row" class="num">300050</th><td><span class="empty">${T("empty")}</span></td><td><b>D-200</b></td><td>D-051</td></tr></tbody></table>
+        <p class="reason">${T("Reason: the model changed, not the time limit. The other 9 doors still match the preview.")}</p>
         <div class="actions">${btn("Read the model again", "refresh", { primary: true })}${btn("Continue to approval", "noop", { disabled: true, described: "st-reason" })}${btn("Reject plan", "reject")}</div>
         <p class="reason" id="st-reason">${T("This plan cannot be approved. Reading the model again drafts a new plan and rejects this one.")}</p></div>`;
+  },
+  switched() {
+    const pv = planView();
+    return `<h2 class="title" id="pane-title" tabindex="-1">${T("Plans for another document")}</h2>
+      <div class="banner warn" role="status">${glyph("info")}<span class="txt">${T("The active document is now")} ${esc(OTHER_DOC)}.<small>${T("Plans stay with the document they were drafted for. Nothing is applied to this document.")}</small></span></div>
+      <p class="muted">${T("No plans and no findings for")} ${esc(OTHER_DOC)}.</p>
+      <div class="card state wait"><div>${sev("skip", "Not active")}</div><h3>${T("Belongs to")} ${esc(docName())} (${T("not active")})</h3>
+        <div class="counts"><span><span class="n">${pv.changes.length}</span>${T("to change")}</span><span><span class="n">${pv.skipped.length}</span>${T("skipped")}</span></div>${planFacts({ ...pv, notActive: true })}
+        <div class="actions">${btn("Continue to approval", "noop", { disabled: true, described: "sw-reason" })}${btn("Prototype only: switch back in Revit", "switch-back")}</div>
+        <p class="reason" id="sw-reason">${T("This plan can only be reviewed and approved while its own document is active. Switch back to it in Revit. It is never applied to the active document.")}</p></div>`;
+  },
+  duplicate() {
+    const pv = planView();
+    return `<h2 class="title" id="pane-title" tabindex="-1">${T("Change preview")}</h2>
+      <div class="banner warn" role="status">${glyph("warn")}<span class="txt">${T("Duplicate draft. The same changes are already waiting.")}<small>${PLAN_A.id}, ${T("drafted today 14:03, has the same 10 changes and 2 skips for this document.")}</small></span></div>
+      <div class="card state warn"><div>${sev("warn", "Duplicate draft")}</div><div class="counts"><span><span class="n">${pv.changes.length}</span>${T("to change")}</span><span><span class="n">${pv.skipped.length}</span>${T("skipped")}</span></div>${planFacts({ plan: PLAN_D, snapshot: "14:04" })}
+        <dl class="kv"><dt>${T("Same as")}</dt><dd class="mono">${PLAN_A.id}</dd></dl>
+        <div class="actions">${btn("Reject this draft and open the first plan", "dup-reject", { primary: true })}${btn("Review this draft anyway", "dup-keep")}</div>
+        <p class="reason">${T("Each plan can run once. Approving both would write the same values twice, so the second one would find nothing to change.")}</p></div>`;
+  },
+  applied() {
+    const pv = planView();
+    return `<h2 class="title" id="pane-title" tabindex="-1">${T("Change preview")}</h2>
+      <div class="banner ok" role="status">${glyph("ok")}<span class="txt">${T("Nothing to change. These values are already in the model.")}<small>${T("All 10 doors already have the Marks this draft asks for. They were applied by")} ${PLAN_A.id} ${T("today at 14:05.")}</small></span></div>
+      <div class="card state ok"><div class="counts"><span><span class="n">0</span>${T("to change")}</span><span class="sev ok">${glyph("ok")}<span class="n">${pv.changes.length}</span>${T("already applied")}</span><span class="sev wait">${glyph("skip")}<span class="n">${pv.skipped.length}</span>${T("skipped")}</span></div>${planFacts({ plan: PLAN_D, snapshot: "14:10" })}
+        <details><summary>${T("Already applied")} (${pv.changes.length})</summary><ul class="list">${pv.changes.map(d => `<li><span>${sev("ok", "In the model")} <span class="num">${d.id}</span> · Mark = <b>${d.after}</b></span></li>`).join("")}</ul></details>
+        <div class="actions">${btn("Reject this draft", "applied-reject", { primary: true })}${btn("Open proof record", "proof")}${btn("Continue to approval", "noop", { disabled: true, described: "ap-reason" })}</div>
+        <p class="reason" id="ap-reason">${T("A draft with no changes cannot be approved.")}</p></div>`;
   }
 };
 const LOG_ROWS = [["14:01:48", "info", "Connected to canonical_test_model.rvt (Revit 2026)"], ["14:02:10", "info", "Read model: 340 elements, snapshot CANONICAL-SYNTH-0001"], ["14:02:12", "warn", "QA check, core rule pack: 15 findings (12 doors, 3 rooms)"],
@@ -662,7 +702,10 @@ const SURFACE = {
   done: ["Dockable pane: result card. A toast confirms the report was saved.", "The hand-over report is a file on disk. Opening it later needs no AI account."],
   cancelled: ["Dockable pane: persistent banner.", "Cancel can only stop work that has not started; Revit API work on the UI thread cannot be interrupted."],
   disconnected: ["Dockable pane banner, plus the ribbon Connect button (icon and tooltip in words).", "No dialog: losing the bridge must not interrupt modelling."],
-  stale: ["Dockable pane banner on the plan.", "Detected by comparing the plan's recorded values and document with a new read before approval and again before each change."]
+  stale: ["Dockable pane banner on the plan, with a table of what changed.", "Detected by comparing the plan's recorded values and document with a new read before approval and again before each change. Proposal: not implemented today."],
+  switched: ["Dockable pane: header shows the new document, a polite status message announces the change, the plan card is shown as not active.", "Proposal. The add-in would learn of the switch from Revit's ViewActivated event and compare the document with the plan's binding. The ribbon tooltip says in words which document has plans waiting."],
+  duplicate: ["Dockable pane banner on the new draft.", "Proposal (roadmap ticket 3): the server computes a key from document, tools, arguments and skips, and reports duplicate_of. It warns and does not block."],
+  applied: ["Dockable pane: status banner, no approval offered.", "Proposal: the preview compares each wanted value with a new read and lists values that are already in the model. An empty plan cannot be approved."]
 };
 function renderNotes() {
   const [a, b] = SURFACE[S.scenario];
@@ -720,6 +763,10 @@ const ACTIONS = {
   cancel() { S.cancelReq = true; },
   "toggle-all"() { S.showAll = !S.showAll; render(false); $('[data-act="toggle-all"]').focus(); },
   refresh() { S.refreshed = true; go("preview"); toast("New preview from a read at 14:06: 9 changes, 3 skipped. The old plan was rejected."); },
+  "switch-back"() { go("preview"); toast("canonical_test_model.rvt is active again. The preview was read again and still matches."); },
+  "dup-reject"() { go("preview"); toast("Duplicate draft rejected. Showing the first plan. Nothing was changed."); },
+  "dup-keep"() { go("preview"); toast("Two plans are now waiting for this document. Each can run once."); },
+  "applied-reject"() { go("finding"); toast("Draft rejected. Nothing was changed in the model."); },
   proof() { toast("Proof record opened (prototype: no file exists)."); }, report() { toast("Hand-over report saved (prototype: no file was written)."); }
 };
 document.addEventListener("click", e => { const el = e.target.closest("[data-act]"); if (el && ACTIONS[el.dataset.act]) { if (el.getAttribute("aria-disabled") === "true") return; ACTIONS[el.dataset.act](el); } });
