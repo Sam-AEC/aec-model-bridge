@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import re
 import contextlib
 import contextvars
@@ -11,6 +12,7 @@ import httpx
 
 from ..bridge.client import BridgeClient
 from ..bridge.mock import MockBridge
+from ..check_contract import PageSpec, paginate
 from ..config import BridgeMode, config
 from ..errors import BridgeError, WorkspaceViolation
 from ..legacy.tools import TOOL_HANDLERS
@@ -26,6 +28,39 @@ logger = logging.getLogger(__name__)
 def _optional(args: Dict[str, Any], *names: str) -> Dict[str, Any]:
     """Forward only the arguments the caller actually gave, so the add-in applies its own defaults."""
     return {name: args[name] for name in names if args.get(name) is not None}
+
+
+# Read tools whose add-in result is one unpaginated list. limit, offset and count_only slice that
+# list here, after the add-in answered; nothing is sent to Revit differently. value = the list key.
+PAGED_READS = {
+    "revit_list_elements": "elements",
+    "revit_list_views": "views",
+    "revit_list_families": "families",
+    "revit_get_categories": "categories",
+    "revit_get_warnings": "warnings",
+    "revit_get_schedule_data": "fields",
+}
+_PAGE_ARGS = ("limit", "offset", "count_only")
+_PAGE_PROPERTIES = {
+    "limit": {"type": "integer", "description": "Max items."},
+    "offset": {"type": "integer", "description": "Items to skip."},
+    "count_only": {"type": "boolean", "description": "Count only."},
+}
+
+
+def page_read_result(result: Any, key: str, page: PageSpec) -> Any:
+    """Slice result[key]; errors and unexpected shapes come back unchanged."""
+    if not isinstance(result, dict) or not isinstance(result.get(key), list):
+        return result
+    items = result[key]
+    window, more = paginate(items, page)
+    out = {k: v for k, v in result.items() if not (page.count_only and k == key)}
+    if not page.count_only:
+        out[key] = window
+    out.update(total=len(items), returned=len(window), offset=page.offset, has_more=more)
+    if page.count_only:
+        out["count_only"] = True
+    return out
 
 
 # Per-request bridge chosen by the panel hub's instance routing. A ContextVar so concurrent
@@ -245,6 +280,11 @@ class RevitProvider(AECProvider):
         return {"count": len(commands), "commands": commands}
 
     async def execute_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        if name in PAGED_READS and any(k in arguments for k in _PAGE_ARGS):
+            page = PageSpec.from_args(*(arguments.get(k) for k in _PAGE_ARGS))
+            rest = {k: v for k, v in arguments.items() if k not in _PAGE_ARGS}
+            return page_read_result(await self.execute_tool(name, rest), PAGED_READS[name], page)
+
         if name == "revit_inspect_elements":
             validate_inspection(arguments)
             if self.mode != BridgeMode.bridge:
@@ -2219,6 +2259,10 @@ class RevitProvider(AECProvider):
         ),
     ]
     _capabilities += revit_context.CONTEXT_TOOLS
+    for _tool in _capabilities:
+        if _tool.name in PAGED_READS:
+            _tool.input_schema.setdefault("properties", {}).update(copy.deepcopy(_PAGE_PROPERTIES))
+    del _tool
 
     async def shutdown(self) -> None:
         close = getattr(getattr(self, "_bridge", None), "close", None)
