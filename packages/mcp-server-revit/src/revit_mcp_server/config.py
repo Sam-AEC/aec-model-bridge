@@ -75,6 +75,25 @@ def normalize_approval_mode(value: Any) -> str:
     return mode
 
 
+APPROVAL_TTL_DEFAULT = 8 * 3600
+PENDING_TTL_DEFAULT = 14 * 86400
+
+
+def normalize_ttl(value: Any, default: int, name: str = "ttl") -> int:
+    """Seconds, 0 disables. Fails closed: a negative, non-numeric or boolean value falls back to
+    ``default`` (the restrictive choice) and logs a warning; it never turns expiry off."""
+    try:
+        if isinstance(value, bool):
+            raise ValueError
+        seconds = int(float(value.strip() if isinstance(value, str) else value))
+        if seconds < 0:
+            raise ValueError
+        return seconds
+    except (TypeError, ValueError, OverflowError):
+        _config_logger.warning("Invalid %s %r; using the default of %d seconds. Use 0 to disable.", name, value, default)
+        return default
+
+
 class Config(BaseSettings):
     # Both default safely so a one-click install works with no configuration.
     # An explicit MCP_REVIT_* value always wins. The default directory is only
@@ -87,6 +106,8 @@ class Config(BaseSettings):
     audit_log: Path = Field(default_factory=lambda: Path("audit.log"))
     log_level: str = Field("INFO")
     approval_mode: str = Field(default="ask_first")
+    approval_ttl: int = Field(default=APPROVAL_TTL_DEFAULT)  # seconds an approval stays usable; 0 = no limit
+    pending_ttl: int = Field(default=PENDING_TTL_DEFAULT)  # seconds a draft stays approvable; 0 = no limit
     enable_user_modules: bool = Field(default=False)
     allow_python_host: bool = Field(default=False)
     anthropic_api_key: str | None = Field(default=None)
@@ -116,6 +137,14 @@ class Config(BaseSettings):
     @field_validator("approval_mode", mode="before")
     def check_approval_mode(cls, value):
         return normalize_approval_mode(value)
+
+    @field_validator("approval_ttl", mode="before")
+    def check_approval_ttl(cls, value):
+        return normalize_ttl(value, APPROVAL_TTL_DEFAULT, "approval_ttl")
+
+    @field_validator("pending_ttl", mode="before")
+    def check_pending_ttl(cls, value):
+        return normalize_ttl(value, PENDING_TTL_DEFAULT, "pending_ttl")
 
     @field_validator("allowed_directories", mode="before")
     def split_directories(cls, value, info):

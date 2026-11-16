@@ -10,9 +10,10 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Any, Iterator, List, Optional
+from typing import Callable, Dict, Any, Iterator, List, Optional, Tuple
 from ..config import APPROVAL_MODES, config, normalize_approval_mode  # noqa: F401 (re-exported)
 from ..errors import BridgeError
+from . import binding as binding_mod
 from . import proof as proof_mod
 from .approval_override import active_override
 from .dev_mode import active_dev, audit_dev_event
@@ -38,7 +39,7 @@ VOLATILE_ARGUMENT_KEYS = frozenset({"plan_id", "run_async", "idempotency_key"})
 # Plan keys the caller of create_plan(extra=...) may not set: the hash fields and the
 # hashed review block (which has its own validated parameter).
 _RESERVED_EXTRA_KEYS = frozenset({
-    "review", "hash_version", "plan_hash", "approved_hash", "plan_id", "created_at", "actions",
+    "review", "hash_version", "plan_hash", "approved_hash", "plan_id", "created_at", "actions", "binding",
 }) | proof_mod.STATE_PLAN_KEYS
 
 ACTION_ID_RE = re.compile(r"act_[0-9a-f]{12}")
@@ -69,6 +70,31 @@ def _refuse_plan_id(reason: str) -> BridgeError:
     return BridgeError(
         "Invalid plan_id: expected the id returned by plan_actions ('plan_' followed by 12 hex characters)."
     )
+
+
+class ApprovalExpired(BridgeError):
+    """An approval is older than approval_ttl. Only a new plan that a person approves renews anything."""
+
+
+_UNBOUND = object()  # create_plan(binding=...) default: the plan carries no binding key (older format)
+
+
+def _age_seconds(stamp: Any, now: datetime) -> Optional[float]:
+    """Seconds since an ISO timestamp, or None when it is missing or unreadable."""
+    try:
+        when = datetime.fromisoformat(str(stamp))
+    except ValueError:
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    return (now - when).total_seconds()
+
+
+def _span(seconds: float) -> str:
+    for unit, size in (("day", 86400), ("hour", 3600), ("minute", 60)):
+        if seconds >= size:
+            return f"{seconds / size:.1f} {unit}s"
+    return f"{int(seconds)} seconds"
 
 
 def validate_plan_id(plan_id: Any) -> str:
@@ -177,8 +203,15 @@ def running_actions(plan: Dict[str, Any], now: Optional[datetime] = None) -> Lis
 
 
 class ApprovalGate:
-    def __init__(self, workspace_dir: Path, approval_mode: str = config.approval_mode) -> None:
+    def __init__(self, workspace_dir: Path, approval_mode: str = config.approval_mode,
+                 approval_ttl: Optional[int] = None, pending_ttl: Optional[int] = None) -> None:
         self.workspace_dir = workspace_dir
+        # Seconds, 0 = no limit. Set from the environment, never from a tool call.
+        self.approval_ttl = config.approval_ttl if approval_ttl is None else approval_ttl
+        self.pending_ttl = config.pending_ttl if pending_ttl is None else pending_ttl
+        # Reads the live Revit context (revit_get_context shape); set by the provider wiring. Without
+        # one, a plan that carries a document binding cannot be executed (fail closed).
+        self.binding_probe: Optional[Callable[[], Any]] = None
         self.override_token: Optional[str] = None  # tests; normally read from the panel token file
         self.approval_mode = approval_mode
         self.plans_dir = workspace_dir / "plans"
@@ -296,9 +329,12 @@ class ApprovalGate:
         extra: Optional[Dict[str, Any]] = None,
         before_storage_types: Optional[List[Optional[str]]] = None,
         review: Optional[Dict[str, Any]] = None,
+        binding: Any = _UNBOUND,
     ) -> Dict[str, Any]:
         """Draft a plan. ``review`` (summary, reasoning, citations, ...) is validated,
-        canonicalised and covered by the plan hash. ``extra`` is metadata only: it is NOT
+        canonicalised and covered by the plan hash. ``binding`` (a dict, or None when the live
+        document could not be identified) is stored inside the hashed plan; leave it out for the
+        older, unbound format. ``extra`` is metadata only: it is NOT
         hashed and must not be presented as approved content (see proof.unhashed_metadata_keys)."""
         self.validate_actions(actions)
         if proof_mod.has_nonfinite_float(actions) or proof_mod.has_nonfinite_float(review):
@@ -354,11 +390,71 @@ class ApprovalGate:
         if review is not None:
             plan["review"] = review
             plan["hash_version"] = proof_mod.HASH_VERSION_REVIEW
+        if binding is not _UNBOUND:
+            try:
+                binding_mod.validate_binding(binding)
+            except ValueError as e:
+                raise BridgeError(str(e))
+            plan["binding"] = binding
         plan["plan_hash"] = plan_hash(plan)
         self.save_plan(plan)
         return plan
 
-    def list_pending_plans(self) -> List[Dict[str, Any]]:
+    def expiry_reason(self, plan: Dict[str, Any], now: Optional[datetime] = None) -> Optional[str]:
+        """Why a pending or approved plan is too old to use, or None. A pending plan expires
+        ``pending_ttl`` seconds after drafting, an approved one ``approval_ttl`` seconds after its
+        approval. A missing, unreadable or future timestamp counts as expired (clock set back).
+        Computed at check time from the stored times, never by a timer. Read-only."""
+        now = now or datetime.now(timezone.utc)
+        plan_id = plan.get("plan_id")
+        if plan.get("state") == "approved":
+            ttl, age, name = self.approval_ttl, _age_seconds(plan.get("approved_at"), now), "approval_ttl"
+            if not ttl or (age is not None and 0 <= age <= ttl):
+                return None
+            when = "its approval time is missing or in the future" if age is None or age < 0 else                 f"it was approved {_span(age)} ago"
+            return (f"The approval of plan '{plan_id}' has expired ({when}; an approval lasts {_span(ttl)}, "
+                    f"{name}). Nothing ran. A person must approve again: draft a new plan and have it approved.")
+        if plan.get("state") == "pending":
+            ttl, age, name = self.pending_ttl, _age_seconds(plan.get("created_at"), now), "pending_ttl"
+            if not ttl or (age is not None and 0 <= age <= ttl):
+                return None
+            return (f"Plan '{plan_id}' has expired (drafted more than {_span(ttl)} ago, {name}) and cannot be "
+                    "approved. Ask for a new plan.")
+        return None
+
+    def _mark_expired(self, plan: Dict[str, Any]) -> None:
+        """Persist the 'expired' state of an approved plan. The caller holds the plan lock."""
+        plan["state"] = "expired"
+        plan["expired_at"] = datetime.now(timezone.utc).isoformat()
+        plan["expired_reason"] = "approval_ttl"
+        self.save_plan(plan)
+
+    def expire_plan(self, plan_id: str) -> None:
+        """Move an approved plan whose approval ran out to 'expired' (no-op otherwise)."""
+        with self._plan_lock(plan_id):
+            plan = self.load_plan(plan_id)
+            if plan and plan.get("state") == "approved" and self.expiry_reason(plan):
+                self._mark_expired(plan)
+
+    def split_pending_plans(self) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """(live, expired) pending plans. Expired ones are only separated, never changed or deleted."""
+        live: List[Dict[str, Any]] = []
+        stale: List[Dict[str, Any]] = []
+        for plan in self._pending_on_disk():
+            (stale if self.expiry_reason(plan) else live).append(plan)
+        return live, stale
+
+    def pending_listing(self, include_expired: bool = False) -> Tuple[List[Dict[str, Any]], int]:
+        """(plans to show, number of expired pending plans left out of that list)."""
+        live, stale = self.split_pending_plans()
+        if include_expired:
+            return live + [{**p, "expired": True} for p in stale], 0
+        return live, len(stale)
+
+    def list_pending_plans(self, include_expired: bool = False) -> List[Dict[str, Any]]:
+        return self.pending_listing(include_expired)[0]
+
+    def _pending_on_disk(self) -> List[Dict[str, Any]]:
         plans = []
         for path in self.plans_dir.glob("*.json"):
             if not PLAN_ID_RE.fullmatch(path.stem):
@@ -396,6 +492,9 @@ class ApprovalGate:
                     raise ValueError(f"Plan {plan_id} is in state '{current}'; only a pending plan can be approved.")
                 if via not in APPROVAL_CHANNELS:
                     raise ValueError("An approval must come from the panel or the command-line tool.")
+                expired = self.expiry_reason(plan)
+                if expired:
+                    raise ValueError(expired)
                 now_hash = plan_hash(plan)
                 if not expected_hash or expected_hash != now_hash:
                     raise ValueError(
@@ -476,6 +575,35 @@ class ApprovalGate:
             raise BridgeError(
                 f"Plan '{plan_id}' changed after it was approved (or has no approval record). Execution blocked; "
                 "draft a new plan and ask the person to approve it."
+            )
+        expired = self.expiry_reason(plan)
+        if expired:
+            raise ApprovalExpired(expired)
+
+    def verify_binding(self, plan: Dict[str, Any]) -> None:
+        """Refuse when the live Revit document is not the one the plan was drafted for. A plan with
+        no binding (drafted without a live Revit, or before bindings existed) is never refused here.
+        A bound plan whose live document cannot be read is refused: failing open would defeat it."""
+        bound = plan.get("binding")
+        if bound is None:
+            return
+        plan_id = plan.get("plan_id")
+        try:
+            live = binding_mod.live_binding(self.binding_probe()) if self.binding_probe else None
+        except Exception as e:  # noqa: BLE001 - any failure to read means "cannot confirm"
+            logger.warning("Could not read the live document for plan %s: %s", plan_id, e)
+            live = None
+        if live is None:
+            raise BridgeError(
+                f"Plan '{plan_id}' is bound to Revit document {bound.get('doc_title')!r} but the live document "
+                "could not be read (Revit busy, closed, or no document open). Nothing ran. Try again when Revit is idle."
+            )
+        differs = binding_mod.mismatches(bound, live)
+        if differs:
+            raise BridgeError(
+                f"Plan '{plan_id}' was drafted for Revit document {bound.get('doc_title')!r} but the active "
+                f"document is {live.get('doc_title')!r} ({'; '.join(differs)}). Nothing ran. Open the right model "
+                "or draft a new plan for this one; a person must approve it again."
             )
 
     def check_tool_execution(self, tool_name: str, arguments: Dict[str, Any]) -> None:
@@ -589,7 +717,12 @@ class ApprovalGate:
             plan = self.load_plan(plan_id)
             if not plan:
                 raise BridgeError(f"Plan '{plan_id}' does not exist.")
-            self.verify_approved(plan)
+            try:
+                self.verify_approved(plan)
+            except ApprovalExpired:
+                self._mark_expired(plan)
+                raise
+            self.verify_binding(plan)
             tried: set = set()
             while True:
                 action = self._find_open_action(plan, tool_name, arguments, skip=tried)
