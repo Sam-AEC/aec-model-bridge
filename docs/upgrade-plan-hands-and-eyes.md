@@ -12,8 +12,8 @@ Section 13 records the current owner decisions and priorities; it overrides earl
 Section 12 holds the root causes verified in source on 2026-10-14; where it disagrees with sections 2 and 5, section 12 wins.
 Items marked *(verify)* are suspected from reading the source or from a single observation and must be reproduced before work starts.
 
-The current source checkpoint is [bridge-upgrade-handoff.md](bridge-upgrade-handoff.md): explicit Dev mode, the recovered QA tools,
-documentation tools and plan-result hardening. It records the retained worktrees, verification evidence and remaining live checks.
+The current source checkpoint is described by [ADR 0018](0018-explicit-development-mode.md) (explicit Dev mode) and the
+[live validation report](revit-addin-live-validation-2026-10-14.md) (recovered QA and documentation tools, measured evidence, remaining live checks).
 
 ## 1. What "hands and eyes" means here
 

@@ -213,11 +213,11 @@ def test_redaction_contract():
         "access_token": "Bearer test-token-12345",
         "session_token": "abc123xyz",
         "authorization": "Bearer token-abc",
-        "win_path": "C:\\Users\\sammo\\Documents\\model.rvt",
-        "posix_path": "/home/sammo/model.ifc",
+        "win_path": "C:\\Users\\jdoe\\Documents\\model.rvt",
+        "posix_path": "/home/jdoe/model.ifc",
         "nested": {
             "token": "secret-xyz",
-            "message": "Error on C:\\Users\\sammo\\private.txt and /Users/sammo/private.key"
+            "message": "Error on C:\\Users\\jdoe\\private.txt and /Users/jdoe/private.key"
         }
     }
     
@@ -234,6 +234,6 @@ def test_redaction_contract():
     assert redacted["posix_path"] == "<redacted-path>"
     
     # Assert embedded paths in strings are redacted
-    assert "C:\\Users\\sammo\\private.txt" not in redacted["nested"]["message"]
-    assert "/Users/sammo/private.key" not in redacted["nested"]["message"]
+    assert "C:\\Users\\jdoe\\private.txt" not in redacted["nested"]["message"]
+    assert "/Users/jdoe/private.key" not in redacted["nested"]["message"]
     assert "<redacted-path>" in redacted["nested"]["message"]

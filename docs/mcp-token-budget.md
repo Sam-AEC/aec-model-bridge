@@ -159,14 +159,14 @@ These rows break down the `module` provider above; they are not additional tools
 
 ## Daily dependency audit
 
-Searched sibling `dynamoscript14` offline, including hidden files and embedded `.dyn` content while excluding `.git`, dependency folders and logs. No references to proposed hidden tools were found. Actual calls in `roadmap-automsereing/common/mcp_session.py`: context (line 175), Python (178), result collection (185), pending-plan creation (190), plan execution (192). Those remain available. IFC mentions in local helpers use `ifcopenshell` or direct Revit APIs and are not hidden MCP calls. The owner chose to retain used modules if discovered; this audit required no exceptions.
+An offline search of the owner's own Dynamo automation scripts found no calls to the tools the daily profile hides. The calls they do make (context, Python, result collection, pending-plan creation and plan execution) remain available. The owner chose to retain used modules if discovered; this audit required no exceptions.
 
 Profiles select provider/manifest IDs, including aliased commands. Native duct/pipe declarations carry explicit `revit_mep` ownership. Hidden direct calls, nested module calls and job targets are refused. Existing approved plans are preflighted before claiming any action; profile refusal preserves their approved state. The panel remains unrestricted and all exposed writes still require the existing approval process.
 
 ## Validation
 
 Initial implementation package suite: **2,747 passed, 150 skipped** in 190.28 seconds using
-`C:/Users/samo3/.aec-tools/venv/Scripts/python.exe`. The two wheel-build tests
+a project virtual environment. The two wheel-build tests
 skip because `build` is not installed; browser, live-Revit and platform-specific
 checks account for the other skips. No live Revit writes were performed.
 Ruff passes on all changed Python files; `git diff --check` passes.
@@ -182,10 +182,10 @@ Python files pass Ruff. Independent review found no remaining concrete defects.
 ## Reproduce
 
 ```powershell
-& C:/Users/samo3/.aec-tools/venv/Scripts/python.exe scripts/measure_mcp_tokens.py --profile full --output docs/mcp-token-measurement-after-full.json
-& C:/Users/samo3/.aec-tools/venv/Scripts/python.exe scripts/measure_mcp_tokens.py --profile full --compact-read-results --project-module-commands --output docs/mcp-token-measurement-after-compact.json
-& C:/Users/samo3/.aec-tools/venv/Scripts/python.exe scripts/measure_mcp_tokens.py --profile daily --compact-read-results --project-module-commands --output docs/mcp-token-measurement-after-daily.json
-& C:/Users/samo3/.aec-tools/venv/Scripts/python.exe scripts/measure_mcp_tokens.py --profile daily --compact-read-results --plan-script-chars 16384 --omit-plan-arguments --output docs/mcp-token-measurement-plan-script-after.json
+& python scripts/measure_mcp_tokens.py --profile full --output docs/mcp-token-measurement-after-full.json
+& python scripts/measure_mcp_tokens.py --profile full --compact-read-results --project-module-commands --output docs/mcp-token-measurement-after-compact.json
+& python scripts/measure_mcp_tokens.py --profile daily --compact-read-results --project-module-commands --output docs/mcp-token-measurement-after-daily.json
+& python scripts/measure_mcp_tokens.py --profile daily --compact-read-results --plan-script-chars 16384 --omit-plan-arguments --output docs/mcp-token-measurement-plan-script-after.json
 ```
 
 To reproduce the original baseline, run the initial measurement script against the original source commit. Do not overwrite the preserved before artifact. Optional `--profile-file` accepts a custom include/exclude file. Each run records its Git HEAD and settings; after snapshots were captured on the working tree during implementation.

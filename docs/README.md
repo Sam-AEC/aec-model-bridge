@@ -4,10 +4,24 @@ Status: on the dev branch, not yet released.
 
 Start with the [installation guide](install.md). The main [README](../README.md) covers what the project is and how to connect a client.
 
+Where to look, by audience:
+
+| You are | Start here |
+| --- | --- |
+| A user | [README](../README.md), then [install.md](install.md), [first-check.md](first-check.md), [troubleshooting.md](troubleshooting.md) and [faq.md](faq.md) |
+| A contributor | [CONTRIBUTING.md](../CONTRIBUTING.md), then the "For contributors" list below |
+| A maintainer or reviewer | the architecture decision records and the release section below |
+| Releasing | [release-checklist.md](release-checklist.md), [versioning.md](versioning.md), [CHANGELOG.md](../CHANGELOG.md) (user-visible changes only) |
+
+The 16 translated READMEs in [i18n/](i18n/) follow the English README, which is canonical.
+
 ## Guides and reference
 
 - [install.md](install.md): install the Revit add-in and the MCP server.
 - [first-check.md](first-check.md): from install to ready, using the panel's Setup check card.
+- [getting-started.md](getting-started.md): first session with a client, step by step.
+- [troubleshooting.md](troubleshooting.md): symptoms, causes and fixes.
+- [faq.md](faq.md): short answers to common questions.
 - [VS Code extension](../extensions/vscode/README.md): build and install the extension locally.
 - [configuration-reference.md](configuration-reference.md): environment variables, package metadata and runtime settings.
 - [tools-generated.md](tools-generated.md): the tool catalog, generated from the server (do not edit by hand).
@@ -24,7 +38,6 @@ Start with the [installation guide](install.md). The main [README](../README.md)
 - [revit-mcp-behaviour-and-improvements.md](revit-mcp-behaviour-and-improvements.md): measured bridge behaviour, Revit traps and ranked improvements.
 - [upgrade-plan-hands-and-eyes.md](upgrade-plan-hands-and-eyes.md): phased bridge upgrade and remaining acceptance work.
 - [prompts/revit-agent-preflight-and-verify.md](prompts/revit-agent-preflight-and-verify.md): preflight and verification checks for live Revit work.
-- [bridge-upgrade-handoff.md](bridge-upgrade-handoff.md): implemented Dev mode, QA and documentation changes with build and test evidence.
 - [revit-addin-live-validation-2026-10-14.md](revit-addin-live-validation-2026-10-14.md): bounded Revit 2024 read-only checks; mutating acceptance remains pending.
 - [demo-runbook.md](demo-runbook.md): step-by-step script for the missing-door-Mark demo, with expected counts and a rejected-plan run.
 
