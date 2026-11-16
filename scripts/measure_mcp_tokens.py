@@ -165,7 +165,7 @@ async def measure(workspace, *, profile="full", profile_file=None,
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--profile", choices=("full", "daily", "custom"), default="full")
+    parser.add_argument("--profile", choices=("full", "daily", "core", "custom"), default="full")
     parser.add_argument("--profile-file", type=Path)
     parser.add_argument("--compact-read-results", action="store_true",
                         help="Request compact text on the same five reads and pending plan fixture")
