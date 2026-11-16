@@ -52,3 +52,37 @@ async def test_pyrevit_list_scripts_no_args(tmp_path):
     provider = _provider(tmp_path)
     res = await provider.execute_tool("pyrevit_bridge_list_pyrevit_scripts", {})
     assert res
+
+
+@pytest.mark.anyio
+async def test_run_callable_var_positional_only_handler_gets_the_arguments_dict(tmp_path):
+    provider = _provider(tmp_path)
+
+    def star_args(*args):
+        return {"got": args}
+
+    assert await provider._run_callable(star_args, {"x": 1}) == {"got": ({"x": 1},)}
+
+
+@pytest.mark.anyio
+async def test_run_callable_positional_only_and_named_arguments_shapes(tmp_path):
+    provider = _provider(tmp_path)
+
+    def pos_only(arguments, /):
+        return {"got": arguments}
+
+    def named(args):
+        return {"got": args}
+
+    assert await provider._run_callable(pos_only, {"x": 1}) == {"got": {"x": 1}}
+    assert await provider._run_callable(named, {"x": 1}) == {"got": {"x": 1}}
+
+
+@pytest.mark.anyio
+async def test_run_callable_kwargs_only_handler_gets_no_positional(tmp_path):
+    provider = _provider(tmp_path)
+
+    def kw(**kwargs):
+        return {"kw": kwargs}
+
+    assert await provider._run_callable(kw, {"x": 1}) == {"kw": {}}

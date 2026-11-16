@@ -727,6 +727,9 @@ def is_read_only_tool(name: str, tool: Any) -> bool:
     Fails closed: an unknown tool is not read-only."""
     if tool is None or name in NOT_READ_ONLY or name in APPROVAL_TOOLS:
         return False
+    parts = name.split("_")
+    if {"plan", "plans"} & set(parts) or name.endswith("recipe_get"):
+        return False  # plan-shaped material (actions, plan_arguments) is never compacted or trimmed
     return not getattr(tool, "is_mutating", True)
 
 
