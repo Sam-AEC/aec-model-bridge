@@ -240,3 +240,67 @@ def test_partial_capture_is_disclosed(tmp_path, counts):
     })
     assert result['status'] == 'partial'
     assert 'captured records' in result['message']
+
+
+NOT_CAPTURED = "views not captured: result not rated"
+
+
+def test_no_views_list_says_not_rated_at_top(tmp_path):
+    """Issue 142: 71 sheets and 0 views must never read as a clean result."""
+    r = _run(tmp_path, LIVE)
+    assert r["views_captured"] is False
+    assert r["rated"] is False
+    assert r["status"] == "partial"
+    assert r["message"].startswith(NOT_CAPTURED)
+    assert r["headline"] == NOT_CAPTURED
+    assert next(iter(r)) == "headline"
+
+
+def test_sheets_only_snapshot_is_not_rated_even_with_zero_findings(tmp_path):
+    data = {"sheets": [{"uid": "s1", "number": "A-1", "name": "x", "view_uids": ["v1"]}]}
+    r = _run(tmp_path, data)
+    assert r["total_findings"] == 0
+    assert r["rated"] is False and r["message"].startswith(NOT_CAPTURED)
+
+
+def test_views_list_present_is_rated(tmp_path):
+    r = _run(tmp_path, CLEAN)
+    assert r["views_captured"] is True and r["rated"] is True
+    assert "headline" not in r
+    assert "not rated" not in r.get("message", "")
+
+
+def test_new_snapshot_shape_unplaced_view_reported_placed_view_not(tmp_path):
+    data = {
+        "schema": "amb.snapshot/1",
+        "counts": {"views_captured": 3, "sheets_captured": 1, "truncated": False, "categories": []},
+        "sheets": [{"uid": "s1", "number": "A-101", "name": "Plan", "view_uids": ["v1"], "params": {}}],
+        "views": [
+            {"uid": "v1", "name": "Level 1 Plan", "view_type": "FloorPlan", "is_template": False,
+             "sheet_uid": "s1", "discipline": "Architectural"},
+            {"uid": "v2", "name": "Working Plan", "view_type": "FloorPlan", "is_template": False,
+             "sheet_uid": None, "discipline": "Architectural"},
+            {"uid": "v3", "name": "Tmpl", "view_type": "FloorPlan", "is_template": True,
+             "sheet_uid": None, "discipline": ""},
+        ],
+    }
+    r = _run(tmp_path, data)
+    assert r["status"] == "ok" and r["rated"] is True
+    assert all(c["status"] == "ran" for c in r["checks"].values())
+    assert _by_check(r)["views_not_on_sheet"]["unique_ids"] == ["v2"]
+
+
+def test_view_truncation_flag_in_counts_is_disclosed(tmp_path):
+    data = {
+        "counts": {"views_truncated": True},
+        "sheets": [{"uid": "s1", "number": "A-1", "name": "x", "view_uids": ["v1"]}],
+        "views": [{"uid": "v1", "name": "P", "view_type": "FloorPlan", "sheet_uid": "s1"}],
+    }
+    r = _run(tmp_path, data)
+    assert r["status"] == "partial" and "truncated" in r["message"]
+
+
+def test_null_views_key_is_not_captured(tmp_path):
+    data = {"sheets": [{"uid": "s1", "number": "A-1", "name": "x", "view_uids": []}], "views": None}
+    r = _run(tmp_path, data)
+    assert r["views_captured"] is False and r["message"].startswith(NOT_CAPTURED)
