@@ -1,6 +1,6 @@
 # Documentation index
 
-Status: on the dev branch, not yet released.
+Released in 1.5.0.
 
 Start with the [installation guide](install.md). The main [README](../README.md) covers what the project is and how to connect a client.
 

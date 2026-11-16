@@ -1,6 +1,6 @@
 # Shareable QA/QC rule packs
 
-Status: on the dev branch, not yet released.
+Released in 1.5.0.
 
 A rule pack is a YAML file of QA/QC rules. A firm can keep its naming,
 numbering and standards checks in one file, share it, and run it with

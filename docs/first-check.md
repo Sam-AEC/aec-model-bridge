@@ -1,6 +1,6 @@
 # First check: from install to ready
 
-Status: on the dev branch, not yet released.
+Released in 1.5.0.
 
 This page is for a BIM coordinator setting up AEC Model Bridge for the first
 time. You do not need to use a terminal for the installer path. For the full
