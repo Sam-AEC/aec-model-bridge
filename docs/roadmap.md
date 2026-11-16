@@ -27,7 +27,7 @@ These are plans and findings. They are not claims about shipped behaviour unless
 
 - **Decision.** Extend the current architecture. Do not replace a module yet. Harden identity (which document, which element), result truth (was the value really written, can it be put back) and the review pane, then prove one workflow live.
 - **Flagship workflow.** Find missing or wrong parameters, preview the exact changes, a person approves, guarded writers apply, a fresh read verifies. Missing door Marks is still the first case.
-- **Next three tickets.** (1) Bind plans to the document and enforce it where the write happens. (2) 64-bit element ids and UniqueId beside every id. (3) Result truth: read back after apply, record empty before-values so they can be reverted, flag duplicate drafts.
+- **Next three tickets.** (1) Bind plans to the document (GUID, path and title), enforce it where the write happens, and refuse bound writes when the add-in is too old to enforce it. (2) 64-bit element ids and UniqueId beside every id. (3) Result truth: read back after apply, make empty values and half-applied batches revertible, flag duplicate drafts.
 - **Biggest finding of this revision.** The documented revert route does not cover the flagship case. A plan that fills an empty Mark records the before value as `null`, and `plan_revert` refuses any element without a recorded before value [V, section 4].
 
 ## 1. Decision
@@ -329,6 +329,21 @@ Also still open from the 14 October report: reconnect a stale chat MCP process a
 | Proof required | The side-by-side run recorded on one Revit year. Written answers from counsel. |
 | Rollback | Brand B is a separate installer and can be withdrawn alone. Policy is opt-in: no policy file means today's behaviour. |
 
+### Sprint plan
+
+Two-week sprints for one maintainer with AI assistance. These are planning estimates, not commitments. Every sprint that ends in live proof needs a Windows machine with Revit booked before it starts. A sprint that cannot get that machine ships its code behind CI and moves the live check, not the claim.
+
+| Sprint | Goal | Work | Exit proof |
+| --- | --- | --- | --- |
+| S1 | Plans are bound to their document | Ticket 1 (a) to (d); ADR 0017 to Accepted; book the Revit machine | Ticket 1 tests green in CI on all four add-in jobs and all Python jobs |
+| S2 | M0 done | Tickets 2 and 3; installer backup and restore with the skew test | Two-copies live test, skew test and upgrade/restore test recorded on one Revit year |
+| S3 | Write preflight and pane states | Ownership, link and read-only refusals; pane states; two-phase cancel; merge PR #138 | Logic tests in CI; refusals demonstrated on the scratch project |
+| S4 | M1 live slice | Fixture run twice, workshared variant, forced failure, cancel mid-apply, revert | Dated live record with counts, dump diff and proof records |
+| S5 | Install and trust | Authenticode signing in `release.yml`; `compatibility.md` rewritten with four columns; first-run diagnostic | Signed artefacts verified; fresh-account install to first read timed |
+| S6 | Years and accessibility | M1 smoke on the other Revit years; `outputSchema` on about 20 tools; keyboard and NVDA run | One live record per advertised year; accessibility notes |
+
+M3 (policy, brand pack, side-by-side) starts only after S6 and after counsel answers the licensing questions.
+
 ## 7. The first three implementation tickets
 
 ### Ticket 1. Bind plans to the document and enforce it where the write happens
@@ -339,11 +354,11 @@ Also still open from the 14 October report: reconnect a stale chat MCP process a
   - (b) *Enforce in the add-in.* The server adds the expected document identity to every mutating `/execute` payload of a bound plan. The add-in compares it with the active document on the UI thread before the command runs and refuses with kind `document_mismatch`, naming both documents.
   - (c) *No silent version skew.* Risk: a new server with an old add-in would call a plan "bound" while the old add-in ignores the field, so nothing enforces it. The add-in already writes `connector_version`, `protocol_version = 2` and `capability_digest` to its registry file and serves `/capabilities` [V: `BridgeServer.cs` lines 188, 359 to 363]. The add-in that has the check raises `protocol_version` to 3 and lists capability `doc_binding`. The server reads this when it pins the session and refuses every bound mutating call with kind `addin_too_old` when it is missing. Nothing is sent to Revit and no action is consumed. Reads keep working. The reverse case (old server, new add-in) behaves as today and gives no new protection; the installer ships both parts together.
   - (d) *Identity is more than the GUID.* Risk: `CreationGUID` is assigned when a file is created, so a Save As copy, a detached copy and possibly a template-born sibling can share it [U: not checked in Revit or in Autodesk's reference]. The binding therefore stores and compares three things: `CreationGUID`, the normalised full path (the central path for a workshared model), and the title. Any difference refuses. A document that was never saved has no path: it binds on GUID and title and the review shows "weak binding: unsaved document".
-- **Files.** `security/approval.py`, `security/binding.py`, `providers/revit.py`, `Bridge/ExternalEventHandler.cs` (or the dispatch in `BridgeCommandFactory.Execute`), `revit-bridge-addin-tests`, `0017-…md` (status to Accepted), `demo-runbook.md` (remove "an approval is not tied to a document").
+- **Files.** `security/approval.py`, `security/binding.py`, `providers/revit.py`, `bridge/discovery.py`, `Bridge/BridgeServer.cs` (registry file, `/capabilities`), `Bridge/ExternalEventHandler.cs` (or the dispatch in `BridgeCommandFactory.Execute`), `revit-bridge-addin-tests`, `0017-…md` (status to Accepted), `demo-runbook.md` (remove "an approval is not tied to a document").
 - **Acceptance checks.** Tests named in the architecture brief pass: claim refused when the document differs; refused when the live document cannot be read; unbound plan cannot be approved in bridge mode; approval older than the limit is expired; clock set backwards is expired; limit 0 disables. Add-in logic test: mismatching `expected_doc_guid` is refused before any transaction; a payload without the field behaves as today. A wrong document consumes no action. Plan hashes of stored plans do not change (pinned literals). Version skew: with a fake registry entry at `protocol_version` 2, a bound write makes zero HTTP calls to `/execute` and returns `addin_too_old`; a read still works. Identity: same GUID with a different path is refused; same GUID and path with a different title is refused.
 - **Out of scope.** Instance identity for several Revit sessions (ADR 0014), `rollback_plan`, the pane showing the binding (M1).
 - **Not provable without Revit.** Identity on workshared, detached and linked models, and whether copies share a `CreationGUID` [U]. M0 cannot close without the two-copies live test below.
-- **Effort and rollback.** 2 to 4 days. Revert the pull request; the payload field is optional.
+- **Effort and rollback.** 3 to 5 days. Revert the pull request; the payload fields are optional and the capability is additive.
 
 ### Ticket 2. 64-bit element ids, and UniqueId beside every id
 
@@ -685,7 +700,7 @@ Not legal advice. These are the questions, not the answers.
 | The approval flow, the native parameter writers on the current build, rollback, partial failure and revert work in live Revit | M1 live run |
 | The add-in loads and the flow works on Revit 2025, 2026 and 2027; 1.5.0 works on 2024 | M2 live runs |
 | A never-set Mark reads as "no value" in Revit, and a text parameter can be set back to empty | One live read and write in M1 |
-| Document identity (`CreationGUID`, central path) is stable for workshared, detached and linked models | Ticket 1 live observation; M1 workshared variant |
+| Document identity (`CreationGUID`, central path) is stable for workshared, detached and linked models; whether Save As and detached copies share a `CreationGUID` | M0 two-copies live test; M1 workshared variant |
 | PR #139, #138 and #140 do what their descriptions say | Code review; their CI runs passed [V] but the code was not read here |
 | Revit 2027 on .NET 10, a .NET 10 update for 2025 and 2026, the 2027 add-in folder change and add-in isolation | Autodesk's own documentation |
 | Autodesk's Revit MCP server scope, supported versions and approval model; every competitor detail | The vendors' own pages or a trial |
