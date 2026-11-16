@@ -4,7 +4,7 @@ report_generator module — P14 Excel / SQLite reporting (W8, W16).
 Commands:
   export_excel         — Generate a multi-sheet .xlsx: Elements, Params, QA Findings.
   export_sqlite_summary — Write elements + types into a fresh SQLite db.
-  build_review_pack    — One 'Model review' .xlsx for a coordinator: Cover, Findings,
+  build_review_pack    — One 'Model review' .xlsx for a coordinator: Cover, Coverage, Findings,
                          Counts by category, What to do next.
 """
 from __future__ import annotations
@@ -184,7 +184,7 @@ def _load_review_snapshot(snapshot_id: str, workspace: Any) -> Dict[str, Any]:
         "elements": data.get("elements", []),
         "types": data.get("types", []),
         "counts": data.get("counts") or {},
-        "dirty_only": bool(data.get("dirty_only")),
+        "dirty_only": bool(data.get("dirty_only") or (data.get("counts") or {}).get("dirty_only")),
         "is_mock": False,
     }
 
@@ -258,6 +258,54 @@ def _review_findings(
         })
     grouped.sort(key=lambda g: (_SEVERITY_ORDER.get(g["severity"], 9), g["rule_id"]))
     return grouped
+
+
+def _is_partial_snapshot(data: Dict[str, Any]) -> bool:
+    return bool(data.get("dirty_only") or (data.get("counts") or {}).get("truncated"))
+
+
+def _failed_rules_note(label: str, failed: List[Any]) -> str:
+    return f"{label}: these rules could not run, so their result is unknown: {', '.join(map(str, failed))}."
+
+
+def _partial_snapshot_note(label: str) -> str:
+    return f"{label}: the snapshot is a partial capture; elements that were not captured were not checked."
+
+
+def _coverage_rows(data: Dict[str, Any], failed_rules: List[Any]) -> List[Any]:
+    """Rows (item, detail) for the Coverage sheet: what the findings do and do not cover."""
+    counts = data.get("counts") or {}
+    rows: List[Any] = [("Snapshot ID", data["snapshot_id"]), ("Snapshot time", data["taken_at"])]
+    if data["is_mock"]:
+        rows.append(("Capture", "MOCK data: generated sample, not a live Revit model."))
+    elif _is_partial_snapshot(data):
+        rows.append(("Capture", "PARTIAL: the findings in this workbook cover part of the model, not the whole model."))
+        rows.append(("Capture note", _partial_snapshot_note("Snapshot")))
+    else:
+        rows.append(("Capture", "Complete as far as the snapshot records."))
+    if counts.get("truncated"):
+        rows.append(("Truncated", "Yes: the capture hit its element or time limit and stopped early."))
+    if data.get("dirty_only"):
+        rows.append(("Dirty only", "Yes: only elements changed since the previous capture were taken."))
+    if counts.get("captured") is not None and counts.get("candidates") is not None:
+        rows.append(("Elements captured", f"{counts['captured']} of {counts['candidates']} candidates"))
+    cats = counts.get("categories")
+    if cats:
+        rows.append(("Category filter", ", ".join(map(str, cats))))
+    if failed_rules:
+        rows.append(("Rules not run", _failed_rules_note("Rules", failed_rules)))
+        for rid in failed_rules:
+            rows.append(("Rule not run", f"{rid}: not run (result unknown, not zero findings)"))
+    return rows
+
+
+def _coverage_summary(data: Dict[str, Any], failed_rules: List[Any]) -> str:
+    parts = []
+    if _is_partial_snapshot(data):
+        parts.append("PARTIAL: findings cover part of the model")
+    if failed_rules:
+        parts.append(f"{len(failed_rules)} rule(s) not run")
+    return "; ".join(parts) + " (see Coverage sheet)" if parts else "Complete (see Coverage sheet)"
 
 
 class ReportGeneratorModule:
@@ -367,14 +415,16 @@ class ReportGeneratorModule:
         workspace: Any = None,
         **_,
     ) -> Dict[str, Any]:
-        """Build one 'Model review' workbook: Cover, Findings, Counts by category, What to do next."""
+        """Build one 'Model review' workbook: Cover, Coverage, Findings, Counts by category, What to do next."""
         from datetime import datetime, timezone
         from revit_mcp_server.security.workspace import WorkspaceMonitor
 
         data = _load_review_snapshot(snapshot_id, workspace)
         elements, types, source = data["elements"], data["types"], data["source"]
         doc_guid = source.get("doc_guid") or data["snapshot_id"]
-        findings = _review_findings(elements, types, doc_guid, rule_pack)
+        failed_rules: List[Any] = []
+        findings = _review_findings(elements, types, doc_guid, rule_pack, workspace, failed_rules)
+        partial = _is_partial_snapshot(data)
 
         out_path = WorkspaceMonitor(workspace.allowed_directories).assert_in_workspace(
             _ws_dir(workspace) / output_filename
@@ -402,12 +452,24 @@ class ReportGeneratorModule:
             ("Elements reviewed", len(elements)),
             ("Rules with findings", len(findings)),
             ("Elements flagged", total_hits),
+            ("Coverage", _coverage_summary(data, failed_rules)),
         ]
         _write_header(ws, ["Item", "Value"])
         ws.column_dimensions["A"].width = 26
         ws.column_dimensions["B"].width = 60
         for row in rows:
             ws.append(list(row))
+
+        # --- Coverage ---
+        ws_cov = wb.create_sheet("Coverage")
+        _write_header(ws_cov, ["Item", "Detail"])
+        ws_cov.column_dimensions["A"].width = 26
+        ws_cov.column_dimensions["B"].width = 90
+        for row in _coverage_rows(data, failed_rules):
+            ws_cov.append(list(row))
+            if row[0] in ("Capture", "Rules not run", "Rule not run") and not row[1].startswith(("Complete", "MOCK")):
+                ws_cov.cell(row=ws_cov.max_row, column=1).fill = PatternFill("solid", fgColor=SEVERITY_COLORS.get("warning", "FFEB9C"))
+                ws_cov.cell(row=ws_cov.max_row, column=2).fill = PatternFill("solid", fgColor=SEVERITY_COLORS.get("warning", "FFEB9C"))
 
         # --- Findings ---
         ws_f = wb.create_sheet("Findings")
@@ -452,8 +514,14 @@ class ReportGeneratorModule:
             ws_n.column_dimensions[col].width = width
         if data["is_mock"]:
             ws_n.append(["Note", "Capture a real snapshot of the open model and run this again.", "This pack was built from generated sample data.", ""])
-        if not findings:
+        if failed_rules:
+            ws_n.append(["Check first", "Fix or remove the rules that did not run, then run this again: " + ", ".join(map(str, failed_rules)), _failed_rules_note("Rules", failed_rules), ""])
+        if partial:
+            ws_n.append(["Check first", "Capture the whole model (not truncated, not dirty-only) and run this again.", _partial_snapshot_note("Snapshot"), ""])
+        if not findings and not failed_rules and not partial:
             ws_n.append(["Done", "No rule findings. Nothing to fix from this rule pack.", "", ""])
+        elif not findings:
+            ws_n.append(["Note", "No findings in the part that was checked. This is not a clean result for the whole model.", "", ""])
         for f in findings:
             ws_n.append([_SEVERITY_LABEL.get(f["severity"], f["severity"]), f["next_step"], f["message"], f["count"]])
 
@@ -466,6 +534,8 @@ class ReportGeneratorModule:
             "snapshot_id": data["snapshot_id"],
             "element_count": len(elements),
             "finding_rules": len(findings),
+            "rules_not_run": [str(r) for r in failed_rules],
+            "partial": partial,
             "sheets": wb.sheetnames,
         }
 

@@ -128,7 +128,7 @@ def test_review_pack_sheets_columns_and_mock_label(tmp_path):
     result = ReportGeneratorModule().build_review_pack(workspace=ws)
     assert result["data_source"] == "mock"
     wb = openpyxl.load_workbook(result["output_file"])
-    assert wb.sheetnames == ["Cover", "Findings", "Counts by category", "What to do next"]
+    assert wb.sheetnames == ["Cover", "Coverage", "Findings", "Counts by category", "What to do next"]
     cover = {r[0].value: r[1].value for r in wb["Cover"].iter_rows(min_row=2)}
     assert cover["Data source"] == "mock"
     assert "mock" in cover["Data source note"].lower()
@@ -236,3 +236,126 @@ def test_review_pack_keeps_every_uid_when_list_exceeds_cell_limit(tmp_path):
         assert len(cell) <= 32767
         found.update(p for p in cell.split("; ") if p)
     assert set(uids) <= found
+
+
+# --- build_review_pack coverage (issue #145) ---
+
+def _coverage_rows(wb):
+    return [tuple(c for c in row if c not in (None, "")) for row in wb["Coverage"].iter_rows(values_only=True)]
+
+
+def _coverage_text(wb):
+    return " | ".join(" ".join(str(c) for c in row) for row in _coverage_rows(wb))
+
+
+def test_review_pack_lists_failed_rule_as_not_run(tmp_path, monkeypatch):
+    import openpyxl
+    from types import SimpleNamespace
+
+    _real_snapshot(tmp_path, [{"uid": "d1", "category": "OST_Doors", "type_name": "D", "params": {}}])
+    real = _rg._qaqc_rules_module()
+
+    def boom(rule, *a, **k):
+        if rule["id"] == "door_missing_mark":
+            raise RuntimeError("boom")
+        return real.__dict__["_orig_run_rule"](rule, *a, **k)
+
+    real._orig_run_rule = real._run_rule
+    monkeypatch.setattr(real, "_run_rule", boom)
+    monkeypatch.setattr(_rg, "_qaqc_rules_module", lambda: real)
+    ws = SimpleNamespace(allowed_directories=[tmp_path])
+    result = ReportGeneratorModule().build_review_pack(snapshot_id="snap1", workspace=ws)
+    wb = openpyxl.load_workbook(result["output_file"])
+    text = _coverage_text(wb)
+    assert "door_missing_mark" in text and "not run" in text.lower()
+    assert "could not run" in text
+    assert result["rules_not_run"] == ["door_missing_mark"]
+    # never shown as a clean zero in the Findings sheet
+    assert not any(row[1] == "door_missing_mark" and row[4] == 0 for row in wb["Findings"].iter_rows(min_row=2, values_only=True))
+    cover = {r[0].value: r[1].value for r in wb["Cover"].iter_rows(min_row=2)}
+    assert "not run" in str(cover["Coverage"]).lower()
+    nxt = " ".join(str(c) for row in wb["What to do next"].iter_rows(values_only=True) for c in row if c)
+    assert "No rule findings" not in nxt
+
+
+def test_review_pack_truncated_snapshot_gets_partial_banner(tmp_path):
+    import json
+    import openpyxl
+    from types import SimpleNamespace
+
+    _real_snapshot(tmp_path, [{"uid": "d1", "category": "OST_Doors", "type_name": "D", "params": {}}])
+    path = tmp_path / "snapshots" / "snap1.json"
+    snap = json.loads(path.read_text(encoding="utf-8"))
+    snap["counts"] = {"truncated": True, "dirty_only": False, "candidates": 900, "captured": 1,
+                      "categories": ["OST_Doors"]}
+    path.write_text(json.dumps(snap), encoding="utf-8")
+    ws = SimpleNamespace(allowed_directories=[tmp_path])
+    result = ReportGeneratorModule().build_review_pack(snapshot_id="snap1", workspace=ws)
+    wb = openpyxl.load_workbook(result["output_file"])
+    text = _coverage_text(wb)
+    assert "cover part of the model" in text
+    assert "partial capture" in text
+    assert "snap1" in text and "2026-01-01" in text
+    assert "OST_Doors" in text
+    assert "1 of 900" in text
+    cover = {r[0].value: r[1].value for r in wb["Cover"].iter_rows(min_row=2)}
+    assert "part of the model" in str(cover["Coverage"])
+    assert result["partial"] is True
+    nxt = " ".join(str(c) for row in wb["What to do next"].iter_rows(values_only=True) for c in row if c)
+    assert "No rule findings" not in nxt
+
+
+def test_review_pack_dirty_only_snapshot_is_partial(tmp_path):
+    import json
+    import openpyxl
+    from types import SimpleNamespace
+
+    _real_snapshot(tmp_path, [{"uid": "d1", "category": "OST_Doors", "type_name": "D", "params": {}}])
+    path = tmp_path / "snapshots" / "snap1.json"
+    snap = json.loads(path.read_text(encoding="utf-8"))
+    snap["counts"] = {"truncated": False, "dirty_only": True}
+    path.write_text(json.dumps(snap), encoding="utf-8")
+    ws = SimpleNamespace(allowed_directories=[tmp_path])
+    result = ReportGeneratorModule().build_review_pack(snapshot_id="snap1", workspace=ws)
+    wb = openpyxl.load_workbook(result["output_file"])
+    assert "cover part of the model" in _coverage_text(wb)
+    assert "changed since" in _coverage_text(wb).lower() or "dirty" in _coverage_text(wb).lower()
+
+
+def test_review_pack_complete_snapshot_says_complete(tmp_path):
+    import openpyxl
+    from types import SimpleNamespace
+
+    _real_snapshot(tmp_path, [{"uid": "d1", "category": "OST_Doors", "type_name": "D", "params": {}}])
+    ws = SimpleNamespace(allowed_directories=[tmp_path])
+    result = ReportGeneratorModule().build_review_pack(snapshot_id="snap1", workspace=ws)
+    wb = openpyxl.load_workbook(result["output_file"])
+    text = _coverage_text(wb)
+    assert "cover part of the model" not in text
+    assert "not run" not in text.lower()
+    assert result["partial"] is False and result["rules_not_run"] == []
+
+
+def test_review_pack_uses_user_rule_pack_from_workspace(tmp_path):
+    import openpyxl
+    from types import SimpleNamespace
+
+    packs = tmp_path / "rule_packs"
+    packs.mkdir()
+    (packs / "firm.yaml").write_text(chr(10).join([
+        "rules:",
+        "  - id: firm_door_mark",
+        "    severity: warning",
+        '    description: "Firm door has no Mark."',
+        "    filter:",
+        "      category: OST_Doors",
+        "      parameter: {name: Mark, empty: true}",
+        '    assertion: "element_count == 0"',
+        "",
+    ]), encoding="utf-8")
+    _real_snapshot(tmp_path, [{"uid": "d1", "category": "OST_Doors", "type_name": "D", "params": {}}])
+    ws = SimpleNamespace(allowed_directories=[tmp_path])
+    result = ReportGeneratorModule().build_review_pack(snapshot_id="snap1", rule_pack="firm", workspace=ws)
+    wb = openpyxl.load_workbook(result["output_file"])
+    rules = [row[1] for row in wb["Findings"].iter_rows(min_row=2, values_only=True)]
+    assert rules == ["firm_door_mark"]
