@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Approvals now expire: an approved plan older than `MCP_REVIT_APPROVAL_TTL` (default 8 hours, `0` = no limit) cannot run and moves to `expired`; a person must approve a new plan. Pending plans older than `MCP_REVIT_PENDING_TTL` (default 14 days) cannot be approved and are hidden from `aec-model-bridge-approve list` and `list_pending_plans` (counted as `expired_hidden`; `list --all` or `include_expired` shows them). Nothing is deleted. Only makes approval stricter.
+- Plans drafted with a live Revit store a `binding` (document guid or central-path hash, title, Revit version, active view for view-specific actions) inside the hashed plan, and are refused when another document is active or the live document cannot be read. With no live Revit the binding is `null` and nothing is refused. Older plans still verify unchanged. See ADR 0017.
+
 ## 1.5.0 - 2026-11-16
 
 - Read-only tool results are now minified JSON by default (about 14-24% fewer characters on typical reads; pass `response_options.compact: false` for indented text) and capped at 20,000 characters. Over the cap, the largest lists are trimmed to valid JSON and marked `truncated: true` with `total`, `returned` and a hint to narrow the call; `response_options.max_chars` changes the cap (0 turns it off). Plans, proofs, approvals, jobs, errors and every tool that can write are untouched.

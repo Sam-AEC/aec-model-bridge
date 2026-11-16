@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from .safe_paths import safe_child, snapshot_file
+from .binding import validate_binding
 
 SCHEMA = "amb.proof/1"
 PARAM_TOOL = "revit_set_parameter_value"
@@ -67,11 +68,15 @@ EXCLUDED_KEYS = ("element_id", "reason")
 # Plan keys outside ``actions`` and ``review`` that are NOT covered by the hash. They are
 # bookkeeping or caller-supplied metadata: never shown as approved content, and editing
 # them does not invalidate an approval.
-HASHED_PLAN_KEYS_V1 = ("plan_id", "created_at", "snapshot_id", "skipped", "actions")
+# ``binding`` (ADR 0017) is hashed only when the key is present, in either version, so every plan
+# stored before it existed hashes exactly as before. Removing the key from a bound plan changes
+# the hash, so it cannot be stripped after approval.
+HASHED_PLAN_KEYS_V1 = ("plan_id", "created_at", "snapshot_id", "skipped", "actions", "binding")
 HASHED_PLAN_KEYS_V2 = HASHED_PLAN_KEYS_V1 + ("hash_version", "review", "reverts_plan_id")
 STATE_PLAN_KEYS = frozenset({
     "state", "plan_hash", "approved_hash", "approved_at", "approved_by", "approved_via",
     "rejected_at", "rejected_via", "rejected_after_approval", "executed_at", "results",
+    "expired", "expired_at", "expired_reason",
     "is_reversible", "reversible_strategy",
 })
 
@@ -325,7 +330,8 @@ def plan_content_hash(plan: Dict[str, Any]) -> str:
     """SHA-256 over the immutable content of a plan (not its mutable state/results).
 
     Version 1 (no ``review``): ids, snapshot, skipped list and each action. Version 2
-    additionally covers ``hash_version``, ``review`` and ``reverts_plan_id``."""
+    additionally covers ``hash_version``, ``review`` and ``reverts_plan_id``. Either version
+    also covers ``binding`` when the plan has that key."""
     version = plan_hash_version(plan)
     content = {
         "plan_id": plan.get("plan_id"),
@@ -346,6 +352,9 @@ def plan_content_hash(plan: Dict[str, Any]) -> str:
         content["hash_version"] = HASH_VERSION_REVIEW
         content["review"] = plan["review"]
         content["reverts_plan_id"] = plan.get("reverts_plan_id")
+    if "binding" in plan:
+        validate_binding(plan["binding"])
+        content["binding"] = plan["binding"]
     blob = json.dumps(content, sort_keys=True, separators=(",", ":"), default=str)
     return "sha256:" + hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
