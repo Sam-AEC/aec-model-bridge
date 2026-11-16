@@ -85,24 +85,46 @@ def disable_dev(workspace_dir: Path) -> None:
     dev_path(workspace_dir).unlink(missing_ok=True)
 
 
-def active_dev(workspace_dir: Path, *, token: str | None = None) -> bool:
-    """Fail closed on missing, malformed, copied or unsigned overrides."""
+def dev_off_reason(workspace_dir: Path, *, token: str | None = None) -> str | None:
+    """Why Dev reads OFF for this workspace, or None when it is on. Reporting only.
+
+    Never returns the token, nonce or signature. ``active_dev`` is defined as
+    ``dev_off_reason(...) is None`` so the two cannot drift apart.
+    """
     try:
         record = json.loads(dev_path(workspace_dir).read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return "no Dev record in this workspace (Dev has not been switched on for it)"
+    except (OSError, ValueError, UnicodeError):
+        return "the Dev record in this workspace is unreadable or malformed"
+    try:
         if not isinstance(record, dict) or set(record) != {"mode", "set_at", "nonce", "sig"}:
-            return False
+            return "the Dev record in this workspace is malformed"
         set_at, sig, nonce = record["set_at"], record["sig"], record["nonce"]
         if record["mode"] != "dev" or type(set_at) is not int or set_at < 0 or not isinstance(sig, str):
-            return False
+            return "the Dev record in this workspace is malformed"
         if not isinstance(nonce, str) or len(nonce) != 64 or any(c not in "0123456789abcdef" for c in nonce):
-            return False
+            return "the Dev record in this workspace is malformed"
         key = token if token is not None else read_token()
-        if not key or not is_valid_token(key) or not hmac.compare_digest(sig, _sign(key, workspace_dir, set_at, nonce)):
-            return False
-        authority = json.loads(_authority_path(workspace_dir).read_text(encoding="utf-8"))
-        return isinstance(authority, dict) and authority == record
+        if not key or not is_valid_token(key):
+            return "key mismatch: no valid panel token to verify the Dev record"
+        if not hmac.compare_digest(sig, _sign(key, workspace_dir, set_at, nonce)):
+            return ("key mismatch: the Dev record was not signed by this panel token for this workspace "
+                    "(different workspace folder or token)")
+        try:
+            authority = json.loads(_authority_path(workspace_dir).read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return "no authority record for this workspace (Dev was switched off, or set up by another install)"
+        if not (isinstance(authority, dict) and authority == record):
+            return "the authority record does not match the workspace record (Dev was re-enabled or reset elsewhere)"
+        return None
     except (OSError, ValueError, UnicodeError, PanelTokenError):
-        return False
+        return "key mismatch: the panel token or authority record could not be read"
+
+
+def active_dev(workspace_dir: Path, *, token: str | None = None) -> bool:
+    """Fail closed on missing, malformed, copied or unsigned overrides."""
+    return dev_off_reason(workspace_dir, token=token) is None
 
 
 def audit_dev_event(workspace_dir: Path, event: str, **fields: Any) -> None:

@@ -34,7 +34,9 @@ SERVER_INSTRUCTIONS = (
     "themselves, in the Revit panel's Plans view or with the command-line tool `aec-model-bridge-approve`. "
     "You cannot approve, reject or roll back a plan, and must not try to work around that. "
     "Only after the person tells you the plan is approved, call execute_plan (or pass the plan_id to the write tool "
-    "with exactly the arguments that were approved; an approved action runs once). Revit lengths are in feet. "
+    "with exactly the arguments that were approved; an approved action runs once). "
+    "Dev mode: if revit_get_context shows server.dev_mode true, call write tools directly, "
+    "with no plan_actions and no plan_id; otherwise the plan steps above apply. Revit lengths are in feet. "
     "In MCP_REVIT_MODE=mock the server returns canned responses and needs no Revit."
 )
 

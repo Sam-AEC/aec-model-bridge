@@ -27,7 +27,7 @@ import time
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from . import agent_bridge
 from . import agent_native
@@ -186,7 +186,7 @@ APPROVAL_MODE_NOTES = {
 
 
 def collect_diagnostics(workspace_dir: Path, approval_mode: Any = None, auto_window: Any = None,
-                        dev_mode: bool = False) -> Dict[str, Any]:
+                        dev_mode: bool = False, dev_token: Optional[str] = None) -> Dict[str, Any]:
     """Install-to-first-check status: one entry per thing that can block a first run.
 
     Each check carries a ``next_step`` so the panel can show a specific recovery
@@ -198,6 +198,15 @@ def collect_diagnostics(workspace_dir: Path, approval_mode: Any = None, auto_win
     mode_value = normalize_approval_mode(config.approval_mode if approval_mode is None else approval_mode)
     dev_mode = bool(dev_mode and mode_value == "auto")
     mode_note = "Dev mode: approvals are skipped until you switch it off. Calls are audited." if dev_mode else APPROVAL_MODE_NOTES[mode_value]
+    dev_token = dev_token if isinstance(dev_token, str) else None
+    # Reporting only: the folder that holds plans and the Dev key, and why Dev reads off.
+    if dev_mode:
+        dev_off_reason = None
+    elif mode_value == "look_only":
+        dev_off_reason = "approval mode is look_only; Dev mode is never allowed in it"
+    else:
+        from .security.dev_mode import dev_off_reason as _dev_off_reason
+        dev_off_reason = _dev_off_reason(workspace_dir, token=dev_token)
     checks = []
 
     def add(check_id: str, ok: bool, detail: str, next_step: str = "") -> None:
@@ -251,6 +260,8 @@ def collect_diagnostics(workspace_dir: Path, approval_mode: Any = None, auto_win
         "approval_mode": mode_value,
         "approval_mode_note": mode_note,
         "dev_mode": dev_mode,
+        "workspace_dir": str(workspace_dir),
+        "dev_off_reason": dev_off_reason,
         "auto_expires_at": auto_window["expires_at"] if not dev_mode and mode_value == "auto" and isinstance(auto_window, dict) else None,
         "checks": checks,
     }
@@ -379,6 +390,7 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
                     getattr(gate, "approval_mode", None) if gate is not None else getattr(self.approval_provider, "approval_mode", None),
                     gate.auto_window() if gate is not None and hasattr(gate, "auto_window") else None,
                     bool(getattr(gate, "dev_mode", False)),
+                    dev_token=getattr(gate, "override_token", None),
                 ),
             )
             return
@@ -435,7 +447,8 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"ok": False, "error": "mode must be 'auto', 'dev' or 'ask_first'"})
             return
 
-        self._send_json(200, collect_diagnostics(gate.workspace_dir, gate.approval_mode, gate.auto_window(), gate.dev_mode))
+        self._send_json(200, collect_diagnostics(gate.workspace_dir, gate.approval_mode, gate.auto_window(), gate.dev_mode,
+                                                  dev_token=gate.override_token))
 
     def _handle_agent_providers(self) -> None:
         """Reports which chat providers are actually usable right now, so the

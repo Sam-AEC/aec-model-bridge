@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Dev mode wording: the server instructions, panel chat prompt and `plan_actions` description now say that when `revit_get_context` shows `server.dev_mode` true, write tools are called directly with no plan or `plan_id`. In Dev, `plan_actions` still creates the plan but adds `dev_mode: true` and a note. A supplied plan that is still pending is refused as before, with a clearer message. Approval rules are unchanged.
+- `aec-model-bridge-approve reject --older-than DAYS` and `--all-pending` (with `--dry-run`) clear out old pending plans. They touch pending plans only and print each id; approved and executed plans are left alone.
+- `/diagnostics` now reports `workspace_dir` and a `dev_off_reason` when Dev reads off (for example a key or workspace mismatch). It never includes the token or nonce.
+
 - Require `certifi>=2026.10.19` and refresh its lock entry so the release bundle cannot restore the affected emSign trust root (GHSA-6q48-6c7w-9gw2). Regression checks cover the dependency floor and the actual bundled trust store.
 
 - Audited the 19 open PRs from oldest to newest and consolidated their current implementations and fixes. Setup recovery supports Codex-only chat; previews clear stale state and accept 64-bit IDs; QA issues are isolated by rule pack; explicit workspace allowlists are preserved. Snapshot audits disclose partial data and no longer invent full-model findings from incomplete captures. Snapshot point locations use SI units and stable names survive serialization. See `docs/release-audit-2026-11-06.md` for coverage and remaining live acceptance work.
