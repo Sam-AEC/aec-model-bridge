@@ -95,7 +95,7 @@ def test_missing_id_raises_clear_error(mod, ws):
         mod.compare_snapshots("here", "nope", workspace=ws)
     with pytest.raises(ValueError, match="both"):
         mod.compare_snapshots("here", "", workspace=ws)
-    with pytest.raises(ValueError, match="Invalid snapshot id"):
+    with pytest.raises(ValueError, match="plain snapshot name"):
         mod.compare_snapshots("here", "../x", workspace=ws)
 
 

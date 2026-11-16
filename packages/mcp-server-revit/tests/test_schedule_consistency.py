@@ -180,7 +180,7 @@ def test_partial_room_data_does_not_invent_missing_rooms(tmp_path):
 
 @pytest.mark.parametrize('snapshot_id', ['../secret', r'..\secret', 'C:secret'])
 def test_snapshot_path_traversal_is_rejected(tmp_path, snapshot_id):
-    with pytest.raises(ValueError, match='Invalid snapshot'):
+    with pytest.raises(ValueError, match='plain snapshot name'):
         Mod().check_doors_and_rooms(snapshot_id=snapshot_id, workspace=WS(tmp_path))
 
 

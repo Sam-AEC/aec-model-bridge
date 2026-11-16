@@ -310,7 +310,9 @@ class LinksWorksetsAuditModule:
 
     @staticmethod
     def _load_elements(snapshot_id: str, workspace: Any) -> List[Dict[str, Any]]:
-        path = Path(workspace.allowed_directories[0]) / "snapshots" / f"{snapshot_id}.json"
+        from revit_mcp_server.security.safe_paths import snapshot_file
+
+        path = snapshot_file(Path(workspace.allowed_directories[0]) / "snapshots", snapshot_id)
         if not path.exists():
             raise ValueError(f"Snapshot '{snapshot_id}' not found.")
         with open(path, "r", encoding="utf-8") as f:

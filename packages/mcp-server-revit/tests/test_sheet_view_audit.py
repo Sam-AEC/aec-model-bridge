@@ -227,7 +227,7 @@ def test_view_side_placement_runs_empty_and_unplaced_checks(tmp_path):
 
 @pytest.mark.parametrize('snapshot_id', ['../secret', r'..\secret', 'C:secret'])
 def test_snapshot_path_traversal_is_rejected(tmp_path, snapshot_id):
-    with pytest.raises(ValueError, match='Invalid snapshot'):
+    with pytest.raises(ValueError, match='plain snapshot name'):
         _mod.SheetViewAuditModule().run_audit(snapshot_id=snapshot_id, workspace=WS(tmp_path))
 
 
