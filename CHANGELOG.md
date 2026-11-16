@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.5.0 - 2026-11-16
+
 - Read-only tool results are now minified JSON by default (about 14-24% fewer characters on typical reads; pass `response_options.compact: false` for indented text) and capped at 20,000 characters. Over the cap, the largest lists are trimmed to valid JSON and marked `truncated: true` with `total`, `returned` and a hint to narrow the call; `response_options.max_chars` changes the cap (0 turns it off). Plans, proofs, approvals, jobs, errors and every tool that can write are untouched.
 - `revit_list_elements`, `revit_list_views`, `revit_list_families`, `revit_get_categories`, `revit_get_warnings` and `revit_get_schedule_data` accept optional `limit`, `offset` and `count_only`. The slice is made in the server after Revit answers (no add-in change), so it saves response tokens, not Revit time.
 - MCP tool text is shorter and clearer: the duplicate `annotations.title` is gone, repeated parameter text (`dry_run`, `on_error`, `limit`, `tag`, `fields`, `status_labels`) uses one short wording, and 29 look-alike tools say which sibling to use for what. About 3.5% fewer tokens in the full and daily catalogues; approval wording is unchanged.
@@ -22,10 +24,6 @@
 - Connection: a `MCP_REVIT_BRIDGE_URL` that is empty or still the old default `http://127.0.0.1:3000` now means "not set", so the server finds the running Revit by itself (the add-in picks a random port at every start, so a client config pinned to :3000 could never connect). The DXT manifest, `smithery.yaml` and `server.json` no longer ship :3000 as the default. Any other explicit URL stays pinned.
 - Scripts: `revit_execute_python` in write mode gets `amb_transaction(doc, name)`; it dismisses Revit warnings (no dialog) and returns them in the result, errors roll back. stdout without a trailing newline is now flushed on IronPython 3 (the tail was dropped). UNVERIFIED in Revit. Removed two unreferenced files (`new_checks.txt`, `banner.png`).
 - Panel: the dark theme uses the slate colours of Revit's own dark UI (#3B4453 background, #222933 headers, #515C6B lines, measured from Revit 2024) instead of the near-black blue (`docs/design/tokens.md` updated, dialogs match; status colours lightened to keep WCAG AA).
-
-## 1.5.0 - 2026-10-14
-
-Status: on the dev branch, not yet released.
 
 - Recipes: new `revit_recipes` module (`revit_recipe_save`, `_list`, `_get`, `_run`, `_delete`). A recipe is saved IronPython with a typed parameter schema and a code hash. A write run needs a plan bound to the recipe id, version, code hash and parameter values, so editing a recipe voids old approvals. A read recipe runs without approval only if its code passes read mode at run time. A recipe can carry a standing approval, set only by a person with `aec-model-bridge-approve recipe-standing`, tied to id and hash. Parameters reach the script as one JSON string, never spliced into code. UNVERIFIED in Revit.
 - Documentation batch: `revit_place_views`, `revit_list_view_templates`, `revit_set_view_templates`, `revit_make_view_template`, `revit_align_crop`, `revit_list_revisions`, `revit_add_revision`, `revit_add_revision_clouds`, `revit_issue_revision`, `revit_sheet_index` and `revit_update_sheets` (collision check, temporary numbers for swaps). Strict schemas, `dry_run` on every write. UNVERIFIED in Revit.
