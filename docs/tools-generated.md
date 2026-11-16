@@ -104,7 +104,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `pyrevit_bridge_run_pyrevit_script` | Run a pyRevit script inside Revit after its plan was approved and only if its SHA-256 still matches the plan. | Yes | sync |
 | `qaqc_checker_export_rule_pack` | Copy a validated built-in or workspace rule pack to a YAML file inside the workspace so it can be shared. | No | sync |
 | `qaqc_checker_import_rule_pack` | Validate a YAML rule pack inside the workspace and copy it into the workspace rule_packs folder. | No | sync |
-| `qaqc_checker_list_issues` | List recorded QA/QC issues for a document, optionally filtered by status and severity. | No | sync |
+| `qaqc_checker_list_issues` | List recorded QA/QC issues for a document, optionally filtered by status, severity and snapshot. | No | sync |
 | `qaqc_checker_list_rule_packs` | List the built-in QA/QC rule packs and the user packs in the workspace rule_packs folder, with a validity flag for each. | No | sync |
 | `qaqc_checker_list_rules` | List the QA/QC rules that are available, optionally for one rule pack. | No | sync |
 | `qaqc_checker_resolve_issue` | Mark one recorded QA/QC issue as resolved. | No | sync |
