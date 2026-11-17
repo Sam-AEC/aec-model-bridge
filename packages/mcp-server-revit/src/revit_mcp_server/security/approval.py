@@ -577,6 +577,9 @@ class ApprovalGate:
             raise BridgeError(
                 f"Plan '{plan_id}' is in state '{plan.get('state')}', not 'approved'. Execution blocked.{hint}")
         self._verify_unchanged_since_approval(plan)
+        expired = self.expiry_reason(plan)
+        if expired:
+            raise ApprovalExpired(expired)
 
     @staticmethod
     def _verify_unchanged_since_approval(plan: Dict[str, Any]) -> None:
@@ -592,9 +595,6 @@ class ApprovalGate:
                 f"Plan '{plan_id}' changed after it was approved (or has no approval record). Execution blocked; "
                 "draft a new plan and ask the person to approve it."
             )
-        expired = self.expiry_reason(plan)
-        if expired:
-            raise ApprovalExpired(expired)
 
     def verify_binding(self, plan: Dict[str, Any]) -> None:
         """Refuse when the live Revit document is not the one the plan was drafted for. A plan with
