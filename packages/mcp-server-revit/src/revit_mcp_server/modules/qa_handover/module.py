@@ -78,7 +78,9 @@ def _doc_guid(data: Dict[str, Any]) -> str:
 
 
 def _is_partial(data: Dict[str, Any]) -> bool:
-    return bool(data.get("dirty_only") or data.get("counts", {}).get("truncated"))
+    coverage = data.get("counts") or {}
+    return bool(data.get("dirty_only") or coverage.get("dirty_only")
+                or coverage.get("truncated") or coverage.get("categories"))
 
 
 def _run_rules(data: Dict[str, Any], rule_pack: str, workspace: Any, label: str, not_verified: List[str]):
@@ -90,7 +92,7 @@ def _run_rules(data: Dict[str, Any], rule_pack: str, workspace: Any, label: str,
         not_verified.append(f"{label}: these rules could not run, so their result is unknown: {', '.join(map(str, failed))}.")
     if _is_partial(data):
         not_verified.append(f"{label}: the snapshot is a partial capture; elements that were not captured were not checked.")
-    return groups
+    return groups, failed
 
 
 def _rule_pack_info(rule_pack: str, workspace: Any) -> Dict[str, Any]:
@@ -119,14 +121,32 @@ def _findings(groups: List[Dict[str, Any]], max_ids: int, not_verified: List[str
     ]
 
 
-def _verification(before: List[Dict[str, Any]], after: List[Dict[str, Any]]) -> Dict[str, Any]:
-    b = {g["rule_id"]: g["count"] for g in before}
-    a = {g["rule_id"]: g["count"] for g in after}
-    per_rule = [{"rule_id": _s(r), "before": b.get(r, 0), "after": a.get(r, 0)} for r in sorted(b.keys() | a.keys())]
-    before_total, after_total = sum(b.values()), sum(a.values())
+def _verification(before, after, failed_before, failed_after, not_verified) -> Dict[str, Any]:
+    """Compare finding identities, keeping failed rules and unidentified hits unknown."""
+    b = {g["rule_id"]: g for g in before}
+    a = {g["rule_id"]: g for g in after}
+    per_rule = []
+    for rid in sorted(b.keys() | a.keys() | set(failed_before) | set(failed_after)):
+        old, new = b.get(rid, {}), a.get(rid, {})
+        old_count = None if rid in failed_before else old.get("count", 0)
+        new_count = None if rid in failed_after else new.get("count", 0)
+        old_ids, new_ids = set(old.get("uids", [])), set(new.get("uids", []))
+        known = old_count is not None and new_count is not None
+        identified = known and len(old_ids) == old_count and len(new_ids) == new_count
+        if known and not identified:
+            not_verified.append(f"Rule {rid}: finding identities are incomplete; resolved and new counts are unknown.")
+        per_rule.append({
+            "rule_id": _s(rid), "before": old_count, "after": new_count,
+            "resolved": len(old_ids - new_ids) if identified else None,
+            "new": len(new_ids - old_ids) if identified else None,
+        })
+
+    def total(field):
+        return None if any(x[field] is None for x in per_rule) else sum(x[field] for x in per_rule)
+
     return {
-        "before_total": before_total, "after_total": after_total,
-        "resolved": max(0, before_total - after_total), "per_rule": per_rule[:MAX_RULES],
+        "before_total": total("before"), "after_total": total("after"),
+        "resolved": total("resolved"), "new": total("new"), "per_rule": per_rule[:MAX_RULES],
     }
 
 
@@ -143,16 +163,21 @@ def _plan(plan_id: str, bundle: Dict[str, Any], before: Dict[str, Any], after: O
     entries = bundle.get("elements") or []
     ran = _parse_time(bundle.get("executed_at"))
     after_time = _parse_time(after["taken_at"]) if after else None
-    usable = after is not None and not (ran and after_time and after_time < ran)
-    if after is not None and not usable:
-        not_verified.append(f"Plan {plan_id}: the after snapshot was taken before the plan ran, so it cannot confirm the new values.")
-    elif after is None:
+    usable = after is not None
+    if after is None:
         not_verified.append(f"Plan {plan_id}: no after snapshot given, so the new values were not checked against the model.")
+    elif ran is None or after_time is None:
+        usable = False
+        not_verified.append(f"Plan {plan_id}: execution or capture time is missing or invalid, so the new values cannot be confirmed.")
+    elif after_time < ran:
+        usable = False
+        not_verified.append(f"Plan {plan_id}: the after snapshot was taken before the plan ran, so it cannot confirm the new values.")
     doc = (bundle.get("document") or {}).get("doc_guid")
-    if not doc or not _doc_guid(before) or doc != _doc_guid(before):
+    if not doc or doc != _doc_guid(before) or (after is not None and doc != _doc_guid(after)):
+        usable = False
         not_verified.append(f"Plan {plan_id}: its document could not be matched to the snapshot (different document or no document id).")
     checks = {"confirmed": 0, "differs": 0, "unknown": 0}
-    index = {el.get("uid"): el for el in after["elements"]} if usable else {}
+    index = {el["uid"]: el for el in after["elements"] if el.get("uid")} if usable else {}
     changes: List[Dict[str, Any]] = []
     for e in entries:
         state = "unknown"
@@ -209,16 +234,27 @@ def build_report_data(
         not_verified.append("MOCK DATA: generated sample, not a real model.")
     elif not _doc_guid(before):
         not_verified.append("The snapshot has no document id, so the model identity could not be confirmed.")
-    groups = _run_rules(before, rule_pack, workspace, "Before", not_verified)
+    groups, failed_before = _run_rules(before, rule_pack, workspace, "Before", not_verified)
     verification = changes = None
     if after is not None:
         guid_a, guid_b = _doc_guid(before), _doc_guid(after)
         if guid_a and guid_b and guid_a != guid_b:
             raise ValueError("The two snapshots come from different Revit models, so they cannot be compared.")
+        comparable = True
         if not (guid_a and guid_b):
+            comparable = False
             not_verified.append("Could not confirm both snapshots are of the same model (a snapshot has no document id).")
-        verification = _verification(groups, _run_rules(after, rule_pack, workspace, "After", not_verified))
-        changes = compare_snapshot_data(before, after, 0)["totals"]
+        after_groups, failed_after = _run_rules(after, rule_pack, workspace, "After", not_verified)
+        if _is_partial(before) or _is_partial(after):
+            comparable = False
+            not_verified.append("Whole-model re-check and change totals are unavailable because a snapshot is partial.")
+        before_time, after_time = _parse_time(before["taken_at"]), _parse_time(after["taken_at"])
+        if before_time is None or after_time is None or after_time < before_time:
+            comparable = False
+            not_verified.append("Snapshot chronology is missing, invalid or reversed; re-check and change totals are unavailable.")
+        if comparable:
+            verification = _verification(groups, after_groups, failed_before, failed_after, not_verified)
+            changes = compare_snapshot_data(before, after, 0)["totals"]
     else:
         not_verified.append("No after snapshot given: the findings were not re-checked after any fix.")
     plans = _plans(plan_ids, before, after, workspace, not_verified)
@@ -262,9 +298,14 @@ def render_markdown(r: Dict[str, Any]) -> str:
                 f"  Elements: {ids}", f"  Next step: {f['next_step']}"]
     v = r["verification"]
     if v:
+        def known(value):
+            return "unknown" if value is None else value
+
         out += ["", "## Re-check", "",
-                f"Findings before {v['before_total']}, after {v['after_total']}, resolved {v['resolved']}."]
-        out += [f"- {x['rule_id']}: {x['before']} -> {x['after']}" for x in v["per_rule"]]
+                f"Findings before {known(v['before_total'])}, after {known(v['after_total'])}, "
+                f"resolved {known(v['resolved'])}, new {known(v['new'])}."]
+        out += [f"- {x['rule_id']}: {known(x['before'])} -> {known(x['after'])}; "
+                f"resolved {known(x['resolved'])}, new {known(x['new'])}" for x in v["per_rule"]]
         c = r["changes"]
         out.append(f"Between snapshots: {c['added']} added, {c['removed']} removed, {c['modified']} modified elements.")
     if r["plans"]:
@@ -312,11 +353,15 @@ class QaHandoverModule:
             path.write_text(text, encoding="utf-8")
             paths[ext] = str(path)
         v = report["verification"]
+        recheck = ""
+        if after is not None:
+            recheck = (f"; after snapshot {v['after_total']} findings remain" if v and v["after_total"] is not None
+                       else "; re-check totals unknown or unavailable")
         return {
             "data_source": report["data_source"],
             "summary": (
                 f"{sum(f['count'] for f in report['findings'])} findings in {len(report['findings'])} rules"
-                + (f"; after the fixes {v['after_total']} remain" if v else "")
+                + recheck
                 + f"; {len(report['plans'])} plan(s); {len(report['not_verified'])} item(s) not verified."
             ),
             "json_file": paths["json"],

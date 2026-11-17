@@ -18,17 +18,19 @@ It writes `reports/<output_name>.json` and `reports/<output_name>.md` in the wor
 - Document title and id, snapshot id, time and app version.
 - Rule pack name, origin and file SHA-256 (packs have no version field).
 - Findings grouped per rule: severity, element count, the first N UniqueIds, next step.
-- With an after snapshot: findings before and after per rule, and added, removed and modified element counts.
+- With complete snapshots of the same identified model in chronological order: findings before and after per rule, and added, removed and modified element counts. Partial captures (truncated, dirty-only, or category-filtered) cannot establish whole-model changes or resolved findings.
 - Per plan: outcome, who approved and when, each changed parameter with before and new value, skipped or failed count, and whether the after snapshot shows the new value (confirmed, differs, not checked).
 - A "Not verified" list.
 
 ## What it proves
 
-Only what the saved files show. A value is "confirmed" when the after snapshot, taken after the plan ran, holds the new value for that element and parameter. A finding is "resolved" when the rule no longer fires on the after snapshot.
+Only what the saved files show. A value is "confirmed" when the proof and both snapshots have matching document ids, valid timestamps establish that the after snapshot was taken after the plan ran, and it holds the new value for that element and parameter. A partial capture can confirm values it actually contains; omitted values stay unknown.
+
+A finding is "resolved" when its rule and element UniqueId appear before and no longer appear after a successful re-check on complete snapshots. New findings are counted separately, so new issues do not hide resolved issues. Failed rules or findings without complete UniqueIds have unknown resolution counts; JSON uses `null` and Markdown says `unknown`.
 
 ## What it does not prove
 
 - Nothing is read from the live model. The approver is the OS account recorded in the proof, not an authenticated identity.
-- Without an after snapshot, nothing is re-checked. An after snapshot taken before the plan ran confirms nothing.
+- Without an after snapshot, nothing is re-checked. An after snapshot taken before the plan ran, missing timestamps, or unmatched document identities confirm no plan values.
 - A partial snapshot, a missing document id, a plan for another document, a missing proof bundle, a rule that could not run, and values that differ (or use another unit) are listed under "Not verified".
 - Lists and text are capped (field length, ids per rule, 25 changes per plan). Counts are always complete. A report over 512 KB is refused, never cut silently.

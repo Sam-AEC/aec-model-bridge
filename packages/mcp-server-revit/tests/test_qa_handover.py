@@ -78,7 +78,7 @@ def test_before_after_recheck_and_change_totals(ws):
     rep = _report(ws, _build(ws, snapshot_id="s1", after_snapshot_id="s2"))
     v = rep["verification"]
     assert v["before_total"] - v["after_total"] == v["resolved"] == 1
-    assert {"rule_id": "door_missing_mark", "before": 2, "after": 1} in v["per_rule"]
+    assert {"rule_id": "door_missing_mark", "before": 2, "after": 1, "resolved": 1, "new": 0} in v["per_rule"]
     assert rep["changes"]["modified"] == 1 and rep["after_snapshot"]["snapshot_id"] == "s2"
     assert not any("not re-checked" in n for n in rep["not_verified"])
 
@@ -159,6 +159,134 @@ def test_failed_rule_is_reported_not_hidden(ws, monkeypatch):
     monkeypatch.setattr(qh.rg, "_qaqc_rules_module", lambda: real)
     rep = _report(ws, _build(ws, snapshot_id="s1"))
     assert any("could not run" in n and "door_missing_mark" in n for n in rep["not_verified"])
+
+
+@pytest.mark.parametrize("side", ["before", "after"])
+@pytest.mark.parametrize("partial", [
+    {"dirty_only": True}, {"counts": {"truncated": True}},
+    {"counts": {"dirty_only": True}}, {"counts": {"categories": ["OST_Walls"]}},
+])
+def test_partial_captures_cannot_prove_resolution_or_whole_model_changes(ws, side, partial):
+    _snap(ws, "s1", [_door("a")], **(partial if side == "before" else {}))
+    _snap(ws, "s2", [], taken_at="2026-11-03T09:00:00+00:00", **(partial if side == "after" else {}))
+    result = _build(ws, snapshot_id="s1", after_snapshot_id="s2")
+    rep = _report(ws, result)
+    assert rep["verification"] is None and rep["changes"] is None
+    assert "unknown or unavailable" in result["summary"]
+    assert any("Whole-model" in n and "partial" in n for n in rep["not_verified"])
+    md = Path(result["markdown_file"]).read_text(encoding="utf-8")
+    assert "resolved 2" not in md and "1 removed" not in md
+
+
+@pytest.mark.parametrize("side", ["before", "after"])
+def test_failed_rule_is_unknown_during_recheck(ws, monkeypatch, side):
+    _snap(ws, "s1", [_door("a")])
+    _snap(ws, "s2", [_door("a")], taken_at="2026-11-03T09:00:00+00:00")
+    real = qh.rg._qaqc_rules_module()
+    run_rule = real._run_rule
+    calls = 0
+
+    def fail_one_run(rule, *args):
+        nonlocal calls
+        if rule["id"] == "door_missing_mark":
+            calls += 1
+            if calls == (1 if side == "before" else 2):
+                raise RuntimeError("rule execution unavailable")
+        return run_rule(rule, *args)
+
+    monkeypatch.setattr(real, "_run_rule", fail_one_run)
+    monkeypatch.setattr(qh.rg, "_qaqc_rules_module", lambda: real)
+    result = _build(ws, snapshot_id="s1", after_snapshot_id="s2")
+    rep = _report(ws, result)
+    v = rep["verification"]
+    finding = next(x for x in v["per_rule"] if x["rule_id"] == "door_missing_mark")
+    assert finding[side] is None
+    assert finding["after" if side == "before" else "before"] == 1
+    assert finding["resolved"] is None and finding["new"] is None
+    assert v[f"{side}_total"] is None and v["resolved"] is None
+    assert rep["changes"]["modified"] == 0
+    md = Path(result["markdown_file"]).read_text(encoding="utf-8")
+    assert "resolved unknown" in md and "None" not in md
+
+
+@pytest.mark.parametrize("proof_guid,before_guid,after_guid", [
+    ("g-2", "g-1", "g-1"), ("", "g-1", "g-1"),
+    ("g-1", "", "g-1"), ("g-1", "g-1", ""),
+])
+def test_plan_confirmation_requires_all_document_identities(ws, proof_guid, before_guid, after_guid):
+    _snap(ws, "s1", [_door("a")], guid=before_guid)
+    _snap(ws, "s2", [_door("a", "D-1")], guid=after_guid, taken_at="2026-11-03T09:00:00+00:00")
+    _proof(ws, "p1", [_entry("a")], guid=proof_guid)
+    rep = _report(ws, _build(ws, snapshot_id="s1", after_snapshot_id="s2", plan_ids=["p1"]))
+    assert rep["plans"][0]["checks"] == {"confirmed": 0, "differs": 0, "unknown": 1}
+    assert any("Plan p1" in n and "document" in n for n in rep["not_verified"])
+    if not before_guid or not after_guid:
+        assert rep["verification"] is None and rep["changes"] is None
+
+
+@pytest.mark.parametrize("executed_at,taken_at", [
+    ("", "2026-11-03T09:00:00+00:00"), ("invalid", "2026-11-03T09:00:00+00:00"),
+    ("2026-11-02T09:00:00+00:00", ""), ("2026-11-02T09:00:00+00:00", "invalid"),
+])
+def test_plan_confirmation_requires_known_chronology(ws, executed_at, taken_at):
+    _snap(ws, "s1", [_door("a")])
+    _snap(ws, "s2", [_door("a", "D-1")], taken_at=taken_at)
+    _proof(ws, "p1", [_entry("a")], executed_at=executed_at)
+    rep = _report(ws, _build(ws, snapshot_id="s1", after_snapshot_id="s2", plan_ids=["p1"]))
+    assert rep["plans"][0]["checks"] == {"confirmed": 0, "differs": 0, "unknown": 1}
+    assert any("Plan p1" in n and "time is missing or invalid" in n for n in rep["not_verified"])
+
+
+def test_partial_after_can_still_confirm_a_captured_plan_value(ws):
+    _snap(ws, "s1", [_door("a"), _door("b")])
+    _snap(ws, "s2", [_door("a", "D-1")], taken_at="2026-11-03T09:00:00+00:00", dirty_only=True)
+    _proof(ws, "p1", [_entry("a"), _entry("b")])
+    rep = _report(ws, _build(ws, snapshot_id="s1", after_snapshot_id="s2", plan_ids=["p1"]))
+    assert rep["verification"] is None and rep["changes"] is None
+    assert rep["plans"][0]["checks"] == {"confirmed": 1, "differs": 0, "unknown": 1}
+
+
+def test_missing_element_identity_cannot_confirm_a_plan_value(ws):
+    _snap(ws, "s1", [_door(None)])
+    _snap(ws, "s2", [_door(None, "D-1")], taken_at="2026-11-03T09:00:00+00:00")
+    _proof(ws, "p1", [_entry(None)])
+    rep = _report(ws, _build(ws, snapshot_id="s1", after_snapshot_id="s2", plan_ids=["p1"]))
+    assert rep["plans"][0]["checks"] == {"confirmed": 0, "differs": 0, "unknown": 1}
+
+
+def test_resolved_findings_follow_rule_and_element_identity(ws):
+    # One finding resolves while another element develops the same finding: totals stay equal.
+    _snap(ws, "s1", [_door("a"), _door("b", "B")])
+    _snap(ws, "s2", [_door("a", "A"), _door("b")], taken_at="2026-11-03T09:00:00+00:00")
+    rep = _report(ws, _build(ws, snapshot_id="s1", after_snapshot_id="s2"))
+    v = rep["verification"]
+    assert v["before_total"] == v["after_total"]
+    assert v["resolved"] == v["new"] == 1
+    mark = next(x for x in v["per_rule"] if x["rule_id"] == "door_missing_mark")
+    assert mark == {"rule_id": "door_missing_mark", "before": 1, "after": 1, "resolved": 1, "new": 1}
+
+
+def test_unidentified_findings_do_not_get_net_count_resolution(ws):
+    # Legacy saved records without UniqueIds can be counted but not matched across captures.
+    _snap(ws, "s1", [_door(None)])
+    _snap(ws, "s2", [], taken_at="2026-11-03T09:00:00+00:00")
+    rep = _report(ws, _build(ws, snapshot_id="s1", after_snapshot_id="s2"))
+    assert rep["verification"]["before_total"] == 2
+    assert rep["verification"]["resolved"] is None
+    assert any("finding identities are incomplete" in n for n in rep["not_verified"])
+
+
+@pytest.mark.parametrize("before_time,after_time", [
+    ("", "2026-11-03T09:00:00+00:00"),
+    ("2026-11-01T09:00:00+00:00", "invalid"),
+    ("2026-11-03T09:00:00+00:00", "2026-11-01T09:00:00+00:00"),
+])
+def test_whole_model_recheck_requires_ordered_snapshot_times(ws, before_time, after_time):
+    _snap(ws, "s1", [_door("a")], taken_at=before_time)
+    _snap(ws, "s2", [], taken_at=after_time)
+    rep = _report(ws, _build(ws, snapshot_id="s1", after_snapshot_id="s2"))
+    assert rep["verification"] is None and rep["changes"] is None
+    assert any("chronology" in n for n in rep["not_verified"])
 
 
 def test_bridge_mode_never_falls_back_to_mock(ws, monkeypatch):
