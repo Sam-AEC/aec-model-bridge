@@ -27,6 +27,8 @@ dependencies = [
     "httpx>=0.24",
     # Exclude trust stores affected by GHSA-6q48-6c7w-9gw2.
     "certifi>=2026.10.19",
+    # Reject quadratic-time traceparent parsing (GHSA-mf5v-w3w3-f6cg).
+    "opentelemetry-api>=1.45.2",
     "python-dotenv>=1.0",
     # 1.10 added Tool.title and Tool.annotations (readOnlyHint etc.), which
     # tool_metadata.py sets on every listed tool. Capped below 2: mcp 2.x (Python
