@@ -210,6 +210,29 @@ def test_an_approved_plan_runs_the_write_script_once(tmp_path, monkeypatch):
         asyncio.run(run_gated_tool(registry, gate, SET, {**SET_ARGS, "plan_id": pid}))
 
 
+def test_lossless_revert_needs_a_new_human_approved_plan(tmp_path, monkeypatch):
+    old = '  Mark\nwith\ttabs " and \\literal escapes\u2028  '
+    output = WRITE_OK.replace("old_raw=\tnew_raw=A-01", f"old_raw=sanitized\told_raw_json={json.dumps(old)}\tnew_raw=A-01")
+    revit = FakeRevit(write_output=output)
+    _, gate, registry, revit = wire(tmp_path, monkeypatch, revit=revit)
+    first_id = approved(gate, SET, SET_ARGS)
+    first = asyncio.run(run_gated_tool(registry, gate, SET, {**SET_ARGS, "plan_id": first_id}))
+    undo_args = {"items": json.loads(json.dumps(first))["revert"]["items"]}
+    assert undo_args["items"][0]["params"]["Mark"]["value"] == old
+    with pytest.raises(BridgeError, match="plan_id"):
+        asyncio.run(run_gated_tool(registry, gate, SET, undo_args))
+    with pytest.raises(BridgeError):
+        asyncio.run(run_gated_tool(registry, gate, SET, {**undo_args, "plan_id": first_id}))
+    undo_plan = gate.create_plan([{"tool": SET, "arguments": undo_args}], [{}])
+    with pytest.raises(BridgeError, match="pending"):
+        asyncio.run(run_gated_tool(registry, gate, SET, {**undo_args, "plan_id": undo_plan["plan_id"]}))
+    assert len(revit.calls) == 1
+    human_approve(gate, undo_plan["plan_id"])
+    back = asyncio.run(run_gated_tool(registry, gate, SET, {**undo_args, "plan_id": undo_plan["plan_id"]}))
+    assert back["ok"] is True and len(revit.calls) == 2
+    assert params.py2_literal(old) in revit.calls[1][1]["script"]
+
+
 # --------------------------------------------------------------------------- #
 # Argument validation (nothing is sent to Revit)
 # --------------------------------------------------------------------------- #
@@ -269,6 +292,29 @@ def test_a_good_result_lists_old_new_and_a_revert(module):
     revert = result["revert"]["items"]
     assert revert == [{"id": 12, "scope": "instance", "params": {"Mark": {"value": "", "unit": "text"},
                                                                  "Height": {"value": pytest.approx(3000.0), "unit": "mm"}}}]
+
+
+@pytest.mark.parametrize("old", ["", r'\n\t\u2028', "legacy text"])
+def test_revert_legacy_text_is_not_unescaped(old):
+    rows = [{"id": 12, "param": "Mark", "storage": "String", "unit": "text", "status": "set", "old_raw": old}]
+    items, skipped = params.revert_items(json.loads(json.dumps(rows)))
+    assert skipped == []
+    assert items[0]["params"]["Mark"] == {"value": old, "unit": "text"}
+
+
+@pytest.mark.parametrize("encoded", ["not json", '"unterminated', "123", "false", "[]", "{}", ""])
+def test_invalid_encoded_raw_text_is_not_reverted_from_lossy_display(encoded):
+    rows = [{"id": 12, "param": "Mark", "storage": "String", "unit": "text", "status": "set",
+             "old_raw": "lossy display", "old_raw_json": encoded}]
+    items, skipped = params.revert_items(rows)
+    assert items == [] and skipped == ["Mark"]
+
+
+def test_encoded_null_text_is_not_confused_with_empty_text():
+    rows = [{"id": 12, "param": "Mark", "storage": "String", "unit": "text", "status": "set",
+             "old_raw": "", "old_raw_json": "null"}]
+    items, skipped = params.revert_items(rows)
+    assert items == [] and skipped == ["12:Mark (had no value)"]
 
 
 def test_a_refused_call_is_never_ok():
