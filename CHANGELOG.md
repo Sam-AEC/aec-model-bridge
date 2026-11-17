@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- New `core` tool profile (`MCP_REVIT_TOOL_PROFILE=core`): 54 tools (49 for the BIM-coordinator loop plus the five approval tools), about 14k catalogue tokens against about 80k for `full` and 62k for `daily`. Tools outside it are not listed and are refused with a message that says to switch to `daily` or `full` and restart. `full` and `daily` are unchanged.
+- The server instructions end with a three-line tool-family map (prefixes, and how to reach hidden families by switching profile), about 110 tokens. The approval and Dev mode wording is unchanged.
+
 ## 1.5.0 - 2026-11-16
 
 - Read-only tool results are now minified JSON by default (about 14-24% fewer characters on typical reads; pass `response_options.compact: false` for indented text) and capped at 20,000 characters. Over the cap, the largest lists are trimmed to valid JSON and marked `truncated: true` with `total`, `returned` and a hint to narrow the call; `response_options.max_chars` changes the cap (0 turns it off). Plans, proofs, approvals, jobs, errors and every tool that can write are untouched.
