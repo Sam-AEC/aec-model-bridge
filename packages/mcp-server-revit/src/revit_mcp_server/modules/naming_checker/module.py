@@ -587,9 +587,9 @@ class NamingCheckerModule:
     def _load_snapshot(self, snapshot_id: str, workspace: Any) -> Dict[str, Any]:
         if workspace is None:
             raise ValueError("A workspace is required to read a snapshot.")
-        if not re.fullmatch(r"[A-Za-z0-9_\-]+", snapshot_id):
-            raise ValueError(f"Snapshot '{snapshot_id}' not found.")
-        snap_path = workspace.allowed_directories[0] / "snapshots" / f"{snapshot_id}.json"
+        from revit_mcp_server.security.safe_paths import snapshot_file
+
+        snap_path = snapshot_file(workspace.allowed_directories[0] / "snapshots", snapshot_id)
         if not snap_path.exists():
             raise ValueError(f"Snapshot '{snapshot_id}' not found.")
         with open(snap_path, encoding="utf-8") as f:

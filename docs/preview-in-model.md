@@ -1,6 +1,6 @@
 # Preview in model
 
-Status: on the dev branch, not yet released.
+Status: in 1.5.0. Not yet run in a live Revit session (UNVERIFIED; see below).
 
 Lets a coordinator who does not script see which elements a proposed change
 affects before approving it. Two read-only tools:
@@ -34,7 +34,7 @@ IDs are all stale and calls with `isolate: false`. Numeric IDs support Revit's
 ## UNVERIFIED
 
 - The Revit 2024 Release build passed on 14 October 2026 (zero errors); see
-  [the upgrade handoff](bridge-upgrade-handoff.md). Other target builds still need release verification.
+  [the live validation report](revit-addin-live-validation-2026-10-14.md). Other target builds still need release verification.
 - Not run in a live Revit session. Actual on-screen behaviour is unobserved.
 - Workshared models: whether the small transactions behave well (no
   checkout/ownership side effects, no sync prompts) is unknown.

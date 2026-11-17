@@ -246,7 +246,7 @@ def test_snapshot_names(module, tmp_path):
     assert res["by_kind"]["level_names"] == {"checked": 2, "passed": 2, "failed": 0}
     with pytest.raises(ValueError, match="not found"):
         module.check_names(convention=conv, snapshot_id="missing", workspace=ws)
-    with pytest.raises(ValueError, match="not found"):
+    with pytest.raises(ValueError, match="plain snapshot name"):
         module.check_names(convention=conv, snapshot_id="../x", workspace=ws)
 
 

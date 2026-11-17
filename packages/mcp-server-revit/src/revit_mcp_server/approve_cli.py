@@ -143,11 +143,25 @@ def _element_ids(arguments: Any) -> List[str]:
     return found
 
 
-def describe_plan(plan: Dict[str, Any]) -> str:
+def _describe_binding(plan: Dict[str, Any]) -> List[str]:
+    if "binding" not in plan:
+        return []
+    b = plan["binding"]
+    if not isinstance(b, dict):
+        return ["Document: NOT BOUND to a Revit document (no live document could be read when it was drafted); "
+                "it will not be refused for being run in another model."]
+    view = f", view {safe_text(b['active_view_id'])}" if b.get("active_view_id") is not None else ""
+    return [f"Document: {safe_text(b.get('doc_title'))} (Revit {safe_text(b.get('revit_version'))}{view}); "
+            "refused if another document is active when it runs."]
+
+
+def describe_plan(plan: Dict[str, Any], expired: Optional[str] = None) -> str:
     actions = _actions(plan)
     lines = [
         f"Plan {safe_text(plan.get('plan_id'))}  [{safe_text(plan.get('state'))}]",
         f"Created: {safe_text(plan.get('created_at', 'unknown'))}",
+        *([f"EXPIRED: {safe_text(expired)}"] if expired else []),
+        *_describe_binding(plan),
         f"Actions: {len(actions)}",
     ]
     tools: Dict[str, int] = {}
@@ -273,7 +287,7 @@ def _older_than(plan: Dict[str, Any], days: float) -> bool:
 
 def _reject_pending(gate: ApprovalGate, args: Any) -> int:
     """Bulk cleanup for a person: reject pending plans only, via the normal reject path."""
-    plans = gate.list_pending_plans()
+    plans = gate.list_pending_plans(include_expired=True)  # clearing stale drafts is the point
     if args.older_than is not None:
         plans = [p for p in plans if _older_than(p, args.older_than)]
     ids = [p["plan_id"] for p in sorted(plans, key=lambda p: str(p.get("created_at", "")))]
@@ -308,7 +322,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     parser.add_argument("--workspace", help="workspace folder holding plans/ (default: the configured workspace)")
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("list", help="list pending plans")
+    sub.add_parser("list", help="list pending plans").add_argument(
+        "--all", action="store_true", help="also list expired pending plans (they cannot be approved)")
     for name in ("show", "approve", "reject"):
         p = sub.add_parser(name, help=f"{name} a plan")
         p.add_argument("plan_id", nargs="?" if name == "reject" else None)
@@ -348,14 +363,17 @@ def main(argv: Optional[List[str]] = None) -> int:
         return _recipe_command(gate, args)
 
     if args.command == "list":
-        plans = gate.list_pending_plans()
+        plans, hidden = gate.pending_listing(include_expired=args.all)
         if not plans:
             print("No pending plans.")
         for plan in sorted(plans, key=lambda p: str(p.get("created_at", ""))):
             acts = _actions(plan)
             tools = sorted({safe_text(a.get("tool") if isinstance(a, dict) else "<malformed>") for a in acts})
             print(f"{safe_text(plan['plan_id'])}  {safe_text(plan.get('created_at', ''))}  {len(acts)} action(s)  "
-                  f"{', '.join(tools)}")
+                  f"{', '.join(tools)}{'  [EXPIRED]' if plan.get('expired') else ''}")
+        if hidden:
+            print(f"{hidden} expired pending plan(s) not shown (pending_ttl); "
+                  "list --all shows them, reject --older-than clears them.")
         return 0
 
     if args.command == "reject" and not args.plan_id:
@@ -376,7 +394,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     except ValueError as e:
         print(f"Plan cannot be verified: {safe_text(e)}", file=sys.stderr)
         return 1
-    print(describe_plan(plan))
+    expired = gate.expiry_reason(plan)
+    print(describe_plan(plan, expired))
     print(f"\nPlan hash: {shown_hash}")
 
     if args.command == "show":
@@ -402,6 +421,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     allowed = ("pending",) if args.command == "approve" else ("pending", "approved")
     if plan.get("state") not in allowed:
         print(f"\nPlan is '{safe_text(plan.get('state'))}'; it cannot be {args.command}ed.", file=sys.stderr)
+        return 1
+    if expired and args.command == "approve":
+        print("\nThis plan has expired and cannot be approved. Reject it and ask for a new plan.", file=sys.stderr)
         return 1
     problems = malformed_reasons(plan)
     if problems and args.command == "approve":

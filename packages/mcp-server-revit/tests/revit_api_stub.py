@@ -1023,6 +1023,26 @@ class _IoDirectory:
 
 class _IoFile:
     @staticmethod
+    def Copy(source: str, destination: str) -> None:
+        with open(source, "rb") as src, open(destination, "xb") as dst:
+            dst.write(src.read())
+
+    @staticmethod
+    def Replace(source: str, destination: str, backup: Any) -> None:
+        import os
+
+        assert backup is None
+        if not os.path.isfile(destination):
+            raise FileNotFoundError(destination)
+        os.replace(source, destination)
+
+    @staticmethod
+    def Move(source: str, destination: str) -> None:
+        import os
+
+        os.rename(source, destination)
+
+    @staticmethod
     def Exists(path: str) -> bool:
         import os
 
@@ -1043,6 +1063,12 @@ class _IoFileInfo:
 
 
 class _IoPath:
+    @staticmethod
+    def GetRandomFileName() -> str:
+        import uuid
+
+        return uuid.uuid4().hex
+
     @staticmethod
     def Combine(a: str, b: str) -> str:
         import os

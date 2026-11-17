@@ -1,6 +1,6 @@
 # Contributing
 
-Status: on the dev branch, not yet released.
+Status: 1.5.0.
 
 Thanks for improving AEC Model Bridge.
 
@@ -53,6 +53,8 @@ Contributions help most in these areas:
 - Remove local paths, machine names and credentials from config examples.
 - If a change affects the UI or commands, give the steps to reproduce it and say what should happen.
 - Update examples and docs when behaviour changes.
+- Villa recipes under `docs/recipes/` are integration-test evidence, not the roadmap. Keep villa-specific work in fixtures and verification records, and group test changes with the reusable tool feature they validate.
+- Do not commit session handoffs, local worktree paths, personal file paths or client project/document names. Put durable decisions in an ADR and user-visible changes in `CHANGELOG.md`.
 
 ## Building and testing
 

@@ -30,7 +30,7 @@ def test_submit_returns_immediately_for_sync_jobs_and_completes():
         def job():
             started.set()
             release.wait(1)
-            return {"output_path": r"C:\Users\sammo\OneDrive\Documenten\GitHub\Autodesk-Revit-MCP-Server\out.rvt", "count": 3}
+            return {"output_path": r"C:\Users\jdoe\OneDrive\Documenten\GitHub\Autodesk-Revit-MCP-Server\out.rvt", "count": 3}
 
         reference = await manager.submit(job)
         assert reference.status in {"queued", "running"}
@@ -108,7 +108,7 @@ def test_failure_redacts_secret_and_path_details():
     async def main():
         manager = JobManager()
         secret = "super-secret-token"
-        leaked_path = r"C:\Users\sammo\OneDrive\Documenten\GitHub\Autodesk-Revit-MCP-Server\private\vault.rvt"
+        leaked_path = r"C:\Users\jdoe\OneDrive\Documenten\GitHub\Autodesk-Revit-MCP-Server\private\vault.rvt"
 
         async def job():
             raise RuntimeError(f"failed for {leaked_path} token={secret}")
@@ -256,7 +256,7 @@ def test_progress_updates_are_visible_while_running():
             await context.update_progress(
                 progress=100,
                 message="phase 2",
-                artifact={"name": "model", "path": r"C:\Users\sammo\OneDrive\Documenten\GitHub\Autodesk-Revit-MCP-Server\exports\model.ifc"},
+                artifact={"name": "model", "path": r"C:\Users\jdoe\OneDrive\Documenten\GitHub\Autodesk-Revit-MCP-Server\exports\model.ifc"},
             )
             return {"ok": True}
 

@@ -1,6 +1,6 @@
 # Proof bundles and revert plans
 
-Status: on the dev branch, not yet released.
+Status: in 1.5.0. Write-back and revert are not yet checked in a live Revit (UNVERIFIED; see below).
 
 Every plan that finishes executing leaves a proof file, and an executed parameter fix can be undone through the same approval gate.
 

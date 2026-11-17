@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- New `core` tool profile (`MCP_REVIT_TOOL_PROFILE=core`): 54 tools (49 for the BIM-coordinator loop plus the five approval tools), about 14k catalogue tokens against about 80k for `full` and 62k for `daily`. Tools outside it are not listed and are refused with a message that says to switch to `daily` or `full` and restart. `full` and `daily` are unchanged.
+- The server instructions end with a three-line tool-family map (prefixes, and how to reach hidden families by switching profile), about 110 tokens. The approval and Dev mode wording is unchanged.
+- New read-only tool `qa_handover_build_report` (roadmap priority 4): a short hand-over report of QA findings per rule, before/after re-check counts, approved parameter changes from plan proof bundles and an explicit not-verified list, written as JSON and Markdown under `reports/` in the workspace. See `docs/qa-handover-report.md`. UNVERIFIED in a live Revit session.
+- Tool count is now 303 (109 module tools).
+- Approvals now expire: an approved plan older than `MCP_REVIT_APPROVAL_TTL` (default 8 hours, `0` = no limit) cannot run and moves to `expired`; a person must approve a new plan. Pending plans older than `MCP_REVIT_PENDING_TTL` (default 14 days) cannot be approved and are hidden from `aec-model-bridge-approve list` and `list_pending_plans` (counted as `expired_hidden`; `list --all` or `include_expired` shows them). Nothing is deleted. Only makes approval stricter.
+- Plans drafted with a live Revit store a `binding` (document guid or central-path hash, title, Revit version, active view for view-specific actions) inside the hashed plan, and are refused when another document is active or the live document cannot be read. With no live Revit the binding is `null` and nothing is refused. Older plans still verify unchanged. See ADR 0017.
+
 ## 1.5.0 - 2026-11-16
 
 - Read-only tool results are now minified JSON by default (about 14-24% fewer characters on typical reads; pass `response_options.compact: false` for indented text) and capped at 20,000 characters. Over the cap, the largest lists are trimmed to valid JSON and marked `truncated: true` with `total`, `returned` and a hint to narrow the call; `response_options.max_chars` changes the cap (0 turns it off). Plans, proofs, approvals, jobs, errors and every tool that can write are untouched.

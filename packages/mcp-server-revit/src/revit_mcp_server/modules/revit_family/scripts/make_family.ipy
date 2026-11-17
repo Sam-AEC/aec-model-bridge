@@ -12,7 +12,7 @@
 # The spec was validated on the server before this script was built: categories match port kinds, names are safe
 # file names, output_dir and template_path are inside the workspace sandbox. Spec numbers are metres and millimetres.
 # The project is changed only by LoadFamily, inside one TransactionGroup: on abort (default) a failure rolls
-# everything back and removes the .rfa files this call wrote; "skip" keeps the families that worked.
+# everything back, restores replaced files and removes new .rfa files; "skip" keeps the families that worked.
 import System
 from System.IO import Directory, File, FileInfo, Path as IoPath, SearchOption
 from Autodesk.Revit.DB.Plumbing import PipeSystemType
@@ -35,7 +35,8 @@ GENERIC_WORDS = ["generic model"]
 # Hosted, line-based and other special templates are never picked by name.
 TEMPLATE_SKIP = ["based", "hosted", "wall", "ceiling", "floor", "face", "line", "work plane", "adaptive", "curtain",
                  "roof", "pattern", "profile", "detail", "annotation"]
-CREATED = []            # .rfa files this call wrote (removed again when the call is rolled back)
+CREATED = []            # new .rfa files this call attempted to write
+BACKUPS = {}            # replaced path -> backup file, retained until the project group commits
 
 
 def cat_bic(key):
@@ -257,10 +258,10 @@ def build_family(spec, template, path):
             return total  # dry run: the family document is checked but never saved; it is closed unsaved below
         so = SaveAsOptions()
         so.OverwriteExistingFile = True
+        preserve_file(path)
         fd.SaveAs(path, so)
         if not File.Exists(path) or FileInfo(path).Length <= 0:
             raise StepError("Revit reported the save but '%s' is missing or empty" % path)
-        CREATED.append(path)
         return total
     finally:
         try:
@@ -297,16 +298,57 @@ def load_family(spec, path):
     return fam
 
 
+def preserve_file(path):
+    """Journal before SaveAs: even a save that throws may have overwritten or created the file."""
+    if path in CREATED or path in BACKUPS:
+        return
+    if not File.Exists(path):
+        CREATED.append(path)
+        return
+    backup = path + "." + IoPath.GetRandomFileName() + ".amb-backup"
+    try:
+        File.Copy(path, backup)  # no overwrite: a collision must fail without touching another file
+    except Exception:
+        # A failed copy may leave a partial destination or hit a pre-existing name; never delete either blindly.
+        if File.Exists(backup):
+            info("BACKUP_NOT_CREATED", "backup copy failed; original is unchanged, inspect %s" % backup)
+        raise
+    BACKUPS[path] = backup
+
+
 def remove_file(path, why):
-    """Delete a file this call wrote (never one that was already there before the save)."""
+    """Undo this call's save, atomically restoring an original or deleting only a new file."""
+    if path in BACKUPS:
+        backup = BACKUPS[path]
+        try:
+            if File.Exists(path):
+                File.Replace(backup, path, None)
+            else:
+                File.Move(backup, path)
+            del BACKUPS[path]
+        except Exception as ex:
+            info("FILE_NOT_RESTORED", "%s: could not restore %s; original retained at %s (%s)" % (why, path, backup, ex))
+        return
     if path not in CREATED:
         return
     try:
-        CREATED.remove(path)
         if File.Exists(path):
             File.Delete(path)
+        CREATED.remove(path)
     except Exception as ex:
         info("FILE_NOT_REMOVED", "%s: could not delete %s (%s)" % (why, path, ex))
+
+
+def discard_backup(path):
+    """A successful project commit makes this replacement permanent."""
+    if path not in BACKUPS:
+        return
+    backup = BACKUPS[path]
+    try:
+        File.Delete(backup)
+        del BACKUPS[path]
+    except Exception as ex:
+        info("BACKUP_NOT_REMOVED", "could not delete backup %s (%s)" % (backup, ex))
 
 
 def make_one(run, plan, state):
@@ -384,6 +426,7 @@ def main():
     run = Runner("AEC make family", ARGS.get("on_error"))
     state = {"existing": existing}
     made = 0
+    successful_files = []
     try:
         for plan in plans:
             fam = None
@@ -394,6 +437,7 @@ def main():
                     remove_file(plan[3], "family '%s' was not loaded" % plan[0]["name"])
             if fam is not None:
                 made += 1
+                successful_files.append(plan[3])
         summary("%d of %d families %s; templates: %s" % (made, len(plans), "built and checked in a dry run (nothing saved or loaded)" if dry_run_requested() else "made",
                                                           "; ".join(sorted(set([p[1] for p in plans])))))
     except Abort:
@@ -404,8 +448,14 @@ def main():
     finally:
         run.close()
         if run.outcome == "rolled_back":
-            for p in list(CREATED):
+            for p in list(CREATED) + list(BACKUPS):
                 remove_file(p, "the call was rolled back")
+        elif run.outcome in ("ok", "partial_failure", "post_check_failed"):
+            for p in successful_files:
+                discard_backup(p)
+        else:
+            for p, backup in BACKUPS.items():
+                info("BACKUP_RETAINED", "project group did not close successfully; original of %s retained at %s" % (p, backup))
 
 
 __output__ = run_write(main)
