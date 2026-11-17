@@ -1,5 +1,6 @@
 """Tests for Phase 10 — QA/QC Checker module (W7, W9)."""
 import importlib.util
+import json as _json
 import pytest
 from pathlib import Path
 from revit_mcp_server.semantic.engine import generate_mock_snapshot
@@ -412,9 +413,6 @@ def test_naming_check_reads_type_names_with_ename():
 
 
 # --- Issue 143: issues tied to a snapshot, stale detection ---
-
-import json as _json
-
 
 def _write_snapshot(ws, snapshot_id, door_uids, doc_guid="doc-143", taken_at="2026-11-01T10:00:00Z"):
     path = ws.allowed_directories[0] / "snapshots" / f"{snapshot_id}.json"

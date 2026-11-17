@@ -336,6 +336,28 @@ def test_review_pack_complete_snapshot_says_complete(tmp_path):
     assert result["partial"] is False and result["rules_not_run"] == []
 
 
+def test_review_pack_category_filtered_snapshot_is_partial_even_without_truncation(tmp_path):
+    import json
+    import openpyxl
+    from types import SimpleNamespace
+
+    _real_snapshot(tmp_path, [])
+    path = tmp_path / "snapshots" / "snap1.json"
+    snap = json.loads(path.read_text(encoding="utf-8"))
+    snap["counts"] = {"categories": ["OST_Doors"], "truncated": False, "dirty_only": False}
+    path.write_text(json.dumps(snap), encoding="utf-8")
+    ws = SimpleNamespace(allowed_directories=[tmp_path])
+    result = ReportGeneratorModule().build_review_pack(snapshot_id="snap1", workspace=ws)
+    wb = openpyxl.load_workbook(result["output_file"])
+    assert result["partial"] is True
+    assert "PARTIAL" in _coverage_text(wb) and "OST_Doors" in _coverage_text(wb)
+    cover = {r[0].value: r[1].value for r in wb["Cover"].iter_rows(min_row=2)}
+    assert "PARTIAL" in cover["Coverage"]
+    next_steps = " ".join(str(c) for row in wb["What to do next"].iter_rows(values_only=True) for c in row if c)
+    assert "no category filter" in next_steps
+    assert "Nothing to fix" not in next_steps
+
+
 def test_review_pack_uses_user_rule_pack_from_workspace(tmp_path):
     import openpyxl
     from types import SimpleNamespace
