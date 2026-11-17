@@ -56,7 +56,9 @@ def _confined(workspace: Any, *parts: str) -> Path:
 
 
 def _load_snapshot(snapshot_id: str, workspace: Any) -> Dict[str, Any]:
-    path = _confined(workspace, "snapshots", f"{snapshot_id}.json")
+    from revit_mcp_server.security.safe_paths import snapshot_file
+
+    path = snapshot_file(_workspace_dir(workspace) / "snapshots", snapshot_id)
     if not path.exists():
         raise ValueError(f"Snapshot '{snapshot_id}' not found.")
     with open(path, "r", encoding="utf-8") as f:

@@ -287,10 +287,9 @@ class ClashTriageModule:
             require_snapshot_or_mock(snapshot_id, "clash_triage")
             snap = generate_mock_snapshot()
             return [el.model_dump(by_alias=True) for el in snap.elements], "mock-doc"
-        snap_dir = (Path(workspace.allowed_directories[0]) / "snapshots").resolve()
-        snap_path = (snap_dir / f"{snapshot_id}.json").resolve()
-        if snap_path.parent != snap_dir:
-            raise ValueError("snapshot_id must be a plain snapshot name inside the workspace snapshots folder.")
+        from revit_mcp_server.security.safe_paths import snapshot_file
+
+        snap_path = snapshot_file(Path(workspace.allowed_directories[0]) / "snapshots", snapshot_id)
         if not snap_path.exists():
             raise ValueError(f"Snapshot '{snapshot_id}' not found.")
         with open(snap_path, encoding="utf-8") as f:
