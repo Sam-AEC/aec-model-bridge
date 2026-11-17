@@ -262,7 +262,7 @@ async def test_autodesk_rest_calls_bcf_validation_idempotency_and_redaction() ->
                     "topicId": "topic-1",
                     "Authorization": "should-not-leak",
                     "access_token": "should-not-leak",
-                    "snapshot": r"C:\Users\sammo\secret.png",
+                    "snapshot": r"C:\Users\jdoe\secret.png",
                 }
             )
         raise AssertionError(f"Unexpected request: {request.method} {request.url}")
@@ -356,12 +356,12 @@ async def test_redaction_in_errors_and_https_enforcement() -> None:
                 "container_id": "container-1",
                 "title": "Broken issue",
                 "description": "Payload should fail cleanly",
-                "viewpoint": {"snapshot_url": "failed at C:\\Users\\sammo\\Desktop\\secret.png and /Users/sammo/private/file.bcfv"},
+                "viewpoint": {"snapshot_url": "failed at C:\\Users\\jdoe\\Desktop\\secret.png and /Users/jdoe/private/file.bcfv"},
             },
         )
 
-    assert r"C:\Users\sammo\Desktop\secret.png" not in str(exc.value)
-    assert "/Users/sammo/private/file.bcfv" not in str(exc.value)
+    assert r"C:\Users\jdoe\Desktop\secret.png" not in str(exc.value)
+    assert "/Users/jdoe/private/file.bcfv" not in str(exc.value)
     assert "<redacted-path>" in str(exc.value)
 
     with pytest.raises(ValueError, match="must use HTTPS"):
