@@ -5,6 +5,7 @@
 - only an executed, unchanged plan can be rolled back.
 """
 import json
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -67,6 +68,23 @@ async def test_state_is_executed_on_disk_during_every_inverse_write(tmp_path):
     assert seen == ["executed"] * 3
     assert plan["state"] == "rolled_back"
     assert "approved" not in seen
+
+
+@pytest.mark.anyio
+async def test_rollback_hash_check_is_independent_of_execution_approval_expiry(tmp_path):
+    gate, plan_id = _executed_plan(tmp_path, n=1)
+    plan = gate.load_plan(plan_id)
+    plan["approved_at"] = (datetime.now(timezone.utc) - timedelta(seconds=gate.approval_ttl + 1)).isoformat()
+    gate.save_plan(plan)
+    calls = []
+
+    async def ok(tool, args):
+        calls.append(args["element_id"])
+        return {"status": "success"}
+
+    result = await gate.rollback_plan(plan_id, ok)
+    assert calls == [1]
+    assert result["state"] == "rolled_back"
 
 
 @pytest.mark.anyio

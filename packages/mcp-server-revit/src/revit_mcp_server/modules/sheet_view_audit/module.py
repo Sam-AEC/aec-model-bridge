@@ -257,7 +257,7 @@ class SheetViewAuditModule:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
 
-        explicit = "sheets" in data or "views" in data
+        explicit = isinstance(data.get("sheets"), list) or isinstance(data.get("views"), list)
         if explicit:
             sheets = data.get("sheets") or []
             views = data.get("views") or []

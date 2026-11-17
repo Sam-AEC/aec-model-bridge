@@ -304,3 +304,14 @@ def test_null_views_key_is_not_captured(tmp_path):
     data = {"sheets": [{"uid": "s1", "number": "A-1", "name": "x", "view_uids": []}], "views": None}
     r = _run(tmp_path, data)
     assert r["views_captured"] is False and r["message"].startswith(NOT_CAPTURED)
+
+
+@pytest.mark.parametrize("coverage", [{"categories": ["OST_Sheets"]}, {"dirty_only": True}])
+def test_uncaptured_top_level_lists_preserve_captured_element_checks(tmp_path, coverage):
+    data = {**LIVE, "views": None, "sheets": None, "counts": coverage}
+    r = _run(tmp_path, data)
+    assert r["sheet_count"] == 2
+    assert r["status"] == "partial" and r["rated"] is False
+    assert r["data_source"] == "ViewSheet / ViewDrafting element records"
+    assert r["checks"]["duplicate_sheet_numbers"]["status"] == "ran"
+    assert r["findings"] == _run(tmp_path, LIVE)["findings"]
