@@ -137,6 +137,31 @@ def shown(storage, unit, raw):
     return show(to_unit(raw, unit))
 
 
+def raw_text_json(value):
+    """Lossless ASCII JSON, without requiring the IronPython host's optional stdlib.
+
+    The line protocol cleans display fields; never use those fields to restore text.
+    Escape non-ASCII as well so clean() cannot replace Unicode with a repr in Python 2.
+    """
+    if value is None:
+        return "null"
+    parts = ['"']
+    for ch in value:
+        n = ord(ch)
+        if ch in ('"', "\\"):
+            parts.append("\\" + ch)
+        elif n < 32 or n > 126:
+            if n > 65535:
+                n -= 65536
+                parts.append("\\u%04x\\u%04x" % (55296 + (n >> 10), 56320 + (n & 1023)))
+            else:
+                parts.append("\\u%04x" % n)
+        else:
+            parts.append(ch)
+    parts.append('"')
+    return "".join(parts)
+
+
 def emit(entry, c, status, reason, back=None):
     st = c.get("storage", "") if c else ""
     unit = c.get("unit", "") if c else ""
@@ -146,8 +171,18 @@ def emit(entry, c, status, reason, back=None):
         pairs += [("storage", st), ("unit", unit), ("old", shown(st, unit, c["old"])), ("new", shown(st, unit, c["new"])),
                   ("read_back", shown(st, unit, back) if back is not None else ""), ("old_raw", show(c["old"])),
                   ("new_raw", show(c["new"])), ("old_text", c.get("old_text", ""))]
+        if st == "String":
+            pairs += [("old_raw_json", raw_text_json(c["old"])), ("new_raw_json", raw_text_json(c["new"]))]
     pairs += [("status", status), ("reason", reason)]
-    item(pairs)
+    # splitlines() on the receiver also treats these characters as row boundaries.
+    # Keep them out of display fields; the ASCII JSON fields retain their exact values.
+    safe_pairs = []
+    for key, value in pairs:
+        if is_text(value):
+            for separator in (u"\v", u"\f", u"\x1c", u"\x1d", u"\x1e", u"\x85", u"\u2028", u"\u2029"):
+                value = value.replace(separator, " ")
+        safe_pairs.append((key, value))
+    item(safe_pairs)
 
 
 def main():

@@ -32,6 +32,8 @@ Safety of the write command:
     call (abort); Revit warnings are dismissed and listed;
   * every written value is read back inside the group (post-check). Each row says old -> new -> read back, and the result
     carries ``revert``: items in this tool's own input format that put the old values back;
+    String rows carry ASCII JSON ``old_raw_json`` / ``new_raw_json`` separately from sanitized display fields.
+    Reverts decode ``old_raw_json``; legacy rows without it retain the old ``old_raw`` behavior;
   * ``dry_run``: the whole call runs inside the group as normal, then the group is always rolled back.
 
 UNVERIFIED: nothing here has run against a live Revit. The scripts are syntax-checked and exercised against a stub of the
@@ -42,6 +44,7 @@ OfClass(type(element)), and Element.LevelId for the level selector.
 """
 from __future__ import annotations
 
+import json
 import math
 import re
 import time
@@ -410,6 +413,10 @@ def _typed_old(row: Dict[str, Any]) -> Any:
     if storage == "ElementId":
         return int(old) if str(old).lstrip("-").isdigit() and int(old) > 0 else None
     if storage == "String":
+        if "old_raw_json" in row:
+            old = json.loads(row["old_raw_json"])
+            if old is not None and not isinstance(old, str):
+                raise ValueError("old_raw_json must encode text or null")
         return old
     if old in ("", None):
         return None
