@@ -58,7 +58,8 @@ def gate(tmp_path):
 def test_ttl_defaults_and_fail_closed_parsing(monkeypatch):
     assert APPROVAL_TTL_DEFAULT == 8 * HOUR and PENDING_TTL_DEFAULT == 14 * DAY
     assert normalize_ttl("0", 5) == 0 and normalize_ttl(" 60 ", 5) == 60 and normalize_ttl(90, 5) == 90
-    for bad in (-1, "-5", "soon", None, True, "", float("nan"), float("inf")):
+    for bad in (-1, "-5", -0.5, "-0.5", "0.5", "-1e-9999", "1e-9999",
+                "soon", None, True, "", float("nan"), float("inf")):
         assert normalize_ttl(bad, 5) == 5  # restrictive default, never "off"
     monkeypatch.setenv("MCP_REVIT_APPROVAL_TTL", "120")
     monkeypatch.setenv("MCP_REVIT_PENDING_TTL", "0")
@@ -66,6 +67,15 @@ def test_ttl_defaults_and_fail_closed_parsing(monkeypatch):
     assert cfg.approval_ttl == 120 and cfg.pending_ttl == 0
     monkeypatch.setenv("MCP_REVIT_APPROVAL_TTL", "abc")
     assert Config().approval_ttl == APPROVAL_TTL_DEFAULT
+
+
+@pytest.mark.parametrize("value", ["-0.5", "0.5", "-1e-9999", "1e-9999"])
+def test_fractional_ttl_configuration_keeps_expiry_enabled(monkeypatch, value):
+    monkeypatch.setenv("MCP_REVIT_APPROVAL_TTL", value)
+    monkeypatch.setenv("MCP_REVIT_PENDING_TTL", value)
+    cfg = Config()
+    assert cfg.approval_ttl == APPROVAL_TTL_DEFAULT
+    assert cfg.pending_ttl == PENDING_TTL_DEFAULT
 
 
 # ---- approval expiry ----------------------------------------------------------------
@@ -336,6 +346,63 @@ async def test_revert_plans_are_bound_too(provider):
     await approval.execute_tool("execute_plan", {"plan_id": plan["plan_id"]})
     revert = await approval.execute_tool("plan_revert", {"plan_id": plan["plan_id"]})
     assert revert["binding"]["doc_guid"] == "g-1"
+
+
+@pytest.mark.anyio
+async def test_expired_running_plan_finishes_with_proof_and_can_be_reverted(provider, monkeypatch):
+    approval, live = provider
+    store = approval.registry.lookup_tool_provider(SET)
+    execute = store.execute_tool
+
+    async def delayed_write(name, arguments):
+        result = await execute(name, arguments)
+        if name == SET:
+            return {"status": "running", "request_id": "delayed-write"}
+        return result
+
+    monkeypatch.setattr(store, "execute_tool", delayed_write)
+    plan = await _draft(approval)
+    pid = plan["plan_id"]
+    await panel_decide(approval, "approve_plan", pid)
+    result = await approval.execute_tool("execute_plan", {"plan_id": pid})
+    assert result["pending_results"] and approval.gate.load_proof(pid) is None
+    _stamp(pid, approval.gate, "approved_at", 9 * HOUR)
+    with pytest.raises(ApprovalExpired):
+        await approval.execute_tool("execute_plan", {"plan_id": pid})
+    assert approval.gate.settle_in_flight("delayed-write", ok=True)
+    assert approval.gate.load_plan(pid)["state"] == "executed"
+    assert approval.gate.load_proof(pid)["outcome"] == "success"
+    revert = await approval.execute_tool("plan_revert", {"plan_id": pid})
+    assert revert["actions"][0]["arguments"]["value"] == "30"
+
+
+@pytest.mark.anyio
+async def test_expiry_between_actions_preserves_partial_proof_and_blocks_the_rest(provider, monkeypatch):
+    approval, live = provider
+    store = approval.registry.lookup_tool_provider(SET)
+    execute = store.execute_tool
+    plan = await approval.execute_tool("plan_actions", {
+        "actions": [{"tool": SET, "arguments": _args(element_id=i)} for i in (1, 2)]})
+    pid = plan["plan_id"]
+    await panel_decide(approval, "approve_plan", pid)
+
+    async def expire_after_write(name, arguments):
+        result = await execute(name, arguments)
+        if name == SET:
+            _stamp(pid, approval.gate, "approved_at", 9 * HOUR)
+        return result
+
+    monkeypatch.setattr(store, "execute_tool", expire_after_write)
+    result = await approval.execute_tool("execute_plan", {"plan_id": pid})
+    assert result["ok"] is False and result["state"] == "partial"
+    assert store.values == {1: {"FireRating": "60"}}
+    proof = approval.gate.load_proof(pid)
+    assert proof["outcome"] == "partial"
+    assert [e["element_id"] for e in proof["elements"]] == [1]
+    with pytest.raises(ValueError, match="not 'approved'"):
+        await approval.execute_tool("execute_plan", {"plan_id": pid})
+    with pytest.raises(ValueError, match="only a pending plan"):
+        await panel_decide(approval, "approve_plan", pid)
 
 
 # ---- hash compatibility -------------------------------------------------------------
