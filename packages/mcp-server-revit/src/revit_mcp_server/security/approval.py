@@ -413,7 +413,7 @@ class ApprovalGate:
                 return None
             when = "its approval time is missing or in the future" if age is None or age < 0 else                 f"it was approved {_span(age)} ago"
             return (f"The approval of plan '{plan_id}' has expired ({when}; an approval lasts {_span(ttl)}, "
-                    f"{name}). Nothing ran. A person must approve again: draft a new plan and have it approved.")
+                    f"{name}). No new actions can run. A person must approve again: draft a new plan and have it approved.")
         if plan.get("state") == "pending":
             ttl, age, name = self.pending_ttl, _age_seconds(plan.get("created_at"), now), "pending_ttl"
             if not ttl or (age is not None and 0 <= age <= ttl):
@@ -423,14 +423,24 @@ class ApprovalGate:
         return None
 
     def _mark_expired(self, plan: Dict[str, Any]) -> None:
-        """Persist the 'expired' state of an approved plan. The caller holds the plan lock."""
+        """Stop new claims while preserving accounting for earlier work. Caller holds the lock."""
         plan["state"] = "expired"
         plan["expired_at"] = datetime.now(timezone.utc).isoformat()
         plan["expired_reason"] = "approval_ttl"
+        states = [a.get("state") for a in plan.get("actions", [])]
+        finished = "running" not in states and any(s in DONE_ACTION_STATES for s in states)
+        if finished:
+            plan["state"] = "executed" if all(s == "executed" for s in states) else "partial"
+            plan["executed_at"] = plan["expired_at"]
         self.save_plan(plan)
+        if finished:
+            try:
+                self.record_proof(plan)
+            except Exception:
+                logger.exception("Failed to write proof bundle for plan %s", plan.get("plan_id"))
 
     def expire_plan(self, plan_id: str) -> None:
-        """Move an approved plan whose approval ran out to 'expired' (no-op otherwise)."""
+        """Stop an expired approval and account for completed work (no-op otherwise)."""
         with self._plan_lock(plan_id):
             plan = self.load_plan(plan_id)
             if plan and plan.get("state") == "approved" and self.expiry_reason(plan):
@@ -753,6 +763,7 @@ class ApprovalGate:
 
         When no action is left open or running, the plan moves to 'executed' (every
         action succeeded) or 'partial' (some failed), unless a person rejected it.
+        Expired plans also finish once their running actions settle; unstarted actions stay blocked.
         """
         if not claim:
             return None
@@ -774,7 +785,9 @@ class ApprovalGate:
                         action["error"] = str(error)[:500]
             states = [a.get("state") for a in plan.get("actions", [])]
             all_done = all(s in DONE_ACTION_STATES for s in states)
-            if all_done and plan.get("state") == "approved":
+            if plan.get("state") == "expired" and "running" not in states:
+                all_done = True
+            if all_done and plan.get("state") in ("approved", "expired"):
                 if all(s == "executed" for s in states):
                     finished_all = True
                 else:
@@ -924,7 +937,7 @@ class ApprovalGate:
                     action["abandoned_reason"] = reason[:500]
                     action["abandoned_by"] = str(by) if by else local_user()
                     action["abandoned_via"] = "cli"
-            closed = plan.get("state") == "approved"
+            closed = plan.get("state") in ("approved", "expired")
             if closed:
                 plan["state"] = "partial"
                 plan["executed_at"] = now.isoformat()

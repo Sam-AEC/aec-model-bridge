@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from decimal import Decimal, InvalidOperation
 from enum import Enum
 from json import JSONDecodeError
 from pathlib import Path
@@ -80,16 +81,16 @@ PENDING_TTL_DEFAULT = 14 * 86400
 
 
 def normalize_ttl(value: Any, default: int, name: str = "ttl") -> int:
-    """Seconds, 0 disables. Fails closed: a negative, non-numeric or boolean value falls back to
+    """Whole seconds, 0 disables. A negative, fractional, non-numeric or boolean value falls back to
     ``default`` (the restrictive choice) and logs a warning; it never turns expiry off."""
     try:
         if isinstance(value, bool):
             raise ValueError
-        seconds = int(float(value.strip() if isinstance(value, str) else value))
-        if seconds < 0:
+        seconds = Decimal(str(value).strip())
+        if not seconds.is_finite() or seconds < 0 or seconds != seconds.to_integral_value():
             raise ValueError
-        return seconds
-    except (TypeError, ValueError, OverflowError):
+        return int(seconds)
+    except (InvalidOperation, TypeError, ValueError, OverflowError):
         _config_logger.warning("Invalid %s %r; using the default of %d seconds. Use 0 to disable.", name, value, default)
         return default
 

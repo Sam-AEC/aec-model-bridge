@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -120,6 +121,80 @@ def test_get_result_done_closes_the_action_ok(tmp_path, monkeypatch):
     # a second collection does not touch anything
     _call("revit_get_result", {"request_id": RID})
     assert _action(gate, pid)["state"] == "executed"
+
+
+@pytest.mark.parametrize("action_count,succeeds,expected_state,expected_outcome", [
+    (1, True, "executed", "success"),
+    (2, True, "partial", "partial"),
+    (1, False, "partial", "failed"),
+    (2, False, "partial", "failed"),
+])
+def test_expiry_blocks_new_calls_and_preserves_delayed_completion(
+    tmp_path, monkeypatch, action_count, succeeds, expected_state, expected_outcome,
+):
+    gate, pid = _approved(tmp_path, n=action_count)
+    revit = FakeRevit()
+    _wire(monkeypatch, gate, revit)
+    _call(SET, {**_args(), "plan_id": pid})
+    plan = gate.load_plan(pid)
+    plan["approved_at"] = (datetime.now(timezone.utc) - timedelta(seconds=gate.approval_ttl + 1)).isoformat()
+    gate.save_plan(plan)
+
+    blocked = _call(SET, {**_args(action_count), "plan_id": pid})
+    assert isinstance(blocked, CallToolResult) and blocked.isError
+    assert revit.calls == [SET]
+    assert gate.load_plan(pid)["state"] == "expired"
+    if not succeeds:
+        revit.get_result = {"success": False, "error": "write failed"}
+    _call("revit_get_result", {"request_id": RID})
+    final = gate.load_plan(pid)
+    assert final["state"] == expected_state
+    assert final["actions"][0]["state"] == ("executed" if succeeds else "failed")
+    if action_count == 2:
+        assert final["actions"][1]["state"] == "pending"
+    proof = gate.load_proof(pid)
+    assert proof["outcome"] == expected_outcome
+    assert gate.in_flight(RID) is None
+    with pytest.raises(ValueError, match="only a pending plan"):
+        human_approve(gate, pid)
+    again = _call(SET, {**_args(action_count), "plan_id": pid})
+    assert isinstance(again, CallToolResult) and again.isError
+    assert revit.calls == [SET, "revit_get_result"]
+
+
+def test_expired_plan_waits_for_every_running_action(tmp_path, monkeypatch):
+    gate, pid = _approved(tmp_path, n=2)
+    revit = FakeRevit()
+    _wire(monkeypatch, gate, revit)
+    _call(SET, {**_args(), "plan_id": pid})
+    revit.write_result = {"status": "running", "request_id": "second-write"}
+    _call(SET, {**_args(2), "plan_id": pid})
+    plan = gate.load_plan(pid)
+    plan["approved_at"] = (datetime.now(timezone.utc) - timedelta(seconds=gate.approval_ttl + 1)).isoformat()
+    gate.save_plan(plan)
+    _call(SET, {**_args(), "plan_id": pid})
+    _call("revit_get_result", {"request_id": RID})
+    assert gate.load_plan(pid)["state"] == "expired"
+    assert gate.load_proof(pid) is None
+    _call("revit_get_result", {"request_id": "second-write"})
+    assert gate.load_plan(pid)["state"] == "executed"
+    assert gate.load_proof(pid)["outcome"] == "success"
+
+
+def test_expired_running_action_can_be_recovered_with_a_proof(tmp_path):
+    gate, pid = _approved(tmp_path, n=2)
+    claim = gate.claim_action(SET, {**_args(), "plan_id": pid})
+    gate.mark_in_flight(claim, RID, SET)
+    plan = gate.load_plan(pid)
+    plan["approved_at"] = (datetime.now(timezone.utc) - timedelta(seconds=gate.approval_ttl + 1)).isoformat()
+    gate.save_plan(plan)
+    gate.expire_plan(pid)
+    recovered = gate.recover_running_actions(pid, "Revit closed", force=True)
+    assert recovered["state"] == "partial"
+    assert recovered["actions"][0]["state"] == "abandoned"
+    assert recovered["actions"][1]["state"] == "pending"
+    assert gate.load_proof(pid)["outcome"] == "failed"
+    assert gate.in_flight(RID) is None
 
 
 def test_get_result_still_running_leaves_it_open(tmp_path, monkeypatch):
