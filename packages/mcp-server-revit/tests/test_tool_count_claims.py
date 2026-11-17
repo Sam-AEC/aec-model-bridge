@@ -59,6 +59,22 @@ def test_llms_txt(counts: dict) -> None:
     assert (int(match.group(1)), int(match.group(2))) == (counts["tools"], counts["by_provider"]["revit"])
 
 
+def test_token_budget_header(counts: dict) -> None:
+    text = read(ROOT / "docs" / "mcp-token-budget.md")
+    match = re.search(r"exposes \*\*(\d+)\*\* tools", text)
+    assert match, "docs/mcp-token-budget.md no longer states the tool count in the expected form"
+    assert int(match.group(1)) == counts["tools"]
+
+
+def test_changelog_states_the_current_count(counts: dict) -> None:
+    # The topmost count statement is the newest: "Tool count is now N" in Unreleased, or
+    # a release entry's "one tool count (N, ...)". Released entries are never edited.
+    text = read(ROOT / "CHANGELOG.md")
+    match = re.search(r"Tool count is now (\d+)|one tool count \((\d+)", text)
+    assert match, "CHANGELOG.md no longer states the tool count in a known form"
+    assert int(match.group(1) or match.group(2)) == counts["tools"]
+
+
 @pytest.mark.parametrize(
     "relpath", ["server.json", "packages/mcp-server-revit/manifest.json", "glama.json", "smithery.yaml"]
 )

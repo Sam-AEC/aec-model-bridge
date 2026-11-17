@@ -1,6 +1,6 @@
 # Contributing
 
-Status: on the dev branch, not yet released.
+Status: 1.5.0.
 
 Thanks for improving AEC Model Bridge.
 

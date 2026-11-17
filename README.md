@@ -18,7 +18,7 @@ Open-source MCP server and native add-in for Revit 2024 – 2027. Works with Cla
 
 </div>
 
-Status: on the dev branch, not yet released.
+Status: 1.5.0. Writes, rollback and recovery still need live acceptance in Revit; see **Status and limits** below.
 
 <p align="center">
   <img src="docs/images/readme/revit-villa-panel.png" alt="Revit villa model beside the AEC Model Bridge panel with Dev mode enabled." width="900">
@@ -44,8 +44,8 @@ person stays in control of every change. You do not need to write scripts.
   years work. Those paths still need live acceptance. The Python server also
   has automated tests; CI builds do not start Revit. See the
   [release checklist](docs/release-checklist.md).
-- This page describes the dev branch. The latest GitHub release may not include
-  everything described here.
+- This page describes the current development state. The latest GitHub release
+  may not include everything described here.
 - Try it on a copy of a project first. Approving a plan changes the open model.
 - Some limits are known and listed under [How approval works](#how-approval-works)
   and in [docs/security.md](docs/security.md).

@@ -1,6 +1,6 @@
 # Preview in model
 
-Status: on the dev branch, not yet released.
+Status: in 1.5.0. Not yet run in a live Revit session (UNVERIFIED; see below).
 
 Lets a coordinator who does not script see which elements a proposed change
 affects before approving it. Two read-only tools:
