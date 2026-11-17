@@ -24,7 +24,7 @@ class ProviderRegistry:
         hidden = set()
         for provider in self._providers.values():
             for tool in provider.get_capabilities():
-                if profile.allows(provider.get_identity(), tool.module_id):
+                if profile.allows(provider.get_identity(), tool.module_id, tool.name):
                     visible.append((provider, tool.model_copy(deep=True)))
                 else:
                     hidden.add(tool.name)

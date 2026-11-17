@@ -60,6 +60,7 @@ def build_registry(
     revit_provider = RevitProvider(workspace=workspace)
     registry.register(revit_provider)
     revit_provider.approval_state_source = approval_provider.gate.approval_state
+    approval_provider.gate.binding_probe = revit_provider.live_context
     registry.register(IfcProvider(workspace=workspace))
     registry.register(AECMapperProvider(workspace=workspace))
     registry.register(SQLiteExporterProvider(workspace=workspace, registry=registry))

@@ -20,6 +20,30 @@ DAILY_EXCLUDE = (
     "clash_triage*", "ifc*", "revit_ifc*",
 )
 
+# The `core` profile: the BIM-coordinator loop in 49 tools (plus the always-visible
+# approval tools). Matches tool names, not provider/module IDs. Families: see
+# docs/mcp-token-budget.md.
+CORE_TOOLS = (
+    "revit_get_context", "revit_health", "revit_get_document_info", "revit_get_result",
+    "job_status", "job_cancel",
+    "snapshot_take", "snapshot_query", "snapshot_diff",
+    "qaqc_checker_run_check", "qaqc_checker_list_issues", "qaqc_checker_resolve_issue",
+    "qaqc_checker_list_rules", "qaqc_checker_list_rule_packs",
+    "revit_review", "revit_warnings_delta", "revit_check_levels_grids", "revit_system_report",
+    "naming_checker_check_names", "schedule_consistency_check_doors_and_rooms",
+    "sheet_view_audit_run_audit", "warnings_triage_review_warnings", "model_bloat_audit",
+    "links_worksets_audit_audit", "revit_cleanup_audit",
+    "revit_get_rvt_links", "revit_get_link_instances", "revit_get_worksets",
+    "revit_list_elements", "revit_inspect_elements", "revit_get_element_parameters",
+    "revit_get_element_geometry", "revit_list_levels", "revit_list_views", "revit_list_families",
+    "revit_get_categories", "revit_get_warnings", "revit_list_views_sheets_schedules",
+    "model_inspector_summarize_model", "model_inspector_inspect_selection",
+    "revit_get_parameters", "revit_set_parameters", "parameter_manager_filter_params",
+    "revit_get_selection", "revit_set_selection", "revit_select_by_unique_ids",
+    "selection_tools_select_by_query",
+    "revit_execute_python", "revit_api_lookup",
+)
+
 
 # Provider that owns plan_actions, execute_plan, list_pending_plans and the other
 # approval tools. No profile may hide it: without it a client cannot see or follow
@@ -36,10 +60,13 @@ class ToolProfile:
     name: str = "full"
     include: tuple[str, ...] = ("*",)
     exclude: tuple[str, ...] = ()
+    tools: tuple[str, ...] | None = None  # exact tool names; None means no name filter
 
-    def allows(self, provider_id: str, module_id: str | None = None) -> bool:
+    def allows(self, provider_id: str, module_id: str | None = None, tool_name: str | None = None) -> bool:
         if provider_id == APPROVAL_PROVIDER_ID:
             return True
+        if self.tools is not None and tool_name not in self.tools:
+            return False
         identities = (provider_id,) if module_id is None else (provider_id, module_id)
         def matches(patterns: tuple[str, ...]) -> bool:
             return any(fnmatchcase(identity, pattern) for identity in identities for pattern in patterns)
@@ -49,8 +76,8 @@ class ToolProfile:
     def refusal(self, tool_name: str) -> ToolProfileBlocked:
         return ToolProfileBlocked(
             f"Tool '{tool_name}' is hidden by MCP tool profile '{self.name}'. "
-            "Change MCP_REVIT_TOOL_PROFILE / MCP_REVIT_TOOL_PROFILE_FILE and restart "
-            "the MCP server to make it available."
+            "Set MCP_REVIT_TOOL_PROFILE=daily or full (or edit MCP_REVIT_TOOL_PROFILE_FILE) "
+            "and restart the MCP server to make it available."
         )
 
 
@@ -63,8 +90,8 @@ def load_tool_profile(environ: Mapping[str, str] | None = None) -> ToolProfile:
     """
     env = os.environ if environ is None else environ
     name = env.get("MCP_REVIT_TOOL_PROFILE", "full")
-    if name not in {"full", "daily", "custom"}:
-        raise ValueError("MCP_REVIT_TOOL_PROFILE must be full, daily, or custom")
+    if name not in {"full", "daily", "core", "custom"}:
+        raise ValueError("MCP_REVIT_TOOL_PROFILE must be full, daily, core, or custom")
     filename = env.get("MCP_REVIT_TOOL_PROFILE_FILE")
     if name == "custom" and not filename:
         raise ValueError("MCP_REVIT_TOOL_PROFILE=custom requires MCP_REVIT_TOOL_PROFILE_FILE")
@@ -95,4 +122,5 @@ def load_tool_profile(environ: Mapping[str, str] | None = None) -> ToolProfile:
                     "(plan_actions, execute_plan, list_pending_plans stay visible in every profile)"
                 )
         exclude += tuple(data.get("exclude", []))
-    return ToolProfile(name=name, include=include, exclude=exclude)
+    return ToolProfile(name=name, include=include, exclude=exclude,
+                       tools=CORE_TOOLS if name == "core" else None)
