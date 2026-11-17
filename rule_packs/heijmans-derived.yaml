@@ -1,4 +1,4 @@
-# Heijmans rule pack, DERIVED from the open Heijmans Woonconfigurator copy (R24_2026_HWC_B01...), not from a
+# Example rule pack, DERIVED from one Dutch residential model, not from a
 # written checklist. It records what the model does today. Confirm each rule with the BIM manager before use.
 #
 # Naming cannot be expressed in this engine (no regular expressions). Use revit_check_naming_and_params:

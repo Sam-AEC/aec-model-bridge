@@ -4897,6 +4897,16 @@ public static partial class BridgeCommandFactory
         }
     }
 
+    private static object SnapshotParameterValue(Parameter parameter)
+        => parameter.StorageType switch
+        {
+            StorageType.Integer => parameter.AsInteger(),
+            StorageType.Double => parameter.AsDouble(),
+            StorageType.String => parameter.AsString() ?? string.Empty,
+            StorageType.ElementId => parameter.AsElementId().Value.ToString(),
+            _ => string.Empty
+        };
+
     private static void AddSnapshotNameAliases(Element elem, Dictionary<string, object> parameters)
     {
         foreach (var key in new[]
@@ -4914,6 +4924,95 @@ public static partial class BridgeCommandFactory
                 instance = true,
                 @readonly = parameter.IsReadOnly
             };
+        }
+    }
+
+    private static string? SnapshotUid(Element? e)
+    {
+        try { return e?.UniqueId; } catch { return null; }
+    }
+
+    // Issue 142: top-level "views" and "sheets" lists so sheet_view_audit can run every check.
+    // Reads only; every element is wrapped in its own try/catch; stops at the snapshot time budget
+    // and says so in the returned flags (a truncated capture is never presented as complete).
+    private static void CaptureSnapshotViewsAndSheets(
+        Document doc, System.Diagnostics.Stopwatch clock, long budgetMs,
+        List<object?> viewRecords, List<object?> sheetRecords,
+        out bool viewsTruncated, out bool sheetsTruncated)
+    {
+        viewsTruncated = false;
+        sheetsTruncated = false;
+
+        // Sheet links first: Viewport (plans, sections, 3D, legends, drafting) and
+        // ScheduleSheetInstance (schedules are not Viewports).
+        var placements = new SnapshotViewRecords.PlacementMap();
+        try
+        {
+            foreach (var vp in new FilteredElementCollector(doc).OfClass(typeof(Viewport)).Cast<Viewport>())
+            {
+                if (clock.ElapsedMilliseconds > budgetMs) { viewsTruncated = true; break; }
+                try { placements.Add(SnapshotUid(doc.GetElement(vp.SheetId)), SnapshotUid(doc.GetElement(vp.ViewId))); }
+                catch { }
+            }
+            foreach (var inst in new FilteredElementCollector(doc).OfClass(typeof(ScheduleSheetInstance)).Cast<ScheduleSheetInstance>())
+            {
+                if (clock.ElapsedMilliseconds > budgetMs) { viewsTruncated = true; break; }
+                try { placements.Add(SnapshotUid(doc.GetElement(inst.OwnerViewId)), SnapshotUid(doc.GetElement(inst.ScheduleId))); }
+                catch { }
+            }
+        }
+        catch { viewsTruncated = true; }
+
+        foreach (var view in new FilteredElementCollector(doc).OfClass(typeof(View)).Cast<View>())
+        {
+            if (clock.ElapsedMilliseconds > budgetMs) { viewsTruncated = true; break; }
+            try
+            {
+                if (view is ViewSheet) continue;
+                var type = view.ViewType.ToString();
+                if (!SnapshotViewRecords.IsCapturableViewType(type)) continue;
+                if (view is ViewSchedule vs && (vs.IsTitleblockRevisionSchedule || vs.IsInternalKeynoteSchedule)) continue;
+                var uid = view.UniqueId;
+                if (string.IsNullOrEmpty(uid)) continue;
+                string? discipline = null;
+                try { discipline = view.get_Parameter(BuiltInParameter.VIEW_DISCIPLINE)?.AsValueString(); } catch { }
+                viewRecords.Add(SnapshotViewRecords.BuildView(
+                    uid, view.Name, type, view.IsTemplate, placements.SheetOf(uid), discipline));
+            }
+            catch { }
+        }
+
+        foreach (var sheet in new FilteredElementCollector(doc).OfClass(typeof(ViewSheet)).Cast<ViewSheet>())
+        {
+            if (clock.ElapsedMilliseconds > budgetMs) { sheetsTruncated = true; break; }
+            try
+            {
+                var uid = sheet.UniqueId;
+                if (string.IsNullOrEmpty(uid)) continue;
+                var sheetParams = new Dictionary<string, object>();
+                foreach (Parameter param in sheet.Parameters)
+                {
+                    try
+                    {
+                        if (!param.HasValue) continue;
+                        sheetParams[param.Definition.Name] = new { v = SnapshotParameterValue(param) };
+                    }
+                    catch { }
+                }
+                // Views placed through the sheet itself (covers anything the collectors above missed).
+                try
+                {
+                    foreach (var vid in sheet.GetAllViewports())
+                    {
+                        var vp = doc.GetElement(vid) as Viewport;
+                        if (vp != null) placements.Add(uid, SnapshotUid(doc.GetElement(vp.ViewId)));
+                    }
+                }
+                catch { }
+                sheetRecords.Add(SnapshotViewRecords.BuildSheet(
+                    uid, sheet.SheetNumber, sheet.Name, placements.ViewUidsOn(uid), sheetParams));
+            }
+            catch { }
         }
     }
 
@@ -4978,6 +5077,16 @@ public static partial class BridgeCommandFactory
                 .ToElementIds());
         }
 
+        // Views and sheets (issue 142): only for a whole-model capture. A category-filtered or dirty-only
+        // snapshot writes null for them, and the audit then reports "views not captured: result not rated".
+        var captureViews = !dirtyOnly && categories.Count == 0;
+        var viewRecords = new List<object?>();
+        var sheetRecords = new List<object?>();
+        var viewsTruncated = false;
+        var sheetsTruncated = false;
+        if (captureViews)
+            CaptureSnapshotViewsAndSheets(doc, clock, budgetMs, viewRecords, sheetRecords, out viewsTruncated, out sheetsTruncated);
+
         var totalCandidates = idsToExtract.Count;
         var truncated = false;
         var skippedHeavy = 0;
@@ -5002,14 +5111,7 @@ public static partial class BridgeCommandFactory
                 if (!param.HasValue) continue;
                 if (IsHeavySnapshotParameter(elem, param)) { skippedHeavy++; continue; }
 
-                object val = param.StorageType switch
-                {
-                    StorageType.Integer => param.AsInteger(),
-                    StorageType.Double => param.AsDouble(),
-                    StorageType.String => param.AsString() ?? string.Empty,
-                    StorageType.ElementId => param.AsElementId().Value.ToString(),
-                    _ => string.Empty
-                };
+                object val = SnapshotParameterValue(param);
 
                 paramsDict[param.Definition.Name] = new
                 {
@@ -5062,8 +5164,14 @@ public static partial class BridgeCommandFactory
             ["elapsed_ms"] = clock.ElapsedMilliseconds,
             ["skipped_area_volume_values"] = skippedHeavy,
             ["categories"] = categories.Select(c => c.ToString()).ToList(),
+            ["views_captured"] = viewRecords.Count,
+            ["sheets_captured"] = sheetRecords.Count,
+            ["views_truncated"] = viewsTruncated,
+            ["sheets_truncated"] = sheetsTruncated,
         };
 
+        // views / sheets are null (JSON null) when they were not captured; the audit treats a non-list
+        // "views" as "views not captured: result not rated".
         var snapshot = new
         {
             schema = "amb.snapshot/1",
@@ -5078,6 +5186,8 @@ public static partial class BridgeCommandFactory
                 units = "SI"
             },
             elements = elementRecords,
+            views = captureViews ? viewRecords : null,
+            sheets = captureViews ? sheetRecords : null,
             dirty_only = dirtyOnly,
             counts,
             deleted = deletedIdsList
@@ -5091,6 +5201,8 @@ public static partial class BridgeCommandFactory
             snapshot_id = snapshotId,
             path = snapshotPath,
             element_count = elementRecords.Count,
+            views_captured = viewRecords.Count,
+            sheets_captured = sheetRecords.Count,
             deleted_count = deletedIdsList.Count,
             candidates = totalCandidates,
             truncated,

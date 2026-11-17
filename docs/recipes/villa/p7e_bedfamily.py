@@ -1,6 +1,7 @@
 # Build a king-size bed family (1.80 x 2.00 m mattress) in a family document from Autodesk's Metric Furniture template, load it.
+import System
 TEMPLATE = r"C:\ProgramData\Autodesk\RVT 2024\Family Templates\English\Metric Furniture.rft"
-OUT = r"C:\Users\samo3\AppData\Local\Temp\AMB_Bed_King.rfa"
+OUT = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AMB_Bed_King.rfa")
 have = [s for s in FilteredElementCollector(doc).OfClass(FamilySymbol) if s.FamilyName == "AMB_Bed_King"]
 if have:
     say("AMB_Bed_King already in the model")

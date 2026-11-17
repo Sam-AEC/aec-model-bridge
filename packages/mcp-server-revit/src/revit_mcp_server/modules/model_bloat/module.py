@@ -47,9 +47,9 @@ COUNT_CAVEAT = (
 
 
 def _load_snapshot(snapshot_id: str, workspace: Any) -> Dict[str, Any]:
-    if any(part in snapshot_id for part in ("/", "\\", "..", ":")):
-        raise ValueError(f"Invalid snapshot id '{snapshot_id}'.")
-    path = Path(workspace.allowed_directories[0]) / "snapshots" / f"{snapshot_id}.json"
+    from revit_mcp_server.security.safe_paths import snapshot_file
+
+    path = snapshot_file(Path(workspace.allowed_directories[0]) / "snapshots", snapshot_id)
     if not path.exists():
         raise ValueError(f"Snapshot '{snapshot_id}' not found.")
     with open(path, "r", encoding="utf-8") as f:

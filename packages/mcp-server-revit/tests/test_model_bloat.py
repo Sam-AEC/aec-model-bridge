@@ -165,7 +165,7 @@ def test_live_mode_requires_snapshot(monkeypatch, tmp_path):
 
 @pytest.mark.parametrize('snapshot_id', ['../secret', r'..\secret', 'C:secret'])
 def test_snapshot_path_traversal_is_rejected(tmp_path, snapshot_id):
-    with pytest.raises(ValueError, match='Invalid snapshot'):
+    with pytest.raises(ValueError, match='plain snapshot name'):
         ModelBloatModule().audit(snapshot_id=snapshot_id, workspace=WS(tmp_path))
 
 

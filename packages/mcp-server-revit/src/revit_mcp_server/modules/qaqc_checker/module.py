@@ -3,7 +3,9 @@ qaqc_checker module — P10 QA/QC Validation Workflows (W7, W9).
 
 Commands:
   run_check     — Run a YAML rule pack against a snapshot, store findings in SQLite.
-  list_issues   — Query issue store (filtered by status/severity).
+  list_issues   — Query issue store (filtered by status/severity/snapshot). Rows not
+                  seen in the latest run for their document and pack are stale and
+                  hidden unless include_stale=true.
   resolve_issue — Mark an issue as resolved.
   list_rules    — Enumerate rules in a pack.
   list_rule_packs / validate_rule_pack / import_rule_pack / export_rule_pack
@@ -35,6 +37,7 @@ logger = logging.getLogger(__name__)
 
 RULES_DIR = Path(__file__).parent / "rules"
 DB_FILENAME = "qaqc_issues.db"
+UNKNOWN_SNAPSHOT = "unknown"
 
 
 # ---------------------------------------------------------------------------
@@ -65,7 +68,9 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             fix_template TEXT,
             status TEXT NOT NULL DEFAULT 'open',
             created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
+            updated_at TEXT NOT NULL,
+            snapshot_id TEXT,
+            last_seen_at TEXT
         )
     """)
     # Databases from before shareable packs have no pack identity. Preserve those
@@ -73,6 +78,23 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
     columns = {row[1] for row in conn.execute("PRAGMA table_info(issues)")}
     if "rule_pack" not in columns:
         conn.execute("ALTER TABLE issues ADD COLUMN rule_pack TEXT NOT NULL DEFAULT 'core'")
+    # 1.5.0 databases have no snapshot key. Old rows keep NULL: reported as an
+    # unknown snapshot and never called stale until a run exists for their document.
+    if "snapshot_id" not in columns:
+        conn.execute("ALTER TABLE issues ADD COLUMN snapshot_id TEXT")
+    if "last_seen_at" not in columns:
+        conn.execute("ALTER TABLE issues ADD COLUMN last_seen_at TEXT")
+    # One row per run_check: the reference point for "latest run" and stale detection.
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS qaqc_runs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            doc_guid TEXT NOT NULL,
+            rule_pack TEXT NOT NULL,
+            snapshot_id TEXT NOT NULL DEFAULT '',
+            captured_at TEXT,
+            run_at TEXT NOT NULL
+        )
+    """)
     conn.commit()
 
 def _now() -> str:
@@ -366,14 +388,21 @@ def _run_rule(
 def _upsert_issues(
     conn: sqlite3.Connection, findings: List[Dict[str, Any]], doc_guid: str,
     elements_uids: set, rule_pack: str = "core",
+    snapshot_id: str = "", captured_at: Optional[str] = None,
 ) -> None:
     """
     Upsert findings into issue store:
     - New issues → inserted as 'open'
     - Existing issues for same (doc_guid, rule_pack, rule_id, element_uid) already 'open' → refresh details
     - Issues previously open but NOT in current findings → resolved (element still exists) or orphaned (uid gone)
+    Every finding seen is stamped with this run's snapshot_id and last_seen_at; the run
+    itself is recorded so list_issues can flag rows this run did not see as stale.
     """
     now = _now()
+    conn.execute(
+        "INSERT INTO qaqc_runs (doc_guid, rule_pack, snapshot_id, captured_at, run_at) VALUES (?, ?, ?, ?, ?)",
+        (doc_guid, rule_pack, snapshot_id or "", captured_at, now),
+    )
     
     # Reconcile only this pack: other packs own independent issue lifecycles.
     existing = {
@@ -393,15 +422,17 @@ def _upsert_issues(
             # An overwritten pack can change severity or wording without changing
             # its rule IDs. Keep the stable issue ID but refresh its current facts.
             conn.execute(
-                "UPDATE issues SET severity=?, label=?, message=?, fix_template=?, updated_at=? WHERE id=?",
-                (f["severity"], f.get("label", ""), f["message"], f.get("fix_template", ""), now, existing[key]),
+                "UPDATE issues SET severity=?, label=?, message=?, fix_template=?, updated_at=?, "
+                "snapshot_id=?, last_seen_at=? WHERE id=?",
+                (f["severity"], f.get("label", ""), f["message"], f.get("fix_template", ""), now,
+                 snapshot_id or "", now, existing[key]),
             )
         else:
             # Insert new issue
             conn.execute(
                 """
-                INSERT INTO issues (id, doc_guid, rule_pack, rule_id, severity, element_uid, label, message, fix_template, status, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)
+                INSERT INTO issues (id, doc_guid, rule_pack, rule_id, severity, element_uid, label, message, fix_template, status, created_at, updated_at, snapshot_id, last_seen_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?)
                 """,
                 (
                     str(uuid.uuid4()),
@@ -414,6 +445,8 @@ def _upsert_issues(
                     f["message"],
                     f.get("fix_template", ""),
                     now,
+                    now,
+                    snapshot_id or "",
                     now,
                 )
             )
@@ -449,12 +482,15 @@ class QaqcCheckerModule:
         
         # Derive doc_guid from snapshot or fallback
         doc_guid = "mock-doc"
+        captured_at: Optional[str] = None
         if snapshot_id:
             snap_path = snapshot_file(workspace.allowed_directories[0] / "snapshots", snapshot_id)
             if snap_path.exists():
                 with open(snap_path, encoding="utf-8") as f:
                     data = json.load(f)
                 doc_guid = data.get("source", {}).get("doc_guid", snapshot_id)
+                taken = data.get("taken_at")
+                captured_at = str(taken) if taken else None
         
         elements_uids = {el.get("uid") for el in elements + types if el.get("uid")}
         
@@ -477,7 +513,10 @@ class QaqcCheckerModule:
         # Persist to issue store
         if workspace:
             conn = _get_conn(workspace)
-            _upsert_issues(conn, all_findings, doc_guid, elements_uids, rule_pack)
+            _upsert_issues(
+                conn, all_findings, doc_guid, elements_uids, rule_pack,
+                snapshot_id=snapshot_id, captured_at=captured_at,
+            )
             conn.close()
         
         return {
@@ -498,30 +537,83 @@ class QaqcCheckerModule:
         doc_guid: str = "",
         status: Optional[str] = None,
         severity: Optional[str] = None,
+        snapshot_id: Optional[str] = None,
+        include_stale: bool = False,
         workspace: Any = None,
         **_,
     ) -> Dict[str, Any]:
+        """
+        Stale = the latest run for the row's (doc_guid, rule_pack) did not see it.
+        Rows from before snapshot tracking have no last_seen_at and are only called
+        stale once a run exists for their document and pack. Stale rows are hidden
+        unless include_stale is true or status is an explicit 'resolved'/'orphaned'
+        (those lifecycle states are mostly rows a later run no longer saw).
+        """
+        include_stale = include_stale is True or str(include_stale).lower() == "true"
+        stale_sql = "(lr.run_at IS NOT NULL AND (i.last_seen_at IS NULL OR i.last_seen_at <> lr.run_at))"
         conn = _get_conn(workspace)
-        query = "SELECT * FROM issues WHERE 1=1"
+        query = f"""
+            SELECT i.*, CASE WHEN {stale_sql} THEN 1 ELSE 0 END AS stale
+            FROM issues i
+            LEFT JOIN qaqc_runs lr ON lr.id = (
+                SELECT MAX(id) FROM qaqc_runs r
+                WHERE r.doc_guid = i.doc_guid AND r.rule_pack = i.rule_pack
+            )
+            WHERE 1=1"""
         params: List[Any] = []
-        
+
         if doc_guid:
-            query += " AND doc_guid=?"
+            query += " AND i.doc_guid=?"
             params.append(doc_guid)
         if status:
-            query += " AND status=?"
+            query += " AND i.status=?"
             params.append(status)
         if severity:
-            query += " AND severity=?"
+            query += " AND i.severity=?"
             params.append(severity)
-        
+        if snapshot_id:
+            if snapshot_id == UNKNOWN_SNAPSHOT:
+                query += " AND COALESCE(i.snapshot_id, '')=''"
+            else:
+                query += " AND i.snapshot_id=?"
+                params.append(snapshot_id)
+        if not include_stale and status not in ("resolved", "orphaned"):
+            query += f" AND NOT {stale_sql}"
+        query += " ORDER BY i.created_at, i.id"
+
         rows = conn.execute(query, params).fetchall()
+
+        run_query = "SELECT doc_guid, rule_pack, snapshot_id, captured_at, run_at FROM qaqc_runs"
+        run_params: List[Any] = []
+        if doc_guid:
+            run_query += " WHERE doc_guid=?"
+            run_params.append(doc_guid)
+        run_query += " ORDER BY id DESC"
+        runs = [dict(r) for r in conn.execute(run_query, run_params)]
         conn.close()
-        
-        issues = [dict(row) for row in rows]
+
+        for run in runs:
+            run["snapshot_id"] = run["snapshot_id"] or UNKNOWN_SNAPSHOT
+        # Newest run per (doc_guid, rule_pack); runs are already newest first.
+        latest_runs: List[Dict[str, Any]] = []
+        seen_keys = set()
+        for run in runs:
+            key = (run["doc_guid"], run["rule_pack"])
+            if key not in seen_keys:
+                seen_keys.add(key)
+                latest_runs.append(run)
+
+        issues = []
+        for row in rows:
+            issue = dict(row)
+            issue["stale"] = bool(issue["stale"])
+            issue["snapshot_id"] = issue["snapshot_id"] or UNKNOWN_SNAPSHOT
+            issues.append(issue)
         return {
             "total": len(issues),
             "issues": issues,
+            "latest_run": runs[0] if runs else None,
+            "latest_runs": latest_runs,
         }
 
     def resolve_issue(self, issue_id: str, workspace: Any = None, **_) -> Dict[str, Any]:

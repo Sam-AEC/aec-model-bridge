@@ -196,10 +196,14 @@ def test_an_existing_family_or_file_is_refused_without_replace(setup):
 
 def test_replace_overwrites_the_file_and_loads_over_the_family(setup):
     setup.run([PANEL])
+    path = setup.out / "AMB2_Panel.rfa"
+    path.write_bytes(b"original family bytes")
     parsed = setup.run([PANEL], replace=True)
     assert parsed.meta["outcome"] == "ok"
     assert next(r for r in parsed.rows if r.get("kind") == "family")["status"] == "replaced"
     assert setup.project_names() == ["AMB2_Panel"]
+    assert path.read_bytes() == b"RFA"
+    assert list(setup.out.iterdir()) == [path]
 
 
 def test_a_family_document_as_active_document_is_refused(setup):
@@ -209,6 +213,247 @@ def test_a_family_document_as_active_document_is_refused(setup):
 
 
 # ----- failure handling: rollback, skip, closing family documents ------------- #
+def test_abort_restores_replaced_files_when_a_later_family_fails(setup):
+    setup.run([PANEL])
+    path = setup.out / "AMB2_Panel.rfa"
+    path.write_bytes(b"original family bytes")
+    before = list(setup.doc.elements)
+    setup.app.refuse_flow = True
+    parsed = setup.run([PANEL, HEAT], replace=True)
+    assert parsed.meta["outcome"] == "rolled_back"
+    assert setup.doc.elements == before
+    assert path.read_bytes() == b"original family bytes"
+    assert list(setup.out.iterdir()) == [path]
+
+
+@pytest.mark.parametrize("on_error", ["abort", "skip"])
+def test_refused_replacement_load_restores_original_bytes(setup, on_error):
+    setup.run([PANEL])
+    path = setup.out / "AMB2_Panel.rfa"
+    path.write_bytes(b"original family bytes")
+    setup.app.refuse_load = True
+    parsed = setup.run([PANEL], replace=True, on_error=on_error)
+    assert parsed.meta["outcome"] == "rolled_back"
+    assert "did not load" in parsed.fails[0]
+    assert path.read_bytes() == b"original family bytes"
+    assert list(setup.out.iterdir()) == [path]
+
+
+def test_skip_keeps_successful_replacement_and_restores_failed_replacement(setup, monkeypatch):
+    setup.run([PANEL, HEAT])
+    panel, heat = setup.out / "AMB2_Panel.rfa", setup.out / "AMB2_Heat.rfa"
+    panel.write_bytes(b"old panel")
+    heat.write_bytes(b"old heat")
+    load = stub.ProjectDoc.LoadFamily
+
+    def load_except_heat(self, path, options):
+        return (False, None) if Path(path).name == heat.name else load(self, path, options)
+
+    monkeypatch.setattr(stub.ProjectDoc, "LoadFamily", load_except_heat)
+    parsed = setup.run([PANEL, HEAT], replace=True, on_error="skip")
+    assert parsed.meta["outcome"] == "partial_failure"
+    assert panel.read_bytes() == b"RFA" and heat.read_bytes() == b"old heat"
+    assert sorted(p.name for p in setup.out.iterdir()) == sorted([panel.name, heat.name])
+
+
+@pytest.mark.parametrize("existing", [False, True])
+@pytest.mark.parametrize("save_result", ["partial_throw", "empty", "missing_throw"])
+def test_failed_or_invalid_save_restores_original_or_removes_new_file(setup, monkeypatch, existing, save_result):
+    path = setup.out / "AMB2_Panel.rfa"
+    if existing:
+        setup.run([PANEL])
+        path.write_bytes(b"original family bytes")
+
+    def broken_save(self, target, options):
+        output = Path(target)
+        if save_result == "missing_throw":
+            output.unlink(missing_ok=True)
+        else:
+            output.write_bytes(b"partial bytes" if save_result == "partial_throw" else b"")
+        if save_result != "empty":
+            raise RuntimeError("save failed after touching the file")
+
+    monkeypatch.setattr(stub.FamilyDoc, "SaveAs", broken_save)
+    parsed = setup.run([PANEL], replace=existing)
+    assert parsed.meta["outcome"] == "rolled_back"
+    assert parsed.fails and all(fd.closed for fd in setup.app.family_docs)
+    if existing:
+        assert path.read_bytes() == b"original family bytes"
+        assert list(setup.out.iterdir()) == [path]
+    else:
+        assert list(setup.out.iterdir()) == []
+
+
+def test_backup_failure_refuses_to_overwrite_original(setup, monkeypatch):
+    setup.run([PANEL])
+    path = setup.out / "AMB2_Panel.rfa"
+    path.write_bytes(b"original family bytes")
+
+    def no_copy(source, destination):
+        raise OSError("backup disk is full")
+
+    monkeypatch.setattr(stub._IoFile, "Copy", staticmethod(no_copy))
+    parsed = setup.run([PANEL], replace=True)
+    assert parsed.meta["outcome"] == "rolled_back"
+    assert "backup disk is full" in parsed.fails[0]
+    assert setup.app.family_docs[-1].saved_to is None
+    assert path.read_bytes() == b"original family bytes"
+    assert list(setup.out.iterdir()) == [path]
+
+
+def test_partial_backup_failure_in_skip_mode_preserves_original_and_other_success(setup, monkeypatch):
+    setup.run([PANEL, HEAT])
+    panel, heat = setup.out / "AMB2_Panel.rfa", setup.out / "AMB2_Heat.rfa"
+    panel.write_bytes(b"old panel")
+    heat.write_bytes(b"old heat")
+    copy = stub._IoFile.Copy
+
+    def copy_except_heat(source, destination):
+        if Path(source) == heat:
+            Path(destination).write_bytes(b"partial backup")
+            raise OSError("backup disk is full")
+        copy(source, destination)
+
+    monkeypatch.setattr(stub._IoFile, "Copy", staticmethod(copy_except_heat))
+    parsed = setup.run([PANEL, HEAT], replace=True, on_error="skip")
+    assert parsed.meta["outcome"] == "partial_failure"
+    assert panel.read_bytes() == b"RFA" and heat.read_bytes() == b"old heat"
+    assert setup.app.family_docs[-1].saved_to is None
+    backups = list(setup.out.glob("*.amb-backup"))
+    assert len(backups) == 1 and backups[0].read_bytes() == b"partial backup"
+    assert any("BACKUP_NOT_CREATED" in message and str(backups[0]) in message for message in parsed.infos)
+
+
+@pytest.mark.parametrize("existing", [False, True])
+def test_rollback_retries_failed_file_cleanup_without_losing_the_journal(setup, monkeypatch, existing):
+    path = setup.out / "AMB2_Panel.rfa"
+    if existing:
+        setup.run([PANEL])
+        path.write_bytes(b"original family bytes")
+    setup.app.refuse_load = True
+    operation = "Replace" if existing else "Delete"
+    original = getattr(stub._IoFile, operation)
+    attempts = []
+
+    def transient_lock(*args):
+        attempts.append(args)
+        if len(attempts) == 1:
+            raise OSError("temporarily locked")
+        return original(*args)
+
+    monkeypatch.setattr(stub._IoFile, operation, staticmethod(transient_lock))
+    parsed = setup.run([PANEL], replace=existing)
+    assert parsed.meta["outcome"] == "rolled_back" and len(attempts) == 2
+    if existing:
+        assert path.read_bytes() == b"original family bytes"
+        assert list(setup.out.iterdir()) == [path]
+    else:
+        assert list(setup.out.iterdir()) == []
+
+
+def test_refused_project_load_commit_restores_original_family_file(setup):
+    setup.run([PANEL])
+    path = setup.out / "AMB2_Panel.rfa"
+    path.write_bytes(b"original family bytes")
+    before = list(setup.doc.elements)
+    setup.doc.refuse_commit = True
+    parsed = setup.run([PANEL], replace=True)
+    assert parsed.meta["outcome"] == "rolled_back"
+    assert any("did not commit" in message for message in parsed.fails)
+    assert setup.doc.elements == before and path.read_bytes() == b"original family bytes"
+    assert list(setup.out.iterdir()) == [path]
+
+
+def test_failed_restore_retains_backup_and_reports_its_path(setup, monkeypatch):
+    from revit_mcp_server.security.workspace import WorkspaceMonitor
+
+    setup.run([PANEL])
+    path = setup.out / "AMB2_Panel.rfa"
+    path.write_bytes(b"original family bytes")
+    setup.app.refuse_load = True
+
+    def no_replace(source, destination, backup):
+        raise OSError("file is locked")
+
+    monkeypatch.setattr(stub._IoFile, "Replace", staticmethod(no_replace))
+    parsed = setup.run([PANEL], replace=True)
+    assert parsed.meta["outcome"] == "rolled_back"
+    backups = list(setup.out.glob("*.amb-backup"))
+    assert len(backups) == 1 and backups[0].read_bytes() == b"original family bytes"
+    assert any("FILE_NOT_RESTORED" in message and str(backups[0]) in message for message in parsed.infos)
+    result = fam._finish_write("revit_family_make_family", parsed, 0, WorkspaceMonitor([setup.out]))
+    assert result["ok"] is False and result["kind"] == "rolled_back"
+    assert "FILE_NOT_RESTORED" in result["hint"] and "retained backup path" in result["hint"]
+    assert any(str(backups[0]) in message for message in result["info"])
+
+
+def test_skip_does_not_discard_backup_when_failed_family_could_not_be_restored(setup, monkeypatch):
+    setup.run([PANEL, HEAT])
+    panel, heat = setup.out / "AMB2_Panel.rfa", setup.out / "AMB2_Heat.rfa"
+    panel.write_bytes(b"old panel")
+    heat.write_bytes(b"old heat")
+    load = stub.ProjectDoc.LoadFamily
+
+    def load_except_heat(self, path, options):
+        return (False, None) if Path(path).name == heat.name else load(self, path, options)
+
+    def no_replace(source, destination, backup):
+        raise OSError("file is locked")
+
+    monkeypatch.setattr(stub.ProjectDoc, "LoadFamily", load_except_heat)
+    monkeypatch.setattr(stub._IoFile, "Replace", staticmethod(no_replace))
+    parsed = setup.run([PANEL, HEAT], replace=True, on_error="skip")
+    assert parsed.meta["outcome"] == "partial_failure" and panel.read_bytes() == b"RFA"
+    backups = list(setup.out.glob("*.amb-backup"))
+    assert len(backups) == 1 and backups[0].read_bytes() == b"old heat"
+    assert any("FILE_NOT_RESTORED" in message for message in parsed.infos)
+
+
+def test_backup_name_collision_preserves_both_existing_files(setup, monkeypatch):
+    setup.run([PANEL])
+    path = setup.out / "AMB2_Panel.rfa"
+    path.write_bytes(b"original family bytes")
+    occupied = Path(str(path) + ".occupied.amb-backup")
+    occupied.write_bytes(b"unrelated backup")
+    monkeypatch.setattr(stub._IoPath, "GetRandomFileName", staticmethod(lambda: "occupied"))
+    parsed = setup.run([PANEL], replace=True)
+    assert parsed.meta["outcome"] == "rolled_back"
+    assert path.read_bytes() == b"original family bytes" and occupied.read_bytes() == b"unrelated backup"
+    assert setup.app.family_docs[-1].saved_to is None
+    assert any("BACKUP_NOT_CREATED" in message for message in parsed.infos)
+
+
+def test_uncertain_project_group_commit_retains_original_backup(setup, monkeypatch):
+    setup.run([PANEL])
+    path = setup.out / "AMB2_Panel.rfa"
+    path.write_bytes(b"original family bytes")
+    monkeypatch.setattr(stub.FTransactionGroup, "Assimilate", lambda self: "Error")
+    parsed = setup.run([PANEL], replace=True)
+    assert parsed.meta["outcome"] == "group_close_failed"
+    backups = list(setup.out.glob("*.amb-backup"))
+    assert len(backups) == 1 and backups[0].read_bytes() == b"original family bytes"
+    assert any("BACKUP_RETAINED" in message and str(backups[0]) in message for message in parsed.infos)
+
+
+def test_failed_backup_cleanup_reports_recoverable_backup_after_success(setup, monkeypatch):
+    setup.run([PANEL])
+    path = setup.out / "AMB2_Panel.rfa"
+    path.write_bytes(b"original family bytes")
+    delete = stub._IoFile.Delete
+
+    def keep_backup(target):
+        if target.endswith(".amb-backup"):
+            raise OSError("backup is locked")
+        delete(target)
+
+    monkeypatch.setattr(stub._IoFile, "Delete", staticmethod(keep_backup))
+    parsed = setup.run([PANEL], replace=True)
+    assert parsed.meta["outcome"] == "ok" and path.read_bytes() == b"RFA"
+    backups = list(setup.out.glob("*.amb-backup"))
+    assert len(backups) == 1 and backups[0].read_bytes() == b"original family bytes"
+    assert any("BACKUP_NOT_REMOVED" in message and str(backups[0]) in message for message in parsed.infos)
+
+
 def test_abort_rolls_back_the_project_and_removes_files_written_by_the_call(setup):
     setup.app.refuse_flow = True            # PANEL (no flow) works, HEAT then fails on its flow direction
     before = list(setup.doc.elements)

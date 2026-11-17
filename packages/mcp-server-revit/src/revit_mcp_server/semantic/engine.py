@@ -191,9 +191,11 @@ def _store_snapshot_file(workspace: Any, snapshot_id: str, source_path: Any) -> 
     import shutil
     from pathlib import Path
 
+    from revit_mcp_server.security.safe_paths import snapshot_file
+
     snapshots_dir = workspace.allowed_directories[0] / "snapshots"
+    target = snapshot_file(snapshots_dir, snapshot_id)  # refuse a hostile id before touching the disk
     snapshots_dir.mkdir(parents=True, exist_ok=True)
-    target = snapshots_dir / f"{snapshot_id}.json"
     if source_path and Path(source_path).resolve() != target.resolve() and not target.exists():
         shutil.copyfile(source_path, target)
 
