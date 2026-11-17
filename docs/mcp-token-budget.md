@@ -49,21 +49,21 @@ Catalogue cost of the new options (same method as above, mock mode): full 79,765
 
 ## Follow-up: the `core` profile and a family map (2026-11-16)
 
-Clients that load every tool pay for the whole catalogue on each session. Anthropic guidance says tool selection degrades past roughly 30-50 tools and that tool search pays off above about 10k tokens of definitions. `MCP_REVIT_TOOL_PROFILE=core` is a built-in profile that lists tools by name (not by provider or module ID) and keeps only the BIM-coordinator loop. The five approval tools stay visible in every profile, so core exposes 51 tools. Hidden tools are not listed and are refused at dispatch, in plan and job targets too, with a message that names `MCP_REVIT_TOOL_PROFILE=daily or full`.
+Clients that load every tool pay for the whole catalogue on each session. Anthropic guidance says tool selection degrades past roughly 30-50 tools and that tool search pays off above about 10k tokens of definitions. `MCP_REVIT_TOOL_PROFILE=core` is a built-in profile that lists tools by name (not by provider or module ID) and keeps only the BIM-coordinator loop. The five approval tools stay visible in every profile, so core exposes 54 tools. Hidden tools are not listed and are refused at dispatch, in plan and job targets too, with a message that names `MCP_REVIT_TOOL_PROFILE=daily or full`.
 
-Same method as above (mock mode, `scripts/measure_mcp_tokens.py`, chars / 4, over `list_tools`; `--profile core` is new). Re-measured on 2026-11-16 after rebasing onto main 1.5.0 (compact reads, paging and size cap are in the tree); the catalogue totals match the paging row above to the token, because those changes add no tool text beyond it and the core profile only filters:
+Same method as above (mock mode, `scripts/measure_mcp_tokens.py`, chars / 4, over `list_tools`; `--profile core` is new). Re-measured on 2026-11-17 after including the three live reads required by the links and worksets audit on main 1.5.0 (compact reads, paging and size cap are in the tree); the catalogue totals match the paging row above to the token, because those changes add no tool text beyond it and the core profile only filters:
 
 | Profile | Tools | ~Tokens before | ~Tokens after |
 | --- | ---: | ---: | ---: |
 | `full` | 302 | 80,191 | 80,191 |
 | `daily` | 231 | 62,225 | 62,225 |
-| `core` | 51 | not available | 13,924 |
+| `core` | 54 | not available | 14,151 |
 
-Core is 83% smaller than full and 78% smaller than daily. It is still above 10k tokens, mostly the five approval tools (about 1,000), `revit_set_parameters`/`revit_get_parameters` (about 1,760) and the audits. Full and daily are unchanged, so no existing setup changes.
+Core is 82% smaller than full and 77% smaller than daily. It is still above 10k tokens, mostly the five approval tools (about 1,000), `revit_set_parameters`/`revit_get_parameters` (about 1,760) and the audits. Full and daily are unchanged, so no existing setup changes.
 
-The family map is three lines in `SERVER_INSTRUCTIONS` (447 characters, about 112 tokens, sent once at initialisation, not part of the tool list). It names the prefixes and says a tool missing from the list is hidden by the startup profile and how to reach it (switch profile and restart). Instructions total 1,379 characters (about 345 tokens); the approval and Dev mode sentences are byte-for-byte unchanged and a test pins them. Core plus map is about 14,036 tokens.
+The family map is three lines in `SERVER_INSTRUCTIONS` (447 characters, about 112 tokens, sent once at initialisation, not part of the tool list). It names the prefixes and says a tool missing from the list is hidden by the startup profile and how to reach it (switch profile and restart). Instructions total 1,379 characters (about 345 tokens); the approval and Dev mode sentences are byte-for-byte unchanged and a test pins them. Core plus map is about 14,263 tokens.
 
-What core keeps, and why (46 tools plus the approval tools):
+What core keeps, and why (49 tools plus the approval tools):
 
 | Family | Tools | Why |
 | --- | ---: | --- |
@@ -73,7 +73,7 @@ What core keeps, and why (46 tools plus the approval tools):
 | QA checks and issues | 5 | `qaqc_checker_run_check`, `list_issues`, `resolve_issue`, `list_rules`, `list_rule_packs`: the issue loop (pack import/export/validate stay hidden) |
 | Review and checks | 4 | `revit_review`, `revit_warnings_delta`, `revit_check_levels_grids`, `revit_system_report`: composite read-only verdicts |
 | Module audits | 7 | naming, doors and rooms, sheets and views, warnings triage, model bloat, links and worksets, `revit_cleanup_audit`: the routine coordinator audits |
-| Element and project reads | 8 | list/inspect elements, element parameters, geometry, levels, views, families, categories |
+| Element and project reads | 11 | list/inspect elements, element parameters, geometry, levels, views, families, categories, Revit links, link instances and worksets |
 | Warnings and documents | 2 | `revit_get_warnings`, `revit_list_views_sheets_schedules` |
 | Model inspector | 2 | summarize a model, inspect the selection |
 | Parameters | 3 | `revit_get_parameters`, `revit_set_parameters` (the approved write path), `parameter_manager_filter_params` |

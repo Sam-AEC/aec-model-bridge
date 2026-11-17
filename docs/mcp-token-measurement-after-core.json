@@ -1,6 +1,6 @@
 {
-  "captured_at_utc": "2026-11-16T09:48:58.312434+00:00",
-  "git_head": "5373615b467c47b3fd1bf7a9fcade685329df87e",
+  "captured_at_utc": "2026-11-17T07:44:11.205966+00:00",
+  "git_head": "1254ec2aaefd6485fdc5fa895bb823babc76e015",
   "method": {
     "entrypoints": [
       "mcp_server.list_tools",
@@ -19,31 +19,31 @@
     "token_estimate": "characters / 4; not actual model tokenizer or client context billing",
     "live_results_limit": "Mock returns tiny canned payloads; these cannot establish live Revit result sizes."
   },
-  "tool_count": 51,
+  "tool_count": 54,
   "human_only_not_listed": [
     "approve_plan",
     "reject_plan",
     "rollback_plan"
   ],
   "catalogue": {
-    "chars": 55695,
-    "utf8_bytes": 55695,
-    "approx_tokens_chars_div_4": 13923.75
+    "chars": 56603,
+    "utf8_bytes": 56603,
+    "approx_tokens_chars_div_4": 14150.75
   },
   "raw_catalogue": {
-    "chars": 38342,
-    "utf8_bytes": 38342,
-    "approx_tokens_chars_div_4": 9585.5
+    "chars": 38681,
+    "utf8_bytes": 38681,
+    "approx_tokens_chars_div_4": 9670.25
   },
   "metadata_delta": {
-    "chars": 17353,
-    "utf8_bytes": 17353,
-    "approx_tokens_chars_div_4": 4338.25
+    "chars": 17922,
+    "utf8_bytes": 17922,
+    "approx_tokens_chars_div_4": 4480.5
   },
   "names_only_json": {
-    "chars": 1220,
-    "utf8_bytes": 1220,
-    "approx_tokens_chars_div_4": 305.0
+    "chars": 1290,
+    "utf8_bytes": 1290,
+    "approx_tokens_chars_div_4": 322.5
   },
   "by_provider": {
     "approval": {
@@ -65,10 +65,10 @@
       "approx_tokens_chars_div_4": 8679.0
     },
     "revit": {
-      "tools": 17,
-      "chars": 13815,
-      "utf8_bytes": 13815,
-      "approx_tokens_chars_div_4": 3453.75
+      "tools": 20,
+      "chars": 14723,
+      "utf8_bytes": 14723,
+      "approx_tokens_chars_div_4": 3680.75
     },
     "semantic": {
       "tools": 3,
@@ -635,6 +635,51 @@
         "chars": 205,
         "utf8_bytes": 205,
         "approx_tokens_chars_div_4": 51.25
+      }
+    },
+    {
+      "name": "revit_get_worksets",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 300,
+        "utf8_bytes": 300,
+        "approx_tokens_chars_div_4": 75.0
+      },
+      "input_schema": {
+        "chars": 33,
+        "utf8_bytes": 33,
+        "approx_tokens_chars_div_4": 8.25
+      }
+    },
+    {
+      "name": "revit_get_rvt_links",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 294,
+        "utf8_bytes": 294,
+        "approx_tokens_chars_div_4": 73.5
+      },
+      "input_schema": {
+        "chars": 33,
+        "utf8_bytes": 33,
+        "approx_tokens_chars_div_4": 8.25
+      }
+    },
+    {
+      "name": "revit_get_link_instances",
+      "provider": "revit",
+      "module": null,
+      "tool": {
+        "chars": 311,
+        "utf8_bytes": 311,
+        "approx_tokens_chars_div_4": 77.75
+      },
+      "input_schema": {
+        "chars": 33,
+        "utf8_bytes": 33,
+        "approx_tokens_chars_div_4": 8.25
       }
     },
     {
@@ -1237,7 +1282,7 @@
         "content": [
           {
             "type": "text",
-            "text": "✓ revit_list_elements executed successfully\n\nResult:\n{\"tool\":\"revit.list_elements_by_category\",\"mock\":true,\"timestamp\":\"2026-11-16T09:48:58.365180+00:00\",\"payload\":{\"category\":\"Walls\"},\"result\":{\"status\":\"mock-response\"}}"
+            "text": "✓ revit_list_elements executed successfully\n\nResult:\n{\"tool\":\"revit.list_elements_by_category\",\"mock\":true,\"timestamp\":\"2026-11-17T07:44:11.281799+00:00\",\"payload\":{\"category\":\"Walls\"},\"result\":{\"status\":\"mock-response\"}}"
           }
         ],
         "isError": false
@@ -1272,7 +1317,7 @@
         "content": [
           {
             "type": "text",
-            "text": "✓ revit_list_families executed successfully\n\nResult:\n{\"tool\":\"revit.list_families\",\"mock\":true,\"timestamp\":\"2026-11-16T09:48:58.365180+00:00\",\"payload\":{},\"result\":{\"status\":\"mock-response\"}}"
+            "text": "✓ revit_list_families executed successfully\n\nResult:\n{\"tool\":\"revit.list_families\",\"mock\":true,\"timestamp\":\"2026-11-17T07:44:11.282818+00:00\",\"payload\":{},\"result\":{\"status\":\"mock-response\"}}"
           }
         ],
         "isError": false
@@ -1309,7 +1354,7 @@
         "content": [
           {
             "type": "text",
-            "text": "✓ revit_get_element_parameters executed successfully\n\nResult:\n{\"tool\":\"revit.get_element_parameters\",\"mock\":true,\"timestamp\":\"2026-11-16T09:48:58.366179+00:00\",\"payload\":{\"element_id\":123},\"result\":{\"status\":\"mock-response\"}}"
+            "text": "✓ revit_get_element_parameters executed successfully\n\nResult:\n{\"tool\":\"revit.get_element_parameters\",\"mock\":true,\"timestamp\":\"2026-11-17T07:44:11.283250+00:00\",\"payload\":{\"element_id\":123},\"result\":{\"status\":\"mock-response\"}}"
           }
         ],
         "isError": false

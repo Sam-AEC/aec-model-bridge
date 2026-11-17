@@ -20,7 +20,7 @@ DAILY_EXCLUDE = (
     "clash_triage*", "ifc*", "revit_ifc*",
 )
 
-# The `core` profile: the BIM-coordinator loop in 46 tools (plus the always-visible
+# The `core` profile: the BIM-coordinator loop in 49 tools (plus the always-visible
 # approval tools). Matches tool names, not provider/module IDs. Families: see
 # docs/mcp-token-budget.md.
 CORE_TOOLS = (
@@ -33,6 +33,7 @@ CORE_TOOLS = (
     "naming_checker_check_names", "schedule_consistency_check_doors_and_rooms",
     "sheet_view_audit_run_audit", "warnings_triage_review_warnings", "model_bloat_audit",
     "links_worksets_audit_audit", "revit_cleanup_audit",
+    "revit_get_rvt_links", "revit_get_link_instances", "revit_get_worksets",
     "revit_list_elements", "revit_inspect_elements", "revit_get_element_parameters",
     "revit_get_element_geometry", "revit_list_levels", "revit_list_views", "revit_list_families",
     "revit_get_categories", "revit_get_warnings", "revit_list_views_sheets_schedules",

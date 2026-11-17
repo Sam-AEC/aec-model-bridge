@@ -309,11 +309,11 @@ def test_approval_provider_is_allowed_even_for_a_hand_built_excluding_profile():
 
 # ---- core profile: a short allowlist of tool names -----------------------------------
 
-CORE_COUNT = 51  # CORE_TOOLS (46) + the five always-visible approval tools
+CORE_COUNT = 54  # CORE_TOOLS (49) + the five always-visible approval tools
 
 
 def test_core_list_is_pinned_and_names_each_tool_once():
-    assert len(CORE_TOOLS) == 46 and len(set(CORE_TOOLS)) == 46
+    assert len(CORE_TOOLS) == 49 and len(set(CORE_TOOLS)) == 49
     assert not APPROVAL_TOOLS & set(CORE_TOOLS)  # approval tools come from the provider rule
 
 
@@ -352,6 +352,33 @@ def test_core_via_mcp_list_tools_and_call_tool(tmp_path, monkeypatch):
     assert len(asyncio.run(mcp_server.list_tools())) == CORE_COUNT
     out = asyncio.run(mcp_server.call_tool("revit_create_wall", {}))
     assert out.isError and out.structuredContent["error"]["kind"] == "tool_profile_blocked"
+
+
+def test_core_links_worksets_audit_reads_its_live_dependencies(tmp_path, monkeypatch):
+    registry, approval, *_ = build_registry(WorkspaceMonitor([tmp_path]))
+    replies = {
+        "revit_get_rvt_links": {"links": [
+            {"id": 1, "name": "Structure.rvt", "is_loaded": False, "path": "RSN://server/Structure.rvt"}
+        ]},
+        "revit_get_link_instances": {"instances": []},
+        "revit_get_worksets": {"is_workshared": True, "worksets": [{"id": 1, "name": "Workset1"}]},
+    }
+    calls = []
+
+    async def read_tool(name, arguments):
+        calls.append(name)
+        return replies[name]
+
+    monkeypatch.setattr(registry.get_provider("revit"), "execute_tool", read_tool)
+    registry.freeze_tool_profile(load_tool_profile({"MCP_REVIT_TOOL_PROFILE": "core"}))
+    result = asyncio.run(run_gated_tool(registry, approval.gate, "links_worksets_audit_audit", {}))
+
+    assert calls == list(replies)
+    assert result["source"] == "live_revit"
+    assert result["links_checked"] == 1
+    assert result["worksets_checked"] == 1
+    assert {finding["rule"] for finding in result["findings"]} == {"link_unloaded", "workset_default_name"}
+    assert not any("Could not read" in note for note in result["notes"])
 
 
 def test_core_file_can_narrow_but_never_hide_approval(tmp_path):

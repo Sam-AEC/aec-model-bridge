@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- New `core` tool profile (`MCP_REVIT_TOOL_PROFILE=core`): 51 tools (46 for the BIM-coordinator loop plus the five approval tools), about 14k catalogue tokens against about 80k for `full` and 62k for `daily`. Tools outside it are not listed and are refused with a message that says to switch to `daily` or `full` and restart. `full` and `daily` are unchanged.
+- New `core` tool profile (`MCP_REVIT_TOOL_PROFILE=core`): 54 tools (49 for the BIM-coordinator loop plus the five approval tools), about 14k catalogue tokens against about 80k for `full` and 62k for `daily`. Tools outside it are not listed and are refused with a message that says to switch to `daily` or `full` and restart. `full` and `daily` are unchanged.
 - The server instructions end with a three-line tool-family map (prefixes, and how to reach hidden families by switching profile), about 110 tokens. The approval and Dev mode wording is unchanged.
 
 ## 1.5.0 - 2026-11-16
