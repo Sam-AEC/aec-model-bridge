@@ -26,7 +26,7 @@ def test_snapshot_id_cannot_escape_workspace(outside, workspace_cls):
     pm = ParameterManagerModule()
     ws = workspace_cls(work)
     (work / "snapshots").mkdir()
-    with pytest.raises(Exception, match="outside the allowed workspace"):
+    with pytest.raises(Exception, match="plain snapshot name"):
         pm.plan_set_params(
             element_filter={}, param_updates={"Mark": "1"},
             snapshot_id="../../outside/secret", workspace=ws,
@@ -63,7 +63,7 @@ def test_symlink_inside_workspace_cannot_escape(outside):
     (work / "snapshots").mkdir()
     (work / "snapshots" / "link.json").symlink_to(secret / "secret.json")
     pm = ParameterManagerModule()
-    with pytest.raises(Exception, match="outside the allowed workspace"):
+    with pytest.raises(Exception, match="plain snapshot name"):
         pm.plan_set_params(
             element_filter={}, param_updates={"Mark": "1"},
             snapshot_id="link", workspace=MockWorkspace(work),

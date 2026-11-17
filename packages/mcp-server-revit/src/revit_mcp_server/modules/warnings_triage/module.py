@@ -76,10 +76,9 @@ def _classify(description: str) -> Tuple[str, str, str, bool]:
 
 
 def _load_snapshot(snapshot_id: str, workspace: Any) -> Dict[str, Any]:
-    snap_dir = (Path(workspace.allowed_directories[0]) / "snapshots").resolve()
-    path = (snap_dir / f"{snapshot_id}.json").resolve()
-    if path.parent != snap_dir:
-        raise ValueError("snapshot_id must be a plain snapshot name inside the workspace snapshots folder.")
+    from revit_mcp_server.security.safe_paths import snapshot_file
+
+    path = snapshot_file(Path(workspace.allowed_directories[0]) / "snapshots", snapshot_id)
     if not path.exists():
         raise ValueError(f"Snapshot '{snapshot_id}' not found.")
     with open(path, "r", encoding="utf-8") as f:
