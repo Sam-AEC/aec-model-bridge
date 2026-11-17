@@ -4897,6 +4897,16 @@ public static partial class BridgeCommandFactory
         }
     }
 
+    private static object SnapshotParameterValue(Parameter parameter)
+        => parameter.StorageType switch
+        {
+            StorageType.Integer => parameter.AsInteger(),
+            StorageType.Double => parameter.AsDouble(),
+            StorageType.String => parameter.AsString() ?? string.Empty,
+            StorageType.ElementId => parameter.AsElementId().Value.ToString(),
+            _ => string.Empty
+        };
+
     private static void AddSnapshotNameAliases(Element elem, Dictionary<string, object> parameters)
     {
         foreach (var key in new[]
@@ -4985,10 +4995,7 @@ public static partial class BridgeCommandFactory
                     try
                     {
                         if (!param.HasValue) continue;
-                        if (param.StorageType == StorageType.String)
-                            sheetParams[param.Definition.Name] = new { v = param.AsString() ?? string.Empty };
-                        else if (param.StorageType == StorageType.Integer)
-                            sheetParams[param.Definition.Name] = new { v = param.AsInteger() };
+                        sheetParams[param.Definition.Name] = new { v = SnapshotParameterValue(param) };
                     }
                     catch { }
                 }
@@ -5104,14 +5111,7 @@ public static partial class BridgeCommandFactory
                 if (!param.HasValue) continue;
                 if (IsHeavySnapshotParameter(elem, param)) { skippedHeavy++; continue; }
 
-                object val = param.StorageType switch
-                {
-                    StorageType.Integer => param.AsInteger(),
-                    StorageType.Double => param.AsDouble(),
-                    StorageType.String => param.AsString() ?? string.Empty,
-                    StorageType.ElementId => param.AsElementId().Value.ToString(),
-                    _ => string.Empty
-                };
+                object val = SnapshotParameterValue(param);
 
                 paramsDict[param.Definition.Name] = new
                 {
