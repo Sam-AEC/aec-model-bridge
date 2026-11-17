@@ -6,6 +6,8 @@ The checkout exposes **302** tools rather than the estimated 298. Sizes use SDK 
 
 ## Initial profile and response pass
 
+*Dated: the 2026-11-05 measurements, before the 2026-11-16 metadata trims and compact reads; the follow-up sections below supersede these numbers.*
+
 | Payload | Before characters | After characters | Before ~tokens | After ~tokens |
 | --- | ---: | ---: | ---: | ---: |
 | Full catalogue (302 tools) | 358,133 | 330,418 | 89,533 | 82,605 |
@@ -48,6 +50,8 @@ This changes what a read answer costs, not what the catalogue costs. The first p
 Catalogue cost of the new options (same method as above, mock mode): full 79,765 to 80,191 ~tokens (+0.5%), daily 61,799 to 62,225 (+0.7%); tool counts unchanged (302 and 231). The response savings above are separate from these totals and depend on what a live model returns.
 
 ## What dominates?
+
+*Dated: 2026-11-05. The `module_list_commands` size below is from before the 2026-11-16 trims; see the follow-up sections above.*
 
 Names-only JSON costs 7,538 characters (~1,885 tokens), versus 358,133 characters (~89,533 tokens) for the full schemas. Metadata originally adds 132,722 UTF-8 bytes (~33,181 tokens) over raw provider Tool definitions.
 
@@ -165,8 +169,10 @@ Profiles select provider/manifest IDs, including aliased commands. Native duct/p
 
 ## Validation
 
+*Dated: the 2026-11-05 implementation run.*
+
 Initial implementation package suite: **2,747 passed, 150 skipped** in 190.28 seconds using
-`C:/Users/samo3/.aec-tools/venv/Scripts/python.exe`. The two wheel-build tests
+`<venv>/Scripts/python.exe`. The two wheel-build tests
 skip because `build` is not installed; browser, live-Revit and platform-specific
 checks account for the other skips. No live Revit writes were performed.
 Ruff passes on all changed Python files; `git diff --check` passes.
@@ -182,10 +188,10 @@ Python files pass Ruff. Independent review found no remaining concrete defects.
 ## Reproduce
 
 ```powershell
-& C:/Users/samo3/.aec-tools/venv/Scripts/python.exe scripts/measure_mcp_tokens.py --profile full --output docs/mcp-token-measurement-after-full.json
-& C:/Users/samo3/.aec-tools/venv/Scripts/python.exe scripts/measure_mcp_tokens.py --profile full --compact-read-results --project-module-commands --output docs/mcp-token-measurement-after-compact.json
-& C:/Users/samo3/.aec-tools/venv/Scripts/python.exe scripts/measure_mcp_tokens.py --profile daily --compact-read-results --project-module-commands --output docs/mcp-token-measurement-after-daily.json
-& C:/Users/samo3/.aec-tools/venv/Scripts/python.exe scripts/measure_mcp_tokens.py --profile daily --compact-read-results --plan-script-chars 16384 --omit-plan-arguments --output docs/mcp-token-measurement-plan-script-after.json
+& <venv>/Scripts/python.exe scripts/measure_mcp_tokens.py --profile full --output docs/mcp-token-measurement-after-full.json
+& <venv>/Scripts/python.exe scripts/measure_mcp_tokens.py --profile full --compact-read-results --project-module-commands --output docs/mcp-token-measurement-after-compact.json
+& <venv>/Scripts/python.exe scripts/measure_mcp_tokens.py --profile daily --compact-read-results --project-module-commands --output docs/mcp-token-measurement-after-daily.json
+& <venv>/Scripts/python.exe scripts/measure_mcp_tokens.py --profile daily --compact-read-results --plan-script-chars 16384 --omit-plan-arguments --output docs/mcp-token-measurement-plan-script-after.json
 ```
 
 To reproduce the original baseline, run the initial measurement script against the original source commit. Do not overwrite the preserved before artifact. Optional `--profile-file` accepts a custom include/exclude file. Each run records its Git HEAD and settings; after snapshots were captured on the working tree during implementation.
