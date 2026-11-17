@@ -1,8 +1,10 @@
 # Roadmap and product design
 
-Prepared 2026-11-16 for AEC Model Bridge 1.5.0. This page replaces the adoption roadmap of 2026-10-09 and is the one place for product direction, architecture decisions, milestones and the design system. The old priorities 0 to 4 are kept and mapped to milestones in [section 6](#6-milestones).
+Prepared 2026-11-16 for AEC Model Bridge 1.5.0. This draft replaces the adoption roadmap of 2026-10-09 and collects proposed product direction, milestones and the design system. Accepted architecture decisions remain in the ADRs. The old priorities 0 to 4 are kept and mapped to milestones in [section 6](#6-milestones).
 
 These are plans and findings. They are not claims about shipped behaviour unless tagged as verified.
+
+**Development integration update, 2026-11-17.** The measurements and source observations below retain their original `d7a18f6` baseline; words such as "open", "today" and "not merged" describe that dated investigation. They are not a current inventory of `dev` or evidence of a new release. The reviewed heads prepared for development integration are QA handover [#138](https://github.com/Sam-AEC/aec-model-bridge/pull/138) (`216507e`), approval expiry and server-side document binding [#139](https://github.com/Sam-AEC/aec-model-bridge/pull/139) (`5eea8be`), and the core tool profile [#140](https://github.com/Sam-AEC/aec-model-bridge/pull/140) (`aac7b00`, 54 tools). Check the target branch's history for their merge status before starting a ticket. Their automated checks do not establish live Revit acceptance. In particular, ticket 1's add-in-side enforcement and version-skew handshake remain proposals; server-side binding is not that handshake. Do not reimplement the completed portions of those PRs. The linked design prototype remains a standalone simulation.
 
 **How to read the tags**
 
@@ -185,7 +187,7 @@ The model is the [canonical fixture](../fixtures/canonical-model/README.md): 60 
 | 8. Stale plan | Before approval and before each change, the plan's document and recorded before-values are compared with the model. A mismatch refuses, consumes nothing and asks for a new preview. | Document: PR #139 [U]. Before-value drift at execution: **not implemented** [V: [ADR 0017](0017-approval-document-binding-and-expiry.md), "tracked separately"]. Ticket 3. |
 | 9. Apply | `execute_plan` runs each action once, in its own Revit transaction. | Mock [V]. Live [U]. |
 | 10. Cancellation | Cancel stops actions that have not started. The action Revit is writing finishes. A cancelled job keeps its approved action consumed. The pane says "cancel requested" until the add-in confirms, then shows how many doors were written. | Job cancel sets the status to `cancelled` at once while Revit may still be running the action [V: `jobs.py` lines 343, 344]. Two-phase status and the live cancel check are in M1. |
-| 11. Partial failure | A failed action is recorded and never reopened. The plan stays `approved`, not `executed`. A retry is a new plan with a new approval. | [V: `approval_provider.py`, `_execute_plan` docstring and code]. |
+| 11. Partial failure | A failed action is recorded and never reopened. A completed batch with failures becomes `partial`, not `executed`. An unfinished direct-call plan can remain `approved` until its remaining actions settle; expired plans cannot start new actions. A retry is a new plan with a new approval. | [V: `approval_provider.py`, `_execute_plan`, and `security/approval.py`, `finish_action`; the historical provider docstring's `approved` wording is stale]. |
 | 12. Rollback limits | Three routes, in order: Revit Undo (one entry per door, this session only); a revert plan (`plan_revert`, needs approval); restore the file. After ticket 3 a revert plan covers exactly the actions that were executed, also for a partly applied or cancelled plan. | Today `plan_revert` refuses any plan whose outcome is not `success` and any element without a recorded before value [V: `approval_provider.py` lines 352, 365; `proof.py:412`]. **So a half-cancelled or partly failed batch cannot be reverted at all, and neither can values that were empty.** |
 | 13. Final audit | Proof record: plan hash, approver account, document, each element with before and new value, skipped, outcome. A fresh snapshot and QA run: `door_missing_mark` 12 to 2, `room_missing_number` 3 to 3. | Proof record produced in mock [V]. It states that values were not re-read [V]. Fresh-read verification is ticket 3 and M1. |
 
@@ -429,8 +431,12 @@ $panelToken = (Get-Content "$env:LOCALAPPDATA\AECModelBridge\panel-hub.token" -R
 Invoke-RestMethod "http://127.0.0.1:8787/diagnostics" -Headers @{ "X-AMB-Token" = $panelToken }
 #    Expect ok = True, approval_mode = ask_first, every check ok.
 
-# 5. Build the fixture in the open Revit, then run the read-only end-to-end tests
+# 5. LIVE WRITES: generate a new disposable fixture (the generator calls the bridge directly).
+#    First inspect its planned calls without modifying a model:
+python scripts\revit\generate_canonical_test_model.py --dry-run
+#    Only on the explicitly chosen scratch-model test machine, run the generator:
 python scripts\revit\generate_canonical_test_model.py
+#    Then run the read-only end-to-end tests:
 $env:AEC_MODEL_BRIDGE_E2E = '1'
 python -m pytest packages\mcp-server-revit\tests\e2e -m e2e
 
@@ -444,7 +450,7 @@ aec-model-bridge-approve show <plan_id>
 aec-model-bridge-approve approve <plan_id>      # type the plan id when asked; do not pass --yes
 ```
 
-Step 7 is the first live write. Treat it as a test in its own right, on a throw-away copy.
+Step 5 creates model content and saves the fixture through direct bridge calls; it is already a live write, outside the plan/approve demonstration. Step 7 tests the separate approval flow on a throw-away copy. Both need explicit scratch-model authorization and must never target a production model.
 
 ## 9. Metrics
 

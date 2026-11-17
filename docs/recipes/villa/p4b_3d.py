@@ -1,4 +1,6 @@
-IMG = r"<scratch-dir>\img\v2"  # set to your own image folder
+import System
+IMG = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AECModelBridge", "img", "villa")
+System.IO.Directory.CreateDirectory(IMG)
 def vname(v): return v.get_Parameter(BuiltInParameter.VIEW_NAME).AsString()
 v3 = [v for v in FilteredElementCollector(doc).OfClass(View3D) if not v.IsTemplate and vname(v) == "AMB_3D Villa"][0]
 def fit():

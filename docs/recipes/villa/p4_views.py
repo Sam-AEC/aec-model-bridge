@@ -1,5 +1,7 @@
 # Phase 4: plans, 3D view, section; then export PNGs so the result can be inspected by eye.
-IMG = r"<scratch-dir>\img\v2"  # set to your own image folder
+import System
+IMG = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AECModelBridge", "img", "villa")
+System.IO.Directory.CreateDirectory(IMG)
 L0, L1, L2 = level_named("00 begane grond"), level_named("AMB_01 First Floor"), level_named("AMB_02 Roof")
 def vft(family):
     for t in FilteredElementCollector(doc).OfClass(ViewFamilyType):
