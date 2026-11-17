@@ -2,7 +2,7 @@
 # 3D views are boxed around villa 2 so villa 1 and the rest of the project stay out of the picture.
 import System
 BOX = (-14.0, -12.0, -2.0, 14.0, 14.0, 12.0)         # local metres min x,y,z / max x,y,z
-OUTDIR = r"C:\Users\samo3\Documents\AEC Model Bridge\villa2-review"
+OUTDIR = System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments), "AEC Model Bridge", "villa2-review")
 
 def vname(v): return v.get_Parameter(BuiltInParameter.VIEW_NAME).AsString()
 def find_view(name):

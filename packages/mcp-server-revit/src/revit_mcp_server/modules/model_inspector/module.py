@@ -34,7 +34,9 @@ def _queries_file(workspace: Any) -> Path:
     return workspace.allowed_directories[0] / SAVED_QUERIES_FILE
 
 def _load_snapshot(snapshot_id: str, workspace: Any) -> Dict[str, Any]:
-    path = _snapshots_dir(workspace) / f"{snapshot_id}.json"
+    from revit_mcp_server.security.safe_paths import snapshot_file
+
+    path = snapshot_file(_snapshots_dir(workspace), snapshot_id)
     if not path.exists():
         raise ValueError(f"Snapshot '{snapshot_id}' not found.")
     with open(path, "r", encoding="utf-8") as f:

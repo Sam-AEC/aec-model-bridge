@@ -5,6 +5,7 @@ rollback, dry run) and the line protocol. It does NOT prove that Revit accepts t
 """
 from __future__ import annotations
 
+import json
 import math
 import sys
 from pathlib import Path
@@ -148,6 +149,40 @@ def test_the_revert_list_puts_the_old_values_back(env):
     assert after["Mark"] == before["Mark"] and after["Room Bounding"] == before["Room Bounding"]
     assert after["Structural Material"] == before["Structural Material"]
     assert after["Unconnected Height"] == pytest.approx(before["Unconnected Height"])
+
+
+@pytest.mark.parametrize("old,new", [
+    ("line1\nline2\tlast", "updated\r\nnext\ttab"),
+    ("  spaced\rreturn  ", " trimmed? "),
+    ("Gevel \u00e9 \u4e2d\u6587 \u0645\u0631\u062d\u0628\u0627 \U0001f3d7", "\U0001f3e0 \u2713"),
+    ("", "was empty"),
+    (r'\n\t\r\u2028\\"old_raw_json=null', r'"\u000a\t\\'),
+    ("vertical\vform\ffile\x1cgroup\x1drecord\x1enext\x85line\u2028paragraph\u2029", "new\u2028line"),
+    ("\x00" + "".join(chr(c) for c in range(1, 32)) + "\x7f", "new control text"),
+    ("\u2028ROW\trow_type=item\tid=999\tparam=Mark\tstatus=set\told_raw_json=null\nCOUNT\tfail\t99",
+     "\x1eMETA\toutcome\trolled_back\nROW\tid=999"),
+])
+def test_text_revert_preserves_exact_raw_values(env, old, new):
+    wall = env.s["w0"]
+    wall.GetParameters("Mark")[0].value = old
+    result = env.set(items=[{"id": wall.Id.Value, "params": {"Mark": new}}])
+    assert result["ok"] is True, result
+    assert len(rows_of(result)) == 1 and result["changed_ids"] == [wall.Id.Value]
+    row = rows_of(result, "set")[0]
+    assert json.loads(row["old_raw_json"]) == old
+    assert json.loads(row["new_raw_json"]) == new
+    assert row["old_raw_json"].isascii() and row["new_raw_json"].isascii()
+    assert result["revert"]["items"][0]["params"]["Mark"]["value"] == old
+    # Exercise the serialized result, parser, and second script, not just the encoder.
+    back = env.set(items=json.loads(json.dumps(result))["revert"]["items"])
+    assert back["ok"] is True, back
+    # py2_literal uses surrogate pairs for IronPython/.NET; CPython's stub keeps
+    # those as two code points. Compare the exact .NET text representation too.
+    restored = env.value(wall, "Mark")
+    assert restored.encode("utf-16-le", "surrogatepass") == old.encode("utf-16-le", "surrogatepass")
+    assert json.loads(rows_of(back, "set")[0]["new_raw_json"]) == old
+    if all(ord(ch) <= 65535 for ch in old):
+        assert restored == old
 
 
 def test_a_selector_with_category_level_and_tag(env):

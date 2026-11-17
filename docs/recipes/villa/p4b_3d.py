@@ -1,4 +1,6 @@
-IMG = r"C:\Users\samo3\AppData\Local\Temp\claude\c--Users-samo3-OneDrive---Heijmans-N-V-Documenten-GitHub-aec-model-bridge\0ba13d00-c907-48cb-84f8-fb5a8038d60c\scratchpad\img\v2"
+import System
+IMG = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AECModelBridge", "img", "villa")
+System.IO.Directory.CreateDirectory(IMG)
 def vname(v): return v.get_Parameter(BuiltInParameter.VIEW_NAME).AsString()
 v3 = [v for v in FilteredElementCollector(doc).OfClass(View3D) if not v.IsTemplate and vname(v) == "AMB_3D Villa"][0]
 def fit():

@@ -120,6 +120,24 @@ def _is_mock(raw: Any) -> bool:
     return False
 
 
+def _is_running(raw: Any) -> bool:
+    return isinstance(raw, dict) and raw.get("status") == "running" and bool(raw.get("request_id"))
+
+
+def _running(tool: str, raw: Dict[str, Any]) -> Dict[str, Any]:
+    """Keep the durable request handle before attempting to parse script output."""
+    return {
+        "tool": tool,
+        "status": "running",
+        "request_id": raw["request_id"],
+        "verified": False,
+        "summary": "Revit is still working on this read-only check; its outcome is not known yet.",
+        "message": raw.get("message") or "Call revit_get_result with this request_id to collect the output.",
+        "hint": "Call revit_get_result with this request_id until it completes before submitting more checks. Do not resubmit the running check.",
+        "changed_ids": [],
+    }
+
+
 def _script_text(raw: Any) -> Tuple[Optional[str], str]:
     """Unwrap the add-in answer to ``(stdout text or None, error text)``."""
     if isinstance(raw, dict) and isinstance(raw.get("data"), dict) and "output" not in raw:
@@ -171,7 +189,7 @@ def _execute(
     script_args: Dict[str, Any],
     tool_executor: Optional[ToolExecutor],
 ) -> Tuple[Optional[ScriptOutput], int, Optional[Dict[str, Any]]]:
-    """Run one script. Returns ``(parsed, elapsed_ms, early_result)``; ``early_result`` is an error/mock contract."""
+    """Run one script. Returns ``(parsed, elapsed_ms, early_result)``; early results are error/mock/running contracts."""
     if _server_in_mock_mode():
         return None, 0, mock_result(tool)
     if tool_executor is None:
@@ -190,6 +208,8 @@ def _execute(
     elapsed = int((time.perf_counter() - started) * 1000)
     if _is_mock(raw):
         return None, elapsed, mock_result(tool)
+    if _is_running(raw):
+        return None, elapsed, _running(tool, raw)
     text, err = _script_text(raw)
     if text is None:
         return None, elapsed, error_result(
@@ -785,6 +805,9 @@ class RevitModule:
         revit_version: Optional[str] = None
         more_than_cap = False
         stop_reason = ""
+        pending: Optional[Dict[str, Any]] = None
+        pending_check = ""
+        remaining_checks: List[str] = []
 
         def run_one(name: str) -> Optional[Dict[str, Any]]:
             if name == "joins":
@@ -816,6 +839,8 @@ class RevitModule:
             if stop_reason:
                 entry.update(status="not_verified", summary=stop_reason)
                 not_verified.append(f"{name}: not run ({stop_reason})")
+                if pending is not None:
+                    remaining_checks.append(name)
                 continue
             if name in needs_scope and not (scope_tag or scope_ids):
                 entry.update(status="not_verified", summary="needs tag or ids")
@@ -834,6 +859,13 @@ class RevitModule:
             entry["elapsed_ms"] = int((time.perf_counter() - t0) * 1000)
             if r.get("mock"):
                 return mock_result(tool)
+            if _is_running(r):
+                pending = r
+                pending_check = name
+                entry.update(status="running", summary=r["summary"], verified=False, request_id=r["request_id"])
+                not_verified.append(f"{name}: still running (request_id={r['request_id']})")
+                stop_reason = f"waiting for running check {name}; collect request_id={r['request_id']} with revit_get_result"
+                continue
             if not r.get("ok"):
                 kind = str(r.get("kind") or "error")
                 message = str(r.get("message") or "")
@@ -915,6 +947,25 @@ class RevitModule:
             result["limits"]["fails_shown_per_check"] = cap
             if why:
                 result["limits"]["detail_file_error"] = why
+        if pending is not None:
+            result.pop("ok", None)  # The aggregate outcome is not complete yet.
+            result.update(
+                status="running",
+                request_id=pending["request_id"],
+                verified=False,
+                pending_check=pending_check,
+                remaining_checks=remaining_checks,
+                message=pending["message"],
+                hint=(
+                    "Call revit_get_result with this request_id until it completes; its output belongs to pending_check. "
+                    + (
+                        "Then run revit_review with checks=remaining_checks and the same scope/options for the checks not yet submitted. "
+                        if remaining_checks else "No further checks remain to submit. "
+                    )
+                    +
+                    "Do not resubmit the running check."
+                ),
+            )
         return result
 
     def warnings_delta(

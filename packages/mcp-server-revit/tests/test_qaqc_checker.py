@@ -1,5 +1,6 @@
 """Tests for Phase 10 — QA/QC Checker module (W7, W9)."""
 import importlib.util
+import json as _json
 import pytest
 from pathlib import Path
 from revit_mcp_server.semantic.engine import generate_mock_snapshot
@@ -409,3 +410,128 @@ def test_naming_check_reads_type_names_with_ename():
     source = (REPO_ROOT / "packages" / "mcp-server-revit" / "src" / "revit_mcp_server" / "modules" / "revit" / "scripts"
               / "check_naming_and_params.ipy").read_text(encoding="utf-8")
     assert "str(ename(el))" in source and "str(el.Name)" not in source
+
+
+# --- Issue 143: issues tied to a snapshot, stale detection ---
+
+def _write_snapshot(ws, snapshot_id, door_uids, doc_guid="doc-143", taken_at="2026-11-01T10:00:00Z"):
+    path = ws.allowed_directories[0] / "snapshots" / f"{snapshot_id}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = {
+        "snapshot_id": snapshot_id,
+        "taken_at": taken_at,
+        "source": {"doc_guid": doc_guid},
+        "elements": [{"uid": u, "category": "OST_Doors", "params": {}} for u in door_uids],
+        "types": [],
+    }
+    path.write_text(_json.dumps(data), encoding="utf-8")
+
+
+def _two_runs(module, workspace):
+    uids = [f"door-{i}" for i in range(10)]
+    _write_snapshot(workspace, "snap-a", uids, taken_at="2026-11-01T10:00:00Z")
+    _write_snapshot(workspace, "snap-b", uids[3:], taken_at="2026-11-02T10:00:00Z")
+    _write(workspace, "rule_packs/alpha.yaml", VALID_PACK)
+    module.run_check(snapshot_id="snap-a", rule_pack="alpha", workspace=workspace)
+    module.run_check(snapshot_id="snap-b", rule_pack="alpha", workspace=workspace)
+
+
+def test_issue_acceptance_run_b_fixes_three_findings(module, workspace):
+    _two_runs(module, workspace)
+    current = module.list_issues(doc_guid="doc-143", workspace=workspace)
+    assert current["total"] == 7
+    assert {i["element_uid"] for i in current["issues"]} == {f"door-{i}" for i in range(3, 10)}
+    assert all(i["stale"] is False and i["snapshot_id"] == "snap-b" for i in current["issues"])
+    everything = module.list_issues(doc_guid="doc-143", include_stale=True, workspace=workspace)
+    assert everything["total"] == 10
+    stale = [i for i in everything["issues"] if i["stale"]]
+    assert {i["element_uid"] for i in stale} == {"door-0", "door-1", "door-2"}
+    assert all(i["snapshot_id"] == "snap-a" and i["last_seen_at"] for i in stale)
+
+
+def test_list_issues_reports_latest_run_snapshot_and_capture_time(module, workspace):
+    _two_runs(module, workspace)
+    result = module.list_issues(doc_guid="doc-143", workspace=workspace)
+    assert result["latest_run"]["snapshot_id"] == "snap-b"
+    assert result["latest_run"]["captured_at"] == "2026-11-02T10:00:00Z"
+    assert result["latest_run"]["doc_guid"] == "doc-143"
+
+
+def test_list_issues_snapshot_id_filter(module, workspace):
+    _two_runs(module, workspace)
+    a = module.list_issues(doc_guid="doc-143", snapshot_id="snap-a", include_stale=True, workspace=workspace)
+    assert a["total"] == 3
+    b = module.list_issues(doc_guid="doc-143", snapshot_id="snap-b", workspace=workspace)
+    assert b["total"] == 7
+    # A stale-only snapshot is hidden unless include_stale is set.
+    assert module.list_issues(doc_guid="doc-143", snapshot_id="snap-a", workspace=workspace)["total"] == 0
+
+
+def test_explicit_resolved_or_orphaned_status_still_lists_fixed_rows(module, workspace):
+    _two_runs(module, workspace)
+    # The removed doors are gone from snap-b, so the run orphans them.
+    orphaned = module.list_issues(doc_guid="doc-143", status="orphaned", workspace=workspace)
+    assert orphaned["total"] == 3
+    assert all(i["stale"] for i in orphaned["issues"])
+
+
+def test_stale_is_tracked_per_document_and_pack(module, workspace):
+    _two_runs(module, workspace)
+    _write_snapshot(workspace, "snap-other", ["x-1", "x-2"], doc_guid="doc-other")
+    module.run_check(snapshot_id="snap-other", rule_pack="alpha", workspace=workspace)
+    # A run on another document must not make doc-143 issues stale.
+    assert module.list_issues(doc_guid="doc-143", workspace=workspace)["total"] == 7
+    assert module.list_issues(doc_guid="doc-other", workspace=workspace)["total"] == 2
+    # Another pack's run on the same document does not make alpha rows stale.
+    _write(workspace, "rule_packs/beta.yaml", VALID_PACK.replace("door_mark_missing", "beta_rule"))
+    module.run_check(snapshot_id="snap-b", rule_pack="beta", workspace=workspace)
+    alpha = module.list_issues(doc_guid="doc-143", include_stale=True, workspace=workspace)["issues"]
+    assert sum(1 for i in alpha if i["rule_pack"] == "alpha" and not i["stale"]) == 7
+
+
+def test_mock_run_without_snapshot_shows_unknown_snapshot(module, workspace):
+    module.run_check(workspace=workspace)
+    result = module.list_issues(workspace=workspace)
+    assert result["total"] >= 1
+    assert all(i["snapshot_id"] == "unknown" and i["stale"] is False for i in result["issues"])
+    assert result["latest_run"]["snapshot_id"] == "unknown"
+
+
+def test_database_from_1_5_0_opens_and_old_rows_show_unknown_snapshot(module, workspace):
+    import sqlite3
+
+    # Exact 1.5.0 schema: rule_pack present, no snapshot_id / last_seen_at.
+    conn = sqlite3.connect(workspace.allowed_directories[0] / "qaqc_issues.db")
+    conn.execute("""CREATE TABLE issues (
+        id TEXT PRIMARY KEY, doc_guid TEXT NOT NULL, rule_pack TEXT NOT NULL DEFAULT 'core',
+        rule_id TEXT NOT NULL, severity TEXT NOT NULL, element_uid TEXT, label TEXT,
+        message TEXT NOT NULL, fix_template TEXT, status TEXT NOT NULL DEFAULT 'open',
+        created_at TEXT NOT NULL, updated_at TEXT NOT NULL)""")
+    conn.execute("INSERT INTO issues VALUES ('old1', 'doc-143', 'alpha', 'door_mark_missing', 'warning', 'door-0', '', 'Old', '', 'open', 't', 't')")
+    conn.execute("INSERT INTO issues VALUES ('old2', 'doc-143', 'alpha', 'door_mark_missing', 'warning', 'door-9', '', 'Old', '', 'open', 't', 't')")
+    conn.commit()
+    conn.close()
+
+    before = module.list_issues(doc_guid="doc-143", workspace=workspace)
+    assert before["total"] == 2  # no run recorded yet: nothing can be called stale
+    assert all(i["snapshot_id"] == "unknown" and i["last_seen_at"] is None and i["stale"] is False for i in before["issues"])
+    assert before["latest_run"] is None
+
+    _write_snapshot(workspace, "snap-new", ["door-9"])
+    _write(workspace, "rule_packs/alpha.yaml", VALID_PACK)
+    module.run_check(snapshot_id="snap-new", rule_pack="alpha", workspace=workspace)
+    after = module.list_issues(doc_guid="doc-143", include_stale=True, workspace=workspace)
+    by_id = {i["id"]: i for i in after["issues"]}
+    assert by_id["old2"]["snapshot_id"] == "snap-new" and by_id["old2"]["stale"] is False
+    assert by_id["old1"]["snapshot_id"] == "unknown" and by_id["old1"]["stale"] is True
+    assert module.list_issues(doc_guid="doc-143", workspace=workspace)["total"] == 1
+
+
+def test_list_issues_schema_declares_snapshot_id_and_include_stale():
+    mod_json = _json.loads(
+        (Path(__file__).parent.parent / "src/revit_mcp_server/modules/qaqc_checker/module.json").read_text(encoding="utf-8")
+    )
+    cmd = next(c for c in mod_json["commands"] if c["id"] == "list_issues")
+    props = cmd["input_schema"]["properties"]
+    assert props["snapshot_id"]["type"] == "string"
+    assert props["include_stale"]["type"] == "boolean"

@@ -81,7 +81,7 @@ class Discipline:
 def discipline_model(monkeypatch, tmp_path, family=True, placement="WorkPlaneBased") -> Iterator[Discipline]:
     """A second stub world: the linked model as the active document (wall 101 where the host model's link has it)."""
     with ss.installed_sparing(monkeypatch) as world:
-        world.Title = "Linked_samo3"  # a workshared local copy: central title plus the user name
+        world.Title = "Linked_jdoe"  # a workshared local copy: central title plus the user name
         world.CreationGUID = "arc-central-guid"
         world.put(base.Level(11, "00 begane grond", 0.0))
         world.put(ss.SWall(101, (0, 5000, 0), (10000, 5000, 0), height=3000, width=300))
