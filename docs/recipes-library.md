@@ -2,7 +2,7 @@
 
 A recipe is a saved IronPython 2.7 script that runs through the same path as `revit_execute_python`. Save it once, run it by id with checked parameters. Module: `revit_recipes`. (The older YAML `recipe_runner` is a different thing and is unchanged.)
 
-Status: on the dev branch, not released. Nothing here has run against a live Revit (UNVERIFIED).
+Status: in 1.5.0. Nothing here has run against a live Revit (UNVERIFIED).
 
 ## Tools
 
