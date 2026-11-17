@@ -102,6 +102,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `pyrevit_bridge_list_pyrevit_scripts` | List pyRevit pushbutton scripts found in the directories named by MCP_REVIT_PYREVIT_EXTENSION_DIRS, with tab, panel, description and whether obvious write calls were detected. | No | sync |
 | `pyrevit_bridge_plan_run_pyrevit_script` | Create a draft ActionPlan for running one pyRevit script, showing its path, SHA-256 and detected write-call lines. | No | sync |
 | `pyrevit_bridge_run_pyrevit_script` | Run a pyRevit script inside Revit after its plan was approved and only if its SHA-256 still matches the plan. | Yes | sync |
+| `qa_handover_build_report` | Write a short hand-over report (JSON and Markdown in the workspace) of QA findings per rule, before/after re-check counts, approved parameter changes from plan proof bundles, and an explicit not-verified list; use this instead of qaqc_checker_run_check or model_changes_compare_snapshots when the result must be handed to someone else. | No | sync |
 | `qaqc_checker_export_rule_pack` | Copy a validated built-in or workspace rule pack to a YAML file inside the workspace so it can be shared. | No | sync |
 | `qaqc_checker_import_rule_pack` | Validate a YAML rule pack inside the workspace and copy it into the workspace rule_packs folder. | No | sync |
 | `qaqc_checker_list_issues` | List recorded QA/QC issues for a document, optionally filtered by status and severity. | No | sync |

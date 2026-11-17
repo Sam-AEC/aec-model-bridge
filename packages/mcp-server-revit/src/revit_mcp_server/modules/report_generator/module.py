@@ -183,6 +183,8 @@ def _load_review_snapshot(snapshot_id: str, workspace: Any) -> Dict[str, Any]:
         "source": data.get("source", {}) or {},
         "elements": data.get("elements", []),
         "types": data.get("types", []),
+        "counts": data.get("counts") or {},
+        "dirty_only": bool(data.get("dirty_only")),
         "is_mock": False,
     }
 
@@ -218,16 +220,23 @@ def _chunk_uids(uids: List[str], limit: int = _MAX_CELL_CHARS) -> List[str]:
     return chunks
 
 
-def _review_findings(elements: List[Dict[str, Any]], types: List[Dict[str, Any]], doc_guid: str, rule_pack: str) -> List[Dict[str, Any]]:
-    """Run the QA/QC rules in memory (does not touch the issue store), grouped per rule."""
+def _review_findings(
+    elements: List[Dict[str, Any]], types: List[Dict[str, Any]], doc_guid: str, rule_pack: str,
+    workspace: Any = None, failed_rules: Any = None,
+) -> List[Dict[str, Any]]:
+    """Run the QA/QC rules in memory (does not touch the issue store), grouped per rule.
+
+    ``workspace`` also finds user packs; ids of rules that raised are appended to ``failed_rules``."""
     qaqc = _qaqc_rules_module()
 
     grouped: List[Dict[str, Any]] = []
-    for rule in qaqc._load_rule_pack(rule_pack):
+    for rule in qaqc._load_rule_pack(rule_pack, workspace):
         try:
             hits = qaqc._run_rule(rule, elements, types, doc_guid)
         except Exception as exc:  # a broken rule must not sink the whole pack
             logger.error("Rule '%s' failed: %s", rule.get("id"), exc)
+            if failed_rules is not None:
+                failed_rules.append(rule.get("id"))
             continue
         if not hits:
             continue

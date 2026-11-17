@@ -1,0 +1,33 @@
+{
+  "id": "qa_handover",
+  "name": "QA Handover Report",
+  "version": "1.0.0",
+  "schema_version": 1,
+  "min_hub_version": "1.2.0",
+  "description": "A compact QA and change report for hand-over, built only from saved snapshots, a rule pack and optional plan proof bundles. Writes JSON and Markdown to the workspace. Read-only.",
+  "author": "AEC Model Bridge",
+  "license": "GPL-3.0-or-later",
+  "requires_providers": ["semantic"],
+  "permissions": ["model.read", "files.write"],
+  "commands": [
+    {
+      "id": "build_report",
+      "title": "Build QA Handover Report",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {"type": "string", "description": "Saved snapshot to report on (the before state). Required when connected to Revit."},
+          "after_snapshot_id": {"type": "string", "description": "Optional later snapshot of the same model, used to re-check the rules and confirm changed values."},
+          "rule_pack": {"type": "string", "default": "core", "description": "QA/QC rule pack to apply."},
+          "plan_ids": {"type": "array", "items": {"type": "string"}, "maxItems": 20, "description": "Optional plan ids whose proof bundles are summarised as approved changes."},
+          "max_ids": {"type": "integer", "default": 10, "description": "Element ids listed per rule (1 to 30); counts are always complete."},
+          "output_name": {"type": "string", "default": "qa_handover", "description": "File name without extension; written to reports/<name>.json and .md in the workspace."}
+        },
+        "required": []
+      }
+    }
+  ]
+}

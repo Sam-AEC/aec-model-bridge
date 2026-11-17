@@ -4,6 +4,8 @@
 
 - New `core` tool profile (`MCP_REVIT_TOOL_PROFILE=core`): 54 tools (49 for the BIM-coordinator loop plus the five approval tools), about 14k catalogue tokens against about 80k for `full` and 62k for `daily`. Tools outside it are not listed and are refused with a message that says to switch to `daily` or `full` and restart. `full` and `daily` are unchanged.
 - The server instructions end with a three-line tool-family map (prefixes, and how to reach hidden families by switching profile), about 110 tokens. The approval and Dev mode wording is unchanged.
+- New read-only tool `qa_handover_build_report` (roadmap priority 4): a short hand-over report of QA findings per rule, before/after re-check counts, approved parameter changes from plan proof bundles and an explicit not-verified list, written as JSON and Markdown under `reports/` in the workspace. See `docs/qa-handover-report.md`. UNVERIFIED in a live Revit session.
+- Tool count is now 303 (109 module tools).
 
 ## 1.5.0 - 2026-11-16
 
