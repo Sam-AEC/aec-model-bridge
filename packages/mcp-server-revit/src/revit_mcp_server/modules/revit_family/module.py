@@ -32,10 +32,11 @@ and the result carry the template that was used.
 Safety of the write command:
   * it is ``is_mutating`` in module.json, so the approval gate demands an approved plan_id before it starts;
   * the project changes only when a family is loaded, inside one TransactionGroup with one Transaction per family. on_error
-    'abort' (default) rolls the whole group back on the first failure and deletes the .rfa files this call wrote; 'skip'
+    'abort' (default) rolls the whole group back on the first failure, restores replaced files and deletes new files; 'skip'
     keeps the families that worked. Each family document is closed again (try/finally) on every path, saved or not;
   * an existing .rfa file or an existing project family of the same name is refused unless ``replace`` is true (then the
-    file is overwritten and the family is loaded over; an overwritten file is not restored by a rollback);
+    file is backed up before SaveAs and the family is loaded over). A failed restore retains the original backup and
+    reports its path; failed file operations must be inspected before retrying;
   * Revit warnings are dismissed and listed (INFO REVIT_WARNING_DISMISSED);
   * after the load the existing read-only ``revit_probe_family`` (modules/revit, through its own seam) runs for each loaded
     family. Its verdict (nested instances, category, connector list) is merged into ``post_check``; the result is never
@@ -115,8 +116,9 @@ _HINTS = {
     "file_exists": "Pass replace=true to overwrite the file, or choose another output_dir or name.",
     "family_exists": "Pass replace=true to load over the family in the project, or choose another name.",
     "wrong_document": "Open the project that should receive the families and call again.",
-    "rolled_back": "Nothing was changed in the project and the .rfa files written by this call were removed. Fix the cause named in fails and call again, or pass on_error='skip' to keep what worked.",
-    "partial_failure": "The families that worked were kept (see changed_ids); the failed ones are in fails. Fix the cause and call again for those names only.",
+    "rolled_back": "The project transaction group was rolled back. File cleanup attempts to restore replaced .rfa files and remove new files. Check FILE_NOT_RESTORED, FILE_NOT_REMOVED and BACKUP_NOT_CREATED messages before retrying; any retained backup path is reported. Fix the cause named in fails and call again, or pass on_error='skip' to keep what worked.",
+    "partial_failure": "The families that worked were kept (see changed_ids); the failed ones are in fails. Check file-recovery INFO messages before retrying failed names; FILE_NOT_RESTORED reports the retained original backup path.",
+    "group_close_failed": "The project transaction group could not be confirmed closed. Inspect the project before retrying. BACKUP_RETAINED and FILE_NOT_RESTORED messages report original backup paths; do not discard those backups until the project and output files are reconciled.",
     "post_check_failed": "The families were loaded but a check afterwards failed (see post_check). Inspect them with revit_probe_family, then fix the spec and call again with replace=true.",
     "script_exception": "The embedded script failed inside Revit; any open transaction group was rolled back, so the project should be unchanged (verify with revit_warnings_delta).",
     "timeout_running": "Revit may still be running the script. Call revit_get_result with the request_id, and do not repeat the write until it has finished.",
