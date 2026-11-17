@@ -1,6 +1,6 @@
 # pyRevit Bridge module
 
-Status: on the dev branch, not yet released.
+Status: in 1.5.0, Python side only (see below).
 
 The built-in `pyrevit_bridge` module lets existing pyRevit pushbutton scripts be discovered and run as tools behind the [approval gate](0008-approval-gate-lifecycle.md), without rewriting them.
 

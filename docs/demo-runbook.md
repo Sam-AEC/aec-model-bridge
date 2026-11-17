@@ -1,6 +1,6 @@
 # Demo runbook: missing door Marks
 
-Status: on the dev branch, not yet released.
+Status: not yet run end to end against a live Revit (UNVERIFIED).
 
 This is the script for the core demo: ask, plan, preview, approve in Revit,
 verify, undo. It runs on a synthetic fixture with 12 doors that have no Mark

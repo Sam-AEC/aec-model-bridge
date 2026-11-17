@@ -1,6 +1,6 @@
 # Release checklist
 
-Status: on the dev branch, not yet released.
+Status: 1.5.0 is out (16 November 2026); section 2 has no PASS or FAIL recorded yet.
 
 An ordered list for shipping from `dev` to `main`. It reflects the dev branch as it is today. Bounded read-only Revit 2024 checks passed on 14 October 2026; see [the live validation report](revit-addin-live-validation-2026-10-14.md). Mutating acceptance and other Revit-year targets remain UNVERIFIED until checked. Known limits are in section 3 and in [security.md](security.md).
 
