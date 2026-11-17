@@ -261,7 +261,9 @@ def _review_findings(
 
 
 def _is_partial_snapshot(data: Dict[str, Any]) -> bool:
-    return bool(data.get("dirty_only") or (data.get("counts") or {}).get("truncated"))
+    counts = data.get("counts") or {}
+    return bool(data.get("dirty_only") or counts.get("dirty_only")
+                or counts.get("truncated") or counts.get("categories"))
 
 
 def _failed_rules_note(label: str, failed: List[Any]) -> str:
@@ -517,7 +519,7 @@ class ReportGeneratorModule:
         if failed_rules:
             ws_n.append(["Check first", "Fix or remove the rules that did not run, then run this again: " + ", ".join(map(str, failed_rules)), _failed_rules_note("Rules", failed_rules), ""])
         if partial:
-            ws_n.append(["Check first", "Capture the whole model (not truncated, not dirty-only) and run this again.", _partial_snapshot_note("Snapshot"), ""])
+            ws_n.append(["Check first", "Capture the whole model (not truncated, not dirty-only, no category filter) and run this again.", _partial_snapshot_note("Snapshot"), ""])
         if not findings and not failed_rules and not partial:
             ws_n.append(["Done", "No rule findings. Nothing to fix from this rule pack.", "", ""])
         elif not findings:
