@@ -1,7 +1,7 @@
 # ADR 0008: Approval Gate & ActionPlan Lifecycle
 
 ## Status
-Accepted. Status: on the dev branch, not yet released. Bounded Revit 2024 read-only checks are recorded in the [live validation report](revit-addin-live-validation-2026-10-14.md); approval execution, rollback and recovery still need live acceptance.
+Accepted. In 1.5.0. Bounded Revit 2024 read-only checks are recorded in the [live validation report](revit-addin-live-validation-2026-10-14.md); approval execution, rollback and recovery still need live acceptance.
 
 ## Context
 AI agents modifying production BIM models (e.g., Revit, Navisworks) pose significant risks of silent data corruption, coordinate drift, or breaking company standards. We need a secure boundary where AI agents can propose changes (read, analyze, and plan) and require explicit human review and approval in the default Ask first mode. Look only blocks changes; explicitly selected Dev or Auto permits unplanned writes under the limits below.

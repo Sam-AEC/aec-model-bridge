@@ -1,6 +1,6 @@
 # MCP Marketplaces and Client Distribution
 
-Status: on the dev branch, not yet released.
+Status: in 1.5.0. The files and processes marked UNVERIFIED below are unconfirmed.
 
 This project is prepared for the major MCP discovery paths that can be handled from a public GitHub repository.
 
