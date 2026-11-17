@@ -6,6 +6,8 @@
 - The server instructions end with a three-line tool-family map (prefixes, and how to reach hidden families by switching profile), about 110 tokens. The approval and Dev mode wording is unchanged.
 - New read-only tool `qa_handover_build_report` (roadmap priority 4): a short hand-over report of QA findings per rule, before/after re-check counts, approved parameter changes from plan proof bundles and an explicit not-verified list, written as JSON and Markdown under `reports/` in the workspace. See `docs/qa-handover-report.md`. UNVERIFIED in a live Revit session.
 - Tool count is now 303 (109 module tools).
+- Approvals now expire: an approved plan older than `MCP_REVIT_APPROVAL_TTL` (default 8 hours, `0` = no limit) cannot run and moves to `expired`; a person must approve a new plan. Pending plans older than `MCP_REVIT_PENDING_TTL` (default 14 days) cannot be approved and are hidden from `aec-model-bridge-approve list` and `list_pending_plans` (counted as `expired_hidden`; `list --all` or `include_expired` shows them). Nothing is deleted. Only makes approval stricter.
+- Plans drafted with a live Revit store a `binding` (document guid or central-path hash, title, Revit version, active view for view-specific actions) inside the hashed plan, and are refused when another document is active or the live document cannot be read. With no live Revit the binding is `null` and nothing is refused. Older plans still verify unchanged. See ADR 0017.
 
 ## 1.5.0 - 2026-11-16
 

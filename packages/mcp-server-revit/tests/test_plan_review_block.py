@@ -209,7 +209,11 @@ async def test_old_plan_without_review_still_approves_and_executes(env):
     plan = await approval.execute_tool("plan_actions", {"actions": [_act(1), _act(2)]})
     pid = plan["plan_id"]
     assert "review" not in plan and "hash_version" not in plan
-    assert plan["plan_hash"] == _legacy_hash(plan)  # the original rule, unchanged
+    # plan_actions now also hashes a (null, in mock mode) document binding; without that key the
+    # original rule is unchanged, which is what every plan stored before bindings still uses.
+    legacy = {k: v for k, v in plan.items() if k != "binding"}
+    assert plan["binding"] is None
+    assert proof.plan_content_hash(legacy) == _legacy_hash(legacy)
     await panel_decide(approval, "approve_plan", pid)
     result = await approval.execute_tool("execute_plan", {"plan_id": pid})
     assert result["state"] == "executed" and store.values[1]["FireRating"] == "60"
