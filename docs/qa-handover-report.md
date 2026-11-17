@@ -19,7 +19,8 @@ It writes `reports/<output_name>.json` and `reports/<output_name>.md` in the wor
 - Rule pack name, origin and file SHA-256 (packs have no version field).
 - Findings grouped per rule: severity, element count, the first N UniqueIds, next step.
 - With complete snapshots of the same identified model in chronological order: findings before and after per rule, and added, removed and modified element counts. Partial captures (truncated, dirty-only, or category-filtered) cannot establish whole-model changes or resolved findings.
-- Per plan: outcome, who approved and when, each changed parameter with before and new value, skipped or failed count, and whether the after snapshot shows the new value (confirmed, differs, not checked).
+- Movement and rotation coverage are explicit. When location components are missing, total modified/unchanged counts are unknown; observed changes in captured fields remain available separately.
+- Per plan: outcome, who approved and when, each recorded parameter change with before and new value, skipped or failed count, and whether the after snapshot shows the new value (confirmed, differs, not checked). Bulk, script and other action outcomes are listed with their tools and errors. Their unrecorded parameter changes remain unknown, rather than counting as zero changes.
 - A "Not verified" list.
 
 ## What it proves
@@ -33,4 +34,4 @@ A finding is "resolved" when its rule and element UniqueId appear before and no 
 - Nothing is read from the live model. The approver is the OS account recorded in the proof, not an authenticated identity.
 - Without an after snapshot, nothing is re-checked. An after snapshot taken before the plan ran, missing timestamps, or unmatched document identities confirm no plan values.
 - A partial snapshot, a missing document id, a plan for another document, a missing proof bundle, a rule that could not run, and values that differ (or use another unit) are listed under "Not verified".
-- Lists and text are capped (field length, ids per rule, 25 changes per plan). Counts are always complete. A report over 512 KB is refused, never cut silently.
+- Lists and text are capped (field length, ids per rule, 25 parameter changes and 25 other actions per plan). Known counts include records beyond those caps; unprovable totals use `null`/`unknown`. A report over 512 KB is refused, never cut silently.
