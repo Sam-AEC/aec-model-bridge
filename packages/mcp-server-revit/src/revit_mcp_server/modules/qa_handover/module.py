@@ -158,6 +158,40 @@ def _after_value(index: Dict[Any, Dict[str, Any]], uid: Any, parameter: Any):
     return True, p.get("v") if isinstance(p, dict) else p
 
 
+def _change_totals(before, after, not_verified) -> Dict[str, Any]:
+    comparison = compare_snapshot_data(before, after, 0)
+    old = {e["uid"]: e for e in before["elements"] if e.get("uid")}
+    new = {e["uid"]: e for e in after["elements"] if e.get("uid")}
+    missing_position = missing_rotation = 0
+    for uid in old.keys() & new.keys():
+        locations = [_changes._loc(old[uid]), _changes._loc(new[uid])]
+        missing_position += any(p is None or p["xyz"] is None or len(p["xyz"]) != 3 for p in locations)
+        missing_rotation += any(p is None or p["rotation"] is None for p in locations)
+    coverage_gaps = list(comparison["not_enough_data"])
+    if not coverage_gaps and (missing_position or missing_rotation):
+        coverage_gaps.append({
+            "check": "location",
+            "reason": (f"Movement could not be checked for {missing_position} shared elements and rotation "
+                       f"could not be checked for {missing_rotation}; location components were not captured."),
+        })
+    totals = dict(comparison["totals"])
+    totals.update({
+        "modified_in_captured_fields": totals["modified"],
+        "unchanged_in_captured_fields": totals["unchanged"],
+        "location_checked": comparison["location_checked"],
+        "elements_compared_on_location": comparison["elements_compared_on_location"],
+        "elements_missing_location": comparison["elements_missing_location"],
+        "elements_missing_position": missing_position,
+        "elements_missing_rotation": missing_rotation,
+        "not_enough_data": coverage_gaps,
+    })
+    if missing_position or missing_rotation:
+        totals["modified"] = totals["unchanged"] = None
+    for missing in coverage_gaps:
+        not_verified.append(f"Snapshot comparison ({missing['check']}): {missing['reason']}")
+    return totals
+
+
 def _plan(plan_id: str, bundle: Dict[str, Any], before: Dict[str, Any], after: Optional[Dict[str, Any]],
           not_verified: List[str]) -> Dict[str, Any]:
     entries = bundle.get("elements") or []
@@ -196,11 +230,35 @@ def _plan(plan_id: str, bundle: Dict[str, Any], before: Dict[str, Any], after: O
         not_verified.append(f"Plan {plan_id}: {checks['differs']} changed value(s) differs in the after snapshot (or is in another unit).")
     if any(not e.get("before_recorded") for e in entries):
         not_verified.append(f"Plan {plan_id}: some before values were not recorded.")
+    other = bundle.get("other_actions") or []
+    other_counts = {"executed": 0, "failed": 0, "skipped": 0, "unknown": 0}
+    for action in other:
+        status = action.get("status")
+        other_counts[status if status in other_counts else "unknown"] += 1
+    # Older bundles may identify non-parameter tools without per-action outcomes.
+    tools = bundle.get("tools") or ([bundle["tool"]] if bundle.get("tool") else [])
+    unrecorded = bool(other or any(tool != proof_mod.PARAM_TOOL for tool in tools))
+    if unrecorded:
+        not_verified.append(
+            f"Plan {plan_id}: other actions have no per-parameter change records; "
+            "the total parameter changes and their verification are unknown."
+        )
+    recorded_skipped = len(bundle.get("skipped") or []) + other_counts["failed"] + other_counts["skipped"]
+    outcomes_known = not other_counts["unknown"] and ("other_actions" in bundle or not unrecorded)
     return {
         "plan_id": plan_id, "outcome": _s(bundle.get("outcome")), "approved_by": _s(bundle.get("approved_by")),
         "approver_note": _s(bundle.get("approver_note")), "approved_at": _s(bundle.get("approved_at")),
-        "executed_at": _s(bundle.get("executed_at")), "changed_total": len(entries),
-        "skipped": len(bundle.get("skipped") or []), "checks": checks, "changes": changes,
+        "executed_at": _s(bundle.get("executed_at")), "changed_total": None if unrecorded else len(entries),
+        "recorded_parameter_changes": len(entries), "unrecorded_parameter_changes": unrecorded,
+        "skipped": recorded_skipped if outcomes_known else None,
+        "recorded_skipped_or_failed": recorded_skipped,
+        "checks": checks, "changes": changes,
+        "other_actions_total": len(other) if "other_actions" in bundle or not unrecorded else None,
+        "other_action_counts": other_counts if "other_actions" in bundle or not unrecorded else None,
+        "other_actions": [{
+            "action_id": _s(action.get("action_id")), "tool": _s(action.get("tool")),
+            "status": _s(action.get("status")), "error": _s(action.get("error")),
+        } for action in other[:MAX_CHANGES]],
         "proof_verification": _s(bundle.get("verification"), 200),
     }
 
@@ -254,7 +312,7 @@ def build_report_data(
             not_verified.append("Snapshot chronology is missing, invalid or reversed; re-check and change totals are unavailable.")
         if comparable:
             verification = _verification(groups, after_groups, failed_before, failed_after, not_verified)
-            changes = compare_snapshot_data(before, after, 0)["totals"]
+            changes = _change_totals(before, after, not_verified)
     else:
         not_verified.append("No after snapshot given: the findings were not re-checked after any fix.")
     plans = _plans(plan_ids, before, after, workspace, not_verified)
@@ -307,18 +365,37 @@ def render_markdown(r: Dict[str, Any]) -> str:
         out += [f"- {x['rule_id']}: {known(x['before'])} -> {known(x['after'])}; "
                 f"resolved {known(x['resolved'])}, new {known(x['new'])}" for x in v["per_rule"]]
         c = r["changes"]
-        out.append(f"Between snapshots: {c['added']} added, {c['removed']} removed, {c['modified']} modified elements.")
+        modified = (f"{c['modified']} modified elements" if c["modified"] is not None else
+                    f"modified count unknown ({c['modified_in_captured_fields']} observed in captured fields; "
+                    f"movement not checked for {c['elements_missing_position']} shared elements, "
+                    f"rotation not checked for {c['elements_missing_rotation']})")
+        out.append(f"Between snapshots: {c['added']} added, {c['removed']} removed, {modified}.")
     if r["plans"]:
         out += ["", "## Approved changes", ""]
     for p in r["plans"]:
         k = p["checks"]
+        changed = (f"{p['changed_total']} recorded parameter changes" if p["changed_total"] is not None else
+                   f"total parameter changes unknown ({p['recorded_parameter_changes']} individually recorded)")
+        skipped = (str(p["skipped"]) if p["skipped"] is not None else
+                   f"unknown ({p['recorded_skipped_or_failed']} recorded)")
         out += [f"### Plan {p['plan_id']}: {p['outcome']}",
                 f"- Approved by {p['approved_by'] or 'unknown'} at {p['approved_at'] or 'unknown'} ({p['approver_note']})",
-                f"- Executed {p['executed_at'] or 'unknown'}; {p['changed_total']} changed, {p['skipped']} skipped or failed",
-                f"- Checked in after snapshot: {k['confirmed']} confirmed, {k['differs']} differ, {k['unknown']} not checked"]
+                f"- Executed {p['executed_at'] or 'unknown'}; {changed}; {skipped} skipped or failed",
+                f"- Recorded parameter values checked in after snapshot: {k['confirmed']} confirmed, "
+                f"{k['differs']} differ, {k['unknown']} not checked"]
         out += [f"  - {c['uid']} {c['parameter']}: {c['before']} -> {c['new']} ({c['check']})" for c in p["changes"]]
-        if p["changed_total"] > len(p["changes"]):
-            out.append(f"  - ... {p['changed_total'] - len(p['changes'])} more in the JSON file")
+        if p["recorded_parameter_changes"] > len(p["changes"]):
+            out.append(f"  - ... {p['recorded_parameter_changes'] - len(p['changes'])} more in the proof bundle")
+        if p["other_action_counts"] is not None and p["other_actions_total"]:
+            counts = p["other_action_counts"]
+            out.append(f"- Other actions: {counts['executed']} executed, {counts['failed']} failed, "
+                       f"{counts['skipped']} skipped, {counts['unknown']} unknown; parameter changes not recorded.")
+        elif p["unrecorded_parameter_changes"]:
+            out.append("- Other action outcomes unknown; the proof has no per-action records.")
+        out += [f"  - {a['action_id']} {a['tool']}: {a['status'] or 'unknown'}"
+                + (f" ({a['error']})" if a['error'] else "") for a in p["other_actions"]]
+        if p["other_actions_total"] is not None and p["other_actions_total"] > len(p["other_actions"]):
+            out.append(f"  - ... {p['other_actions_total'] - len(p['other_actions'])} more actions in the proof bundle")
     out += ["", "## Not verified", ""] + [f"- {n}" for n in r["not_verified"]] + [""]
     return "\n".join(out).encode("ascii", "replace").decode("ascii")
 

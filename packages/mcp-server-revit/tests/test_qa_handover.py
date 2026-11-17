@@ -79,7 +79,8 @@ def test_before_after_recheck_and_change_totals(ws):
     v = rep["verification"]
     assert v["before_total"] - v["after_total"] == v["resolved"] == 1
     assert {"rule_id": "door_missing_mark", "before": 2, "after": 1, "resolved": 1, "new": 0} in v["per_rule"]
-    assert rep["changes"]["modified"] == 1 and rep["after_snapshot"]["snapshot_id"] == "s2"
+    assert rep["changes"]["modified_in_captured_fields"] == 1 and rep["after_snapshot"]["snapshot_id"] == "s2"
+    assert rep["changes"]["modified"] is None
     assert not any("not re-checked" in n for n in rep["not_verified"])
 
 
@@ -90,6 +91,8 @@ def test_plan_receipts_confirmed_against_after_snapshot(ws):
     rep = _report(ws, _build(ws, snapshot_id="s1", after_snapshot_id="s2", plan_ids=["p1"]))
     plan = rep["plans"][0]
     assert (plan["outcome"], plan["approved_by"], plan["skipped"]) == ("success", "jan", 1)
+    assert plan["changed_total"] == plan["recorded_parameter_changes"] == 3
+    assert plan["other_actions"] == [] and plan["other_actions_total"] == 0
     assert plan["checks"] == {"confirmed": 1, "differs": 1, "unknown": 1}
     first = plan["changes"][0]
     assert (first["uid"], first["parameter"], first["before"], first["new"], first["check"]) == ("a", "Mark", "", "D-1", "confirmed")
@@ -204,7 +207,8 @@ def test_failed_rule_is_unknown_during_recheck(ws, monkeypatch, side):
     assert finding["after" if side == "before" else "before"] == 1
     assert finding["resolved"] is None and finding["new"] is None
     assert v[f"{side}_total"] is None and v["resolved"] is None
-    assert rep["changes"]["modified"] == 0
+    assert rep["changes"]["modified_in_captured_fields"] == 0
+    assert rep["changes"]["modified"] is None
     md = Path(result["markdown_file"]).read_text(encoding="utf-8")
     assert "resolved unknown" in md and "None" not in md
 
@@ -287,6 +291,132 @@ def test_whole_model_recheck_requires_ordered_snapshot_times(ws, before_time, af
     rep = _report(ws, _build(ws, snapshot_id="s1", after_snapshot_id="s2"))
     assert rep["verification"] is None and rep["changes"] is None
     assert any("chronology" in n for n in rep["not_verified"])
+
+
+@pytest.mark.parametrize("old_location,new_location", [
+    (None, None), ({"xyz": [0, 0, 0], "rotation": 0}, None),
+    (None, {"xyz": [0, 0, 0], "rotation": 0}),
+    ({"xyz": [0, 0, 0]}, {"xyz": [0, 0, 0]}),
+    ({"rotation": 0}, {"rotation": 0}),
+])
+def test_missing_location_components_make_modification_totals_unknown(ws, old_location, new_location):
+    before, after = _door("a", "D-1"), _door("a", "D-1")
+    before["location"], after["location"] = old_location, new_location
+    _snap(ws, "s1", [before])
+    _snap(ws, "s2", [after], taken_at="2026-11-03T09:00:00+00:00")
+    result = _build(ws, snapshot_id="s1", after_snapshot_id="s2")
+    rep = _report(ws, result)
+    c = rep["changes"]
+    assert c["modified"] is None and c["unchanged"] is None
+    assert c["modified_in_captured_fields"] == 0 and c["unchanged_in_captured_fields"] == 1
+    assert c["not_enough_data"] and any("Snapshot comparison" in n for n in rep["not_verified"])
+    md = Path(result["markdown_file"]).read_text(encoding="utf-8")
+    assert "modified count unknown (0 observed" in md and "0 modified elements" not in md
+
+
+def test_complete_location_data_retains_known_change_totals(ws):
+    before, after = _door("a", "D-1"), _door("a", "D-1")
+    before["location"] = {"xyz": [0, 0, 0], "rotation": 0}
+    after["location"] = {"xyz": [1, 0, 0], "rotation": 0}
+    _snap(ws, "s1", [before])
+    _snap(ws, "s2", [after], taken_at="2026-11-03T09:00:00+00:00")
+    result = _build(ws, snapshot_id="s1", after_snapshot_id="s2")
+    c = _report(ws, result)["changes"]
+    assert c["modified"] == c["modified_in_captured_fields"] == 1
+    assert c["unchanged"] == 0 and c["elements_compared_on_location"] == 1
+    assert c["elements_missing_location"] == c["elements_missing_position"] == c["elements_missing_rotation"] == 0
+    assert c["not_enough_data"] == []
+    assert "1 modified elements" in Path(result["markdown_file"]).read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("tool", ["revit_set_parameters", "revit_execute_python"])
+@pytest.mark.parametrize("fails", [False, True])
+def test_real_proof_other_action_outcomes_are_reported(ws, tool, fails):
+    _snap(ws, "s1", [_door("a")])
+    plan = {
+        "plan_id": "p1", "snapshot_id": "s1", "executed_at": "2026-11-02T09:00:00+00:00",
+        "actions": [{"action_id": "bulk_or_script", "tool": tool, "arguments": {}}],
+    }
+    result_row = {"action_id": "bulk_or_script", **({"error": "execution failed"} if fails else {})}
+    bundle = qh.proof_mod.build_proof(plan, ws.allowed_directories[0], [result_row])
+    assert bundle["elements"] == [] and len(bundle["other_actions"]) == 1
+    qh.proof_mod.write_proof(ws.allowed_directories[0], bundle)
+    result = _build(ws, snapshot_id="s1", plan_ids=["p1"])
+    rep = _report(ws, result)
+    p = rep["plans"][0]
+    assert p["changed_total"] is None and p["recorded_parameter_changes"] == 0
+    assert p["unrecorded_parameter_changes"] is True
+    assert p["skipped"] == int(fails)
+    assert p["other_actions_total"] == 1
+    status = "failed" if fails else "executed"
+    assert p["other_action_counts"][status] == 1
+    assert p["other_actions"][0]["tool"] == tool and p["other_actions"][0]["status"] == status
+    assert any("total parameter changes" in n for n in rep["not_verified"])
+    md = Path(result["markdown_file"]).read_text(encoding="utf-8")
+    assert "total parameter changes unknown (0 individually recorded)" in md
+    assert f"{tool}: {status}" in md
+    assert ("execution failed" in md) == fails
+
+
+def test_mixed_proof_counts_single_parameter_skips_and_other_failures(ws):
+    _snap(ws, "s1", [_door("a")])
+    _snap(ws, "s2", [_door("a", "D-1")], taken_at="2026-11-03T09:00:00+00:00")
+    plan = {
+        "plan_id": "p1", "snapshot_id": "s1", "executed_at": "2026-11-02T09:00:00+00:00",
+        "skipped": [{"element_id": 9, "reason": "locked"}],
+        "actions": [
+            {"action_id": "single", "tool": "revit_set_parameter_value",
+             "arguments": {"element_id": 1, "parameter_name": "Mark", "value": "D-1"},
+             "diff": {"before": {"1": {"Mark": ""}}}},
+            {"action_id": "bulk", "tool": "revit_set_parameters", "arguments": {}},
+            {"action_id": "script", "tool": "revit_execute_python", "arguments": {}},
+        ],
+    }
+    bundle = qh.proof_mod.build_proof(plan, ws.allowed_directories[0], [
+        {"action_id": "single"}, {"action_id": "bulk"}, {"action_id": "script", "error": "script failed"},
+    ])
+    qh.proof_mod.write_proof(ws.allowed_directories[0], bundle)
+    result = _build(ws, snapshot_id="s1", after_snapshot_id="s2", plan_ids=["p1"])
+    p = _report(ws, result)["plans"][0]
+    assert p["outcome"] == "partial" and p["changed_total"] is None
+    assert p["recorded_parameter_changes"] == 1 and p["skipped"] == 2
+    assert p["checks"] == {"confirmed": 1, "differs": 0, "unknown": 0}
+    assert p["other_action_counts"] == {"executed": 1, "failed": 1, "skipped": 0, "unknown": 0}
+    assert "2 skipped or failed" in Path(result["markdown_file"]).read_text(encoding="utf-8")
+
+
+def test_legacy_non_parameter_proof_without_action_records_stays_unknown(ws):
+    _snap(ws, "s1", [_door("a")])
+    _proof(ws, "p1", [])
+    proof_path = ws.allowed_directories[0] / "proofs" / "p1.json"
+    bundle = json.loads(proof_path.read_text(encoding="utf-8"))
+    bundle["tool"] = "revit_execute_python"
+    proof_path.write_text(json.dumps(bundle), encoding="utf-8")
+    result = _build(ws, snapshot_id="s1", plan_ids=["p1"])
+    p = _report(ws, result)["plans"][0]
+    assert p["changed_total"] is None and p["other_actions_total"] is None
+    assert p["other_action_counts"] is None and p["skipped"] is None
+    assert p["recorded_skipped_or_failed"] == 1
+    md = Path(result["markdown_file"]).read_text(encoding="utf-8")
+    assert "Other action outcomes unknown" in md and "unknown (1 recorded) skipped or failed" in md
+
+
+def test_other_action_counts_include_capped_records_and_skipped_status(ws):
+    _snap(ws, "s1", [_door("a")])
+    _proof(ws, "p1", [])
+    proof_path = ws.allowed_directories[0] / "proofs" / "p1.json"
+    bundle = json.loads(proof_path.read_text(encoding="utf-8"))
+    bundle["other_actions"] = [
+        {"action_id": f"a{i}", "tool": "revit_execute_python", "status": "skipped"}
+        for i in range(qh.MAX_CHANGES + 1)
+    ]
+    proof_path.write_text(json.dumps(bundle), encoding="utf-8")
+    result = _build(ws, snapshot_id="s1", plan_ids=["p1"])
+    p = _report(ws, result)["plans"][0]
+    assert len(p["other_actions"]) == qh.MAX_CHANGES
+    assert p["other_actions_total"] == p["other_action_counts"]["skipped"] == qh.MAX_CHANGES + 1
+    assert p["skipped"] == qh.MAX_CHANGES + 2  # includes the pre-existing locked parameter entry
+    assert "1 more actions in the proof bundle" in Path(result["markdown_file"]).read_text(encoding="utf-8")
 
 
 def test_bridge_mode_never_falls_back_to_mock(ws, monkeypatch):
