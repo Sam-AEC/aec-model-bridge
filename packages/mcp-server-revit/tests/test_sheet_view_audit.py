@@ -315,3 +315,13 @@ def test_uncaptured_top_level_lists_preserve_captured_element_checks(tmp_path, c
     assert r["data_source"] == "ViewSheet / ViewDrafting element records"
     assert r["checks"]["duplicate_sheet_numbers"]["status"] == "ran"
     assert r["findings"] == _run(tmp_path, LIVE)["findings"]
+
+
+@pytest.mark.parametrize("value", [0.0, "1729"])
+def test_required_sheet_parameters_accept_populated_double_and_element_id_values(tmp_path, value):
+    data = {**CLEAN, "sheets": [
+        {**sheet, "params": {"Required": {"v": value}}} for sheet in CLEAN["sheets"]
+    ]}
+    result = _run(tmp_path, data, required_sheet_parameters=["Required"])
+    assert result["checks"]["missing_sheet_parameter"]["status"] == "ran"
+    assert result["total_findings"] == 0
