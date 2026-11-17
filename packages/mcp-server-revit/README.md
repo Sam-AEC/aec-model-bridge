@@ -43,7 +43,7 @@ a permitted workspace directory.
 | `MCP_REVIT_BRIDGE_URL` | Optional explicit bridge endpoint |
 | `MCP_REVIT_AUDIT_LOG` | Audit log location |
 | `MCP_REVIT_LOG_LEVEL` | Logging verbosity |
-| `MCP_REVIT_TOOL_PROFILE` | Startup tool catalogue: `full` (default), `daily`, or `custom` |
+| `MCP_REVIT_TOOL_PROFILE` | Startup tool catalogue: `full` (default), `daily`, `core`, or `custom` |
 | `MCP_REVIT_TOOL_PROFILE_FILE` | Optional JSON file of provider/module ID include/exclude globs; required for `custom` |
 
 ### Static tool profiles
@@ -52,9 +52,10 @@ a permitted workspace directory.
 | --- | --- |
 | `full` | All tools, as before. Human-only approval/rejection/rollback tools remain unavailable to AI clients. |
 | `daily` | Keeps Revit sparing, groups, recipes, sections/tags/views, parameters, plans/jobs and general inspection. Hides `revit_mep` (including native duct/pipe creation), `revit_ifc`, and provider/module IDs matching `rhino*`, `speckle*`, `navisworks*`, `bcf_exchange*`, `clash_triage*`, `ifc*`. |
+| `core` | 49 named tools for the BIM-coordinator loop (context, snapshots, QA checks and audits, element reads, parameters, selection, `revit_execute_python`, `revit_api_lookup`) plus the always-visible approval tools: 54 tools, about 14k tokens against about 80k for `full`. Everything else is hidden and refused; switch to `daily` or `full` and restart to reach it. See [token budget](../../docs/mcp-token-budget.md). |
 | `custom` | Tools whose provider or manifest module ID matches the file's include globs, minus exclusions. |
 
-The owner can add `"MCP_REVIT_TOOL_PROFILE": "daily"` to this server's `env`
+The owner can add `"MCP_REVIT_TOOL_PROFILE": "daily"` (or `"core"`) to this server's `env`
 in `.mcp.json`, then restart the MCP connection. The default stays `full`.
 Profiles and file contents are read once at startup; there is no live toggle.
 Hidden tools are omitted from discovery and refused when called, including
@@ -69,7 +70,7 @@ Example custom file (globs match provider IDs or manifest module IDs, not tool n
 
 Set `MCP_REVIT_TOOL_PROFILE=custom` and `MCP_REVIT_TOOL_PROFILE_FILE` to its path.
 Omitted `include` means `["*"]`; an empty include array selects nothing.
-Exclusions always win. A file may also narrow `full` or `daily`; it cannot
+Exclusions always win. A file may also narrow `full`, `daily` or `core`; it cannot
 restore daily's built-in exclusions. Invalid settings stop startup.
 New commands inherit their manifest module's membership. A repository audit
 found no calls to hidden modules in sibling `dynamoscript14`; its context,

@@ -54,7 +54,7 @@ defects and build the loop in.
 - Findings catalogue and the reasoning behind each rule: `docs/bim-agent-findings.md`.
 
 ## Content
-Use families that exist in the model or the user's libraries (Heijmans `73_HB_` furniture, planting, structural
+Use families that exist in the model or the user's libraries (the project's own furniture, planting, structural
 families), found with `revit_list_commands`/`list_families`, not generic guesses. The Autodesk content folder on this
 laptop holds structural and annotation content only: no doors, windows, furniture or planting.
 

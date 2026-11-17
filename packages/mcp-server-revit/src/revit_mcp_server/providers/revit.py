@@ -193,6 +193,14 @@ class RevitProvider(AECProvider):
     def _active_bridge(self):
         return _BRIDGE_OVERRIDE.get() or self._bridge
 
+    def live_context(self) -> Dict[str, Any]:
+        """revit_get_context, synchronously and for the bridge in force. The approval gate uses it to
+        compare a plan's document binding with the live document."""
+        return revit_context.get_context(
+            self._active_bridge(), live=self.mode == BridgeMode.bridge,
+            approval_mode=config.approval_mode, approval=self._approval_state(),
+        )
+
     @contextlib.contextmanager
     def routed_to(self, endpoint: str, token: str | None):
         """Send every Revit call made inside this block (same task/thread context) to the
@@ -322,13 +330,7 @@ class RevitProvider(AECProvider):
             return await inspect_elements(self.execute_tool, arguments)
 
         if name == "revit_get_context":
-            return await asyncio.to_thread(
-                revit_context.get_context,
-                self._active_bridge(),
-                live=self.mode == BridgeMode.bridge,
-                approval_mode=config.approval_mode,
-                approval=self._approval_state(),
-            )
+            return await asyncio.to_thread(self.live_context)
         if name == "revit_get_result":
             if self.mode != BridgeMode.bridge:
                 raise ValueError("revit_get_result needs a live Revit connection; it is not available in mock mode.")

@@ -81,9 +81,9 @@ def _resolve(ref: str, workspace: Any) -> str:
 
 
 def _load(snapshot_id: str, workspace: Any) -> Dict[str, Any]:
-    if any(part in snapshot_id for part in ("/", "\\", "..", ":")):
-        raise ValueError(f"Invalid snapshot id '{snapshot_id}'.")
-    path = _snap_dir(workspace) / f"{snapshot_id}.json"
+    from revit_mcp_server.security.safe_paths import snapshot_file
+
+    path = snapshot_file(_snap_dir(workspace), snapshot_id)
     if not path.exists():
         raise ValueError(
             f"Snapshot '{snapshot_id}' not found. Use list_snapshots to see the saved snapshots."

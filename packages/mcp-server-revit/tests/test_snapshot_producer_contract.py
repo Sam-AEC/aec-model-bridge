@@ -88,3 +88,17 @@ def test_producer_uses_si_point_locations_and_stable_metadata():
     assert 'level_uid = elem.LevelId != ElementId.InvalidElementId' in body
     assert 'location = GetSnapshotPointLocation(elem)' in body
     assert '["dirty_only"] = dirtyOnly' in body and 'dirty_only = dirtyOnly' in body
+
+
+def test_sheet_and_element_capture_share_all_parameter_storage_conversions():
+    root = Path(__file__).resolve().parents[3]
+    source = (root / "packages/revit-bridge-addin/src/Bridge/BridgeCommandFactory.cs").read_text(encoding="utf-8")
+    conversion = source.split("private static object SnapshotParameterValue(", 1)[1].split(
+        "private static void AddSnapshotNameAliases(", 1)[0]
+    for storage in ("Integer", "Double", "String", "ElementId"):
+        assert f"StorageType.{storage} =>" in conversion
+    sheets = source.split("foreach (var sheet in new FilteredElementCollector(doc)", 1)[1].split(
+        "sheetRecords.Add(", 1)[0]
+    assert "new { v = SnapshotParameterValue(param) }" in sheets
+    elements = source.split("private static object ExecuteExtractSnapshot(", 1)[1]
+    assert "object val = SnapshotParameterValue(param);" in elements

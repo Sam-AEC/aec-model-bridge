@@ -1,12 +1,14 @@
+import asyncio
 import json
 import logging
 import math
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
+from ..security import binding as binding_mod
 from ..security import proof as proof_mod
 from ..security.workspace import WorkspaceMonitor
 from ..errors import BridgeError
-from ..security.approval import APPROVAL_CHANNELS, HUMAN_ONLY_TOOLS, ApprovalGate, local_user
+from ..security.approval import APPROVAL_CHANNELS, HUMAN_ONLY_TOOLS, ApprovalExpired, ApprovalGate, local_user
 from ..security.dispatch import gate_after_result
 from ..security.module_execution import authorized_module_execution
 from .base import AECProvider, ProviderTool
@@ -130,6 +132,17 @@ class ApprovalProvider(AECProvider):
             if self.registry is None or self.registry.lookup_tool(tool) is None:
                 raise BridgeError(f"Action {i + 1}: '{tool}' is not a registered tool, so it cannot be part of a plan.")
 
+    async def _draft_binding(self, actions: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """Identity of the live Revit document for a new plan, or None when it cannot be read
+        (mock mode, no Revit, Revit busy). A plan without a binding is not refused for that."""
+        if self.gate.binding_probe is None:
+            return None
+        try:
+            return binding_mod.binding_from_context(await asyncio.to_thread(self.gate.binding_probe), actions)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Could not read the live document for the plan binding: %s", e)
+            return None
+
     async def execute_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         if name == "plan_actions":
             actions = arguments.get("actions", [])
@@ -169,6 +182,7 @@ class ApprovalProvider(AECProvider):
                 skipped=arguments.get("skipped") or None,
                 before_storage_types=before_types,
                 review=arguments.get("review"),
+                binding=await self._draft_binding(actions),
             )
             if self.gate.dev_mode:
                 # Reporting only: the plan is still created and still needs a person's approval if used.
@@ -176,7 +190,8 @@ class ApprovalProvider(AECProvider):
             return plan
 
         elif name == "list_pending_plans":
-            return {"plans": self.gate.list_pending_plans()}
+            plans, hidden = self.gate.pending_listing(arguments.get("include_expired") is True)
+            return {"plans": plans, "expired_hidden": hidden}
 
         elif name in HUMAN_ONLY_TOOLS:
             # Never through the generic tool path (MCP, chat, recipes, plans, modules):
@@ -247,7 +262,12 @@ class ApprovalProvider(AECProvider):
             raise ValueError(
                 f"Plan {plan_id} is in state '{plan.get('state')}', not 'approved'. Execution blocked."
             )
-        self.gate.verify_approved(plan)
+        try:
+            self.gate.verify_approved(plan)
+        except ApprovalExpired:
+            self.gate.expire_plan(plan_id)
+            raise
+        self.gate.verify_binding(plan)  # whole plan refused up front, so a wrong document consumes nothing
 
         # A profile is a discovery/dispatch choice, not a failed model action.
         # Refuse the entire pending plan before consuming anything or saving a
@@ -459,7 +479,8 @@ class ApprovalProvider(AECProvider):
             review["warnings"] = review["warnings"][:50] + [
                 f"... {len(conflicts)} conflict(s) in total; the rest are not listed, see the proof bundle."]
         return self.gate.create_plan(actions, before_states, snapshot_id=plan.get("snapshot_id"),
-                                     extra={"reverts_plan_id": plan_id}, review=review)
+                                     extra={"reverts_plan_id": plan_id}, review=review,
+                                     binding=await self._draft_binding([]))
 
     _capabilities = [
         ProviderTool(
@@ -490,8 +511,9 @@ class ApprovalProvider(AECProvider):
         ),
         ProviderTool(
             name="list_pending_plans",
-            description="List all pending ActionPlans waiting for review.",
-            inputSchema={"type": "object", "properties": {}}
+            description="List pending ActionPlans waiting for review. Plans older than pending_ttl are left out "
+                        "and counted in expired_hidden; include_expired shows them (they cannot be approved).",
+            inputSchema={"type": "object", "properties": {"include_expired": {"type": "boolean", "description": "Also list expired pending plans."}}}
         ),
         ProviderTool(
             name="approve_plan",

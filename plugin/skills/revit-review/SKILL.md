@@ -5,7 +5,7 @@ description: Safe flow for reviewing and fixing an open Revit model with AEC Mod
 
 # Review a Revit model safely
 
-Status: on the dev branch, not yet released.
+Status: in 1.5.0. Writes through an approved plan are not yet checked in a live Revit.
 
 AEC Model Bridge lets you read the Revit model the person has open. Changes are
 different: in Ask me first mode they only happen after a person approves a plan.

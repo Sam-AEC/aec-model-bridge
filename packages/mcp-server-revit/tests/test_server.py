@@ -86,7 +86,7 @@ def test_redaction_in_server(tmp_path: Path):
                         "ifc_guid": "ifc-id",
                         "rhino_uuid": "rhino-id",
                         "token": "sensitive-token-123",
-                        "file_path": r"C:\Users\sammo\secret.rvt",
+                        "file_path": r"C:\Users\jdoe\secret.rvt",
                     }
                 ]
             }

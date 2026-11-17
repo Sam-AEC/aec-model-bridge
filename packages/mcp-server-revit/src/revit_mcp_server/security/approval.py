@@ -10,9 +10,10 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Any, Iterator, List, Optional
+from typing import Callable, Dict, Any, Iterator, List, Optional, Tuple
 from ..config import APPROVAL_MODES, config, normalize_approval_mode  # noqa: F401 (re-exported)
 from ..errors import BridgeError
+from . import binding as binding_mod
 from . import proof as proof_mod
 from .approval_override import active_override
 from .dev_mode import active_dev, audit_dev_event
@@ -38,7 +39,7 @@ VOLATILE_ARGUMENT_KEYS = frozenset({"plan_id", "run_async", "idempotency_key"})
 # Plan keys the caller of create_plan(extra=...) may not set: the hash fields and the
 # hashed review block (which has its own validated parameter).
 _RESERVED_EXTRA_KEYS = frozenset({
-    "review", "hash_version", "plan_hash", "approved_hash", "plan_id", "created_at", "actions",
+    "review", "hash_version", "plan_hash", "approved_hash", "plan_id", "created_at", "actions", "binding",
 }) | proof_mod.STATE_PLAN_KEYS
 
 ACTION_ID_RE = re.compile(r"act_[0-9a-f]{12}")
@@ -69,6 +70,31 @@ def _refuse_plan_id(reason: str) -> BridgeError:
     return BridgeError(
         "Invalid plan_id: expected the id returned by plan_actions ('plan_' followed by 12 hex characters)."
     )
+
+
+class ApprovalExpired(BridgeError):
+    """An approval is older than approval_ttl. Only a new plan that a person approves renews anything."""
+
+
+_UNBOUND = object()  # create_plan(binding=...) default: the plan carries no binding key (older format)
+
+
+def _age_seconds(stamp: Any, now: datetime) -> Optional[float]:
+    """Seconds since an ISO timestamp, or None when it is missing or unreadable."""
+    try:
+        when = datetime.fromisoformat(str(stamp))
+    except ValueError:
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    return (now - when).total_seconds()
+
+
+def _span(seconds: float) -> str:
+    for unit, size in (("day", 86400), ("hour", 3600), ("minute", 60)):
+        if seconds >= size:
+            return f"{seconds / size:.1f} {unit}s"
+    return f"{int(seconds)} seconds"
 
 
 def validate_plan_id(plan_id: Any) -> str:
@@ -177,8 +203,15 @@ def running_actions(plan: Dict[str, Any], now: Optional[datetime] = None) -> Lis
 
 
 class ApprovalGate:
-    def __init__(self, workspace_dir: Path, approval_mode: str = config.approval_mode) -> None:
+    def __init__(self, workspace_dir: Path, approval_mode: str = config.approval_mode,
+                 approval_ttl: Optional[int] = None, pending_ttl: Optional[int] = None) -> None:
         self.workspace_dir = workspace_dir
+        # Seconds, 0 = no limit. Set from the environment, never from a tool call.
+        self.approval_ttl = config.approval_ttl if approval_ttl is None else approval_ttl
+        self.pending_ttl = config.pending_ttl if pending_ttl is None else pending_ttl
+        # Reads the live Revit context (revit_get_context shape); set by the provider wiring. Without
+        # one, a plan that carries a document binding cannot be executed (fail closed).
+        self.binding_probe: Optional[Callable[[], Any]] = None
         self.override_token: Optional[str] = None  # tests; normally read from the panel token file
         self.approval_mode = approval_mode
         self.plans_dir = workspace_dir / "plans"
@@ -296,9 +329,12 @@ class ApprovalGate:
         extra: Optional[Dict[str, Any]] = None,
         before_storage_types: Optional[List[Optional[str]]] = None,
         review: Optional[Dict[str, Any]] = None,
+        binding: Any = _UNBOUND,
     ) -> Dict[str, Any]:
         """Draft a plan. ``review`` (summary, reasoning, citations, ...) is validated,
-        canonicalised and covered by the plan hash. ``extra`` is metadata only: it is NOT
+        canonicalised and covered by the plan hash. ``binding`` (a dict, or None when the live
+        document could not be identified) is stored inside the hashed plan; leave it out for the
+        older, unbound format. ``extra`` is metadata only: it is NOT
         hashed and must not be presented as approved content (see proof.unhashed_metadata_keys)."""
         self.validate_actions(actions)
         if proof_mod.has_nonfinite_float(actions) or proof_mod.has_nonfinite_float(review):
@@ -354,11 +390,81 @@ class ApprovalGate:
         if review is not None:
             plan["review"] = review
             plan["hash_version"] = proof_mod.HASH_VERSION_REVIEW
+        if binding is not _UNBOUND:
+            try:
+                binding_mod.validate_binding(binding)
+            except ValueError as e:
+                raise BridgeError(str(e))
+            plan["binding"] = binding
         plan["plan_hash"] = plan_hash(plan)
         self.save_plan(plan)
         return plan
 
-    def list_pending_plans(self) -> List[Dict[str, Any]]:
+    def expiry_reason(self, plan: Dict[str, Any], now: Optional[datetime] = None) -> Optional[str]:
+        """Why a pending or approved plan is too old to use, or None. A pending plan expires
+        ``pending_ttl`` seconds after drafting, an approved one ``approval_ttl`` seconds after its
+        approval. A missing, unreadable or future timestamp counts as expired (clock set back).
+        Computed at check time from the stored times, never by a timer. Read-only."""
+        now = now or datetime.now(timezone.utc)
+        plan_id = plan.get("plan_id")
+        if plan.get("state") == "approved":
+            ttl, age, name = self.approval_ttl, _age_seconds(plan.get("approved_at"), now), "approval_ttl"
+            if not ttl or (age is not None and 0 <= age <= ttl):
+                return None
+            when = "its approval time is missing or in the future" if age is None or age < 0 else                 f"it was approved {_span(age)} ago"
+            return (f"The approval of plan '{plan_id}' has expired ({when}; an approval lasts {_span(ttl)}, "
+                    f"{name}). No new actions can run. A person must approve again: draft a new plan and have it approved.")
+        if plan.get("state") == "pending":
+            ttl, age, name = self.pending_ttl, _age_seconds(plan.get("created_at"), now), "pending_ttl"
+            if not ttl or (age is not None and 0 <= age <= ttl):
+                return None
+            return (f"Plan '{plan_id}' has expired (drafted more than {_span(ttl)} ago, {name}) and cannot be "
+                    "approved. Ask for a new plan.")
+        return None
+
+    def _mark_expired(self, plan: Dict[str, Any]) -> None:
+        """Stop new claims while preserving accounting for earlier work. Caller holds the lock."""
+        plan["state"] = "expired"
+        plan["expired_at"] = datetime.now(timezone.utc).isoformat()
+        plan["expired_reason"] = "approval_ttl"
+        states = [a.get("state") for a in plan.get("actions", [])]
+        finished = "running" not in states and any(s in DONE_ACTION_STATES for s in states)
+        if finished:
+            plan["state"] = "executed" if all(s == "executed" for s in states) else "partial"
+            plan["executed_at"] = plan["expired_at"]
+        self.save_plan(plan)
+        if finished:
+            try:
+                self.record_proof(plan)
+            except Exception:
+                logger.exception("Failed to write proof bundle for plan %s", plan.get("plan_id"))
+
+    def expire_plan(self, plan_id: str) -> None:
+        """Stop an expired approval and account for completed work (no-op otherwise)."""
+        with self._plan_lock(plan_id):
+            plan = self.load_plan(plan_id)
+            if plan and plan.get("state") == "approved" and self.expiry_reason(plan):
+                self._mark_expired(plan)
+
+    def split_pending_plans(self) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """(live, expired) pending plans. Expired ones are only separated, never changed or deleted."""
+        live: List[Dict[str, Any]] = []
+        stale: List[Dict[str, Any]] = []
+        for plan in self._pending_on_disk():
+            (stale if self.expiry_reason(plan) else live).append(plan)
+        return live, stale
+
+    def pending_listing(self, include_expired: bool = False) -> Tuple[List[Dict[str, Any]], int]:
+        """(plans to show, number of expired pending plans left out of that list)."""
+        live, stale = self.split_pending_plans()
+        if include_expired:
+            return live + [{**p, "expired": True} for p in stale], 0
+        return live, len(stale)
+
+    def list_pending_plans(self, include_expired: bool = False) -> List[Dict[str, Any]]:
+        return self.pending_listing(include_expired)[0]
+
+    def _pending_on_disk(self) -> List[Dict[str, Any]]:
         plans = []
         for path in self.plans_dir.glob("*.json"):
             if not PLAN_ID_RE.fullmatch(path.stem):
@@ -396,6 +502,9 @@ class ApprovalGate:
                     raise ValueError(f"Plan {plan_id} is in state '{current}'; only a pending plan can be approved.")
                 if via not in APPROVAL_CHANNELS:
                     raise ValueError("An approval must come from the panel or the command-line tool.")
+                expired = self.expiry_reason(plan)
+                if expired:
+                    raise ValueError(expired)
                 now_hash = plan_hash(plan)
                 if not expected_hash or expected_hash != now_hash:
                     raise ValueError(
@@ -467,6 +576,15 @@ class ApprovalGate:
                 hint = " Dev mode is on: omit plan_id to run unplanned, or have the person approve this plan."
             raise BridgeError(
                 f"Plan '{plan_id}' is in state '{plan.get('state')}', not 'approved'. Execution blocked.{hint}")
+        self._verify_unchanged_since_approval(plan)
+        expired = self.expiry_reason(plan)
+        if expired:
+            raise ApprovalExpired(expired)
+
+    @staticmethod
+    def _verify_unchanged_since_approval(plan: Dict[str, Any]) -> None:
+        """Refuse unless the plan still hashes to what a person approved (any state)."""
+        plan_id = plan.get("plan_id")
         approved = plan.get("approved_hash")
         try:
             current_hash = plan_hash(plan)
@@ -476,6 +594,32 @@ class ApprovalGate:
             raise BridgeError(
                 f"Plan '{plan_id}' changed after it was approved (or has no approval record). Execution blocked; "
                 "draft a new plan and ask the person to approve it."
+            )
+
+    def verify_binding(self, plan: Dict[str, Any]) -> None:
+        """Refuse when the live Revit document is not the one the plan was drafted for. A plan with
+        no binding (drafted without a live Revit, or before bindings existed) is never refused here.
+        A bound plan whose live document cannot be read is refused: failing open would defeat it."""
+        bound = plan.get("binding")
+        if bound is None:
+            return
+        plan_id = plan.get("plan_id")
+        try:
+            live = binding_mod.live_binding(self.binding_probe()) if self.binding_probe else None
+        except Exception as e:  # noqa: BLE001 - any failure to read means "cannot confirm"
+            logger.warning("Could not read the live document for plan %s: %s", plan_id, e)
+            live = None
+        if live is None:
+            raise BridgeError(
+                f"Plan '{plan_id}' is bound to Revit document {bound.get('doc_title')!r} but the live document "
+                "could not be read (Revit busy, closed, or no document open). Nothing ran. Try again when Revit is idle."
+            )
+        differs = binding_mod.mismatches(bound, live)
+        if differs:
+            raise BridgeError(
+                f"Plan '{plan_id}' was drafted for Revit document {bound.get('doc_title')!r} but the active "
+                f"document is {live.get('doc_title')!r} ({'; '.join(differs)}). Nothing ran. Open the right model "
+                "or draft a new plan for this one; a person must approve it again."
             )
 
     def check_tool_execution(self, tool_name: str, arguments: Dict[str, Any]) -> None:
@@ -523,14 +667,14 @@ class ApprovalGate:
                 return action
         return None
 
-    def _claim_marker(self, plan_id: str, action_id: Any) -> Path:
+    def _claim_marker(self, plan_id: str, action_id: Any, subdir: str = ".claims") -> Path:
         validate_plan_id(plan_id)
 
         def refuse(_reason: str) -> BridgeError:
             return BridgeError(f"Plan '{plan_id}' has a malformed action id; refusing to run it.")
 
         return safe_child(self.plans_dir, f"{plan_id}.{action_id}" if isinstance(action_id, str) else None,
-                          "", _CLAIM_NAME_RE, refuse, subdir=".claims")
+                          "", _CLAIM_NAME_RE, refuse, subdir=subdir)
 
     def claim_action(self, tool_name: str, arguments: Any) -> Optional[Dict[str, str]]:
         """Consume the matching approved action BEFORE the tool runs (at most once).
@@ -589,7 +733,12 @@ class ApprovalGate:
             plan = self.load_plan(plan_id)
             if not plan:
                 raise BridgeError(f"Plan '{plan_id}' does not exist.")
-            self.verify_approved(plan)
+            try:
+                self.verify_approved(plan)
+            except ApprovalExpired:
+                self._mark_expired(plan)
+                raise
+            self.verify_binding(plan)
             tried: set = set()
             while True:
                 action = self._find_open_action(plan, tool_name, arguments, skip=tried)
@@ -620,6 +769,7 @@ class ApprovalGate:
 
         When no action is left open or running, the plan moves to 'executed' (every
         action succeeded) or 'partial' (some failed), unless a person rejected it.
+        Expired plans also finish once their running actions settle; unstarted actions stay blocked.
         """
         if not claim:
             return None
@@ -641,7 +791,9 @@ class ApprovalGate:
                         action["error"] = str(error)[:500]
             states = [a.get("state") for a in plan.get("actions", [])]
             all_done = all(s in DONE_ACTION_STATES for s in states)
-            if all_done and plan.get("state") == "approved":
+            if plan.get("state") == "expired" and "running" not in states:
+                all_done = True
+            if all_done and plan.get("state") in ("approved", "expired"):
                 if all(s == "executed" for s in states):
                     finished_all = True
                 else:
@@ -791,7 +943,7 @@ class ApprovalGate:
                     action["abandoned_reason"] = reason[:500]
                     action["abandoned_by"] = str(by) if by else local_user()
                     action["abandoned_via"] = "cli"
-            closed = plan.get("state") == "approved"
+            closed = plan.get("state") in ("approved", "expired")
             if closed:
                 plan["state"] = "partial"
                 plan["executed_at"] = now.isoformat()
@@ -825,6 +977,45 @@ class ApprovalGate:
                 return None
         return self.finish_action(claim, ok=True)
 
+    def _check_rollback_allowed(self, plan: Optional[Dict[str, Any]], plan_id: str) -> Dict[str, Any]:
+        """The one place that decides whether a plan may be rolled back right now.
+
+        Mirrors what claim_action requires of an execution, for state 'executed':
+        the plan exists, was executed (so it is not pending, rejected, partial or
+        already rolled back) and still holds exactly what a person approved. Called
+        before the rollback starts and again, under the plan lock, before each inverse
+        action is claimed and before the final state is saved. Further gates (plan
+        expiry, document binding) belong here.
+        """
+        if not plan:
+            raise ValueError(f"Plan {plan_id} not found")
+        if plan.get("state") != "executed":
+            raise ValueError(f"Plan {plan_id} is in state '{plan.get('state')}', cannot rollback. Only executed plans can be rolled back.")
+        self._verify_unchanged_since_approval(plan)
+        return plan
+
+    def _claim_rollback_action(self, plan_id: str, action_id: Any) -> None:
+        """Consume one inverse action BEFORE its write runs (at most once, across processes).
+
+        Under the plan lock: re-checks the plan, then creates a claim marker with O_EXCL
+        in ``.rollback_claims`` (separate from the execution claims in ``.claims``). The
+        marker stays whatever the write does next, so an interrupted rollback never
+        replays an inverse write blindly; a person inspects the model first.
+        """
+        with self._plan_lock(plan_id):
+            self._check_rollback_allowed(self.load_plan(plan_id), plan_id)
+            marker = self._claim_marker(plan_id, action_id, subdir=".rollback_claims")
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                fd = os.open(str(marker), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            except FileExistsError:
+                raise BridgeError(
+                    f"Rollback of action {action_id} in plan {plan_id} was already claimed by an earlier "
+                    "rollback; its write may or may not have run. Inspect the model before trying again."
+                ) from None
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(datetime.now(timezone.utc).isoformat())
+
     async def rollback_plan(self, plan_id: str, execute_fn) -> Dict[str, Any]:
         """Roll back an executed plan.
 
@@ -832,16 +1023,20 @@ class ApprovalGate:
         awaited here rather than merely invoked, otherwise the inverse tool call never
         actually runs (a bare call just constructs and discards a coroutine object).
 
+        Same discipline as execute_plan: the plan must be 'executed' and unchanged since
+        approval (_check_rollback_allowed), and every inverse action is claimed under the
+        plan lock (_claim_rollback_action) before its write runs. The plan stays
+        'executed' for the whole rollback (it is never written as 'approved'), so a crash
+        leaves it 'executed'; only the final outcome is saved, and only while the plan is
+        still 'executed'.
+
         Tools without a registered rollback handler are recorded as warnings (not
         errors) so that a mixed plan (some rollback-able, some not) still rolls back
         what it can and reports clearly what was skipped.
         """
-        self.refuse_if_look_only()  # rollback writes to the model directly, outside claim_action
-        plan = self.load_plan(plan_id)
-        if not plan:
-            raise ValueError(f"Plan {plan_id} not found")
-        if plan.get("state") != "executed":
-            raise ValueError(f"Plan {plan_id} is in state '{plan.get('state')}', cannot rollback. Only executed plans can be rolled back.")
+        self.refuse_if_look_only()  # rollback is a model write; look only refuses it before anything else
+        validate_plan_id(plan_id)
+        plan = self._check_rollback_allowed(self.load_plan(plan_id), plan_id)
 
         errors = []
         warnings = []
@@ -854,10 +1049,7 @@ class ApprovalGate:
                 old_val = before.get(str(elem_id), {}).get(param_name)
                 if old_val is not None:
                     try:
-                        # Make sure to bypass or satisfy the approved state check
-                        # We temporarily set the plan state to 'approved' for the rollback calls
-                        plan["state"] = "approved"
-                        self.save_plan(plan)
+                        self._claim_rollback_action(plan_id, action.get("action_id"))
                         await execute_fn("revit_set_parameter_value", {
                             "element_id": elem_id,
                             "parameter_name": param_name,
@@ -866,21 +1058,16 @@ class ApprovalGate:
                         })
                     except Exception as e:
                         errors.append(f"Failed to rollback action {action.get('action_id')}: {e}")
-                    finally:
-                        plan["state"] = "executed"
-                        self.save_plan(plan)
                 else:
                     warnings.append(f"Skipped rollback for action {action.get('action_id')}: no before-value recorded")
             else:
                 warnings.append(f"No rollback handler for tool '{tool}' (action {action.get('action_id')}) — skipped")
 
-        if errors:
-            plan["state"] = "partial_rollback"
+        with self._plan_lock(plan_id):
+            plan = self._check_rollback_allowed(self.load_plan(plan_id), plan_id)
             plan["rollback_warnings"] = warnings
+            plan["state"] = "partial_rollback" if errors else "rolled_back"
             self.save_plan(plan)
+        if errors:
             raise BridgeError(f"Rollback encountered errors: {'; '.join(errors)}")
-
-        plan["state"] = "rolled_back"
-        plan["rollback_warnings"] = warnings
-        self.save_plan(plan)
         return plan

@@ -16,9 +16,11 @@ from revit_mcp_server.providers.registry import ProviderRegistry
 from revit_mcp_server.providers.revit import RevitProvider
 from revit_mcp_server.providers.revit_jobs import RevitJobProvider
 from revit_mcp_server.jobs import JobManager
+from revit_mcp_server.security.approval import HUMAN_ONLY_TOOLS
 from revit_mcp_server.security.dispatch import gate_before, run_gated_tool
 from revit_mcp_server.security.workspace import WorkspaceMonitor
-from revit_mcp_server.tool_profiles import ToolProfile, ToolProfileBlocked, load_tool_profile
+from revit_mcp_server.registry_factory import build_registry
+from revit_mcp_server.tool_profiles import CORE_TOOLS, ToolProfile, ToolProfileBlocked, load_tool_profile
 
 
 def tool(name, module_id=None, mutating=False):
@@ -272,7 +274,7 @@ def _approval_names(profile):
     return {t.name for t in registry.get_all_tools()}
 
 
-@pytest.mark.parametrize("profile_name", ["full", "daily"])
+@pytest.mark.parametrize("profile_name", ["full", "daily", "core"])
 def test_approval_tools_are_visible_in_every_builtin_profile(profile_name):
     names = _approval_names(load_tool_profile({"MCP_REVIT_TOOL_PROFILE": profile_name}))
     assert APPROVAL_TOOLS <= names
@@ -303,3 +305,107 @@ def test_approval_provider_is_allowed_even_for_a_hand_built_excluding_profile():
     profile = ToolProfile(name="custom", include=("revit",), exclude=("approval", "*"))
     assert profile.allows("approval")
     assert not profile.allows("rhino")
+
+
+# ---- core profile: a short allowlist of tool names -----------------------------------
+
+CORE_COUNT = 54  # CORE_TOOLS (49) + the five always-visible approval tools
+
+
+def test_core_list_is_pinned_and_names_each_tool_once():
+    assert len(CORE_TOOLS) == 49 and len(set(CORE_TOOLS)) == 49
+    assert not APPROVAL_TOOLS & set(CORE_TOOLS)  # approval tools come from the provider rule
+
+
+def test_core_exposes_only_its_list_plus_approval_tools(tmp_path):
+    registry, *_ = build_registry(WorkspaceMonitor([tmp_path]))
+    everything = {t.name for t in registry.get_all_tools()}
+    assert set(CORE_TOOLS) <= everything, "CORE_TOOLS names a tool that no longer exists"
+    registry.freeze_tool_profile(load_tool_profile({"MCP_REVIT_TOOL_PROFILE": "core"}))
+    names = {t.name for t in registry.get_all_tools()} - HUMAN_ONLY_TOOLS  # human-only tools are never listed
+    assert names == set(CORE_TOOLS) | APPROVAL_TOOLS
+    assert len(names) == CORE_COUNT
+
+
+def test_core_refuses_hidden_tools_at_dispatch_and_says_how_to_switch(tmp_path):
+    registry, *_ = build_registry(WorkspaceMonitor([tmp_path]))
+    registry.freeze_tool_profile(load_tool_profile({"MCP_REVIT_TOOL_PROFILE": "core"}))
+    for hidden in ("revit_delete_element", "revit_create_wall", "qaqc_checker_export_rule_pack", "rhino_health"):
+        with pytest.raises(ToolProfileBlocked, match="profile 'core'") as info:
+            registry.lookup_tool(hidden)
+        assert "MCP_REVIT_TOOL_PROFILE=daily or full" in str(info.value)
+        with pytest.raises(ToolProfileBlocked):
+            registry.validate_profile_call(hidden, {})
+    gate = SimpleNamespace(claim_action=lambda *a: pytest.fail("a hidden write must not be claimed"))
+    with pytest.raises(ToolProfileBlocked):
+        gate_before(registry, gate, "revit_delete_element", {"element_id": 1})
+    for visible in ("revit_execute_python", "revit_set_parameters", "plan_actions"):
+        assert registry.lookup_tool(visible) is not None
+
+
+def test_core_via_mcp_list_tools_and_call_tool(tmp_path, monkeypatch):
+    registry, approval, jobs, *_ = build_registry(WorkspaceMonitor([tmp_path]))
+    registry.freeze_tool_profile(load_tool_profile({"MCP_REVIT_TOOL_PROFILE": "core"}))
+    monkeypatch.setattr(mcp_server, "registry", registry)
+    monkeypatch.setattr(mcp_server, "approval_provider", approval)
+    monkeypatch.setattr(mcp_server, "job_manager", jobs)
+    assert len(asyncio.run(mcp_server.list_tools())) == CORE_COUNT
+    out = asyncio.run(mcp_server.call_tool("revit_create_wall", {}))
+    assert out.isError and out.structuredContent["error"]["kind"] == "tool_profile_blocked"
+
+
+def test_core_links_worksets_audit_reads_its_live_dependencies(tmp_path, monkeypatch):
+    registry, approval, *_ = build_registry(WorkspaceMonitor([tmp_path]))
+    replies = {
+        "revit_get_rvt_links": {"links": [
+            {"id": 1, "name": "Structure.rvt", "is_loaded": False, "path": "RSN://server/Structure.rvt"}
+        ]},
+        "revit_get_link_instances": {"instances": []},
+        "revit_get_worksets": {"is_workshared": True, "worksets": [{"id": 1, "name": "Workset1"}]},
+    }
+    calls = []
+
+    async def read_tool(name, arguments):
+        calls.append(name)
+        return replies[name]
+
+    monkeypatch.setattr(registry.get_provider("revit"), "execute_tool", read_tool)
+    registry.freeze_tool_profile(load_tool_profile({"MCP_REVIT_TOOL_PROFILE": "core"}))
+    result = asyncio.run(run_gated_tool(registry, approval.gate, "links_worksets_audit_audit", {}))
+
+    assert calls == list(replies)
+    assert result["source"] == "live_revit"
+    assert result["links_checked"] == 1
+    assert result["worksets_checked"] == 1
+    assert {finding["rule"] for finding in result["findings"]} == {"link_unloaded", "workset_default_name"}
+    assert not any("Could not read" in note for note in result["notes"])
+
+
+def test_core_file_can_narrow_but_never_hide_approval(tmp_path):
+    path = tmp_path / "profile.json"
+    path.write_text(json.dumps({"include": ["revit"]}))
+    registry, *_ = build_registry(WorkspaceMonitor([tmp_path]))
+    registry.freeze_tool_profile(load_tool_profile({
+        "MCP_REVIT_TOOL_PROFILE": "core", "MCP_REVIT_TOOL_PROFILE_FILE": str(path)}))
+    names = {t.name for t in registry.get_all_tools()}
+    assert APPROVAL_TOOLS <= names and "revit_execute_python" in names
+    assert "revit_set_parameters" not in names  # provider 'module' is outside the file's include
+
+
+def test_server_instructions_carry_the_family_map_and_unchanged_approval_text():
+    text = mcp_server.SERVER_INSTRUCTIONS
+    for prefix in ("revit_*", "qaqc_checker_*", "snapshot_*", "model_*", "MCP_REVIT_TOOL_PROFILE"):
+        assert prefix in text
+    assert len(text.splitlines()) == 4  # the approval paragraph, then a 3-line map
+    for phrase in (
+        "Read-only tools run immediately. Every tool that changes a model requires an approved plan: ",
+        "call plan_actions with the proposed changes, then STOP and ask the person to review and approve the plan "
+        "themselves, in the Revit panel's Plans view or with the command-line tool `aec-model-bridge-approve`. ",
+        "You cannot approve, reject or roll back a plan, and must not try to work around that. ",
+        "Only after the person tells you the plan is approved, call execute_plan (or pass the plan_id to the write tool "
+        "with exactly the arguments that were approved; an approved action runs once). ",
+        "Dev mode: if revit_get_context shows server.dev_mode true, call write tools directly, "
+        "with no plan_actions and no plan_id; otherwise the plan steps above apply.",
+    ):
+        assert phrase in text
+    assert len(text) < 2400

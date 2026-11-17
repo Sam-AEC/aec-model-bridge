@@ -1,0 +1,799 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-density="comfortable">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Self-contained: no network requests are possible from this page. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:">
+<title>Design prototype (synthetic data, not shipped code): review pane</title>
+<style>
+/* ------------------------------------------------------------------------
+   DESIGN PROTOTYPE. Synthetic data. Not shipped code. Not connected to Revit.
+   Companion to docs/roadmap.md, section "Design system".
+
+   Token layers (never mixed):
+   1. Core tokens: surfaces, ink, lines and the five semantic colours. Fixed.
+   2. Brand tokens: six values per theme, supplied by a brand pack through
+      --bp-* inputs. Each has a core fallback inside var(). A brand pack can
+      never set a semantic colour.
+   3. High contrast: brand inputs are ignored; identity is the name and logo.
+   ------------------------------------------------------------------------ */
+:root {
+  --font: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --mono: Consolas, "Cascadia Mono", "SF Mono", Menlo, monospace;
+  --fs-meta: 0.75rem;     /* 12 px */
+  --fs-body: 0.8125rem;   /* 13 px */
+  --fs-title: 0.9375rem;  /* 15 px */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px;
+  --radius: 6px;
+  --row-pad: 8px;
+  --control-h: 32px;
+  --motion-fast: 120ms cubic-bezier(.4, 0, .2, 1);
+  --border-w: 1px;
+}
+:root[data-density="compact"] { --row-pad: 4px; --control-h: 28px; }
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --ink: #18202C; --ink-muted: #5B6676;
+  --bg: #F2F5F8; --surface: #FFFFFF; --raised: #E9EEF4;
+  --line: #D3DAE3; --line-strong: #737F90;
+  --danger: #C23B2E; --warning: #A45F0B; --info: #2457C5; --success: #127A4B; --pending: #6D3FB8;
+  --host-chrome: #F0F0F0; --host-ink: #3B4453; --host-canvas: #FFFFFF;
+  --brand: var(--bp-l-brand, #0091A7);
+  --brand-text: var(--bp-l-brand-text, #046B80);
+  --primary-bg: var(--bp-l-primary-bg, #046B80);
+  --primary-hover: var(--bp-l-primary-hover, #035262);
+  --on-primary: var(--bp-l-on-primary, #FFFFFF);
+  --tile: var(--bp-l-tile, #111923);
+  --shadow: 0 1px 2px rgba(16, 24, 40, .10);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ink: #E8EBEF; --ink-muted: #C8CFD9;
+  --bg: #3B4453; --surface: #2F3846; --raised: #434D5C;
+  --line: #515C6B; --line-strong: #9AA5B5;
+  --danger: #FCAA9F; --warning: #F7BA60; --info: #A3C0F8; --success: #5ED9A0; --pending: #D3BDF8;
+  --host-chrome: #2E3440; --host-ink: #E8EBEF; --host-canvas: #20262F;
+  --brand: var(--bp-d-brand, #3FC3D6);
+  --brand-text: var(--bp-d-brand-text, #6FD8E6);
+  --primary-bg: var(--bp-d-primary-bg, #3FC3D6);
+  --primary-hover: var(--bp-d-primary-hover, #6FD8E6);
+  --on-primary: var(--bp-d-on-primary, #06222A);
+  --tile: var(--bp-d-tile, #111923);
+  --shadow: 0 1px 0 rgba(255, 255, 255, .04) inset;
+}
+:root[data-theme="hc"] {
+  color-scheme: dark;
+  --ink: #FFFFFF; --ink-muted: #E0E0E0;
+  --bg: #000000; --surface: #000000; --raised: #1C1C1C;
+  --line: #FFFFFF; --line-strong: #FFFFFF;
+  --danger: #FF9C91; --warning: #FFD166; --info: #9CC7FF; --success: #7CF0B4; --pending: #E0CCFF;
+  --host-chrome: #000000; --host-ink: #FFFFFF; --host-canvas: #000000;
+  /* Brand inputs are deliberately not read here. */
+  --brand: #5CE6FF; --brand-text: #5CE6FF;
+  --primary-bg: #FFFFFF; --primary-hover: #E0E0E0; --on-primary: #000000;
+  --tile: #000000;
+  --shadow: none;
+  --border-w: 2px;
+}
+
+* { box-sizing: border-box; }
+html { font-size: 100%; }
+body { margin: 0; font: var(--fs-body)/1.45 var(--font); color: var(--ink); background: var(--bg); }
+h1, h2, h3, p, ul, ol, dl, dd, figure { margin: 0; padding: 0; }
+ul, ol { list-style: none; }
+button, select, input { font: inherit; color: inherit; }
+.num, code, .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 0.75rem; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.muted { color: var(--ink-muted); }
+small { font-size: var(--fs-meta); }   /* never the browser default "smaller", which lands under 11 px */
+svg { flex: none; }
+
+:focus-visible { outline: 2px solid var(--brand-text); outline-offset: 2px; border-radius: 3px; }
+.skiplink { position: absolute; left: 8px; top: -48px; background: var(--surface); color: var(--ink); padding: 8px 12px; border: 2px solid var(--brand-text); border-radius: var(--radius); z-index: 20; }
+.skiplink:focus { top: 8px; }
+
+/* ---------- prototype chrome (not part of the product) ---------- */
+.proto-banner { background: var(--ink); color: var(--surface); padding: 8px 16px; font-weight: 600; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.proto-banner .tag { border: 2px solid currentColor; border-radius: 4px; padding: 1px 8px; letter-spacing: .04em; text-transform: uppercase; font-size: var(--fs-meta); }
+.proto-banner .bnote { font-weight: 400; }
+.proto-banner h1 { font-size: inherit; font-weight: 600; display: inline; }
+.proto-controls { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: flex-end; padding: 10px 16px; border-bottom: var(--border-w) dashed var(--line-strong); background: var(--surface); }
+.proto-controls fieldset { border: 0; margin: 0; padding: 0; display: flex; gap: 4px 10px; align-items: center; flex-wrap: wrap; }
+.proto-controls legend, .proto-controls label.lbl { font-size: var(--fs-meta); color: var(--ink-muted); font-weight: 600; padding: 0; margin-right: 4px; float: left; }
+.proto-controls label { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; }
+select { min-height: var(--control-h); border: var(--border-w) solid var(--line-strong); border-radius: var(--radius); background: var(--surface); padding: 2px 6px; max-width: 100%; }
+
+main { padding: 16px; display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+
+/* ---------- simulated Revit host ---------- */
+.host { border: var(--border-w) solid var(--line-strong); border-radius: 8px; overflow: hidden; background: var(--host-canvas); }
+.host-title { background: var(--host-chrome); color: var(--host-ink); padding: 3px 10px; font-size: var(--fs-meta); display: flex; justify-content: space-between; gap: 8px; border-bottom: var(--border-w) solid var(--line); }
+.ribbon { background: var(--host-chrome); color: var(--host-ink); border-bottom: var(--border-w) solid var(--line-strong); padding: 0 8px 4px; }
+.ribbon-tabs { display: flex; gap: 2px; font-size: var(--fs-meta); flex-wrap: wrap; }
+.ribbon-tabs span { padding: 4px 10px; color: var(--host-ink); opacity: .75; }
+.ribbon-tabs span.on { opacity: 1; font-weight: 600; background: var(--surface); color: var(--ink); border: var(--border-w) solid var(--line-strong); border-bottom: 0; border-radius: 4px 4px 0 0; }
+.ribbon-body { display: flex; gap: 0; align-items: stretch; background: var(--surface); color: var(--ink); border: var(--border-w) solid var(--line-strong); border-radius: 0 4px 4px 4px; padding: 4px; flex-wrap: wrap; }
+.rgroup { display: flex; flex-direction: column; justify-content: space-between; padding: 0 8px; border-right: var(--border-w) solid var(--line); }
+.rgroup:last-child { border-right: 0; }
+.rgroup .items { display: flex; gap: 6px; align-items: flex-start; }
+.rgroup .stack { display: flex; flex-direction: column; gap: 1px; }
+.rgroup .gname { font-size: 0.6875rem; color: var(--ink-muted); text-align: center; padding-top: 2px; }
+.rbtn { background: transparent; border: var(--border-w) solid transparent; border-radius: 3px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; padding: 2px 5px; min-height: 24px; font-size: var(--fs-meta); text-align: left; }
+.rbtn.large { flex-direction: column; min-width: 56px; padding: 3px 6px; text-align: center; }
+.rbtn:hover { background: var(--raised); border-color: var(--line-strong); }
+.rbtn[aria-disabled="true"] { opacity: .55; cursor: default; }
+
+.host-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 400px); min-height: 520px; }
+.proto-controls > div { min-width: 0; max-width: 100%; }
+.canvas { padding: 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.doors { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 14px 10px; border: 2px solid var(--line-strong); padding: 14px 12px; }
+.door { display: grid; gap: 1px; font-size: var(--fs-meta); color: var(--ink-muted); }
+.door.will { color: var(--brand-text); } .door.done { color: var(--success); } .door.failed { color: var(--danger); } .door.changed { color: var(--warning); }
+.door .num { color: var(--ink); } .door .dl { color: var(--ink-muted); } .door.done .dl, .door.changed .dl { color: var(--ink); font-weight: 700; }
+.other-doc { border: 2px dashed var(--line-strong); padding: 24px 16px; color: var(--ink-muted); }
+.canvas .cap { font-size: var(--fs-meta); color: var(--ink-muted); }
+
+/* ---------- the pane (the product surface under design) ---------- */
+.pane { background: var(--bg); border-left: var(--border-w) solid var(--line-strong); display: flex; flex-direction: column; min-width: 0; position: relative; }
+.pane-head { background: var(--surface); border-bottom: var(--border-w) solid var(--line); padding: var(--sp-2) var(--sp-3); display: grid; gap: 6px; position: sticky; top: 0; z-index: 2; }
+.lockup { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: var(--fs-title); line-height: 1.1; min-width: 0; }
+.lockup .wm { overflow-wrap: anywhere; }
+.lockup .accent { color: var(--brand-text); }
+.lockup.one-colour .accent { color: inherit; }
+.head-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.doc { display: flex; gap: 6px; align-items: baseline; min-width: 0; font-size: var(--fs-meta); }
+.doc .name { font-weight: 600; font-size: var(--fs-body); overflow-wrap: anywhere; }
+.chip { display: inline-flex; align-items: center; gap: 5px; border: var(--border-w) solid currentColor; border-radius: 999px; padding: 1px 8px 1px 6px; font-size: var(--fs-meta); font-weight: 600; white-space: nowrap; }
+.chip.ok { color: var(--success); } .chip.bad { color: var(--danger); } .chip.wait { color: var(--pending); } .chip.warn { color: var(--warning); }
+
+.tabs { display: flex; gap: 2px; border-bottom: var(--border-w) solid var(--line-strong); background: var(--surface); padding: 0 var(--sp-2); }
+.tabs button { background: none; border: 0; border-bottom: 3px solid transparent; padding: 7px 10px 5px; cursor: pointer; min-height: var(--control-h); color: var(--ink-muted); font-weight: 600; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--brand-text); }
+.tabpanel { padding: var(--sp-3); display: grid; gap: var(--sp-3); align-content: start; overflow: auto; scroll-padding-top: 48px; flex: 1; }
+.tabpanel[hidden] { display: none; }
+h2.title { font-size: var(--fs-title); font-weight: 650; }
+h2.title:focus { outline: none; }
+h2.title:focus-visible { outline: 2px solid var(--brand-text); outline-offset: 3px; }
+h3 { font-size: var(--fs-body); font-weight: 650; }
+
+.card, .tabpanel { grid-template-columns: minmax(0, 1fr); }
+.card { background: var(--surface); border: var(--border-w) solid var(--line); border-radius: var(--radius); padding: var(--sp-3); display: grid; gap: var(--sp-2); box-shadow: var(--shadow); }
+.card.state { border-left: 4px solid var(--line-strong); }
+.card.state.warn { border-left-color: var(--warning); } .card.state.bad { border-left-color: var(--danger); }
+.card.state.ok { border-left-color: var(--success); } .card.state.wait { border-left-color: var(--pending); }
+.banner { display: flex; gap: 8px; align-items: flex-start; padding: var(--sp-2) var(--sp-3); border: var(--border-w) solid currentColor; border-radius: var(--radius); background: var(--surface); font-weight: 600; }
+.banner.warn { color: var(--warning); } .banner.bad { color: var(--danger); } .banner.ok { color: var(--success); }
+.banner .txt { color: var(--ink); } .banner .txt small { display: block; font-weight: 400; font-size: var(--fs-meta); color: var(--ink-muted); }
+.sev { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; font-size: var(--fs-meta); }
+.sev.warn { color: var(--warning); } .sev.bad { color: var(--danger); } .sev.ok { color: var(--success); } .sev.wait { color: var(--pending); } .sev.info { color: var(--info); }
+.kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 10px; font-size: var(--fs-meta); }
+.kv dt { color: var(--ink-muted); } .kv dd { overflow-wrap: anywhere; }
+.counts { display: flex; gap: 6px 14px; flex-wrap: wrap; }
+.counts .n { font-size: 1.125rem; font-weight: 700; font-variant-numeric: tabular-nums; margin-right: 3px; }
+
+.actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; }
+.btn { min-height: var(--control-h); padding: 4px 12px; border-radius: var(--radius); border: var(--border-w) solid var(--line-strong); background: var(--surface); cursor: pointer; font-weight: 600; text-align: center; white-space: normal; transition: background-color var(--motion-fast), border-color var(--motion-fast); }
+.btn:hover { background: var(--raised); }
+.btn.primary { background: var(--primary-bg); color: var(--on-primary); border-color: var(--primary-bg); }
+.btn.primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+.btn[aria-disabled="true"] { cursor: not-allowed; background: var(--raised); color: var(--ink-muted); border-style: dashed; border-color: var(--line-strong); }
+.btn[aria-pressed="true"] { border-color: var(--brand-text); box-shadow: inset 0 0 0 1px var(--brand-text); }
+.reason { font-size: var(--fs-meta); color: var(--ink-muted); }
+.check { display: flex; gap: 8px; align-items: flex-start; }
+.check input { width: 18px; height: 18px; margin: 1px 0 0; accent-color: var(--primary-bg); }
+
+table { border-collapse: collapse; width: 100%; font-size: var(--fs-meta); }
+caption { text-align: left; font-weight: 650; font-size: var(--fs-body); padding-bottom: 4px; }
+th, td { text-align: left; padding: var(--row-pad) 6px; border-bottom: var(--border-w) solid var(--line); vertical-align: top; }
+th { color: var(--ink-muted); font-weight: 600; white-space: nowrap; }
+td.after { font-weight: 700; }
+.empty { font-style: italic; color: var(--ink-muted); }
+.arrow { color: var(--ink-muted); }
+.list li { padding: var(--row-pad) 0; border-bottom: var(--border-w) solid var(--line); display: grid; gap: 2px; }
+.list li:last-child { border-bottom: 0; }
+.steps li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 2px 8px; padding: var(--row-pad) 0; border-bottom: var(--border-w) solid var(--line); }
+.steps li small { grid-column: 2; color: var(--ink-muted); font-size: var(--fs-meta); }
+progress { width: 100%; height: 10px; accent-color: var(--primary-bg); }
+details > summary { cursor: pointer; font-weight: 600; min-height: 24px; }
+
+.toasts { position: absolute; left: 12px; right: 12px; bottom: 12px; display: grid; gap: 6px; z-index: 5; pointer-events: none; }
+.toast { pointer-events: auto; background: var(--ink); color: var(--surface); border: var(--border-w) solid var(--line-strong); border-radius: var(--radius); padding: 8px 8px 8px 12px; display: flex; gap: 8px; align-items: flex-start; justify-content: space-between; box-shadow: 0 6px 16px rgba(0, 0, 0, .25); }
+.toast button { background: none; border: var(--border-w) solid currentColor; color: inherit; border-radius: 4px; min-width: 24px; min-height: 24px; cursor: pointer; }
+:root[data-theme="hc"] .toast { background: #000; color: #fff; border-color: #fff; }
+
+/* ---------- notes below the host (prototype chrome) ---------- */
+.notes { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); align-items: start; }
+.note table { display: block; overflow-x: auto; }
+.note { background: var(--surface); border: var(--border-w) dashed var(--line-strong); border-radius: 8px; padding: 12px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-width: 0; }
+.note h2 { font-size: var(--fs-title); }
+.note.wide { grid-column: 1 / -1; }
+.spec { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.spec figure { border: var(--border-w) solid var(--line); border-radius: 6px; padding: 8px; display: grid; gap: 6px; justify-items: start; }
+.spec figcaption { font-size: 0.6875rem; color: var(--ink-muted); }
+.spec .on-chrome { background: var(--host-chrome); color: var(--host-ink); padding: 6px; border-radius: 4px; display: inline-flex; gap: 10px; align-items: center; }
+.pass { color: var(--success); font-weight: 700; } .fail { color: var(--danger); font-weight: 700; }
+.pairc { white-space: nowrap; }
+.sw { display: inline-block; width: 12px; height: 12px; border: 1px solid var(--line-strong); vertical-align: -2px; margin-right: 4px; }
+
+/* ---------- TaskDialog mock ---------- */
+dialog { border: var(--border-w) solid var(--line-strong); border-radius: 4px; padding: 0; background: var(--surface); color: var(--ink); max-width: min(440px, 92vw); box-shadow: 0 16px 40px rgba(0, 0, 0, .35); }
+dialog::backdrop { background: rgba(0, 0, 0, .45); }
+.td-title { padding: 6px 12px; font-size: var(--fs-meta); background: var(--host-chrome); color: var(--host-ink); border-bottom: var(--border-w) solid var(--line); }
+.td-body { padding: 14px 16px; display: grid; gap: 10px; }
+.td-main { font-size: 1.0625rem; color: var(--brand-text); font-weight: 600; }
+.td-link { display: grid; gap: 1px; text-align: left; width: 100%; border: var(--border-w) solid var(--line-strong); background: var(--surface); border-radius: 4px; padding: 8px 10px; cursor: pointer; min-height: 40px; }
+.td-link:hover { background: var(--raised); }
+.td-link b { color: var(--brand-text); } .td-link small { color: var(--ink-muted); }
+.td-foot { padding: 8px 16px; background: var(--raised); display: flex; justify-content: space-between; gap: 8px; align-items: center; flex-wrap: wrap; font-size: var(--fs-meta); }
+
+@media (max-width: 820px) { .host-body { grid-template-columns: minmax(0, 1fr); } main { padding: 8px; } .pane { border-left: 0; border-top: var(--border-w) solid var(--line-strong); } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+@media (forced-colors: active) {
+  .card, .banner, .btn, .chip, .note, .host, .toast, select, .td-link { border-color: CanvasText; }
+  .btn.primary { background: ButtonText; color: ButtonFace; forced-color-adjust: none; }
+  .btn[aria-disabled="true"] { color: GrayText; border-color: GrayText; }
+  .tabs button[aria-selected="true"] { border-bottom-color: Highlight; }
+  :focus-visible { outline-color: Highlight; }
+}
+</style>
+</head>
+<body>
+<a class="skiplink" href="#pane-title">Skip to the review pane</a>
+
+<header class="proto-banner">
+  <span class="tag">Design prototype</span>
+  <h1>Review pane prototype. Synthetic data. Not shipped code. Not connected to Revit.</h1>
+  <span class="bnote">Every model name, element id, user and result on this page is made up for design review.</span>
+</header>
+
+<form class="proto-controls" aria-label="Prototype controls (not part of the product)" onsubmit="return false">
+  <fieldset>
+    <legend>Theme</legend>
+    <label><input type="radio" name="theme" value="light" checked> Light</label>
+    <label><input type="radio" name="theme" value="dark"> Dark</label>
+    <label><input type="radio" name="theme" value="hc"> High contrast</label>
+  </fieldset>
+  <fieldset>
+    <legend>Brand pack</legend>
+    <label><input type="radio" name="brand" value="amb" checked> AEC Model Bridge</label>
+    <label><input type="radio" name="brand" value="quay"> Quay Model Desk (fictitious)</label>
+    <label><input type="radio" name="brand" value="broken"> Incomplete pack (fallback test)</label>
+  </fieldset>
+  <div>
+    <label class="lbl" for="scenario">State</label>
+    <select id="scenario">
+      <option value="setup">1. Setup and reconnect</option>
+      <option value="finding">2. QA finding: doors without Mark</option>
+      <option value="preview">3. Change preview</option>
+      <option value="approve">4. Approval</option>
+      <option value="applying">5. Applying (can request cancel)</option>
+      <option value="partial">6. Result: partial failure</option>
+      <option value="retry">7. Retry plan for the failed door</option>
+      <option value="done">8. Result: final audit</option>
+      <option value="cancelled">9. Result: cancel requested</option>
+      <option value="disconnected">10. Disconnected</option>
+      <option value="stale">11. Stale plan: the model changed</option>
+      <option value="switched">12. Document switched: plan belongs to another model</option>
+      <option value="duplicate">13. Duplicate draft</option>
+      <option value="applied">14. Already applied: nothing to change</option>
+    </select>
+  </div>
+  <div>
+    <label class="lbl" for="locale">Labels</label>
+    <select id="locale">
+      <option value="en">English</option>
+      <option value="pseudo">Pseudo-locale (+40 % length, long file name)</option>
+    </select>
+  </div>
+  <div>
+    <label class="lbl" for="density">Density</label>
+    <select id="density">
+      <option value="comfortable">Comfortable (32 px controls)</option>
+      <option value="compact">Compact (28 px controls)</option>
+    </select>
+  </div>
+</form>
+
+<main>
+  <div class="host" role="group" aria-label="Simulated Revit window">
+    <div class="host-title"><span>Revit 2026 (simulated host window)</span><span id="host-doc"></span></div>
+    <div class="ribbon" id="ribbon"></div>
+    <div class="host-body">
+      <div class="canvas" id="canvas"></div>
+      <section class="pane" id="pane" aria-labelledby="pane-name">
+        <div class="pane-head" id="pane-head"></div>
+        <div class="tabs" role="tablist" aria-label="Pane sections" id="tabs"></div>
+        <div class="tabpanel" role="tabpanel" id="panel-review" aria-labelledby="tab-review" tabindex="-1"></div>
+        <div class="tabpanel" role="tabpanel" id="panel-log" aria-labelledby="tab-log" tabindex="-1" hidden></div>
+        <div class="tabpanel" role="tabpanel" id="panel-settings" aria-labelledby="tab-settings" tabindex="-1" hidden></div>
+        <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="notes">
+    <section class="note" aria-labelledby="n-surface"><h2 id="n-surface">Native Revit surface for this state</h2><div id="surface-note"></div></section>
+    <section class="note" aria-labelledby="n-spec"><h2 id="n-spec">Logo lockup and command icon</h2>
+      <p class="muted">Rendered at 16 and 32 CSS pixels, in colour and in one colour, from the active brand pack. On a 100 % display one CSS pixel is one device pixel.</p>
+      <div class="spec" id="specimens"></div></section>
+    <section class="note wide" aria-labelledby="n-tok"><h2 id="n-tok">Tokens and computed contrast</h2>
+      <p class="muted">WCAG 2.x contrast ratios, computed on this page from the colours now in use. Text needs 4.5:1. Control borders, icons and focus rings need 3:1.</p>
+      <div id="brand-report"></div><div id="contrast"></div></section>
+    <section class="note wide" aria-labelledby="n-map"><h2 id="n-map">Where each part of this prototype lives in Revit</h2>
+      <table>
+        <thead><tr><th scope="col">Prototype part</th><th scope="col">Native Revit surface</th><th scope="col">Revit API used</th><th scope="col">Status in the add-in today</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Ribbon strip with one large and five small buttons</th><td>Ribbon tab and panels</td><td><code>CreateRibbonTab</code>, <code>CreateRibbonPanel</code>, <code>PushButtonData</code> with a 32 px <code>LargeImage</code> and a 16 px <code>Image</code>; text and images swapped at run time for state</td><td>Exists (<code>Bridge/App.cs</code>). A count in the button text is a proposal.</td></tr>
+          <tr><th scope="row">Review pane (header, tabs, findings, preview, approval, result)</th><td>Dockable pane, docked right, hosting WebView2</td><td><code>RegisterDockablePane</code>, <code>IDockablePaneProvider</code></td><td>Exists (<code>UI/BridgePanelProvider.cs</code>, <code>panel/</code>). The layout shown here is a proposal.</td></tr>
+          <tr><th scope="row">Light and dark theme</th><td>Revit theme</td><td><code>UIThemeManager.CurrentTheme</code>, <code>ThemeChanged</code> (Revit 2024 and later)</td><td>Exists. Revit does not theme hosted content; the pane does it.</td></tr>
+          <tr><th scope="row">High contrast theme</th><td>Windows contrast themes</td><td><code>SystemParameters.HighContrast</code> in WPF, <code>forced-colors</code> in WebView2</td><td>Thin. Only two rules in <code>panel/styles.css</code>.</td></tr>
+          <tr><th scope="row">"Select in Revit" and the door overlay</th><td>The model view itself</td><td><code>UIDocument.Selection.SetElementIds</code>, <code>ShowElements</code>; temporary view overrides for preview</td><td>Selection tool exists. Preview in the model is not verified in live Revit.</td></tr>
+          <tr><th scope="row">Native error dialog</th><td>Revit <code>TaskDialog</code> with command links</td><td><code>TaskDialog</code>, <code>AddCommandLink</code>, <code>FooterText</code></td><td>Not used today. The add-in draws its own borderless WPF dialog.</td></tr>
+          <tr><th scope="row">Toasts</th><td>None. Revit has no public toast API.</td><td>Drawn inside the pane with a polite live region</td><td>Proposal. A message that needs an answer is never a toast.</td></tr>
+          <tr><th scope="row">Banners for failure, disconnect and stale plan</th><td>Inside the pane, plus the ribbon button tooltip in words</td><td>Pane content; <code>RibbonItem.ToolTip</code></td><td>Part exists (disconnect and stale alerts). Partial failure state is new.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+</main>
+
+<dialog id="td" aria-labelledby="td-main">
+  <div class="td-title" id="td-title"></div>
+  <div class="td-body">
+    <p class="td-main" id="td-main">The panel hub did not start</p>
+    <p>Port 8787 on this computer is in use by another program. The review pane cannot load until the hub runs. Your model has not been changed.</p>
+    <button type="button" class="td-link" data-td="retry"><b>Try again</b><small>Start the hub once more on the same port.</small></button>
+    <button type="button" class="td-link" data-td="settings"><b>Choose another port</b><small>Opens Settings in the pane. An administrator may have locked this value.</small></button>
+  </div>
+  <div class="td-foot"><span>Mock of a Revit TaskDialog. Esc closes it.</span><button type="button" class="btn" data-td="close">Close</button></div>
+</dialog>
+
+<script>
+"use strict";
+/* ============================ synthetic data ============================ */
+const DOC = { name: "canonical_test_model.rvt", long: "2291-NL-Ziekenhuis-Noordvleugel-Bouwkundig-Centraal_model_R26_detached.rvt", revit: "Revit 2026", guid: "synthetic-canonical-doc-0001" };
+const DOORS = Array.from({ length: 12 }, (_, i) => { const n = 48 + i; return { id: 300000 + n, level: "Level " + (n % 5 + 1), after: "D-" + String(n + 1).padStart(3, "0") }; });
+const SKIP_OWNED = [300058, 300059];
+const FAILED = 300053;
+const PLAN_A = { id: "plan_b366ce3444a0", hash: "sha256:a3ef52fd…33f8b9f" };   // ids from the mock-mode run recorded in docs/roadmap.md
+const PLAN_B = { id: "plan_5d0c1e77a9b2", hash: "sha256:19c0be44…7a02d1c" };   // made up
+const PLAN_C = { id: "plan_e81f3a6642c0", hash: "sha256:c77a90d2…0be5f31" };   // made up
+const PLAN_D = { id: "plan_0aa41c97d3e5", hash: "sha256:5e1b07c9…d44a8f0" };   // made up
+const OTHER_DOC = "office_block_B.rvt";                                        // made up
+
+/* ============================ brand packs ============================ */
+/* Same shape as the brand.json proposed in docs/roadmap.md (identity only: no semantic colours, no behaviour). */
+const BRANDS = {
+  amb: { schemaVersion: 1, id: "aec-model-bridge", product: { name: "AEC Model Bridge", ribbonTab: "AEC Bridge", publisher: "AEC Model Bridge project" },
+    wordmark: [{ t: "AEC", accent: true }, { t: " Model Bridge" }], network: { hubPort: 8787 }, assets: { mark: "pier" },
+    tokens: { light: { brand: "#0091A7", "brand-text": "#046B80", "primary-bg": "#046B80", "primary-hover": "#035262", "on-primary": "#FFFFFF", tile: "#111923" },
+              dark:  { brand: "#3FC3D6", "brand-text": "#6FD8E6", "primary-bg": "#3FC3D6", "primary-hover": "#6FD8E6", "on-primary": "#06222A", tile: "#111923" } } },
+  quay: { schemaVersion: 1, id: "quay-model-desk", product: { name: "Quay Model Desk", ribbonTab: "Quay Desk", publisher: "Sample Brand B (fictitious)" },
+    wordmark: [{ t: "Quay", accent: true }, { t: " Model Desk" }], network: { hubPort: 8797 }, assets: { mark: "quay" },
+    tokens: { light: { brand: "#B0307A", "brand-text": "#8A1F5C", "primary-bg": "#8A1F5C", "primary-hover": "#6E1749", "on-primary": "#FFFFFF", tile: "#2B0A1D" },
+              dark:  { brand: "#F08CC2", "brand-text": "#F7B3D8", "primary-bg": "#F08CC2", "primary-hover": "#F7B3D8", "on-primary": "#2B0A1D", tile: "#2B0A1D" } } },
+  /* Deliberately faulty: no dark tokens, no logo, and a light button label that fails contrast. */
+  broken: { schemaVersion: 1, id: "incomplete-pack", product: { name: "Incomplete Pack", ribbonTab: "Incomplete" },
+    wordmark: [{ t: "Incomplete", accent: true }, { t: " Pack" }], network: {}, assets: {},
+    tokens: { light: { brand: "#B8860B", "brand-text": "#D9B45A", "primary-bg": "#F2D16B", "on-primary": "#FFFFFF" } } }
+};
+const BRAND_KEYS = ["brand", "brand-text", "primary-bg", "primary-hover", "on-primary", "tile"];
+const CORE_SURFACES = { light: { bg: "#F2F5F8", surface: "#FFFFFF" }, dark: { bg: "#3B4453", surface: "#2F3846" } };
+
+/* ============================ helpers ============================ */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+function lum(hex) { const h = hex.trim().replace("#", ""); const f = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+  return 0.2126 * f(parseInt(h.slice(0, 2), 16)) + 0.7152 * f(parseInt(h.slice(2, 4), 16)) + 0.0722 * f(parseInt(h.slice(4, 6), 16)); }
+function contrast(a, b) { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+const isHex = v => typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v);
+function pseudo(s) { const map = { a: "à", e: "é", i: "ï", o: "ô", u: "ü", A: "Å", E: "É", I: "Î", O: "Ö", U: "Û", c: "ç", n: "ñ" };
+  const out = s.replace(/[aeiouAEIOUcn]/g, c => map[c]); return "[" + out + " " + "·".repeat(Math.max(1, Math.ceil(s.length * 0.4) - 3)) + "]"; }
+const S = { scenario: "setup", theme: "light", brand: "amb", locale: "en", density: "comfortable", tab: "review", selected: false, refreshed: false, busy: false, progress: 0, cancelAt: 4, showAll: false, timer: null };
+const T = s => S.locale === "pseudo" ? pseudo(s) : s;
+const docName = () => S.locale === "pseudo" ? DOC.long : DOC.name;
+const activeDoc = () => S.scenario === "switched" ? OTHER_DOC : docName();   // the document Revit shows now; plans keep docName()
+function midEllipsis(s, max) { if (s.length <= max) return s; const keep = max - 1, head = Math.ceil(keep * 0.55); return s.slice(0, head) + "…" + s.slice(s.length - (keep - head)); }
+let uidN = 0;
+
+/* ============================ icons ============================ */
+/* Status glyphs: shape carries the meaning; colour only repeats it. */
+const GLYPH = {
+  ok: '<path d="M3.2 8.4l3 3 6.6-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+  bad: '<path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  warn: '<path d="M8 1.8L15 14H1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 6.2v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="12" r="1" fill="currentColor"/>',
+  wait: '<circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 4.6V8l2.4 1.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+  info: '<circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 7.2v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="4.8" r="1" fill="currentColor"/>',
+  skip: '<circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4.6 8h6.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+  plug: '<path d="M5.5 1.5v4M10.5 1.5v4M3.5 5.5h9v2.2a4.5 4.5 0 01-9 0zM8 12.2v2.3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+  unplug: '<path d="M5.5 1.5v4M10.5 1.5v4M3.5 5.5h9v2.2a4.5 4.5 0 01-9 0zM8 12.2v2.3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 14L14 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+  pulse: '<path d="M1.5 8.5h3l1.7-4.5 3 8 1.8-3.5h3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+  report: '<path d="M3.5 1.5h6l3 3v10h-9z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M5.5 8h5M5.5 10.8h5" stroke="currentColor" stroke-width="1.4"/>',
+  gear: '<circle cx="8" cy="8" r="2.3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
+  help: '<circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6.1 6.3a2 2 0 113 1.7c-.7.4-1.1.8-1.1 1.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11.8" r=".9" fill="currentColor"/>'
+};
+const glyph = (name, size = 16) => `<svg width="${size}" height="${size}" viewBox="0 0 16 16" aria-hidden="true" focusable="false">${GLYPH[name]}</svg>`;
+
+/* Command icon "Review": neutral silhouette, one brand accent block, one state badge.
+   Two drawings, one per pixel grid. At 16 px the badge is a plain dot: a check would be 3 px of noise. */
+function commandIcon(size, mono, badge = true) {
+  const id = "m" + (++uidN), ink = "currentColor", acc = mono ? "currentColor" : "var(--brand)";
+  if (size >= 32) return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+    <mask id="${id}"><rect width="32" height="32" fill="#fff"/><rect x="9" y="12" width="12" height="2" fill="#000"/><rect x="9" y="16" width="12" height="2" fill="#000"/><rect x="9" y="20" width="7" height="2" fill="#000"/><rect x="10" y="2" width="10" height="7" rx="1" fill="#000"/>${badge ? '<circle cx="23" cy="23" r="8" fill="#000"/>' : ""}</mask>
+    <rect x="6" y="5" width="18" height="24" rx="2" fill="${ink}" mask="url(#${id})"/>
+    <rect x="11" y="3" width="8" height="5" rx="1" fill="${acc}"/>
+    ${badge ? `<circle cx="23" cy="23" r="6.5" fill="${acc}"/><path d="M19.8 23.2l2.3 2.3 4.2-4.6" fill="none" stroke="${mono ? "var(--icon-knock, var(--surface))" : "var(--on-primary)"}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>` : ""}</svg>`;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+    <mask id="${id}"><rect width="16" height="16" fill="#fff"/><rect x="5" y="6" width="5" height="1" fill="#000"/><rect x="5" y="8" width="5" height="1" fill="#000"/><rect x="4" y="0" width="7" height="5" fill="#000"/>${badge ? '<circle cx="12" cy="12" r="4.5" fill="#000"/>' : ""}</mask>
+    <rect x="3" y="2" width="9" height="12" rx="1" fill="${ink}" mask="url(#${id})"/>
+    <rect x="5" y="1" width="5" height="3" fill="${acc}"/>
+    ${badge ? `<circle cx="12" cy="12" r="3.5" fill="${acc}"/>` : ""}</svg>`;
+}
+
+/* Brand marks. "pier" copies the geometry of assets/logo-mark.svg. "quay" is a made-up sample mark. */
+const MARKS = {
+  pier: (size, mono) => mono
+    ? `<svg width="${size}" height="${size}" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="${size < 24 ? 9 : 6}" stroke-linejoin="round"><polygon points="48,14 78,31 48,48 18,31" fill="currentColor"/><polygon points="18,31 48,48 48,84 18,67"/><polygon points="48,48 78,31 78,67 48,84"/></g></svg>`
+    : `<svg width="${size}" height="${size}" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><rect width="96" height="96" rx="20" fill="var(--tile)"/><g stroke="var(--tile)" stroke-width="2.5" stroke-linejoin="round"><polygon fill="#1CB5CA" points="48,16 76,32 48,48 20,32"/><polygon fill="#FFFFFF" points="20,32 48,48 48,80 20,64"/><polygon fill="#AEBCCB" points="48,48 76,32 76,64 48,80"/></g><path fill="var(--tile)" transform="matrix(28,16,0,32,20,32)" d="M0.24,1.02 V0.66 A0.26,0.26 0 0 1 0.76,0.66 V1.02 Z"/><path fill="var(--tile)" transform="matrix(28,-16,0,32,48,48)" d="M0.24,1.02 V0.66 A0.26,0.26 0 0 1 0.76,0.66 V1.02 Z"/></svg>`,
+  quay: (size, mono) => mono
+    ? `<svg width="${size}" height="${size}" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><circle cx="46" cy="46" r="26" fill="none" stroke="currentColor" stroke-width="${size < 24 ? 14 : 11}"/><path d="M56 56l24 24" stroke="currentColor" stroke-width="${size < 24 ? 14 : 11}" stroke-linecap="round"/></svg>`
+    : `<svg width="${size}" height="${size}" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><rect width="96" height="96" rx="20" fill="var(--tile)"/><circle cx="46" cy="46" r="24" fill="none" stroke="#F7B3D8" stroke-width="11"/><path d="M57 57l19 19" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round"/></svg>`,
+  /* Fallback when a pack ships no logo: drawn from tokens only. */
+  generated: (size, mono) => `<svg width="${size}" height="${size}" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><rect x="${mono ? 6 : 0}" y="${mono ? 6 : 0}" width="${mono ? 84 : 96}" height="${mono ? 84 : 96}" rx="20" fill="${mono ? "none" : "var(--primary-bg)"}" stroke="${mono ? "currentColor" : "none"}" stroke-width="10"/><rect x="28" y="28" width="40" height="40" rx="6" fill="${mono ? "currentColor" : "var(--on-primary)"}"/></svg>`
+};
+function brandMark(size, mono) { const b = activeBrand(); return (MARKS[b.assets && b.assets.mark] || MARKS.generated)(size, mono); }
+function lockup(size, mono) { const b = activeBrand();
+  return `<span class="lockup${mono ? " one-colour" : ""}" style="font-size:${size >= 32 ? "1.25rem" : "0.8125rem"}">${brandMark(size, mono)}<span class="wm">${b.wordmark.map(p => `<span class="${p.accent ? "accent" : ""}">${esc(p.t)}</span>`).join("")}</span></span>`; }
+
+/* ============================ brand pack: one code path ============================ */
+let brandReport = [];
+const activeBrand = () => BRANDS[S.brand];
+function applyBrand(id) {
+  const pack = BRANDS[id], root = document.documentElement, report = [];
+  for (const [theme, short] of [["light", "l"], ["dark", "d"]]) {
+    const t = (pack.tokens && pack.tokens[theme]) || {}, surf = CORE_SURFACES[theme], ok = {};
+    if (!pack.tokens || !pack.tokens[theme]) report.push({ level: "fallback", text: `${theme}: no tokens in the pack. Core default brand colours are used.` });
+    for (const k of BRAND_KEYS) {
+      let v = t[k], why = null;
+      if (v === undefined) { if (pack.tokens && pack.tokens[theme]) why = "missing"; }
+      else if (!isHex(v)) why = "not a #RRGGBB colour";
+      else if (k === "brand-text" && Math.min(contrast(v, surf.bg), contrast(v, surf.surface)) < 4.5) why = `contrast ${Math.min(contrast(v, surf.bg), contrast(v, surf.surface)).toFixed(2)}:1 on the pane background, needs 4.5:1`;
+      else if (k === "brand" && Math.min(contrast(v, surf.bg), contrast(v, surf.surface)) < 3) why = `contrast ${Math.min(contrast(v, surf.bg), contrast(v, surf.surface)).toFixed(2)}:1, needs 3:1 for icons and rings`;
+      if (why) { report.push({ level: "fallback", text: `${theme}: "${k}" ${why}. Core default is used.` }); }
+      else if (v !== undefined) ok[k] = v;
+    }
+    /* Pairs are checked together: a button label that fails on its own fill drops both back to core. */
+    if (ok["primary-bg"] || ok["on-primary"]) {
+      const bg = ok["primary-bg"], fg = ok["on-primary"];
+      if (!bg || !fg || contrast(bg, fg) < 4.5) { report.push({ level: "fallback", text: `${theme}: button label on button fill is ${bg && fg ? contrast(bg, fg).toFixed(2) + ":1" : "incomplete"}, needs 4.5:1. Core default button colours are used.` }); delete ok["primary-bg"]; delete ok["on-primary"]; delete ok["primary-hover"]; }
+    }
+    for (const k of BRAND_KEYS) { if (ok[k]) root.style.setProperty(`--bp-${short}-${k}`, ok[k]); else root.style.removeProperty(`--bp-${short}-${k}`); }
+  }
+  if (!pack.assets || !MARKS[pack.assets.mark]) report.push({ level: "fallback", text: "No logo in the pack. A mark is generated from the button colours." });
+  if (!pack.network || !pack.network.hubPort) report.push({ level: "error", text: "No hub port in the pack. In a real build this stops the build: ids, paths and ports never fall back." });
+  brandReport = report;
+  document.title = `Design prototype (synthetic data, not shipped code): ${pack.product.name} review pane`;
+}
+
+/* ============================ plan data per state ============================ */
+function planView() {
+  const stale = S.refreshed, skipped = SKIP_OWNED.map(id => ({ id, reason: "Owned by another user (workset Interior, user B)" }));
+  let changes = DOORS.filter(d => !SKIP_OWNED.includes(d.id));
+  if (stale) { changes = changes.filter(d => d.id !== 300050); skipped.unshift({ id: 300050, reason: "Already has a Mark (D-200). Not overwritten." }); }
+  return { plan: stale ? PLAN_C : PLAN_A, changes, skipped, snapshot: stale ? "14:06" : "14:02" };
+}
+
+/* ============================ render: host ============================ */
+function renderRibbon() {
+  const b = activeBrand(), off = S.scenario === "setup" || S.scenario === "disconnected";
+  const pending = ["preview", "approve", "stale", "disconnected", "retry", "applied"].includes(S.scenario) ? 1 : S.scenario === "duplicate" ? 2 : 0;
+  const stateWords = off ? "Not connected" : S.scenario === "switched" ? `Connected to ${activeDoc()}, no plans for this document, 1 plan waiting for ${docName()}` : `Connected to ${docName()}, ${pending} plan${pending === 1 ? "" : "s"} waiting`;
+  $("#ribbon").innerHTML = `
+    <div class="ribbon-tabs" aria-hidden="true"><span>Architecture</span><span>Annotate</span><span>Manage</span><span class="on">${esc(b.product.ribbonTab)}</span></div>
+    <div class="ribbon-body" role="toolbar" aria-label="${esc(b.product.ribbonTab)} ribbon tab (simulated)">
+      <div class="rgroup"><div class="items"><div class="stack">
+        <button type="button" class="rbtn" data-act="${off ? "reconnect" : "noop"}" title="${off ? "Connect. The bridge is not connected." : "Connected. Press to see connection details."}">${glyph(off ? "unplug" : "plug")}<span>${T(off ? "Connect" : "Connected")}</span></button>
+        <button type="button" class="rbtn" data-act="tab-settings" title="Status: ${esc(stateWords)}">${glyph("pulse")}<span>${T("Status")}</span></button>
+      </div></div><div class="gname">${T("Connection")}</div></div>
+      <div class="rgroup"><div class="items">
+        <button type="button" class="rbtn large" data-act="focus-pane" title="Review: ${esc(stateWords)}" aria-label="Review. ${esc(stateWords)}">${commandIcon(32, false, pending > 0)}<span>${T("Review")}${pending ? " (" + pending + ")" : ""}</span></button>
+      </div><div class="gname">${T("Review")}</div></div>
+      <div class="rgroup"><div class="items"><div class="stack">
+        <button type="button" class="rbtn" data-act="tab-log" title="Open the run log">${glyph("report")}<span>${T("Log")}</span></button>
+        <button type="button" class="rbtn" data-act="tab-settings" title="Open settings">${glyph("gear")}<span>${T("Settings")}</span></button>
+        <button type="button" class="rbtn" data-act="noop" title="Help (F1 opens the documentation in the add-in)">${glyph("help")}<span>${T("Help")}</span></button>
+      </div></div><div class="gname">${T("Tools")}</div></div>
+    </div>`;
+  $("#host-doc").textContent = off && S.scenario === "setup" ? "" : activeDoc();
+}
+function renderCanvas() {
+  const pv = planView(), sc = S.scenario, applied = new Set();
+  if (sc === "switched") { $("#canvas").innerHTML = `<p class="cap">Model view (schematic stand-in).</p><div class="other-doc"><b>${esc(OTHER_DOC)}</b> is the active document now. None of its elements belong to the waiting plan.</div>`; return; }
+  if (sc === "partial") pv.changes.forEach(d => d.id !== FAILED && applied.add(d.id));
+  if (sc === "done" || sc === "applied") pv.changes.forEach(d => applied.add(d.id));
+  if (sc === "cancelled") pv.changes.slice(0, S.cancelAt).forEach(d => applied.add(d.id));
+  const show = S.selected || !["setup", "finding"].includes(sc);
+  const cells = DOORS.map(d => {
+    const skipped = pv.skipped.some(x => x.id === d.id) && !(S.refreshed && d.id === 300050), failed = sc === "partial" && d.id === FAILED, done = applied.has(d.id), changed = (sc === "stale" || S.refreshed) && d.id === 300050;
+    const cls = changed ? "changed" : failed ? "failed" : done ? "done" : !show ? "" : skipped ? "skipped" : "will";
+    const word = changed ? "changed outside the plan, Mark D-200" : failed ? "failed, no Mark" : done ? "applied, Mark " + d.after : !show ? "no Mark" : skipped ? "skipped, no Mark" : "will change, no Mark";
+    const label = changed ? "D-200" : done ? d.after : "no Mark";
+    const marker = changed ? '<path d="M49 1l7 12H42z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>' : failed ? '<path d="M44 2l10 10m0-10l-10 10" stroke="currentColor" stroke-width="2.5"/>' : done ? '<path d="M43 7l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2.5"/>' : !show ? "" : skipped ? '<rect x="44" y="2" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"/>' : '<path d="M49 0l7 7-7 7-7-7z" fill="currentColor"/>';
+    return `<li class="door ${cls}"><svg width="58" height="50" viewBox="0 0 58 50" aria-hidden="true" focusable="false"><rect x="1" y="4" width="38" height="6" fill="currentColor"/><path d="M1 10a38 38 0 0 0 38 38" fill="none" stroke="currentColor" stroke-width="1.5" ${cls === "skipped" ? 'stroke-dasharray="4 3"' : ""}/><path d="M2 10v38" stroke="currentColor" stroke-width="2"/>${marker}</svg><span class="num">${d.id}</span><span class="dl" aria-hidden="true">${label}</span><span class="sr">${word}</span></li>`;
+  }).join("");
+  $("#canvas").innerHTML = `<p class="cap">Model view (schematic stand-in). The 12 doors without a Mark. Marker shapes: diamond = will change, square = skipped, check = applied, cross = failed, triangle = changed outside the plan.</p><ul class="doors" aria-label="The 12 doors in the model view">${cells}</ul>`;
+}
+
+/* ============================ render: pane ============================ */
+function renderHead() {
+  const sc = S.scenario, name = activeDoc();
+  const chip = sc === "setup" || sc === "disconnected" ? `<span class="chip bad">${glyph("unplug", 14)}${T("Disconnected")}</span>` : S.busy ? `<span class="chip wait">${glyph("wait", 14)}${T("Connecting")}</span>` : `<span class="chip ok">${glyph("plug", 14)}${T("Connected")}</span>`;
+  $("#pane-head").innerHTML = `<div class="head-row"><span id="pane-name">${lockup(16, false)}</span>${chip}</div>
+    <div class="doc">${sc === "setup" ? `<span class="muted">${T("No document connected")}</span>` : `<span class="muted">${T("Document")}</span><span class="name" title="${esc(name)}" aria-label="${esc(name)}">${esc(midEllipsis(name, 38))}</span><span class="muted">${DOC.revit}</span>`}</div>`;
+}
+function renderTabs() {
+  const tabs = [["review", "Review"], ["log", "Log"], ["settings", "Settings"]];
+  $("#tabs").innerHTML = tabs.map(([id, label]) => `<button type="button" role="tab" id="tab-${id}" aria-controls="panel-${id}" aria-selected="${S.tab === id}" tabindex="${S.tab === id ? 0 : -1}">${T(label)}</button>`).join("");
+  tabs.forEach(([id]) => { $("#panel-" + id).hidden = S.tab !== id; });
+}
+const btn = (label, act, o = {}) => `<button type="button" class="btn${o.primary ? " primary" : ""}" data-act="${act}"${o.disabled ? ' aria-disabled="true"' : ""}${o.aria ? ` aria-label="${esc(o.aria)}"` : ""}${o.described ? ` aria-describedby="${o.described}"` : ""}${o.pressed !== undefined ? ` aria-pressed="${o.pressed}"` : ""}>${T(label)}</button>`;
+const sev = (kind, word) => `<span class="sev ${kind}">${glyph(kind === "info" ? "info" : kind)}${T(word)}</span>`;
+function changeTable(rows, caption, limit) {
+  const vis = limit && !S.showAll ? rows.slice(0, limit) : rows;
+  return `<table><caption>${T(caption)}</caption><thead><tr><th scope="col">${T("Element")}</th><th scope="col">${T("Level")}</th><th scope="col">${T("Mark now")}</th><th scope="col">${T("Mark after")}</th></tr></thead><tbody>${vis.map(d => `<tr><th scope="row" class="num">${d.id}</th><td>${d.level}</td><td><span class="empty">${T("empty")}</span></td><td class="after"><span class="arrow" aria-hidden="true">→ </span>${d.after}</td></tr>`).join("")}</tbody></table>
+  ${limit && rows.length > limit ? `<div class="actions"><button type="button" class="btn" data-act="toggle-all" aria-expanded="${S.showAll}">${S.showAll ? T("Show first " + limit) : T("Show all " + rows.length)}</button></div>` : ""}`;
+}
+const skippedList = sk => `<details ${sk.length <= 3 ? "open" : ""}><summary>${T("Skipped")} (${sk.length})</summary><ul class="list">${sk.map(s => `<li><span>${sev("skip", "Skipped")} <span class="num">${s.id}</span></span><span class="reason">${T(s.reason)}</span></li>`).join("")}</ul></details>`;
+const planFacts = pv => `<dl class="kv"><dt>${T("Plan")}</dt><dd class="mono">${pv.plan.id}</dd><dt>${T("Plan hash")}</dt><dd class="mono">${pv.plan.hash}</dd><dt>${T("Bound to")}</dt><dd>${esc(docName())}${pv.notActive ? " <b>(" + T("not active") + ")</b>" : ""}</dd><dt>${T("Read from model")}</dt><dd>${T("Today")} ${pv.snapshot}</dd><dt>${T("Parameter")}</dt><dd>Mark. ${T("Text value, so no unit conversion applies.")}</dd></dl>`;
+
+const VIEWS = {
+  setup() {
+    const steps = [["ok", "Add-in loaded", "Revit 2026, add-in 1.5.0"], ["ok", "Bridge listening", "This computer only (127.0.0.1), port picked by Windows"],
+      ["bad", "Panel hub not answering", `Port ${activeBrand().network.hubPort || "?"} did not answer. Start the hub again. If another program holds the port, choose another in Settings.`],
+      ["wait", "Document", "Not checked yet"], ["wait", "AI client", "Not checked yet"]];
+    return `<h2 class="title" id="pane-title" tabindex="-1">${T("Connect to Revit")}</h2>
+      <div class="banner bad" role="alert">${glyph("bad")}<span class="txt">${T("Not connected. Nothing can be read or changed.")}<small>${T("Step 3 of 5 failed. The steps below say what to do.")}</small></span></div>
+      <div class="card"><ol class="steps" aria-label="${T("Connection steps")}">${steps.map(([k, a, b2], i) => `<li><span class="sev ${k}" aria-hidden="true">${glyph(k)}</span><span><b>${i + 1}. ${T(a)}</b> <span class="sr">${k === "ok" ? "passed" : k === "bad" ? "failed" : "not checked"}</span></span><small>${T(b2)}</small></li>`).join("")}</ol>
+      <div class="actions">${S.busy ? `<span role="status">${T("Connecting…")}</span>` : btn("Reconnect", "reconnect", { primary: true })}${btn("Copy diagnostics", "copy-diag")}${btn("Show native error dialog", "open-td")}</div></div>`;
+  },
+  finding() {
+    return `<h2 class="title" id="pane-title" tabindex="-1">${T("QA findings")}</h2>
+      <p class="muted">${T("Rule pack: core. Read from the model today 14:02. 15 open findings in 2 rules.")}</p>
+      <div class="card state warn"><div>${sev("warn", "Warning")}</div><h3>${T("Doors without a Mark")}</h3>
+        <p><span class="num">12</span> ${T("of 60 doors.")} <span class="muted mono">door_missing_mark</span></p>
+        <details><summary>${T("Show the 12 doors")}</summary><ul class="list">${DOORS.map(d => `<li><span><span class="num">${d.id}</span> · ${d.level} · Single-Flush 0915 x 2134 mm</span></li>`).join("")}</ul></details>
+        <div class="actions">${btn("Select in Revit", "select", { pressed: S.selected, aria: "Select the 12 doors without a Mark in Revit. Does not change the model." })}${btn("Plan fix", "to-preview", { primary: true, aria: "Plan a fix for 12 doors without a Mark" })}</div></div>
+      <div class="card state warn"><div>${sev("warn", "Warning")}</div><h3>${T("Rooms without a Number")}</h3>
+        <p><span class="num">3</span> ${T("of 25 rooms.")} <span class="muted mono">room_missing_number</span></p>
+        <p class="reason">${T("No fix can be planned yet: the numbering rule has to come from the coordinator.")}</p></div>`;
+  },
+  preview() {
+    const pv = planView();
+    return `<h2 class="title" id="pane-title" tabindex="-1">${T("Change preview")}</h2>
+      <div class="card state wait"><div>${sev("wait", "Waiting for review")}</div>
+        <div class="counts"><span><span class="n">${pv.changes.length}</span>${T("to change")}</span><span><span class="n">${pv.skipped.length}</span>${T("skipped")}</span><span><span class="n">48</span>${T("doors not touched")}</span></div>
+        ${planFacts(pv)}</div>
+      <div class="card">${changeTable(pv.changes, "Exact changes", 5)}${skippedList(pv.skipped)}</div>
+      <div class="actions">${btn("Continue to approval", "to-approve", { primary: true })}${btn("Reject plan", "reject")}</div>`;
+  },
+  approve() {
+    const pv = planView(), n = pv.changes.length;
+    return `<h2 class="title" id="pane-title" tabindex="-1">${T("Approve changes")}</h2>
+      <div class="card state wait"><p><b>${T(`Set Mark on ${n} doors in`)} ${esc(docName())}.</b> ${T(`${pv.skipped.length} doors are skipped. 48 doors that already have a Mark are not touched.`)}</p>
+        <ul class="list"><li>${T("Each door is one Revit transaction, so Undo in Revit shows one entry per door.")}</li><li>${T("If you request cancel, doors already written stay written. Doors not started are left alone.")}</li><li>${T("To put values back, use Undo in Revit or ask for a revert plan. A revert plan also needs your approval.")}</li></ul>
+        ${planFacts(pv)}</div>
+      <div class="card"><label class="check"><input type="checkbox" id="ack"${S.ack ? " checked" : ""}><span>${T(`I have read the ${n} changes and the ${pv.skipped.length} skipped doors.`)}</span></label>
+        <div class="actions">${btn(`Approve and apply ${n} changes`, "approve", { primary: true, disabled: !S.ack, aria: `Approve plan: set Mark on ${n} doors, ${docName()}`, described: "ack-reason" })}${btn("Back to preview", "to-preview")}${btn("Reject plan", "reject")}</div>
+        <p class="reason" id="ack-reason">${S.ack ? T("Only a person can approve. The assistant cannot press this button.") : T("Tick the box to enable approval. Only a person can approve; the assistant cannot.")}</p></div>`;
+  },
+  applying() {
+    const pv = planView(), n = pv.changes.length;
+    return `<h2 class="title" id="pane-title" tabindex="-1">${T("Applying changes")}</h2>
+      <div class="card state wait"><label for="prog">${T("Applying")} <span class="num">${S.progress}</span> ${T("of")} <span class="num">${n}</span></label>
+        <progress id="prog" max="${n}" value="${S.progress}">${S.progress} / ${n}</progress>
+        <div class="actions">${btn("Request cancel", "cancel")}</div>
+        <p class="reason">${T("Cancel stops the doors that have not started. The door Revit is writing now will finish.")}</p></div>`;
+  },
+  partial() {
+    const pv = planView(), okRows = pv.changes.filter(d => d.id !== FAILED), n = pv.changes.length, sk = pv.skipped.length;
+    return `<h2 class="title" id="pane-title" tabindex="-1">${T("Result: partly applied")}</h2>
+      <div class="banner warn" role="alert">${glyph("warn")}<span class="txt">${T(`${n - 1} of ${n} changes applied. 1 failed. ${sk} skipped.`)}<small>${T("This plan is not marked as done and cannot be run again.")}</small></span></div>
+      <div class="card state warn"><div class="counts"><span class="sev ok">${glyph("ok")}<span class="n">${n - 1}</span>${T("applied")}</span><span class="sev bad">${glyph("bad")}<span class="n">1</span>${T("failed")}</span><span class="sev wait">${glyph("skip")}<span class="n">${sk}</span>${T("skipped")}</span></div>
+        <h3>${T("Failed")}</h3><ul class="list"><li><span>${sev("bad", "Failed")} <span class="num">${FAILED}</span> · Level 4 · ${T("wanted")} D-054</span>
+          <span class="reason">${T("Revit had a dialog open, so Revit rolled this change back. Nothing was written for this door.")}</span>
+          <span class="reason"><b>${T("What to do:")}</b> ${T("close the dialog in Revit, then plan a retry. The retry is a new plan and needs your approval.")}</span></li></ul>
+        <div class="actions">${btn("Plan retry for 1 failed door", "to-retry", { primary: true })}${btn("Open proof record", "proof")}</div></div>
+      <div class="card"><details><summary>${T("Applied")} (${n - 1})</summary><ul class="list">${okRows.map(d => `<li><span>${sev("ok", "Applied")} <span class="num">${d.id}</span> · Mark = <b>${d.after}</b></span></li>`).join("")}</ul></details>${skippedList(pv.skipped)}</div>`;
+  },
+  retry() {
+    const d = DOORS.find(x => x.id === FAILED);
+    return `<h2 class="title" id="pane-title" tabindex="-1">${T("Retry plan: 1 door")}</h2>
+      <div class="card state wait"><div>${sev("wait", "Waiting for review")}</div><dl class="kv"><dt>${T("Plan")}</dt><dd class="mono">${PLAN_B.id}</dd><dt>${T("Plan hash")}</dt><dd class="mono">${PLAN_B.hash}</dd><dt>${T("Follows")}</dt><dd class="mono">${PLAN_A.id}</dd><dt>${T("Bound to")}</dt><dd>${esc(docName())}</dd><dt>${T("Read from model")}</dt><dd>${T("Today")} 14:07. ${T("The door still has no Mark.")}</dd></dl></div>
+      <div class="card">${changeTable([d], "Exact change")}</div>
+      <div class="card"><label class="check"><input type="checkbox" id="ack"${S.ack ? " checked" : ""}><span>${T("I have read this change.")}</span></label>
+        <div class="actions">${btn("Approve and apply 1 change", "approve-retry", { primary: true, disabled: !S.ack, aria: `Approve retry plan: set Mark on 1 door, ${docName()}`, described: "ack-reason" })}${btn("Reject plan", "reject-retry")}</div>
+        <p class="reason" id="ack-reason">${S.ack ? T("Only a person can approve.") : T("Tick the box to enable approval.")}</p></div>`;
+  },
+  done() {
+    const pv = planView(), n = pv.changes.length, sk = pv.skipped.length, before = S.refreshed ? 11 : 12;
+    return `<h2 class="title" id="pane-title" tabindex="-1">${T("Result: final audit")}</h2>
+      <div class="banner ok" role="status">${glyph("ok")}<span class="txt">${T("All approved changes are in the model.")}<small>${T("Checked against a new read of the model at 14:09.")}</small></span></div>
+      <div class="card state ok"><div class="counts"><span class="sev ok">${glyph("ok")}<span class="n">${n}</span>${T("applied")}</span><span class="sev bad">${glyph("bad")}<span class="n">0</span>${T("failed")}</span><span class="sev wait">${glyph("skip")}<span class="n">${sk}</span>${T("skipped")}</span></div>
+        <table><caption>${T("Check again, on a new read of the model")}</caption><thead><tr><th scope="col">${T("Rule")}</th><th scope="col">${T("Before")}</th><th scope="col">${T("After")}</th><th scope="col">${T("Meaning")}</th></tr></thead><tbody>
+          <tr><th scope="row">${T("Doors without a Mark")}</th><td class="num">${before}</td><td class="num">2</td><td>${T("The 2 doors owned by another user remain")}</td></tr>
+          <tr><th scope="row">${T("Rooms without a Number")}</th><td class="num">3</td><td class="num">3</td><td>${T("Unchanged, as planned")}</td></tr></tbody></table>
+        <dl class="kv"><dt>${T("Preview against result")}</dt><dd>${T(`${n} of ${n} values read back equal to the preview`)}</dd><dt>${T("Plans")}</dt><dd class="mono">${pv.plan.id} (${n - 1}), ${PLAN_B.id} (1)</dd><dt>${T("Approved by")}</dt><dd>${T("Windows account coordinator-a, in the pane")}</dd><dt>${T("Undo")}</dt><dd>${T(`${n} entries in Revit's Undo list, or ask for a revert plan`)}</dd></dl>
+        <div class="actions">${btn("Save hand-over report", "report", { primary: true })}${btn("Back to findings", "to-finding")}</div></div>`;
+  },
+  cancelled() {
+    const pv = planView(), n = pv.changes.length, k = Math.min(S.cancelAt, n);
+    return `<h2 class="title" id="pane-title" tabindex="-1">${T("Result: cancel requested")}</h2>
+      <div class="banner warn" role="alert">${glyph("warn")}<span class="txt">${T(`${k} of ${n} changes are in the model. ${n - k} were not started.`)}<small>${T("Cancel does not undo what Revit already wrote.")}</small></span></div>
+      <div class="card state warn"><div class="counts"><span class="sev ok">${glyph("ok")}<span class="n">${k}</span>${T("applied")}</span><span class="sev wait">${glyph("skip")}<span class="n">${n - k}</span>${T("not started")}</span><span class="sev wait">${glyph("skip")}<span class="n">${pv.skipped.length}</span>${T("skipped")}</span></div>
+        <p class="reason">${T(`To put the ${k} doors back, use Undo in Revit (${k} entries) or ask for a revert plan. To finish the rest, plan a fix again from the findings: it will list only doors that still have no Mark.`)}</p>
+        <div class="actions">${btn("Back to findings", "to-finding", { primary: true })}${btn("Open proof record", "proof")}</div></div>`;
+  },
+  disconnected() {
+    const pv = planView();
+    return `<h2 class="title" id="pane-title" tabindex="-1">${T("Change preview")}</h2>
+      <div class="banner bad" role="alert">${glyph("unplug")}<span class="txt">${T("Bridge stopped. Your plans are kept.")}<small>${T("Nothing can be approved or applied until the connection is back.")}</small></span></div>
+      <div class="card state wait"><div>${sev("wait", "Waiting for review")}</div><div class="counts"><span><span class="n">${pv.changes.length}</span>${T("to change")}</span><span><span class="n">${pv.skipped.length}</span>${T("skipped")}</span></div>${planFacts(pv)}
+        <div class="actions">${S.busy ? `<span role="status">${T("Connecting…")}</span>` : btn("Reconnect", "reconnect-plan", { primary: true })}${btn("Continue to approval", "noop", { disabled: true, described: "dc-reason" })}</div>
+        <p class="reason" id="dc-reason">${T("Approval is off while disconnected. After reconnecting, the preview is read again before you can approve.")}</p></div>`;
+  },
+  stale() {
+    const pv = planView();
+    return `<h2 class="title" id="pane-title" tabindex="-1">${T("Change preview")}</h2>
+      <div class="banner warn" role="alert">${glyph("warn")}<span class="txt">${T("Out of date. The model changed after this preview.")}<small>${T("Door 300050 now has Mark D-200. It was empty when the plan was drafted at 14:02.")}</small></span></div>
+      <div class="card state warn"><div>${sev("warn", "Out of date")}</div><div class="counts"><span><span class="n">10</span>${T("to change")}</span><span><span class="n">2</span>${T("skipped")}</span></div>${planFacts({ plan: PLAN_A, snapshot: "14:02" })}
+        <table><caption>${T("What changed in the model since the preview")}</caption><thead><tr><th scope="col">${T("Element")}</th><th scope="col">${T("At preview")} 14:02</th><th scope="col">${T("Now")} 14:06</th><th scope="col">${T("Plan wanted")}</th></tr></thead><tbody><tr><th scope="row" class="num">300050</th><td><span class="empty">${T("empty")}</span></td><td><b>D-200</b></td><td>D-051</td></tr></tbody></table>
+        <p class="reason">${T("Reason: the model changed, not the time limit. The other 9 doors still match the preview.")}</p>
+        <div class="actions">${btn("Read the model again", "refresh", { primary: true })}${btn("Continue to approval", "noop", { disabled: true, described: "st-reason" })}${btn("Reject plan", "reject")}</div>
+        <p class="reason" id="st-reason">${T("This plan cannot be approved. Reading the model again drafts a new plan and rejects this one.")}</p></div>`;
+  },
+  switched() {
+    const pv = planView();
+    return `<h2 class="title" id="pane-title" tabindex="-1">${T("Plans for another document")}</h2>
+      <div class="banner warn" role="status">${glyph("info")}<span class="txt">${T("The active document is now")} ${esc(OTHER_DOC)}.<small>${T("Plans stay with the document they were drafted for. Nothing is applied to this document.")}</small></span></div>
+      <p class="muted">${T("No plans and no findings for")} ${esc(OTHER_DOC)}.</p>
+      <div class="card state wait"><div>${sev("skip", "Not active")}</div><h3>${T("Belongs to")} ${esc(docName())} (${T("not active")})</h3>
+        <div class="counts"><span><span class="n">${pv.changes.length}</span>${T("to change")}</span><span><span class="n">${pv.skipped.length}</span>${T("skipped")}</span></div>${planFacts({ ...pv, notActive: true })}
+        <div class="actions">${btn("Continue to approval", "noop", { disabled: true, described: "sw-reason" })}${btn("Prototype only: switch back in Revit", "switch-back")}</div>
+        <p class="reason" id="sw-reason">${T("This plan can only be reviewed and approved while its own document is active. Switch back to it in Revit. It is never applied to the active document.")}</p></div>`;
+  },
+  duplicate() {
+    const pv = planView();
+    return `<h2 class="title" id="pane-title" tabindex="-1">${T("Change preview")}</h2>
+      <div class="banner warn" role="status">${glyph("warn")}<span class="txt">${T("Duplicate draft. The same changes are already waiting.")}<small>${PLAN_A.id}, ${T("drafted today 14:03, has the same 10 changes and 2 skips for this document.")}</small></span></div>
+      <div class="card state warn"><div>${sev("warn", "Duplicate draft")}</div><div class="counts"><span><span class="n">${pv.changes.length}</span>${T("to change")}</span><span><span class="n">${pv.skipped.length}</span>${T("skipped")}</span></div>${planFacts({ plan: PLAN_D, snapshot: "14:04" })}
+        <dl class="kv"><dt>${T("Same as")}</dt><dd class="mono">${PLAN_A.id}</dd></dl>
+        <div class="actions">${btn("Reject this draft and open the first plan", "dup-reject", { primary: true })}${btn("Review this draft anyway", "dup-keep")}</div>
+        <p class="reason">${T("Each plan can run once. Approving both would write the same values twice, so the second one would find nothing to change.")}</p></div>`;
+  },
+  applied() {
+    const pv = planView();
+    return `<h2 class="title" id="pane-title" tabindex="-1">${T("Change preview")}</h2>
+      <div class="banner ok" role="status">${glyph("ok")}<span class="txt">${T("Nothing to change. These values are already in the model.")}<small>${T("All 10 doors already have the Marks this draft asks for. They were applied by")} ${PLAN_A.id} ${T("today at 14:05.")}</small></span></div>
+      <div class="card state ok"><div class="counts"><span><span class="n">0</span>${T("to change")}</span><span class="sev ok">${glyph("ok")}<span class="n">${pv.changes.length}</span>${T("already applied")}</span><span class="sev wait">${glyph("skip")}<span class="n">${pv.skipped.length}</span>${T("skipped")}</span></div>${planFacts({ plan: PLAN_D, snapshot: "14:10" })}
+        <details><summary>${T("Already applied")} (${pv.changes.length})</summary><ul class="list">${pv.changes.map(d => `<li><span>${sev("ok", "In the model")} <span class="num">${d.id}</span> · Mark = <b>${d.after}</b></span></li>`).join("")}</ul></details>
+        <div class="actions">${btn("Reject this draft", "applied-reject", { primary: true })}${btn("Open proof record", "proof")}${btn("Continue to approval", "noop", { disabled: true, described: "ap-reason" })}</div>
+        <p class="reason" id="ap-reason">${T("A draft with no changes cannot be approved.")}</p></div>`;
+  }
+};
+const LOG_ROWS = [["14:01:48", "info", "Connected to canonical_test_model.rvt (Revit 2026)"], ["14:02:10", "info", "Read model: 340 elements, snapshot CANONICAL-SYNTH-0001"], ["14:02:12", "warn", "QA check, core rule pack: 15 findings (12 doors, 3 rooms)"],
+  ["14:03:30", "wait", "Plan plan_b366ce3444a0 drafted: 10 changes, 2 skipped"], ["14:04:55", "ok", "Plan plan_b366ce3444a0 approved in the pane by coordinator-a"], ["14:05:02", "bad", "Action on 300053 failed: Revit dialog open, rolled back"], ["14:05:03", "warn", "Plan plan_b366ce3444a0 finished partly: 9 applied, 1 failed"]];
+function renderLog() { $("#panel-log").innerHTML = `<h2 class="title">${T("Run log")}</h2><p class="muted">${T("Sample entries. The same events are written to the audit log on disk.")}</p><ul class="list">${LOG_ROWS.map(([t, k, m]) => `<li><span><span class="num">${t}</span> ${sev(k, k === "ok" ? "Done" : k === "bad" ? "Failed" : k === "warn" ? "Attention" : k === "wait" ? "Waiting" : "Info")}</span><span>${T(m)}</span></li>`).join("")}</ul>`; }
+function renderSettings() { const b = activeBrand();
+  $("#panel-settings").innerHTML = `<h2 class="title">${T("Settings")}</h2><div class="card"><dl class="kv">
+    <dt>${T("Approval")}</dt><dd>${T("Ask first.")} <span class="reason">${T("Locked by your administrator.")}</span></dd><dt>${T("Dev mode")}</dt><dd>${T("Off.")} <span class="reason">${T("Not allowed by your administrator.")}</span></dd>
+    <dt>${T("Hub port")}</dt><dd class="num">${b.network.hubPort || "not set"}</dd><dt>${T("Workspace")}</dt><dd>Documents\\${esc(b.product.name)}</dd><dt>${T("Brand pack")}</dt><dd class="mono">${esc(b.id)} (schema ${b.schemaVersion})</dd><dt>${T("Product")}</dt><dd>${esc(b.product.name)}${b.product.publisher ? ", " + esc(b.product.publisher) : ""}</dd></dl>
+    <p class="reason">${T("Values come from, in order: built-in defaults, brand pack, administrator policy, your settings, project settings. A locked value cannot be loosened further down.")}</p></div>`; }
+
+const SURFACE = {
+  setup: ["Dockable pane (WebView2), with the ribbon Connect button showing the same state in its tooltip.", "A hard start failure that blocks the pane itself uses a native TaskDialog with command links, because the pane cannot explain its own failure to load. Press \"Show native error dialog\"."],
+  finding: ["Dockable pane, Review tab.", "\"Select in Revit\" uses the real selection in the active view (UIDocument.Selection, ShowElements). It never edits. The count on the large ribbon button is plain text in the button label, because the ribbon has no badge control."],
+  preview: ["Dockable pane, Review tab. Not a dialog: the reviewer must be able to click into the model while reading.", "The optional in-model preview uses temporary view overrides. That part is not verified in live Revit."],
+  approve: ["Dockable pane. The approve button is a real button in the pane; approval is sent with the plan hash, as today.", "A modal dialog is not used: it would block Revit while the person is still checking the model. The command-line tool stays as the second way to approve."],
+  applying: ["Dockable pane, with a progress bar. Revit's own status bar is not written to (no public API for it).", "The work runs on Revit's UI thread through an ExternalEvent, so Revit is busy while each door is written."],
+  partial: ["Dockable pane: a persistent banner with role alert. Not a toast, because it needs a decision.", "The ribbon Review button keeps its count until the result is acknowledged."],
+  retry: ["Dockable pane. Same preview and approval pattern, smaller.", "A retry is always a new plan with its own hash and approval. A failed action is never re-opened."],
+  done: ["Dockable pane: result card. A toast confirms the report was saved.", "The hand-over report is a file on disk. Opening it later needs no AI account."],
+  cancelled: ["Dockable pane: persistent banner.", "Cancel can only stop work that has not started; Revit API work on the UI thread cannot be interrupted."],
+  disconnected: ["Dockable pane banner, plus the ribbon Connect button (icon and tooltip in words).", "No dialog: losing the bridge must not interrupt modelling."],
+  stale: ["Dockable pane banner on the plan, with a table of what changed.", "Detected by comparing the plan's recorded values and document with a new read before approval and again before each change. Proposal: not implemented today."],
+  switched: ["Dockable pane: header shows the new document, a polite status message announces the change, the plan card is shown as not active.", "Proposal. The add-in would learn of the switch from Revit's ViewActivated event and compare the document with the plan's binding. The ribbon tooltip says in words which document has plans waiting."],
+  duplicate: ["Dockable pane banner on the new draft.", "Proposal (roadmap ticket 3): the server computes a key from document, tools, arguments and skips, and reports duplicate_of. It warns and does not block."],
+  applied: ["Dockable pane: status banner, no approval offered.", "Proposal: the preview compares each wanted value with a new read and lists values that are already in the model. An empty plan cannot be approved."]
+};
+function renderNotes() {
+  const [a, b] = SURFACE[S.scenario];
+  $("#surface-note").innerHTML = `<p><b>${esc(a)}</b></p><p>${esc(b)}</p>`;
+  $("#specimens").innerHTML = [[32, false], [16, false], [32, true], [16, true]].map(([sz, mono]) => `<figure><div>${lockup(sz, mono)}</div><div class="on-chrome">${commandIcon(sz, mono)}${brandMark(sz, mono)}</div><figcaption>${sz} px, ${mono ? "one colour (uses the text colour)" : "colour"}: lockup, then command icon and mark on the ribbon colour</figcaption></figure>`).join("");
+  const cs = getComputedStyle(document.documentElement), v = n => cs.getPropertyValue("--" + n).trim();
+  const pairs = [["Text", "ink", "surface", 4.5], ["Text", "ink", "bg", 4.5], ["Muted text", "ink-muted", "surface", 4.5], ["Muted text", "ink-muted", "bg", 4.5], ["Muted text", "ink-muted", "raised", 4.5],
+    ["Brand text and focus ring", "brand-text", "surface", 4.5], ["Brand text and focus ring", "brand-text", "bg", 4.5], ["Button label", "on-primary", "primary-bg", 4.5], ["Button fill edge", "primary-bg", "surface", 3],
+    ["Danger", "danger", "surface", 4.5], ["Warning", "warning", "surface", 4.5], ["Success", "success", "surface", 4.5], ["Info", "info", "surface", 4.5], ["Pending", "pending", "surface", 4.5],
+    ["Control border", "line-strong", "surface", 3], ["Control border", "line-strong", "bg", 3], ["Control border", "line-strong", "raised", 3], ["Icon accent", "brand", "surface", 3], ["Icon accent on ribbon", "brand", "host-chrome", 3], ["Icon silhouette on ribbon", "host-ink", "host-chrome", 3], ["Divider (decorative)", "line", "surface", 0]];
+  $("#contrast").innerHTML = `<table id="contrast-table"><thead><tr><th scope="col">Use</th><th scope="col">Colours</th><th scope="col">Ratio</th><th scope="col">Needs</th><th scope="col">Result</th></tr></thead><tbody>${pairs.map(([use, f, g, need]) => { const r = contrast(v(f), v(g)); return `<tr data-pair="${f}/${g}" data-ratio="${r.toFixed(2)}"><th scope="row">${use}</th><td><span class="pairc"><span class="sw" style="background:${v(f)}"></span><code>${f}</code> ${v(f)}</span> on <span class="pairc"><span class="sw" style="background:${v(g)}"></span><code>${g}</code> ${v(g)}</span></td><td class="num">${r.toFixed(2)}:1</td><td class="num">${need ? need + ":1" : "none"}</td><td>${!need ? "n/a" : r >= need ? '<span class="pass">Pass</span>' : '<span class="fail">Fail</span>'}</td></tr>`; }).join("")}</tbody></table>`;
+  $("#brand-report").innerHTML = S.theme === "hc" ? `<p><b>High contrast:</b> brand colours are not used. The brand shows as its name and logo only.</p>` : brandReport.length ? `<p><b>Brand pack check: ${brandReport.length} fallback${brandReport.length === 1 ? "" : "s"}.</b></p><ul class="list" id="brand-fallbacks">${brandReport.map(r => `<li><span>${sev(r.level === "error" ? "bad" : "warn", r.level === "error" ? "Build error" : "Fallback")} ${esc(r.text)}</span></li>`).join("")}</ul>` : `<p><b>Brand pack check:</b> <span class="pass">all brand colours pass</span>, none replaced.</p>`;
+}
+
+function render(focus) {
+  document.documentElement.dataset.theme = S.theme; document.documentElement.dataset.density = S.density;
+  $("#scenario").value = S.scenario; $("#locale").value = S.locale; $("#density").value = S.density;
+  document.querySelectorAll('input[name="theme"]').forEach(r => { r.checked = r.value === S.theme; });
+  document.querySelectorAll('input[name="brand"]').forEach(r => { r.checked = r.value === S.brand; });
+  $("#pane").setAttribute("aria-busy", S.busy ? "true" : "false");
+  $("#td-title").textContent = activeBrand().product.name;
+  renderRibbon(); renderCanvas(); renderHead(); renderTabs();
+  $("#panel-review").innerHTML = VIEWS[S.scenario](); renderLog(); renderSettings(); renderNotes();
+  history.replaceState(null, "", `#state=${S.scenario}&theme=${S.theme}&brand=${S.brand}&labels=${S.locale}&density=${S.density}`);
+  if (focus) { const t = $("#pane-title"); if (t) t.focus(); }
+}
+
+/* ============================ behaviour ============================ */
+function toast(msg) {
+  const el = document.createElement("div"); el.className = "toast"; let timer;
+  el.innerHTML = `<span>${esc(T(msg))}</span><button type="button" aria-label="Dismiss message">×</button>`;
+  const arm = () => { timer = setTimeout(() => el.remove(), 6000); }, hold = () => clearTimeout(timer);
+  el.querySelector("button").addEventListener("click", () => el.remove());
+  el.addEventListener("mouseenter", hold); el.addEventListener("mouseleave", arm); el.addEventListener("focusin", hold); el.addEventListener("focusout", arm);
+  $("#toasts").appendChild(el); arm();
+}
+function go(scenario, o = {}) { clearInterval(S.timer); S.scenario = scenario; S.ack = false; S.showAll = false; S.busy = false; S.tab = "review"; if (scenario === "finding" || scenario === "setup") S.refreshed = false;
+  if (scenario === "applying") startApply(o.count || planView().changes.length, o.next || "partial"); render(o.focus !== false); }
+function startApply(n, next) { S.progress = 0; S.cancelReq = false;
+  S.timer = setInterval(() => { S.progress++; if (S.cancelReq) { clearInterval(S.timer); S.cancelAt = S.progress; go("cancelled"); toast("Cancel requested. Some changes are already in the model."); return; }
+    if (S.progress >= n) { clearInterval(S.timer); go(next); return; } const p = $("#prog"); if (p) { p.value = S.progress; p.previousElementSibling.querySelector(".num").textContent = S.progress; } }, 420); }
+function connect(next, msg) { S.busy = true; render(false); setTimeout(() => { go(next); toast(msg); }, 900); }
+const ACTIONS = {
+  noop() {}, "focus-pane"() { S.tab = "review"; render(true); }, "tab-log"() { S.tab = "log"; render(false); $("#tab-log").focus(); }, "tab-settings"() { S.tab = "settings"; render(false); $("#tab-settings").focus(); },
+  reconnect() { connect("finding", "Connected to canonical_test_model.rvt. First read: 15 findings."); },
+  "reconnect-plan"() { connect("preview", "Reconnected. The preview was read again and still matches the model."); },
+  "copy-diag"() { toast("Diagnostics copied (prototype: nothing was copied)."); },
+  "open-td"(el) { const d = $("#td"); d.returnTrigger = el; d.showModal(); },
+  select() { S.selected = !S.selected; render(false); $('[data-act="select"]').focus(); toast(S.selected ? "12 doors selected in Revit. Nothing was changed." : "Selection cleared."); },
+  "to-preview"() { go("preview"); }, "to-approve"() { go("approve"); }, "to-finding"() { go("finding"); }, "to-retry"() { go("retry"); },
+  reject() { go("finding"); toast("Plan rejected. Nothing was changed in the model."); },
+  "reject-retry"() { go("partial"); toast("Retry plan rejected. Door 300053 still has no Mark."); },
+  approve(el) { if (el.getAttribute("aria-disabled") === "true") return; go("applying", { next: "partial" }); },
+  "approve-retry"(el) { if (el.getAttribute("aria-disabled") === "true") return; go("applying", { count: 1, next: "done" }); },
+  cancel() { S.cancelReq = true; },
+  "toggle-all"() { S.showAll = !S.showAll; render(false); $('[data-act="toggle-all"]').focus(); },
+  refresh() { S.refreshed = true; go("preview"); toast("New preview from a read at 14:06: 9 changes, 3 skipped. The old plan was rejected."); },
+  "switch-back"() { go("preview"); toast("canonical_test_model.rvt is active again. The preview was read again and still matches."); },
+  "dup-reject"() { go("preview"); toast("Duplicate draft rejected. Showing the first plan. Nothing was changed."); },
+  "dup-keep"() { go("preview"); toast("Two plans are now waiting for this document. Each can run once."); },
+  "applied-reject"() { go("finding"); toast("Draft rejected. Nothing was changed in the model."); },
+  proof() { toast("Proof record opened (prototype: no file exists)."); }, report() { toast("Hand-over report saved (prototype: no file was written)."); }
+};
+document.addEventListener("click", e => { const el = e.target.closest("[data-act]"); if (el && ACTIONS[el.dataset.act]) { if (el.getAttribute("aria-disabled") === "true") return; ACTIONS[el.dataset.act](el); } });
+document.addEventListener("change", e => {
+  const t = e.target;
+  if (t.name === "theme") { S.theme = t.value; render(false); } else if (t.name === "brand") { S.brand = t.value; applyBrand(S.brand); render(false); }
+  else if (t.id === "scenario") { go(t.value, { focus: false }); } else if (t.id === "locale") { S.locale = t.value; render(false); } else if (t.id === "density") { S.density = t.value; render(false); }
+  else if (t.id === "ack") { S.ack = t.checked; render(false); $("#ack").focus(); }
+});
+/* Tabs: arrow keys move, Home and End jump (roving tabindex). */
+$("#tabs").addEventListener("click", e => { const b = e.target.closest('[role="tab"]'); if (b) { S.tab = b.id.slice(4); render(false); $("#" + b.id).focus(); } });
+$("#tabs").addEventListener("keydown", e => { const ids = ["review", "log", "settings"], i = ids.indexOf(S.tab); let j = i;
+  if (e.key === "ArrowRight") j = (i + 1) % 3; else if (e.key === "ArrowLeft") j = (i + 2) % 3; else if (e.key === "Home") j = 0; else if (e.key === "End") j = 2; else return;
+  e.preventDefault(); S.tab = ids[j]; render(false); $("#tab-" + ids[j]).focus(); });
+/* TaskDialog mock: Esc is handled by <dialog>; focus goes back to the button that opened it. */
+$("#td").addEventListener("click", e => { const b = e.target.closest("[data-td]"); if (!b) return; const d = $("#td"); d.close();
+  if (b.dataset.td === "retry") ACTIONS.reconnect(); else if (b.dataset.td === "settings") ACTIONS["tab-settings"](); });
+$("#td").addEventListener("close", () => { const d = $("#td"); if (d.returnTrigger && document.contains(d.returnTrigger) && !S.busy && S.tab === "review") { const again = $('[data-act="open-td"]'); if (again) again.focus(); } });
+
+/* Deep link: #state=partial&theme=dark&brand=quay&labels=pseudo&density=compact (values are checked against allow-lists). */
+(function init() {
+  const q = new URLSearchParams(location.hash.slice(1)), pick = (k, allowed, d) => allowed.includes(q.get(k)) ? q.get(k) : d;
+  S.scenario = pick("state", Object.keys(VIEWS), "setup"); S.theme = pick("theme", ["light", "dark", "hc"], "light"); S.brand = pick("brand", Object.keys(BRANDS), "amb");
+  S.locale = pick("labels", ["en", "pseudo"], "en"); S.density = pick("density", ["comfortable", "compact"], "comfortable");
+  applyBrand(S.brand);
+  if (S.scenario === "applying") go("applying", { focus: false }); else render(false);
+})();
+</script>
+</body>
+</html>

@@ -15,12 +15,16 @@ Snapshot data. Two sources are understood:
    extracted. From this the audit can only run: duplicate sheet numbers, missing
    sheet parameters, and default names on drafting views. The other checks
    report "not_enough_data" and the overall status is "partial".
-2. Optional top-level lists (not written by the add-in yet), which enable every check:
+2. Top-level lists written by the add-in since the fix for issue 142 (a snapshot taken
+   without a category filter and not dirty-only), which enable every check:
 
   "sheets": [{"uid", "number", "name", "view_uids": [...], "params": {name: value}}]
   "views":  [{"uid", "name", "view_type", "is_template", "sheet_uid", "discipline"}]
 
-When there is no sheet data at all the audit says so instead of guessing.
+When the snapshot has no `views` list the result says "views not captured: result not
+rated" at the top (keys `headline`, `views_captured`, `rated`, and the start of `message`),
+so zero findings can never read as clean. When there is no sheet data at all the audit says
+so instead of guessing.
 """
 from __future__ import annotations
 
@@ -28,6 +32,8 @@ import json
 import re
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
+
+NOT_CAPTURED_HEADLINE = "views not captured: result not rated"
 
 DEFAULT_REQUIRED = ["Sheet Number", "Sheet Name"]
 
@@ -243,15 +249,15 @@ class SheetViewAuditModule:
     ) -> Dict[str, Any]:
         if not snapshot_id:
             raise ValueError("sheet_view_audit_run_audit needs a snapshot_id. Take a snapshot first and pass its id.")
-        if any(part in snapshot_id for part in ("/", "\\", "..", ":")):
-            raise ValueError(f"Invalid snapshot id '{snapshot_id}'.")
-        path = workspace.allowed_directories[0] / "snapshots" / f"{snapshot_id}.json"
+        from revit_mcp_server.security.safe_paths import snapshot_file
+
+        path = snapshot_file(workspace.allowed_directories[0] / "snapshots", snapshot_id)
         if not path.exists():
             raise ValueError(f"Snapshot '{snapshot_id}' not found.")
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
 
-        explicit = "sheets" in data or "views" in data
+        explicit = isinstance(data.get("sheets"), list) or isinstance(data.get("views"), list)
         if explicit:
             sheets = data.get("sheets") or []
             views = data.get("views") or []
@@ -270,7 +276,7 @@ class SheetViewAuditModule:
                 "findings": [],
             }
 
-        have_views_list = explicit and "views" in data
+        have_views_list = explicit and isinstance(data.get("views"), list)
         placement_known = explicit and (
             (bool(sheets) and all("view_uids" in s for s in sheets))
             or (have_views_list and all("sheet_uid" in v for v in views))
@@ -315,10 +321,19 @@ class SheetViewAuditModule:
             )
         result["checks"] = report
         coverage = data.get("counts") or {}
+        if coverage.get("views_truncated") or coverage.get("sheets_truncated"):
+            result["status"] = "partial"
+            result["message"] = (result.get("message", "") + " The view/sheet capture was truncated by the time budget; findings cover only the captured views and sheets.").strip()
         if coverage.get("truncated") or coverage.get("categories") or coverage.get("dirty_only") or data.get("dirty_only"):
             result["status"] = "partial"
             result["message"] = (result.get("message", "") + " Snapshot capture was truncated, category-filtered, or dirty-only; findings cover only the captured records.").strip()
         result["data_source"] = source
         result["snapshot_id"] = snapshot_id
         result["required_sheet_parameters"] = required
+        result["views_captured"] = have_views_list
+        result["rated"] = have_views_list
+        if not have_views_list:
+            result["status"] = "partial"
+            result["message"] = (NOT_CAPTURED_HEADLINE + ". " + result.get("message", "")).strip()
+            result = {"headline": NOT_CAPTURED_HEADLINE, **result}
         return result
