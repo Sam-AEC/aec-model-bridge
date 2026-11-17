@@ -49,6 +49,43 @@ This changes what a read answer costs, not what the catalogue costs. The first p
 
 Catalogue cost of the new options (same method as above, mock mode): full 79,765 to 80,191 ~tokens (+0.5%), daily 61,799 to 62,225 (+0.7%); tool counts unchanged (302 and 231). The response savings above are separate from these totals and depend on what a live model returns.
 
+## Follow-up: the `core` profile and a family map (2026-11-16)
+
+Clients that load every tool pay for the whole catalogue on each session. Anthropic guidance says tool selection degrades past roughly 30-50 tools and that tool search pays off above about 10k tokens of definitions. `MCP_REVIT_TOOL_PROFILE=core` is a built-in profile that lists tools by name (not by provider or module ID) and keeps only the BIM-coordinator loop. The five approval tools stay visible in every profile, so core exposes 54 tools. Hidden tools are not listed and are refused at dispatch, in plan and job targets too, with a message that names `MCP_REVIT_TOOL_PROFILE=daily or full`.
+
+Same method as above (mock mode, `scripts/measure_mcp_tokens.py`, chars / 4, over `list_tools`; `--profile core` is new). Re-measured on 2026-11-17 after including the three live reads required by the links and worksets audit on main 1.5.0 (compact reads, paging and size cap are in the tree); the catalogue totals match the paging row above to the token, because those changes add no tool text beyond it and the core profile only filters:
+
+| Profile | Tools | ~Tokens before | ~Tokens after |
+| --- | ---: | ---: | ---: |
+| `full` | 302 | 80,191 | 80,191 |
+| `daily` | 231 | 62,225 | 62,225 |
+| `core` | 54 | not available | 14,151 |
+
+Core is 82% smaller than full and 77% smaller than daily. It is still above 10k tokens, mostly the five approval tools (about 1,000), `revit_set_parameters`/`revit_get_parameters` (about 1,760) and the audits. Full and daily are unchanged, so no existing setup changes.
+
+The family map is three lines in `SERVER_INSTRUCTIONS` (447 characters, about 112 tokens, sent once at initialisation, not part of the tool list). It names the prefixes and says a tool missing from the list is hidden by the startup profile and how to reach it (switch profile and restart). Instructions total 1,379 characters (about 345 tokens); the approval and Dev mode sentences are byte-for-byte unchanged and a test pins them. Core plus map is about 14,263 tokens.
+
+What core keeps, and why (49 tools plus the approval tools):
+
+| Family | Tools | Why |
+| --- | ---: | --- |
+| Context and results | 4 | `revit_get_context` (Dev flag, document), `revit_health`, `revit_get_document_info`, `revit_get_result` for async answers |
+| Jobs | 2 | `job_status`, `job_cancel`: follow and stop a long run |
+| Snapshots | 3 | `snapshot_take`, `snapshot_query`, `snapshot_diff`: the before/after evidence |
+| QA checks and issues | 5 | `qaqc_checker_run_check`, `list_issues`, `resolve_issue`, `list_rules`, `list_rule_packs`: the issue loop (pack import/export/validate stay hidden) |
+| Review and checks | 4 | `revit_review`, `revit_warnings_delta`, `revit_check_levels_grids`, `revit_system_report`: composite read-only verdicts |
+| Module audits | 7 | naming, doors and rooms, sheets and views, warnings triage, model bloat, links and worksets, `revit_cleanup_audit`: the routine coordinator audits |
+| Element and project reads | 11 | list/inspect elements, element parameters, geometry, levels, views, families, categories, Revit links, link instances and worksets |
+| Warnings and documents | 2 | `revit_get_warnings`, `revit_list_views_sheets_schedules` |
+| Model inspector | 2 | summarize a model, inspect the selection |
+| Parameters | 3 | `revit_get_parameters`, `revit_set_parameters` (the approved write path), `parameter_manager_filter_params` |
+| Selection | 4 | get/set selection, select by unique ids, select by query: hand findings to the person in Revit |
+| Power tools | 2 | `revit_execute_python` (anything not listed, still behind approval), `revit_api_lookup` (check an API before scripting) |
+
+Left out on purpose: single-purpose creators (walls, sheets, views, MEP, sparing), exports, recipes, family editing, revisions, Rhino, Speckle, Navisworks, IFC and rule-pack admin. Reach them with `daily` or `full`. A user custom profile file can still narrow `core` but cannot hide approval tools.
+
+Reproduce: `python scripts/measure_mcp_tokens.py --profile core --output docs/mcp-token-measurement-after-core.json`. Evidence: [after core](mcp-token-measurement-after-core.json).
+
 ## What dominates?
 
 *Dated: 2026-11-05. The `module_list_commands` size below is from before the 2026-11-16 trims; see the follow-up sections above.*

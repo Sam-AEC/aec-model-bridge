@@ -37,7 +37,12 @@ SERVER_INSTRUCTIONS = (
     "with exactly the arguments that were approved; an approved action runs once). "
     "Dev mode: if revit_get_context shows server.dev_mode true, call write tools directly, "
     "with no plan_actions and no plan_id; otherwise the plan steps above apply. Revit lengths are in feet. "
-    "In MCP_REVIT_MODE=mock the server returns canned responses and needs no Revit."
+    "In MCP_REVIT_MODE=mock the server returns canned responses and needs no Revit.\n"
+    "Tool families: revit_* Revit reads, checks, parameters and views; qaqc_checker_*, naming_checker_*, *_audit QA; "
+    "snapshot_* and model_* snapshots, diffs and inspection.\n"
+    "More families: selection_tools_*, recipe_*, report_*, rhino_*, speckle_*, navisworks_*, ifc_*.\n"
+    "A tool missing from your list is hidden by the startup profile (MCP_REVIT_TOOL_PROFILE: core, daily or full) "
+    "and calls to it are refused; ask the person to switch profile and restart."
 )
 
 
