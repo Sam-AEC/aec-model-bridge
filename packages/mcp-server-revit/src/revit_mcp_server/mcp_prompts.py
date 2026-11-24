@@ -14,7 +14,7 @@ from mcp.types import GetPromptResult, Prompt, PromptArgument, PromptMessage, Te
 APPROVAL_RULE = (
     "Approval: `plan_actions` only drafts a plan. You cannot approve it. Tell the person to review and approve it "
     "in the Revit panel (Plans view) or with `aec-model-bridge-approve`, then wait for them to say so. "
-    "If `revit_get_context` shows server.dev_mode true, follow the Dev mode rule in the server instructions."
+    "If `revit_get_context` shows server.plans_required false, follow the Dev mode rule in the server instructions."
 )
 
 
