@@ -36,6 +36,7 @@
 - [Rule packs](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/rule-packs.md): BIM QA/QC rules.
 - [MCP token budget](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/mcp-token-budget.md): tool profiles and context size.
 - [snapshot_compute](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/snapshot-compute.md): one-call read-only query pipelines over a saved snapshot.
+- [Read result cursors](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/read-cursors.md): size cap, cursors and saved results for large read answers.
 - [Dev workflow](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/dev-workflow.md): build, test and release commands.
 - [Agent instructions](https://github.com/Sam-AEC/aec-model-bridge/blob/main/AGENTS.md): repository layout, commands and rules for coding agents.
 

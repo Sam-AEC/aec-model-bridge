@@ -85,7 +85,7 @@ def test_resource_lists():
     assert {str(r.uri) for r in mcp_resources.list_resources()} == {
         "aec://workspace/snapshots", "aec://plans/pending", "aec://qa/latest"}
     assert {t.uriTemplate for t in mcp_resources.list_resource_templates()} == {
-        "aec://snapshot/{id}/summary", "aec://plan/{id}", "aec://proof/{id}"}
+        "aec://snapshot/{id}/summary", "aec://plan/{id}", "aec://proof/{id}", "aec://result/{id}"}
 
 
 def test_snapshot_list_and_summary_omit_elements(tmp_path, gate):

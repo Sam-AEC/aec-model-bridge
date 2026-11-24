@@ -12,7 +12,9 @@ from typing import Any
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.server.lowlevel.helper_types import ReadResourceContents
-from mcp.types import CallToolResult, GetPromptResult, Prompt, Resource, ResourceTemplate, Tool, TextContent
+from mcp.types import (
+    CallToolResult, GetPromptResult, Prompt, Resource, ResourceLink, ResourceTemplate, Tool, TextContent,
+)
 
 from . import mcp_prompts, mcp_resources
 
@@ -26,7 +28,8 @@ from .security.audit import redact_data as _redact_secrets
 from .security.response_redaction import redact_response
 from .security.module_execution import authorized_module_execution
 from .tool_metadata import enrich_tool, is_read_only_tool
-from .result_presentation import result_json, split_response_options
+from .read_cursor import Context as CursorContext, CursorError, binding as cursor_binding
+from .result_presentation import next_page, result_json, split_response_options
 from .tool_profiles import ToolProfileBlocked, load_tool_profile
 
 logger = logging.getLogger(__name__)
@@ -43,6 +46,7 @@ SERVER_INSTRUCTIONS = (
     "false (Dev mode or Auto) means call write tools directly, with no plan_actions and no plan_id; "
     "true means the plan steps above apply. The person can switch modes at any time, so check again after a refusal. "
     "Revit lengths are in feet. "
+    "A read answer with truncated: true and a cursor continues with the same call plus response_options.cursor. "
     "In MCP_REVIT_MODE=mock the server returns canned responses and needs no Revit.\n"
     "Tool families: revit_* Revit reads, checks, parameters and views; qaqc_checker_*, naming_checker_*, *_audit QA; "
     "snapshot_* and model_* snapshots, diffs and inspection.\n"
@@ -161,6 +165,17 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
     except Exception as e:
         return _tool_error("approval_blocked", f"Approval Gate Blocked: {str(e)}")
 
+    cursor_ctx = _cursor_context(name, arguments, response_options) if read_only else None
+    if "cursor" in response_options:
+        # The next part of a trimmed read comes from memory; the tool does not run again.
+        if cursor_ctx is None or claim is not None:
+            return _tool_error("invalid_cursor", f"'{name}' does not take a cursor.")
+        try:
+            page = next_page(response_options, cursor_ctx)
+        except CursorError as exc:
+            return _tool_error("invalid_cursor", str(exc))
+        return [TextContent(type="text", text=f"✓ {name} next part (from cursor, not run again)\n\nResult:\n{page}")]
+
     try:
         # Check if deferred execution is requested.
         run_async = False
@@ -226,14 +241,21 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
 
         # Format the response
         response_text = f"{name} returned a failure\n\n" if failed else f"✓ {name} executed successfully\n\n"
-        response_text += f"Result:\n{result_json(redacted_result, response_options, project=not failed, read_only=read_only)}"
+        response_text += "Result:\n" + result_json(
+            redacted_result, response_options, project=not failed, read_only=read_only, cursor=cursor_ctx)
 
         if failed:
             return CallToolResult(
                 isError=True, content=[TextContent(type="text", text=response_text)],
                 structuredContent=redacted_result,
             )
-        return [TextContent(type="text", text=response_text)]
+        content: list = [TextContent(type="text", text=response_text)]
+        if cursor_ctx is not None and cursor_ctx.resource_uri:
+            content.append(ResourceLink(
+                type="resource_link", uri=cursor_ctx.resource_uri, name=f"{name} full result",
+                mimeType=mcp_resources.MIME,
+            ))
+        return content
 
     except CommandFailed as e:
         return _tool_error("bridge_error", f"Revit Bridge Error: {str(e)}", result=e.payload)
@@ -247,6 +269,14 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
 
 
 _result_failed = result_failed
+
+
+def _cursor_context(name: str, arguments: Any, options: dict) -> CursorContext:
+    """Binds a cursor to this tool, its arguments and fields; names the workspace for saved results."""
+    workspace = None
+    if workspace_monitor is not None and getattr(workspace_monitor, "allowed_directories", None):
+        workspace = workspace_monitor.allowed_directories[0]
+    return CursorContext(name, cursor_binding(name, arguments, options.get("fields")), workspace)
 
 
 def redact_data(value):
