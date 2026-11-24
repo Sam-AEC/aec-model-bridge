@@ -96,8 +96,10 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `naming_checker_list_example_conventions` | List the bundled example naming conventions. | No | sync |
 | `parameter_manager_diff_params` | Compare parameter values between two saved snapshots and list the differences. | No | sync |
 | `parameter_manager_export_params_csv` | Export parameters of the matching snapshot elements to a CSV file in the workspace. | No | sync |
+| `parameter_manager_export_params_xlsx` | Export parameters of the matching snapshot elements to an Excel workbook in the workspace for editing. | No | sync |
 | `parameter_manager_filter_params` | Return a parameter grid for the elements of a snapshot that match a filter, optionally including read-only parameters. | No | sync |
 | `parameter_manager_import_params_csv` | Read parameter values from a CSV file in the workspace and create a draft ActionPlan that applies them. | No | sync |
+| `parameter_manager_import_params_xlsx` | Read an edited Excel workbook from the workspace, diff it against the snapshot and create a draft ActionPlan with a row diff. | No | sync |
 | `parameter_manager_plan_set_params` | Create a draft ActionPlan that sets parameter values on the elements of a snapshot matching a filter. | No | sync |
 | `pyrevit_bridge_list_pyrevit_scripts` | List pyRevit pushbutton scripts found in the directories named by MCP_REVIT_PYREVIT_EXTENSION_DIRS, with tab, panel, description and whether obvious write calls were detected. | No | sync |
 | `pyrevit_bridge_plan_run_pyrevit_script` | Create a draft ActionPlan for running one pyRevit script, showing its path, SHA-256 and detected write-call lines. | No | sync |
