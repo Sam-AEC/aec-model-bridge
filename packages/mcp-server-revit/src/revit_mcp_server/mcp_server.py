@@ -277,6 +277,13 @@ async def main():
 
 def run_mcp_server():
     """Entry point for running the MCP server."""
+    import sys
+
+    if sys.argv[1:2] == ["doctor"]:
+        from .doctor import main as doctor_main
+
+        sys.exit(doctor_main(sys.argv[2:]))
+
     from .cli_flags import handle_standard_flags
 
     handle_standard_flags(
