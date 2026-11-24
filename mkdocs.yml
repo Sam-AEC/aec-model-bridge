@@ -108,6 +108,7 @@ nav:
       - Configuration reference: configuration-reference.md
       - MCP token budget: mcp-token-budget.md
       - Deferred tool loading: deferred-tool-loading.md
+      - Performance: performance.md
       - Target frameworks and dependencies: target-frameworks-and-dependencies.md
   - Develop:
       - Module authoring: module-authoring.md

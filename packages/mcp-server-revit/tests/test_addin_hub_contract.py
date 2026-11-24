@@ -197,7 +197,8 @@ def _hub_tools(provider):
 # earlier request by id (GET /result/{id}) and runs no command, revit_inspect_elements composes several
 # existing read commands.
 LOCALLY_HANDLED = frozenset(
-    {"revit_raw_command", "revit_list_commands", "revit_get_result", "revit_inspect_elements"}
+    {"revit_raw_command", "revit_list_commands", "revit_get_result", "revit_inspect_elements",
+     "revit_perf_report"}
 )
 
 
