@@ -1,12 +1,10 @@
 # Release checklist
 
-Status: 1.5.0 is out (16 November 2026); section 2 has no PASS or FAIL recorded yet.
-
-An ordered list for shipping from `dev` to `main`. It reflects the dev branch as it is today. Bounded read-only Revit 2024 checks passed on 14 October 2026; see [the live validation report](revit-addin-live-validation-2026-10-14.md). Mutating acceptance and other Revit-year targets remain UNVERIFIED until checked. Known limits are in section 3 and in [security.md](security.md).
+Ordered list for shipping from `dev` to `main`. Section 2 has no PASS or FAIL recorded. Bounded read-only Revit 2024 checks passed; see [the live validation report](revit-addin-live-validation-2026-10-14.md). Mutating acceptance and other Revit years are UNVERIFIED. Known limits are in section 3 and in [security.md](security.md).
 
 ## 1. What CI proves
 
-The workflow in `.github/workflows/ci.yml` runs on every push and pull request. It proves:
+The workflow in `.github/workflows/ci.yml` runs on every push and pull request, and nightly. Pull requests run Python on Windows 3.11 and Ubuntu 3.13 and build the add-ins only when their C# folders change. Pushes to `main` and `dev`, the nightly run and manual runs use the full matrix (Windows 3.11, 3.12, 3.13; Ubuntu 3.12, 3.13) and every build. It proves:
 
 - Python lint (`ruff check`), the Python test suite with coverage, version consistency (`scripts/version.py check`), `uv.lock` freshness and tool catalog generation.
 - Repository metadata validation, wheel and sdist build, `twine check --strict`, and a smoke test of the built wheel in a clean venv.
@@ -83,3 +81,26 @@ Accepted for now. Check they behave as described; do not report them as new find
 - The command line does not authenticate who is typing. A program that can run shell commands as you can run `aec-model-bridge-approve approve <id> --yes`.
 - One hub serves all Revits. A plan drafted in one can be executed against another.
 - Rollback can skip actions and only handles parameter writes.
+
+## 7. Registries and stores
+
+Nothing here is automated except the workflows named. Account steps belong to the maintainer.
+
+| Target | How | State |
+|---|---|---|
+| Official MCP Registry | `server.json` is the source. `.github/workflows/publish-mcp.yml` publishes with GitHub OIDC when a release is published or on manual dispatch. Manual: `mcp-publisher login github`, `mcp-publisher publish`, after `mcp-publisher validate`. | Configured. Update `server.json` version, artifact URL and SHA-256 when the `.mcpb` changes. |
+| PyPI | `.github/workflows/publish-pypi.yml`, run by hand after adding a pending trusted publisher at pypi.org (project `aec-model-bridge`, owner `Sam-AEC`, repository `aec-model-bridge`, workflow `publish-pypi.yml`, no environment). The `mcp-name` marker is in `packages/mcp-server-revit/README.md`. | Not published. Build, `twine check --strict` and a clean-venv install passed. |
+| VS Code Marketplace, Open VSX | `.github/workflows/vscode-extension.yml` publishes when a non-pre-release GitHub release tag equals the extension version. Secrets: `VSCE_PAT`, `OVSX_PAT`. A store with no secret is skipped. Publisher and namespace `Sam-AEC` must exist. | Not published. Edit the extension README section "Build and install locally" before the first release. |
+| GitHub MCP Registry, VS Code gallery | Read from the official registry. `.vscode/mcp.json` gives a workspace install. | Follows the official registry. |
+| Claude Code plugin | `.claude-plugin/marketplace.json` and `plugin/`. Users run `/plugin marketplace add Sam-AEC/aec-model-bridge`, then `/plugin install aec-model-bridge@aec-model-bridge`. Schema UNVERIFIED against `claude plugin validate`. | In the repository only. |
+| Anthropic directory | Local `.mcpb` listings are reported as no longer accepted (UNVERIFIED); a local server goes in as a plugin through the developer portal. Needs the privacy policy in `privacy.md` (referenced from `manifest.json`). | Not submitted. |
+| Glama | `glama.json` at the repository root on `main`; claim ownership while signed in as `Sam-AEC`. Re-claim after changing the file. | Not claimed. |
+| Smithery | `smithery.yaml` builds the root `Dockerfile` in mock mode only. Listings must say live use needs Revit. | Not listed. |
+| Cline marketplace | Issue in the Cline marketplace repository with a 400x400 logo (none in the repo). Process UNVERIFIED. | Not submitted. |
+| Other directories (PulseMCP, MCP.Directory, MCP.so) | Submit the repository URL; they read the README and registry data. | Not submitted. |
+
+claude.ai on the web and phones accepts only remote HTTPS connectors, so it cannot reach a local Revit.
+
+Release steps: attach the `.mcpb` and installer to the GitHub release (`scripts/version.py` keeps plugin and marketplace versions in step), update `server.json`, run `mcp-publisher validate`, publish, then check discovery through the registry API.
+
+GitHub releases and tags v0.1.0 to v1.1.0 were deleted on 2026-10-09. The code stays in git history, and the MCP Registry still lists 1.0.1, 1.0.2 and 1.1.0 with dead download links. Releases v1.2.1 to v1.3.3 carry GPL-3.0 licence files in tag, wheel and `.mcpb`.

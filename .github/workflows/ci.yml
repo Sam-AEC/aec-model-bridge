@@ -7,6 +7,10 @@ on:
       - dev
   pull_request:
   workflow_dispatch:
+  # Nightly full matrix on the default branch, so a dependency release that breaks
+  # an untested Python version shows up within a day.
+  schedule:
+    - cron: "17 3 * * *"
 
 # Least privilege: every job below also states its own permissions explicitly.
 permissions:
@@ -22,24 +26,76 @@ env:
 # Third-party and first-party actions are pinned by full commit SHA with a version
 # comment; Dependabot (github-actions ecosystem) keeps them current.
 jobs:
+  # Decides which jobs this run needs. Pull requests get a lean matrix and skip the
+  # C# builds when no C# files changed; pushes to main/dev, the nightly run and
+  # manual runs get everything. Uses the API file list, so no history checkout.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      python: ${{ steps.decide.outputs.python }}
+      addin: ${{ steps.decide.outputs.addin }}
+      rhino: ${{ steps.decide.outputs.rhino }}
+      matrix: ${{ steps.decide.outputs.matrix }}
+    steps:
+      - name: Decide jobs and matrix
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          full='[{"os":"windows-latest","python-version":"3.11","primary":true},{"os":"windows-latest","python-version":"3.12"},{"os":"windows-latest","python-version":"3.13"},{"os":"ubuntu-latest","python-version":"3.12"},{"os":"ubuntu-latest","python-version":"3.13"}]'
+          lean='[{"os":"windows-latest","python-version":"3.11","primary":true},{"os":"ubuntu-latest","python-version":"3.13"}]'
+          if [ "$EVENT" != "pull_request" ]; then
+            { echo "python=true"; echo "addin=true"; echo "rhino=true"; echo "matrix=$full"; } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          files="$RUNNER_TEMP/files.txt"
+          page=1
+          : > "$files"
+          while :; do
+            batch="$(gh api "repos/$REPO/pulls/$PR/files?per_page=100&page=$page" --jq '.[].filename')"
+            [ -z "$batch" ] && break
+            printf '%s\n' "$batch" >> "$files"
+            page=$((page + 1))
+          done
+          echo "Changed files: $(wc -l < "$files")"
+          ci='^\.github/workflows/ci\.yml$'
+          addin_re="^packages/revit-bridge-addin|^scripts/build-addin\.ps1$|^Directory\.|^global\.json$|$ci"
+          rhino_re="^packages/rhino-bridge-addin/|$ci"
+          # Python tests also check README, docs, tool counts and the CHANGELOG, so
+          # only a change confined to the C# add-in folders skips them.
+          csharp_only='^packages/(revit-bridge-addin|revit-bridge-addin-tests|rhino-bridge-addin)/'
+          has() { grep -Eq "$1" "$files" && echo true || echo false; }
+          python=$(grep -Evq "$csharp_only" "$files" && echo true || echo false)
+          [ -s "$files" ] || python=true
+          {
+            echo "python=$python"
+            echo "addin=$(has "$addin_re")"
+            echo "rhino=$(has "$rhino_re")"
+            echo "matrix=$lean"
+          } >> "$GITHUB_OUTPUT"
+          cat "$GITHUB_OUTPUT"
+
   python:
     name: python (${{ matrix.os }}, ${{ matrix.python-version }})
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     permissions:
       contents: read
-    # The experimental leg reports Linux compatibility without blocking: the
-    # Windows-only pieces (bridge discovery via LOCALAPPDATA/ctypes.windll, path
-    # mapping) have never been exercised on Linux. Drop `experimental` once it is green.
-    continue-on-error: ${{ matrix.experimental == true }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { os: windows-latest, python-version: "3.11", primary: true }
-          - { os: windows-latest, python-version: "3.12" }
-          - { os: windows-latest, python-version: "3.13" }
-          - { os: ubuntu-latest, python-version: "3.12", experimental: true }
+        include: ${{ fromJSON(needs.changes.outputs.matrix) }}
+    env:
+      UV_PYTHON: ${{ matrix.python-version }}
     defaults:
       run:
         shell: bash
@@ -54,8 +110,15 @@ jobs:
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ matrix.python-version }}
-          cache: pip
-          cache-dependency-path: packages/mcp-server-revit/pyproject.toml
+
+      # uv installs from uv.lock with a cache keyed on it: the same versions on every
+      # run, and seconds instead of a minute. The wheel smoke test below still
+      # resolves from PyPI the way a user's pip install would.
+      - name: Set up uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+          cache-dependency-glob: packages/mcp-server-revit/uv.lock
 
       # Forward-slash scratch paths: valid for Git Bash and native Windows programs
       # alike, and immune to MSYS path conversion of environment variables.
@@ -72,40 +135,31 @@ jobs:
       - name: Check version consistency
         run: python scripts/version.py check
 
-      - name: Install package and test dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e "packages/mcp-server-revit[dev]" twine
+      # Fails if uv.lock is stale (it once lacked a dependency and nothing noticed).
+      - name: Install locked dependencies
+        working-directory: packages/mcp-server-revit
+        run: uv sync --locked --extra dev --extra ids
 
       - name: Run ruff
-        run: python -m ruff check packages/mcp-server-revit/src packages/mcp-server-revit/tests scripts/ci_summary.py
+        working-directory: packages/mcp-server-revit
+        run: uv run --no-sync ruff check src tests ../../scripts/ci_summary.py
 
       # Not enforced: most of the tree predates ruff format. Reported so the size of
       # the gap stays visible; turn this into a hard check after a one-off reformat.
       - name: Report ruff format drift (not enforced)
         if: matrix.primary
+        env:
+          VENV_BIN: ${{ runner.os == 'Windows' && 'Scripts' || 'bin' }}
         run: |
-          count="$(python -m ruff format --check packages/mcp-server-revit/src packages/mcp-server-revit/tests 2>&1 | grep -c '^Would reformat' || true)"
+          count="$("packages/mcp-server-revit/.venv/${VENV_BIN}/ruff" format --check packages/mcp-server-revit/src packages/mcp-server-revit/tests 2>&1 | grep -c '^Would reformat' || true)"
           echo "ruff format would change ${count} files (not enforced)." | tee -a "$GITHUB_STEP_SUMMARY"
-
-      - name: Set up uv
-        if: matrix.primary
-        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
-        with:
-          enable-cache: false
-
-      # Catches a stale uv.lock (it once lacked a dependency and nothing noticed).
-      - name: Check uv.lock is up to date
-        if: matrix.primary
-        working-directory: packages/mcp-server-revit
-        run: uv lock --check
 
       # Run from the package directory: [tool.coverage.run] source is a relative path.
       - name: Run Python tests with coverage
         working-directory: packages/mcp-server-revit
         run: |
           mkdir -p "$REPORTS_DIR"
-          python -m pytest tests \
+          uv run --no-sync pytest tests -n auto \
             --junitxml="$REPORTS_DIR/junit.xml" \
             --cov --cov-config=pyproject.toml \
             --cov-report=term \
@@ -133,7 +187,7 @@ jobs:
       - name: Check tool catalog generation
         if: matrix.primary
         run: |
-          python packages/mcp-server-revit/scripts/generate_tool_docs.py
+          (cd packages/mcp-server-revit && uv run --no-sync python scripts/generate_tool_docs.py)
           git diff --exit-code docs/tools-generated.md
 
       - name: Validate repository metadata
@@ -146,10 +200,10 @@ jobs:
           [xml](Get-Content packages/revit-bridge-addin/src/UI/ModernDialog.xaml -Raw) | Out-Null
 
       - name: Build wheel and sdist
-        run: python -m build packages/mcp-server-revit --outdir "$DIST_DIR"
+        run: uv build packages/mcp-server-revit --out-dir "$DIST_DIR"
 
       - name: Check distribution metadata
-        run: python -m twine check --strict "$DIST_DIR"/*
+        run: uvx twine==6.1.0 check --strict "$DIST_DIR"/*
 
       # The released artifact, not the source tree, is what users run. Install the
       # wheel into a fresh venv outside the checkout (so nothing resolves to ./src,
@@ -179,6 +233,8 @@ jobs:
           retention-days: 14
 
   addin:
+    needs: changes
+    if: needs.changes.outputs.addin == 'true'
     runs-on: windows-latest
     timeout-minutes: 30
     permissions:
@@ -223,6 +279,8 @@ jobs:
         run: dotnet test packages/revit-bridge-addin-tests -c Release -p:RevitVersion="${{ matrix.revit-version }}"
 
   rhino-addin:
+    needs: changes
+    if: needs.changes.outputs.rhino == 'true'
     runs-on: windows-latest
     timeout-minutes: 20
     permissions:
@@ -334,6 +392,7 @@ jobs:
     name: ci-success
     if: always()
     needs:
+      - changes
       - python
       - addin
       - rhino-addin
@@ -349,7 +408,9 @@ jobs:
           NEEDS_JSON: ${{ toJson(needs) }}
         run: |
           echo "$NEEDS_JSON" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
-          if echo "$NEEDS_JSON" | jq -e 'any(.[]; .result != "success")' >/dev/null; then
-            echo "::error::At least one required job failed, was cancelled or was skipped."
+          # "skipped" is fine: the changes job skips jobs a pull request does not
+          # touch. It must itself succeed, or everything would skip silently.
+          if echo "$NEEDS_JSON" | jq -e '.changes.result != "success" or any(.[]; .result != "success" and .result != "skipped")' >/dev/null; then
+            echo "::error::At least one required job failed or was cancelled."
             exit 1
           fi

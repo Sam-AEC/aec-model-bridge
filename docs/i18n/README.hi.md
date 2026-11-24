@@ -71,13 +71,13 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 बदलावों के लिए असिस्टेंट `plan_actions` से योजना बनाता है; `execute_plan` उसे लागू करे, इससे पहले आप Revit पैनल में उसकी समीक्षा करते हैं। IFC समीक्षा Revit के बिना चलती है।
 
-स्नैपशॉट आधारित QA/QC और रिपोर्ट मॉड्यूल के लिए एक संगत सेव किया हुआ स्नैपशॉट ज़रूरी है। फ़िलहाल Revit से मॉड्यूल तक स्नैपशॉट पहुँचाने में फ़ाइल नाम और वर्कस्पेस का मेल होना ज़रूरी है; `snapshot_id` छोड़ने पर बनाया हुआ नमूना डेटा लौट सकता है। लाइव जाँच के लिए ऊपर दिए Revit टूल सीधे इस्तेमाल करें। [नियोजित सुधार और डेमो](../roadmap.md)।
+स्नैपशॉट आधारित QA/QC और रिपोर्ट मॉड्यूल के लिए एक संगत सेव किया हुआ स्नैपशॉट ज़रूरी है। फ़िलहाल Revit से मॉड्यूल तक स्नैपशॉट पहुँचाने में फ़ाइल नाम और वर्कस्पेस का मेल होना ज़रूरी है; `snapshot_id` छोड़ने पर बनाया हुआ नमूना डेटा लौट सकता है। लाइव जाँच के लिए ऊपर दिए Revit टूल सीधे इस्तेमाल करें।।
 
 ## क्विक स्टार्ट
 
 **वन-क्लिक इंस्टॉल**
 
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install-buttons.md#vs-code)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install.md#vs-code)
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -116,15 +116,15 @@ VS Code इस्तेमाल करते हैं? [एक्सटें�
 | क्षेत्र | टूल | क्या करते हैं |
 | --- | --- | --- |
 | Revit | 110 | मॉडल पढ़ना, एलिमेंट, पैरामीटर, व्यू, शीट, शेड्यूल बनाना और संपादित करना, एक्सपोर्ट, वर्कशेयरिंग |
-| मंज़ूरी | 5 | मॉडल बदलावों की योजना बनाना, समीक्षा, मंज़ूरी, निष्पादन और रोलबैक |
-| मॉड्यूल | 109 | स्नैपशॉट जाँच, पैरामीटर ग्रिड, QA/QC जाँचें, रेसिपी, रिपोर्ट, सेलेक्शन |
+| मंज़ूरी | 6 | मॉडल बदलावों की योजना बनाना, समीक्षा, मंज़ूरी, निष्पादन और रोलबैक |
+| मॉड्यूल | 113 | स्नैपशॉट जाँच, पैरामीटर ग्रिड, QA/QC जाँचें, रेसिपी, रिपोर्ट, सेलेक्शन |
 | Rhino और Grasshopper | 19 | ज्यामिति, लेयर, मटीरियल, बूलियन ऑपरेशन |
 | Speckle | 17 | प्रोजेक्ट, मॉडल, वर्ज़न, भेजना और प्राप्त करना |
 | Navisworks | 15 | मॉडल ट्री, व्यूपॉइंट, क्लैश टेस्ट (विकास जारी) |
 | IFC | 7 | Revit के बिना IFC फ़ाइलें पढ़ना: संरचना, प्रॉपर्टी, वैलिडेशन |
-| ग्राफ़, स्नैपशॉट, एक्सपोर्ट, जॉब | 21 | सिमेंटिक ग्राफ़ ऑडिट, स्नैपशॉट अंतर, SQLite एक्सपोर्ट, बैकग्राउंड जॉब |
+| ग्राफ़, स्नैपशॉट, एक्सपोर्ट, जॉब | 22 | सिमेंटिक ग्राफ़ ऑडिट, स्नैपशॉट अंतर, SQLite एक्सपोर्ट, बैकग्राउंड जॉब |
 
-डिफ़ॉल्ट सेटअप में 303 टूल सूचीबद्ध हैं (mock मोड में मौजूदा सर्वर से गिने गए)। APS क्रेडेंशियल कॉन्फ़िगर होने पर Autodesk Data टूल दिखाई देते हैं। [टूल संदर्भ](../tools-generated.md) में हर टूल दिया गया है। हर टूल पर MCP एनोटेशन (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) होते हैं, ताकि क्लाइंट पढ़ने और लिखने वाले टूल में फ़र्क कर सकें।
+डिफ़ॉल्ट सेटअप में 309 टूल सूचीबद्ध हैं (mock मोड में मौजूदा सर्वर से गिने गए)। APS क्रेडेंशियल कॉन्फ़िगर होने पर Autodesk Data टूल दिखाई देते हैं। [टूल संदर्भ](../tools-generated.md) में हर टूल दिया गया है। हर टूल पर MCP एनोटेशन (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) होते हैं, ताकि क्लाइंट पढ़ने और लिखने वाले टूल में फ़र्क कर सकें।
 
 ### उन्नत Revit ऑटोमेशन
 
@@ -357,11 +357,8 @@ CI Python सर्वर और Revit 2024 से 2027 के ऐड-इन ट
 - [आर्किटेक्चर](../0001-multi-provider-architecture.md)
 - [कॉन्फ़िगरेशन संदर्भ](../configuration-reference.md)
 - [सुरक्षा](../security.md)
-- [MCP क्लाइंट और रजिस्ट्री](../marketplaces.md)
 - [वर्ज़निंग और रिलीज़](../versioning.md)
-- [सभी दस्तावेज़](../README.md)
 - [योगदान गाइड](../../CONTRIBUTING.md) और [आचार संहिता](../../CODE_OF_CONDUCT.md)
-- [योगदानकर्ता](../../CONTRIBUTORS.md)
 
 ## Built with
 

@@ -118,7 +118,8 @@ def test_compact_plan_keeps_stored_review_and_action_arguments(tmp_path, monkeyp
     }))
     plan = json.loads(answer[0].text.split("Result:\n")[1])
     stored = approval.gate.load_plan(plan["plan_id"])
-    assert plan == stored
+    assert {k: v for k, v in plan.items() if k not in ("preview", "preview_markdown", "blast_radius")} == stored
+    assert plan["blast_radius"]["action_count"] == 1 and "preview_markdown" in plan
     assert stored["actions"][0]["arguments"] == action["arguments"]
     assert stored["state"] == "pending"
     asyncio.run(jobs.shutdown(cancel_running=True))

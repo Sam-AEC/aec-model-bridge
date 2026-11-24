@@ -2,12 +2,11 @@
 
 Written 2026-10-14. Copy the block under "The prompt" into a Claude session (system prompt, `CLAUDE.md`, or the first message) before
 asking it to build or change anything in Revit through AEC Model Bridge. It condenses what the villa 1 and villa 2 sessions taught
-(`docs/bim-agent-findings.md`, `docs/revit-mcp-behaviour-and-improvements.md`) into checks the agent runs **itself**, in a fixed order, with
+into checks the agent runs **itself**, in a fixed order, with
 output kept short so the checks do not eat the context window.
 
 Companion pieces: the `revit-bim-builder` skill (how to build), the `bim-reviewer` agent (independent read-only review),
-`docs/recipes/toolkit/audit_villa.py` and `intersections.py` (measured checks). When the native tools in
-[the upgrade plan](../upgrade-plan-hands-and-eyes.md) exist, each "run script X" line below becomes one tool call; the checks stay the same.
+`docs/recipes/toolkit/audit_villa.py` and `intersections.py` (measured checks). When native tools exist, each "run script X" line below becomes one tool call; the checks stay the same.
 
 ## Using it
 

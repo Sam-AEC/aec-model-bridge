@@ -71,13 +71,13 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 Para alterações no modelo, o assistente cria um plano com `plan_actions`; você o revisa no painel do Revit antes de o `execute_plan` aplicá-lo. A revisão de IFC funciona sem o Revit.
 
-Os módulos de QA/QC e de relatórios baseados em snapshot exigem um snapshot salvo compatível. A passagem atual do snapshot do Revit para o módulo exige alinhamento entre o nome do arquivo e o workspace; se você omitir `snapshot_id`, podem ser retornados dados de exemplo gerados. Para inspeção em tempo real, use as ferramentas diretas do Revit acima. [Correções planejadas e demo](../roadmap.md).
+Os módulos de QA/QC e de relatórios baseados em snapshot exigem um snapshot salvo compatível. A passagem atual do snapshot do Revit para o módulo exige alinhamento entre o nome do arquivo e o workspace; se você omitir `snapshot_id`, podem ser retornados dados de exemplo gerados. Para inspeção em tempo real, use as ferramentas diretas do Revit acima.
 
 ## Início rápido
 
 **Instalação com um clique**
 
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install-buttons.md#vs-code)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install.md#vs-code)
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -116,15 +116,15 @@ Usa o VS Code? O [código da extensão e os passos de instalação local](../../
 | Área | Ferramentas | O que fazem |
 | --- | --- | --- |
 | Revit | 110 | Ler o modelo, criar e editar elementos, parâmetros, vistas, folhas, tabelas de quantitativos, exportações, trabalho compartilhado |
-| Aprovação | 5 | Planejar, revisar, aprovar, executar e reverter alterações no modelo |
-| Módulos | 109 | Inspeção de snapshots, grades de parâmetros, verificações de QA/QC, receitas, relatórios, seleções |
+| Aprovação | 6 | Planejar, revisar, aprovar, executar e reverter alterações no modelo |
+| Módulos | 113 | Inspeção de snapshots, grades de parâmetros, verificações de QA/QC, receitas, relatórios, seleções |
 | Rhino e Grasshopper | 19 | Geometria, camadas, materiais, operações booleanas |
 | Speckle | 17 | Projetos, modelos, versões, envio e recebimento |
 | Navisworks | 15 | Árvore do modelo, pontos de vista, testes de interferência (em desenvolvimento) |
 | IFC | 7 | Ler arquivos IFC sem o Revit: estrutura, propriedades, validação |
-| Grafo, snapshots, exportações, tarefas | 21 | Auditorias do grafo semântico, diferenças entre snapshots, exportação para SQLite, tarefas em segundo plano |
+| Grafo, snapshots, exportações, tarefas | 22 | Auditorias do grafo semântico, diferenças entre snapshots, exportação para SQLite, tarefas em segundo plano |
 
-303 ferramentas são listadas na configuração padrão (contadas no servidor atual em modo mock). As ferramentas do Autodesk Data aparecem quando as credenciais do APS estão configuradas. A [referência de ferramentas](../tools-generated.md) lista todas elas. Cada ferramenta traz anotações MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), para que os clientes distingam leituras de escritas.
+309 ferramentas são listadas na configuração padrão (contadas no servidor atual em modo mock). As ferramentas do Autodesk Data aparecem quando as credenciais do APS estão configuradas. A [referência de ferramentas](../tools-generated.md) lista todas elas. Cada ferramenta traz anotações MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), para que os clientes distingam leituras de escritas.
 
 ### Automação avançada do Revit
 
@@ -357,11 +357,8 @@ A CI compila o servidor Python e os alvos do add-in para o Revit 2024 a 2027. Le
 - [Arquitetura](../0001-multi-provider-architecture.md)
 - [Referência de configuração](../configuration-reference.md)
 - [Segurança](../security.md)
-- [Clientes MCP e registro](../marketplaces.md)
 - [Versionamento e lançamentos](../versioning.md)
-- [Toda a documentação](../README.md)
 - [Como contribuir](../../CONTRIBUTING.md) e [Código de Conduta](../../CODE_OF_CONDUCT.md)
-- [Colaboradores](../../CONTRIBUTORS.md)
 
 ## Built with
 

@@ -71,13 +71,13 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 편집할 때는 어시스턴트가 `plan_actions`로 계획을 만들고, `execute_plan`이 적용하기 전에 Revit 패널에서 검토합니다. IFC 검토는 Revit 없이 실행됩니다.
 
-스냅샷 QA/QC 및 보고서 모듈에는 호환되는 저장된 스냅샷이 필요합니다. 현재 Revit에서 모듈로 스냅샷을 넘기려면 파일 이름과 작업 공간이 일치해야 하며, `snapshot_id`를 생략하면 생성된 샘플 데이터가 반환될 수 있습니다. 실시간 조회에는 위의 Revit 도구를 직접 사용하세요. [예정된 수정 사항과 데모](../roadmap.md).
+스냅샷 QA/QC 및 보고서 모듈에는 호환되는 저장된 스냅샷이 필요합니다. 현재 Revit에서 모듈로 스냅샷을 넘기려면 파일 이름과 작업 공간이 일치해야 하며, `snapshot_id`를 생략하면 생성된 샘플 데이터가 반환될 수 있습니다. 실시간 조회에는 위의 Revit 도구를 직접 사용하세요.
 
 ## 빠른 시작
 
 **원클릭 설치**
 
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install-buttons.md#vs-code)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install.md#vs-code)
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -116,15 +116,15 @@ VS Code를 사용하시나요? [확장 프로그램 소스와 로컬 설치 단�
 | 영역 | 도구 수 | 기능 |
 | --- | --- | --- |
 | Revit | 110 | 모델 읽기, 요소·매개변수·뷰·시트·일람표 생성 및 편집, 내보내기, 워크셰어링 |
-| 승인 | 5 | 모델 변경의 계획, 검토, 승인, 실행, 롤백 |
-| 모듈 | 109 | 스냅샷 검사, 매개변수 그리드, QA/QC 점검, 레시피, 보고서, 선택 |
+| 승인 | 6 | 모델 변경의 계획, 검토, 승인, 실행, 롤백 |
+| 모듈 | 113 | 스냅샷 검사, 매개변수 그리드, QA/QC 점검, 레시피, 보고서, 선택 |
 | Rhino 및 Grasshopper | 19 | 지오메트리, 레이어, 재료, 불리언 연산 |
 | Speckle | 17 | 프로젝트, 모델, 버전, 전송 및 수신 |
 | Navisworks | 15 | 모델 트리, 뷰포인트, 간섭 검토(개발 중) |
 | IFC | 7 | Revit 없이 IFC 파일 읽기: 구조, 속성, 검증 |
-| 그래프, 스냅샷, 내보내기, 작업 | 21 | 시맨틱 그래프 감사, 스냅샷 비교, SQLite 내보내기, 백그라운드 작업 |
+| 그래프, 스냅샷, 내보내기, 작업 | 22 | 시맨틱 그래프 감사, 스냅샷 비교, SQLite 내보내기, 백그라운드 작업 |
 
-기본 설정에서는 303개의 도구가 나열됩니다(mock 모드에서 현재 서버 기준으로 집계). Autodesk Data 도구는 APS 자격 증명을 구성하면 나타납니다. [도구 레퍼런스](../tools-generated.md)에서 모든 도구를 확인할 수 있습니다. 각 도구에는 MCP 어노테이션(`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)이 있어 클라이언트가 읽기와 쓰기를 구분할 수 있습니다.
+기본 설정에서는 309개의 도구가 나열됩니다(mock 모드에서 현재 서버 기준으로 집계). Autodesk Data 도구는 APS 자격 증명을 구성하면 나타납니다. [도구 레퍼런스](../tools-generated.md)에서 모든 도구를 확인할 수 있습니다. 각 도구에는 MCP 어노테이션(`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)이 있어 클라이언트가 읽기와 쓰기를 구분할 수 있습니다.
 
 ### 고급 Revit 자동화
 
@@ -357,11 +357,8 @@ CI는 Python 서버와 Revit 2024~2027용 애드인 대상을 빌드합니다. P
 - [아키텍처](../0001-multi-provider-architecture.md)
 - [구성 레퍼런스](../configuration-reference.md)
 - [보안](../security.md)
-- [MCP 클라이언트와 레지스트리](../marketplaces.md)
 - [버전 관리와 릴리스](../versioning.md)
-- [전체 문서](../README.md)
 - [기여 가이드](../../CONTRIBUTING.md) 및 [행동 강령](../../CODE_OF_CONDUCT.md)
-- [기여자](../../CONTRIBUTORS.md)
 
 ## Built with
 

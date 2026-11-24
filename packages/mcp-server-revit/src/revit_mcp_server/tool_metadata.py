@@ -269,6 +269,11 @@ DESCRIPTIONS: dict[str, str] = {
     "parameter_manager_plan_set_params": "Create a draft ActionPlan that sets parameter values on the elements of a snapshot matching a filter. Review and approve the plan before it runs.",
     "parameter_manager_export_params_csv": "Export parameters of the matching snapshot elements to a CSV file in the workspace. Writes a file; does not change the model.",
     "parameter_manager_import_params_csv": "Read parameter values from a CSV file in the workspace and create a draft ActionPlan that applies them. Does not change the model; review and approve the plan before it runs.",
+    "param_completeness_heatmap": "Measure how many elements have a value in each parameter, per category (and per level on request), from a saved snapshot: filled, total and percent. Writes an optional CSV and a self-contained HTML heatmap to the workspace, and says when the snapshot is a partial capture. Use model_inspector_summarize_model for plain counts instead. Read-only.",
+    "model_health_score": "Give a 0 to 100 health score for a saved snapshot with its components, and a trend across all saved snapshots of the same document with changes between captures. Inputs the snapshot lacks are listed as excluded, not scored as zero. Optional CSV in the workspace. Read-only.",
+    "ids_validator_validate_ifc": "Check an IFC file in the workspace against a buildingSMART IDS file and return pass or fail per specification with the GlobalIds of failing entities (capped, with full counts). Optional HTML or JSON report in the workspace. Needs the optional ids extra (ifctester). Read-only.",
+    "parameter_manager_export_params_xlsx": "Export parameters of the matching snapshot elements to an Excel workbook in the workspace for editing. Writes a file; does not change the model.",
+    "parameter_manager_import_params_xlsx": "Read an edited Excel workbook from the workspace, diff it against the snapshot and create a draft ActionPlan with a row diff. Does not change the model; review and approve the plan before it runs.",
     "qa_handover_build_report": "Write a short hand-over report (JSON and Markdown in the workspace) of QA findings per rule, before/after re-check counts, approved parameter changes from plan proof bundles, and an explicit not-verified list; use this instead of qaqc_checker_run_check or model_changes_compare_snapshots when the result must be handed to someone else. Built from saved data only. Read-only.",
     "model_changes_list_snapshots": "List the saved model snapshots with their timestamps, newest first, so you can pick the latest and previous ones to compare. Read-only.",
     "model_changes_compare_snapshots": "Say what changed between two saved snapshots: elements added, removed or modified, parameter values before and after, and counts per category. Read-only.",
@@ -425,6 +430,7 @@ PARAM_DESCRIPTIONS: dict[str, str] = {
     "output_filename": "File name for the output, written into the workspace.",
     "csv_path": "Path of a CSV file inside the allowed workspace.",
     "csv_filename": "Name of a CSV file in the workspace.",
+    "xlsx_filename": "Name of an Excel .xlsx workbook in the workspace root, such as doors.xlsx.",
     "path": "File path; must be inside the allowed workspace directories.",
     "limit": "Maximum number of items to return.",
     "skip": "Number of items to skip (for paging).",
@@ -639,6 +645,7 @@ NOT_READ_ONLY: dict[str, tuple[bool, bool]] = {
     "exporter_to_sqlite": (False, False),
     "exporter_graph_to_sqlite": (False, False),
     "parameter_manager_export_params_csv": (False, True),
+    "parameter_manager_export_params_xlsx": (False, True),
     "report_generator_export_excel": (False, True),
     "report_generator_build_review_pack": (False, True),
     "report_generator_export_sqlite_summary": (False, True),
@@ -661,6 +668,10 @@ NOT_READ_ONLY: dict[str, tuple[bool, bool]] = {
     "job_cancel": (True, True),
     "revit_job_cancel": (True, True),
     "rhino_generate_diagrid_tower": (False, False),
+    # Write files under the workspace only (no model change, so no approval plan); saving over an
+    # existing recipe or spec file replaces it.
+    "revit_recipe_save": (False, True),
+    "revit_sparing_export_spec": (False, True),
 }
 
 # Mutating tools that only add things (or only change UI/plan state): they cannot

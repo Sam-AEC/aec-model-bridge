@@ -175,7 +175,10 @@ def test_tool_metadata_marks_place_gated_and_find_read_only(tmp_path, monkeypatc
             continue
         assert isinstance(tool, ProviderTool)
         enriched = enrich_tool("module", tool)
-        if tool.name in MUTATING:
+        if tool.name == "revit_sparing_export_spec":
+            # Reads the model, but save_as writes a spec file in the workspace: not read-only.
+            assert enriched.annotations.readOnlyHint is False and "plan_id" not in enriched.inputSchema["properties"]
+        elif tool.name in MUTATING:
             assert enriched.annotations.readOnlyHint is False and "plan_id" in enriched.inputSchema["properties"]
         else:
             assert enriched.annotations.readOnlyHint is True and "plan_id" not in enriched.inputSchema["properties"]

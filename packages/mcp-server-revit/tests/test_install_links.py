@@ -1,4 +1,4 @@
-"""Decode the one-click install links back to JSON (see docs/install-buttons.md)."""
+"""Decode the one-click install links back to JSON (see docs/install.md)."""
 import base64
 import importlib.util
 import json
@@ -54,4 +54,4 @@ def test_readme_uses_current_links():
     readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
     for key in ("cursor_web_link", "claude_desktop_bundle"):
         assert links.all_links()[key] in readme, key
-    assert "docs/install-buttons.md#vs-code" in readme
+    assert "docs/install.md#vs-code" in readme

@@ -1,0 +1,1213 @@
+[
+ {
+  "id": "mcp-resources",
+  "title": "MCP Resources",
+  "category": "mcp",
+  "summary": "Expose model summary, snapshots, QA reports, plans and proofs as read-only resources",
+  "reach": 4,
+  "impact": 4,
+  "gap": 4,
+  "fit": 5,
+  "confidence": 4,
+  "effort": 3,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "MCP spec",
+   "Bonsai MCP"
+  ]
+ },
+ {
+  "id": "mcp-prompts",
+  "title": "MCP Prompts",
+  "category": "mcp",
+  "summary": "Ship slash-style workflows: QA review, parameter fix, sheet prep, handover",
+  "reach": 5,
+  "impact": 3,
+  "gap": 4,
+  "fit": 5,
+  "confidence": 5,
+  "effort": 1,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "MCP spec"
+  ]
+ },
+ {
+  "id": "elicitation-approval",
+  "title": "Elicitation for clarification",
+  "category": "mcp",
+  "summary": "Ask the user for missing arguments (category, level, value) via MCP elicitation instead of guessing; never for approval itself",
+  "reach": 4,
+  "impact": 4,
+  "gap": 4,
+  "fit": 5,
+  "confidence": 3,
+  "effort": 3,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "MCP spec"
+  ]
+ },
+ {
+  "id": "url-elicitation-panel",
+  "title": "Open-the-panel link",
+  "category": "mcp",
+  "summary": "URL-mode elicitation that opens the review panel at the pending plan",
+  "reach": 4,
+  "impact": 3,
+  "gap": 3,
+  "fit": 5,
+  "confidence": 3,
+  "effort": 1,
+  "live_risk": 2,
+  "mock_testable": true,
+  "competitors": [
+   "MCP spec"
+  ]
+ },
+ {
+  "id": "progress-cancel",
+  "title": "Progress + cancellation",
+  "category": "mcp",
+  "summary": "Progress notifications and cancel for long snapshot, QA and export jobs",
+  "reach": 4,
+  "impact": 3,
+  "gap": 3,
+  "fit": 4,
+  "confidence": 4,
+  "effort": 3,
+  "live_risk": 2,
+  "mock_testable": true,
+  "competitors": [
+   "MCP spec"
+  ]
+ },
+ {
+  "id": "tasks-async",
+  "title": "MCP Tasks",
+  "category": "mcp",
+  "summary": "Map existing job tools onto spec Tasks (durable async with polling)",
+  "reach": 2,
+  "impact": 3,
+  "gap": 3,
+  "fit": 3,
+  "confidence": 2,
+  "effort": 3,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "MCP spec (experimental)"
+  ]
+ },
+ {
+  "id": "output-schema",
+  "title": "outputSchema on read tools",
+  "category": "mcp",
+  "summary": "Declare outputSchema for the core profile so clients validate structuredContent",
+  "reach": 3,
+  "impact": 3,
+  "gap": 3,
+  "fit": 4,
+  "confidence": 4,
+  "effort": 3,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "MCP spec"
+  ]
+ },
+ {
+  "id": "list-changed-profiles",
+  "title": "Hot profile switching",
+  "category": "mcp",
+  "summary": "Switch tool profile at runtime with tools/list_changed, no restart",
+  "reach": 4,
+  "impact": 3,
+  "gap": 3,
+  "fit": 4,
+  "confidence": 4,
+  "effort": 2,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "MCP spec"
+  ]
+ },
+ {
+  "id": "tool-search",
+  "title": "Tool search meta-tool",
+  "category": "mcp",
+  "summary": "search_tools returns matching tool schemas on demand; cuts the 80k full catalogue",
+  "reach": 4,
+  "impact": 4,
+  "gap": 4,
+  "fit": 4,
+  "confidence": 4,
+  "effort": 3,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "generic best practice"
+  ]
+ },
+ {
+  "id": "streamable-http",
+  "title": "Streamable HTTP transport",
+  "category": "mcp",
+  "summary": "Opt-in localhost streamable HTTP so web/remote clients can connect",
+  "reach": 3,
+  "impact": 3,
+  "gap": 3,
+  "fit": 3,
+  "confidence": 3,
+  "effort": 3,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "MCP spec"
+  ]
+ },
+ {
+  "id": "oauth-http",
+  "title": "OAuth 2.1 for HTTP",
+  "category": "mcp",
+  "summary": "Protected-resource metadata and token validation for HTTP mode",
+  "reach": 2,
+  "impact": 3,
+  "gap": 2,
+  "fit": 3,
+  "confidence": 3,
+  "effort": 5,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "MCP spec"
+  ]
+ },
+ {
+  "id": "completions",
+  "title": "Argument completions",
+  "category": "mcp",
+  "summary": "Complete category, level, parameter names from the last snapshot",
+  "reach": 3,
+  "impact": 2,
+  "gap": 3,
+  "fit": 4,
+  "confidence": 3,
+  "effort": 3,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "MCP spec"
+  ]
+ },
+ {
+  "id": "log-notifications",
+  "title": "Logging notifications",
+  "category": "mcp",
+  "summary": "Send server logs to the client at the requested level",
+  "reach": 2,
+  "impact": 2,
+  "gap": 3,
+  "fit": 3,
+  "confidence": 4,
+  "effort": 1,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "MCP spec"
+  ]
+ },
+ {
+  "id": "roots",
+  "title": "Client roots as workspace",
+  "category": "mcp",
+  "summary": "Scope the workspace sandbox to the client's declared roots",
+  "reach": 2,
+  "impact": 2,
+  "gap": 3,
+  "fit": 4,
+  "confidence": 3,
+  "effort": 2,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "MCP spec"
+  ]
+ },
+ {
+  "id": "annotations-ci",
+  "title": "Annotation audit test",
+  "category": "mcp",
+  "summary": "CI test that every write tool is destructiveHint and every read tool readOnlyHint",
+  "reach": 3,
+  "impact": 3,
+  "gap": 2,
+  "fit": 5,
+  "confidence": 5,
+  "effort": 1,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "MCP spec"
+  ]
+ },
+ {
+  "id": "conformance-ci",
+  "title": "MCP conformance in CI",
+  "category": "ops",
+  "summary": "Run the MCP Inspector/conformance checks against mock mode in CI",
+  "reach": 2,
+  "impact": 3,
+  "gap": 3,
+  "fit": 4,
+  "confidence": 4,
+  "effort": 2,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "generic"
+  ]
+ },
+ {
+  "id": "policy-file",
+  "title": "Policy file",
+  "category": "safety",
+  "summary": "YAML policy: allowed categories/parameters, max elements per plan, blocked tools; enforced at plan time",
+  "reach": 4,
+  "impact": 5,
+  "gap": 5,
+  "fit": 5,
+  "confidence": 4,
+  "effort": 3,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "none found"
+  ]
+ },
+ {
+  "id": "blast-radius",
+  "title": "Blast-radius estimate",
+  "category": "safety",
+  "summary": "Each plan shows element count, categories, levels and worksets touched before approval",
+  "reach": 5,
+  "impact": 5,
+  "gap": 5,
+  "fit": 5,
+  "confidence": 4,
+  "effort": 3,
+  "live_risk": 2,
+  "mock_testable": true,
+  "competitors": [
+   "none found"
+  ]
+ },
+ {
+  "id": "audit-chain",
+  "title": "Hash-chained audit log",
+  "category": "safety",
+  "summary": "Tamper-evident JSONL audit with verify command and export",
+  "reach": 3,
+  "impact": 4,
+  "gap": 5,
+  "fit": 5,
+  "confidence": 4,
+  "effort": 3,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "Bentley (contrast)"
+  ]
+ },
+ {
+  "id": "pii-redaction",
+  "title": "Response redaction",
+  "category": "safety",
+  "summary": "Redact user names, local paths and emails from tool responses (opt-in levels)",
+  "reach": 3,
+  "impact": 3,
+  "gap": 3,
+  "fit": 5,
+  "confidence": 4,
+  "effort": 2,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "generic"
+  ]
+ },
+ {
+  "id": "reviewer-token",
+  "title": "Read-only reviewer mode",
+  "category": "safety",
+  "summary": "A role that can see plans and proofs but never approve",
+  "reach": 3,
+  "impact": 3,
+  "gap": 3,
+  "fit": 4,
+  "confidence": 3,
+  "effort": 3,
+  "live_risk": 2,
+  "mock_testable": true,
+  "competitors": [
+   "Revizto (U)"
+  ]
+ },
+ {
+  "id": "two-person",
+  "title": "Two-person approval",
+  "category": "safety",
+  "summary": "Optional rule: plan author cannot approve; second named approver required",
+  "reach": 3,
+  "impact": 4,
+  "gap": 5,
+  "fit": 5,
+  "confidence": 3,
+  "effort": 3,
+  "live_risk": 2,
+  "mock_testable": true,
+  "competitors": [
+   "none"
+  ]
+ },
+ {
+  "id": "diff-preview-html",
+  "title": "HTML diff preview",
+  "category": "safety",
+  "summary": "Render the plan diff as a before/after table (HTML + markdown) for the panel and chat",
+  "reach": 5,
+  "impact": 4,
+  "gap": 4,
+  "fit": 5,
+  "confidence": 4,
+  "effort": 2,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "Autodesk Revit MCP"
+  ]
+ },
+ {
+  "id": "sandbox-python",
+  "title": "Sandboxed Python profile",
+  "category": "safety",
+  "summary": "Restrict execute_python (no file/network) under a profile",
+  "reach": 3,
+  "impact": 4,
+  "gap": 3,
+  "fit": 5,
+  "confidence": 2,
+  "effort": 5,
+  "live_risk": 4,
+  "mock_testable": false,
+  "competitors": [
+   "Bentley MicroStation MCP"
+  ]
+ },
+ {
+  "id": "autodesk-coexist",
+  "title": "Coexist with Autodesk MCP",
+  "category": "ecosystem",
+  "summary": "Namespace-safe names and a doc/test for running beside Autodesk's Revit MCP",
+  "reach": 3,
+  "impact": 3,
+  "gap": 3,
+  "fit": 4,
+  "confidence": 3,
+  "effort": 1,
+  "live_risk": 3,
+  "mock_testable": true,
+  "competitors": [
+   "Autodesk Revit MCP"
+  ]
+ },
+ {
+  "id": "ids-validate",
+  "title": "IDS validation",
+  "category": "qa",
+  "summary": "Validate IFC files and snapshots against buildingSMART IDS requirements",
+  "reach": 4,
+  "impact": 5,
+  "gap": 5,
+  "fit": 5,
+  "confidence": 4,
+  "effort": 3,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "Solibri",
+   "IfcOpenShell ifctester"
+  ]
+ },
+ {
+  "id": "rule-import",
+  "title": "Import external rule sets",
+  "category": "qa",
+  "summary": "Convert Solibri/BIMcollab rule definitions into rule packs",
+  "reach": 2,
+  "impact": 3,
+  "gap": 3,
+  "fit": 4,
+  "confidence": 2,
+  "effort": 5,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "Solibri (U)"
+  ]
+ },
+ {
+  "id": "rule-library",
+  "title": "Model Checker rule library",
+  "category": "qa",
+  "summary": "Expand rule packs: worksets, levels, shared params, view templates, with severities",
+  "reach": 4,
+  "impact": 4,
+  "gap": 4,
+  "fit": 5,
+  "confidence": 4,
+  "effort": 3,
+  "live_risk": 2,
+  "mock_testable": true,
+  "competitors": [
+   "ACC Model Checker (U)"
+  ]
+ },
+ {
+  "id": "clash-ingest",
+  "title": "Clash report ingestion",
+  "category": "qa",
+  "summary": "Import Navisworks XML / BCF clash reports into clash_triage groups and fix plans",
+  "reach": 4,
+  "impact": 4,
+  "gap": 4,
+  "fit": 5,
+  "confidence": 4,
+  "effort": 3,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "Clash Preventor"
+  ]
+ },
+ {
+  "id": "auto-clash",
+  "title": "Auto clash after execute",
+  "category": "qa",
+  "summary": "Re-run clash on changed elements after a plan",
+  "reach": 2,
+  "impact": 3,
+  "gap": 3,
+  "fit": 3,
+  "confidence": 2,
+  "effort": 5,
+  "live_risk": 5,
+  "mock_testable": false,
+  "competitors": [
+   "Clash Preventor"
+  ]
+ },
+ {
+  "id": "loin-report",
+  "title": "LOIN completeness",
+  "category": "qa",
+  "summary": "ISO 19650 level-of-information completeness report per category",
+  "reach": 4,
+  "impact": 4,
+  "gap": 4,
+  "fit": 5,
+  "confidence": 3,
+  "effort": 3,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "Solibri (U)"
+  ]
+ },
+ {
+  "id": "param-heatmap",
+  "title": "Parameter completeness heatmap",
+  "category": "qa",
+  "summary": "Fill-rate by category x parameter x level, CSV/Power BI/HTML",
+  "reach": 5,
+  "impact": 4,
+  "gap": 4,
+  "fit": 5,
+  "confidence": 4,
+  "effort": 2,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "Kinship"
+  ]
+ },
+ {
+  "id": "health-trend",
+  "title": "Model health trend",
+  "category": "qa",
+  "summary": "Health score per snapshot and trend over time",
+  "reach": 5,
+  "impact": 4,
+  "gap": 4,
+  "fit": 5,
+  "confidence": 4,
+  "effort": 2,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "Kinship"
+  ]
+ },
+ {
+  "id": "ifc-export-check",
+  "title": "IFC pre-export checks",
+  "category": "qa",
+  "summary": "Check export settings and mapping before IFC export",
+  "reach": 3,
+  "impact": 3,
+  "gap": 4,
+  "fit": 4,
+  "confidence": 3,
+  "effort": 3,
+  "live_risk": 3,
+  "mock_testable": true,
+  "competitors": [
+   "none found"
+  ]
+ },
+ {
+  "id": "cobie-class",
+  "title": "COBie / classification checks",
+  "category": "qa",
+  "summary": "Uniclass/OmniClass/COBie completeness checks as rule packs",
+  "reach": 4,
+  "impact": 4,
+  "gap": 4,
+  "fit": 5,
+  "confidence": 4,
+  "effort": 2,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "Solibri (U)"
+  ]
+ },
+ {
+  "id": "fire-door",
+  "title": "Door/fire-rating consistency",
+  "category": "qa",
+  "summary": "Rule pack: door fire rating vs wall rating, schedule consistency",
+  "reach": 3,
+  "impact": 4,
+  "gap": 4,
+  "fit": 5,
+  "confidence": 4,
+  "effort": 1,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "none found"
+  ]
+ },
+ {
+  "id": "excel-roundtrip",
+  "title": "Excel round-trip to plan",
+  "category": "data",
+  "summary": "Export elements to xlsx, user edits, import as a reviewed plan with row diff",
+  "reach": 5,
+  "impact": 5,
+  "gap": 5,
+  "fit": 5,
+  "confidence": 4,
+  "effort": 3,
+  "live_risk": 2,
+  "mock_testable": true,
+  "competitors": [
+   "Ideate BIMLink"
+  ]
+ },
+ {
+  "id": "excel-profiles",
+  "title": "Excel mapping profiles",
+  "category": "data",
+  "summary": "Saved per-project column mappings for round-trip",
+  "reach": 3,
+  "impact": 3,
+  "gap": 4,
+  "fit": 4,
+  "confidence": 4,
+  "effort": 1,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "Ideate BIMLink"
+  ]
+ },
+ {
+  "id": "csv-plan",
+  "title": "CSV/Sheets as plan source",
+  "category": "data",
+  "summary": "Import a CSV of element-id,parameter,value as a plan",
+  "reach": 4,
+  "impact": 4,
+  "gap": 4,
+  "fit": 5,
+  "confidence": 4,
+  "effort": 2,
+  "live_risk": 2,
+  "mock_testable": true,
+  "competitors": [
+   "none found"
+  ]
+ },
+ {
+  "id": "ifc-snapshot-compare",
+  "title": "IFC vs snapshot compare",
+  "category": "data",
+  "summary": "Compare delivered IFC against the Revit snapshot by GUID",
+  "reach": 3,
+  "impact": 4,
+  "gap": 4,
+  "fit": 4,
+  "confidence": 3,
+  "effort": 3,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "Solibri (U)"
+  ]
+ },
+ {
+  "id": "speckle-baseline",
+  "title": "Speckle baseline diff",
+  "category": "data",
+  "summary": "Use a Speckle version as the 'before' for model diff",
+  "reach": 2,
+  "impact": 3,
+  "gap": 3,
+  "fit": 3,
+  "confidence": 3,
+  "effort": 3,
+  "live_risk": 2,
+  "mock_testable": true,
+  "competitors": [
+   "Speckle"
+  ]
+ },
+ {
+  "id": "acc-read",
+  "title": "ACC/APS read",
+  "category": "data",
+  "summary": "Read ACC issues/RFIs/models via APS",
+  "reach": 3,
+  "impact": 4,
+  "gap": 3,
+  "fit": 3,
+  "confidence": 2,
+  "effort": 5,
+  "live_risk": 2,
+  "mock_testable": true,
+  "competitors": [
+   "Autodesk MCPs"
+  ]
+ },
+ {
+  "id": "da-revit",
+  "title": "Design Automation jobs",
+  "category": "data",
+  "summary": "Headless batch via APS Design Automation",
+  "reach": 2,
+  "impact": 4,
+  "gap": 3,
+  "fit": 3,
+  "confidence": 2,
+  "effort": 5,
+  "live_risk": 5,
+  "mock_testable": false,
+  "competitors": [
+   "APS MCP"
+  ]
+ },
+ {
+  "id": "qto-export",
+  "title": "Quantity take-off export",
+  "category": "data",
+  "summary": "QTO from snapshot/IFC to CSV/BC3",
+  "reach": 4,
+  "impact": 4,
+  "gap": 4,
+  "fit": 4,
+  "confidence": 3,
+  "effort": 3,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "Bonsai MCP"
+  ]
+ },
+ {
+  "id": "acc-sync-meta",
+  "title": "Worksharing metadata",
+  "category": "data",
+  "summary": "Sync status and last-changed-by in snapshots",
+  "reach": 3,
+  "impact": 3,
+  "gap": 3,
+  "fit": 4,
+  "confidence": 2,
+  "effort": 3,
+  "live_risk": 5,
+  "mock_testable": false,
+  "competitors": [
+   "Revizto (U)"
+  ]
+ },
+ {
+  "id": "pbit-template",
+  "title": "Power BI template",
+  "category": "data",
+  "summary": "Ship a .pbit dashboard for exported QA data",
+  "reach": 3,
+  "impact": 3,
+  "gap": 3,
+  "fit": 3,
+  "confidence": 4,
+  "effort": 2,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "Speckle Power BI"
+  ]
+ },
+ {
+  "id": "pdf-ingest",
+  "title": "PDF schedule to plan",
+  "category": "ai",
+  "summary": "Extract a schedule/spec table from PDF into a parameter-update plan",
+  "reach": 4,
+  "impact": 4,
+  "gap": 4,
+  "fit": 4,
+  "confidence": 3,
+  "effort": 4,
+  "live_risk": 2,
+  "mock_testable": true,
+  "competitors": [
+   "ArchiLabs"
+  ]
+ },
+ {
+  "id": "smart-annotation",
+  "title": "Annotation placement plans",
+  "category": "ai",
+  "summary": "Tag/dimension placement plans",
+  "reach": 3,
+  "impact": 4,
+  "gap": 4,
+  "fit": 3,
+  "confidence": 2,
+  "effort": 5,
+  "live_risk": 5,
+  "mock_testable": false,
+  "competitors": [
+   "BIMLOGIQ"
+  ]
+ },
+ {
+  "id": "mep-trace",
+  "title": "MEP system tracing",
+  "category": "ai",
+  "summary": "Connector-aware system trace read tools",
+  "reach": 3,
+  "impact": 4,
+  "gap": 4,
+  "fit": 4,
+  "confidence": 3,
+  "effort": 4,
+  "live_risk": 4,
+  "mock_testable": false,
+  "competitors": [
+   "BIMLOGIQ Argus"
+  ]
+ },
+ {
+  "id": "sheet-templates",
+  "title": "Sheet set from standards",
+  "category": "ai",
+  "summary": "Generate sheet/view sets from a standards file as a plan",
+  "reach": 4,
+  "impact": 4,
+  "gap": 4,
+  "fit": 4,
+  "confidence": 3,
+  "effort": 3,
+  "live_risk": 4,
+  "mock_testable": false,
+  "competitors": [
+   "ArchiLabs"
+  ]
+ },
+ {
+  "id": "filter-dsl",
+  "title": "Element filter DSL",
+  "category": "ai",
+  "summary": "Natural-language-friendly filter spec compiled to collector queries",
+  "reach": 4,
+  "impact": 3,
+  "gap": 3,
+  "fit": 4,
+  "confidence": 3,
+  "effort": 3,
+  "live_risk": 3,
+  "mock_testable": true,
+  "competitors": [
+   "revit-mcp variants"
+  ]
+ },
+ {
+  "id": "screenshot",
+  "title": "View screenshot as image",
+  "category": "ai",
+  "summary": "Return view captures as MCP image content",
+  "reach": 4,
+  "impact": 4,
+  "gap": 4,
+  "fit": 4,
+  "confidence": 3,
+  "effort": 2,
+  "live_risk": 4,
+  "mock_testable": false,
+  "competitors": [
+   "Bonsai MCP",
+   "Cordyceps"
+  ]
+ },
+ {
+  "id": "api-lookup",
+  "title": "Offline Revit API lookup",
+  "category": "ai",
+  "summary": "Resource/tool indexing the Revit API for script authoring",
+  "reach": 3,
+  "impact": 3,
+  "gap": 3,
+  "fit": 4,
+  "confidence": 3,
+  "effort": 3,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "RevitLookup",
+   "Autodesk docs MCP"
+  ]
+ },
+ {
+  "id": "script-lint",
+  "title": "execute_python API-trap linter",
+  "category": "ai",
+  "summary": "Lint IronPython scripts for known Revit API traps before running",
+  "reach": 3,
+  "impact": 4,
+  "gap": 4,
+  "fit": 5,
+  "confidence": 4,
+  "effort": 2,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "pyRevit"
+  ]
+ },
+ {
+  "id": "gh-parity",
+  "title": "Grasshopper parity",
+  "category": "integration",
+  "summary": "Describe graph, sliders, bake parity with Cordyceps",
+  "reach": 2,
+  "impact": 3,
+  "gap": 3,
+  "fit": 3,
+  "confidence": 3,
+  "effort": 3,
+  "live_risk": 4,
+  "mock_testable": false,
+  "competitors": [
+   "Cordyceps"
+  ]
+ },
+ {
+  "id": "rir-bridge",
+  "title": "Rhino.Inside.Revit bridge",
+  "category": "integration",
+  "summary": "List/run GH definitions inside Revit",
+  "reach": 2,
+  "impact": 4,
+  "gap": 3,
+  "fit": 3,
+  "confidence": 2,
+  "effort": 5,
+  "live_risk": 5,
+  "mock_testable": false,
+  "competitors": [
+   "Rhino.Inside"
+  ]
+ },
+ {
+  "id": "dynamo-runner",
+  "title": "Dynamo player runner",
+  "category": "integration",
+  "summary": "Run Dynamo graphs with inputs under approval",
+  "reach": 3,
+  "impact": 4,
+  "gap": 4,
+  "fit": 4,
+  "confidence": 2,
+  "effort": 5,
+  "live_risk": 5,
+  "mock_testable": false,
+  "competitors": [
+   "Dynamo"
+  ]
+ },
+ {
+  "id": "ifc-write",
+  "title": "IFC write via IfcOpenShell",
+  "category": "integration",
+  "summary": "Approved IfcPatch recipes on IFC files",
+  "reach": 3,
+  "impact": 4,
+  "gap": 3,
+  "fit": 5,
+  "confidence": 3,
+  "effort": 4,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "MCP4IFC"
+  ]
+ },
+ {
+  "id": "ifc-diff",
+  "title": "IFC diff",
+  "category": "integration",
+  "summary": "GlobalId-based diff between two IFC files",
+  "reach": 4,
+  "impact": 4,
+  "gap": 4,
+  "fit": 5,
+  "confidence": 4,
+  "effort": 2,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "IfcOpenShell"
+  ]
+ },
+ {
+  "id": "bcf-api",
+  "title": "BCF 3.0 REST",
+  "category": "integration",
+  "summary": "Push/pull topics with BIMcollab/Revizto BCF API",
+  "reach": 3,
+  "impact": 4,
+  "gap": 3,
+  "fit": 4,
+  "confidence": 3,
+  "effort": 3,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "BIMcollab"
+  ]
+ },
+ {
+  "id": "winget",
+  "title": "winget + signed auto-update",
+  "category": "ops",
+  "summary": "Installer channel with signature check",
+  "reach": 4,
+  "impact": 3,
+  "gap": 3,
+  "fit": 4,
+  "confidence": 3,
+  "effort": 3,
+  "live_risk": 5,
+  "mock_testable": false,
+  "competitors": [
+   "Autodesk App Store (U)"
+  ]
+ },
+ {
+  "id": "api-canary",
+  "title": "Revit API change canary",
+  "category": "ops",
+  "summary": "Static checks for 2027 API changes",
+  "reach": 2,
+  "impact": 3,
+  "gap": 3,
+  "fit": 4,
+  "confidence": 3,
+  "effort": 3,
+  "live_risk": 2,
+  "mock_testable": true,
+  "competitors": [
+   "none"
+  ]
+ },
+ {
+  "id": "replay-harness",
+  "title": "Live session replay harness",
+  "category": "ops",
+  "summary": "Record live bridge traffic to fixtures for mock tests",
+  "reach": 3,
+  "impact": 5,
+  "gap": 4,
+  "fit": 5,
+  "confidence": 4,
+  "effort": 3,
+  "live_risk": 2,
+  "mock_testable": true,
+  "competitors": [
+   "none"
+  ]
+ },
+ {
+  "id": "telemetry",
+  "title": "Opt-in usage stats",
+  "category": "ops",
+  "summary": "Off by default, local summary only",
+  "reach": 2,
+  "impact": 2,
+  "gap": 2,
+  "fit": 3,
+  "confidence": 3,
+  "effort": 2,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "pyRevit"
+  ]
+ },
+ {
+  "id": "multi-doc",
+  "title": "Linked-model read-through",
+  "category": "ops",
+  "summary": "Read elements through links",
+  "reach": 4,
+  "impact": 4,
+  "gap": 4,
+  "fit": 4,
+  "confidence": 2,
+  "effort": 4,
+  "live_risk": 5,
+  "mock_testable": false,
+  "competitors": [
+   "none found"
+  ]
+ },
+ {
+  "id": "benchmarks",
+  "title": "Token/latency benchmark in CI",
+  "category": "ops",
+  "summary": "Publish token cost per workflow per release",
+  "reach": 2,
+  "impact": 3,
+  "gap": 4,
+  "fit": 4,
+  "confidence": 5,
+  "effort": 1,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "none"
+  ]
+ },
+ {
+  "id": "i18n-tools",
+  "title": "Localized tool descriptions",
+  "category": "ops",
+  "summary": "Translate tool descriptions",
+  "reach": 2,
+  "impact": 2,
+  "gap": 3,
+  "fit": 3,
+  "confidence": 3,
+  "effort": 2,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "none"
+  ]
+ },
+ {
+  "id": "evals",
+  "title": "BIM agent eval set",
+  "category": "ops",
+  "summary": "20 BIM tasks with expected tool calls run against mock mode",
+  "reach": 3,
+  "impact": 4,
+  "gap": 4,
+  "fit": 5,
+  "confidence": 4,
+  "effort": 3,
+  "live_risk": 1,
+  "mock_testable": true,
+  "competitors": [
+   "mcp-builder guidance"
+  ]
+ },
+ {
+  "id": "marketplace-cert",
+  "title": "Autodesk certification path",
+  "category": "ops",
+  "summary": "Prepare for Autodesk certified MCP listing",
+  "reach": 3,
+  "impact": 3,
+  "gap": 3,
+  "fit": 3,
+  "confidence": 2,
+  "effort": 3,
+  "live_risk": 4,
+  "mock_testable": false,
+  "competitors": [
+   "Autodesk"
+  ]
+ },
+ {
+  "id": "doctor-cli",
+  "title": "doctor command",
+  "category": "ops",
+  "summary": "aec-model-bridge doctor: checks Python, add-in, ports, token, workspace, client config",
+  "reach": 5,
+  "impact": 4,
+  "gap": 3,
+  "fit": 5,
+  "confidence": 5,
+  "effort": 2,
+  "live_risk": 2,
+  "mock_testable": true,
+  "competitors": [
+   "pyRevit (doctor)"
+  ]
+ },
+ {
+  "id": "qa-to-plan",
+  "title": "QA finding to fix plan",
+  "category": "safety",
+  "summary": "One call turns selected QA findings with fix templates into a reviewed plan",
+  "reach": 5,
+  "impact": 5,
+  "gap": 4,
+  "fit": 5,
+  "confidence": 4,
+  "effort": 3,
+  "live_risk": 2,
+  "mock_testable": true,
+  "competitors": [
+   "ArchiLabs (U)"
+  ]
+ }
+]

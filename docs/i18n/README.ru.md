@@ -71,13 +71,13 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 Для правок ассистент составляет план через `plan_actions`; вы просматриваете его на панели Revit, и только потом `execute_plan` его применяет. Проверка IFC работает без Revit.
 
-Модули QA/QC и отчётов на основе снимков (snapshot) требуют совместимого сохранённого снимка. Сейчас передача снимка из Revit в модуль требует, чтобы совпадали имя файла и рабочая папка; если не указать `snapshot_id`, могут вернуться сгенерированные демонстрационные данные. Для проверки открытой модели используйте прямые инструменты Revit, описанные выше. [Запланированные исправления и демо](../roadmap.md).
+Модули QA/QC и отчётов на основе снимков (snapshot) требуют совместимого сохранённого снимка. Сейчас передача снимка из Revit в модуль требует, чтобы совпадали имя файла и рабочая папка; если не указать `snapshot_id`, могут вернуться сгенерированные демонстрационные данные. Для проверки открытой модели используйте прямые инструменты Revit, описанные выше.
 
 ## Быстрый старт
 
 **Установка в один клик**
 
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install-buttons.md#vs-code)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install.md#vs-code)
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -116,15 +116,15 @@ the plan in Revit, apply it and read the values back to confirm the result.
 | Область | Инструменты | Что делают |
 | --- | --- | --- |
 | Revit | 110 | Чтение модели, создание и правка элементов, параметров, видов, листов, спецификаций, экспорт, совместная работа |
-| Согласование | 5 | Планирование, проверка, согласование, выполнение и откат изменений модели |
-| Модули | 109 | Анализ снимков, таблицы параметров, проверки QA/QC, рецепты, отчёты, выборки |
+| Согласование | 6 | Планирование, проверка, согласование, выполнение и откат изменений модели |
+| Модули | 113 | Анализ снимков, таблицы параметров, проверки QA/QC, рецепты, отчёты, выборки |
 | Rhino и Grasshopper | 19 | Геометрия, слои, материалы, булевы операции |
 | Speckle | 17 | Проекты, модели, версии, отправка и получение |
 | Navisworks | 15 | Дерево модели, точки обзора, проверка коллизий (в разработке) |
 | IFC | 7 | Чтение IFC-файлов без Revit: структура, свойства, проверка |
-| Граф, снимки, экспорт, задания | 21 | Аудит семантического графа, сравнение снимков, экспорт в SQLite, фоновые задания |
+| Граф, снимки, экспорт, задания | 22 | Аудит семантического графа, сравнение снимков, экспорт в SQLite, фоновые задания |
 
-В конфигурации по умолчанию доступно 303 инструментов (подсчитано на текущем сервере в режиме mock). Инструменты Autodesk Data появляются, когда настроены учётные данные APS. В [справочнике инструментов](../tools-generated.md) перечислены все инструменты. У каждого инструмента есть аннотации MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), по которым клиенты отличают чтение от записи.
+В конфигурации по умолчанию доступно 309 инструментов (подсчитано на текущем сервере в режиме mock). Инструменты Autodesk Data появляются, когда настроены учётные данные APS. В [справочнике инструментов](../tools-generated.md) перечислены все инструменты. У каждого инструмента есть аннотации MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), по которым клиенты отличают чтение от записи.
 
 ### Расширенная автоматизация Revit
 
@@ -357,11 +357,8 @@ CI собирает Python-сервер и целевые сборки плаг�
 - [Архитектура](../0001-multi-provider-architecture.md)
 - [Справочник по конфигурации](../configuration-reference.md)
 - [Безопасность](../security.md)
-- [MCP-клиенты и реестр](../marketplaces.md)
 - [Версионирование и релизы](../versioning.md)
-- [Вся документация](../README.md)
 - [Участие в проекте](../../CONTRIBUTING.md) и [Кодекс поведения](../../CODE_OF_CONDUCT.md)
-- [Участники](../../CONTRIBUTORS.md)
 
 ## Built with
 

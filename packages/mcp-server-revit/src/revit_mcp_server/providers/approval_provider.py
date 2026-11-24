@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from ..security import binding as binding_mod
 from ..security import proof as proof_mod
+from ..security.plan_review import with_review_aids
+from ..security.policy import check_actions, load_policy
 from ..security.workspace import WorkspaceMonitor
 from ..errors import BridgeError
 from ..security.approval import APPROVAL_CHANNELS, HUMAN_ONLY_TOOLS, ApprovalExpired, ApprovalGate, local_user
@@ -148,6 +150,8 @@ class ApprovalProvider(AECProvider):
             actions = arguments.get("actions", [])
             self.gate.validate_actions(actions)
             self._require_registered_tools(actions)
+            policy = load_policy(self.gate.workspace_dir)  # invalid file: PolicyError, nothing drafted
+            check_actions(policy, actions, self.gate.workspace_dir, arguments.get("snapshot_id") or None)
             before_states = []
             before_types: List[Optional[str]] = []
             for action in actions:
@@ -183,7 +187,9 @@ class ApprovalProvider(AECProvider):
                 before_storage_types=before_types,
                 review=arguments.get("review"),
                 binding=await self._draft_binding(actions),
+                policy_hash=policy.hash,
             )
+            plan = with_review_aids(plan, self.gate.workspace_dir)
             if self.gate.dev_mode:
                 # Reporting only: the plan is still created and still needs a person's approval if used.
                 plan = {**plan, "dev_mode": True, "note": "Dev mode: no approval needed, omit plan_id."}
@@ -191,7 +197,10 @@ class ApprovalProvider(AECProvider):
 
         elif name == "list_pending_plans":
             plans, hidden = self.gate.pending_listing(arguments.get("include_expired") is True)
-            return {"plans": plans, "expired_hidden": hidden}
+            return {"plans": [with_review_aids(p, self.gate.workspace_dir) for p in plans], "expired_hidden": hidden}
+
+        elif name == "policy_show":
+            return load_policy(self.gate.workspace_dir).effective()
 
         elif name in HUMAN_ONLY_TOOLS:
             # Never through the generic tool path (MCP, chat, recipes, plans, modules):
@@ -248,6 +257,11 @@ class ApprovalProvider(AECProvider):
         raise BridgeError(f"'{name}' is not a plan decision.")
 
     async def _execute_plan(self, plan_id: str) -> Dict[str, Any]:
+        # One live-document read serves every action of this plan (see ApprovalGate.reuse_binding_probe).
+        with self.gate.reuse_binding_probe():
+            return await self._execute_plan_actions(plan_id)
+
+    async def _execute_plan_actions(self, plan_id: str) -> Dict[str, Any]:
         """Run every action in an approved plan, report-and-continue on failure.
 
         A partially-failed plan is left in state 'approved' (not 'executed') so it is
@@ -268,6 +282,10 @@ class ApprovalProvider(AECProvider):
             self.gate.expire_plan(plan_id)
             raise
         self.gate.verify_binding(plan)  # whole plan refused up front, so a wrong document consumes nothing
+
+        # The policy may have tightened since drafting: re-check before the first action runs.
+        check_actions(load_policy(self.gate.workspace_dir), plan["actions"], self.gate.workspace_dir,
+                      plan.get("snapshot_id"))
 
         # A profile is a discovery/dispatch choice, not a failed model action.
         # Refuse the entire pending plan before consuming anything or saving a
@@ -292,6 +310,9 @@ class ApprovalProvider(AECProvider):
                 resume = "Inspect the model and recover the running action through the approval CLI."
             pending_results.append({"action_id": previous.get("action_id"), "key": key, "resume": resume})
         had_failure = any(a.get("state") in ("failed", "abandoned") for a in plan["actions"])
+        # True once any action of this plan has been claimed (now or in an earlier run).
+        started = had_failure or bool(pending_results) or any(
+            a.get("state") not in ("pending", None) for a in plan["actions"])
         for action in plan["actions"]:
             if action.get("state") not in ("pending", None):
                 continue  # already consumed (e.g. a direct call earlier): never run an approved action twice
@@ -303,9 +324,13 @@ class ApprovalProvider(AECProvider):
             try:
                 claim = self.gate.claim_action(tool, args)
             except Exception as e:
+                if not started:
+                    # Refused before anything ran: the plan stays approved and can run once the cause is fixed.
+                    raise
                 had_failure = True
                 results.append({"action_id": action.get("action_id"), "tool": tool, "error": str(e)})
                 continue
+            started = True
             provider = self.registry.lookup_tool_provider(tool)
             if not provider:
                 had_failure = True
@@ -562,6 +587,13 @@ class ApprovalProvider(AECProvider):
                 },
                 "required": ["plan_id"]
             }
+        ),
+        ProviderTool(
+            name="policy_show",
+            description="Show the effective workspace policy (blocked and allowed tools, allowed categories, "
+                        "blocked parameters, plan size limits) and its hash. Read-only. An invalid policy file "
+                        "is reported as an error and refuses all writes.",
+            inputSchema={"type": "object", "properties": {}}
         ),
         ProviderTool(
             name="get_proof_bundle",

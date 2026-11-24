@@ -1,0 +1,28 @@
+# Example workspace policy. Copy to <workspace>/policy.yaml, or point
+# MCP_REVIT_POLICY_FILE at it. Every key is optional.
+# See docs/configuration-reference.md#policy-file
+
+# Tools that may never appear in a plan.
+blocked_tools:
+  - revit_execute_python
+  - revit_invoke_method
+  - revit_delete_element
+
+# If present, only these tools may appear in a plan.
+# allowed_tools:
+#   - revit_set_parameter_value
+
+# If present, a plan may only touch these categories. A plan whose category is
+# unknown is refused. OST_ prefix and letter case are ignored.
+allowed_categories:
+  - Walls
+  - Doors
+
+# Parameter names that may not be set (case ignored).
+blocked_parameters:
+  - Fire Rating
+  - Mark
+
+# Size limits for one plan.
+max_elements_per_plan: 50
+max_actions_per_plan: 20

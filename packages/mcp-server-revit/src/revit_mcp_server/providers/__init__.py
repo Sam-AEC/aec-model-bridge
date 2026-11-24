@@ -15,6 +15,7 @@ from .proxy import McpProxyProvider
 from .approval_provider import ApprovalProvider
 from .module_provider import ModuleProvider
 from .semantic_provider import SemanticProvider
+from .tool_search import ToolSearchProvider
 
 __all__ = [
     "AECProvider",
@@ -36,4 +37,5 @@ __all__ = [
     "ApprovalProvider",
     "ModuleProvider",
     "SemanticProvider",
+    "ToolSearchProvider",
 ]

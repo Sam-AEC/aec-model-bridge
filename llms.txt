@@ -1,35 +1,47 @@
 # AEC Model Bridge
 
-> AEC Model Bridge is an open-source Revit MCP server and native Revit add-in. It lets AI assistants such as Claude, Codex and Cursor read and edit the Revit model you have open. Every change goes through a plan that you approve first. It supports Revit 2024 to 2027 and also reads IFC files, with Rhino, Grasshopper and Speckle integrations.
+> Open-source Revit MCP server (Model Context Protocol) and native Revit add-in. AI assistants such as Claude, Codex and Cursor read and edit the BIM model open in Revit 2024 to 2027. Every model change is a plan that a person approves first (approval gate). Also reads IFC files; Rhino, Grasshopper and Speckle integrations included.
 
-Key facts:
+- Protocol: Model Context Protocol, stdio transport. Any MCP client that can start a local server works.
+- Tools: 309 in the default setup, counted in mock mode. Revit has 110 of them.
+- Safety: tools that change the model are blocked until a plan is approved. An unattended mode exists and is opt-in.
+- Platform: live Revit work needs Windows and a licensed Revit. Mock mode (sample data) needs neither.
+- Licence: GPL-3.0-or-later with the Revit Linking Exception, plus a commercial option.
 
-- Protocol: Model Context Protocol (MCP), stdio transport. Any MCP client that can start a local server can use it.
-- Tools: 303 in the default setup, counted in mock mode. Revit has 110 of them.
-- Safety: tools that change the model are blocked until a plan is approved. This is the default. An unattended mode exists and is opt-in.
-- Platform: live Revit work needs Windows and a licensed Revit. Mock mode needs neither.
-- Licence: GPL-3.0 with a commercial option.
-- Maintainer: A. Sam Mohammad.
+## Use it
 
-## Start here
-
-- [README](https://github.com/Sam-AEC/aec-model-bridge/blob/main/README.md): what it does, quick start, FAQ.
-- [Install guide](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/install.md): installer and source install.
-- [Compatibility](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/compatibility.md): AI clients, agent frameworks, applications and formats.
+- [README](https://github.com/Sam-AEC/aec-model-bridge/blob/main/README.md): what it does, quick start, one-click install for VS Code, Cursor and Claude Desktop.
+- [Install guide](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/install.md): installer, source install, MCP client config, bridge health check, mock mode.
+- [Other MCP clients](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/clients.md): config for Codex, Gemini CLI, JetBrains, Visual Studio, Windsurf and Cline.
+- [Compatibility](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/compatibility.md): tested clients, agent frameworks, applications and file formats (IFC, BCF).
 - [Tool catalog](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/tools-generated.md): every tool with its read or write flag.
+- [Configuration reference](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/configuration-reference.md): environment variables, runtime modes, approval modes.
+- [Troubleshooting](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/troubleshooting.md): log locations, connection, approval and install errors, panel Setup check.
 
-## How it works
+## Approval and safety
 
-- [Approval gate](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/0008-approval-gate-lifecycle.md): plan, review, approve, execute, roll back.
-- [Security](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/security.md)
-- [Logging and audit](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/logging-and-audit.md)
-- [Configuration reference](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/configuration-reference.md)
+- [Approval gate lifecycle](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/0008-approval-gate-lifecycle.md): plan, review, approve, execute, roll back.
+- [Security model](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/security.md): trust boundaries, panel token, workspace sandbox, what the gate does not protect.
+- [Proof bundles and revert plans](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/proof-and-revert.md): what is recorded for each executed plan and how to undo it.
+- [Logging and audit](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/logging-and-audit.md): audit log format and redaction.
+- [Privacy](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/privacy.md): what leaves the machine.
+
+## Extend and build
+
+- [Architecture](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/0001-multi-provider-architecture.md): providers, modules and the Revit bridge.
+- [Module authoring](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/module-authoring.md): write a plug-in module.
+- [Rule packs](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/rule-packs.md): BIM QA/QC rules.
+- [MCP token budget](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/mcp-token-budget.md): tool profiles and context size.
+- [Dev workflow](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/dev-workflow.md): build, test and release commands.
+- [Agent instructions](https://github.com/Sam-AEC/aec-model-bridge/blob/main/AGENTS.md): repository layout, commands and rules for coding agents.
 
 ## Project
 
-- [Roadmap](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/roadmap.md)
-- [Changelog](https://github.com/Sam-AEC/aec-model-bridge/blob/main/CHANGELOG.md)
-- [Licensing](https://github.com/Sam-AEC/aec-model-bridge/blob/main/LICENSING.md)
+- [Release checklist](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/release-checklist.md): CI coverage, live-Revit checks, known limits, registry listings.
+- [Versioning](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/versioning.md): version numbers and release process.
+- [Changelog](https://github.com/Sam-AEC/aec-model-bridge/blob/main/CHANGELOG.md): changes per release.
+- [Licensing](https://github.com/Sam-AEC/aec-model-bridge/blob/main/LICENSING.md): GPL terms, Revit Linking Exception, commercial licence.
+- [Support](https://github.com/Sam-AEC/aec-model-bridge/blob/main/SUPPORT.md): where to ask and report bugs.
 
 ## Optional
 

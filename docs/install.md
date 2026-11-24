@@ -169,6 +169,54 @@ In VS Code, you can start from [`.vscode/mcp.json`](../.vscode/mcp.json).
 If your client supports MCP Bundles, install the `.mcpb` file from the latest
 release. You still need to install the Revit add-in separately.
 
+## One-click install links
+
+Each link adds the same server entry (`uvx`, mode `bridge`). No directory variables are needed. The workspace defaults to `~/Documents/AEC Model Bridge`. They need `uv` only.
+
+```json
+{"command":"uvx","args":["--from","git+https://github.com/Sam-AEC/aec-model-bridge#subdirectory=packages/mcp-server-revit","aec-model-bridge"],"env":{"MCP_REVIT_MODE":"bridge"}}
+```
+
+Regenerate or check the links with `python scripts/make_install_links.py` (`--json`, `--check`). `tests/test_install_links.py` decodes each link and compares it with the entry above.
+
+### VS Code
+
+Format: `vscode:mcp/install?` followed by `encodeURIComponent(JSON.stringify({name, ...server}))`. Insiders uses `vscode-insiders:mcp/install?`.
+
+```text
+vscode:mcp/install?%7B%22name%22%3A%22aec-model-bridge%22%2C%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22--from%22%2C%22git%2Bhttps%3A%2F%2Fgithub.com%2FSam-AEC%2Faec-model-bridge%23subdirectory%3Dpackages%2Fmcp-server-revit%22%2C%22aec-model-bridge%22%5D%2C%22env%22%3A%7B%22MCP_REVIT_MODE%22%3A%22bridge%22%7D%7D
+```
+
+Command line (bash or cmd quoting):
+
+```text
+code --add-mcp "{\"name\":\"aec-model-bridge\",\"command\":\"uvx\",\"args\":[\"--from\",\"git+https://github.com/Sam-AEC/aec-model-bridge#subdirectory=packages/mcp-server-revit\",\"aec-model-bridge\"],\"env\":{\"MCP_REVIT_MODE\":\"bridge\"}}"
+```
+
+GitHub strips `vscode:` and `cursor:` hrefs from Markdown, so the README badge links here. The `vscode.dev/redirect/mcp/install` form is undocumented and returned HTTP 403 for values containing `#subdirectory=` when tested. A PyPI release would allow a plain `uvx aec-model-bridge` entry.
+
+### Cursor
+
+```text
+cursor://anysphere.cursor-deeplink/mcp/install?name=aec-model-bridge&config=<base64 of the server entry above>
+```
+
+The README badge uses `https://cursor.com/en/install-mcp?name=aec-model-bridge&config=<same base64>` because GitHub strips `cursor:` links. That https form is UNVERIFIED: it is not in the Cursor docs.
+
+### Claude Desktop
+
+The release workflow attaches a `.mcpb` bundle. Download it from the [latest release](https://github.com/Sam-AEC/aec-model-bridge/releases/latest) and open it.
+
+## First check after install
+
+Open a project in Revit and open the panel from the AEC Bridge tab. The Setup check card runs on load. `Ready` means all checks passed. Otherwise each failing check shows what to do; fix it and press Refresh. See [troubleshooting](troubleshooting.md#panel-setup-check) for each check.
+
+Without Revit, mock mode (below) returns a small sample model: two levels, one wall, one door, two rooms. Write tools return `mock-response` and change nothing. A first prompt that works: "Which AEC Model Bridge tools do you have?". Then `model_inspector_summarize_model`, then `qaqc_checker_run_check` with the `core` pack. To try the gate in mock mode, draft a change with `plan_actions`, then approve it yourself with `aec-model-bridge-approve show <plan_id>` and `aec-model-bridge-approve approve <plan_id>` in a terminal that uses the same workspace as the client. The assistant cannot call `approve_plan` or `reject_plan`.
+
+## Update and uninstall
+
+Close Revit before running a newer installer or uninstalling. Remove the MCP client entry yourself. The workspace holds project data and is kept. After install the server and add-in run offline; AI providers and optional cloud tools (Speckle, Autodesk) need network access.
+
 ## Verify the bridge
 
 When Revit starts, the add-in writes an endpoint file under
@@ -190,6 +238,12 @@ The response should include:
 ```
 
 The reported year matches the Revit version that is running.
+
+## Supported start command
+
+The supported way to start the server is `python.exe -m revit_mcp_server` (the bundled one is `C:\ProgramData\AECModelBridge\python\python.exe`). `-m revit_mcp_server.mcp_server` is the same server and also works. The installer's client setup writes `python.exe -m revit_mcp_server.mcp_server`.
+
+The bundle also has relocatable launchers `python\Scripts\aec-model-bridge.cmd`, `revit-mcp-server.cmd`, `aec-model-bridge-panel-server.cmd` and `aec-model-bridge-approve.cmd`. They call `python.exe` next to them, so they keep working if the folder moves. Releases before the fix for issue #159 shipped pip `.exe` launchers in that folder; those exit silently on a user PC. Do not point a client at an `.exe` in `python\Scripts`.
 
 ## Mock mode
 

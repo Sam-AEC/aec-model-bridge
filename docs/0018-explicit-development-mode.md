@@ -6,7 +6,7 @@ Implemented in source; deployment and live Revit acceptance are pending.
 
 ## Context
 
-The owner decisions in [the upgrade plan, section 13](upgrade-plan-hands-and-eyes.md#13-owner-decisions-2026-10-14-and-resulting-priorities) request a development mode that remains on until the person switches it off. Timed Auto already supports temporary unplanned writes, but its expiry is unsuitable for a sustained development session.
+The owner requested a development mode that remains on until the person switches it off. Timed Auto already supports temporary unplanned writes, but its expiry is unsuitable for a sustained development session.
 
 The default remains Ask first. [ADR 0008](0008-approval-gate-lifecycle.md) describes plan approval; [ADR 0017](0017-approval-document-binding-and-expiry.md) remains a separate proposal. Development mode does not implement document binding or approval expiry.
 
@@ -19,6 +19,8 @@ The default remains Ask first. [ADR 0008](0008-approval-gate-lifecycle.md) descr
 - Selecting Ask first clears both overrides. Selecting timed Auto clears Dev and creates the existing expiring Auto window. Clearing an override restores the process's configured baseline; it cannot override an environment configured as Auto or Look only.
 - Mode changes and calls made in Dev are audited with existing secret and path redaction. Failure to write a Dev audit record refuses the call. Loopback, Host/Origin checks, panel tokens, plan hashes and Python read-mode safeguards remain enforced.
 - This implementation does not relax the workspace sandbox or path masking. Optional extra-folder access and exposing paths require a separate explicit control and tests; selecting Dev alone does not grant them.
+- Owner decision (issue 153): a write that carries a plan id whose plan is still pending keeps refusing in Dev, because a stale plan id is a real signal. The error says the plan is pending and tells the caller to omit plan_id in Dev mode or have a person approve it.
+- Owner decision (issue 153): `revit_export_image` with an `output_path` outside the workspace keeps refusing in Dev. The error names the workspace folder to use. A separate extra-folder control is not added.
 
 ## Consequences
 

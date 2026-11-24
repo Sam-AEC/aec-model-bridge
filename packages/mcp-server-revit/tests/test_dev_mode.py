@@ -390,11 +390,11 @@ def test_pending_plan_refusal_in_dev_says_to_omit_plan_id_but_still_refuses(tmp_
     args = {"element_id": 1, "plan_id": plan["plan_id"]}
     with pytest.raises(Exception, match="not 'approved'") as plain:
         gate.claim_action(SET, args)
-    assert "Dev mode is on" not in str(plain.value)
+    assert "In Dev mode" not in str(plain.value)
     dev.enable_dev(gate.workspace_dir, token=TOKEN)
     with pytest.raises(Exception, match="not 'approved'") as in_dev:
         gate.claim_action(SET, args)
-    assert "Dev mode is on: omit plan_id to run unplanned, or have the person approve this plan" in str(in_dev.value)
+    assert "The plan is pending. In Dev mode, omit plan_id to run unplanned, or have a person approve it" in str(in_dev.value)
     assert gate.load_plan(plan["plan_id"])["state"] == "pending"
 
 
@@ -426,3 +426,22 @@ def test_diagnostics_report_workspace_and_why_dev_reads_off(tmp_path):
         assert json.loads(dev.dev_path(ws).read_text())["nonce"] not in text
     look = panel_server.collect_diagnostics(ws, "look_only", None, False, dev_token=TOKEN)
     assert "look_only" in look["dev_off_reason"]
+
+
+def test_export_image_outside_workspace_refuses_in_dev_and_names_the_workspace(tmp_path):
+    from revit_mcp_server.config import BridgeMode
+    from revit_mcp_server.errors import WorkspaceViolation
+    from revit_mcp_server.providers.revit import RevitProvider
+
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    gate = _gate(tmp_path)
+    dev.enable_dev(gate.workspace_dir, token=TOKEN)
+    provider = RevitProvider(workspace=WorkspaceMonitor([ws]), mode=BridgeMode.mock)
+    outside = tmp_path / "elsewhere" / "view.png"
+    with pytest.raises(WorkspaceViolation) as err:
+        asyncio.run(provider.execute_tool("revit_export_image", {"view_id": 1, "output_path": str(outside)}))
+    text = str(err.value)
+    assert "outside the allowed workspace" in text
+    assert "Use a path inside the workspace folder" in text
+    assert str(ws.resolve()) in text

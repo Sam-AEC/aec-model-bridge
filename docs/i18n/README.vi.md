@@ -71,13 +71,13 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 Với các thao tác chỉnh sửa, trợ lý tạo kế hoạch bằng `plan_actions`; bạn xem xét kế hoạch trong bảng điều khiển Revit trước khi `execute_plan` áp dụng. Việc rà soát IFC chạy được mà không cần Revit.
 
-Các mô-đun QA/QC và báo cáo dựa trên snapshot cần một snapshot đã lưu tương thích. Hiện tại, việc chuyển snapshot từ Revit sang mô-đun đòi hỏi tên tệp và workspace phải khớp nhau; nếu bỏ qua `snapshot_id`, dữ liệu mẫu được tạo sẵn có thể được trả về. Hãy dùng trực tiếp các công cụ Revit ở trên để kiểm tra theo thời gian thực. [Các bản sửa dự kiến và bản demo](../roadmap.md).
+Các mô-đun QA/QC và báo cáo dựa trên snapshot cần một snapshot đã lưu tương thích. Hiện tại, việc chuyển snapshot từ Revit sang mô-đun đòi hỏi tên tệp và workspace phải khớp nhau; nếu bỏ qua `snapshot_id`, dữ liệu mẫu được tạo sẵn có thể được trả về. Hãy dùng trực tiếp các công cụ Revit ở trên để kiểm tra theo thời gian thực.
 
 ## Bắt đầu nhanh
 
 **Cài đặt một cú nhấp**
 
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install-buttons.md#vs-code)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install.md#vs-code)
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -116,15 +116,15 @@ Dùng VS Code? [Mã nguồn tiện ích mở rộng và các bước cài đặt
 | Lĩnh vực | Công cụ | Chức năng |
 | --- | --- | --- |
 | Revit | 110 | Đọc mô hình, tạo và chỉnh sửa phần tử, tham số, view, sheet, bảng thống kê (schedule), xuất dữ liệu, làm việc chung (worksharing) |
-| Phê duyệt | 5 | Lập kế hoạch, xem xét, phê duyệt, thực thi và hoàn tác các thay đổi mô hình |
-| Mô-đun | 109 | Kiểm tra snapshot, lưới tham số, kiểm tra QA/QC, recipe, báo cáo, vùng chọn |
+| Phê duyệt | 6 | Lập kế hoạch, xem xét, phê duyệt, thực thi và hoàn tác các thay đổi mô hình |
+| Mô-đun | 113 | Kiểm tra snapshot, lưới tham số, kiểm tra QA/QC, recipe, báo cáo, vùng chọn |
 | Rhino và Grasshopper | 19 | Hình học, layer, vật liệu, phép toán boolean |
 | Speckle | 17 | Dự án, mô hình, phiên bản, gửi và nhận |
 | Navisworks | 15 | Cây mô hình, viewpoint, kiểm tra va chạm (đang phát triển) |
 | IFC | 7 | Đọc tệp IFC mà không cần Revit: cấu trúc, thuộc tính, xác thực |
-| Đồ thị, snapshot, xuất dữ liệu, tác vụ | 21 | Kiểm toán đồ thị ngữ nghĩa, so sánh snapshot, xuất SQLite, tác vụ nền |
+| Đồ thị, snapshot, xuất dữ liệu, tác vụ | 22 | Kiểm toán đồ thị ngữ nghĩa, so sánh snapshot, xuất SQLite, tác vụ nền |
 
-Cấu hình mặc định liệt kê 303 công cụ (đếm từ máy chủ hiện tại ở chế độ mock). Các công cụ Autodesk Data xuất hiện khi đã cấu hình thông tin xác thực APS. [Tài liệu tham khảo công cụ](../tools-generated.md) liệt kê từng công cụ. Mỗi công cụ đều có chú thích MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) để ứng dụng khách phân biệt thao tác đọc với ghi.
+Cấu hình mặc định liệt kê 309 công cụ (đếm từ máy chủ hiện tại ở chế độ mock). Các công cụ Autodesk Data xuất hiện khi đã cấu hình thông tin xác thực APS. [Tài liệu tham khảo công cụ](../tools-generated.md) liệt kê từng công cụ. Mỗi công cụ đều có chú thích MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) để ứng dụng khách phân biệt thao tác đọc với ghi.
 
 ### Tự động hóa Revit nâng cao
 
@@ -357,11 +357,8 @@ CI build máy chủ Python và các mục tiêu add-in cho Revit 2024 đến 202
 - [Kiến trúc](../0001-multi-provider-architecture.md)
 - [Tài liệu tham khảo cấu hình](../configuration-reference.md)
 - [Bảo mật](../security.md)
-- [Ứng dụng khách MCP và registry](../marketplaces.md)
 - [Quản lý phiên bản và phát hành](../versioning.md)
-- [Toàn bộ tài liệu](../README.md)
 - [Hướng dẫn đóng góp](../../CONTRIBUTING.md) và [Quy tắc ứng xử](../../CODE_OF_CONDUCT.md)
-- [Những người đóng góp](../../CONTRIBUTORS.md)
 
 ## Built with
 

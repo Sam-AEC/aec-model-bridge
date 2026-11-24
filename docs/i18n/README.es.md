@@ -86,13 +86,13 @@ el panel de Revit antes de que `execute_plan` lo aplique. La revisión de IFC fu
 Los módulos de QA/QC y de informes basados en instantáneas (snapshots) requieren una instantánea guardada compatible.
 El traspaso actual de la instantánea de Revit al módulo exige que coincidan el nombre de archivo y el espacio de trabajo;
 si omites `snapshot_id`, se pueden devolver datos de ejemplo generados. Usa las
-herramientas directas de Revit indicadas arriba para la inspección en vivo. [Correcciones previstas y demo](../roadmap.md).
+herramientas directas de Revit indicadas arriba para la inspección en vivo.
 
 ## Inicio rápido
 
 **Instalación con un clic**
 
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install-buttons.md#vs-code)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install.md#vs-code)
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -145,15 +145,15 @@ publicado en el Marketplace.
 | Área | Herramientas | Qué hacen |
 | --- | --- | --- |
 | Revit | 110 | Leer el modelo, crear y editar elementos, parámetros, vistas, hojas, tablas de planificación, exportaciones, trabajo compartido |
-| Aprobación | 5 | Planificar, revisar, aprobar, ejecutar y revertir cambios en el modelo |
-| Módulos | 109 | Inspección de instantáneas, cuadrículas de parámetros, comprobaciones de QA/QC, recetas, informes, selecciones |
+| Aprobación | 6 | Planificar, revisar, aprobar, ejecutar y revertir cambios en el modelo |
+| Módulos | 113 | Inspección de instantáneas, cuadrículas de parámetros, comprobaciones de QA/QC, recetas, informes, selecciones |
 | Rhino y Grasshopper | 19 | Geometría, capas, materiales, operaciones booleanas |
 | Speckle | 17 | Proyectos, modelos, versiones, envío y recepción |
 | Navisworks | 15 | Árbol del modelo, puntos de vista, pruebas de interferencias (en desarrollo) |
 | IFC | 7 | Leer archivos IFC sin Revit: estructura, propiedades, validación |
-| Grafo, instantáneas, exportaciones, tareas | 21 | Auditorías del grafo semántico, diferencias entre instantáneas, exportación a SQLite, tareas en segundo plano |
+| Grafo, instantáneas, exportaciones, tareas | 22 | Auditorías del grafo semántico, diferencias entre instantáneas, exportación a SQLite, tareas en segundo plano |
 
-En la configuración predeterminada aparecen 303 herramientas (contadas desde el servidor actual en modo
+En la configuración predeterminada aparecen 309 herramientas (contadas desde el servidor actual en modo
 mock). Las herramientas de Autodesk Data aparecen cuando se configuran credenciales de APS. La
 [referencia de herramientas](../tools-generated.md) las enumera todas. Cada herramienta incluye
 anotaciones MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`,
@@ -455,11 +455,8 @@ Consulta [CONTRIBUTING.md](../../CONTRIBUTING.md) antes de abrir un pull request
 - [Arquitectura](../0001-multi-provider-architecture.md)
 - [Referencia de configuración](../configuration-reference.md)
 - [Seguridad](../security.md)
-- [Clientes MCP y registro](../marketplaces.md)
 - [Versionado y publicaciones](../versioning.md)
-- [Toda la documentación](../README.md)
 - [Guía de contribución](../../CONTRIBUTING.md) y [Código de conducta](../../CODE_OF_CONDUCT.md)
-- [Colaboradores](../../CONTRIBUTORS.md)
 
 ## Built with
 

@@ -193,7 +193,7 @@ python -m revit_mcp_server
 ## Documentation
 - README: ../README.md
 - Security: ../docs/security.md
-- MCP clients: ../docs/marketplaces.md
+- MCP clients: ../docs/clients.md
 
 ## Support
 https://github.com/Sam-AEC/aec-model-bridge/issues

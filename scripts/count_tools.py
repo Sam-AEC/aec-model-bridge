@@ -60,6 +60,9 @@ def count_tools() -> dict:
     from revit_mcp_server.security.workspace import WorkspaceMonitor
 
     registry, approval, job_manager, _modules, _ws = build_registry(WorkspaceMonitor([Path(workspace_dir)]))
+    from revit_mcp_server.tool_profiles import load_tool_profile
+
+    registry.freeze_tool_profile(load_tool_profile({"MCP_REVIT_TOOL_PROFILE": "full"}))  # as mcp_server.main does
     mcp_server.registry, mcp_server.approval_provider, mcp_server.job_manager = registry, approval, job_manager
     listed = asyncio.run(mcp_server.list_tools())
 
@@ -68,7 +71,7 @@ def count_tools() -> dict:
     for provider in registry.get_all_providers():
         for tool in provider.get_capabilities():
             registered += 1
-            if tool.name not in HUMAN_ONLY_TOOLS:
+            if tool.name not in HUMAN_ONLY_TOOLS and registry.is_tool_visible(tool.name):
                 by_provider[provider.get_identity()] += 1
 
     assert sum(by_provider.values()) == len(listed), "provider tally and tools/list disagree"
