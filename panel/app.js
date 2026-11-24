@@ -22,6 +22,8 @@ const state = {
   // "<plan id>:<plan hash>" of plans whose review the person opened; Approve needs it for hash_version 2.
   openedReviews: new Set(),
   plansOmitted: 0,
+  expiredHidden: 0,
+  showExpired: false,
   findings: [],
   reports: [],
   diagnostics: null,
@@ -384,8 +386,50 @@ function isPlanActionable(plan) {
 }
 
 // Approve needs the plan's review (when it has one) to have been shown. Reject never does.
+// An expired plan (hub flag `expired`) can never be approved here; it can still be rejected.
 function isPlanApprovable(plan) {
-  return isPlanActionable(plan) && !plan.reviewBlocked && !plan.reviewPending;
+  return isPlanActionable(plan) && !plan.expired && !plan.reviewBlocked && !plan.reviewPending;
+}
+
+function normalizeDocName(name) {
+  return String(name || "").trim().toLowerCase().replace(/\.rvt$/, "");
+}
+
+// True only when both the plan's bound title and the active document are known and differ.
+function isBoundToOtherDocument(plan) {
+  const bound = plan.binding && typeof plan.binding.doc_title === "string" ? plan.binding.doc_title : "";
+  if (!bound || !hasActiveDocument()) return false;
+  return normalizeDocName(bound) !== normalizeDocName(state.host.activeDocument);
+}
+
+function formatExpiry(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? visibleText(value) : date.toLocaleString();
+}
+
+// Plans the person can reject in bulk: pending, and either approvable or expired
+// (expired plans are the stale queue a coordinator wants to clear).
+function selectedRejectablePlanIds() {
+  const ok = new Set(state.plans.filter((plan) => isPlanActionable(plan) && (plan.expired || isPlanApprovable(plan))).map((plan) => plan.id));
+  return Array.from(state.selectedPlanIds).filter((id) => ok.has(id));
+}
+
+function hideRejectConfirm() {
+  const bar = document.getElementById("reject-confirm");
+  if (bar) bar.hidden = true;
+}
+
+function syncExpiredBar() {
+  const bar = document.getElementById("expired-bar");
+  if (!bar) return;
+  bar.hidden = !(state.expiredHidden > 0 || state.showExpired);
+  const note = document.getElementById("expired-note");
+  const toggle = document.getElementById("expired-toggle");
+  if (note) note.textContent = state.showExpired ? "Expired plans are shown. They cannot be approved." : `${state.expiredHidden} expired plan(s) hidden`;
+  if (toggle) {
+    toggle.textContent = state.showExpired ? "Hide expired" : "Show expired";
+    toggle.setAttribute("aria-pressed", state.showExpired ? "true" : "false");
+  }
 }
 
 function reviewKey(plan) {
@@ -402,10 +446,15 @@ function syncApproveSelected() {
   document.querySelectorAll('[data-action="approve-selected"]').forEach((button) => {
     button.disabled = modelActionsBlocked() || selectedActionablePlanIds().length === 0;
   });
+  document.querySelectorAll('[data-action="reject-selected"]').forEach((button) => {
+    button.disabled = modelActionsBlocked() || selectedRejectablePlanIds().length === 0;
+  });
 }
 
 function renderPlans() {
   planList.innerHTML = "";
+  hideRejectConfirm();
+  syncExpiredBar();
   if (state.plans.length === 0) {
     renderEmpty(planList, "No pending actions", "Approved or rejected ActionPlans will clear from this queue.");
     return;
@@ -446,13 +495,27 @@ function renderPlans() {
       }
     }
     const approvable = isPlanApprovable(plan);
-    const select = approvable
+    const select = approvable || (actionable && plan.expired)
       ? `<label class="plan-select"><input type="checkbox" data-select-plan="${id}" aria-label="Select plan ${label}"${state.selectedPlanIds.has(plan.id) ? " checked" : ""}></label>`
       : "";
     const blockedAttr = !approvable && actionable ? ' disabled data-review-blocked="1"' : "";
+    const mismatch = actionable && !plan.expired && isBoundToOtherDocument(plan);
+    const boundTitle = plan.binding && typeof plan.binding.doc_title === "string" ? plan.binding.doc_title : "";
+    const metaParts = [];
+    if (boundTitle) metaParts.push(`Bound to document: ${escapeHtml(visibleText(boundTitle))}`);
+    if (plan.expiresAt) metaParts.push(`Expires: ${escapeHtml(formatExpiry(plan.expiresAt))}`);
+    const metaLine = metaParts.length ? `<p class="plan-meta">${metaParts.join(". ")}.</p>` : "";
+    const warnLine = mismatch
+      ? `<p class="review-blocked" id="plan-warn-${id}" role="alert">Warning: this plan is bound to ${escapeHtml(visibleText(boundTitle))}, but the active document is ${escapeHtml(visibleText(state.host.activeDocument))}. The hub refuses the approval unless the bound document is active.</p>`
+      : "";
+    const expiredLine = plan.expired
+      ? `<p class="review-blocked" id="plan-expired-${id}">This plan has expired and cannot be approved. Reject it, or draft a new plan.</p>`
+      : "";
+    const describedBy = [plan.expired ? `plan-expired-${id}` : "", mismatch ? `plan-warn-${id}` : ""].filter(Boolean).join(" ");
+    const describedAttr = describedBy ? ` aria-describedby="${describedBy}"` : "";
     const actions = actionable
       ? `<div class="item-actions">
-        <button type="button" data-plan="${id}" data-hash="${hash}" class="primary" data-decision="approve" aria-label="Approve plan ${label}"${blockedAttr}>Approve</button>
+        <button type="button" data-plan="${id}" data-hash="${hash}" class="primary" data-decision="approve" aria-label="Approve plan ${label}"${describedAttr}${blockedAttr}>Approve</button>
         <button type="button" data-plan="${id}" data-hash="${hash}" data-decision="reject" aria-label="Reject plan ${label}">Reject</button>
       </div>`
       : "";
@@ -462,6 +525,7 @@ function renderPlans() {
         <span class="badge ${planStatusBadgeClass(plan.status)}">${escapeHtml(String(plan.status).replace(/_/g, " "))}</span>
       </div>
       <p>${escapeHtml(plan.detail)}</p>
+      ${metaLine}${expiredLine}${warnLine}
       <p class="plan-cli">Plan <code>${id}</code>. To read it in full: <code class="plan-cli-command">${escapeHtml(cliShowCommand(plan.id))}</code>
         <button type="button" class="review-more" data-copy-command="${id}">Copy command</button></p>
       ${actionable ? `<pre class="plan-review">${escapeHtml(clipActions(plan.review))}</pre>` : ""}
@@ -644,6 +708,37 @@ document.body.addEventListener("click", (event) => {
       addLog("Approval requested", `${ids.length} selected plan(s) sent to the host.`);
       renderPlans();
     }
+  }
+  if (action === "reject-selected") {
+    // Same per-plan plan.reject the single Reject button sends; confirmed first, with the count.
+    const ids = selectedRejectablePlanIds();
+    if (ids.length === 0) {
+      addLog("Nothing selected", "Tick one or more pending plans first.");
+    } else {
+      document.getElementById("reject-confirm-text").textContent = `Reject ${ids.length} selected plan(s)? This cannot be undone.`;
+      document.getElementById("reject-confirm").hidden = false;
+      const confirmButton = document.querySelector('[data-action="reject-confirm"]');
+      if (confirmButton && confirmButton.focus) confirmButton.focus();
+    }
+  }
+  if (action === "reject-cancel") {
+    hideRejectConfirm();
+  }
+  if (action === "reject-confirm") {
+    const ids = selectedRejectablePlanIds();
+    hideRejectConfirm();
+    ids.forEach((planId) => {
+      const plan = state.plans.find((candidate) => candidate.id === planId);
+      postToHost("plan.reject", { planId, planHash: plan ? plan.hash || "" : "" });
+      state.selectedPlanIds.delete(planId);
+    });
+    if (ids.length > 0) addLog("Reject requested", `${ids.length} selected plan(s) sent to the host.`);
+    renderPlans();
+  }
+  if (action === "toggle-expired") {
+    state.showExpired = !state.showExpired;
+    syncExpiredBar();
+    postToHost("plans.refresh", { includeExpired: state.showExpired });
   }
   if (action === "run-health") {
     postToHost("qaqc.runHealthCheck");
@@ -1028,6 +1123,8 @@ function mapPlans(hubResult) {
   const all = (hubResult && hubResult.plans) || [];
   const hubOmitted = Number.isSafeInteger(hubResult && hubResult.omitted) && hubResult.omitted > 0 ? hubResult.omitted : 0;
   state.plansOmitted = hubOmitted + Math.max(0, all.length - PLAN_LIMIT);
+  // expired_hidden, expired and binding come from the hub and are shown only when present.
+  state.expiredHidden = Number.isSafeInteger(hubResult && hubResult.expired_hidden) && hubResult.expired_hidden > 0 ? hubResult.expired_hidden : 0;
   return all.slice(0, PLAN_LIMIT).map((plan) => {
     const actions = plan.actions || [];
     const reviewState = planReviewState(plan);
@@ -1035,6 +1132,9 @@ function mapPlans(hubResult) {
       id: plan.plan_id,
       hash: plan.plan_hash || "",
       status: plan.state,
+      expired: plan.expired === true,
+      binding: isPlainObject(plan.binding) ? plan.binding : null,
+      expiresAt: typeof plan.expires_at === "string" ? plan.expires_at : "",
       title: actions.length === 1 ? actions[0].tool : `${actions.length} action(s)`,
       detail: actions.map((action) => action.tool).join(", ") || "No actions",
       review: planActionLines(actions).join("\n") || "No actions",
@@ -1103,6 +1203,8 @@ if (window.chrome && window.chrome.webview) {
     }
     if (event.data?.type === "plans.updated") {
       state.plans = mapPlans(event.data.result);
+      // The hub hides expired plans by default; keep asking for them while the toggle is on.
+      if (state.showExpired && state.expiredHidden > 0) postToHost("plans.refresh", { includeExpired: true });
       const known = new Set(state.plans.map((plan) => plan.id));
       state.selectedPlanIds.forEach((id) => { if (!known.has(id)) state.selectedPlanIds.delete(id); });
       renderPlans();
