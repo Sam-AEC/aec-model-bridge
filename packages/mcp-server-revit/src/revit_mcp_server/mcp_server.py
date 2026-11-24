@@ -19,7 +19,8 @@ from .security.approval import HUMAN_ONLY_TOOLS
 from .security.dispatch import (
     gate_after, gate_after_result, gate_before, result_failed, settle_in_flight,
 )
-from .security.audit import redact_data
+from .security.audit import redact_data as _redact_secrets
+from .security.response_redaction import redact_response
 from .security.module_execution import authorized_module_execution
 from .tool_metadata import enrich_tool, is_read_only_tool
 from .result_presentation import result_json, split_response_options
@@ -211,6 +212,11 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
 
 
 _result_failed = result_failed
+
+
+def redact_data(value):
+    """Secrets and paths always; personal data when MCP_REVIT_REDACT_RESPONSES is set."""
+    return redact_response(_redact_secrets(value))
 
 
 def _tool_error(kind: str, message: str, result: dict | None = None) -> CallToolResult:
