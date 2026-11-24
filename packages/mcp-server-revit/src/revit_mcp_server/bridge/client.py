@@ -43,12 +43,24 @@ class BridgeClient:
         self._http_key: tuple[Any, ...] | None = None
         self._http_lock = threading.Lock()
         self._registry_session = None
+        self._pipe = None  # PipeTransport when the opt-in pipe transport is in use (ADR 0021)
+
+    def use_pipe(self, pipe_name: str, expected_pid: int | None, **kwargs: Any) -> None:
+        """Send every request over the add-in's named pipe instead of HTTP. Windows only."""
+        from .pipe_transport import PipeTransport
+
+        self._pipe = PipeTransport(pipe_name, expected_pid, timeout=self.timeout, **kwargs)
+
+    @property
+    def transport(self) -> str:
+        return "pipe" if self._pipe is not None else "http"
 
     def bind_registry_session(self, switch: Any) -> None:
         """Pin an auto-discovered client to the chosen session, never to another Revit."""
         self._registry_session = (
             switch.pid, switch.host_version, switch.started_at,
             switch.endpoint.rstrip('/'), switch.session_token,
+            getattr(switch, "pipe_name", None),
         )
 
     def _check_registry_session(self) -> None:
@@ -56,11 +68,12 @@ class BridgeClient:
             return  # Explicit URLs and legacy ports do not use registry discovery.
         from .discovery import discover_switch_list
 
-        pid, year, started_at, endpoint, token = self._registry_session
+        pid, year, started_at, endpoint, token, pipe_name = self._registry_session
         for switch in discover_switch_list(prune=False):
             if (switch.provider_id == "revit" and switch.pid == pid
                     and switch.host_version == year and switch.started_at == started_at
-                    and switch.endpoint.rstrip('/') == endpoint and switch.session_token == token):
+                    and switch.endpoint.rstrip('/') == endpoint and switch.session_token == token
+                    and getattr(switch, "pipe_name", None) == pipe_name):
                 return
         raise BridgeError(
             f"The selected Revit {year} session (process {pid}) changed or closed. "
@@ -274,14 +287,30 @@ class BridgeClient:
     def __exit__(self, *exc: object) -> None:
         self.close()
 
+    def _pipe_call(self, method: str, path: str, data: Any = None) -> dict[str, Any]:
+        """One request over the pipe. A status of 400 or more raises httpx.HTTPStatusError, as HTTP does."""
+        assert self._pipe is not None
+        status, body = self._pipe.request(method, path, self.token, data)
+        if status >= 400:
+            request = httpx.Request(method, self._pipe.url(path))
+            response = httpx.Response(status, json=body, request=request)
+            raise httpx.HTTPStatusError(
+                f"Bridge answered {status} for {method} {path} over the pipe", request=request, response=response
+            )
+        return body if isinstance(body, dict) else {}
+
     def _get(self, path: str) -> dict[str, Any]:
         self._check_registry_session()
+        if self._pipe is not None:
+            return self._pipe_call("GET", path)
         resp = self._get_client().get(f"{self.base_url}{path}")
         resp.raise_for_status()
         return resp.json()
 
     def _post(self, path: str, data: dict[str, Any]) -> dict[str, Any]:
         self._check_registry_session()
+        if self._pipe is not None:
+            return self._pipe_call("POST", path, data)
         resp = self._get_client().post(f"{self.base_url}{path}", json=data)
         resp.raise_for_status()
         return resp.json()

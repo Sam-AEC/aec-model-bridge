@@ -24,6 +24,7 @@ public class BridgeServer
     private SemaphoreSlim _concurrencySemaphore = new(10, 10);
     private const long MaxRequestSizeBytes = 5 * 1024 * 1024; // 5 MB
     private readonly WorkspaceMonitor _workspaceMonitor = new();
+    private PipeBridgeServer? _pipe; // opt-in named pipe, AEC_BRIDGE_TRANSPORT=pipe (ADR 0021)
     // How long /execute holds the HTTP call before answering "running" (a client can ask for less or more
     // with wait_ms). The command is not cancelled when this passes.
     private static readonly int SoftWaitMs = EnvMs("AEC_BRIDGE_SOFT_WAIT_MS", 25000);
@@ -90,6 +91,13 @@ public class BridgeServer
             IsListening = true;
             Log.Information("BridgeServer started on {Prefixes}", string.Join(", ", _listener.Prefixes));
 
+            if (PipeBridgeServer.IsRequested())
+            {
+                try { _pipe ??= new PipeBridgeServer(this, _externalEvent); }
+                catch (Exception ex) { Log.Error(ex, "Named-pipe bridge unavailable; HTTP only"); }
+                if (_pipe != null && !_pipe.Start()) _pipe = null;
+            }
+
             WriteRegistryFile(prefix);
         }
         catch (Exception ex)
@@ -107,6 +115,7 @@ public class BridgeServer
         {
             _cts.Cancel();
             _listener.Stop();
+            _pipe?.Stop();
             // _listenerTask?.Wait(5000); // Avoid blocking UI thread
             IsListening = false;
             Log.Information("BridgeServer stopped");
@@ -366,7 +375,8 @@ public class BridgeServer
                 protocol_version = 2,
                 capability_digest = "dynamic",
                 session_token = SessionToken,
-                started_at = _startTime.ToString("o")
+                started_at = _startTime.ToString("o"),
+                pipe_name = _pipe != null && _pipe.IsListening ? _pipe.PipeName : null
             };
 
             var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });

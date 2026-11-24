@@ -43,5 +43,6 @@
     <Compile Include="..\revit-bridge-addin\src\Bridge\ToolTimings.cs" Link="Linked\ToolTimings.cs" />
     <Compile Include="..\revit-bridge-addin\src\Bridge\ExecutorTurnPolicy.cs" Link="Linked\ExecutorTurnPolicy.cs" />
     <Compile Include="..\revit-bridge-addin\src\Bridge\PythonEngineReusePolicy.cs" Link="Linked\PythonEngineReusePolicy.cs" />
+    <Compile Include="..\revit-bridge-addin\src\Bridge\PipeFraming.cs" Link="Linked\PipeFraming.cs" />
   </ItemGroup>
 </Project>

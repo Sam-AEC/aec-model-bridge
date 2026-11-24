@@ -57,6 +57,9 @@ The C# Revit bridge has two modes:
 1. **Contract v2 mode (default)**: the add-in picks a dynamic loopback port and creates a random bearer token each session. It writes both to a local registry file. The Python MCP server reads that file and sends the token with every request.
 2. **Legacy mode (opt-in)**: set the add-in's environment variable `MCP_REVIT_LEGACY_PORT` to `true` or `1`. The add-in then binds to fixed port `3000` with no authentication and relies only on the localhost boundary. Use it only if an older client needs it.
 
+### Named-pipe transport (opt-in, UNVERIFIED)
+Any local process, including one of another Windows user, can connect to a loopback port. With `AEC_BRIDGE_TRANSPORT=pipe` set for Revit, the add-in also opens a named pipe whose ACL allows only the current Windows user, and publishes its name as `pipe_name` in the registry entry. With `MCP_REVIT_BRIDGE_TRANSPORT=pipe` the Python server sends requests over that pipe, with the same JSON and the same session token. The client refuses a pipe that is not served by the Revit process in the registry entry. The HTTP port stays open in this release, so the pipe does not yet remove the loopback exposure. If the selected entry has no pipe, the server warns and uses HTTP. The pipe ACL and live behaviour are UNVERIFIED in a live Windows session. See [ADR 0021](adr/0021-named-pipe-transport.md).
+
 ### Panel HTTP shim (`panel_server.py`)
 The panel hub (`aec-model-bridge-panel-server`, default port 8787) listens on `127.0.0.1` and serves `/execute`, `/agent/chat`, `/diagnostics`, `/reports`, `/agent/providers` and `/health`. Its only intended caller is the add-in's C# `HubClient`. Every request is checked:
 
@@ -267,7 +270,7 @@ Example log entry:
 - Malformed input that could crash Revit. The process boundary and input schemas prevent it.
 
 ### What is out of scope (host machine security)
-- Other software on the same machine that can reach the loopback port.
+- Other software on the same machine that can reach the loopback port. The opt-in named pipe ([ADR 0021](adr/0021-named-pipe-transport.md)) limits the pipe to the current Windows user; the HTTP port stays open beside it.
 - Physical access to the machine, and malware running as your user.
 - Bugs in vendor APIs (Autodesk Revit, Rhino).
 
