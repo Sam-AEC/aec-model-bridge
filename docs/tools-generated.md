@@ -80,10 +80,12 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `familytype_mapper_audit_families` | Audit the families in a saved snapshot and report problems such as unmapped or inconsistent family types. | No | sync |
 | `familytype_mapper_list_type_mappings` | List family-type mappings found in a saved snapshot, optionally for one category. | No | sync |
 | `hello_world_say_hello` | Example module command that returns a greeting; use it to confirm the module system works. | No | sync |
+| `ids_validator_validate_ifc` | Check an IFC file in the workspace against a buildingSMART IDS file and return pass or fail per specification with the GlobalIds of failing entities (capped, with full counts). | No | sync |
 | `links_worksets_audit_audit` | Check linked models and worksets for problems (unloaded or missing links, links not pinned or placed Origin to Origin, empty or default-named worksets, worksets owned by someone else, elements on the wrong workset) and give plain next steps. | No | sync |
 | `model_bloat_audit` | Check a saved snapshot for model bloat: unused families and types (purge candidates), in-place families, families with very many types, imported CAD files, and a rough cleanliness score, sorted by likely impact. | No | sync |
 | `model_changes_compare_snapshots` | Say what changed between two saved snapshots: elements added, removed or modified, parameter values before and after, and counts per category. | No | sync |
 | `model_changes_list_snapshots` | List the saved model snapshots with their timestamps, newest first, so you can pick the latest and previous ones to compare. | No | sync |
+| `model_health_score` | Give a 0 to 100 health score for a saved snapshot with its components, and a trend across all saved snapshots of the same document with changes between captures. | No | sync |
 | `model_inspector_ask` | Answer a question about a saved snapshot by filtering its element records with the filter DSL. | No | sync |
 | `model_inspector_inspect_selection` | Return the snapshot records of the given elements (by UniqueId). | No | sync |
 | `model_inspector_list_groups` | List the model groups found in a saved snapshot. | No | sync |
@@ -94,6 +96,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `module_list_commands` | List all registered modules and the commands they expose to the dockable Revit panel. | No | sync |
 | `naming_checker_check_names` | Check file names, sheet numbers and names, view names and level or grid names against the naming convention you provide (a pattern of named fields with allowed values per field). | No | sync |
 | `naming_checker_list_example_conventions` | List the bundled example naming conventions. | No | sync |
+| `param_completeness_heatmap` | Measure how many elements have a value in each parameter, per category (and per level on request), from a saved snapshot: filled, total and percent. | No | sync |
 | `parameter_manager_diff_params` | Compare parameter values between two saved snapshots and list the differences. | No | sync |
 | `parameter_manager_export_params_csv` | Export parameters of the matching snapshot elements to a CSV file in the workspace. | No | sync |
 | `parameter_manager_filter_params` | Return a parameter grid for the elements of a snapshot that match a filter, optionally including read-only parameters. | No | sync |

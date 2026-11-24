@@ -87,3 +87,13 @@ covers door Mark, unplaced doors and room Number. To use it:
 
 To share your own pack, call `qaqc_checker_export_rule_pack` and send the
 resulting YAML file; the recipient imports it the same way.
+
+## IDS validation
+
+`ids_validator_validate_ifc` checks an IFC file against a buildingSMART IDS file (`.ids` XML) with `ifctester` from IfcOpenShell. Both files must be inside the workspace. It needs the optional extra and refuses with an install hint without it:
+
+```
+pip install "aec-model-bridge[ids]"
+```
+
+The result gives pass, fail or skipped per specification (skipped means the specification is for another IFC schema version), the applicable, passed and failed entity counts, the failing GlobalIds with their class, name and reasons (at most `max_failed` per specification, default 50; the counts stay complete), and the requirement summary. `html_filename` and `json_filename` write a report inside the workspace. The IFC and IDS files are only read. This is separate from the rule packs above, which run on snapshots. `ifctester` is limited to 0.8.x because 0.9 needs a newer IfcOpenShell than this project locks.
