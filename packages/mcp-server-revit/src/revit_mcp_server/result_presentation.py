@@ -21,7 +21,7 @@ TRIM_HINT = "narrow with limit/offset/count_only/fields or filters"
 # even where read-only, as is any tool with a 'plan' word in its name and recipe_get
 # (see tool_metadata.is_read_only_tool). A result holding any top-level PLAN_KEYS gets the same treatment.
 APPROVAL_TOOLS = frozenset({
-    "plan_actions", "execute_plan", "list_pending_plans", "get_proof_bundle", "plan_revert",
+    "plan_actions", "execute_plan", "list_pending_plans", "get_proof_bundle", "plan_revert", "policy_show",
     "approve_plan", "reject_plan", "rollback_plan",
     "job_status", "job_cancel", "revit_job_status", "revit_job_cancel", "revit_run_job", "revit_get_result",
 })
@@ -129,6 +129,9 @@ def _omit_plan_arguments(result: Any) -> Any:
             diff["after_omitted"] = True
         omitted = True
     if omitted:
+        # The preview echoes the arguments, so a summary leaves it out; blast_radius stays.
+        summary.pop("preview", None)
+        summary.pop("preview_markdown", None)
         summary["response_note"] = (
             "Summary only: action arguments are omitted. A person must review the full stored plan "
             "in the Revit panel or approval CLI before approval. plan_hash identifies that stored plan."

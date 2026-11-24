@@ -2,7 +2,7 @@
 
 Measured 2026-11-05 with `MCP_REVIT_MODE=mock`, the supplied Python interpreter, a temporary workspace, no user modules or provider credentials, and no Revit model execution. Baseline captured at `87d1d1bb5312ccb9868786860cbc66f76c47b895` before production changes; results were reported before edits.
 
-The checkout exposes **303** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
+The checkout exposes **304** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
 
 ## Initial profile and response pass
 
@@ -59,9 +59,9 @@ Same method as above (mock mode, `scripts/measure_mcp_tokens.py`, chars / 4, ove
 | --- | ---: | ---: | ---: |
 | `full` | 302 | 80,191 | 80,191 |
 | `daily` | 231 | 62,225 | 62,225 |
-| `core` | 54 | not available | 14,151 |
+| `core` | 55 | not available | 14,151 |
 
-Core is 82% smaller than full and 77% smaller than daily. It is still above 10k tokens, mostly the five approval tools (about 1,000), `revit_set_parameters`/`revit_get_parameters` (about 1,760) and the audits. Full and daily are unchanged, so no existing setup changes.
+Core is 82% smaller than full and 77% smaller than daily. It is still above 10k tokens, mostly the approval tools (about 1,000 for the first five; `policy_show` was added after these figures were measured), `revit_set_parameters`/`revit_get_parameters` (about 1,760) and the audits. Full and daily are unchanged, so no existing setup changes.
 
 The family map is three lines in `SERVER_INSTRUCTIONS` (447 characters, about 112 tokens, sent once at initialisation, not part of the tool list). It names the prefixes and says a tool missing from the list is hidden by the startup profile and how to reach it (switch profile and restart). Instructions total 1,379 characters (about 345 tokens); the approval and Dev mode sentences are byte-for-byte unchanged and a test pins them. Core plus map is about 14,263 tokens.
 

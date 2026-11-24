@@ -26,6 +26,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `list_pending_plans` | List all ActionPlans that are waiting for review. | No | sync |
 | `plan_actions` | Create a draft ActionPlan describing the model changes you want to make, capturing the before-state of each. | No | sync |
 | `plan_revert` | Draft a new ActionPlan that sets each parameter back to the before value recorded in an executed plan's proof bundle. | No | sync |
+| `policy_show` | Show the effective workspace policy (blocked and allowed tools, allowed categories, blocked parameters, plan size limits) and its hash. | No | sync |
 | `reject_plan` | Reject and archive a pending ActionPlan so that it can never be executed. | No | sync |
 | `rollback_plan` | Write back the recorded before-values of an already executed ActionPlan, in reverse order. | No | sync |
 

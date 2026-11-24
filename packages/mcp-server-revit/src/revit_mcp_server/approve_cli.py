@@ -28,6 +28,7 @@ from .config import config
 from .errors import BridgeError
 from .security import proof as proof_mod
 from .security.approval import STALE_RUNNING_SECONDS, ApprovalGate, local_user, plan_hash, running_actions
+from .security.plan_review import review_aids
 from .security.proof import normalize_review
 from .security.recipe_store import RecipeError, RecipeStore, validate_recipe_id
 
@@ -396,6 +397,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 1
     expired = gate.expiry_reason(plan)
     print(describe_plan(plan, expired))
+    aids = review_aids(plan, gate.workspace_dir)
+    if aids.get("preview_markdown"):
+        print("\nPreview (computed from the actions above, not part of the hash):\n" + "\n".join(safe_text(ln) for ln in aids["preview_markdown"].split("\n")))
     print(f"\nPlan hash: {shown_hash}")
 
     if args.command == "show":

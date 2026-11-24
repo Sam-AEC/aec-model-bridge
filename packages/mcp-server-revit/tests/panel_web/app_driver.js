@@ -486,6 +486,53 @@
     expect(!sent().some((m) => m.type === "link.open"), "a link was opened");
   });
 
+  // ---- preview table and blast radius ---------------------------------------------------
+  const ROW = (n, over) => Object.assign({ action_id: "a" + n, tool: "revit_set_parameter_value", element_id: String(n),
+    unique_id: null, parameter: "Mark", before: "(empty)", after: "A" + n }, over || {});
+  const RADIUS = { element_count: 2, action_count: 2, unidentified_actions: 0, categories: ["Walls", "unknown"],
+    levels: ["unknown"], worksets: ["unknown"], risk: "medium" };
+
+  test("preview: table shows before/after rows and the blast radius", () => {
+    fresh();
+    plans([V2("pv1", null, { review_view: { status: "none", hash_version: 1, reverts_plan_id: null, review: null, error: "" },
+      hash_version: undefined, preview: { rows: [ROW(1), ROW(2, { before: "old" })], row_count: 2, rows_omitted: 0 }, blast_radius: RADIUS })]);
+    const card = cardOf("pv1");
+    const cells = Array.from(card.querySelectorAll(".plan-preview-table tr")).map((tr) => Array.from(tr.children).map((c) => c.textContent));
+    expect(cells.length === 3 && cells[0][3] === "Before" && cells[1][3] === "(empty)" && cells[2][3] === "old" && cells[2][4] === "A2", "rows " + JSON.stringify(cells));
+    expect(cells[1][1] === "unknown", "missing UniqueId should read unknown");
+    const head = card.querySelector(".plan-blast");
+    expect(head && /Risk: medium/.test(head.textContent) && /Categories: Walls, unknown/.test(head.textContent), "blast radius header missing");
+    expect(!!approveBtn(card) && !approveBtn(card).disabled, "preview must not change Approve state");
+  });
+
+  test("preview: rows are capped at 25 and the rest is counted", () => {
+    fresh();
+    const rows = Array.from({ length: 30 }, (_, i) => ROW(i + 1));
+    plans([V2("pv2", null, { review_view: { status: "none", hash_version: 1, reverts_plan_id: null, review: null, error: "" },
+      hash_version: undefined, preview: { rows, row_count: 30, rows_omitted: 0 }, blast_radius: RADIUS })]);
+    const card = cardOf("pv2");
+    expect(card.querySelectorAll(".plan-preview-table tr").length === 26, "expected header + 25 rows");
+    expect(/5 more row\(s\) not shown/.test(card.querySelector(".plan-preview").textContent), "omitted count missing");
+  });
+
+  test("preview: hostile cell text stays inert", () => {
+    fresh();
+    plans([V2("pv3", null, { review_view: { status: "none", hash_version: 1, reverts_plan_id: null, review: null, error: "" },
+      hash_version: undefined, preview: { rows: [ROW(1, { after: XSS, parameter: XSS, tool: XSS, before: "x\u202Ey" })], row_count: 1, rows_omitted: 0 },
+      blast_radius: Object.assign({}, RADIUS, { categories: [XSS], risk: XSS }) })]);
+    const card = cardOf("pv3");
+    expect(card.querySelectorAll(FORBIDDEN).length === 0, "active element in card");
+    expect(card.querySelector(".plan-preview").textContent.includes("<script>window.__pwned=1</script>"), "markup should be literal text");
+    expect(!card.querySelector(".plan-preview").textContent.includes("\u202E"), "bidi override shown raw");
+    expect(window.__pwned === undefined, "script ran");
+  });
+
+  test("preview: a plan without preview data still renders", () => {
+    fresh();
+    plans([PLAN("pv4", [SET([1], true)])]);
+    expect(!!cardOf("pv4") && !cardOf("pv4").querySelector(".plan-preview"), "card should render with no preview block");
+  });
+
   test("review: hostile text in the reverts id stays inert", () => {
     fresh();
     const p = V2("x2", REVIEW());

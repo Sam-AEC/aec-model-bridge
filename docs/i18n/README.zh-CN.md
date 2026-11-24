@@ -117,7 +117,7 @@ the plan in Revit, apply it and read the values back to confirm the result.
 | 领域 | 工具数 | 功能 |
 | --- | --- | --- |
 | Revit | 110 | 读取模型，创建和编辑构件、参数、视图、图纸、明细表，导出，工作共享 |
-| 审批 | 5 | 规划、审阅、批准、执行并回滚模型变更 |
+| 审批 | 6 | 规划、审阅、批准、执行并回滚模型变更 |
 | 模块 | 109 | 快照检查、参数网格、QA/QC 检查、配方、报告、选择集 |
 | Rhino 与 Grasshopper | 19 | 几何体、图层、材质、布尔运算 |
 | Speckle | 17 | 项目、模型、版本、发送与接收 |
@@ -125,7 +125,7 @@ the plan in Revit, apply it and read the values back to confirm the result.
 | IFC | 7 | 无需 Revit 即可读取 IFC 文件：结构、属性、校验 |
 | 图谱、快照、导出、作业 | 21 | 语义图谱审计、快照差异比对、SQLite 导出、后台作业 |
 
-默认配置下共列出 303 个工具（在 mock 模式下统计自当前服务器）。配置 APS 凭据后会出现 Autodesk Data 工具。[工具参考](../tools-generated.md)列出了所有工具。每个工具都带有 MCP 注解（`readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`），客户端据此区分读取和写入。
+默认配置下共列出 304 个工具（在 mock 模式下统计自当前服务器）。配置 APS 凭据后会出现 Autodesk Data 工具。[工具参考](../tools-generated.md)列出了所有工具。每个工具都带有 MCP 注解（`readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`），客户端据此区分读取和写入。
 
 ### 高级 Revit 自动化
 

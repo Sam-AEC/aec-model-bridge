@@ -263,7 +263,7 @@ def test_panel_registry_is_unfiltered_even_when_env_requests_daily(tmp_path, mon
     assert registry.is_tool_visible("native_alias")
 
 
-APPROVAL_TOOLS = {"plan_actions", "execute_plan", "list_pending_plans", "plan_revert", "get_proof_bundle"}
+APPROVAL_TOOLS = {"plan_actions", "execute_plan", "list_pending_plans", "plan_revert", "get_proof_bundle", "policy_show"}
 
 
 def _approval_names(profile):
@@ -309,7 +309,7 @@ def test_approval_provider_is_allowed_even_for_a_hand_built_excluding_profile():
 
 # ---- core profile: a short allowlist of tool names -----------------------------------
 
-CORE_COUNT = 54  # CORE_TOOLS (49) + the five always-visible approval tools
+CORE_COUNT = 55  # CORE_TOOLS (49) + the six always-visible approval tools
 
 
 def test_core_list_is_pinned_and_names_each_tool_once():

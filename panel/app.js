@@ -464,9 +464,16 @@ function renderPlans() {
       <p>${escapeHtml(plan.detail)}</p>
       <p class="plan-cli">Plan <code>${id}</code>. To read it in full: <code class="plan-cli-command">${escapeHtml(cliShowCommand(plan.id))}</code>
         <button type="button" class="review-more" data-copy-command="${id}">Copy command</button></p>
+      ${actionable ? '<div data-preview-mount></div>' : ""}
       ${actionable ? `<pre class="plan-review">${escapeHtml(clipActions(plan.review))}</pre>` : ""}
       <div data-review-mount></div>
       ${actions}`;
+    const previewMount = item.querySelector("[data-preview-mount]");
+    if (previewMount) {
+      const block = buildPreviewBlock(plan.preview, plan.blastRadius, plan.id);
+      if (block) previewMount.replaceWith(block);
+      else previewMount.remove();
+    }
     const pre = item.querySelector("pre.plan-review");
     if (pre && plan.review.length > ACTIONS_CLIP) {
       const more = document.createElement("button");
@@ -1024,6 +1031,49 @@ function planActionLines(actions) {
   });
 }
 
+const PREVIEW_ROW_CAP = 25;
+
+// Before/after table and blast radius for a plan card. Every cell is a text node run through
+// visibleText; a malformed or missing block yields null and the card simply omits it.
+function buildPreviewBlock(preview, radius, planId) {
+  try {
+    const rows = isPlainObject(preview) && Array.isArray(preview.rows) ? preview.rows.filter(isPlainObject) : [];
+    if (!isPlainObject(radius) && rows.length === 0) return null;
+    const root = reviewEl("div", "plan-preview");
+    if (isPlainObject(radius)) {
+      const list = (v) => (Array.isArray(v) ? v.map((x) => visibleText(x)).join(", ") : "unknown");
+      const head = reviewEl("p", "plan-blast");
+      head.dataset.risk = visibleText(radius.risk);
+      head.textContent =
+        `Risk: ${visibleText(radius.risk)}. ${visibleText(radius.element_count)} element(s), ` +
+        `${visibleText(radius.action_count)} action(s). Categories: ${list(radius.categories)}. ` +
+        `Levels: ${list(radius.levels)}. Worksets: ${list(radius.worksets)}.`;
+      root.append(head);
+    }
+    if (rows.length > 0) {
+      const table = reviewEl("table", "plan-preview-table");
+      const headRow = reviewEl("tr");
+      ["Element", "UniqueId", "Parameter", "Before", "After", "Tool"].forEach((h) => headRow.append(reviewEl("th", "", h)));
+      table.append(headRow);
+      rows.slice(0, PREVIEW_ROW_CAP).forEach((row) => {
+        const tr = reviewEl("tr");
+        [row.element_id === null || row.element_id === undefined ? "unknown" : row.element_id,
+          row.unique_id || "unknown", row.parameter || "-", row.before, row.after, row.tool]
+          .forEach((cell) => tr.append(reviewEl("td", "", visibleText(cell === undefined || cell === null ? "" : cell))));
+        table.append(tr);
+      });
+      root.append(table);
+      const total = Number.isSafeInteger(preview.row_count) ? preview.row_count : rows.length;
+      if (total > PREVIEW_ROW_CAP) {
+        root.append(reviewEl("p", "review-empty", `${total - PREVIEW_ROW_CAP} more row(s) not shown. To read all of them: ${cliShowCommand(planId)}`));
+      }
+    }
+    return root;
+  } catch (error) {
+    return null;
+  }
+}
+
 function mapPlans(hubResult) {
   const all = (hubResult && hubResult.plans) || [];
   const hubOmitted = Number.isSafeInteger(hubResult && hubResult.omitted) && hubResult.omitted > 0 ? hubResult.omitted : 0;
@@ -1039,6 +1089,8 @@ function mapPlans(hubResult) {
       detail: actions.map((action) => action.tool).join(", ") || "No actions",
       review: planActionLines(actions).join("\n") || "No actions",
       reviewState,
+      preview: plan.preview,
+      blastRadius: plan.blast_radius,
       reviewBlocked: !reviewState.ok,
       reviewPending: reviewState.ok && reviewState.version === 2 && !state.openedReviews.has(`${plan.plan_id}:${plan.plan_hash || ""}`),
       // Facts for the chat card, from the same real actions: tool, arguments, captured before value.

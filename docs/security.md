@@ -179,6 +179,10 @@ Dev permits unplanned writes while retaining Look only lockdown. Calls supplying
 - **Navisworks.** Only `health`, `get_document_info`, `get_model_tree`, `get_selection`, `list_viewpoints`, `list_clash_tests` and `get_clash_results` skip the gate. Every other Navisworks tool, including any added later, is gated. This includes `navisworks_reflect_get` and `revit_reflect_get`: a property getter on an arbitrary object can have side effects.
 - **UNVERIFIED:** `revit_calculate_material_quantities` stays ungated although the Revit add-in marks it mutating. The flag looks wrong, but this needs a Revit run to confirm; it is listed in `KNOWN_UNGATED` in `tests/test_addin_hub_contract.py`.
 
+### Workspace policy
+
+An optional `policy.yaml` (or `MCP_REVIT_POLICY_FILE`) can block tools or parameters, limit categories and cap plan size. It is checked when a plan is drafted and again just before `execute_plan` runs its first action, so a tightened policy stops plans that were drafted earlier. It only adds refusals: approval stays with a person, and no policy rule approves or runs a plan. An invalid file refuses all plan drafting and execution. See [Policy file](configuration-reference.md#policy-file).
+
 ### Plan review in the panel
 
 The panel's `/execute` route adds a `review_view` to each plan in a `list_pending_plans` result and drops the raw `review` key from that copy. The hub computes it: `status` is `none` (a hash_version 1 plan with nothing outside its hash), `ok` (a hash_version 2 plan whose review is canonical, whose `reverts_plan_id` has the shape `plan_` plus 12 hex digits, and whose stored hash matches its content) or `invalid`. It also carries `hash_version`, `reverts_plan_id` and the normalised `review`. Through MCP and the chat, `list_pending_plans` is unchanged (no `review_view`); approve, reject and rollback stay human-only.
