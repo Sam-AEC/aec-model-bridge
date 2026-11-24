@@ -16,7 +16,10 @@ namespace RevitBridge.Bridge;
 
 public static partial class BridgeCommandFactory
 {
-    private static readonly Dictionary<string, Func<UIApplication, JsonElement, object>> _handlers = new();
+    // Name to handler, built once from the [BridgeCommand] attributes (#291). Frozen on net8/net10.
+    private static readonly IReadOnlyDictionary<string, Func<UIApplication, JsonElement, object>> _handlers;
+    // Commands declared IsMutating = false and ConfirmationRequired = false: the only ones revit.batch runs.
+    private static readonly HashSet<string> _readOnlyCommands = new(StringComparer.Ordinal);
     private static readonly List<object> _capabilities = new();
     private static readonly List<string> _catalog = new();
 
@@ -32,8 +35,17 @@ public static partial class BridgeCommandFactory
         set => _currentActionId = value;
     }
 
+    // Above zero while revit.batch runs its members on this thread (#277). CreateTransaction refuses
+    // then, so a member that tries to change the model fails instead of writing.
+    [ThreadStatic]
+    private static int _readBatchDepth;
+
+    internal static bool InReadBatch => _readBatchDepth > 0;
+
     public static BridgeTransaction CreateTransaction(Document doc, string name)
     {
+        if (InReadBatch)
+            throw new InvalidOperationException($"'{name}' would change the model, and revit.batch runs reads only. Send this command on its own through a plan.");
         var actionId = CurrentActionId;
         string txName = string.IsNullOrEmpty(actionId) ? $"AMB: {name}" : $"AMB: {name} #{actionId}";
         return new BridgeTransaction(doc, txName, messages => _currentTransactionMessages?.AddRange(messages));
@@ -42,14 +54,17 @@ public static partial class BridgeCommandFactory
     static BridgeCommandFactory()
     {
         var methods = typeof(BridgeCommandFactory).GetMethods(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var entries = new List<KeyValuePair<string, Func<UIApplication, JsonElement, object>>>();
         foreach (var method in methods)
         {
             var attr = (BridgeCommandAttribute)Attribute.GetCustomAttribute(method, typeof(BridgeCommandAttribute));
             if (attr != null)
             {
                 var func = CreateHandlerDelegate(method);
-                _handlers[attr.Name] = func;
+                entries.Add(new KeyValuePair<string, Func<UIApplication, JsonElement, object>>(attr.Name, func));
                 _catalog.Add(attr.Name);
+                if (!attr.IsMutating && !attr.ConfirmationRequired)
+                    _readOnlyCommands.Add(attr.Name);
 
                 _capabilities.Add(new
                 {
@@ -59,6 +74,15 @@ public static partial class BridgeCommandFactory
                 });
             }
         }
+
+        // Throws on a duplicate name (the old dictionary let the second handler silently replace the first).
+        _handlers = BridgeDispatchTable.Build(entries);
+    }
+
+    /// <summary>True for a known command declared IsMutating = false without ConfirmationRequired.</summary>
+    internal static bool IsReadOnlyCommand(string tool)
+    {
+        return _readOnlyCommands.Contains(tool);
     }
 
     private static Func<UIApplication, JsonElement, object> CreateHandlerDelegate(System.Reflection.MethodInfo method)
@@ -79,6 +103,10 @@ public static partial class BridgeCommandFactory
     {
         if (_handlers.TryGetValue(tool, out var handler))
         {
+            // Saved and restored so revit.batch can run its members through Execute without
+            // clearing its own state. At the top level both are null, as before.
+            var outerActionId = CurrentActionId;
+            var outerMessages = _currentTransactionMessages;
             try
             {
                 _currentTransactionMessages = new List<BridgeFailureMessage>();
@@ -100,11 +128,70 @@ public static partial class BridgeCommandFactory
             }
             finally
             {
-                CurrentActionId = null;
-                _currentTransactionMessages = null;
+                CurrentActionId = outerActionId;
+                _currentTransactionMessages = outerMessages;
             }
         }
         return new { status = "error", message = $"Unknown tool: {tool}" };
+    }
+
+    // ==================== BATCH (#277) ====================
+
+    // Runs up to 25 read-only commands in order inside one Revit turn and returns one entry per
+    // command, each with its own ok/error. The whole batch is refused before anything runs when a
+    // member is unknown, mutating, needs confirmation, or is revit.batch itself. Writes never go
+    // through here: they stay on the plan and approval path. Members still waiting after
+    // BridgeBatch.TimeBudgetMs are reported as not run. UNVERIFIED in live Revit (latency not measured).
+    [BridgeCommand("revit.batch", IsMutating = false)]
+    private static object ExecuteBatch(UIApplication app, JsonElement payload)
+    {
+        var members = BridgeBatch.Parse(payload, IsReadOnlyCommand);
+        var results = new List<object>(members.Count);
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+
+        _readBatchDepth++;
+        try
+        {
+            foreach (var member in members)
+            {
+                if (clock.ElapsedMilliseconds > BridgeBatch.TimeBudgetMs)
+                {
+                    results.Add(new
+                    {
+                        index = member.Index,
+                        tool = member.Tool,
+                        ok = false,
+                        error = $"Not run: the batch passed its {BridgeBatch.TimeBudgetMs / 1000} s budget. Send this command again.",
+                        not_run = true
+                    });
+                    continue;
+                }
+
+                try
+                {
+                    var result = Execute(app, member.Tool, member.Payload);
+                    results.Add(new { index = member.Index, tool = member.Tool, ok = true, result });
+                }
+                catch (Exception ex)
+                {
+                    var inner = ex is System.Reflection.TargetInvocationException tie && tie.InnerException != null ? tie.InnerException : ex;
+                    results.Add(new
+                    {
+                        index = member.Index,
+                        tool = member.Tool,
+                        ok = false,
+                        error = inner.Message,
+                        result = BridgeTransactionException.Find(inner)?.ToResult()
+                    });
+                }
+            }
+        }
+        finally
+        {
+            _readBatchDepth--;
+        }
+
+        return new { batch = true, count = results.Count, results };
     }
 
     public static List<string> GetToolCatalog()
@@ -2778,9 +2865,9 @@ public static partial class BridgeCommandFactory
             .ToList();
 
         var ids = requestedUids
-            .Select(uid => doc.GetElement(uid))
+            .Select(uid => ElementLookup.ByUniqueId(doc, uid))
             .Where(element => element != null)
-            .Select(element => element.Id)
+            .Select(element => element!.Id)
             .ToList();
 
         if (ids.Count == 0)
@@ -2814,7 +2901,7 @@ public static partial class BridgeCommandFactory
             foreach (var x in uidsProp.EnumerateArray())
             {
                 requested++;
-                var element = doc.GetElement(x.GetString());
+                var element = ElementLookup.ByUniqueId(doc, x.GetString());
                 if (element != null) ids.Add(element.Id);
             }
         }
@@ -5049,7 +5136,7 @@ public static partial class BridgeCommandFactory
                 if (uid.StartsWith("deleted:")) continue;
                 try
                 {
-                    var elem = doc.GetElement(uid);
+                    var elem = ElementLookup.ByUniqueId(doc, uid);
                     if (elem != null) idsToExtract.Add(elem.Id);
                 }
                 catch { }

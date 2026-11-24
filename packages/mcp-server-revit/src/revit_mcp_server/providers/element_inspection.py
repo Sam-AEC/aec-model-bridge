@@ -62,15 +62,10 @@ def _error(message: str, code: str, **details: Any) -> dict[str, Any]:
     return {"success": False, "status": "error", "error": {"code": code, "message": message}, **details}
 
 
-async def _read(
-    execute: Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]],
-    tool: str,
-    arguments: dict[str, Any],
-) -> dict[str, Any]:
-    try:
-        result = await execute(tool, arguments)
-    except Exception as exc:
-        return _error(str(exc), "READ_FAILED", exception_type=type(exc).__name__)
+def _classify(result: Any, arguments: dict[str, Any]) -> dict[str, Any]:
+    """Judge one read result (or the exception it raised) the same way for single and batched reads."""
+    if isinstance(result, BaseException):
+        return _error(str(result), "READ_FAILED", exception_type=type(result).__name__)
     if not isinstance(result, dict) or not result:
         return _error("Dedicated read returned no structured result", "INVALID_READ_RESULT")
     if result.get("success") is False or result.get("ok") is False or result.get("error") or result.get("status") == "error":
@@ -85,8 +80,19 @@ async def _read(
     return {"success": True, "status": "success", "data": result}
 
 
-async def _document(execute: Callable[..., Awaitable[dict[str, Any]]]) -> dict[str, Any]:
-    result = await _read(execute, "revit_get_document_info", {})
+async def _read(
+    execute: Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]],
+    tool: str,
+    arguments: dict[str, Any],
+) -> dict[str, Any]:
+    try:
+        result = await execute(tool, arguments)
+    except Exception as exc:
+        result = exc
+    return _classify(result, arguments)
+
+
+def _document_section(result: dict[str, Any]) -> dict[str, Any]:
     if result["success"]:
         data = result["data"]
         if not isinstance(data.get("title"), str) or not data["title"].strip() or not isinstance(data.get("path"), str):
@@ -96,10 +102,50 @@ async def _document(execute: Callable[..., Awaitable[dict[str, Any]]]) -> dict[s
     return result
 
 
+async def _document(execute: Callable[..., Awaitable[dict[str, Any]]]) -> dict[str, Any]:
+    return _document_section(await _read(execute, "revit_get_document_info", {}))
+
+
+ReadBatch = Callable[[list[tuple[str, dict[str, Any]]]], Awaitable[list[Any]]]
+
+
+async def _batched_reads(
+    execute_batch: ReadBatch, ids: list[int], names: list[str]
+) -> tuple[dict[int, tuple[dict[str, Any], list[dict[str, Any]]]], dict[str, Any]] | None:
+    """Element reads plus the closing document read through the read batch (#277), in the same
+    order as the one-by-one path. None when the batch cannot be used; the caller then reads one by one."""
+    calls: list[tuple[str, dict[str, Any]]] = []
+    for element_id in ids:
+        calls.append(("revit_get_element_geometry", {"element_id": element_id}))
+        calls.extend(("revit_get_parameter_value", {"element_id": element_id, "parameter_name": name}) for name in names)
+    calls.append(("revit_get_document_info", {}))
+    try:
+        answers = await execute_batch(calls)
+    except Exception:
+        return None
+    if not isinstance(answers, list) or len(answers) != len(calls):
+        return None
+    sections = iter(zip(calls, answers))
+    per_element: dict[int, tuple[dict[str, Any], list[dict[str, Any]]]] = {}
+    for element_id in ids:
+        (_, geometry_args), geometry_answer = next(sections)
+        geometry = _classify(geometry_answer, geometry_args)
+        parameters = []
+        for name in names:
+            (_, parameter_args), parameter_answer = next(sections)
+            parameters.append({"parameter_name": name, **_classify(parameter_answer, parameter_args)})
+        per_element[element_id] = (geometry, parameters)
+    (_, document_args), document_answer = next(sections)
+    return per_element, _document_section(_classify(document_answer, document_args))
+
+
 async def inspect_elements(
     execute: Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]],
     arguments: dict[str, Any],
+    execute_batch: ReadBatch | None = None,
 ) -> dict[str, Any]:
+    """execute_batch, when given, runs the element reads and the closing document read in groups
+    (RevitProvider.execute_read_batch): fewer Revit turns, same reads, same order, same result shape."""
     ids, names, expected = validate_inspection(arguments)
     before = await _document(execute)
     guard_error = None
@@ -107,6 +153,10 @@ async def inspect_elements(
         guard_error = "DOCUMENT_UNVERIFIED"
     elif expected is not None and before["data"]["title"] != expected:
         guard_error = "DOCUMENT_TITLE_MISMATCH"
+
+    batched = None
+    if execute_batch is not None and not guard_error:
+        batched = await _batched_reads(execute_batch, ids, names)
 
     elements = []
     for element_id in ids:
@@ -116,6 +166,8 @@ async def inspect_elements(
             }}
             geometry = dict(skipped)
             parameters = [{"parameter_name": name, **skipped} for name in names]
+        elif batched is not None:
+            geometry, parameters = batched[0][element_id]
         else:
             # Await every read in order. No concurrent Revit user-interface requests.
             geometry = await _read(execute, "revit_get_element_geometry", {"element_id": element_id})
@@ -133,9 +185,12 @@ async def inspect_elements(
             "parameters": parameters,
         })
 
-    after = await _document(execute) if not guard_error else {
-        "success": False, "status": "skipped", "reason": "Initial document guard failed",
-    }
+    if guard_error:
+        after = {"success": False, "status": "skipped", "reason": "Initial document guard failed"}
+    elif batched is not None:
+        after = batched[1]
+    else:
+        after = await _document(execute)
     unchanged = bool(before["success"] and after["success"] and before["data"] == after["data"])
     sections = [section for element in elements for section in [element["geometry"], *element["parameters"]]]
     succeeded = sum(section["success"] for section in sections)
