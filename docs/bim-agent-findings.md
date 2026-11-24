@@ -83,7 +83,7 @@ Status: **done** (in the repo, committed), **open**.
 Almost every spatial error had the same shape: **coordinates computed by hand from hidden conventions, with no geometric
 feedback until later.** A stronger model does not remove Revit's conventions. What removes the errors is (1) measurement
 at placement time, (2) a deterministic geometry layer that does the arithmetic, and (3) automatic checks that make the
-error impossible to ship. The reviewer in `scripts/revit/bim_review` is the first layer of that; its checks `WALL_ORIENT`,
+error impossible to ship. The reviewer is the first layer of that. `scripts/revit/bim_review` is deprecated in favour of the read-only `bim-reviewer` agent, which uses `revit_review` and `revit_render_check`. The script's checks `WALL_ORIENT`,
 `FIXTURE_LEVEL` and `FIXTURE_BACK` were each added after a defect was found, and each now fails if the defect returns.
 
 ## F. Villa 2 session (DWG to Revit, 2026-10-13): new findings

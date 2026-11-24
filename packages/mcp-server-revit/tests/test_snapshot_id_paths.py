@@ -186,12 +186,21 @@ def test_real_snapshot_id_still_loads_everywhere(ws):
         familytype_mapper._load_snapshot("missing", ws)
 
 
-RAW_JOIN = re.compile(r"""f["']\{snapshot_id\}\.json["']""")
+@pytest.mark.parametrize("raw", BAD_IDS)
+def test_semantic_provider_loader_refuses_a_hostile_snapshot_id(ws, opened, raw):
+    from revit_mcp_server.providers.semantic_provider import SemanticProvider
+
+    with pytest.raises(ValueError, match=PLAIN):
+        SemanticProvider(ws)._load_snapshot(_bad(ws, raw))
+    assert not [p for p in opened if "x.json" in p]
 
 
-def test_no_raw_snapshot_id_json_join_under_modules_or_semantic():
+RAW_JOIN = re.compile(r"""f["']\{(?:\w+\.)?snapshot_id\}\.json["']""")
+
+
+def test_no_raw_snapshot_id_json_join_under_modules_semantic_or_providers():
     offenders = []
-    for folder in ("modules", "semantic"):
+    for folder in ("modules", "semantic", "providers"):
         for path in (SRC / folder).rglob("*.py"):
             for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
                 if RAW_JOIN.search(line):

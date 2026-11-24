@@ -234,7 +234,9 @@ async def snapshot_take(workspace: Any, bridge_client_or_provider: Any = None, o
     # Store snapshot in workspace/snapshots folder
     snapshots_dir = workspace.allowed_directories[0] / "snapshots"
     snapshots_dir.mkdir(parents=True, exist_ok=True)
-    snapshot_path = snapshots_dir / f"{snapshot.snapshot_id}.json"
+    from revit_mcp_server.security.safe_paths import snapshot_file
+
+    snapshot_path = snapshot_file(snapshots_dir, snapshot.snapshot_id)
 
     with open(snapshot_path, "w", encoding="utf-8") as f:
         f.write(snapshot.model_dump_json(by_alias=True, indent=2))
