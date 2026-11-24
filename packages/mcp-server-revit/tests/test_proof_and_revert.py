@@ -304,3 +304,20 @@ async def test_revert_unknown_storage_type_coerces_conservatively_with_note(tmp_
     assert got["Mark"] == "12"  # new value was text, so stays text
     notes = revert["review"]["assumptions"]
     assert len(notes) == 2 and all("storage type not recorded" in n for n in notes)
+
+
+def test_load_snapshot_doc_reports_why_snapshot_is_missing(tmp_path):
+    from revit_mcp_server.security.proof import _load_snapshot_doc
+
+    doc, uids = _load_snapshot_doc(tmp_path, "nosuchsnap")
+    assert uids == {}
+    assert doc["snapshot_error"].startswith("FileNotFoundError")
+    assert "uids unavailable" in doc["note"]
+
+    (tmp_path / "snapshots").mkdir()
+    (tmp_path / "snapshots" / "bad.json").write_text("{not json", encoding="utf-8")
+    doc, _ = _load_snapshot_doc(tmp_path, "bad")
+    assert doc["snapshot_error"].startswith("JSONDecodeError")
+
+    doc, _ = _load_snapshot_doc(tmp_path, "../x")
+    assert "plain snapshot name" in doc["snapshot_error"]

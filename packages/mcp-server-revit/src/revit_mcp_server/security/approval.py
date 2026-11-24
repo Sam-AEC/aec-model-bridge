@@ -141,16 +141,20 @@ def plan_hash(plan: Dict[str, Any]) -> str:
 def _locked_file(path: Path) -> Iterator[None]:
     """Exclusive lock on ``path`` across processes (fcntl on POSIX, msvcrt on Windows)."""
     path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        import fcntl
+        msvcrt = None
+    except ImportError:  # pragma: no cover - Windows
+        import msvcrt
+        fcntl = None
     with open(path, "a+b") as fh:
-        try:
-            import fcntl
+        if fcntl is not None:
             fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
             try:
                 yield
             finally:
                 fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
-        except ImportError:  # pragma: no cover - Windows
-            import msvcrt
+        else:  # pragma: no cover - Windows
             fh.seek(0)
             msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)
             try:
