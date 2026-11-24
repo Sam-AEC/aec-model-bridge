@@ -38,7 +38,7 @@ Python 3.14 and later are not tested. They may work, but nobody has checked.
 | Older 1.x releases | Not separately. Upgrade to the latest 1.x. |
 | Earlier than 1.0 | No |
 
-The same table is in [SECURITY.md](../SECURITY.md#supported-versions). The repository does not describe backports to older minor lines, so none are promised.
+The same table is in [SECURITY.md](../.github/SECURITY.md#supported-versions). The repository does not describe backports to older minor lines, so none are promised.
 
 ## What counts as a breaking change
 

@@ -11,7 +11,7 @@ contribution under both.
 
 There is no contributor agreement in force yet. Until there is one, code pull
 requests cannot be merged. We are not asking anyone to sign anything now.
-[docs/legal/CLA-DRAFT.md](docs/legal/CLA-DRAFT.md) is a draft of what it might
+[docs/legal/CLA-DRAFT.md](../docs/legal/CLA-DRAFT.md) is a draft of what it might
 look like. It is not reviewed by a lawyer and not in force. If you plan a larger
 code contribution, say so in your issue and we will settle the terms first.
 
@@ -27,7 +27,7 @@ without any agreement.
 - Do not add proprietary dependencies without discussing them in an issue
   first. Autodesk Revit and Navisworks assemblies are referenced from the
   user's own installation and are never committed or packaged (see
-  [TRADEMARKS.md](TRADEMARKS.md)).
+  [TRADEMARKS.md](../docs/legal/TRADEMARKS.md)).
 - A new dependency needs a licence that is compatible with GPL-3.0-or-later
   and that does not stop a commercial licence of this project. MIT, BSD, ISC,
   Apache-2.0 and PSF are fine. LGPL needs a discussion. Do not add AGPL, SSPL
@@ -65,7 +65,7 @@ python -m pytest packages/mcp-server-revit/tests
 
 Supported Revit versions are 2024 (net48), 2025 and 2026 (net8.0-windows), and
 2027 (net10.0-windows). See
-[docs/target-frameworks-and-dependencies.md](docs/target-frameworks-and-dependencies.md).
+[docs/target-frameworks-and-dependencies.md](../docs/target-frameworks-and-dependencies.md).
 
 ## Good first issues
 
@@ -89,10 +89,10 @@ The full run takes about half a minute. A few tests are skipped on purpose: the 
 
 Pick one, say so in an issue, and keep the pull request small.
 
-1. **Review a translation.** The 16 READMEs in [docs/i18n/](docs/i18n/) are AI-assisted drafts. A native speaker can fix wording. See [Translations](#translations).
+1. **Review a translation.** The 16 READMEs in [docs/i18n/](../docs/i18n/) are AI-assisted drafts. A native speaker can fix wording. See [Translations](#translations).
 2. **Add a language.** Dutch, Swedish and Czech are not there yet. The steps are in [Translations](#translations), and `test_i18n_readmes.py` checks your work.
 3. **Add a test for the Power BI provider.** `providers/powerbi.py` has no test that mentions it. A small mock-mode test is a good start.
-4. **Try an untested MCP client.** [docs/compatibility.md](docs/compatibility.md) lists clients marked "not tested". Set one up in mock mode and send a pull request that updates its row, with the steps you used.
+4. **Try an untested MCP client.** [docs/compatibility.md](../docs/compatibility.md) lists clients marked "not tested". Set one up in mock mode and send a pull request that updates its row, with the steps you used.
 5. **Try the server on Linux.** The Linux CI job is experimental because the Windows-only parts (bridge discovery, path mapping) have not been exercised there. Run the tests on Linux and open an issue for each failure you find.
 6. **Check the docs for stale statements.** Pick one page from `docs/`, follow it on a clean machine, and fix what is wrong or unclear.
 7. **Tidy formatting.** CI reports how many files `ruff format` would change, and does not enforce it. Format a few files in one pull request, with no other changes.
@@ -124,8 +124,8 @@ the language bar is present and relative links resolve. Run it with
 
 The project uses Semantic Versioning, and the root `VERSION` file is the
 single source of truth. Tags look like `vX.Y.Z`. Do not change version numbers
-by hand in other files. [docs/versioning.md](docs/versioning.md) describes the
-release process, and [CHANGELOG.md](CHANGELOG.md) lists what changed.
+by hand in other files. [docs/versioning.md](../docs/versioning.md) describes the
+release process, and [CHANGELOG.md](../CHANGELOG.md) lists what changed.
 
 ## Repository Hygiene & Build Artifacts
 
@@ -144,4 +144,4 @@ Accepted contributions are credited in the pull request and in `CHANGELOG.md`.
 
 ## Decisions
 
-The project has one maintainer, who decides. Larger design choices are written as numbered notes in `docs/` (ADRs). CI must pass and the maintainer reads every change. Releases follow [docs/versioning.md](docs/versioning.md); removals follow [docs/deprecation-policy.md](docs/deprecation-policy.md). Conduct rules are in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+The project has one maintainer, who decides. Larger design choices are written as numbered notes in `docs/adr/` (ADRs). CI must pass and the maintainer reads every change. Releases follow [docs/versioning.md](../docs/versioning.md); removals follow [docs/deprecation-policy.md](../docs/deprecation-policy.md). Conduct rules are in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).

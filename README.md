@@ -180,7 +180,7 @@ returns canned responses. It does not touch a model. A `Dockerfile` for the same
 mode is in the repository root (`docker build -t aec-model-bridge .`, then
 `docker run -i --rm aec-model-bridge`).
 
-Using VS Code? The [extension source and local install steps](extensions/vscode/README.md)
+Using VS Code? The [extension source and local install steps](packages/vscode-extension/README.md)
 register the MCP server and show the Revit connection status. It has not been
 published to the Marketplace.
 
@@ -294,7 +294,7 @@ file output, are not undone by any of them and do not get a second confirmation
 yet (planned). The panel's Plans list shows pending plans only; `aec-model-bridge-approve show <plan_id>`
 works for a plan in any state, while `proofs/` bundles exist only for plans that
 were executed (or attempted). The lifecycle is in
-[ADR 0008](docs/0008-approval-gate-lifecycle.md).
+[ADR 0008](docs/adr/0008-approval-gate-lifecycle.md).
 
 For unattended pipelines you can set `MCP_REVIT_APPROVAL_MODE=auto`. That turns
 the human check off, so use it only in a controlled environment.
@@ -464,7 +464,7 @@ and About.
 - Tool calls are written to an audit log, and secrets are redacted.
 
 Details are in [docs/security.md](docs/security.md). To report a
-vulnerability, follow [SECURITY.md](SECURITY.md).
+vulnerability, follow [SECURITY.md](.github/SECURITY.md).
 
 ## FAQ
 
@@ -483,7 +483,7 @@ that read a standard `mcpServers` configuration. Windsurf, Cline, Roo Code,
 Continue, Zed, Claude Code and Gemini CLI should work the same way but have not
 been tested. See [compatibility](docs/compatibility.md). The panel chat can also
 use an Anthropic API key, or the `claude` or `codex` command-line tools if they
-are installed. See [ADR 0012](docs/0012-native-agent-chat-backend.md).
+are installed. See [ADR 0012](docs/adr/0012-native-agent-chat-backend.md).
 
 ### Can the AI change my model without asking?
 
@@ -533,20 +533,20 @@ python -m pytest packages/mcp-server-revit/tests
 ```
 
 CI builds the Python server and the add-in targets for Revit 2024 through 2027.
-See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+See [CONTRIBUTING.md](.github/CONTRIBUTING.md) before opening a pull request.
 
 ## Documentation
 
 - [Installation guide](docs/install.md)
 - [Tool reference](docs/tools-generated.md)
-- [Architecture](docs/0001-multi-provider-architecture.md)
+- [Architecture](docs/adr/0001-multi-provider-architecture.md)
 - [Configuration reference](docs/configuration-reference.md)
 - [Security](docs/security.md)
 - [Versioning and releases](docs/versioning.md)
 - [Release checklist](docs/release-checklist.md)
 - [Proof bundles and revert plans](docs/proof-and-revert.md)
 - [Privacy](docs/privacy.md)
-- [Contributing](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Contributing](.github/CONTRIBUTING.md) and [Code of Conduct](.github/CODE_OF_CONDUCT.md)
 
 ## Built with
 

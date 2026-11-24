@@ -75,7 +75,7 @@ validated as "supported" and are not in the example pack.
 
 ## Example pack
 
-[`rule_packs/examples/door-room-basics.yaml`](../rule_packs/examples/door-room-basics.yaml)
+[`docs/examples/rule_packs/door-room-basics.yaml`](examples/rule_packs/door-room-basics.yaml)
 covers door Mark, unplaced doors and room Number. To use it:
 
 1. Copy the file into your workspace, for example `<workspace>/door-room-basics.yaml`.

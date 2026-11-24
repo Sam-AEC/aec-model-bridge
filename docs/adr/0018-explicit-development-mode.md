@@ -24,6 +24,6 @@ The default remains Ask first. [ADR 0008](0008-approval-gate-lifecycle.md) descr
 
 ## Consequences
 
-Dev persists across process restarts and applies to all clients sharing the workspace. The panel must make that state visible, and its off control must remain available. The token establishes a local-user boundary, not proof of a person's presence; see [security](security.md).
+Dev persists across process restarts and applies to all clients sharing the workspace. The panel must make that state visible, and its off control must remain available. The token establishes a local-user boundary, not proof of a person's presence; see [security](../security.md).
 
 Source tests and a Revit 2024 build verify the implementation before delivery. The installed add-in must be updated with the complete output folder, then checked using `revit_get_context`. Any mutating acceptance test runs only on an owner-opened scratch model, as specified in the upgrade plan.

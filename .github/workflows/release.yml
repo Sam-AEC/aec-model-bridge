@@ -103,10 +103,10 @@ jobs:
         with:
           node-version: 24   # npm 11; npm 10 cannot install the extension's dependencies
           cache: npm
-          cache-dependency-path: extensions/vscode/package-lock.json
+          cache-dependency-path: packages/vscode-extension/package-lock.json
 
       - name: Build and test the VS Code extension
-        working-directory: extensions/vscode
+        working-directory: packages/vscode-extension
         shell: pwsh
         run: |
           npm ci
@@ -129,7 +129,7 @@ jobs:
           ./scripts/build-release.ps1
           -Version "${{ steps.tag.outputs.version }}"
           -RevitVersion "${{ inputs.revit_version || 'All' }}"
-          -VSCodePackage "extensions/vscode/aec-model-bridge-${{ steps.tag.outputs.version }}.vsix"
+          -VSCodePackage "packages/vscode-extension/aec-model-bridge-${{ steps.tag.outputs.version }}.vsix"
 
       # Issue #159: the bundle must start from a path other than the build path. Copy the staged
       # python folder elsewhere and send one MCP initialize through each documented start command.

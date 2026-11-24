@@ -2,7 +2,7 @@
 
 Status: in 1.5.0, Python side only. The run tool is hidden from the tool list (see below).
 
-The built-in `pyrevit_bridge` module lets existing pyRevit pushbutton scripts be discovered and run as tools behind the [approval gate](0008-approval-gate-lifecycle.md), without rewriting them.
+The built-in `pyrevit_bridge` module lets existing pyRevit pushbutton scripts be discovered and run as tools behind the [approval gate](adr/0008-approval-gate-lifecycle.md), without rewriting them.
 
 > **Status: run tool hidden.** `pyrevit_bridge_run_pyrevit_script` is not listed in the `full`, `daily` or `core` profiles and a call to it is refused, until an add-in runner exists. The list and plan tools stay available.
 >

@@ -16,7 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 MARKETPLACE = ROOT / ".claude-plugin" / "marketplace.json"
-PLUGIN_DIR = ROOT / "plugin"
+PLUGIN_DIR = ROOT / "packages" / "claude-plugin"
 PLUGIN_JSON = PLUGIN_DIR / ".claude-plugin" / "plugin.json"
 MCP_JSON = PLUGIN_DIR / ".mcp.json"
 SKILL = PLUGIN_DIR / "skills" / "revit-review" / "SKILL.md"

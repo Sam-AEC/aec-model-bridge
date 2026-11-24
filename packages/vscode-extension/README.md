@@ -33,7 +33,7 @@ The extension is under local review and is not published to the Marketplace.
 From the repository root, use Node.js 22 or newer to build the package:
 
 ```powershell
-cd extensions/vscode
+cd packages/vscode-extension
 npm ci
 npm run compile
 npm test

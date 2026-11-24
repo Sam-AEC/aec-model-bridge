@@ -27,8 +27,8 @@ Pre-releases use a hyphen suffix: `1.4.0-rc.1`, `1.4.0-beta.2`. GitHub marks the
 | `packages/revit-bridge-addin/RevitBridge.csproj` | `Version`, `AssemblyVersion`, `FileVersion`, `InformationalVersion` |
 | `packages/navisworks-bridge-addin/`, `rhino-bridge-addin/`, `powerbi-bridge-tool/` | `Version` in each `.csproj` |
 | `scripts/installer/AECModelBridge.iss` | `AppVersion` |
-| `extensions/vscode/package.json` | `version` |
-| `extensions/vscode/package-lock.json` | root version and root package version |
+| `packages/vscode-extension/package.json` | `version` |
+| `packages/vscode-extension/package-lock.json` | root version and root package version |
 
 `AssemblyVersion` and `FileVersion` are four-part numbers, so `1.3.0` becomes `1.3.0.0` and any pre-release suffix is dropped there.
 

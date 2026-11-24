@@ -7,7 +7,7 @@ import pytest
 from revit_mcp_server.modules.schedule_consistency.module import ScheduleConsistencyModule as Mod
 
 ROOT = Path(__file__).resolve().parents[3]
-SEEDED = json.loads((ROOT / "fixtures/canonical-model/seeded-defects.json").read_text(encoding="utf-8"))
+SEEDED = json.loads((ROOT / "packages/mcp-server-revit/tests/fixtures/canonical-model/seeded-defects.json").read_text(encoding="utf-8"))
 SEEDED_COUNTS = {f["rule_id"]: f["expected_count"] for f in SEEDED["expected_findings"]}
 
 

@@ -4,7 +4,7 @@
 
 [English](../../README.md) | [简体中文](README.zh-CN.md) | [Español](README.es.md) | **हिन्दी** | [العربية](README.ar.md) | [Português (BR)](README.pt-BR.md) | [Русский](README.ru.md) | [日本語](README.ja.md) | [Deutsch](README.de.md) | [Français](README.fr.md) | [Bahasa Indonesia](README.id.md) | [Türkçe](README.tr.md) | [한국어](README.ko.md) | [Tiếng Việt](README.vi.md) | [Italiano](README.it.md) | [Polski](README.pl.md) | [繁體中文](README.zh-TW.md)
 
-> यह अनुवाद AI की मदद से किया गया है। मूल स्रोत अंग्रेज़ी [README](../../README.md) है; सुधार के लिए pull request का स्वागत है (देखें [CONTRIBUTING.md](../../CONTRIBUTING.md))।
+> यह अनुवाद AI की मदद से किया गया है। मूल स्रोत अंग्रेज़ी [README](../../README.md) है; सुधार के लिए pull request का स्वागत है (देखें [CONTRIBUTING.md](../../.github/CONTRIBUTING.md))।
 
 **अपने खुले Revit मॉडल के बारे में AI से पूछिए। डिफ़ॉल्ट रूप से, जब तक आप किसी योजना को मंज़ूर नहीं करते, लिखने वाले टूल ब्लॉक रहते हैं।**
 
@@ -109,7 +109,7 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 पहले बिना Revit के टूल देखना चाहते हैं? `"MCP_REVIT_MODE": "mock"` सेट करें। तब सर्वर कहीं भी चलता है, हर टूल को उसके स्कीमा के साथ सूचीबद्ध करता है और मॉडल को छुए बिना पहले से तय जवाब लौटाता है। इसी mock मोड के लिए एक `Dockerfile` रिपॉज़िटरी के रूट में है (`docker build -t aec-model-bridge .`, फिर `docker run -i --rm aec-model-bridge`)।
 
-VS Code इस्तेमाल करते हैं? [एक्सटेंशन का सोर्स और लोकल इंस्टॉल के चरण](../../extensions/vscode/README.md) MCP सर्वर रजिस्टर करते हैं और Revit कनेक्शन की स्थिति दिखाते हैं। इसे Marketplace पर प्रकाशित नहीं किया गया है।
+VS Code इस्तेमाल करते हैं? [एक्सटेंशन का सोर्स और लोकल इंस्टॉल के चरण](../../packages/vscode-extension/README.md) MCP सर्वर रजिस्टर करते हैं और Revit कनेक्शन की स्थिति दिखाते हैं। इसे Marketplace पर प्रकाशित नहीं किया गया है।
 
 ### टूल एक नज़र में
 
@@ -169,7 +169,7 @@ MCP क्लाइंट एक Python हब से बात करता ह
 
 <sub>डायग्राम का स्रोत: [approval-flow.mmd](../diagrams/approval-flow.mmd)। इमेज दोबारा बनाने के लिए `python scripts/render_diagrams.py` चलाएँ।</sub>
 
-अगर कोई योजना ग़लत निकले, तो Revit में Ctrl+Z से उसे पलटिए। हर पैरामीटर राइट अपना अलग नामित ट्रांज़ैक्शन है, इसलिए एक योजना के लिए कई बार दबाना पड़ सकता है। पूरी योजना को एक ही चरण में पलटने की सुविधा योजना में है, अभी बनी नहीं है। दूसरा रास्ता रिवर्ट योजना है: असिस्टेंट किसी चलाई जा चुकी योजना के प्रूफ़ से `plan_revert` द्वारा उसका मसौदा बनाता है, और आप उसे किसी भी अन्य योजना की तरह मंज़ूर करते हैं। `rollback_plan` केवल इंसानों के लिए है और न कोई बटन है न कोई कमांड, इसलिए उस पर भरोसा न करें। इनमें से कोई भी रास्ता अभी किसी असली Revit सेशन में सत्यापित नहीं हुआ है (UNVERIFIED)। जिन ऑपरेशनों को पलटा नहीं जा सकता, जैसे फ़ाइल आउटपुट, उन्हें इनमें से कोई भी नहीं पलटता, और उनके लिए अभी दूसरी बार पुष्टि नहीं माँगी जाती (योजना में है)। पैनल की Plans सूची केवल लंबित योजनाएँ दिखाती है; `aec-model-bridge-approve show <plan_id>` किसी भी अवस्था की योजना के लिए काम करता है, जबकि `proofs/` बंडल केवल उन्हीं योजनाओं के लिए बनते हैं जो चलाई गईं (या चलाने की कोशिश हुई)। पूरा जीवनचक्र [ADR 0008](../0008-approval-gate-lifecycle.md) में है।
+अगर कोई योजना ग़लत निकले, तो Revit में Ctrl+Z से उसे पलटिए। हर पैरामीटर राइट अपना अलग नामित ट्रांज़ैक्शन है, इसलिए एक योजना के लिए कई बार दबाना पड़ सकता है। पूरी योजना को एक ही चरण में पलटने की सुविधा योजना में है, अभी बनी नहीं है। दूसरा रास्ता रिवर्ट योजना है: असिस्टेंट किसी चलाई जा चुकी योजना के प्रूफ़ से `plan_revert` द्वारा उसका मसौदा बनाता है, और आप उसे किसी भी अन्य योजना की तरह मंज़ूर करते हैं। `rollback_plan` केवल इंसानों के लिए है और न कोई बटन है न कोई कमांड, इसलिए उस पर भरोसा न करें। इनमें से कोई भी रास्ता अभी किसी असली Revit सेशन में सत्यापित नहीं हुआ है (UNVERIFIED)। जिन ऑपरेशनों को पलटा नहीं जा सकता, जैसे फ़ाइल आउटपुट, उन्हें इनमें से कोई भी नहीं पलटता, और उनके लिए अभी दूसरी बार पुष्टि नहीं माँगी जाती (योजना में है)। पैनल की Plans सूची केवल लंबित योजनाएँ दिखाती है; `aec-model-bridge-approve show <plan_id>` किसी भी अवस्था की योजना के लिए काम करता है, जबकि `proofs/` बंडल केवल उन्हीं योजनाओं के लिए बनते हैं जो चलाई गईं (या चलाने की कोशिश हुई)। पूरा जीवनचक्र [ADR 0008](../adr/0008-approval-gate-lifecycle.md) में है।
 
 बिना निगरानी वाली पाइपलाइनों के लिए आप `MCP_REVIT_APPROVAL_MODE=auto` सेट कर सकते हैं। इससे इंसान द्वारा की जाने वाली जाँच बंद हो जाती है, इसलिए इसे सिर्फ़ नियंत्रित एनवायरनमेंट में इस्तेमाल करें।
 
@@ -303,7 +303,7 @@ Invoke-RestMethod "$($switch.endpoint)/health"
 - मॉडल बदलने वाले टूल को मंज़ूर की हुई योजना चाहिए, जब तक आप मंज़ूरी बंद न करें।
 - टूल कॉल ऑडिट लॉग में दर्ज होती हैं, और गोपनीय जानकारी छिपा दी जाती है।
 
-विवरण [docs/security.md](../security.md) में हैं। किसी सुरक्षा कमज़ोरी की रिपोर्ट करने के लिए [SECURITY.md](../../SECURITY.md) का पालन करें।
+विवरण [docs/security.md](../security.md) में हैं। किसी सुरक्षा कमज़ोरी की रिपोर्ट करने के लिए [SECURITY.md](../../.github/SECURITY.md) का पालन करें।
 
 ## अक्सर पूछे जाने वाले सवाल
 
@@ -313,7 +313,7 @@ Model Context Protocol (MCP) एक ओपन स्टैंडर्ड है
 
 ### कौन-से AI असिस्टेंट इसके साथ काम करते हैं?
 
-कोई भी MCP क्लाइंट जो लोकल stdio सर्वर शुरू कर सके। हमने Claude Desktop, GitHub Copilot वाले VS Code, Cursor और Codex, तथा मानक `mcpServers` कॉन्फ़िगरेशन पढ़ने वाले क्लाइंट के सेटअप का दस्तावेज़ तैयार किया है। Windsurf, Cline, Roo Code, Continue, Zed, Claude Code और Gemini CLI को भी इसी तरह काम करना चाहिए, पर इन्हें परखा नहीं गया है। [संगतता](../compatibility.md) देखें। पैनल चैट Anthropic API कुंजी, या इंस्टॉल होने पर `claude` या `codex` कमांड-लाइन टूल भी इस्तेमाल कर सकती है। [ADR 0012](../0012-native-agent-chat-backend.md) देखें।
+कोई भी MCP क्लाइंट जो लोकल stdio सर्वर शुरू कर सके। हमने Claude Desktop, GitHub Copilot वाले VS Code, Cursor और Codex, तथा मानक `mcpServers` कॉन्फ़िगरेशन पढ़ने वाले क्लाइंट के सेटअप का दस्तावेज़ तैयार किया है। Windsurf, Cline, Roo Code, Continue, Zed, Claude Code और Gemini CLI को भी इसी तरह काम करना चाहिए, पर इन्हें परखा नहीं गया है। [संगतता](../compatibility.md) देखें। पैनल चैट Anthropic API कुंजी, या इंस्टॉल होने पर `claude` या `codex` कमांड-लाइन टूल भी इस्तेमाल कर सकती है। [ADR 0012](../adr/0012-native-agent-chat-backend.md) देखें।
 
 ### क्या AI बिना पूछे मेरा मॉडल बदल सकता है?
 
@@ -348,17 +348,17 @@ python -m pytest packages/mcp-server-revit/tests
 .\scripts\package.ps1 -RevitVersion All
 ```
 
-CI Python सर्वर और Revit 2024 से 2027 के ऐड-इन टारगेट बिल्ड करता है। pull request खोलने से पहले [CONTRIBUTING.md](../../CONTRIBUTING.md) पढ़ें।
+CI Python सर्वर और Revit 2024 से 2027 के ऐड-इन टारगेट बिल्ड करता है। pull request खोलने से पहले [CONTRIBUTING.md](../../.github/CONTRIBUTING.md) पढ़ें।
 
 ## दस्तावेज़ीकरण
 
 - [इंस्टॉलेशन गाइड](../install.md)
 - [टूल संदर्भ](../tools-generated.md)
-- [आर्किटेक्चर](../0001-multi-provider-architecture.md)
+- [आर्किटेक्चर](../adr/0001-multi-provider-architecture.md)
 - [कॉन्फ़िगरेशन संदर्भ](../configuration-reference.md)
 - [सुरक्षा](../security.md)
 - [वर्ज़निंग और रिलीज़](../versioning.md)
-- [योगदान गाइड](../../CONTRIBUTING.md) और [आचार संहिता](../../CODE_OF_CONDUCT.md)
+- [योगदान गाइड](../../.github/CONTRIBUTING.md) और [आचार संहिता](../../.github/CODE_OF_CONDUCT.md)
 
 ## Built with
 

@@ -4,7 +4,7 @@
 
 [English](../../README.md) | [简体中文](README.zh-CN.md) | [Español](README.es.md) | [हिन्दी](README.hi.md) | [العربية](README.ar.md) | [Português (BR)](README.pt-BR.md) | [Русский](README.ru.md) | [日本語](README.ja.md) | **Deutsch** | [Français](README.fr.md) | [Bahasa Indonesia](README.id.md) | [Türkçe](README.tr.md) | [한국어](README.ko.md) | [Tiếng Việt](README.vi.md) | [Italiano](README.it.md) | [Polski](README.pl.md) | [繁體中文](README.zh-TW.md)
 
-> Diese Übersetzung wurde mit KI-Unterstützung erstellt. Maßgeblich ist die englische [README](../../README.md); Korrekturen sind per Pull Request willkommen (siehe [CONTRIBUTING.md](../../CONTRIBUTING.md)).
+> Diese Übersetzung wurde mit KI-Unterstützung erstellt. Maßgeblich ist die englische [README](../../README.md); Korrekturen sind per Pull Request willkommen (siehe [CONTRIBUTING.md](../../.github/CONTRIBUTING.md)).
 
 **Fragen Sie Ihre KI zum geöffneten Revit-Modell. Standardmäßig sind Schreibwerkzeuge gesperrt, bis Sie einen Plan freigeben.**
 
@@ -109,7 +109,7 @@ Für die Live-Automatisierung von Revit benötigen Sie Windows, ein lizenziertes
 
 Möchten Sie die Werkzeuge zuerst ohne Revit ansehen? Setzen Sie `"MCP_REVIT_MODE": "mock"`. Der Server startet dann überall, listet jedes Werkzeug mit seinem Schema auf und liefert vorgefertigte Antworten, ohne ein Modell anzufassen. Ein `Dockerfile` für denselben Mock-Modus liegt im Repository-Stammverzeichnis (`docker build -t aec-model-bridge .`, dann `docker run -i --rm aec-model-bridge`).
 
-Sie nutzen VS Code? Der [Quellcode der Erweiterung und die lokalen Installationsschritte](../../extensions/vscode/README.md) registrieren den MCP-Server und zeigen den Verbindungsstatus zu Revit an. Sie ist nicht im Marketplace veröffentlicht.
+Sie nutzen VS Code? Der [Quellcode der Erweiterung und die lokalen Installationsschritte](../../packages/vscode-extension/README.md) registrieren den MCP-Server und zeigen den Verbindungsstatus zu Revit an. Sie ist nicht im Marketplace veröffentlicht.
 
 ### Werkzeuge im Überblick
 
@@ -169,7 +169,7 @@ Das Panel zeigt die Planprüfung über "Show the review to enable Approve"; vor 
 
 <sub>Diagrammquelle: [approval-flow.mmd](../diagrams/approval-flow.mmd). Die Bilder erzeugen Sie mit `python scripts/render_diagrams.py` neu.</sub>
 
-Erweist sich ein Plan als falsch, machen Sie ihn mit Strg+Z in Revit rückgängig. Jeder Parameterschreibvorgang ist eine eigene benannte Transaktion, daher kann ein Plan mehrere Tastendrücke brauchen. Ein Rückgängig in einem Schritt für einen ganzen Plan ist geplant, aber nicht gebaut. Ein zweiter Weg ist ein Revert-Plan: Der Assistent entwirft ihn mit `plan_revert` aus dem Nachweis eines ausgeführten Plans, und Sie geben ihn wie jeden anderen Plan frei. `rollback_plan` ist nur für Menschen gedacht und weder eine Schaltfläche noch ein Befehl; verlassen Sie sich daher nicht darauf. Keiner dieser Wege ist bisher in einer echten Revit-Sitzung geprüft (UNVERIFIED). Nicht umkehrbare Vorgänge, etwa das Schreiben von Dateien, werden von keinem davon rückgängig gemacht und verlangen noch keine zweite Bestätigung (geplant). Die Plans-Liste des Panels zeigt nur ausstehende Pläne; `aec-model-bridge-approve show <plan_id>` funktioniert für einen Plan in jedem Zustand, während `proofs/`-Bündel nur für Pläne existieren, die ausgeführt (oder versucht) wurden. Der Ablauf ist in [ADR 0008](../0008-approval-gate-lifecycle.md) beschrieben.
+Erweist sich ein Plan als falsch, machen Sie ihn mit Strg+Z in Revit rückgängig. Jeder Parameterschreibvorgang ist eine eigene benannte Transaktion, daher kann ein Plan mehrere Tastendrücke brauchen. Ein Rückgängig in einem Schritt für einen ganzen Plan ist geplant, aber nicht gebaut. Ein zweiter Weg ist ein Revert-Plan: Der Assistent entwirft ihn mit `plan_revert` aus dem Nachweis eines ausgeführten Plans, und Sie geben ihn wie jeden anderen Plan frei. `rollback_plan` ist nur für Menschen gedacht und weder eine Schaltfläche noch ein Befehl; verlassen Sie sich daher nicht darauf. Keiner dieser Wege ist bisher in einer echten Revit-Sitzung geprüft (UNVERIFIED). Nicht umkehrbare Vorgänge, etwa das Schreiben von Dateien, werden von keinem davon rückgängig gemacht und verlangen noch keine zweite Bestätigung (geplant). Die Plans-Liste des Panels zeigt nur ausstehende Pläne; `aec-model-bridge-approve show <plan_id>` funktioniert für einen Plan in jedem Zustand, während `proofs/`-Bündel nur für Pläne existieren, die ausgeführt (oder versucht) wurden. Der Ablauf ist in [ADR 0008](../adr/0008-approval-gate-lifecycle.md) beschrieben.
 
 Für unbeaufsichtigte Pipelines können Sie `MCP_REVIT_APPROVAL_MODE=auto` setzen. Das schaltet die Prüfung durch den Menschen ab; verwenden Sie es daher nur in einer kontrollierten Umgebung.
 
@@ -303,7 +303,7 @@ Die Antwort sollte `healthy` und die laufende Revit-Version melden. Suchen Sie i
 - Werkzeuge, die das Modell ändern, benötigen einen freigegebenen Plan, sofern Sie die Freigabe nicht abschalten.
 - Werkzeugaufrufe werden in ein Audit-Protokoll geschrieben, Secrets (Zugangsdaten) werden maskiert.
 
-Details stehen in [docs/security.md](../security.md). Um eine Sicherheitslücke zu melden, folgen Sie [SECURITY.md](../../SECURITY.md).
+Details stehen in [docs/security.md](../security.md). Um eine Sicherheitslücke zu melden, folgen Sie [SECURITY.md](../../.github/SECURITY.md).
 
 ## FAQ
 
@@ -313,7 +313,7 @@ Das Model Context Protocol (MCP) ist ein offener Standard, mit dem KI-Assistente
 
 ### Mit welchen KI-Assistenten funktioniert es?
 
-Mit jedem MCP-Client, der einen lokalen stdio-Server starten kann. Dokumentiert sind Claude Desktop, VS Code mit GitHub Copilot, Cursor und Codex sowie Clients, die eine Standard-`mcpServers`-Konfiguration lesen. Windsurf, Cline, Roo Code, Continue, Zed, Claude Code und Gemini CLI sollten auf dieselbe Weise funktionieren, wurden aber nicht getestet. Siehe [Kompatibilität](../compatibility.md). Der Panel-Chat kann auch einen Anthropic-API-Schlüssel oder die Kommandozeilenwerkzeuge `claude` oder `codex` nutzen, sofern sie installiert sind. Siehe [ADR 0012](../0012-native-agent-chat-backend.md).
+Mit jedem MCP-Client, der einen lokalen stdio-Server starten kann. Dokumentiert sind Claude Desktop, VS Code mit GitHub Copilot, Cursor und Codex sowie Clients, die eine Standard-`mcpServers`-Konfiguration lesen. Windsurf, Cline, Roo Code, Continue, Zed, Claude Code und Gemini CLI sollten auf dieselbe Weise funktionieren, wurden aber nicht getestet. Siehe [Kompatibilität](../compatibility.md). Der Panel-Chat kann auch einen Anthropic-API-Schlüssel oder die Kommandozeilenwerkzeuge `claude` oder `codex` nutzen, sofern sie installiert sind. Siehe [ADR 0012](../adr/0012-native-agent-chat-backend.md).
 
 ### Kann die KI mein Modell ohne Rückfrage ändern?
 
@@ -348,17 +348,17 @@ python -m pytest packages/mcp-server-revit/tests
 .\scripts\package.ps1 -RevitVersion All
 ```
 
-Die CI baut den Python-Server und die Add-in-Ziele für Revit 2024 bis 2027. Lesen Sie [CONTRIBUTING.md](../../CONTRIBUTING.md), bevor Sie einen Pull Request öffnen.
+Die CI baut den Python-Server und die Add-in-Ziele für Revit 2024 bis 2027. Lesen Sie [CONTRIBUTING.md](../../.github/CONTRIBUTING.md), bevor Sie einen Pull Request öffnen.
 
 ## Dokumentation
 
 - [Installationsanleitung](../install.md)
 - [Werkzeugreferenz](../tools-generated.md)
-- [Architektur](../0001-multi-provider-architecture.md)
+- [Architektur](../adr/0001-multi-provider-architecture.md)
 - [Konfigurationsreferenz](../configuration-reference.md)
 - [Sicherheit](../security.md)
 - [Versionierung und Releases](../versioning.md)
-- [Mitwirken](../../CONTRIBUTING.md) und [Verhaltenskodex](../../CODE_OF_CONDUCT.md)
+- [Mitwirken](../../.github/CONTRIBUTING.md) und [Verhaltenskodex](../../.github/CODE_OF_CONDUCT.md)
 
 ## Built with
 

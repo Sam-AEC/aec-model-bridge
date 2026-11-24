@@ -8,8 +8,9 @@ Revit MCP server (Model Context Protocol) with a native Revit add-in. AI clients
   - `src/revit_mcp_server/providers/`: tool providers. `modules/<id>/`: plug-in modules (`module.json` + `module.py`).
   - `tests/`: pytest, about 3,600 tests, about 3 minutes.
 - `packages/revit-bridge-addin/`: C# Revit add-in (net48, net8, net10). Windows and Revit only; not buildable in Linux CI containers.
+- `packages/vscode-extension/`: VS Code extension. `packages/claude-plugin/`: Claude Code plugin (listed by `.claude-plugin/marketplace.json`).
 - `panel/`: approval panel (plain HTML and JS in WebView2).
-- `docs/`: reference docs and ADRs (`docs/00NN-*.md`). `rule_packs/`: QA rule packs.
+- `docs/`: reference docs and ADRs (`docs/adr/00NN-*.md`). `docs/examples/rule_packs/`: example QA rule packs.
 - `scripts/`: PowerShell build, release and installer scripts; Python helpers (`version.py`, `count_tools.py`, `make_install_links.py`).
 
 ## Commands

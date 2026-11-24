@@ -23,7 +23,7 @@ Status: **approved**.
 
 ### Brand marks
 
-The Pier is the product mark of AEC Model Bridge. `assets/logo-mark.svg` is the source of truth for its geometry: an isometric cube on a rounded `#111923` tile (96 px viewBox, 20 px radius), top face `#1CB5CA`, left `#FFFFFF`, right `#AEBCCB`, 2.5 px `#111923` stroke between faces. `scripts/make_brand_assets.py` regenerates `assets/icon.ico`, `assets/logo-mark-512.png` and the two Inno Setup bitmaps in `assets/installer/` from it. The VS Code icon is `extensions/vscode/media/icon.png`. Name and logo policy: [TRADEMARKS.md](../../TRADEMARKS.md).
+The Pier is the product mark of AEC Model Bridge. `assets/logo-mark.svg` is the source of truth for its geometry: an isometric cube on a rounded `#111923` tile (96 px viewBox, 20 px radius), top face `#1CB5CA`, left `#FFFFFF`, right `#AEBCCB`, 2.5 px `#111923` stroke between faces. `scripts/make_brand_assets.py` regenerates `assets/icon.ico`, `assets/logo-mark-512.png` and the two Inno Setup bitmaps in `assets/installer/` from it. The VS Code icon is `packages/vscode-extension/media/icon.png`. Name and logo policy: [TRADEMARKS.md](../legal/TRADEMARKS.md).
 
 The Cerberus mark ("Ember mesh", `assets/cerberus/`) belongs to a planned feature that is not built. It appears only inside the Cerberus feature, never as the product, repository, installer or extension icon. Do not put text in it, recolour the eyes, stretch or redraw it, or use the full mesh below 64 px (use `mark-32.svg` and `mark-16.svg`).
 

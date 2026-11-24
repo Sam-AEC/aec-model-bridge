@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Repository layout: community files (`CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md`) moved to `.github/`; `TRADEMARKS.md` to `docs/legal/`; ADRs to `docs/adr/`; the VS Code extension from `extensions/vscode/` to `packages/vscode-extension/`; the Claude Code plugin from `plugin/` to `packages/claude-plugin/`; the canonical test model fixtures to `packages/mcp-server-revit/tests/fixtures/`; example rule packs to `docs/examples/rule_packs/`. Links, workflows, `scripts/version.py` and tests point to the new paths.
+
 ## 1.5.1 - 2026-11-24
 
 - Security: the workspace policy is now re-checked when any approved action is claimed, so a direct tool call carrying `plan_id` can no longer run an action a tightened (or invalid) policy prohibits. Before, only `execute_plan` re-checked it.

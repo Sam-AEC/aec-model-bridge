@@ -2,11 +2,11 @@
   "schema": "amb.fixture.canonical_model/1",
   "name": "canonical_test_model",
   "generator": "scripts/revit/generate_canonical_test_model.py",
-  "output_path": "fixtures/canonical-model/generated/canonical_test_model.rvt",
-  "seeded_defects": "fixtures/canonical-model/seeded-defects.json",
+  "output_path": "packages/mcp-server-revit/tests/fixtures/canonical-model/generated/canonical_test_model.rvt",
+  "seeded_defects": "packages/mcp-server-revit/tests/fixtures/canonical-model/seeded-defects.json",
   "goldens": {
-    "snapshot_summary": "fixtures/canonical-model/goldens/snapshot-summary.json",
-    "qaqc_findings_summary": "fixtures/canonical-model/goldens/qaqc-findings-summary.json"
+    "snapshot_summary": "packages/mcp-server-revit/tests/fixtures/canonical-model/goldens/snapshot-summary.json",
+    "qaqc_findings_summary": "packages/mcp-server-revit/tests/fixtures/canonical-model/goldens/qaqc-findings-summary.json"
   },
   "expected_counts": {
     "levels": 5,

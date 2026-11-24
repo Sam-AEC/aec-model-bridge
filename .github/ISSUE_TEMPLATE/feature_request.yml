@@ -35,4 +35,4 @@ body:
   - type: markdown
     attributes:
       value: |
-        If you plan to send a code pull request, please read [CONTRIBUTING.md](https://github.com/Sam-AEC/aec-model-bridge/blob/main/CONTRIBUTING.md) first. Code contributions need a signed contributor agreement.
+        If you plan to send a code pull request, please read [CONTRIBUTING.md](https://github.com/Sam-AEC/aec-model-bridge/blob/main/.github/CONTRIBUTING.md) first. Code contributions need a signed contributor agreement.

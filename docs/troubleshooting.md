@@ -130,7 +130,7 @@ The panel's Setup check card calls the hub's `GET /diagnostics` (127.0.0.1, port
 | `workspace` | The workspace is not writable. Set `MCP_REVIT_WORKSPACE_DIR` to a writable absolute path that is also in `MCP_REVIT_ALLOWED_DIRECTORIES`. |
 | `ai_provider` | Chat has no AI. Set `MCP_REVIT_ANTHROPIC_API_KEY`, or sign in to the `claude` or `codex` CLI, then restart Revit. Plans and reports do not need it. |
 
-Response shape: `{ "ok", "approval_mode", "approval_mode_note", "dev_mode", "auto_expires_at", "checks": [ { "id", "ok", "detail", "next_step" } ] }`. The `approval_mode` check fails for `auto` because `auto` skips approvals. `/health` returns a minimal status and needs no token. See [ADR 0018](0018-explicit-development-mode.md).
+Response shape: `{ "ok", "approval_mode", "approval_mode_note", "dev_mode", "auto_expires_at", "checks": [ { "id", "ok", "detail", "next_step" } ] }`. The `approval_mode` check fails for `auto` because `auto` skips approvals. `/health` returns a minimal status and needs no token. See [ADR 0018](adr/0018-explicit-development-mode.md).
 
 ## Approval problems
 

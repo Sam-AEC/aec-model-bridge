@@ -1,7 +1,7 @@
 {
   "schema": "amb.fixture.seeded_defects/1",
   "fixture": "canonical_test_model",
-  "source_manifest": "fixtures/canonical-model/manifest.json",
+  "source_manifest": "packages/mcp-server-revit/tests/fixtures/canonical-model/manifest.json",
   "rule_pack": "core",
   "golden_scope": "rule_counts",
   "expected_total_findings": 15,

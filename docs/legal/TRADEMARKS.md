@@ -12,7 +12,7 @@ not part of the AEC Model Bridge product name.
 ## The Project Name and Logo
 
 "AEC Model Bridge" is the name of this project, and the Pier mark (the logo
-in `assets/`) is its logo. The software licences in [LICENSING.md](LICENSING.md)
+in `assets/`) is its logo. The software licences in [LICENSING.md](../../LICENSING.md)
 cover the code. They do not give you the right to use the name or the logo
 as your own.
 
@@ -59,7 +59,7 @@ fails if they are present.
 The project licenses apply only to code and assets the applicable licensors
 have the right to license. They do not grant rights to Autodesk trademarks,
 software, APIs, or other third-party intellectual property. See
-[LICENSING.md](LICENSING.md) for the version-specific software terms.
+[LICENSING.md](../../LICENSING.md) for the version-specific software terms.
 
 Users are responsible for complying with the license terms that apply to their
 Autodesk installation. Autodesk Education licenses must not be used for

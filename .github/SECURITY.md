@@ -10,7 +10,7 @@ We actively support and provide security updates for the following versions:
 | Older 1.x releases | Upgrade to the latest release; no separate fixes |
 | < 1.0   | Not supported      |
 
-Security fixes go into the latest 1.x release. For the Revit and Python versions that are built and tested, see the table below and the [deprecation policy](docs/deprecation-policy.md).
+Security fixes go into the latest 1.x release. For the Revit and Python versions that are built and tested, see the table below and the [deprecation policy](../docs/deprecation-policy.md).
 
 | Component | Supported | Notes |
 | --------- | --------- | ----- |
@@ -58,10 +58,10 @@ We follow **coordinated disclosure**:
 
 ### For Users
 
-- **Keep the bridges on localhost.** They bind to `127.0.0.1` only. Do not expose them through a reverse proxy or port forward. There is no HTTPS, OAuth or rate limiting on the local bridges; they rely on the localhost boundary and, in the default Revit mode, a session token (see [docs/security.md](docs/security.md)).
+- **Keep the bridges on localhost.** They bind to `127.0.0.1` only. Do not expose them through a reverse proxy or port forward. There is no HTTPS, OAuth or rate limiting on the local bridges; they rely on the localhost boundary and, in the default Revit mode, a session token (see [docs/security.md](../docs/security.md)).
 - **Keep approval on.** Leave `MCP_REVIT_APPROVAL_MODE` at its default (`ask_first`, also written `required`). Setting `auto` permits unplanned writes, and so does the panel's **Auto for a limited time** switch while its window lasts (15 minutes to 8 hours, default 30). Human-only tools stay refused on AI tool-call paths in every mode.
 - **Limit the workspace.** Set `MCP_REVIT_WORKSPACE_DIR` and `MCP_REVIT_ALLOWED_DIRECTORIES` to the folders you need.
-- **Check the logs.** The server writes `audit.log` (see [docs/logging-and-audit.md](docs/logging-and-audit.md)) and the Revit add-in writes `%APPDATA%\AECModelBridge\Logs\bridge.jsonl`. Restrict access to both.
+- **Check the logs.** The server writes `audit.log` (see [docs/logging-and-audit.md](../docs/logging-and-audit.md)) and the Revit add-in writes `%APPDATA%\AECModelBridge\Logs\bridge.jsonl`. Restrict access to both.
 - **Update regularly.** Apply security releases within 30 days.
 - **Do not give an AI client a shell on the account you approve plans with.** The panel authenticates a local process, not a person.
 
@@ -81,6 +81,6 @@ Before relying on a deployment:
 - [ ] Access to `audit.log` and `bridge.jsonl` is restricted
 - [ ] No AI client has a shell on the account used to approve plans
 
-The dev build passed scoped read-only smoke checks in Revit 2024; model writes, rollback and export acceptance remain pending. See the [live-validation report](docs/revit-addin-live-validation-2026-10-14.md) and [release checklist](docs/release-checklist.md).
+The dev build passed scoped read-only smoke checks in Revit 2024; model writes, rollback and export acceptance remain pending. See the [live-validation report](../docs/revit-addin-live-validation-2026-10-14.md) and [release checklist](../docs/release-checklist.md).
 
-Full guide: [docs/security.md](docs/security.md)
+Full guide: [docs/security.md](../docs/security.md)

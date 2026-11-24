@@ -12,7 +12,7 @@ Sources (all read locally, nothing is fetched, so it runs offline):
 * NuGet: <PackageReference> items in packages/*/*.csproj (id, version,
   condition only). The licence column says "see package"; local NuGet caches
   are deliberately not consulted, so restoring packages cannot change it.
-* npm: extensions/vscode/package.json and package-lock.json (licence strings
+* npm: packages/vscode-extension/package.json and package-lock.json (licence strings
   come from the lock file; "dev only" means the package is not a runtime
   dependency of the extension).
 
@@ -36,7 +36,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 LOCK = ROOT / "packages" / "mcp-server-revit" / "uv.lock"
 ROOT_PROJECT = "aec-model-bridge"
-VSCODE = ROOT / "extensions" / "vscode"
+VSCODE = ROOT / "packages" / "vscode-extension"
 DEFAULT_OUTPUT = ROOT / "THIRD_PARTY_NOTICES.md"
 UNVERIFIED = "unverified"
 LICENCE_FILE_RE = re.compile(r"(^|/)(licen[sc]e|copying|notice|authors)[^/]*$", re.I)
@@ -209,7 +209,7 @@ def nuget_section() -> list[str]:
         "",
         "The Revit, Navisworks and Rhino host assemblies (`RevitAPI.dll`, `RevitAPIUI.dll`, "
         "`Autodesk.Navisworks.*`) are referenced from the user's own installation and are not "
-        "distributed. See [TRADEMARKS.md](TRADEMARKS.md).",
+        "distributed. See [TRADEMARKS.md](docs/legal/TRADEMARKS.md).",
         "",
     ]
     return lines
@@ -251,7 +251,7 @@ def npm_section() -> list[str]:
     lines = [
         "## npm packages (VS Code extension)",
         "",
-        f"Source: `extensions/vscode/package.json` and `package-lock.json`. Licence strings are "
+        f"Source: `packages/vscode-extension/package.json` and `package-lock.json`. Licence strings are "
         f"taken from the lock file. The extension declares {len(runtime_roots)} runtime "
         "dependencies and is packaged with `vsce package --no-dependencies`; the TypeScript is "
         "bundled by esbuild. Packages marked dev only are build and test tools and are not "

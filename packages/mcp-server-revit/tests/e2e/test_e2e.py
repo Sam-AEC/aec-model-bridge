@@ -30,8 +30,8 @@ QAQC_MODULE_PATH = (
     / "qaqc_checker"
     / "module.py"
 )
-SNAPSHOT_GOLDEN = REPO_ROOT / "fixtures" / "canonical-model" / "goldens" / "snapshot-summary.json"
-QAQC_GOLDEN = REPO_ROOT / "fixtures" / "canonical-model" / "goldens" / "qaqc-findings-summary.json"
+SNAPSHOT_GOLDEN = REPO_ROOT / "packages" / "mcp-server-revit" / "tests" / "fixtures" / "canonical-model" / "goldens" / "snapshot-summary.json"
+QAQC_GOLDEN = REPO_ROOT / "packages" / "mcp-server-revit" / "tests" / "fixtures" / "canonical-model" / "goldens" / "qaqc-findings-summary.json"
 
 pytestmark = pytest.mark.e2e
 

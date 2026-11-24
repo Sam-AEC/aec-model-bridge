@@ -3,12 +3,12 @@ name: VS Code extension
 on:
   pull_request:
     paths:
-      - "extensions/vscode/**"
+      - "packages/vscode-extension/**"
       - "scripts/version.py"
       - ".github/workflows/vscode-extension.yml"
   push:
     paths:
-      - "extensions/vscode/**"
+      - "packages/vscode-extension/**"
       - "scripts/version.py"
       - ".github/workflows/vscode-extension.yml"
   release:
@@ -42,7 +42,7 @@ jobs:
         node: [24]
     defaults:
       run:
-        working-directory: extensions/vscode
+        working-directory: packages/vscode-extension
 
     steps:
       - name: Checkout repository
@@ -53,7 +53,7 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           cache: npm
-          cache-dependency-path: extensions/vscode/package-lock.json
+          cache-dependency-path: packages/vscode-extension/package-lock.json
 
       - name: Install
         run: npm ci
@@ -72,7 +72,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: aec-model-bridge-vscode
-          path: extensions/vscode/*.vsix
+          path: packages/vscode-extension/*.vsix
           if-no-files-found: error
 
   # Publishing runs only for a published (not pre-release) GitHub release, and each
@@ -92,7 +92,7 @@ jobs:
       HAS_OVSX_PAT: ${{ secrets.OVSX_PAT != '' }}
     defaults:
       run:
-        working-directory: extensions/vscode
+        working-directory: packages/vscode-extension
 
     steps:
       - name: Checkout repository
@@ -106,7 +106,7 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: extensions/vscode/package-lock.json
+          cache-dependency-path: packages/vscode-extension/package-lock.json
 
       - name: Check the published stable release matches the extension version
         env:
