@@ -78,12 +78,45 @@ def test_missing_lib_degrades_instead_of_disabling_python():
     assert "standard_library_warning" in FACTORY and "deploy-addin.ps1" in FACTORY
 
 
-def test_runner_shuts_the_engine_down_after_every_script():
+def test_runner_keeps_one_warm_engine_with_a_new_scope_per_run():
+    """#286: the engine is reused, but every run gets a new scope, its own streams and a reset."""
     text = RUNNER.replace("\r\n", "\n")
+    run = text.split("internal static object Run(", 1)[1].split("private static void FlushStandardStreams", 1)[0]
+    assert "AcquireEngine(doc, outputMs, errorMs)" in run
+    assert "scope = engine.CreateScope();" in run, "a variable set in one run must be absent in the next"
+    assert "PythonEngineFactory.Create()" not in run, "Run must not start an engine itself"
     marker = "finally\n        {\n            ActiveProgress = null;"
-    finally_block = text.split(marker, 1)[1].split("\n    }\n", 1)[0]
-    assert "PythonEngineFactory.ShutdownQuietly(engine)" in finally_block
+    finally_block = run.split(marker, 1)[1]
+    assert "ReleaseEngine(engine, dropEngine)" in finally_block
+    # Revit assemblies are loaded once, when the warm engine starts.
+    start = text.split("private static void StartEngine(", 1)[1].split("private static void ReleaseEngine(", 1)[0]
+    assert "PythonEngineFactory.Create()" in start
+    assert "LoadAssembly(typeof(Document).Assembly)" in start and "LoadAssembly(typeof(UIApplication).Assembly)" in start
+    assert "new RedirectingStream()" in start and "SetOutput(" in start and "SetErrorOutput(" in start
+    # The per-run reset restores stdout, stderr and sys.path; a failed reset starts a new engine.
+    acquire = text.split("private static ScriptEngine AcquireEngine(", 1)[1].split("private static void StartEngine(", 1)[0]
+    assert "ResetScript" in acquire and "RecycleReason(" in acquire and "ShutdownEngine()" in acquire
+    assert "sys.stdout = _amb_stdout" in text and "sys.path[:] = _amb_sys_path" in text
+    assert "_amb_stdout = sys.stdout" in start, "the reset restores the streams the engine started with"
+    release = text.split("private static void ReleaseEngine(", 1)[1].split("internal static void ShutdownEngine()", 1)[0]
+    assert "if (drop || _engineRuns >= RecycleRuns) ShutdownEngine();" in release, \
+        "AEC_BRIDGE_PYTHON_RECYCLE_RUNS=1 must not keep an engine alive between scripts"
     assert "Runtime.Shutdown()" in FACTORY.split("ShutdownQuietly(ScriptEngine? engine)", 1)[1]
+    assert "PythonEngineFactory.ShutdownQuietly(engine)" in text.split("internal static void ShutdownEngine()", 1)[1]
+
+
+def test_warm_engine_is_recycled_on_run_limit_document_change_and_misbehaving_scripts():
+    policy = (ADDIN / "src" / "Bridge" / "PythonEngineReusePolicy.cs").read_text(encoding="utf-8")
+    assert "AEC_BRIDGE_PYTHON_RECYCLE_RUNS" in policy and "DefaultRecycleRuns = 50" in policy
+    assert '"run_limit"' in policy and '"document_changed"' in policy
+    for kind in ("read_mode_violation", "transaction_left_open"):
+        assert f'"{kind}"' in policy
+    assert "Autodesk.Revit" not in policy and "IronPython" not in policy.split("namespace", 1)[0]
+    text = RUNNER.replace("\r\n", "\n")
+    assert text.count("dropEngine = true;") >= 3
+    assert "PythonEngineReusePolicy.RecycleAfterResult(kind) || IsEngineFatal(ex)" in text
+    app = (ADDIN / "src" / "Bridge" / "App.cs").read_text(encoding="utf-8")
+    assert "PythonScriptRunner.ShutdownEngine();" in app
 
 
 def test_runner_rolls_back_transactions_a_script_left_open():

@@ -44,12 +44,36 @@ def test_add_in_constructs_transactions_somewhere():
 
 # --- Revit must never be held by one long request (the 2026-10-13 freeze) -------------------------
 
-def test_executor_runs_one_request_per_revit_turn_and_skips_abandoned_ones():
+def test_executor_runs_writes_alone_and_bounds_each_revit_turn():
+    """#287: reads may share a turn up to a budget; a write or unknown command always runs alone."""
     source = (ADDIN_SRC / "Bridge" / "ExternalEventHandler.cs").read_text(encoding="utf-8")
     execute = _method_body(source, r"public void Execute\(UIApplication app\)")
     assert "IsWanted(" in execute, "abandoned requests must be dropped before they start"
-    assert re.search(r"RunOne\(app, request\);\s*break;", execute), "only one request may run per Execute"
+    assert "ExecutorTurnPolicy.MayTakeAnother(ran, lastShared, turn.ElapsedMilliseconds, _turnBudgetMs)" in execute
+    assert "_queue.TryDequeueIf(next => MayShareTurn(next), out request)" in execute, \
+        "after the first request only requests that may share a turn are taken"
     assert "Event?.Raise()" in execute, "remaining requests need another Revit turn, not the same one"
+    policy = (ADDIN_SRC / "Bridge" / "ExecutorTurnPolicy.cs").read_text(encoding="utf-8")
+    assert "AEC_BRIDGE_TURN_BUDGET_MS" in policy and "DefaultBudgetMs = 40" in policy and "MaxBudgetMs = 200" in policy
+    may_take = _method_body(policy, r"public static bool MayTakeAnother\(")
+    assert "lastSharedTurn && budgetMs > 0 && elapsedMs < budgetMs" in may_take
+    share = _method_body(policy, r"public static bool MayShareTurn\(")
+    assert "if (!isReadOnly(name)) return false;" in share
+    factory = FACTORY.read_text(encoding="utf-8")
+    assert "if (!attr.IsMutating) _readOnlyCommands.Add(attr.Name);" in factory
+
+
+def test_fast_wake_is_opt_in_and_attached_only_while_work_is_queued():
+    """#288: SetRaiseWithoutDelay keeps the CPU busy, so the Idling handler must be scoped to queued work."""
+    source = (ADDIN_SRC / "Bridge" / "ExternalEventHandler.cs").read_text(encoding="utf-8")
+    policy = (ADDIN_SRC / "Bridge" / "ExecutorTurnPolicy.cs").read_text(encoding="utf-8")
+    assert "AEC_BRIDGE_FAST_WAKE" in policy
+    assert source.count("app.Idling += OnIdling") == 1
+    assert "app.Idling -= OnIdling" in source
+    idling = _method_body(source, r"private void OnIdling\(")
+    assert idling.index("_queue.Count > 0") < idling.index("SetRaiseWithoutDelay()")
+    assert "ShouldDetach(0)" in idling
+    assert "CPU" in source
 
 
 def test_queue_does_not_enqueue_a_retried_request_id_twice():

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add-in timings (#285): each request records `queued_ms`, `run_ms`, `serialize_ms` and response bytes in the `Request completed` log line, and `/health` reports `timings` per tool (`count`, `p50_ms`, `p95_ms`, `max_ms`, `avg_bytes` of run time over the last 200 runs). New `scripts/bench-addin.ps1` writes a JSON report from a fixed set of read calls and a burst of reads. UNVERIFIED in live Revit.
+- Add-in warm IronPython engine (#286): `revit_execute_python` keeps one engine per Revit session with RevitAPI and RevitAPIUI loaded; each script gets a new scope and its own output, and the engine is replaced after 50 scripts (`AEC_BRIDGE_PYTHON_RECYCLE_RUNS`; `1` turns the warm engine off), a document change, a failed reset or a misbehaving script. Read-mode guards are unchanged. UNVERIFIED in live Revit.
+- Add-in executor (#287): one Revit turn runs further read-only requests while under a 40 ms budget (`AEC_BRIDGE_TURN_BUDGET_MS`, 0-200, 0 restores one request per turn); writes and unknown commands always run alone. UNVERIFIED in live Revit.
+- Add-in fast wake (#288): opt-in `AEC_BRIDGE_FAST_WAKE=1` attaches an `Idling` handler with `SetRaiseWithoutDelay` only while requests are queued; off by default because it keeps a CPU core busy while attached. UNVERIFIED in live Revit.
 - Add-in: `revit.get_context` now reports `revit.pid` and `revit.started_at` (UTC), so approved plans are bound to the Revit process that drafted them and refused by another Revit or after a restart (#152). UNVERIFIED in a live Revit with two sessions open.
 - Docs: `llms-full.txt` (llms.txt, AGENTS.md and the docs it links in one file, from `scripts/make_llms_full.py`) and `docs/error-catalogue.md` (every error kind and exception class with when and what to do, from `scripts/make_error_catalogue.py` and `scripts/error_catalogue_notes.json`); tests fail when either is stale or a code lacks an entry.
 - `ifc_validate` works with IfcOpenShell 0.8: it passes a logger to `ifcopenshell.validate` and reports its errors (message, entity, attribute). Before, every call failed inside the validator and returned that failure as the only error.

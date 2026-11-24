@@ -19,6 +19,7 @@ public static partial class BridgeCommandFactory
     private static readonly Dictionary<string, Func<UIApplication, JsonElement, object>> _handlers = new();
     private static readonly List<object> _capabilities = new();
     private static readonly List<string> _catalog = new();
+    private static readonly HashSet<string> _readOnlyCommands = new(StringComparer.Ordinal);
 
     [ThreadStatic]
     private static string? _currentActionId;
@@ -50,6 +51,7 @@ public static partial class BridgeCommandFactory
                 var func = CreateHandlerDelegate(method);
                 _handlers[attr.Name] = func;
                 _catalog.Add(attr.Name);
+                if (!attr.IsMutating) _readOnlyCommands.Add(attr.Name);
 
                 _capabilities.Add(new
                 {
@@ -115,6 +117,12 @@ public static partial class BridgeCommandFactory
     public static object GetCapabilities()
     {
         return _capabilities;
+    }
+
+    /// <summary>True only for a registered command marked IsMutating = false. Unknown tools are not read-only.</summary>
+    public static bool IsReadOnlyCommand(string tool)
+    {
+        return _readOnlyCommands.Contains(tool);
     }
 
     // ==================== EXISTING TOOLS ====================

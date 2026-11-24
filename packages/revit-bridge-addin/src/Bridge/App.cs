@@ -380,6 +380,7 @@ namespace RevitBridge.Bridge
                 _hubLauncher?.StopIfLaunched();
                 _server?.Stop();
                 _externalEvent?.Dispose();
+                PythonScriptRunner.ShutdownEngine();
                 Log.Information("AEC Model Bridge stopped");
                 Log.CloseAndFlush();
                 return Result.Succeeded;
