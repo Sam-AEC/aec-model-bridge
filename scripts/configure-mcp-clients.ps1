@@ -222,4 +222,4 @@ if (Test-Path $codeUserDir) {
     Write-Host "  VS Code user directory not found ($codeUserDir) - skipping VS Code config" -ForegroundColor Gray
 }
 
-Write-Host "MCP client configuration complete!" -ForegroundColor Green
+Write-Host "Done. Restart Claude Desktop and VS Code so they load AEC Model Bridge." -ForegroundColor Green

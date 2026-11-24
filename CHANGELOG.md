@@ -22,6 +22,12 @@
 - Security: new `scorecard.yml` workflow runs the OpenSSF Scorecard weekly and on pushes to `main`, uploads SARIF to code scanning, and feeds a README badge. `release.yml`, `publish-pypi.yml` and `publish-mcp.yml` now set top-level read-only `permissions:`.
 - Packaging: winget manifest templates for the Windows installer in `packaging/winget/`, `fill_manifests.py` to fill version, URL and SHA-256 for a release (checked against `SHA256SUMS.txt`), and `docs/winget.md` on submitting with `wingetcreate`. Nothing is submitted.
 - Docs: prompt library in `docs/prompts/` (53 prompts in nine themed files, each with tools, expected result, safety note for writes and mock-test status), linked from `README.md` and `llms.txt`; `tests/test_prompt_library.py` checks every tool name against the registry.
+- Docs site: `mkdocs.yml` (Material theme) builds `docs/` with a nav for install, tools, security, approval flow, snapshot_compute, prompts, error catalogue, configuration and ADRs; `.github/workflows/docs.yml` runs `mkdocs build --strict` on pull requests that touch the docs and deploys to GitHub Pages on push to `main`; `scripts/mkdocs_hooks.py` turns links to files outside `docs/` into GitHub links; requirements in `docs/requirements.txt`. Pages must be enabled once (`docs/release-checklist.md`, section 4).
+- Discussions: forms for Q&A, Ideas and Show and tell in `.github/DISCUSSION_TEMPLATE/`, setup steps and a welcome post in `docs/maintainer/discussions.md`, and a Discussions contact link on the new-issue page. Discussions is not enabled yet.
+- `docs/install.md` documents running the server with `uvx --from "git+https://github.com/Sam-AEC/aec-model-bridge#subdirectory=packages/mcp-server-revit" aec-model-bridge`, which needs no PyPI release; `uvx aec-model-bridge` is marked as working only after the first PyPI release.
+- `smithery.yaml` config descriptions say mock mode runs without Revit and live use needs Windows, Revit 2024 to 2027 and the add-in.
+- Installer and client setup text is plainer: the welcome page says what is installed and that changes wait for approval, the finish page says to restart Claude Desktop or VS Code, and the WebView2 and client setup messages say what they do. Installer logic is unchanged.
+- `docs/mcp-token-budget.md` no longer links to measurement JSON files that were removed from the repository.
 
 ## 1.5.1 - 2026-11-24
 
