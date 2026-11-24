@@ -7,6 +7,10 @@
     "when": "A BCF file or its path is unsafe or invalid: no workspace, path outside the workspace, bad zip entry or an oversized entry.",
     "do": "Use a BCF file inside the workspace. Do not open archives from untrusted sources."
   },
+  "class/BridgeContractError": {
+    "when": "The payload for an add-in command does not match contracts/bridge-commands.json. Nothing was sent to Revit.",
+    "do": "Fix the parameter the message names and call again. MCP_REVIT_VALIDATE_BRIDGE_PAYLOADS=off turns the check off."
+  },
   "class/BridgeError": {
     "when": "Communication with the Revit bridge failed, or a tool reported a failure. Returned to clients as kind bridge_error.",
     "do": "Run revit_health and check that Revit is running with the add-in."

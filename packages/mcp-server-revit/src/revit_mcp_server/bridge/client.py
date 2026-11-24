@@ -8,6 +8,7 @@ import uuid
 from typing import Any
 
 from ..errors import BridgeError, CommandFailed
+from .contract_generated import validate_command
 
 DEFAULT_SOFT_WAIT_SECONDS = 25.0
 # Poll gaps after the add-in's own wait: 0.5 s, 1 s, 2 s, then 3 s until the soft wait ends.
@@ -23,6 +24,15 @@ def _soft_wait_from_env() -> float:
     return value if value > 0 else DEFAULT_SOFT_WAIT_SECONDS
 
 
+VALIDATE_ENV = "MCP_REVIT_VALIDATE_BRIDGE_PAYLOADS"
+_VALIDATE_OFF = ("0", "false", "off", "no")
+
+
+def _validation_from_env() -> bool:
+    """On unless MCP_REVIT_VALIDATE_BRIDGE_PAYLOADS is 0, false, off or no. Any other value keeps it on."""
+    return os.environ.get(VALIDATE_ENV, "").strip().lower() not in _VALIDATE_OFF
+
+
 class BridgeClient:
     def __init__(
         self,
@@ -30,12 +40,16 @@ class BridgeClient:
         timeout: int = 30,
         token: str | None = None,
         soft_wait: float | None = None,
+        validate_payloads: bool | None = None,
     ):
         self.base_url = base_url.rstrip('/')
         self.timeout = timeout
         self.token = token
         # How long one call waits for Revit before it hands back {"status": "running", "request_id": ...}.
         self.soft_wait = soft_wait if soft_wait and soft_wait > 0 else _soft_wait_from_env()
+        # Check each payload against contracts/bridge-commands.json before sending. None: read the
+        # MCP_REVIT_VALIDATE_BRIDGE_PAYLOADS setting on every call (default on).
+        self.validate_payloads = validate_payloads
         self._sleep = time.sleep
         self._clock = time.monotonic
         self._tool_catalog: list[str] | None = None
@@ -103,7 +117,9 @@ class BridgeClient:
         A call that outlives the soft wait is not an error: the add-in keeps running it and keeps the
         result, so this returns {"status": "running", "request_id": ...}; pass that id to get_result().
         wait_s overrides the soft wait for this one call (a quick probe should not hold for 25 s).
+        A payload that does not fit the command contract is refused before anything is sent.
         """
+        self._validate(tool, payload)
         self._check_registry_session()
         if self._tool_catalog and tool not in self._tool_catalog:
             raise BridgeError(
@@ -140,6 +156,11 @@ class BridgeClient:
                 ) from e
 
         raise BridgeError(f"Bridge request failed: {last_error}") from last_error
+
+    def _validate(self, tool: str, payload: Any) -> None:
+        enabled = _validation_from_env() if self.validate_payloads is None else self.validate_payloads
+        if enabled:
+            validate_command(tool, payload)
 
     def get_result(self, request_id: str, wait_s: float | None = None) -> dict[str, Any]:
         """Collect the outcome of an earlier call by request id.

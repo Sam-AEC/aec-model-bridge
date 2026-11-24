@@ -104,7 +104,7 @@ def collect(client: BridgeClient, result: dict, attempts: int = 6) -> dict:
 
 def test_fast_command_returns_its_result_in_one_post():
     client, addin, time = make_client(run_seconds=2)
-    result = client.call_tool("revit.execute_python", {"code": "x"})
+    result = client.call_tool("revit.execute_python", {"script": "x"})
     assert result["output"] == "done after the wait"
     assert result["element_id"] == 7, "element id normalisation still applies"
     assert addin.runs == 1 and time.sleeps == []
@@ -114,7 +114,7 @@ def test_fast_command_returns_its_result_in_one_post():
 
 def test_command_that_finishes_during_polling_returns_the_real_output():
     client, addin, time = make_client(run_seconds=40)
-    result = client.call_tool("revit.execute_python", {"code": "x"}, wait_s=60)
+    result = client.call_tool("revit.execute_python", {"script": "x"}, wait_s=60)
     # The add-in holds the call for 25 s (the HTTP timeout minus a margin), then the client polls.
     assert result["output"] == "done after the wait"
     assert addin.runs == 1
@@ -123,7 +123,7 @@ def test_command_that_finishes_during_polling_returns_the_real_output():
 
 def test_command_that_outlives_the_soft_wait_returns_running_and_can_be_resumed():
     client, addin, time = make_client(run_seconds=90)
-    first = client.call_tool("revit.execute_python", {"code": "slow"})
+    first = client.call_tool("revit.execute_python", {"script": "slow"})
     assert first["status"] == "running"
     request_id = first["request_id"]
     assert request_id == addin.execute_bodies[0]["request_id"]
@@ -142,7 +142,7 @@ def test_command_that_outlives_the_soft_wait_returns_running_and_can_be_resumed(
 
 def test_get_result_with_zero_wait_does_not_sleep():
     client, _addin, time = make_client(run_seconds=90)
-    first = client.call_tool("revit.execute_python", {"code": "slow"})
+    first = client.call_tool("revit.execute_python", {"script": "slow"})
     slept = len(time.sleeps)
     assert client.get_result(first["request_id"], wait_s=0)["status"] == "running"
     assert len(time.sleeps) == slept
@@ -150,7 +150,7 @@ def test_get_result_with_zero_wait_does_not_sleep():
 
 def test_failed_command_raises_bridge_error_with_the_add_in_message():
     client, _addin, _time = make_client(run_seconds=40, outcome="error")
-    first = client.call_tool("revit.execute_python", {"code": "x"})
+    first = client.call_tool("revit.execute_python", {"script": "x"})
     assert first["status"] == "running"
     with pytest.raises(BridgeError, match="Boom"):
         client.get_result(first["request_id"], wait_s=60)
@@ -184,7 +184,7 @@ def test_transport_retry_reuses_the_request_id_and_keeps_the_running_path():
         return addin.handler(request)
 
     client = attach(BridgeClient("http://bridge.test", soft_wait=25), flaky, time)
-    result = client.call_tool("revit.execute_python", {"code": "x"})
+    result = client.call_tool("revit.execute_python", {"script": "x"})
     assert result["status"] == "running"
     assert addin.runs == 1, "the retry carried the same request id, so the add-in did not run it twice"
     assert len({b["request_id"] for b in addin.execute_bodies}) == 1
@@ -201,7 +201,7 @@ def test_lost_connection_while_polling_names_the_request_id():
 
     client = attach(BridgeClient("http://bridge.test", soft_wait=25), dropping, time)
     with pytest.raises(BridgeError, match="may still be running"):
-        client.call_tool("revit.execute_python", {"code": "x"}, wait_s=60)
+        client.call_tool("revit.execute_python", {"script": "x"}, wait_s=60)
 
 
 def test_soft_wait_is_configurable_from_the_environment(monkeypatch):
