@@ -4,6 +4,15 @@ Find your symptom, check the likely cause, and try the fix. Every entry says whe
 
 Each entry comes from a failure mode in the code. Claims about Windows, antivirus or a particular AI client that the code cannot show are tagged **UNVERIFIED**.
 
+## Run the doctor
+
+```text
+aec-model-bridge doctor
+python -m revit_mcp_server doctor --json
+```
+
+(`aec-model-bridge-doctor` is the same command.) It reads your setup and changes nothing: Python version, package version against `VERSION`, mode, whether the workspace exists and is writable, the Revit add-in registry entry and whether it has a session token (Windows only; "N/A" elsewhere; the token value is never shown), whether the bridge port answers within one second, `ifcopenshell`, other optional packages, and the MCP client config files it knows (Claude Desktop, Claude Code, Cursor, Windsurf, VS Code, Gemini CLI, Codex). A client entry that points at an `.exe` launcher under `python\Scripts` is flagged FAIL ([#159](https://github.com/Sam-AEC/aec-model-bridge/issues/159)); use `uvx` or `python -m revit_mcp_server`. Exit code 0 means no FAIL, 1 means at least one. Paste the table into a bug report; it carries no tokens or client environment values.
+
 ## Where the logs are
 
 | Log | Location | What it shows |
