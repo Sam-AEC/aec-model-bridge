@@ -130,7 +130,17 @@
       <div class="toolbar">
         <button type="button" data-action="refresh-plans" aria-label="Refresh pending plans">Refresh</button>
         <button type="button" class="primary" data-action="approve-selected" aria-label="Approve selected plans" aria-describedby="plan-select-hint">Approve Selected</button>
+        <button type="button" data-action="reject-selected" aria-label="Reject selected plans" aria-describedby="plan-select-hint">Reject Selected</button>
         <span class="sr-only" id="plan-select-hint">Tick the checkbox on one or more pending plans first.</span>
+      </div>
+      <div class="toolbar" id="reject-confirm" role="group" aria-label="Confirm bulk reject" hidden>
+        <span id="reject-confirm-text" role="alert"></span>
+        <button type="button" data-action="reject-confirm" aria-describedby="reject-confirm-text">Confirm reject</button>
+        <button type="button" data-action="reject-cancel">Cancel</button>
+      </div>
+      <div class="toolbar" id="expired-bar" hidden>
+        <span id="expired-note" role="status" aria-live="polite"></span>
+        <button type="button" data-action="toggle-expired" id="expired-toggle" aria-pressed="false" aria-describedby="expired-note">Show expired</button>
       </div>
       <div class="list" id="plan-list" role="group" aria-label="Pending plans"></div>
     </section>
