@@ -4,6 +4,7 @@
 
 ## 1.5.1 - 2026-11-24
 
+- `doctor` no longer flags a virtual environment's own `Scripts\python.exe` as a #159 launcher.
 - CI: a `changes` job skips the add-in and Rhino builds on pull requests that do not touch C#; pull requests run Python on Windows 3.11 and Ubuntu 3.13, while pushes to `main`/`dev`, a nightly run and manual runs keep the full matrix (Ubuntu is no longer experimental). Installs use `uv sync --locked` with a cache, tests run in parallel (`pytest-xdist`), and the coverage floor rises from 55% to 80% (measured 83%).
 - `ids` extra pins `ifcopenshell` below 0.9: `ifctester` 0.8.x cannot read 0.9 entities.
 - README first screen rewritten: headline "The Revit MCP server that asks first", a three-step picture (`assets/readme-flow.svg`: AI proposes, you approve, Revit changes), a one-line pre-release status with the detail kept under "Status and limits", and the compatibility paragraphs moved above Star History. Headings are unchanged. A test now checks the tool count stated under the headline.
