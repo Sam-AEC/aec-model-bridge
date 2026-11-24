@@ -1,0 +1,34 @@
+# Local pre-commit hooks. They run the same commands as CI (.github/workflows/ci.yml)
+# with the ruff and pytest versions pinned in packages/mcp-server-revit/uv.lock, so no
+# hook repository is downloaded.
+#
+#   pip install pre-commit   (or: uv tool install pre-commit)
+#   pre-commit install
+#   pre-commit run --all-files
+#
+# Needs uv on PATH. `ruff format` is not a hook: CI reports format drift but does not
+# enforce it.
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check (as CI)
+        entry: uv run --directory packages/mcp-server-revit ruff check src tests ../../scripts/ci_summary.py
+        language: system
+        types: [python]
+        files: ^(packages/mcp-server-revit/(src|tests)/|scripts/ci_summary\.py$)
+        pass_filenames: false
+
+      - id: version-check
+        name: version consistency (scripts/version.py check)
+        entry: python scripts/version.py check
+        language: system
+        always_run: true
+        pass_filenames: false
+
+      - id: tool-count-claims
+        name: tool counts in docs match scripts/count_tools.py
+        entry: uv run --directory packages/mcp-server-revit pytest -q -p no:cacheprovider tests/test_tool_count_claims.py
+        language: system
+        files: ^(packages/mcp-server-revit/src/|scripts/count_tools\.py$|.*\.md$|.*\.json$|llms\.txt$|smithery\.yaml$|glama\.json$)
+        pass_filenames: false

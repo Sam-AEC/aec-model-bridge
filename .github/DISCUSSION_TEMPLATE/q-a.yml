@@ -1,0 +1,45 @@
+title: "<what you want to do or know>"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ask how to install, configure or use AEC Model Bridge. Mark the answer that solved it.
+        A tool or the add-in does not behave as documented? [Open a bug report](https://github.com/Sam-AEC/aec-model-bridge/issues/new?template=bug_report.yml) instead.
+        Security problems go through [private reporting](https://github.com/Sam-AEC/aec-model-bridge/security/advisories/new), never a public post.
+        Remove model names, file paths, server names and credentials you do not want public.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What you want to do, what you tried and what happened. Quote error text exactly.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: AEC Model Bridge version
+      description: From the installer or release name, or `aec-model-bridge doctor`. For a source build, give the commit.
+      placeholder: "1.5.1"
+    validations:
+      required: false
+  - type: dropdown
+    id: host
+    attributes:
+      label: Revit version or mode
+      options:
+        - Revit 2024
+        - Revit 2025
+        - Revit 2026
+        - Revit 2027
+        - Mock mode (no Revit)
+        - IFC files only
+        - Other or not sure
+    validations:
+      required: false
+  - type: input
+    id: client
+    attributes:
+      label: AI client
+      description: For example Claude Desktop, Claude Code, VS Code, Cursor or Codex.
+    validations:
+      required: false
