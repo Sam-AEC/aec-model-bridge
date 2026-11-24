@@ -771,5 +771,80 @@
     expect(/aec-model-bridge-approve list/.test($("plan-list").textContent), "list command not named");
   });
 
+  // ---- Issue #151: bulk reject, bound document, expiry ----
+  const tick = (id) => { const b = cardOf(id).querySelector("[data-select-plan]"); b.click(); return b; };
+  const bulk = () => document.querySelector('[data-action="reject-selected"]');
+
+  test("bulk reject: 3 ticked plans are rejected once each after a confirmation that shows the count; others stay pending", () => {
+    fresh();
+    plans(["b1", "b2", "b3", "b4", "b5"].map((id) => PLAN(id, [SET([1], true)])));
+    expect(bulk().disabled, "Reject Selected should wait for a selection");
+    ["b1", "b2", "b3"].forEach(tick);
+    expect(!bulk().disabled, "Reject Selected should enable");
+    sent().length = 0;
+    bulk().click();
+    expect(sentOf("plan.reject").length === 0, "rejected before the confirmation");
+    const bar = $("reject-confirm");
+    expect(!bar.hidden && /Reject 3 selected/.test($("reject-confirm-text").textContent), "confirmation line lacks the count");
+    document.querySelector('[data-action="reject-confirm"]').click();
+    const rej = sentOf("plan.reject");
+    expect(rej.map((m) => m.planId).sort().join() === "b1,b2,b3", "wrong plans rejected: " + JSON.stringify(rej));
+    expect(rej.every((m) => m.planHash === "abcdef0123456789" && Object.keys(m).sort().join() === "planHash,planId,type"), "payload differs from the single Reject");
+    expect(sentOf("plan.approve").length === 0, "bulk reject sent an approval");
+    expect(bar.hidden, "confirmation still open");
+    expect(cardOf("b4") && cardOf("b5"), "unselected plans vanished");
+    plans([PLAN("b4", [SET([1], true)]), PLAN("b5", [SET([1], true)])]);
+    expect(document.querySelectorAll("#plan-list .badge").length === 2 && !cardOf("b1"), "list not refreshed");
+    expect(sentOf("plan.reject").length === 3, "extra reject sent");
+  });
+
+  test("bulk reject: Cancel sends nothing", () => {
+    fresh();
+    plans([PLAN("c1", [SET([1], true)])]);
+    tick("c1");
+    sent().length = 0;
+    bulk().click();
+    document.querySelector('[data-action="reject-cancel"]').click();
+    expect($("reject-confirm").hidden && sentOf("plan.reject").length === 0, "cancel did not stop the reject");
+  });
+
+  test("bound document: title and expiry are shown escaped; a different active document warns before Approve", () => {
+    fresh();
+    const bound = { doc_title: "Other<img src=x onerror=window.__pwned=9>.rvt", doc_guid: "g" };
+    plans([PLAN("d1", [SET([1], true)])].map((p) => Object.assign(p, { binding: bound, expires_at: "2030-01-02T03:04:05Z" })));
+    const card = cardOf("d1");
+    expect(/Bound to document: Other/.test(card.textContent) && /Expires:/.test(card.textContent), "binding or expiry missing");
+    expect(!card.querySelector("img"), "binding title was not escaped");
+    const warn = card.querySelector('[role="alert"]');
+    expect(warn && /active document is m\.rvt/.test(warn.textContent), "no mismatch warning");
+    expect(approveBtn(card).getAttribute("aria-describedby") === warn.id, "Approve not tied to the warning");
+    plans([PLAN("d2", [SET([1], true)])].map((p) => Object.assign(p, { binding: { doc_title: "M" } })));
+    expect(!cardOf("d2").querySelector('[id^="plan-warn-"]'), "warned although the document matches");
+    plans([PLAN("d3", [SET([1], true)])]);
+    expect(!/Bound to document|Expires:/.test(cardOf("d3").textContent), "unbound plan shows binding text");
+  });
+
+  test("expired plans: N hidden is announced, the toggle asks the host, expired plans cannot be approved but can be rejected in bulk", () => {
+    fresh();
+    deliver({ type: "plans.updated", result: { plans: [PLAN("e1", [SET([1], true)])], expired_hidden: 2 } });
+    expect(!$("expired-bar").hidden && /2 expired plan\(s\) hidden/.test($("expired-note").textContent), "hidden count not shown");
+    sent().length = 0;
+    $("expired-toggle").click();
+    const ask = sentOf("plans.refresh");
+    expect(ask.length === 1 && ask[0].includeExpired === true, "toggle did not request expired plans: " + JSON.stringify(ask));
+    deliver({ type: "plans.updated", result: { plans: [PLAN("e1", [SET([1], true)]), Object.assign(PLAN("e2", [SET([1], true)]), { expired: true })], expired_hidden: 0 } });
+    const card = cardOf("e2");
+    expect(approveBtn(card).disabled, "expired plan can be approved");
+    approveBtn(card).click();
+    expect(sentOf("plan.approve").length === 0, "approve sent for an expired plan");
+    tick("e2");
+    expect(document.querySelector('[data-action="approve-selected"]').disabled, "Approve Selected accepts an expired plan");
+    expect(!bulk().disabled, "expired plan cannot be bulk-rejected");
+    sent().length = 0;
+    bulk().click();
+    document.querySelector('[data-action="reject-confirm"]').click();
+    expect(sentOf("plan.reject").map((m) => m.planId).join() === "e2" && sentOf("plan.approve").length === 0, "expired reject wrong");
+  });
+
   window.addEventListener("load", () => { runAll(); });
 })();

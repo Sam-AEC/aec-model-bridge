@@ -227,8 +227,11 @@ namespace RevitBridge.UI
                     break;
 
                 case "plans.refresh":
-                    await RunToolAndPostAsync("list_pending_plans", new { }, "plans.updated", type);
+                {
+                    var includeExpired = root.TryGetProperty("includeExpired", out var expEl) && expEl.ValueKind == JsonValueKind.True;
+                    await RunToolAndPostAsync("list_pending_plans", new { include_expired = includeExpired }, "plans.updated", type);
                     break;
+                }
 
                 case "plan.approve":
                 case "plan.reject":
