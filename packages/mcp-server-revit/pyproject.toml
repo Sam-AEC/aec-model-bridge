@@ -60,6 +60,8 @@ dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
     "pytest-timeout>=2.3",
+    # CI runs the suite with -n auto.
+    "pytest-xdist>=3.6",
     # The wheel-contents test builds the package; CI also uses it for the sdist.
     "build>=1.2",
     "ruff>=0.0",
@@ -134,9 +136,9 @@ omit = ["*/tests/*", "*/_version.py"]
 source = ["src/revit_mcp_server", "*/site-packages/revit_mcp_server"]
 
 [tool.coverage.report]
-# Measured at 59% (line + branch) when this gate was introduced; the floor sits a
-# few points below so noise does not break CI but a real drop does.
-fail_under = 55
+# Measured at 83% (line + branch) in 1.5.1; the floor sits a few points below so
+# platform differences do not break CI but a real drop does.
+fail_under = 80
 skip_covered = true
 exclude_also = [
     "if TYPE_CHECKING:",

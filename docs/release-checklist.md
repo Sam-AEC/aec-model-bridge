@@ -4,7 +4,7 @@ Ordered list for shipping from `dev` to `main`. Section 2 has no PASS or FAIL re
 
 ## 1. What CI proves
 
-The workflow in `.github/workflows/ci.yml` runs on every push and pull request. It proves:
+The workflow in `.github/workflows/ci.yml` runs on every push and pull request, and nightly. Pull requests run Python on Windows 3.11 and Ubuntu 3.13 and build the add-ins only when their C# folders change. Pushes to `main` and `dev`, the nightly run and manual runs use the full matrix (Windows 3.11, 3.12, 3.13; Ubuntu 3.12, 3.13) and every build. It proves:
 
 - Python lint (`ruff check`), the Python test suite with coverage, version consistency (`scripts/version.py check`), `uv.lock` freshness and tool catalog generation.
 - Repository metadata validation, wheel and sdist build, `twine check --strict`, and a smoke test of the built wheel in a clean venv.
