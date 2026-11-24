@@ -198,6 +198,24 @@ async def test_execute_rechecks_a_tightened_policy(env):
 
 
 @pytest.mark.anyio
+async def test_direct_call_with_plan_id_rechecks_a_tightened_policy(env):
+    """A tool called directly with plan_id claims its action through the gate; the policy applies there too."""
+    approval, tmp = env
+    a = act(1)
+    plan = await approval.execute_tool("plan_actions", {"actions": [a]})
+    await panel_decide(approval, "approve_plan", plan["plan_id"])
+    write_policy(tmp, "blocked_tools: [revit_set_parameter_value]")
+    with pytest.raises(BridgeError, match="blocked_tools"):
+        approval.gate._claim(plan["plan_id"], SET, a["arguments"])
+    assert approval.gate.load_plan(plan["plan_id"])["actions"][0]["state"] == "pending"
+    write_policy(tmp, "blocked_tools: [a")
+    with pytest.raises(BridgeError, match="Invalid policy file"):
+        approval.gate._claim(plan["plan_id"], SET, a["arguments"])
+    (tmp / "policy.yaml").unlink()
+    assert approval.gate._claim(plan["plan_id"], SET, a["arguments"])["plan_id"] == plan["plan_id"]
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize("text", ["blocked_tools: [a", "unknown_rule: 1", "max_actions_per_plan: -1",
                                   "blocked_tools: nope", "- a\n- b"])
 async def test_invalid_policy_refuses_writes(env, text):

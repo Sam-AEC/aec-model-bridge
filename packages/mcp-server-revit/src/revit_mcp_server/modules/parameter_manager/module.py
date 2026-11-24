@@ -124,7 +124,7 @@ def _plan_rows(
             pinfo = el.get("params", {}).get(pname)
             storage = pinfo.get("storage") if pinfo else "String"
             before = pinfo.get("v") if pinfo else None
-            if skip_unchanged and (val_str is None or val_str == ""):
+            if skip_unchanged and (val_str is None or val_str.strip() == ""):
                 continue
             try:
                 if storage == "Double":
@@ -160,7 +160,9 @@ def _cell_text(value: Any) -> str:
         return "true" if value else "false"
     if isinstance(value, float) and value.is_integer() and abs(value) < 1e15:
         return str(int(value))
-    return str(value).strip() if isinstance(value, str) else str(value)
+    # Text is kept exactly: trimming would turn an unedited " A " into an update.
+    # Headers and uids are trimmed where they are read.
+    return str(value)
 
 
 def _xlsx_path(workspace: Any, filename: str) -> Path:
