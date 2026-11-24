@@ -58,6 +58,7 @@ defects and build the loop in.
 - Levels made through the API have no plan view; create it first. Setting `VIEW_NAME` on a level's own plan view renames the level.
 - A never-opened 3D view exports blank: crop it to the section box before `ExportImage`. `revit_export_image` can report `file_exists:false`; export with `ImageExportOptions` and list the folder.
 - `revit_execute_python` has a new scope per call. Commit or roll back a `Transaction` inside the same call.
+- Pass `helpers: true` for the `amb` library: quick-filter collectors, parameter and box filters, unit conversion, and in write mode `amb.batch` (one transaction, `SubTransaction` per item). Error line numbers then include the helper lines. See `docs/python-automation.md`. UNVERIFIED in live Revit.
 - A bridge timeout does not stop Revit; the result is lost. Split long work (one family per call), then verify with a read-only audit. `revit_health` returns only when the queue is idle.
 - A door or window wider than its wall piece rolls back the whole transaction: check fit first. Place openings one per transaction.
 - Setting `Width`/`Height` type parameters on a generated family from the project rescales its geometry: set them inside the family. Window geometry must start at the Sill reference plane.

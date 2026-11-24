@@ -1,0 +1,466 @@
+# AEC Model Bridge script helpers, read part (docs/python-automation.md).
+# The server puts this text before a revit_execute_python script when the call sets helpers=true, in both modes.
+# Syntax: the subset that IronPython 2.7 (Revit 2024, net48) and IronPython 3.4 (Revit 2025 and later) both accept.
+# No f-strings, no print, no annotations, no keyword-only arguments, no long, basestring, unicode or xrange.
+# This part only reads the model. It must pass the read-mode text rules (security/read_mode.py and
+# ReadModeRules.cs); tests/test_python_helpers.py checks that. Every helper is a static method of the class amb.
+import clr
+import System
+from System.Collections.Generic import List as _AmbList
+import Autodesk.Revit.DB as _AmbDB
+
+
+class amb(object):
+    """Helpers for fast Revit API scripts. Lengths are Revit internal units (feet) unless a unit is named."""
+
+    VERSION = 1
+    DB = _AmbDB
+    document = None
+
+    _CATEGORY_ALIASES = {
+        "pipes": "OST_PipeCurves",
+        "ducts": "OST_DuctCurves",
+        "railings": "OST_StairsRailing",
+        "beams": "OST_StructuralFraming",
+        "cabletrays": "OST_CableTray",
+        "conduits": "OST_Conduit",
+        "genericmodels": "OST_GenericModel",
+    }
+
+    # Comparison name -> ParameterFilterRuleFactory method.
+    _RULES = {
+        "==": "CreateEqualsRule",
+        "!=": "CreateNotEqualsRule",
+        ">": "CreateGreaterRule",
+        ">=": "CreateGreaterOrEqualRule",
+        "<": "CreateLessRule",
+        "<=": "CreateLessOrEqualRule",
+        "contains": "CreateContainsRule",
+        "not_contains": "CreateNotContainsRule",
+        "begins": "CreateBeginsWithRule",
+        "not_begins": "CreateNotBeginsWithRule",
+        "ends": "CreateEndsWithRule",
+        "not_ends": "CreateNotEndsWithRule",
+    }
+
+    # Unit name -> UnitTypeId property (Revit 2021 and later) and the factor from internal units.
+    _UNITS = {
+        "mm": ("Millimeters", 304.8),
+        "cm": ("Centimeters", 30.48),
+        "m": ("Meters", 0.3048),
+        "ft": ("Feet", 1.0),
+        "in": ("Inches", 12.0),
+        "m2": ("SquareMeters", 0.09290304),
+        "ft2": ("SquareFeet", 1.0),
+        "m3": ("CubicMeters", 0.028316846592),
+        "ft3": ("CubicFeet", 1.0),
+        "deg": ("Degrees", 57.29577951308232),
+        "rad": ("Radians", 1.0),
+    }
+
+    # ------------------------------------------------------------------ ids
+    @staticmethod
+    def doc():
+        """The document the helpers use: amb.document when set, otherwise the active document."""
+        if amb.document is not None:
+            return amb.document
+        return doc
+
+    @staticmethod
+    def eid(x):
+        """Integer id of an Element, an ElementId or a number. ElementId.Value (2024+), else IntegerValue."""
+        if x is None:
+            return None
+        if isinstance(x, _AmbDB.Element):
+            x = x.Id
+        if isinstance(x, _AmbDB.ElementId):
+            try:
+                return int(x.Value)
+            except Exception:
+                return int(x.IntegerValue)
+        return int(x)
+
+    @staticmethod
+    def element_id(x):
+        """ElementId from an Element, an ElementId, a BuiltInParameter, a BuiltInCategory or a number."""
+        if isinstance(x, _AmbDB.ElementId):
+            return x
+        if isinstance(x, _AmbDB.Element):
+            return x.Id
+        if isinstance(x, (_AmbDB.BuiltInParameter, _AmbDB.BuiltInCategory)):
+            return _AmbDB.ElementId(x)
+        n = int(x)
+        try:
+            return _AmbDB.ElementId(System.Int64(n))
+        except Exception:
+            return _AmbDB.ElementId(System.Int32(n))
+
+    @staticmethod
+    def id_list(items):
+        """A .NET List[ElementId], the type that Revit methods taking ICollection<ElementId> expect."""
+        out = _AmbList[_AmbDB.ElementId]()
+        for x in items:
+            out.Add(amb.element_id(x))
+        return out
+
+    @staticmethod
+    def elements(ids):
+        """Elements for ids, skipping ids that are not in the document."""
+        d = amb.doc()
+        out = []
+        for i in ids:
+            e = d.GetElement(amb.element_id(i))
+            if e is not None:
+                out.append(e)
+        return out
+
+    # ------------------------------------------------------------ collectors
+    @staticmethod
+    def bic(name):
+        """BuiltInCategory from a BuiltInCategory, 'OST_Walls', 'Walls' or 'Structural Framing'."""
+        if isinstance(name, _AmbDB.BuiltInCategory):
+            return name
+        text = str(name).strip()
+        key = text.replace(" ", "")
+        alias = amb._CATEGORY_ALIASES.get(key.lower())
+        if alias is not None:
+            key = alias
+        elif not key.startswith("OST_"):
+            key = "OST_" + key
+        value = getattr(_AmbDB.BuiltInCategory, key, None)
+        if value is None:
+            raise ValueError("unknown category '%s': use a BuiltInCategory name such as OST_Walls" % text)
+        return value
+
+    @staticmethod
+    def _as_list(value):
+        if isinstance(value, (str, _AmbDB.BuiltInCategory)):
+            return [value]
+        return list(value)
+
+    @staticmethod
+    def collector(view=None, ids=None):
+        """FilteredElementCollector over the document, one view (only what the view shows) or a set of ids."""
+        d = amb.doc()
+        if ids is not None:
+            id_list = amb.id_list(ids)
+            if id_list.Count == 0:
+                raise ValueError("amb.collector: ids is empty")
+            return _AmbDB.FilteredElementCollector(d, id_list)
+        if view is not None:
+            return _AmbDB.FilteredElementCollector(d, amb.element_id(view))
+        return _AmbDB.FilteredElementCollector(d)
+
+    @staticmethod
+    def category_filter(categories):
+        """ElementCategoryFilter for one category, ElementMulticategoryFilter for several (both quick filters)."""
+        cats = amb._as_list(categories)
+        if not cats:
+            raise ValueError("amb.category_filter: no categories given")
+        if len(cats) == 1:
+            return _AmbDB.ElementCategoryFilter(amb.bic(cats[0]))
+        typed = _AmbList[_AmbDB.BuiltInCategory]()
+        for c in cats:
+            typed.Add(amb.bic(c))
+        return _AmbDB.ElementMulticategoryFilter(typed)
+
+    @staticmethod
+    def instances(categories, view=None):
+        """Placed elements (not types) of one or more categories. Quick filters only; nothing is loaded yet."""
+        cats = amb._as_list(categories)
+        col = amb.collector(view)
+        if len(cats) == 1:
+            col = col.OfCategory(amb.bic(cats[0]))
+        else:
+            col = col.WherePasses(amb.category_filter(cats))
+        return col.WhereElementIsNotElementType()
+
+    @staticmethod
+    def types(categories):
+        """Element types (wall types, family symbols, ...) of one or more categories."""
+        cats = amb._as_list(categories)
+        col = amb.collector()
+        if len(cats) == 1:
+            col = col.OfCategory(amb.bic(cats[0]))
+        else:
+            col = col.WherePasses(amb.category_filter(cats))
+        return col.WhereElementIsElementType()
+
+    @staticmethod
+    def of_class(cls, view=None):
+        """Elements of one API class, for example Wall, Level or FamilyInstance (OfClass is a quick filter)."""
+        return amb.collector(view).OfClass(cls)
+
+    @staticmethod
+    def ids(col):
+        """Integer ids of what a collector matches, without building Python wrappers for each element."""
+        return [amb.eid(i) for i in col.ToElementIds()]
+
+    @staticmethod
+    def count(col):
+        """Number of matches, counted inside Revit."""
+        return col.GetElementCount()
+
+    @staticmethod
+    def first(col):
+        """First match or None."""
+        return col.FirstElement()
+
+    @staticmethod
+    def take(col, limit):
+        """At most limit elements from a collector, stopping early."""
+        out = []
+        if limit <= 0:
+            return out
+        for e in col:
+            out.append(e)
+            if len(out) >= limit:
+                break
+        return out
+
+    @staticmethod
+    def excluding(col, ids):
+        """The collector without the given ids (an empty list leaves it unchanged)."""
+        id_list = amb.id_list(ids)
+        if id_list.Count == 0:
+            return col
+        return col.Excluding(id_list)
+
+    # ------------------------------------------------------------- parameters
+    @staticmethod
+    def param_id(param):
+        """ElementId of a parameter: a BuiltInParameter, its name ('ALL_MODEL_INSTANCE_COMMENTS'), an ElementId,
+        or the name of a project or shared parameter (looked up among ParameterElements)."""
+        if isinstance(param, _AmbDB.ElementId):
+            return param
+        if isinstance(param, _AmbDB.BuiltInParameter):
+            return _AmbDB.ElementId(param)
+        name = str(param)
+        bip = getattr(_AmbDB.BuiltInParameter, name, None)
+        if bip is not None:
+            return _AmbDB.ElementId(bip)
+        for pe in amb.collector().OfClass(_AmbDB.ParameterElement):
+            if pe.Name == name:
+                return pe.Id
+        raise ValueError("unknown parameter '%s': use a BuiltInParameter name or a project/shared parameter name" % name)
+
+    @staticmethod
+    def rule(param, op, value=None, epsilon=1e-6):
+        """A FilterRule built by ParameterFilterRuleFactory. op: == != > >= < <= contains not_contains begins
+        not_begins ends not_ends has_value no_value. A float value compares with epsilon (internal units).
+        A length, area or angle parameter needs a float value: an int value builds an integer rule."""
+        pid = amb.param_id(param)
+        factory = _AmbDB.ParameterFilterRuleFactory
+        if op == "has_value":
+            return factory.CreateHasValueParameterRule(pid)
+        if op == "no_value":
+            return factory.CreateHasNoValueParameterRule(pid)
+        name = amb._RULES.get(op)
+        if name is None:
+            raise ValueError("unknown comparison '%s'" % op)
+        make = getattr(factory, name)
+        if isinstance(value, str):
+            try:
+                return make(pid, value)
+            except TypeError:
+                # Revit before 2023 also wants caseSensitive.
+                return make(pid, value, False)
+        if isinstance(value, _AmbDB.ElementId):
+            return make(pid, value)
+        if isinstance(value, float):
+            return make(pid, value, float(epsilon))
+        if value is None:
+            raise ValueError("comparison '%s' needs a value" % op)
+        return make(pid, int(value))
+
+    @staticmethod
+    def param_filter(param, op, value=None, epsilon=1e-6, invert=False):
+        """ElementParameterFilter for one rule. It runs inside Revit, without a Python loop."""
+        return _AmbDB.ElementParameterFilter(amb.rule(param, op, value, epsilon), bool(invert))
+
+    @staticmethod
+    def where(col, param, op, value=None, epsilon=1e-6, invert=False):
+        """col narrowed by one parameter rule. Apply quick filters (category, class, box) first."""
+        return col.WherePasses(amb.param_filter(param, op, value, epsilon, invert))
+
+    @staticmethod
+    def where_all(col, rules, invert=False):
+        """col narrowed by several rules that must all match; rules is a list of amb.rule(...) results."""
+        typed = _AmbList[_AmbDB.FilterRule]()
+        for r in rules:
+            typed.Add(r)
+        return col.WherePasses(_AmbDB.ElementParameterFilter(typed, bool(invert)))
+
+    @staticmethod
+    def parameter(element, param):
+        """Parameter of an element by BuiltInParameter, BuiltInParameter name or display name; None if absent."""
+        if isinstance(param, _AmbDB.BuiltInParameter):
+            return element.get_Parameter(param)
+        name = str(param)
+        bip = getattr(_AmbDB.BuiltInParameter, name, None)
+        if bip is not None:
+            return element.get_Parameter(bip)
+        return element.LookupParameter(name)
+
+    @staticmethod
+    def value(element, param, unit=None):
+        """Parameter value as a Python value: float (in unit when given), int, str or element id as int."""
+        p = amb.parameter(element, param)
+        if p is None or not p.HasValue:
+            return None
+        st = p.StorageType
+        if st == _AmbDB.StorageType.Double:
+            v = p.AsDouble()
+            if unit is not None:
+                return amb.from_internal(v, unit)
+            return v
+        if st == _AmbDB.StorageType.Integer:
+            return p.AsInteger()
+        if st == _AmbDB.StorageType.String:
+            return p.AsString()
+        if st == _AmbDB.StorageType.ElementId:
+            return amb.eid(p.AsElementId())
+        return None
+
+    # ---------------------------------------------------------------- spatial
+    @staticmethod
+    def xyz(p):
+        """XYZ from an XYZ or an (x, y, z) sequence in internal units."""
+        if isinstance(p, _AmbDB.XYZ):
+            return p
+        return _AmbDB.XYZ(float(p[0]), float(p[1]), float(p[2]))
+
+    @staticmethod
+    def outline(min_pt, max_pt):
+        return _AmbDB.Outline(amb.xyz(min_pt), amb.xyz(max_pt))
+
+    @staticmethod
+    def in_box(col, min_pt, max_pt, inside=False, tolerance=0.0, invert=False):
+        """Elements whose bounding box touches the box (inside=True: lies fully inside it). Quick filters."""
+        box = amb.outline(min_pt, max_pt)
+        if inside:
+            f = _AmbDB.BoundingBoxIsInsideFilter(box, float(tolerance), bool(invert))
+        else:
+            f = _AmbDB.BoundingBoxIntersectsFilter(box, float(tolerance), bool(invert))
+        return col.WherePasses(f)
+
+    @staticmethod
+    def near_point(col, point, tolerance=0.0, invert=False):
+        """Elements whose bounding box contains the point (BoundingBoxContainsPointFilter, quick)."""
+        return col.WherePasses(_AmbDB.BoundingBoxContainsPointFilter(amb.xyz(point), float(tolerance), bool(invert)))
+
+    @staticmethod
+    def solids(element, options=None):
+        """Solids with volume in the element geometry, including family instance geometry."""
+        opts = options
+        if opts is None:
+            opts = _AmbDB.Options()
+            opts.ComputeReferences = False
+        geom = element.get_Geometry(opts)
+        out = []
+        if geom is None:
+            return out
+        stack = [geom]
+        while stack:
+            current = stack.pop()
+            for g in current:
+                if isinstance(g, _AmbDB.Solid):
+                    if g.Volume > 1e-9:
+                        out.append(g)
+                elif isinstance(g, _AmbDB.GeometryInstance):
+                    stack.append(g.GetInstanceGeometry())
+        return out
+
+    @staticmethod
+    def box_solid(min_pt, max_pt):
+        """A transient box Solid between two corners (nothing is added to the model)."""
+        a = amb.xyz(min_pt)
+        b = amb.xyz(max_pt)
+        z = min(a.Z, b.Z)
+        height = abs(b.Z - a.Z)
+        if height <= 1e-9:
+            raise ValueError("amb.box_solid: the box has no height")
+        x0, x1 = min(a.X, b.X), max(a.X, b.X)
+        y0, y1 = min(a.Y, b.Y), max(a.Y, b.Y)
+        pts = [_AmbDB.XYZ(x0, y0, z), _AmbDB.XYZ(x1, y0, z), _AmbDB.XYZ(x1, y1, z), _AmbDB.XYZ(x0, y1, z)]
+        loop = _AmbDB.CurveLoop()
+        for i in range(4):
+            loop.Append(_AmbDB.Line.CreateBound(pts[i], pts[(i + 1) % 4]))
+        loops = _AmbList[_AmbDB.CurveLoop]()
+        loops.Add(loop)
+        return _AmbDB.GeometryCreationUtilities.CreateExtrusionGeometry(loops, _AmbDB.XYZ.BasisZ, height)
+
+    @staticmethod
+    def intersecting_solid(col, solid, invert=False):
+        """Elements whose geometry intersects a Solid (ElementIntersectsSolidFilter, a slow filter: apply last)."""
+        return col.WherePasses(_AmbDB.ElementIntersectsSolidFilter(solid, bool(invert)))
+
+    @staticmethod
+    def intersecting_element(col, element, invert=False):
+        """Elements whose geometry intersects another element (ElementIntersectsElementFilter, slow: apply last).
+        The element itself is excluded."""
+        col = amb.excluding(col, [element])
+        return col.WherePasses(_AmbDB.ElementIntersectsElementFilter(element, bool(invert)))
+
+    # ------------------------------------------------------------------ units
+    @staticmethod
+    def unit_id(unit):
+        """ForgeTypeId for a unit name (mm, cm, m, ft, in, m2, ft2, m3, ft3, deg, rad) or a ForgeTypeId."""
+        if isinstance(unit, str):
+            entry = amb._UNITS.get(unit)
+            if entry is None:
+                raise ValueError("unknown unit '%s': use one of %s" % (unit, ", ".join(sorted(amb._UNITS))))
+            return getattr(_AmbDB.UnitTypeId, entry[0])
+        return unit
+
+    @staticmethod
+    def to_internal(value, unit):
+        """Value in unit -> Revit internal units, with UnitUtils.ConvertToInternalUnits (ForgeTypeId)."""
+        return _AmbDB.UnitUtils.ConvertToInternalUnits(float(value), amb.unit_id(unit))
+
+    @staticmethod
+    def from_internal(value, unit):
+        """Revit internal units -> value in unit, with UnitUtils.ConvertFromInternalUnits (ForgeTypeId)."""
+        return _AmbDB.UnitUtils.ConvertFromInternalUnits(float(value), amb.unit_id(unit))
+
+    @staticmethod
+    def mm(value):
+        """Millimetres -> feet without a Revit call (for tight loops)."""
+        return float(value) / 304.8
+
+    # ------------------------------------------------------------- dependents
+    @staticmethod
+    def dependents(element, element_filter=None, include_self=False):
+        """Ids of the elements that depend on an element (hosted doors, tags, sketch lines, ...), from
+        Element.GetDependentElements. element_filter (any ElementFilter) narrows the result inside Revit."""
+        e = element
+        if not isinstance(e, _AmbDB.Element):
+            e = amb.doc().GetElement(amb.element_id(element))
+        if e is None:
+            raise ValueError("amb.dependents: element %s is not in the document" % element)
+        own = amb.eid(e)
+        out = []
+        for i in e.GetDependentElements(element_filter):
+            n = amb.eid(i)
+            if include_self or n != own:
+                out.append(n)
+        return out
+
+    # ------------------------------------------------------------------ misc
+    @staticmethod
+    def chunks(items, size):
+        """Split a sequence into lists of at most size items."""
+        items = list(items)
+        size = max(1, int(size))
+        return [items[i:i + size] for i in range(0, len(items), size)]
+
+    @staticmethod
+    def stopwatch():
+        """A started System.Diagnostics.Stopwatch; read .ElapsedMilliseconds."""
+        return System.Diagnostics.Stopwatch.StartNew()
+
+
+try:
+    amb.mode = __mode__
+except NameError:
+    amb.mode = None

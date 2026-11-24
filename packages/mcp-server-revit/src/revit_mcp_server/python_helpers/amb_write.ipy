@@ -1,0 +1,167 @@
+# AEC Model Bridge script helpers, write part (docs/python-automation.md).
+# Sent after the read part, and only when the call has mode='write' (which needs an approved plan).
+# Same syntax subset as the read part. In write mode the add-in defines amb_transaction(doc, name): a transaction
+# whose failure handling dismisses warnings without a dialog (they come back in the result's "warnings") and
+# rolls back on errors. These helpers use it, and fall back to a plain Transaction with their own failure
+# preprocessor when it is missing.
+
+try:
+    class _AmbQuietFailures(_AmbDB.IFailuresPreprocessor):
+        """Dismiss warnings; roll back on any error instead of showing a dialog."""
+
+        def PreprocessFailures(self, accessor):
+            for m in accessor.GetFailureMessages():
+                if m.GetSeverity() == _AmbDB.FailureSeverity.Warning:
+                    accessor.DeleteWarning(m)
+                else:
+                    return _AmbDB.FailureProcessingResult.ProceedWithRollBack
+            return _AmbDB.FailureProcessingResult.Continue
+except Exception:
+    _AmbQuietFailures = None
+
+
+def _amb_start(name, document=None):
+    d = document if document is not None else amb.doc()
+    try:
+        maker = amb_transaction
+    except NameError:
+        maker = None
+    if maker is not None:
+        t = maker(d, name)
+        t.Start()
+        return t
+    t = _AmbDB.Transaction(d, name)
+    t.Start()
+    if _AmbQuietFailures is not None:
+        options = t.GetFailureHandlingOptions()
+        options.SetFailuresPreprocessor(_AmbQuietFailures())
+        options.SetClearAfterRollback(True)
+        t.SetFailureHandlingOptions(options)
+    return t
+
+
+def _amb_commit(t):
+    if hasattr(t, "CommitChecked"):
+        return t.CommitChecked()
+    status = t.Commit()
+    if status != _AmbDB.TransactionStatus.Committed:
+        raise RuntimeError("transaction did not commit (status %s); Revit rolled it back" % status)
+    return status
+
+
+def _amb_close(t, committed):
+    try:
+        if not committed and t.GetStatus() == _AmbDB.TransactionStatus.Started:
+            t.RollBack()
+    finally:
+        t.Dispose()
+
+
+def _amb_run(name, fn, *args):
+    """Run fn(*args) in one transaction. Commit when it returns, roll back when it raises (the error is re-raised)."""
+    t = _amb_start(name)
+    committed = False
+    try:
+        result = fn(*args)
+        _amb_commit(t)
+        committed = True
+        return result
+    finally:
+        _amb_close(t, committed)
+
+
+def _amb_try(fn, *args):
+    """Inside an open transaction: run fn(*args) in a SubTransaction. Returns (True, result) or
+    (False, 'Error: message'); on failure only fn's own changes are rolled back."""
+    sub = _AmbDB.SubTransaction(amb.doc())
+    sub.Start()
+    committed = False
+    try:
+        try:
+            result = fn(*args)
+            sub.Commit()
+            committed = True
+            return True, result
+        except Exception as ex:
+            return False, "%s: %s" % (ex.__class__.__name__, ex)
+    finally:
+        try:
+            if not committed and sub.GetStatus() == _AmbDB.TransactionStatus.Started:
+                sub.RollBack()
+        finally:
+            sub.Dispose()
+
+
+def _amb_batch(name, items, fn, max_failures=None):
+    """Apply fn(item) to every item in ONE transaction. Each item runs in its own SubTransaction, so a failing item
+    is rolled back alone and reported. Returns (done_items, [(item, message), ...]). When max_failures is reached
+    the whole transaction is rolled back and RuntimeError is raised."""
+    done = []
+    failed = []
+
+    def body():
+        for item in items:
+            ok, result = _amb_try(fn, item)
+            if ok:
+                done.append(item)
+            else:
+                failed.append((item, result))
+                if max_failures is not None and len(failed) >= max_failures:
+                    raise RuntimeError("%d items failed, last: %s; nothing was kept" % (len(failed), result))
+
+    _amb_run(name, body)
+    return done, failed
+
+
+def _amb_group(name, steps):
+    """Run steps [(step_name, fn), ...], each in its own transaction, inside one group that is assimilated into a
+    single undo entry. Any failing step rolls the whole group back and re-raises. Returns the step results."""
+    group = _AmbDB.TransactionGroup(amb.doc(), name)
+    group.Start()
+    finished = False
+    try:
+        results = []
+        for step in steps:
+            results.append(_amb_run(step[0], step[1]))
+        group.Assimilate()
+        finished = True
+        return results
+    finally:
+        try:
+            if not finished and group.GetStatus() == _AmbDB.TransactionStatus.Started:
+                group.RollBack()
+        finally:
+            group.Dispose()
+
+
+def _amb_set(element, param, value, unit=None):
+    """Set a parameter (inside a transaction). A float with unit is converted to internal units first.
+    Returns False when the parameter is missing or read-only."""
+    p = amb.parameter(element, param)
+    if p is None or p.IsReadOnly:
+        return False
+    if p.StorageType == _AmbDB.StorageType.Double:
+        v = float(value)
+        if unit is not None:
+            v = amb.to_internal(v, unit)
+        return p.Set(v)
+    if p.StorageType == _AmbDB.StorageType.Integer:
+        return p.Set(int(value))
+    if p.StorageType == _AmbDB.StorageType.ElementId:
+        return p.Set(amb.element_id(value))
+    return p.Set("" if value is None else str(value))
+
+
+def _amb_regenerate():
+    """doc.Regenerate() once, after a batch of changes (inside the transaction)."""
+    amb.doc().Regenerate()
+
+
+amb.start = staticmethod(_amb_start)
+amb.commit = staticmethod(_amb_commit)
+amb.run = staticmethod(_amb_run)
+amb.try_sub = staticmethod(_amb_try)
+amb.batch = staticmethod(_amb_batch)
+amb.group = staticmethod(_amb_group)
+amb.set = staticmethod(_amb_set)
+amb.regenerate = staticmethod(_amb_regenerate)

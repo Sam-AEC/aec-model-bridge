@@ -2247,7 +2247,9 @@ class RevitProvider(AECProvider):
                 "The script runs on Revit's user-interface thread and cannot be cancelled, so keep it short "
                 "(well under 20 seconds) and work from element ids rather than whole-model geometry. "
                 "Use revit_list_commands first: a dedicated command is safer when one exists. "
-                "Check unfamiliar API members with revit_api_lookup first: it confirms the name and signature from the Revit docs."
+                "Check unfamiliar API members with revit_api_lookup first: it confirms the name and signature from the Revit docs. "
+                "helpers=true puts the amb helper library before the script (fast collectors, parameter and bounding-box "
+                "filters, unit conversion; in write mode also batched transactions); see docs/python-automation.md."
             ),
             inputSchema={
                 "type": "object",
@@ -2262,6 +2264,15 @@ class RevitProvider(AECProvider):
                             "'read' needs no approval; the script is refused if it mentions Transaction, "
                             "SubTransaction or TransactionGroup, and the add-in blocks them at run time. "
                             "A safety rail against mistakes, not a security boundary."
+                        ),
+                    },
+                    "helpers": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": (
+                            "true puts the amb helper library before the script. Read mode gets only the read "
+                            "helpers and the combined text must still pass read mode. Error line numbers then "
+                            "include the helper lines. No 'from __future__' import with helpers."
                         ),
                     },
                 },
