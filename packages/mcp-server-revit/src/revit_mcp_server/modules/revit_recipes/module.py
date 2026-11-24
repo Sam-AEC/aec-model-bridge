@@ -32,7 +32,9 @@ literal made only of \\xNN escapes, so no value can end the string, add code or 
 never trips over a word inside a value.
 
 Script layout sent to Revit: the shared prelude of the check scripts (revit/scripts/_prelude.ipy: summary(), row(), info(),
-fail(), meta(), run_main(), eid(), ename(), doc_meta(), ...), scripts/_recipes.ipy, the PARAMS_JSON line, the recipe code.
+fail(), meta(), run_main(), eid(), ename(), doc_meta(), ...), scripts/_recipes.ipy, the ``amb`` helper library
+(revit_mcp_server/python_helpers: read part always, write part only for a write run), the PARAMS_JSON line, the recipe
+code.
 A recipe prints the line protocol of check_contract.py (end with ``__output__ = run_main(main)``); plain text is
 returned in ``output``. A write recipe may call ``meta("changed_ids", "1,2")``.
 
@@ -54,6 +56,7 @@ from revit_mcp_server.check_contract import (
     mock_result,
     parse_script_output,
 )
+from revit_mcp_server.python_helpers import helper_source
 from revit_mcp_server.security.read_mode import ReadModeViolation, find_violations
 from revit_mcp_server.security.recipe_store import (
     MODES,
@@ -104,11 +107,14 @@ def params_line(json_text: str) -> str:
     return "PARAMS_JSON = u'" + "".join("\\x%02x" % ord(ch) for ch in json_text) + "'"
 
 
-def build_script(code: str, json_text: str) -> str:
-    """Prelude + helpers + the PARAMS_JSON line + the recipe code. The code is appended unchanged."""
+def build_script(code: str, json_text: str, runs_as: str = "read") -> str:
+    """Prelude + helpers + the amb helper library + the PARAMS_JSON line + the recipe code. The code is appended
+    unchanged. A recipe that runs as read gets only the read part of the amb library, so read mode is judged on
+    exactly the text that is sent; a write run also gets the write part (batched transactions)."""
     parts = [
         REVIT_PRELUDE.read_text(encoding="utf-8"),
         HELPERS.read_text(encoding="utf-8"),
+        helper_source("write" if runs_as == "write" else "read"),
         params_line(json_text),
         code,
     ]
@@ -456,7 +462,7 @@ class RevitRecipesModule:
                     "params": values,
                     "approval_state": state,
                     "plan_arguments": plan_arguments(recipe, values) if state["needs_approval"] else None,
-                    "script_bytes": len(build_script(recipe.code, json_text).encode("utf-8")),
+                    "script_bytes": len(build_script(recipe.code, json_text, runs_as).encode("utf-8")),
                     "hint": "Nothing was run. To run it, call revit_recipe_run again without dry_run" + (", with a plan_id for an approved plan whose action carries plan_arguments." if state["needs_approval"] and not state["standing_valid"] else "."),
                 },
             )
@@ -472,7 +478,7 @@ class RevitRecipesModule:
                 "No connection to the Revit tools in this session." if runs_as == "read" else "No approved connection to Revit: a write recipe must run through the approval gate.",
                 hint=_HINTS["no_bridge"],
             )
-        script = build_script(recipe.code, json_text)
+        script = build_script(recipe.code, json_text, runs_as)
         started = time.perf_counter()
         try:
             raw = executor(EXECUTE_TOOL, {"script": script, "mode": runs_as})

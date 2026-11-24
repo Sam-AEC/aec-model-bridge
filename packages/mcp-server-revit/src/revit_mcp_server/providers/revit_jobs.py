@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from ..jobs import JobManager, JobReference
+from ..python_helpers import normalize_helpers
 from ..security.audit import redact_data
 from ..security.read_mode import ReadModeViolation, normalize_mode
 from .base import AECProvider, ProviderTool, enrich_mutation_metadata
@@ -94,6 +95,10 @@ class RevitJobProvider(AECProvider):
                             "enum": ["read", "write"],
                             "default": "write",
                             "description": "For scripts: 'read' cannot open transactions and needs no approval; 'write' (default) needs an approved plan_id.",
+                        },
+                        "helpers": {
+                            "type": "boolean",
+                            "description": "For scripts: true puts the amb helper library before the script, as in revit_execute_python.",
                         },
                         "wait_s": {
                             "type": "number",
@@ -178,7 +183,10 @@ class RevitJobProvider(AECProvider):
         if script:
             if self.tool_registry is not None:
                 self.tool_registry.lookup_tool(PYTHON_TOOL)
-            return PYTHON_TOOL, {"script": script, "mode": normalize_mode(arguments.get("mode"))}
+            tool_args = {"script": script, "mode": normalize_mode(arguments.get("mode"))}
+            if normalize_helpers(arguments.get("helpers")):
+                tool_args["helpers"] = True
+            return PYTHON_TOOL, tool_args
 
         mapping = getattr(self.revit, "_tool_mapping", {})
         by_bridge_name = {bridge: tool for tool, (bridge, _builder) in mapping.items()}

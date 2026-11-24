@@ -95,6 +95,8 @@ revit_mcp_server = [
     # Starter recipes of modules/revit_recipes (code + manifest).
     "modules/*/starter/*.ipy",
     "modules/*/starter/*.json",
+    # Opt-in helper library for revit_execute_python (helpers=true).
+    "python_helpers/*.ipy",
 ]
 
 [tool.pytest.ini_options]
