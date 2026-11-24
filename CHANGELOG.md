@@ -2,10 +2,10 @@
 
 ## Unreleased
 
-- Security: the workspace policy is now re-checked when any approved action is claimed, so a direct tool call carrying `plan_id` can no longer run an action a tightened (or invalid) policy prohibits. Before, only `execute_plan` re-checked it.
-- Excel import keeps cell text exactly, so an unedited value with leading or trailing spaces is no longer planned as a change; whitespace-only cells count as blank.
 ## 1.5.1 - 2026-11-24
 
+- Security: the workspace policy is now re-checked when any approved action is claimed, so a direct tool call carrying `plan_id` can no longer run an action a tightened (or invalid) policy prohibits. Before, only `execute_plan` re-checked it.
+- Excel import keeps cell text exactly, so an unedited value with leading or trailing spaces is no longer planned as a change; whitespace-only cells count as blank.
 - Binding probe reuse with `max_age_s=0` now always probes again; on Windows' coarse monotonic clock two reads in the same tick were treated as fresh.
 - `doctor` no longer flags a virtual environment's own `Scripts\python.exe` as a #159 launcher.
 - CI: a `changes` job skips the add-in and Rhino builds on pull requests that do not touch C#; pull requests run Python on Windows 3.11 and Ubuntu 3.13, while pushes to `main`/`dev`, a nightly run and manual runs keep the full matrix (Ubuntu is no longer experimental). Installs use `uv sync --locked` with a cache, tests run in parallel (`pytest-xdist`), and the coverage floor rises from 55% to 80% (measured 83%).
