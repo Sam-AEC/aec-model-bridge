@@ -28,6 +28,10 @@ on:
         required: false
         default: ""
 
+# Least privilege: the job below states the write permissions it needs.
+permissions:
+  contents: read
+
 jobs:
   release:
     runs-on: windows-latest
@@ -252,6 +256,16 @@ jobs:
         run: gh workflow run publish-mcp.yml --ref "${{ steps.tag.outputs.tag }}"
 
       # Releases created with GITHUB_TOKEN do not trigger release-event workflows.
+      - name: Start PyPI publishing
+        if: ${{ steps.tag.outputs.prerelease == 'false' && !inputs.dry_run }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          gh workflow run publish-pypi.yml --ref $env:RELEASE_TAG -f "tag=$env:RELEASE_TAG"
+          if ($LASTEXITCODE -ne 0) { throw "PyPI publish dispatch failed" }
+
       - name: Start extension store publishing
         if: ${{ steps.tag.outputs.prerelease == 'false' && !inputs.dry_run }}
         shell: pwsh

@@ -14,6 +14,7 @@ Revit 2024 – 2027용 오픈소스 MCP 서버와 네이티브 애드인. Claude
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 [![Revit](https://img.shields.io/badge/Revit-2024--2027-0696D7?style=flat-square)](#지원하는-revit-버전)
 [![License](https://img.shields.io/badge/license-GPL--3.0%20%2B%20commercial-2563EB?style=flat-square)](../../LICENSING.md)
+[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/Sam-AEC/aec-model-bridge?style=flat-square&label=OpenSSF%20Scorecard)](https://scorecard.dev/viewer/?uri=github.com/Sam-AEC/aec-model-bridge)
 
 [시작하기](#빠른-시작) | [워크플로 예시](#워크플로-예시) | [도구](../tools-generated.md) | [문서](#문서) | [다운로드](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 

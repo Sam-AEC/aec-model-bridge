@@ -89,8 +89,9 @@ Nothing here is automated except the workflows named. Account steps belong to th
 | Target | How | State |
 |---|---|---|
 | Official MCP Registry | `server.json` is the source. `.github/workflows/publish-mcp.yml` publishes with GitHub OIDC when a release is published or on manual dispatch. Manual: `mcp-publisher login github`, `mcp-publisher publish`, after `mcp-publisher validate`. | Configured. Update `server.json` version, artifact URL and SHA-256 when the `.mcpb` changes. |
-| PyPI | `.github/workflows/publish-pypi.yml`, run by hand after adding a pending trusted publisher at pypi.org (project `aec-model-bridge`, owner `Sam-AEC`, repository `aec-model-bridge`, workflow `publish-pypi.yml`, no environment). The `mcp-name` marker is in `packages/mcp-server-revit/README.md`. | Not published. Build, `twine check --strict` and a clean-venv install passed. |
+| PyPI | `.github/workflows/publish-pypi.yml` builds the wheel and sdist from the stable tag and publishes with Trusted Publishing (OIDC, no token) in the `pypi` environment. `release.yml` dispatches it after it creates a non-prerelease release; it also runs on `release: published` and by hand (`workflow_dispatch` with `tag`). Pre-release tags are refused. One-time setup is in [PyPI trusted publisher](#pypi-trusted-publisher). The `mcp-name` marker is in `packages/mcp-server-revit/README.md`. | Not published. Build, `twine check --strict` and a clean-venv install passed. |
 | VS Code Marketplace, Open VSX | `.github/workflows/vscode-extension.yml` publishes when a non-pre-release GitHub release tag equals the extension version. Secrets: `VSCE_PAT`, `OVSX_PAT`. A store with no secret is skipped. Publisher and namespace `Sam-AEC` must exist. | Not published. Edit the extension README section "Build and install locally" before the first release. |
+| winget | Templates in `packaging/winget/manifests/`, filled by `packaging/winget/fill_manifests.py <version>` from the published installer and `SHA256SUMS.txt`. The maintainer submits with `wingetcreate`; see [winget.md](winget.md). | Not submitted. |
 | GitHub MCP Registry, VS Code gallery | Read from the official registry. `.vscode/mcp.json` gives a workspace install. | Follows the official registry. |
 | Claude Code plugin | `.claude-plugin/marketplace.json` and `packages/claude-plugin/`. Users run `/plugin marketplace add Sam-AEC/aec-model-bridge`, then `/plugin install aec-model-bridge@aec-model-bridge`. Schema UNVERIFIED against `claude plugin validate`. | In the repository only. |
 | Anthropic directory | Local `.mcpb` listings are reported as no longer accepted (UNVERIFIED); a local server goes in as a plugin through the developer portal. Needs the privacy policy in `privacy.md` (referenced from `manifest.json`). | Not submitted. |
@@ -98,6 +99,20 @@ Nothing here is automated except the workflows named. Account steps belong to th
 | Smithery | `smithery.yaml` builds the root `Dockerfile` in mock mode only. Listings must say live use needs Revit. | Not listed. |
 | Cline marketplace | Issue in the Cline marketplace repository with a 400x400 logo (none in the repo). Process UNVERIFIED. | Not submitted. |
 | Other directories (PulseMCP, MCP.Directory, MCP.so) | Submit the repository URL; they read the README and registry data. | Not submitted. |
+
+### PyPI trusted publisher
+
+Do once, signed in to pypi.org and GitHub as the maintainer. Nothing in the repository can do these steps.
+
+1. On GitHub: Settings, Environments, New environment, name `pypi`. Under deployment branches and tags, choose "Selected branches and tags" and add the tag rule `v*`. Optional: add yourself as a required reviewer, so each upload waits for a click.
+2. On pypi.org: Account settings, Publishing, "Add a new pending publisher" (the project does not exist yet), GitHub tab. Enter PyPI project name `aec-model-bridge`, owner `Sam-AEC`, repository `aec-model-bridge`, workflow name `publish-pypi.yml`, environment name `pypi`. After the first upload the pending publisher becomes a normal trusted publisher on the project.
+3. Check: run `publish-pypi.yml` by hand with the latest stable tag, or wait for the next stable release. A wrong environment or workflow name fails at the upload step with `invalid-publisher`.
+
+The environment name on PyPI and in the workflow must match. If an older pending publisher exists with no environment, delete it and add the one above.
+
+### OpenSSF Scorecard
+
+`.github/workflows/scorecard.yml` runs weekly and on pushes to `main`, uploads results to code scanning and publishes them to the Scorecard API for the README badge. The badge shows "invalid" until the first run on `main` completes.
 
 claude.ai on the web and phones accepts only remote HTTPS connectors, so it cannot reach a local Revit.
 

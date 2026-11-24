@@ -14,6 +14,7 @@ Server MCP open source e add-in nativo per Revit 2024 – 2027. Funziona con Cla
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 [![Revit](https://img.shields.io/badge/Revit-2024--2027-0696D7?style=flat-square)](#versioni-di-revit-supportate)
 [![License](https://img.shields.io/badge/license-GPL--3.0%20%2B%20commercial-2563EB?style=flat-square)](../../LICENSING.md)
+[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/Sam-AEC/aec-model-bridge?style=flat-square&label=OpenSSF%20Scorecard)](https://scorecard.dev/viewer/?uri=github.com/Sam-AEC/aec-model-bridge)
 
 [Per iniziare](#avvio-rapido) | [Flussi di lavoro di esempio](#flussi-di-lavoro-di-esempio) | [Strumenti](../tools-generated.md) | [Documentazione](#documentazione) | [Download](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
