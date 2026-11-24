@@ -31,6 +31,7 @@ REVIEWED_READ_ONLY = {
     "pyrevit_bridge_plan_run_pyrevit_script",
     "bcf_exchange_import_bcf",             # parses a BCF file and returns the issues
     "parameter_manager_import_params_csv", # reads a CSV and returns a change proposal
+    "parameter_manager_import_params_xlsx", # reads a workbook and returns a change proposal
 }
 
 
