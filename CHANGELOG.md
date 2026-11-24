@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Tests: panel test servers poll every 10 ms instead of 0.5 s (about 4 s per CPU-minute of teardown saved), a mtime-order test no longer sleeps, and `tests/test_security_branch_gaps.py` covers fail-closed branches of the approval override, gating, binding and redaction helpers.
+
 ## 1.5.1 - 2026-11-24
 
 - CI: a `changes` job skips the add-in and Rhino builds on pull requests that do not touch C#; pull requests run Python on Windows 3.11 and Ubuntu 3.13, while pushes to `main`/`dev`, a nightly run and manual runs keep the full matrix (Ubuntu is no longer experimental). Installs use `uv sync --locked` with a cache, tests run in parallel (`pytest-xdist`), and the coverage floor rises from 55% to 80% (measured 83%).
