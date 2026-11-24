@@ -126,10 +126,10 @@ def test_instructions_are_dev_aware_without_dropping_the_plan_flow():
 
     texts = [mcp_server.SERVER_INSTRUCTIONS, agent_native._SYSTEM_PROMPT, DESCRIPTIONS["plan_actions"]]
     for text in texts:
-        assert "dev_mode" in text and "plan_id" in text
+        assert "plans_required" in text and "plan_id" in text
     assert "STOP and ask the person" in mcp_server.SERVER_INSTRUCTIONS
     provider_tool = next(t for t in ApprovalProvider._capabilities if t.name == "plan_actions")
-    assert "dev_mode" in provider_tool.description
+    assert "plans_required" in provider_tool.description
 
 
 def test_registry_provider_can_still_approve_for_the_panel(server):

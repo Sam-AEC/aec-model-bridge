@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from ..security import binding as binding_mod
 from ..security import proof as proof_mod
+from ..security.approval import write_rule
 from ..security.plan_review import with_review_aids
 from ..security.policy import check_actions, load_policy
 from ..security.workspace import WorkspaceMonitor
@@ -152,6 +153,17 @@ class ApprovalProvider(AECProvider):
             self._require_registered_tools(actions)
             policy = load_policy(self.gate.workspace_dir)  # invalid file: PolicyError, nothing drafted
             check_actions(policy, actions, self.gate.workspace_dir, arguments.get("snapshot_id") or None)
+            if self.gate.dev_mode:
+                # Dev mode runs writes directly and audits them. Drafting a plan would be wasted
+                # work that nobody approves, so say so instead of writing a plan file.
+                return {
+                    "status": "not_needed",
+                    "dev_mode": True,
+                    **write_rule("auto", True),
+                    "action_count": len(actions),
+                    "message": "Dev mode is on: no plan was drafted. Call the write tools directly with these "
+                               "arguments and no plan_id.",
+                }
             before_states = []
             before_types: List[Optional[str]] = []
             for action in actions:
@@ -190,9 +202,6 @@ class ApprovalProvider(AECProvider):
                 policy_hash=policy.hash,
             )
             plan = with_review_aids(plan, self.gate.workspace_dir)
-            if self.gate.dev_mode:
-                # Reporting only: the plan is still created and still needs a person's approval if used.
-                plan = {**plan, "dev_mode": True, "note": "Dev mode: no approval needed, omit plan_id."}
             return plan
 
         elif name == "list_pending_plans":
@@ -511,8 +520,8 @@ class ApprovalProvider(AECProvider):
         ProviderTool(
             name="plan_actions",
             description=("Create a draft ActionPlan of proposed modifications, capturing their before-states. "
-                         "If revit_get_context shows server.dev_mode true, skip this and call the write tool "
-                         "directly with no plan_id."),
+                         "Only when revit_get_context shows server.plans_required true; otherwise call the write "
+                         "tool directly with no plan_id."),
             inputSchema={
                 "type": "object",
                 "properties": {

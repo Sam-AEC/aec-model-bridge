@@ -209,6 +209,25 @@ def running_actions(plan: Dict[str, Any], now: Optional[datetime] = None) -> Lis
     return out
 
 
+def write_rule(mode: str, dev_mode: bool = False) -> Dict[str, Any]:
+    """What an AI client must do before a write, in one place, so it does not draft plans it does not need.
+
+    plans_required is True only in ask_first. look_only refuses every write. auto (environment
+    Auto, a timed panel window or Dev mode) runs writes directly, audited, with no plan.
+    """
+    if mode == "look_only":
+        return {"plans_required": False, "writes_allowed": False,
+                "write_rule": "Look only: every write is refused. Do not draft plans."}
+    if mode == "auto":
+        why = "Dev mode" if dev_mode else "Auto"
+        return {"plans_required": False, "writes_allowed": True,
+                "write_rule": f"{why}: call write tools directly with no plan_actions and no plan_id. "
+                              "Calls are audited. Check again if a write is refused; the person can switch modes."}
+    return {"plans_required": True, "writes_allowed": True,
+            "write_rule": "Ask first: draft one plan with plan_actions, ask the person to approve it in the panel "
+                          "or with aec-model-bridge-approve, then call execute_plan."}
+
+
 class ApprovalGate:
     def __init__(self, workspace_dir: Path, approval_mode: str = config.approval_mode,
                  approval_ttl: Optional[int] = None, pending_ttl: Optional[int] = None) -> None:
@@ -267,6 +286,7 @@ class ApprovalGate:
             "mode": mode,
             "configured_mode": self.baseline_approval_mode,
             "dev_mode": self.dev_mode,
+            **write_rule(mode, self.dev_mode),
             "auto_window": dict(window) if isinstance(window, dict) else None,
             "auto_expires_at": window.get("expires_at") if isinstance(window, dict) and mode == "auto" else None,
         }

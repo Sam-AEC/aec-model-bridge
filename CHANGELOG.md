@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- AI clients now learn once whether plans are needed: `revit_get_context` reports `server.plans_required`, `server.writes_allowed` and a one-line `server.write_rule` from the live mode (Dev mode, a timed Auto window or look only). In Dev mode `plan_actions` drafts nothing and returns `status: not_needed` after the tool and policy checks, so agents stop writing plans nobody approves. The server instructions tell clients to check `plans_required` before the first change.
 - Add-in: `revit.get_context` now reports `revit.pid` and `revit.started_at` (UTC), so approved plans are bound to the Revit process that drafted them and refused by another Revit or after a restart (#152). UNVERIFIED in a live Revit with two sessions open.
 - Docs: `llms-full.txt` (llms.txt, AGENTS.md and the docs it links in one file, from `scripts/make_llms_full.py`) and `docs/error-catalogue.md` (every error kind and exception class with when and what to do, from `scripts/make_error_catalogue.py` and `scripts/error_catalogue_notes.json`); tests fail when either is stale or a code lacks an entry.
 - `ifc_validate` works with IfcOpenShell 0.8: it passes a logger to `ifcopenshell.validate` and reports its errors (message, entity, attribute). Before, every call failed inside the validator and returned that failure as the only error.
