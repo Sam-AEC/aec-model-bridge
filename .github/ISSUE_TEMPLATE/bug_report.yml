@@ -6,7 +6,6 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for the report. For security problems, do not open an issue. Use the private reporting steps in [SECURITY.md](https://github.com/Sam-AEC/aec-model-bridge/blob/main/.github/SECURITY.md).
         One problem per issue. Search [open and closed issues](https://github.com/Sam-AEC/aec-model-bridge/issues?q=is%3Aissue) first.
         Security problems go through [private reporting](https://github.com/Sam-AEC/aec-model-bridge/security/advisories/new), not a public issue.
         Write the title as `<component>: <what fails> when <condition>`, for example `panel: Approve Selected skips expired plans without a message`.
