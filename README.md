@@ -553,6 +553,10 @@ AEC Model Bridge stands on open-source work. It is independent and is not affili
 
 Licence texts and the full list of packages are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Licences were read from package metadata; rows that could not be verified are marked as such.
 
+## Contributors
+
+Thanks to [Yuhan Jiang](https://github.com/jyh100) for the Hermes Desktop tool subset ([#19](https://github.com/Sam-AEC/aec-model-bridge/pull/19)), and to everyone listed on the [contributors page](https://github.com/Sam-AEC/aec-model-bridge/graphs/contributors).
+
 ## Project and license
 
 Maintained by [A. Sam Mohammad](https://github.com/Sam-AEC).
