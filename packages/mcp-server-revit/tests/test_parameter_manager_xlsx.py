@@ -72,3 +72,22 @@ def test_missing_uid_header_is_refused(pm, workspace, tmp_path):
     wb.save(tmp_path / "bad.xlsx")
     with pytest.raises(ValueError, match="uid"):
         pm.import_params_xlsx(xlsx_filename="bad.xlsx", workspace=workspace)
+
+
+def test_cell_text_is_kept_exactly():
+    assert _mod._cell_text(" A ") == " A "
+    assert _mod._cell_text(3.0) == "3"
+
+
+def test_whitespace_is_part_of_the_value_and_blank_cells_are_skipped(pm, workspace, tmp_path):
+    pm.export_params_xlsx(element_filter={"category": "OST_Doors"}, param_names=["Mark", "FireRating"],
+                          output_filename="ws.xlsx", workspace=workspace)
+    path = tmp_path / "ws.xlsx"
+    wb = load_workbook(path)
+    ws = wb["Parameters"]
+    header = [c.value for c in ws[1]]
+    ws.cell(row=2, column=header.index("Mark") + 1, value="D-101 ")
+    ws.cell(row=2, column=header.index("FireRating") + 1, value="   ")
+    wb.save(path)
+    prev = pm.import_params_xlsx(xlsx_filename="ws.xlsx", workspace=workspace)["preview"]
+    assert prev["planned"][0]["updates"] == {"Mark": {"before": "D-101", "after": "D-101 "}}

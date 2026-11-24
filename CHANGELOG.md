@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Security: the workspace policy is now re-checked when any approved action is claimed, so a direct tool call carrying `plan_id` can no longer run an action a tightened (or invalid) policy prohibits. Before, only `execute_plan` re-checked it.
+- Excel import keeps cell text exactly, so an unedited value with leading or trailing spaces is no longer planned as a change; whitespace-only cells count as blank.
 ## 1.5.1 - 2026-11-24
 
 - Binding probe reuse with `max_age_s=0` now always probes again; on Windows' coarse monotonic clock two reads in the same tick were treated as fresh.
