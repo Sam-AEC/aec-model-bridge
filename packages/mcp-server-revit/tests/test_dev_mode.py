@@ -373,15 +373,48 @@ def _plan_call():
     return {"actions": [{"tool": SET, "arguments": {"element_id": 1, "parameter_name": "Comments", "value": "x"}}]}
 
 
-def test_plan_actions_in_dev_flags_dev_but_still_creates_a_pending_plan(tmp_path):
+def test_plan_actions_in_dev_drafts_nothing_and_says_to_call_directly(tmp_path):
     approval = _provider(tmp_path)
     off = asyncio.run(approval.execute_tool("plan_actions", _plan_call()))
-    assert "dev_mode" not in off
+    assert "dev_mode" not in off and approval.gate.load_plan(off["plan_id"])["state"] == "pending"
+    before = sorted(p.name for p in approval.gate.plans_dir.glob("*.json"))
     dev.enable_dev(approval.gate.workspace_dir, token=TOKEN)
-    plan = asyncio.run(approval.execute_tool("plan_actions", _plan_call()))
-    assert plan["dev_mode"] is True
-    assert "omit plan_id" in plan["note"] and "no approval needed" in plan["note"]
-    assert approval.gate.load_plan(plan["plan_id"])["state"] == "pending"
+    out = asyncio.run(approval.execute_tool("plan_actions", _plan_call()))
+    assert out["status"] == "not_needed" and out["dev_mode"] is True
+    assert out["plans_required"] is False and out["writes_allowed"] is True
+    assert "plan_id" not in out and "no plan_id" in out["message"]
+    assert sorted(p.name for p in approval.gate.plans_dir.glob("*.json")) == before
+
+
+def test_plan_actions_in_dev_still_refuses_unknown_tools(tmp_path):
+    approval = _provider(tmp_path)
+    dev.enable_dev(approval.gate.workspace_dir, token=TOKEN)
+    with pytest.raises(Exception):
+        asyncio.run(approval.execute_tool("plan_actions", {"actions": [{"tool": "no_such_tool", "arguments": {}}]}))
+
+
+@pytest.mark.parametrize(
+    ("mode", "dev_on", "required", "allowed"),
+    [("ask_first", False, True, True), ("auto", False, False, True), ("auto", True, False, True),
+     ("look_only", False, False, False)],
+)
+def test_write_rule_tells_the_client_whether_plans_are_needed(mode, dev_on, required, allowed):
+    from revit_mcp_server.security.approval import write_rule
+
+    rule = write_rule(mode, dev_on)
+    assert (rule["plans_required"], rule["writes_allowed"]) == (required, allowed)
+    assert ("Dev mode" in rule["write_rule"]) is dev_on
+
+
+def test_context_reports_plans_required_from_the_live_gate_state(tmp_path):
+    from revit_mcp_server.providers import revit_context
+
+    gate = _gate(tmp_path)
+    ctx = revit_context.get_context(None, live=False, approval_mode="ask_first", approval=gate.approval_state())
+    assert ctx["server"]["plans_required"] is True
+    dev.enable_dev(gate.workspace_dir, token=TOKEN)
+    ctx = revit_context.get_context(None, live=False, approval_mode="ask_first", approval=gate.approval_state())
+    assert ctx["server"]["plans_required"] is False and ctx["server"]["dev_mode"] is True
 
 
 def test_pending_plan_refusal_in_dev_says_to_omit_plan_id_but_still_refuses(tmp_path):

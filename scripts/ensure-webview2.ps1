@@ -42,7 +42,7 @@ if (Test-WebView2Installed) {
     exit 0
 }
 
-Write-Host "  WebView2 Runtime not found. Triggering Microsoft Evergreen Bootstrapper..." -ForegroundColor Yellow
+Write-Host "  WebView2 Runtime not found. Downloading and installing it from Microsoft (the AEC Bridge panel needs it)..." -ForegroundColor Yellow
 
 $setupUrl = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
 $setupPath = Join-Path $env:TEMP "MicrosoftEdgeWebview2Setup.exe"

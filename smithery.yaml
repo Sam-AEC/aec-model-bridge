@@ -1,6 +1,7 @@
 # Smithery build/launch configuration. Runs the server from the root Dockerfile in
-# MOCK mode so Smithery can start it and list its tools without Autodesk Revit.
-# For real Revit use, install locally (see README) and run with MCP_REVIT_MODE=bridge.
+# MOCK mode: it starts and lists its tools without Autodesk Revit, using sample data.
+# Live use needs Windows, Revit 2024 to 2027 and the AEC Model Bridge add-in. Install
+# locally for that (see docs/install.md) and run with MCP_REVIT_MODE=bridge.
 runtime: "container"
 build:
   dockerfile: "Dockerfile"
@@ -9,12 +10,13 @@ startCommand:
   type: "stdio"
   configSchema:
     type: "object"
+    description: "Mock mode runs without Revit and returns sample data. Live use needs Windows, Revit 2024 to 2027 and the AEC Model Bridge add-in; install locally for that."
     properties:
       mode:
         type: "string"
         enum: ["mock", "bridge"]
         default: "mock"
-        description: "mock returns canned responses (no Revit needed); bridge talks to the AEC Model Bridge add-in inside a running Revit."
+        description: "mock: runs without Revit and returns sample data. bridge: talks to the AEC Model Bridge add-in in a running Revit; needs Windows, Revit 2024 to 2027 and the add-in."
       bridgeUrl:
         type: "string"
         default: ""

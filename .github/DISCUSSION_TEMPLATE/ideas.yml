@@ -1,0 +1,29 @@
+title: "<idea in one line>"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share an idea that is not ready for a feature request: a workflow, a tool, a check or a change to the approval flow.
+        When the idea is clear enough to build, it moves to a [feature request](https://github.com/Sam-AEC/aec-model-bridge/issues/new?template=feature_request.yml).
+        Model changes always go through a plan that a person approves. Ideas that skip that step will not be built.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What you are trying to do in Revit or with your model, and what gets in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Idea
+      description: What you would like AEC Model Bridge to do. Name the tools or Revit features involved if you know them.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do now
+      description: Your current workaround, if any.
+    validations:
+      required: false
