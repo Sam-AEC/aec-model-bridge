@@ -35,3 +35,11 @@ A finding is "resolved" when its rule and element UniqueId appear before and no 
 - Without an after snapshot, nothing is re-checked. An after snapshot taken before the plan ran, missing timestamps, or unmatched document identities confirm no plan values.
 - A partial snapshot, a missing document id, a plan for another document, a missing proof bundle, a rule that could not run, and values that differ (or use another unit) are listed under "Not verified".
 - Lists and text are capped (field length, ids per rule, 25 parameter changes and 25 other actions per plan). Known counts include records beyond those caps; unprovable totals use `null`/`unknown`. A report over 512 KB is refused, never cut silently.
+
+## Parameter completeness heatmap
+
+`param_completeness_heatmap` reads a saved snapshot and returns, for each category and parameter, how many elements have a value: `filled`, `total` and `percent`. Pick parameters with `parameters`, or take the `top_n` most common per category (default 8). `by_level` splits each rate per level (level names come from level elements in the snapshot). `csv_filename` and `html_filename` write a CSV and a self-contained HTML heatmap inside the workspace.
+
+- `total` is every element of that category (on that level) in the snapshot. A blank or missing value counts as not filled; `0` and `false` count as filled. An element that lacks a parameter altogether is not filled, so the rate is "of all elements of the category".
+- A truncated, dirty-only or category-filtered snapshot is labelled partial in the result, in `coverage`, and as a banner in the HTML. Its rates describe the captured elements only.
+- The result lists at most `max_rows` rows; the files hold every row. It never changes the model. Without `snapshot_id` it refuses when connected to Revit; in mock mode it uses generated sample data and says so.

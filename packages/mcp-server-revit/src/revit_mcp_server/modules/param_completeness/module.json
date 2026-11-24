@@ -1,0 +1,35 @@
+{
+  "id": "param_completeness",
+  "name": "Parameter Completeness",
+  "version": "1.0.0",
+  "schema_version": 1,
+  "min_hub_version": "1.2.0",
+  "description": "Read-only fill rate per category and parameter (optionally per level) from a saved snapshot, with optional CSV and HTML heatmap files in the workspace.",
+  "author": "AEC Model Bridge",
+  "license": "GPL-3.0-or-later",
+  "requires_providers": ["semantic"],
+  "permissions": ["model.read", "files.write"],
+  "commands": [
+    {
+      "id": "heatmap",
+      "title": "Parameter Completeness Heatmap",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {"type": "string", "description": "Saved snapshot to measure. Required when connected to Revit."},
+          "parameters": {"type": "array", "items": {"type": "string"}, "maxItems": 100, "description": "Parameter names to measure. Leave empty to use the most common parameters per category."},
+          "top_n": {"type": "integer", "default": 8, "description": "With no parameters listed: how many of the most common parameters to take per category (1 to 50)."},
+          "categories": {"type": "array", "items": {"type": "string"}, "description": "Only these categories, for example OST_Doors."},
+          "by_level": {"type": "boolean", "default": false, "description": "Split each fill rate by level."},
+          "max_rows": {"type": "integer", "default": 500, "description": "Rows returned in the result; the CSV and HTML files always hold every row."},
+          "csv_filename": {"type": "string", "description": "Optional .csv file name inside the workspace."},
+          "html_filename": {"type": "string", "description": "Optional .html file name inside the workspace (self-contained heatmap)."}
+        },
+        "required": []
+      }
+    }
+  ]
+}
