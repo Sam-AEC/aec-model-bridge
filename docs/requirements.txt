@@ -1,0 +1,3 @@
+# Docs site build only (mkdocs.yml, .github/workflows/docs.yml). Not a runtime dependency.
+mkdocs==1.6.1
+mkdocs-material==9.8.2

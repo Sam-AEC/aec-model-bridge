@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- AI clients now learn once whether plans are needed: `revit_get_context` reports `server.plans_required`, `server.writes_allowed` and a one-line `server.write_rule` from the live mode (Dev mode, a timed Auto window or look only). In Dev mode `plan_actions` drafts nothing and returns `status: not_needed` after the tool and policy checks, so agents stop writing plans nobody approves. The server instructions tell clients to check `plans_required` before the first change.
 - Add-in: `revit.get_context` now reports `revit.pid` and `revit.started_at` (UTC), so approved plans are bound to the Revit process that drafted them and refused by another Revit or after a restart (#152). UNVERIFIED in a live Revit with two sessions open.
 - Docs: `llms-full.txt` (llms.txt, AGENTS.md and the docs it links in one file, from `scripts/make_llms_full.py`) and `docs/error-catalogue.md` (every error kind and exception class with when and what to do, from `scripts/make_error_catalogue.py` and `scripts/error_catalogue_notes.json`); tests fail when either is stale or a code lacks an entry.
 - `ifc_validate` works with IfcOpenShell 0.8: it passes a logger to `ifcopenshell.validate` and reports its errors (message, entity, attribute). Before, every call failed inside the validator and returned that failure as the only error.
@@ -22,6 +23,12 @@
 - Docs: prompt library in `docs/prompts/` (53 prompts in nine themed files, each with tools, expected result, safety note for writes and mock-test status), linked from `README.md` and `llms.txt`; `tests/test_prompt_library.py` checks every tool name against the registry.
 - `aec-model-bridge doctor --fix` applies local fixes and prints each one: creates a missing workspace folder, restores owner access to a workspace folder the user owns, deletes registry files for Revit processes that are no longer running, and points a failing client config entry at `<python> -m revit_mcp_server` with a backup of the old file. Without `--fix` the doctor lists the fixes and changes nothing. It never contacts Revit, deletes user data or changes approval settings. See `docs/troubleshooting.md`. UNVERIFIED on Windows.
 - Contributor tooling: a dev container for mock-mode Python work (`.devcontainer/devcontainer.json`), local pre-commit hooks (`ruff check`, `scripts/version.py check`, the tool-count test), a README badge for the 80% coverage floor (a test keeps it equal to `fail_under`), and `examples/mock-tour.ipynb`, a mock-mode walk from `revit_get_context` to a pending plan that a test runs cell by cell.
+- Docs site: `mkdocs.yml` (Material theme) builds `docs/` with a nav for install, tools, security, approval flow, snapshot_compute, prompts, error catalogue, configuration and ADRs; `.github/workflows/docs.yml` runs `mkdocs build --strict` on pull requests that touch the docs and deploys to GitHub Pages on push to `main`; `scripts/mkdocs_hooks.py` turns links to files outside `docs/` into GitHub links; requirements in `docs/requirements.txt`. Pages must be enabled once (`docs/release-checklist.md`, section 4).
+- Discussions: forms for Q&A, Ideas and Show and tell in `.github/DISCUSSION_TEMPLATE/`, setup steps and a welcome post in `docs/maintainer/discussions.md`, and a Discussions contact link on the new-issue page. Discussions is not enabled yet.
+- `docs/install.md` documents running the server with `uvx --from "git+https://github.com/Sam-AEC/aec-model-bridge#subdirectory=packages/mcp-server-revit" aec-model-bridge`, which needs no PyPI release; `uvx aec-model-bridge` is marked as working only after the first PyPI release.
+- `smithery.yaml` config descriptions say mock mode runs without Revit and live use needs Windows, Revit 2024 to 2027 and the add-in.
+- Installer and client setup text is plainer: the welcome page says what is installed and that changes wait for approval, the finish page says to restart Claude Desktop or VS Code, and the WebView2 and client setup messages say what they do. Installer logic is unchanged.
+- `docs/mcp-token-budget.md` no longer links to measurement JSON files that were removed from the repository.
 
 ## 1.5.1 - 2026-11-24
 

@@ -22,6 +22,10 @@ not switch the mode yourself. Follow these steps in order.
 - Live mode (`MCP_REVIT_MODE=bridge`) talks to the Revit the person has open. What
   you read is their real project. This plugin starts the server in live mode.
 
+Call `revit_get_context` once at the start. If `server.plans_required` is false
+(Dev mode or Auto), call write tools directly and skip steps 4 and 5. If
+`server.writes_allowed` is false, do not propose changes.
+
 If a tool says it cannot reach Revit, tell the person. Do not guess at model contents.
 
 ## 2. Read first
