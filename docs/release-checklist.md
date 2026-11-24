@@ -31,7 +31,7 @@ Run on a Windows machine with Revit, starting with the write test in section 5. 
 - Plans do not record the Revit that created them. Until fixed, a plan drafted in Revit A can run against Revit B.
 - The client sends the raw token to whatever listens on 127.0.0.1:8787. On a shared machine another user could bind the port first.
 - No socket timeout or thread cap on the hub handler, so a slow unauthenticated body can hold a thread.
-- The routed-bridge lock is held during a network initialise, and cached clients for dead Revits are not evicted.
+- Routed bridge clients: the routing lock no longer covers network calls, and a cached client is dropped when its Revit registry entry is gone or its `/health` fails three times in a row after failed calls. Tested with fakes only; UNVERIFIED with two live Revits.
 - The dev panel displays validated plan reviews and blocks approval when a review is malformed, unsupported or too large. These browser checks passed; live plan approval acceptance remains pending. Compare the card with `aec-model-bridge-approve show <plan_id>` before approving.
 - The panel Plans view lists pending plans only. `aec-model-bridge-approve show <plan_id>` works for a plan in any state; `proofs/` bundles exist only for plans that were executed or attempted.
 - There is no one-step undo for a whole plan. Undo is Ctrl+Z once per action, or a revert plan (`plan_revert`) that is approved like any other plan. `rollback_plan` is for people only and has no panel button or command-line command yet.

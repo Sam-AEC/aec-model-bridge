@@ -116,7 +116,7 @@ Vous utilisez VS Code ? Les [sources de l'extension et les étapes d'installatio
 
 | Domaine | Outils | Ce qu'ils font |
 | --- | --- | --- |
-| Revit | 110 | Lire le modèle, créer et modifier des éléments, paramètres, vues, feuilles, nomenclatures, exports, travail collaboratif (worksharing) |
+| Revit | 111 | Lire le modèle, créer et modifier des éléments, paramètres, vues, feuilles, nomenclatures, exports, travail collaboratif (worksharing) |
 | Approbation | 6 | Planifier, examiner, approuver, exécuter et annuler les modifications du modèle |
 | Modules | 114 | Inspection de snapshots, grilles de paramètres, contrôles QA/QC, recettes, rapports, sélections |
 | Rhino et Grasshopper | 19 | Géométrie, calques, matériaux, opérations booléennes |
@@ -125,7 +125,7 @@ Vous utilisez VS Code ? Les [sources de l'extension et les étapes d'installatio
 | IFC | 7 | Lire des fichiers IFC sans Revit : structure, propriétés, validation |
 | Graphe, snapshots, exports, tâches | 23 | Audits du graphe sémantique, différences entre snapshots, export SQLite, tâches en arrière-plan |
 
-311 outils sont listés dans la configuration par défaut (comptés sur le serveur actuel en mode mock). Les outils Autodesk Data apparaissent lorsque les identifiants APS sont configurés. La [référence des outils](../tools-generated.md) les liste tous. Chaque outil porte des annotations MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), pour que les clients distinguent les lectures des écritures.
+312 outils sont listés dans la configuration par défaut (comptés sur le serveur actuel en mode mock). Les outils Autodesk Data apparaissent lorsque les identifiants APS sont configurés. La [référence des outils](../tools-generated.md) les liste tous. Chaque outil porte des annotations MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), pour que les clients distinguent les lectures des écritures.
 
 ### Automatisation avancée de Revit
 

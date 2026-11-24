@@ -187,6 +187,46 @@ class BCFTopicPayload(BaseModel):
         return value
 
 
+class _LazyAsyncClient:
+    """Builds the httpx.AsyncClient on first request, not at construction.
+
+    Creating a client loads the system CA bundle (about 10 ms each); the server builds several
+    cloud providers at start and most sessions never call them.
+    """
+
+    _client_obj: httpx.AsyncClient | None = None
+    _client_transport: httpx.AsyncBaseTransport | None = None
+    _client_timeout: float = 30.0
+    _owns_client: bool = True
+
+    def _init_client(
+        self,
+        http_client: httpx.AsyncClient | None,
+        transport: httpx.AsyncBaseTransport | None,
+        timeout: float,
+    ) -> None:
+        self._owns_client = http_client is None
+        self._client_obj = http_client
+        self._client_transport = transport
+        self._client_timeout = timeout
+
+    @property
+    def _client(self) -> httpx.AsyncClient:
+        if self._client_obj is None:
+            self._client_obj = httpx.AsyncClient(transport=self._client_transport, timeout=self._client_timeout)
+        return self._client_obj
+
+    @_client.setter
+    def _client(self, value: httpx.AsyncClient) -> None:
+        self._client_obj = value
+
+    async def _close_client(self) -> None:
+        client = self._client_obj
+        if self._owns_client and client is not None:
+            self._client_obj = None
+            await client.aclose()
+
+
 @dataclass
 class OAuthTokenBundle:
     access_token: str
@@ -209,7 +249,7 @@ class PendingOAuthState:
     created_at: float = field(default_factory=time.time)
 
 
-class OAuth2PKCETransport:
+class OAuth2PKCETransport(_LazyAsyncClient):
     def __init__(
         self,
         *,
@@ -243,8 +283,7 @@ class OAuth2PKCETransport:
         self.max_pending_states = max_pending_states
         self._pending_states: Dict[str, PendingOAuthState] = {}
         self._token_bundle: OAuthTokenBundle | None = None
-        self._owns_client = http_client is None
-        self._client = http_client or httpx.AsyncClient(transport=transport, timeout=timeout)
+        self._init_client(http_client, transport, timeout)
 
         if not self.client_id:
             raise ValueError(f"{self.provider_name} OAuth client_id is required")
@@ -385,11 +424,10 @@ class OAuth2PKCETransport:
             self._pending_states.pop(state, None)
 
     async def close(self) -> None:
-        if self._owns_client:
-            await self._client.aclose()
+        await self._close_client()
 
 
-class CloudProviderBase(AECProvider):
+class CloudProviderBase(_LazyAsyncClient, AECProvider):
     provider_identity = "cloud"
     # Exact tool names that mutate remote state (create/publish/merge/send commits,
     # branches, models, or BCF issues). Matched by exact name rather than verb, since
@@ -408,8 +446,7 @@ class CloudProviderBase(AECProvider):
         timeout: float = 30.0,
     ) -> None:
         self.oauth = oauth
-        self._owns_client = http_client is None
-        self._client = http_client or httpx.AsyncClient(transport=transport, timeout=timeout)
+        self._init_client(http_client, transport, timeout)
         self._capabilities = self._build_capabilities()
         enrich_mutation_metadata(self._capabilities, mutating_names=self._mutating_tool_names)
 
@@ -427,8 +464,7 @@ class CloudProviderBase(AECProvider):
         }
 
     async def shutdown(self) -> None:
-        if self._owns_client:
-            await self._client.aclose()
+        await self._close_client()
         await self.oauth.close()
 
     async def execute_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:

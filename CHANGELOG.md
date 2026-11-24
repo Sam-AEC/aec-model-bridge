@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- New read-only tool `revit_perf_report`: per-command timings from the add-in's `/health` (`count`, `p50_ms`, `p95_ms`, `max_ms`, `avg_bytes`) as a table sorted by p95, plus `queue_depth`. An add-in without `timings` is reported as older; mock mode returns sample numbers marked `mock: true`. Tool count is now 312 (Revit 111).
+- Faster cold start in mock mode: spawn to `tools/list` reply 825 ms to 575 ms. `openpyxl`/`numpy` and `yaml` load on first use, the Speckle and Autodesk Data providers build their HTTP clients on first request, and the module registry reads the package version once. Numbers in `docs/performance.md`.
+- Panel hub routing: building and initialising a routed bridge client no longer holds the routing lock, and a cached client is dropped when its Revit's registry entry is gone or its `/health` fails three times in a row after failed calls.
+- `BridgeClient` sends `Accept-Encoding: gzip`; gzip response bodies are decoded before parsing.
 - Add-in: `revit.get_context` now reports `revit.pid` and `revit.started_at` (UTC), so approved plans are bound to the Revit process that drafted them and refused by another Revit or after a restart (#152). UNVERIFIED in a live Revit with two sessions open.
 - Docs: `llms-full.txt` (llms.txt, AGENTS.md and the docs it links in one file, from `scripts/make_llms_full.py`) and `docs/error-catalogue.md` (every error kind and exception class with when and what to do, from `scripts/make_error_catalogue.py` and `scripts/error_catalogue_notes.json`); tests fail when either is stale or a code lacks an entry.
 - `ifc_validate` works with IfcOpenShell 0.8: it passes a logger to `ifcopenshell.validate` and reports its errors (message, entity, attribute). Before, every call failed inside the validator and returned that failure as the only error.

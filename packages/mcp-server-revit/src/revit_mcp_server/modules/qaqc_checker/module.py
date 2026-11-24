@@ -29,8 +29,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import yaml
-
 from revit_mcp_server.errors import WorkspaceViolation
 from revit_mcp_server.security.safe_paths import snapshot_file
 
@@ -171,6 +169,8 @@ def _resolve_pack_path(pack_name: str, workspace: Any = None) -> Path:
 
 
 def _load_yaml_file(path: Path) -> Any:
+    import yaml  # loaded on first use, not at server start
+
     if path.stat().st_size > MAX_PACK_BYTES:
         raise ValueError(f"Rule pack file is larger than {MAX_PACK_BYTES} bytes.")
     with open(path, "r", encoding="utf-8") as f:
@@ -288,6 +288,8 @@ def _validate_pack_data(data: Any) -> Dict[str, Any]:
 
 
 def _validate_file(path: Path) -> Dict[str, Any]:
+    import yaml
+
     try:
         data = _load_yaml_file(path)
     except yaml.YAMLError as e:

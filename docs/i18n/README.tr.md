@@ -116,7 +116,7 @@ VS Code mu kullanıyorsunuz? [Eklenti kaynağı ve yerel kurulum adımları](../
 
 | Alan | Araçlar | Ne yaparlar |
 | --- | --- | --- |
-| Revit | 110 | Modeli okuma; eleman, parametre, görünüm, pafta, çizelge oluşturma ve düzenleme; dışa aktarma; çalışma paylaşımı (worksharing) |
+| Revit | 111 | Modeli okuma; eleman, parametre, görünüm, pafta, çizelge oluşturma ve düzenleme; dışa aktarma; çalışma paylaşımı (worksharing) |
 | Onay | 6 | Model değişikliklerini planlama, inceleme, onaylama, çalıştırma ve geri alma |
 | Modüller | 114 | Snapshot incelemesi, parametre ızgaraları, QA/QC kontrolleri, reçeteler, raporlar, seçimler |
 | Rhino ve Grasshopper | 19 | Geometri, katmanlar, malzemeler, boolean işlemleri |
@@ -125,7 +125,7 @@ VS Code mu kullanıyorsunuz? [Eklenti kaynağı ve yerel kurulum adımları](../
 | IFC | 7 | IFC dosyalarını Revit olmadan okuma: yapı, özellikler, doğrulama |
 | Grafik, snapshot'lar, dışa aktarmalar, işler | 23 | Anlamsal grafik denetimleri, snapshot farkları, SQLite dışa aktarma, arka plan işleri |
 
-Varsayılan kurulumda 311 araç listelenir (mock modundaki mevcut sunucudan sayılmıştır). Autodesk Data araçları, APS kimlik bilgileri yapılandırıldığında görünür. [Araç başvurusu](../tools-generated.md) tüm araçları listeler. Her araç, istemcilerin okuma ile yazmayı ayırt edebilmesi için MCP ek açıklamaları (annotations; `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) taşır.
+Varsayılan kurulumda 312 araç listelenir (mock modundaki mevcut sunucudan sayılmıştır). Autodesk Data araçları, APS kimlik bilgileri yapılandırıldığında görünür. [Araç başvurusu](../tools-generated.md) tüm araçları listeler. Her araç, istemcilerin okuma ile yazmayı ayırt edebilmesi için MCP ek açıklamaları (annotations; `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) taşır.
 
 ### Gelişmiş Revit otomasyonu
 

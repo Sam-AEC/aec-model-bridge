@@ -116,7 +116,7 @@ Memakai VS Code? [Sumber ekstensi dan langkah instalasi lokal](../../packages/vs
 
 | Bidang | Tool | Fungsinya |
 | --- | --- | --- |
-| Revit | 110 | Membaca model, membuat dan mengedit elemen, parameter, view, sheet, schedule, ekspor, worksharing |
+| Revit | 111 | Membaca model, membuat dan mengedit elemen, parameter, view, sheet, schedule, ekspor, worksharing |
 | Persetujuan | 6 | Merencanakan, meninjau, menyetujui, menjalankan, dan membatalkan perubahan model |
 | Modul | 114 | Inspeksi snapshot, grid parameter, pemeriksaan QA/QC, resep, laporan, seleksi |
 | Rhino dan Grasshopper | 19 | Geometri, layer, material, operasi boolean |
@@ -125,7 +125,7 @@ Memakai VS Code? [Sumber ekstensi dan langkah instalasi lokal](../../packages/vs
 | IFC | 7 | Membaca file IFC tanpa Revit: struktur, properti, validasi |
 | Graf, snapshot, ekspor, job | 23 | Audit graf semantik, selisih snapshot, ekspor SQLite, job latar belakang |
 
-Ada 311 tool yang terdaftar pada pengaturan default (dihitung dari server saat ini dalam mode mock). Tool Autodesk Data muncul saat kredensial APS dikonfigurasi. [Referensi tool](../tools-generated.md) mencantumkan setiap tool. Setiap tool membawa anotasi MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), sehingga klien dapat membedakan operasi baca dari tulis.
+Ada 312 tool yang terdaftar pada pengaturan default (dihitung dari server saat ini dalam mode mock). Tool Autodesk Data muncul saat kredensial APS dikonfigurasi. [Referensi tool](../tools-generated.md) mencantumkan setiap tool. Setiap tool membawa anotasi MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), sehingga klien dapat membedakan operasi baca dari tulis.
 
 ### Otomatisasi Revit lanjutan
 
