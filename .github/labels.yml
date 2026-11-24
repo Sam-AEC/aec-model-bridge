@@ -144,6 +144,9 @@
   description: "Checked on a live Revit; result recorded in the issue with Revit version and commit"
 
 # ---- contributor labels (GitHub surfaces these names, so they keep no prefix) ----
+- name: "status: maintainer-only"
+  color: "5319e7"
+  description: "Needs admin access or a licensed Revit on the maintainer machine; not for outside contributors"
 - name: "good first issue"
   color: "7057ff"
   description: "Small, mock-mode testable, with file paths and acceptance criteria in the body"

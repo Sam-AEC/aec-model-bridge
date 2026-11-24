@@ -60,7 +60,7 @@ Each issue has exactly one `type:` label, one or more `area:` labels and, once a
 | `area:` | `approval`, `security`, `server`, `mcp`, `addin`, `panel`, `snapshot`, `qa`, `interop`, `modules`, `install`, `ci`, `docs` | Part of the system. All areas share one colour so they read as a group. |
 | `priority:` | `P0`, `P1`, `P2`, `P3` | P0: a wrong result shown as correct, a security exposure or data loss. P1: blocks the milestone. P2: planned. P3: not planned. |
 | `size:` | `S`, `M`, `L` | About a day, a few days, a week or more. `L` usually needs a design note first. |
-| `status:` | `triage`, `needs-info`, `needs-repro`, `needs-design`, `blocked`, `in-progress`, `needs-live-verification`, `verified-live` | What the issue waits on. |
+| `status:` | `triage`, `needs-info`, `needs-repro`, `needs-design`, `blocked`, `in-progress`, `needs-live-verification`, `verified-live`, `maintainer-only` | What the issue waits on. `maintainer-only` marks work that needs repo admin access or the maintainer's licensed Revit; outside contributors should pick other issues. |
 | contributor | `good first issue`, `help wanted` | See below. |
 | `resolution:` | `duplicate`, `wontfix`, `invalid`, `as-designed` | Why an issue closed without a change. Add a comment with the reason. |
 | `pr:` | `needs-review`, `ready-to-merge`, `conflicts`, `tests`, `refactor` | Pull requests only. |
