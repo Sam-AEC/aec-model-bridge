@@ -12,7 +12,7 @@ A tool failure reaches an MCP client in one of two shapes:
 Refusals never change the model. A refused write needs a new plan that a person approves.
 For logs and connection problems see [troubleshooting](troubleshooting.md).
 
-Entries: 136.
+Entries: 137.
 
 ## Tool error kinds
 
@@ -738,7 +738,7 @@ Set by module tools as `kind` in an `ok: false` result, next to `message`, `elem
 
 ## Exception classes
 
-Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 17.
+Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 18.
 
 ### `ApprovalExpired`
 
@@ -751,6 +751,12 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 - When: A BCF file or its path is unsafe or invalid: no workspace, path outside the workspace, bad zip entry or an oversized entry.
 - What to do: Use a BCF file inside the workspace. Do not open archives from untrusted sources.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/modules/bcf_exchange/module.py`
+
+### `BridgeContractError`
+
+- When: The payload for an add-in command does not match contracts/bridge-commands.json. Nothing was sent to Revit.
+- What to do: Fix the parameter the message names and call again. MCP_REVIT_VALIDATE_BRIDGE_PAYLOADS=off turns the check off.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/errors.py`
 
 ### `BridgeError`
 

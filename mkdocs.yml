@@ -115,6 +115,7 @@ nav:
       - Ribbon icons: RIBBON_ICONS.md
       - Issue guide: issue-guide.md
       - Project board: project-board.md
+      - Add-in command contract: bridge-command-contract.md
   - Releases:
       - Versioning and releases: versioning.md
       - Deprecation policy: deprecation-policy.md
@@ -133,6 +134,7 @@ nav:
       - adr/0014-multi-revit-routing.md
       - adr/0017-approval-document-binding-and-expiry.md
       - adr/0018-explicit-development-mode.md
+      - adr/0022-shared-command-contract.md
   - Legal:
       - Trademarks: legal/TRADEMARKS.md
       - CLA draft: legal/CLA-DRAFT.md
