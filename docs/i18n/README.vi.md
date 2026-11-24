@@ -71,13 +71,13 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 Với các thao tác chỉnh sửa, trợ lý tạo kế hoạch bằng `plan_actions`; bạn xem xét kế hoạch trong bảng điều khiển Revit trước khi `execute_plan` áp dụng. Việc rà soát IFC chạy được mà không cần Revit.
 
-Các mô-đun QA/QC và báo cáo dựa trên snapshot cần một snapshot đã lưu tương thích. Hiện tại, việc chuyển snapshot từ Revit sang mô-đun đòi hỏi tên tệp và workspace phải khớp nhau; nếu bỏ qua `snapshot_id`, dữ liệu mẫu được tạo sẵn có thể được trả về. Hãy dùng trực tiếp các công cụ Revit ở trên để kiểm tra theo thời gian thực. [Các bản sửa dự kiến và bản demo](../roadmap.md).
+Các mô-đun QA/QC và báo cáo dựa trên snapshot cần một snapshot đã lưu tương thích. Hiện tại, việc chuyển snapshot từ Revit sang mô-đun đòi hỏi tên tệp và workspace phải khớp nhau; nếu bỏ qua `snapshot_id`, dữ liệu mẫu được tạo sẵn có thể được trả về. Hãy dùng trực tiếp các công cụ Revit ở trên để kiểm tra theo thời gian thực.
 
 ## Bắt đầu nhanh
 
 **Cài đặt một cú nhấp**
 
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install-buttons.md#vs-code)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install.md#vs-code)
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -357,11 +357,8 @@ CI build máy chủ Python và các mục tiêu add-in cho Revit 2024 đến 202
 - [Kiến trúc](../0001-multi-provider-architecture.md)
 - [Tài liệu tham khảo cấu hình](../configuration-reference.md)
 - [Bảo mật](../security.md)
-- [Ứng dụng khách MCP và registry](../marketplaces.md)
 - [Quản lý phiên bản và phát hành](../versioning.md)
-- [Toàn bộ tài liệu](../README.md)
 - [Hướng dẫn đóng góp](../../CONTRIBUTING.md) và [Quy tắc ứng xử](../../CODE_OF_CONDUCT.md)
-- [Những người đóng góp](../../CONTRIBUTORS.md)
 
 ## Built with
 

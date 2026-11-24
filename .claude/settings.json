@@ -12,8 +12,7 @@
     ],
     "deny": [
       "Read(./THIRD_PARTY_NOTICES.md)",
-      "Read(./packages/mcp-server-revit/uv.lock)",
-      "Read(./docs/mcp-token-measurement-*.json)"
+      "Read(./packages/mcp-server-revit/uv.lock)"
     ]
   }
 }

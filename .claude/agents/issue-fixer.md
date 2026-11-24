@@ -5,7 +5,7 @@ model: sonnet
 tools: Bash, Read, Edit, Write, Glob, Grep
 ---
 
-You fix exactly one task in this repo. CLAUDE.md at the repo root has the layout, commands and rules; follow it and
+You fix exactly one task in this repo. AGENTS.md at the repo root has the layout, commands and rules; follow it and
 do not re-explore what it already tells you.
 
 Procedure

@@ -71,13 +71,13 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 बदलावों के लिए असिस्टेंट `plan_actions` से योजना बनाता है; `execute_plan` उसे लागू करे, इससे पहले आप Revit पैनल में उसकी समीक्षा करते हैं। IFC समीक्षा Revit के बिना चलती है।
 
-स्नैपशॉट आधारित QA/QC और रिपोर्ट मॉड्यूल के लिए एक संगत सेव किया हुआ स्नैपशॉट ज़रूरी है। फ़िलहाल Revit से मॉड्यूल तक स्नैपशॉट पहुँचाने में फ़ाइल नाम और वर्कस्पेस का मेल होना ज़रूरी है; `snapshot_id` छोड़ने पर बनाया हुआ नमूना डेटा लौट सकता है। लाइव जाँच के लिए ऊपर दिए Revit टूल सीधे इस्तेमाल करें। [नियोजित सुधार और डेमो](../roadmap.md)।
+स्नैपशॉट आधारित QA/QC और रिपोर्ट मॉड्यूल के लिए एक संगत सेव किया हुआ स्नैपशॉट ज़रूरी है। फ़िलहाल Revit से मॉड्यूल तक स्नैपशॉट पहुँचाने में फ़ाइल नाम और वर्कस्पेस का मेल होना ज़रूरी है; `snapshot_id` छोड़ने पर बनाया हुआ नमूना डेटा लौट सकता है। लाइव जाँच के लिए ऊपर दिए Revit टूल सीधे इस्तेमाल करें।।
 
 ## क्विक स्टार्ट
 
 **वन-क्लिक इंस्टॉल**
 
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install-buttons.md#vs-code)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install.md#vs-code)
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -357,11 +357,8 @@ CI Python सर्वर और Revit 2024 से 2027 के ऐड-इन ट
 - [आर्किटेक्चर](../0001-multi-provider-architecture.md)
 - [कॉन्फ़िगरेशन संदर्भ](../configuration-reference.md)
 - [सुरक्षा](../security.md)
-- [MCP क्लाइंट और रजिस्ट्री](../marketplaces.md)
 - [वर्ज़निंग और रिलीज़](../versioning.md)
-- [सभी दस्तावेज़](../README.md)
 - [योगदान गाइड](../../CONTRIBUTING.md) और [आचार संहिता](../../CODE_OF_CONDUCT.md)
-- [योगदानकर्ता](../../CONTRIBUTORS.md)
 
 ## Built with
 

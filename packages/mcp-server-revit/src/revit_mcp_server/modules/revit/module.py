@@ -1,6 +1,5 @@
 """
-revit module - read-only "eyes" for an AI working in a live Revit session (Phase 1 of
-docs/upgrade-plan-hands-and-eyes.md).
+revit module - read-only "eyes" for an AI working in a live Revit session.
 
 Commands (tool names are ``revit_<command>``):
   check_joins         1.2  per wall end: joined or not, to which walls, join type

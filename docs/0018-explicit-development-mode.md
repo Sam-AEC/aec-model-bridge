@@ -6,7 +6,7 @@ Implemented in source; deployment and live Revit acceptance are pending.
 
 ## Context
 
-The owner decisions in [the upgrade plan, section 13](upgrade-plan-hands-and-eyes.md#13-owner-decisions-2026-10-14-and-resulting-priorities) request a development mode that remains on until the person switches it off. Timed Auto already supports temporary unplanned writes, but its expiry is unsuitable for a sustained development session.
+The owner requested a development mode that remains on until the person switches it off. Timed Auto already supports temporary unplanned writes, but its expiry is unsuitable for a sustained development session.
 
 The default remains Ask first. [ADR 0008](0008-approval-gate-lifecycle.md) describes plan approval; [ADR 0017](0017-approval-document-binding-and-expiry.md) remains a separate proposal. Development mode does not implement document binding or approval expiry.
 

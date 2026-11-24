@@ -1,7 +1,5 @@
 # Configuration reference
 
-Released in 1.5.0.
-
 This page lists the environment variables, package files and runtime modes of the Revit MCP server.
 
 ## Runtime modes

@@ -161,7 +161,7 @@ const CHECK_LABELS = {
 
 let setupExpanded = false;
 let diagnosticsRetry = null;
-const HUB_RECOVERY = "Restart Revit to start the panel hub, or run 'aec-model-bridge-panel-server' in a terminal, then press Refresh. See docs/first-check.md if it keeps failing.";
+const HUB_RECOVERY = "Restart Revit to start the panel hub, or run 'aec-model-bridge-panel-server' in a terminal, then press Refresh. See docs/troubleshooting.md if it keeps failing.";
 
 // approval_mode is a choice the person made (the mode chip shows it), not a fault: it must not
 // count as a step to fix or replace a real error such as "hub unreachable" with its advice.

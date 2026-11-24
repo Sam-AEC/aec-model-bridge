@@ -9,7 +9,7 @@
 <style>
 /* ------------------------------------------------------------------------
    DESIGN PROTOTYPE. Synthetic data. Not shipped code. Not connected to Revit.
-   Companion to docs/roadmap.md, section "Design system".
+   Design prototype.
 
    Token layers (never mixed):
    1. Core tokens: surfaces, ink, lines and the five semantic colours. Fixed.
@@ -357,14 +357,14 @@ const DOC = { name: "canonical_test_model.rvt", long: "2291-NL-Ziekenhuis-Noordv
 const DOORS = Array.from({ length: 12 }, (_, i) => { const n = 48 + i; return { id: 300000 + n, level: "Level " + (n % 5 + 1), after: "D-" + String(n + 1).padStart(3, "0") }; });
 const SKIP_OWNED = [300058, 300059];
 const FAILED = 300053;
-const PLAN_A = { id: "plan_b366ce3444a0", hash: "sha256:a3ef52fd…33f8b9f" };   // ids from the mock-mode run recorded in docs/roadmap.md
+const PLAN_A = { id: "plan_b366ce3444a0", hash: "sha256:a3ef52fd…33f8b9f" };   // ids from a mock-mode run
 const PLAN_B = { id: "plan_5d0c1e77a9b2", hash: "sha256:19c0be44…7a02d1c" };   // made up
 const PLAN_C = { id: "plan_e81f3a6642c0", hash: "sha256:c77a90d2…0be5f31" };   // made up
 const PLAN_D = { id: "plan_0aa41c97d3e5", hash: "sha256:5e1b07c9…d44a8f0" };   // made up
 const OTHER_DOC = "office_block_B.rvt";                                        // made up
 
 /* ============================ brand packs ============================ */
-/* Same shape as the brand.json proposed in docs/roadmap.md (identity only: no semantic colours, no behaviour). */
+/* Same shape as the proposed brand.json (identity only: no semantic colours, no behaviour). */
 const BRANDS = {
   amb: { schemaVersion: 1, id: "aec-model-bridge", product: { name: "AEC Model Bridge", ribbonTab: "AEC Bridge", publisher: "AEC Model Bridge project" },
     wordmark: [{ t: "AEC", accent: true }, { t: " Model Bridge" }], network: { hubPort: 8787 }, assets: { mark: "pier" },
@@ -704,7 +704,7 @@ const SURFACE = {
   disconnected: ["Dockable pane banner, plus the ribbon Connect button (icon and tooltip in words).", "No dialog: losing the bridge must not interrupt modelling."],
   stale: ["Dockable pane banner on the plan, with a table of what changed.", "Detected by comparing the plan's recorded values and document with a new read before approval and again before each change. Proposal: not implemented today."],
   switched: ["Dockable pane: header shows the new document, a polite status message announces the change, the plan card is shown as not active.", "Proposal. The add-in would learn of the switch from Revit's ViewActivated event and compare the document with the plan's binding. The ribbon tooltip says in words which document has plans waiting."],
-  duplicate: ["Dockable pane banner on the new draft.", "Proposal (roadmap ticket 3): the server computes a key from document, tools, arguments and skips, and reports duplicate_of. It warns and does not block."],
+  duplicate: ["Dockable pane banner on the new draft.", "Proposal: the server computes a key from document, tools, arguments and skips, and reports duplicate_of. It warns and does not block."],
   applied: ["Dockable pane: status banner, no approval offered.", "Proposal: the preview compares each wanted value with a new read and lists values that are already in the model. An empty plan cannot be approved."]
 };
 function renderNotes() {

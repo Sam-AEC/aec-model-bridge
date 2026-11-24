@@ -1,7 +1,7 @@
 [project]
 name = "aec-model-bridge"
 version = "1.5.0"
-description = "Independent Model Context Protocol integration for Autodesk Revit software"
+description = "Revit MCP server (Model Context Protocol) for Claude, Codex and Cursor: read and edit BIM and IFC models, every change human-approved"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "GPL-3.0-or-later"
@@ -9,7 +9,7 @@ license-files = ["LICENSE", "NOTICE", "LICENSING.md", "LICENSES/*"]
 authors = [
     { name = "Sam-AEC" },
 ]
-keywords = ["mcp", "revit", "autodesk", "bim", "ai"]
+keywords = ["mcp", "model-context-protocol", "revit", "autodesk", "bim", "ifc", "aec", "claude", "codex", "cursor", "ai"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",

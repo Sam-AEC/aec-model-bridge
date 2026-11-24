@@ -51,7 +51,21 @@ defects and build the loop in.
 - Level-based families: the placement z is an offset FROM the level. Pass 0.
 - `get_BoundingBox`/geometry are `None` until `doc.Regenerate()` inside the transaction; calling it outside one raises.
 - Phase-indexed properties (`FromRoom`, `ToRoom`, `Room`) show as `indexer#` in IronPython: use `get_FromRoom(phase)`.
-- Findings catalogue and the reasoning behind each rule: `docs/bim-agent-findings.md`.
+- `Wall.Flip()` after creation breaks corner joins. Revit puts the exterior face on the LEFT of the drawing direction: reverse the curve before creating the wall.
+- Walls stop at the slab underside (top offset = slab thickness); slabs run to the outer wall faces. Check overlaps with solid intersection, not bounding boxes.
+- Diagonal walls: build from exact dx == dy ("slightly off axis" otherwise). When snapping wall ends, keep a minimum length ("curve length too small").
+- A floor type duplicated from the project's first `FloorType` may be a foundation slab: assert `IsFoundationSlab == False`.
+- Levels made through the API have no plan view; create it first. Setting `VIEW_NAME` on a level's own plan view renames the level.
+- A never-opened 3D view exports blank: crop it to the section box before `ExportImage`. `revit_export_image` can report `file_exists:false`; export with `ImageExportOptions` and list the folder.
+- `revit_execute_python` has a new scope per call. Commit or roll back a `Transaction` inside the same call.
+- A bridge timeout does not stop Revit; the result is lost. Split long work (one family per call), then verify with a read-only audit. `revit_health` returns only when the queue is idle.
+- A door or window wider than its wall piece rolls back the whole transaction: check fit first. Place openings one per transaction.
+- Setting `Width`/`Height` type parameters on a generated family from the project rescales its geometry: set them inside the family. Window geometry must start at the Sill reference plane.
+- A generic base family can carry nested content (a "Pole" held a wallbox): delete nested instances and probe the result.
+- Close `EditFamily` documents in `finally`; an uncommitted transaction in a temporary document blocks `Close`.
+- Reading a DWG: `app.NewProjectDocument` plus `Document.Import` in the temporary document, read the geometry, close it. The project is untouched.
+- The model may start with thousands of warnings. Measure deltas, never absolutes.
+- Never kill processes by name (`Stop-Process -Name python` killed MCP servers); target by command line.
 
 ## Content
 Use families that exist in the model or the user's libraries (the project's own furniture, planting, structural

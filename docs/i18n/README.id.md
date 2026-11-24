@@ -71,13 +71,13 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 Untuk perubahan, asisten membuat rencana dengan `plan_actions`; Anda meninjaunya di panel Revit sebelum `execute_plan` menerapkannya. Tinjauan IFC berjalan tanpa Revit.
 
-Modul QA/QC dan laporan berbasis snapshot memerlukan snapshot tersimpan yang kompatibel. Serah terima snapshot dari Revit ke modul saat ini membutuhkan kecocokan nama file dan workspace; jika `snapshot_id` dihilangkan, data contoh buatan bisa dikembalikan. Gunakan tool Revit langsung di atas untuk pemeriksaan langsung. [Perbaikan yang direncanakan dan demo](../roadmap.md).
+Modul QA/QC dan laporan berbasis snapshot memerlukan snapshot tersimpan yang kompatibel. Serah terima snapshot dari Revit ke modul saat ini membutuhkan kecocokan nama file dan workspace; jika `snapshot_id` dihilangkan, data contoh buatan bisa dikembalikan. Gunakan tool Revit langsung di atas untuk pemeriksaan langsung.
 
 ## Mulai cepat
 
 **Instalasi sekali klik**
 
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install-buttons.md#vs-code)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install.md#vs-code)
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -357,11 +357,8 @@ CI membangun server Python dan target add-in untuk Revit 2024 sampai 2027. Baca 
 - [Arsitektur](../0001-multi-provider-architecture.md)
 - [Referensi konfigurasi](../configuration-reference.md)
 - [Keamanan](../security.md)
-- [Klien MCP dan registry](../marketplaces.md)
 - [Versioning dan rilis](../versioning.md)
-- [Semua dokumentasi](../README.md)
 - [Kontribusi](../../CONTRIBUTING.md) dan [Kode Etik](../../CODE_OF_CONDUCT.md)
-- [Kontributor](../../CONTRIBUTORS.md)
 
 ## Built with
 

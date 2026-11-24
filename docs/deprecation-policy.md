@@ -2,7 +2,7 @@
 
 This page says how features, tools and supported versions are retired. It builds on [versioning.md](versioning.md), which sets the meaning of each version number. Where the two disagree, `versioning.md` wins.
 
-AEC Model Bridge is maintained by one person ([GOVERNANCE.md](../GOVERNANCE.md)). The notice periods below are what the project aims for. They are not a contract.
+AEC Model Bridge is maintained by one person. The notice periods below are what the project aims for. They are not a contract.
 
 ## Supported versions
 

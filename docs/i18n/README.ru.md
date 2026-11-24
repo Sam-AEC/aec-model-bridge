@@ -71,13 +71,13 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 Для правок ассистент составляет план через `plan_actions`; вы просматриваете его на панели Revit, и только потом `execute_plan` его применяет. Проверка IFC работает без Revit.
 
-Модули QA/QC и отчётов на основе снимков (snapshot) требуют совместимого сохранённого снимка. Сейчас передача снимка из Revit в модуль требует, чтобы совпадали имя файла и рабочая папка; если не указать `snapshot_id`, могут вернуться сгенерированные демонстрационные данные. Для проверки открытой модели используйте прямые инструменты Revit, описанные выше. [Запланированные исправления и демо](../roadmap.md).
+Модули QA/QC и отчётов на основе снимков (snapshot) требуют совместимого сохранённого снимка. Сейчас передача снимка из Revit в модуль требует, чтобы совпадали имя файла и рабочая папка; если не указать `snapshot_id`, могут вернуться сгенерированные демонстрационные данные. Для проверки открытой модели используйте прямые инструменты Revit, описанные выше.
 
 ## Быстрый старт
 
 **Установка в один клик**
 
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install-buttons.md#vs-code)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install.md#vs-code)
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -357,11 +357,8 @@ CI собирает Python-сервер и целевые сборки плаг�
 - [Архитектура](../0001-multi-provider-architecture.md)
 - [Справочник по конфигурации](../configuration-reference.md)
 - [Безопасность](../security.md)
-- [MCP-клиенты и реестр](../marketplaces.md)
 - [Версионирование и релизы](../versioning.md)
-- [Вся документация](../README.md)
 - [Участие в проекте](../../CONTRIBUTING.md) и [Кодекс поведения](../../CODE_OF_CONDUCT.md)
-- [Участники](../../CONTRIBUTORS.md)
 
 ## Built with
 

@@ -1,7 +1,5 @@
 # Security model
 
-Status: in 1.5.0.
-
 Bounded Revit 2024 read-only checks ran on 14 October 2026; see the [live validation record](revit-addin-live-validation-2026-10-14.md). Mutating acceptance, recovery and multi-instance routing remain unverified. The [release checklist](release-checklist.md) tracks the remaining checks.
 
 AEC Model Bridge uses several layers to protect your models and files from unwanted or destructive actions by AI agents. The layers are: clear trust boundaries, loopback-only connections, a workspace sandbox, input checks, an approval step for changes, and audit logs.

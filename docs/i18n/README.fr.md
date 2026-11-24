@@ -71,13 +71,13 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 Pour les modifications, l'assistant crée un plan avec `plan_actions` ; vous l'examinez dans le panneau Revit avant que `execute_plan` ne l'applique. Le contrôle IFC fonctionne sans Revit.
 
-Les modules de QA/QC et de rapports basés sur des snapshots nécessitent un snapshot enregistré compatible. Le transfert actuel du snapshot de Revit vers le module exige que le nom de fichier et l'espace de travail concordent ; si vous omettez `snapshot_id`, des données d'exemple générées peuvent être renvoyées. Pour l'inspection en direct, utilisez les outils Revit directs ci-dessus. [Correctifs prévus et démo](../roadmap.md).
+Les modules de QA/QC et de rapports basés sur des snapshots nécessitent un snapshot enregistré compatible. Le transfert actuel du snapshot de Revit vers le module exige que le nom de fichier et l'espace de travail concordent ; si vous omettez `snapshot_id`, des données d'exemple générées peuvent être renvoyées. Pour l'inspection en direct, utilisez les outils Revit directs ci-dessus.
 
 ## Démarrage rapide
 
 **Installation en un clic**
 
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install-buttons.md#vs-code)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install.md#vs-code)
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -357,11 +357,8 @@ La CI compile le serveur Python et les cibles de l'add-in pour Revit 2024 à 202
 - [Architecture](../0001-multi-provider-architecture.md)
 - [Référence de configuration](../configuration-reference.md)
 - [Sécurité](../security.md)
-- [Clients MCP et registre](../marketplaces.md)
 - [Versionnage et publications](../versioning.md)
-- [Toute la documentation](../README.md)
 - [Contribuer](../../CONTRIBUTING.md) et [Code de conduite](../../CODE_OF_CONDUCT.md)
-- [Contributeurs](../../CONTRIBUTORS.md)
 
 ## Built with
 

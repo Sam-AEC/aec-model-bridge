@@ -71,13 +71,13 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 編集では、アシスタントが `plan_actions` でプランを作成します。`execute_plan` が適用する前に、Revit のパネルで内容を確認します。IFC のレビューは Revit なしで実行できます。
 
-スナップショットの QA/QC とレポートのモジュールには、互換性のある保存済みスナップショットが必要です。現在、Revit からモジュールへのスナップショットの受け渡しでは、ファイル名とワークスペースの整合が必要です。`snapshot_id` を省略すると、生成されたサンプルデータが返されることがあります。ライブの調査には、上記の Revit 用ツールを直接使ってください。[今後の修正とデモ](../roadmap.md)。
+スナップショットの QA/QC とレポートのモジュールには、互換性のある保存済みスナップショットが必要です。現在、Revit からモジュールへのスナップショットの受け渡しでは、ファイル名とワークスペースの整合が必要です。`snapshot_id` を省略すると、生成されたサンプルデータが返されることがあります。ライブの調査には、上記の Revit 用ツールを直接使ってください。。
 
 ## クイックスタート
 
 **ワンクリックインストール**
 
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install-buttons.md#vs-code)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install.md#vs-code)
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -357,11 +357,8 @@ CI は、Python サーバーと、Revit 2024〜2027 向けのアドインのタ�
 - [アーキテクチャ](../0001-multi-provider-architecture.md)
 - [設定リファレンス](../configuration-reference.md)
 - [セキュリティ](../security.md)
-- [MCP クライアントとレジストリ](../marketplaces.md)
 - [バージョニングとリリース](../versioning.md)
-- [すべてのドキュメント](../README.md)
 - [コントリビューション](../../CONTRIBUTING.md) と [行動規範](../../CODE_OF_CONDUCT.md)
-- [コントリビューター](../../CONTRIBUTORS.md)
 
 ## Built with
 

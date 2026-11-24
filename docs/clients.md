@@ -1,6 +1,6 @@
 # Other MCP clients
 
-Status: **UNVERIFIED.** File locations and snippets below come from memory of each client's documentation. None has been tested on a live install. If something does not match, check the client's own docs and open an issue.
+Status: UNVERIFIED. Snippets come from each client's documentation and were not tested on a live install. If one does not match, check the client's docs.
 
 Before you start, finish the [install guide](install.md) (the Revit add-in is a separate install) and install [uv](https://docs.astral.sh/uv/) so `uvx` is on your PATH. Each entry starts the server in live mode; set `MCP_REVIT_MODE` to `mock` to try it with sample data and no Revit. Menu names change between versions.
 
@@ -8,7 +8,7 @@ After saving, ask the assistant to list the AEC Model Bridge tools. With Revit o
 
 ## Cline (VS Code)
 
-*MCP Servers, Installed, Configure MCP Servers* opens `cline_mcp_settings.json`. Cline can also install by itself from [llms-install.md](../llms-install.md). Leave its auto-approve off for tools that change the model.
+*MCP Servers, Installed, Configure MCP Servers* opens `cline_mcp_settings.json`. Leave Cline's auto-approve off for tools that change the model. When Cline installs the server for the person, it should check `uv --version`, ask whether to use `mock` (sample data) or `bridge` (open Revit, needs the add-in from [install](install.md)), keep existing servers in the file, not set `MCP_REVIT_APPROVAL_MODE`, and never approve a plan itself. Explicit panel Dev mode and timed Auto also skip per-change approvals; switch them off for this workflow.
 
 ```json
 {"mcpServers":{"aec-model-bridge":{"command":"uvx","args":["--from","git+https://github.com/Sam-AEC/aec-model-bridge#subdirectory=packages/mcp-server-revit","aec-model-bridge"],"env":{"MCP_REVIT_MODE":"bridge"}}}}

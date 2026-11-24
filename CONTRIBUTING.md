@@ -1,7 +1,5 @@
 # Contributing
 
-Status: 1.5.0.
-
 Thanks for improving AEC Model Bridge.
 
 ## Licensing
@@ -53,7 +51,7 @@ Contributions help most in these areas:
 - Remove local paths, machine names and credentials from config examples.
 - If a change affects the UI or commands, give the steps to reproduce it and say what should happen.
 - Update examples and docs when behaviour changes.
-- Villa recipes under `docs/recipes/` are integration-test evidence, not the roadmap. Keep villa-specific work in fixtures and verification records, and group test changes with the reusable tool feature they validate.
+- Villa recipes under `docs/recipes/` are integration-test evidence. Keep villa-specific work in fixtures and verification records, and group test changes with the reusable tool feature they validate.
 - Do not commit session handoffs, local worktree paths, personal file paths or client project/document names. Put durable decisions in an ADR and user-visible changes in `CHANGELOG.md`.
 
 ## Building and testing
@@ -96,7 +94,7 @@ Pick one, say so in an issue, and keep the pull request small.
 3. **Add a test for the Power BI provider.** `providers/powerbi.py` has no test that mentions it. A small mock-mode test is a good start.
 4. **Try an untested MCP client.** [docs/compatibility.md](docs/compatibility.md) lists clients marked "not tested". Set one up in mock mode and send a pull request that updates its row, with the steps you used.
 5. **Try the server on Linux.** The Linux CI job is experimental because the Windows-only parts (bridge discovery, path mapping) have not been exercised there. Run the tests on Linux and open an issue for each failure you find.
-6. **Check the docs for stale statements.** Pick one page from [docs/README.md](docs/README.md), follow it on a clean machine, and fix what is wrong or unclear.
+6. **Check the docs for stale statements.** Pick one page from `docs/`, follow it on a clean machine, and fix what is wrong or unclear.
 7. **Tidy formatting.** CI reports how many files `ruff format` would change, and does not enforce it. Format a few files in one pull request, with no other changes.
 8. **Improve an error message.** Find a tool that returns a vague error in `packages/mcp-server-revit/src/revit_mcp_server/` and make it say what went wrong and what to do. Add a test for it.
 
@@ -142,4 +140,8 @@ Before opening a PR, confirm that:
 - README or docs are updated when setup or behaviour changes
 - any limits or known gaps are stated
 
-Accepted contributions are credited in [CONTRIBUTORS.md](CONTRIBUTORS.md).
+Accepted contributions are credited in the pull request and in `CHANGELOG.md`.
+
+## Decisions
+
+The project has one maintainer, who decides. Larger design choices are written as numbered notes in `docs/` (ADRs). CI must pass and the maintainer reads every change. Releases follow [docs/versioning.md](docs/versioning.md); removals follow [docs/deprecation-policy.md](docs/deprecation-policy.md). Conduct rules are in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
