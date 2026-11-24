@@ -71,6 +71,10 @@ Supported Revit versions are 2024 (net48), 2025 and 2026 (net8.0-windows), and
 
 You do not need Revit or Windows for these. The Python tests run in mock mode. The [project board](https://github.com/users/Sam-AEC/projects) has a Contributors view of open community issues by area ([how the board works](../docs/project-board.md)).
 
+To skip local setup, open the repository in its dev container (`.devcontainer/devcontainer.json`, for example with GitHub Codespaces or the VS Code Dev Containers extension). It installs Python 3.13 and uv, runs `uv sync --all-extras` in `packages/mcp-server-revit`, and sets `MCP_REVIT_MODE=mock`.
+
+`examples/mock-tour.ipynb` walks through a read, a snapshot query, a `snapshot_compute` pipeline and a plan in mock mode, and stops where a person would approve.
+
 ### Run the tests
 
 Install the package with its dev extra (`pip install -e "packages/mcp-server-revit[dev]"`), then run:
@@ -82,6 +86,8 @@ PYTHONPATH=src python -m pytest tests                                      # eve
 ```
 
 On Windows PowerShell, set the variable first: `$env:PYTHONPATH = "src"`.
+
+Optional pre-commit hooks (`.pre-commit-config.yaml`) run `ruff check`, `python scripts/version.py check` and the tool-count test before each commit, with the versions in `uv.lock`. They need uv on PATH. Install them with `pre-commit install`; run them on demand with `pre-commit run --all-files`.
 
 The full run takes about half a minute. A few tests are skipped on purpose: the end-to-end test needs a live Revit, and the proxy tests need a bridge. `test_wheel_contents.py` builds the wheel, so it needs an up-to-date `build` and `setuptools`. If it fails with a licence-metadata error on an old setuptools, upgrade setuptools before you report it.
 
