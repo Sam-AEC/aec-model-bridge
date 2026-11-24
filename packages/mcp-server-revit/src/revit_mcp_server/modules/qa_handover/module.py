@@ -87,7 +87,8 @@ def _is_partial(data: Dict[str, Any]) -> bool:
 def _run_rules(data: Dict[str, Any], rule_pack: str, workspace: Any, label: str, not_verified: List[str]):
     failed: List[str] = []
     groups = rg._review_findings(
-        data["elements"], data["types"], _doc_guid(data) or data["snapshot_id"], rule_pack, workspace, failed
+        data["elements"], data["types"], _doc_guid(data) or data["snapshot_id"], rule_pack, workspace, failed,
+        data.get("relations"),
     )
     if failed:
         not_verified.append(rg._failed_rules_note(label, failed))

@@ -1,15 +1,21 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Dict, List
 import uuid
 
 from revit_mcp_server.errors import BridgeError
 from revit_mcp_server.providers.base import AECProvider, ProviderTool
-from revit_mcp_server.security.safe_paths import snapshot_file
+from revit_mcp_server.security.safe_paths import safe_child, snapshot_file
 from revit_mcp_server.security.workspace import WorkspaceMonitor
 from revit_mcp_server.semantic import engine
 from revit_mcp_server.semantic.models import Snapshot
+
+# Saved snapshot_compute queries: <workspace>/queries/<name>.json
+QUERIES_DIRNAME = "queries"
+QUERY_NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
+MAX_QUERY_BYTES = 256_000
 
 class SemanticProvider(AECProvider):
     def __init__(self, workspace: WorkspaceMonitor, registry: Any = None):
@@ -89,17 +95,28 @@ class SemanticProvider(AECProvider):
                 name="snapshot_compute",
                 description=(
                     "Answer a model question in one call: run a read-only pipeline of named steps over a saved "
-                    "snapshot and return only the result. Each step reads 'elements', 'types', 'relations' or "
-                    "'$<earlier step>', then join (type, host, level, room, group, hosted, relation_out, "
-                    "relation_in), where (field/op/value with all, any, not; value {\"field\": path} compares "
-                    "two fields), group_by with aggregate (count, sum, avg, min, max, distinct, list), sort, "
-                    "select and limit. Paths are dotted: 'params.Fire Rating', 'host.params.Fire Rating', "
-                    "'type.family'. Use it instead of many list or inspect calls. Never touches Revit."
+                    "snapshot and return only the result. Each step reads 'elements', 'types', 'relations', "
+                    "'$<earlier step>' or 'link:<snapshot_id>' (elements of another saved snapshot, rows carry "
+                    "_snapshot_id), then join (type, host, level, room, group, hosted, relation_out, "
+                    "relation_in), spatial (bounding-box overlaps, contains, within or within_distance against "
+                    "an earlier step), where (field/op/value with all, any, not; value {\"field\": path} "
+                    "compares two fields), group_by with aggregate (count, sum, avg, min, max, distinct, list), "
+                    "sort, select and limit. Paths are dotted: 'params.Fire Rating', 'host.params.Fire Rating', "
+                    "'type.family'. Pass query to run <workspace>/queries/<name>.json with params. Use it "
+                    "instead of many list or inspect calls. Never touches Revit."
                 ),
                 inputSchema={
                     "type": "object",
                     "properties": {
                         "snapshot_id": {"type": "string"},
+                        "query": {
+                            "type": "string",
+                            "description": "Saved query name: runs <workspace>/queries/<name>.json instead of steps.",
+                        },
+                        "params": {
+                            "type": "object",
+                            "description": "Values for {\"$param\": name} placeholders in a saved query.",
+                        },
                         "steps": {
                             "type": "array",
                             "description": "Named steps run in order; a step reads a source or '$<earlier step>'.",
@@ -111,6 +128,11 @@ class SemanticProvider(AECProvider):
                                     "name": {"type": "string"},
                                     "from": {"type": "string", "default": "elements"},
                                     "join": {"type": "array", "items": {}},
+                                    "spatial": {
+                                        "type": "object",
+                                        "description": "{\"with\": \"$step\", \"test\": overlaps|contains|within|"
+                                                       "within_distance, \"distance\": feet, \"as\": name}",
+                                    },
                                     "where": {},
                                     "group_by": {"type": "array", "items": {"type": "string"}},
                                     "aggregate": {"type": "object"},
@@ -126,7 +148,7 @@ class SemanticProvider(AECProvider):
                             "description": "Rows returned from the result step; row_count still gives the total.",
                         },
                     },
-                    "required": ["snapshot_id", "steps"],
+                    "required": ["snapshot_id"],
                 },
             ),
             ProviderTool(
@@ -224,18 +246,63 @@ class SemanticProvider(AECProvider):
         }
 
     async def _snapshot_compute(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        from revit_mcp_server.semantic.compute import QueryError, run_pipeline
+        from revit_mcp_server.semantic.compute import QueryError, resolve_query, run_pipeline
 
         snapshot = self._load_snapshot(arguments["snapshot_id"])
+
+        def load_link(snapshot_id: str) -> Snapshot:
+            try:
+                return self._load_snapshot(snapshot_id)
+            except ValueError as exc:  # hostile or malformed id (snapshot_file)
+                raise QueryError(f"link:{snapshot_id}: {exc}") from exc
+            except BridgeError as exc:
+                raise QueryError(f"link:{snapshot_id}: {exc}") from exc
+
         try:
+            steps = arguments.get("steps")
+            return_step = arguments.get("return")
+            query = arguments.get("query")
+            if query is not None:
+                if steps is not None:
+                    raise QueryError("pass either steps or query, not both")
+                resolved = resolve_query(query, self._read_query(query), arguments.get("params"))
+                steps = resolved["steps"]
+                return_step = return_step or resolved["return"]
+            elif arguments.get("params") is not None:
+                raise QueryError("params fill a saved query; pass query with them")
+            elif steps is None:
+                raise QueryError("pass steps, or query with the name of a saved query")
             return run_pipeline(
                 snapshot,
-                arguments.get("steps"),
-                return_step=arguments.get("return"),
+                steps,
+                return_step=return_step,
                 max_rows=arguments.get("max_rows", 100),
+                load_snapshot=load_link,
             )
         except QueryError as exc:
             raise BridgeError(f"snapshot_compute refused the pipeline: {exc}") from exc
+
+    def _read_query(self, name: Any) -> Any:
+        """Parsed JSON of <workspace>/queries/<name>.json. QueryError when missing or invalid."""
+        from revit_mcp_server.semantic.compute import QueryError
+
+        def refuse(_reason: str) -> Exception:
+            return QueryError(
+                "query is the plain name of a file in the workspace queries folder: letters, digits, "
+                "'_' and '-', without '.json'"
+            )
+
+        root = self.workspace.allowed_directories[0]
+        path = safe_child(root, name, ".json", QUERY_NAME_RE, refuse, subdir=QUERIES_DIRNAME)
+        if not path.is_file():
+            raise QueryError(f"saved query '{name}' not found; expected {QUERIES_DIRNAME}/{name}.json in the workspace")
+        if path.stat().st_size > MAX_QUERY_BYTES:
+            raise QueryError(f"saved query '{name}' is larger than {MAX_QUERY_BYTES} bytes")
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (UnicodeDecodeError, ValueError) as exc:
+            raise QueryError(f"saved query '{name}' is not valid JSON: {exc}") from exc
 
     def _load_snapshot(self, snapshot_id: str) -> Snapshot:
         snapshots_dir = self.workspace.allowed_directories[0] / "snapshots"
