@@ -4,7 +4,7 @@
 
 [English](../../README.md) | [简体中文](README.zh-CN.md) | [Español](README.es.md) | [हिन्दी](README.hi.md) | [العربية](README.ar.md) | [Português (BR)](README.pt-BR.md) | [Русский](README.ru.md) | [日本語](README.ja.md) | [Deutsch](README.de.md) | [Français](README.fr.md) | [Bahasa Indonesia](README.id.md) | [Türkçe](README.tr.md) | [한국어](README.ko.md) | [Tiếng Việt](README.vi.md) | [Italiano](README.it.md) | **Polski** | [繁體中文](README.zh-TW.md)
 
-> To tłumaczenie powstało z pomocą AI. Wiążące jest angielskie [README](../../README.md); poprawki są mile widziane w formie pull requestów (zob. [CONTRIBUTING.md](../../CONTRIBUTING.md)).
+> To tłumaczenie powstało z pomocą AI. Wiążące jest angielskie [README](../../README.md); poprawki są mile widziane w formie pull requestów (zob. [CONTRIBUTING.md](../../.github/CONTRIBUTING.md)).
 
 **Zapytaj swoje AI o otwarty model Revit. Domyślnie narzędzia zapisu są zablokowane, dopóki nie zatwierdzisz planu.**
 
@@ -14,6 +14,7 @@ Otwartoźródłowy serwer MCP i natywny dodatek do Revit 2024 – 2027. Działa 
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 [![Revit](https://img.shields.io/badge/Revit-2024--2027-0696D7?style=flat-square)](#obsługiwane-wersje-revit)
 [![License](https://img.shields.io/badge/license-GPL--3.0%20%2B%20commercial-2563EB?style=flat-square)](../../LICENSING.md)
+[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/Sam-AEC/aec-model-bridge?style=flat-square&label=OpenSSF%20Scorecard)](https://scorecard.dev/viewer/?uri=github.com/Sam-AEC/aec-model-bridge)
 
 [Pierwsze kroki](#szybki-start) | [Przykładowe procesy pracy](#przykładowe-procesy-pracy) | [Narzędzia](../tools-generated.md) | [Dokumentacja](#dokumentacja) | [Pobierz](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -109,7 +110,7 @@ Do automatyzacji Revit na żywo potrzebujesz Windows, licencjonowanego Revit 202
 
 Chcesz najpierw obejrzeć narzędzia, bez Revit? Ustaw `"MCP_REVIT_MODE": "mock"`. Serwer uruchomi się wszędzie, wypisze każde narzędzie wraz ze schematem i zwróci gotowe odpowiedzi, nie dotykając żadnego modelu. `Dockerfile` dla tego samego trybu mock znajduje się w katalogu głównym repozytorium (`docker build -t aec-model-bridge .`, a potem `docker run -i --rm aec-model-bridge`).
 
-Używasz VS Code? [Kod źródłowy rozszerzenia i kroki lokalnej instalacji](../../extensions/vscode/README.md) rejestrują serwer MCP i pokazują stan połączenia z Revit. Rozszerzenie nie zostało opublikowane w Marketplace.
+Używasz VS Code? [Kod źródłowy rozszerzenia i kroki lokalnej instalacji](../../packages/vscode-extension/README.md) rejestrują serwer MCP i pokazują stan połączenia z Revit. Rozszerzenie nie zostało opublikowane w Marketplace.
 
 ### Narzędzia w skrócie
 
@@ -117,14 +118,14 @@ Używasz VS Code? [Kod źródłowy rozszerzenia i kroki lokalnej instalacji](../
 | --- | --- | --- |
 | Revit | 110 | Odczyt modelu, tworzenie i edycja elementów, parametrów, widoków, arkuszy, zestawień, eksporty, współpraca (worksharing) |
 | Zatwierdzanie | 6 | Planowanie, przegląd, zatwierdzanie, wykonywanie i wycofywanie zmian modelu |
-| Moduły | 113 | Inspekcja migawek, siatki parametrów, kontrole QA/QC, receptury, raporty, zaznaczenia |
+| Moduły | 114 | Inspekcja migawek, siatki parametrów, kontrole QA/QC, receptury, raporty, zaznaczenia |
 | Rhino i Grasshopper | 19 | Geometria, warstwy, materiały, operacje boolowskie |
 | Speckle | 17 | Projekty, modele, wersje, wysyłanie i odbieranie |
 | Navisworks | 15 | Drzewo modelu, punkty widzenia, testy kolizji (w trakcie prac) |
 | IFC | 7 | Odczyt plików IFC bez Revit: struktura, właściwości, walidacja |
-| Graf, migawki, eksporty, zadania | 22 | Audyty grafu semantycznego, różnice migawek, eksport do SQLite, zadania w tle |
+| Graf, migawki, eksporty, zadania | 23 | Audyty grafu semantycznego, różnice migawek, eksport do SQLite, zadania w tle |
 
-W konfiguracji domyślnej widocznych jest 309 narzędzi (policzone na aktualnym serwerze w trybie mock). Narzędzia Autodesk Data pojawiają się po skonfigurowaniu poświadczeń APS. [Opis narzędzi](../tools-generated.md) zawiera listę wszystkich. Każde narzędzie ma adnotacje MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), dzięki czemu klienci odróżniają odczyty od zapisów.
+W konfiguracji domyślnej widocznych jest 311 narzędzi (policzone na aktualnym serwerze w trybie mock). Narzędzia Autodesk Data pojawiają się po skonfigurowaniu poświadczeń APS. [Opis narzędzi](../tools-generated.md) zawiera listę wszystkich. Każde narzędzie ma adnotacje MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), dzięki czemu klienci odróżniają odczyty od zapisów.
 
 ### Zaawansowana automatyzacja Revit
 
@@ -169,7 +170,7 @@ Panel pokazuje ocenę planu przez "Show the review to enable Approve"; trzeba j�
 
 <sub>Źródło diagramu: [approval-flow.mmd](../diagrams/approval-flow.mmd). Obrazy wygenerujesz ponownie poleceniem `python scripts/render_diagrams.py`.</sub>
 
-Jeśli plan okaże się błędny, cofnij go skrótem Ctrl+Z w Revit. Każdy zapis parametru to osobna nazwana transakcja, więc jeden plan może wymagać kilku naciśnięć. Cofnięcie całego planu jednym krokiem jest planowane, ale jeszcze nie zbudowane. Drugą drogą jest plan cofnięcia: asystent sporządza go za pomocą `plan_revert` na podstawie dowodu wykonanego planu, a zatwierdzasz go jak każdy inny plan. `rollback_plan` jest tylko dla ludzi i nie jest ani przyciskiem, ani poleceniem, więc nie licz na niego. Żadna z tych dróg nie została jeszcze zweryfikowana w prawdziwej sesji Revit (UNVERIFIED). Operacje, których nie da się cofnąć, np. zapis plików, nie są cofane żadną z nich i nie wymagają jeszcze drugiego potwierdzenia (planowane). Lista Plans w panelu pokazuje tylko plany oczekujące; `aec-model-bridge-approve show <plan_id>` działa dla planu w dowolnym stanie, natomiast pakiety `proofs/` istnieją tylko dla planów, które wykonano (lub próbowano wykonać). Cykl życia opisuje [ADR 0008](../0008-approval-gate-lifecycle.md).
+Jeśli plan okaże się błędny, cofnij go skrótem Ctrl+Z w Revit. Każdy zapis parametru to osobna nazwana transakcja, więc jeden plan może wymagać kilku naciśnięć. Cofnięcie całego planu jednym krokiem jest planowane, ale jeszcze nie zbudowane. Drugą drogą jest plan cofnięcia: asystent sporządza go za pomocą `plan_revert` na podstawie dowodu wykonanego planu, a zatwierdzasz go jak każdy inny plan. `rollback_plan` jest tylko dla ludzi i nie jest ani przyciskiem, ani poleceniem, więc nie licz na niego. Żadna z tych dróg nie została jeszcze zweryfikowana w prawdziwej sesji Revit (UNVERIFIED). Operacje, których nie da się cofnąć, np. zapis plików, nie są cofane żadną z nich i nie wymagają jeszcze drugiego potwierdzenia (planowane). Lista Plans w panelu pokazuje tylko plany oczekujące; `aec-model-bridge-approve show <plan_id>` działa dla planu w dowolnym stanie, natomiast pakiety `proofs/` istnieją tylko dla planów, które wykonano (lub próbowano wykonać). Cykl życia opisuje [ADR 0008](../adr/0008-approval-gate-lifecycle.md).
 
 W potokach działających bez nadzoru możesz ustawić `MCP_REVIT_APPROVAL_MODE=auto`. To wyłącza kontrolę człowieka, więc używaj tego tylko w kontrolowanym środowisku.
 
@@ -303,7 +304,7 @@ Odpowiedź powinna zawierać `healthy` oraz wersję uruchomionego Revit. W Revit
 - Narzędzia zmieniające model wymagają zatwierdzonego planu, chyba że wyłączysz zatwierdzanie.
 - Wywołania narzędzi trafiają do dziennika audytu, a sekrety są maskowane.
 
-Szczegóły są w [docs/security.md](../security.md). Aby zgłosić lukę w zabezpieczeniach, postępuj zgodnie z [SECURITY.md](../../SECURITY.md).
+Szczegóły są w [docs/security.md](../security.md). Aby zgłosić lukę w zabezpieczeniach, postępuj zgodnie z [SECURITY.md](../../.github/SECURITY.md).
 
 ## FAQ
 
@@ -313,7 +314,7 @@ Model Context Protocol (MCP) to otwarty standard, który pozwala asystentom AI w
 
 ### Z którymi asystentami AI to działa?
 
-Z każdym klientem MCP, który potrafi uruchomić lokalny serwer stdio. Dokumentujemy Claude Desktop, VS Code z GitHub Copilot, Cursor i Codex oraz klientów czytających standardową konfigurację `mcpServers`. Windsurf, Cline, Roo Code, Continue, Zed, Claude Code i Gemini CLI powinni działać tak samo, ale nie byli testowani. Zob. [zgodność](../compatibility.md). Czat w panelu może też korzystać z klucza API Anthropic albo z narzędzi wiersza poleceń `claude` lub `codex`, jeśli są zainstalowane. Zob. [ADR 0012](../0012-native-agent-chat-backend.md).
+Z każdym klientem MCP, który potrafi uruchomić lokalny serwer stdio. Dokumentujemy Claude Desktop, VS Code z GitHub Copilot, Cursor i Codex oraz klientów czytających standardową konfigurację `mcpServers`. Windsurf, Cline, Roo Code, Continue, Zed, Claude Code i Gemini CLI powinni działać tak samo, ale nie byli testowani. Zob. [zgodność](../compatibility.md). Czat w panelu może też korzystać z klucza API Anthropic albo z narzędzi wiersza poleceń `claude` lub `codex`, jeśli są zainstalowane. Zob. [ADR 0012](../adr/0012-native-agent-chat-backend.md).
 
 ### Czy AI może zmienić mój model bez pytania?
 
@@ -348,17 +349,17 @@ python -m pytest packages/mcp-server-revit/tests
 .\scripts\package.ps1 -RevitVersion All
 ```
 
-CI kompiluje serwer w Pythonie oraz cele dodatku dla Revit 2024–2027. Przed otwarciem pull requesta zapoznaj się z [CONTRIBUTING.md](../../CONTRIBUTING.md).
+CI kompiluje serwer w Pythonie oraz cele dodatku dla Revit 2024–2027. Przed otwarciem pull requesta zapoznaj się z [CONTRIBUTING.md](../../.github/CONTRIBUTING.md).
 
 ## Dokumentacja
 
 - [Przewodnik instalacji](../install.md)
 - [Opis narzędzi](../tools-generated.md)
-- [Architektura](../0001-multi-provider-architecture.md)
+- [Architektura](../adr/0001-multi-provider-architecture.md)
 - [Opis konfiguracji](../configuration-reference.md)
 - [Bezpieczeństwo](../security.md)
 - [Wersjonowanie i wydania](../versioning.md)
-- [Jak współtworzyć](../../CONTRIBUTING.md) i [Kodeks postępowania](../../CODE_OF_CONDUCT.md)
+- [Jak współtworzyć](../../.github/CONTRIBUTING.md) i [Kodeks postępowania](../../.github/CODE_OF_CONDUCT.md)
 
 ## Built with
 

@@ -17,6 +17,7 @@ Architecture:
   - Rules run synchronously (P10.4 async via JobManager is wired as a future extension)
 """
 from __future__ import annotations
+from revit_mcp_server.security.module_permissions import writable_path
 
 import json
 import logging
@@ -121,6 +122,11 @@ ASSERTION_PREFIX = "all elements have "
 
 def _workspace_root(workspace: Any) -> Path:
     return Path(workspace.allowed_directories[0])
+
+
+def _assert_writable(workspace: Any, candidate: Path) -> Path:
+    """Confine the path, then require files.write (a bare workspace has no write gate)."""
+    return writable_path(workspace, _assert_in_workspace(workspace, candidate))
 
 
 def _assert_in_workspace(workspace: Any, candidate: Path) -> Path:
@@ -715,9 +721,9 @@ class QaqcCheckerModule:
                 + "; ".join(f"{e['rule_id'] or 'pack'}: {e['message']}" for e in result["errors"][:5])
             )
         udir = _user_packs_dir(workspace)
-        _assert_in_workspace(workspace, udir)
+        _assert_writable(workspace, udir)
         dest = udir / f"{pack_name}.yaml"
-        _assert_in_workspace(workspace, dest)
+        _assert_writable(workspace, dest)
         if dest.exists() and not overwrite:
             raise ValueError(f"Rule pack '{pack_name}' already exists; pass overwrite=true to replace it.")
         udir.mkdir(parents=True, exist_ok=True)
@@ -735,13 +741,13 @@ class QaqcCheckerModule:
         if result["errors"]:
             raise ValueError(f"Refusing to export invalid rule pack '{rule_pack}'; run validate_rule_pack.")
         if destination:
-            dest = _assert_in_workspace(workspace, Path(destination))
+            dest = _assert_writable(workspace, Path(destination))
             if dest.is_dir():
                 dest = dest / f"{rule_pack}.yaml"
-                _assert_in_workspace(workspace, dest)
+                _assert_writable(workspace, dest)
         else:
             dest = _workspace_root(workspace) / "exports" / f"{rule_pack}.yaml"
-            _assert_in_workspace(workspace, dest)
+            _assert_writable(workspace, dest)
         if dest.suffix.lower() not in (".yaml", ".yml"):
             raise ValueError("Destination must end in .yaml or .yml.")
         if dest.exists() and not overwrite:

@@ -235,6 +235,27 @@ async def test_ifc_provider_tools(tmp_path):
     # Validation
     val = await provider.execute_tool("ifc_validate", {"ifc_path": str(ifc_file_path)})
     assert "is_valid" in val
+    assert not any("Validation engine execution failed" in e["message"] for e in val["errors"])
+
+
+@pytest.mark.anyio
+async def test_ifc_validate_reports_schema_errors(tmp_path):
+    ifcopenshell = pytest.importorskip("ifcopenshell")
+    f = ifcopenshell.file(schema="IFC4")
+    f.createIfcProject(ifcopenshell.guid.new())
+    f.createIfcCartesianPoint((0.0, 0.0, 0.0, 0.0, 0.0))  # more than 3 coordinates
+    bad = tmp_path / "bad.ifc"
+    f.write(str(bad))
+    good_file = ifcopenshell.file(schema="IFC4")
+    good_file.createIfcProject(ifcopenshell.guid.new())
+    good = tmp_path / "good.ifc"
+    good_file.write(str(good))
+    provider = IfcProvider(workspace=WorkspaceMonitor([tmp_path]))
+    res = await provider.execute_tool("ifc_validate", {"ifc_path": str(bad)})
+    assert res["is_valid"] is False
+    assert any(e.get("attribute") == "Coordinates" for e in res["errors"])
+    ok = await provider.execute_tool("ifc_validate", {"ifc_path": str(good)})
+    assert ok["is_valid"] is True, ok["errors"]
 
 
 @pytest.mark.anyio

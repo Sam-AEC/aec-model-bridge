@@ -10,10 +10,10 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCRIPT_PATH = REPO_ROOT / "scripts" / "revit" / "generate_canonical_test_model.py"
-MANIFEST_PATH = REPO_ROOT / "fixtures" / "canonical-model" / "manifest.json"
-SEEDED_DEFECTS_PATH = REPO_ROOT / "fixtures" / "canonical-model" / "seeded-defects.json"
-SNAPSHOT_GOLDEN_PATH = REPO_ROOT / "fixtures" / "canonical-model" / "goldens" / "snapshot-summary.json"
-QAQC_GOLDEN_PATH = REPO_ROOT / "fixtures" / "canonical-model" / "goldens" / "qaqc-findings-summary.json"
+MANIFEST_PATH = REPO_ROOT / "packages" / "mcp-server-revit" / "tests" / "fixtures" / "canonical-model" / "manifest.json"
+SEEDED_DEFECTS_PATH = REPO_ROOT / "packages" / "mcp-server-revit" / "tests" / "fixtures" / "canonical-model" / "seeded-defects.json"
+SNAPSHOT_GOLDEN_PATH = REPO_ROOT / "packages" / "mcp-server-revit" / "tests" / "fixtures" / "canonical-model" / "goldens" / "snapshot-summary.json"
+QAQC_GOLDEN_PATH = REPO_ROOT / "packages" / "mcp-server-revit" / "tests" / "fixtures" / "canonical-model" / "goldens" / "qaqc-findings-summary.json"
 RULES_PATH = (
     REPO_ROOT
     / "packages"
@@ -68,8 +68,8 @@ def test_seeded_defect_register_matches_manifest_and_core_rules():
     rules_by_id = {rule["id"]: rule for rule in rules}
 
     assert register["fixture"] == manifest["name"]
-    assert register["source_manifest"] == "fixtures/canonical-model/manifest.json"
-    assert manifest["seeded_defects"] == "fixtures/canonical-model/seeded-defects.json"
+    assert register["source_manifest"] == "packages/mcp-server-revit/tests/fixtures/canonical-model/manifest.json"
+    assert manifest["seeded_defects"] == "packages/mcp-server-revit/tests/fixtures/canonical-model/seeded-defects.json"
     expected = {entry["rule_id"]: entry["expected_count"] for entry in register["expected_findings"]}
     assert expected == manifest["supported_seeded_rules"]
     assert register["expected_total_findings"] == sum(expected.values())
@@ -96,8 +96,8 @@ def test_canonical_goldens_match_manifest_and_seed_register():
     qaqc_golden = json.loads(QAQC_GOLDEN_PATH.read_text(encoding="utf-8"))
 
     assert manifest["goldens"] == {
-        "snapshot_summary": "fixtures/canonical-model/goldens/snapshot-summary.json",
-        "qaqc_findings_summary": "fixtures/canonical-model/goldens/qaqc-findings-summary.json",
+        "snapshot_summary": "packages/mcp-server-revit/tests/fixtures/canonical-model/goldens/snapshot-summary.json",
+        "qaqc_findings_summary": "packages/mcp-server-revit/tests/fixtures/canonical-model/goldens/qaqc-findings-summary.json",
     }
     assert snapshot_golden["fixture"] == manifest["name"]
     assert qaqc_golden["fixture"] == manifest["name"]
@@ -137,7 +137,7 @@ def test_registry_discovery_uses_newest_switch(tmp_path, monkeypatch):
 
 def test_generated_model_directory_is_ignored():
     gitignore = (REPO_ROOT / ".gitignore").read_text(encoding="utf-8")
-    assert "fixtures/canonical-model/generated/" in gitignore
+    assert "packages/mcp-server-revit/tests/fixtures/canonical-model/generated/" in gitignore
 
 
 def test_custom_output_path_can_live_outside_repo(tmp_path):

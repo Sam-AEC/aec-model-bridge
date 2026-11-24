@@ -8,6 +8,7 @@ Commands:
                          Counts by category, What to do next.
 """
 from __future__ import annotations
+from revit_mcp_server.security.module_permissions import writable_path
 
 import json
 import logging
@@ -398,7 +399,7 @@ class ReportGeneratorModule:
                         ws_qa.cell(row=r, column=col).fill = fill
 
         # --- Save ---
-        out_path = _confined(workspace, output_filename)
+        out_path = writable_path(workspace, _confined(workspace, output_filename))
         wb.save(str(out_path))
 
         return {
@@ -428,9 +429,9 @@ class ReportGeneratorModule:
         findings = _review_findings(elements, types, doc_guid, rule_pack, workspace, failed_rules)
         partial = _is_partial_snapshot(data)
 
-        out_path = WorkspaceMonitor(workspace.allowed_directories).assert_in_workspace(
+        out_path = writable_path(workspace, WorkspaceMonitor(workspace.allowed_directories).assert_in_workspace(
             _ws_dir(workspace) / output_filename
-        )
+        ))
         if out_path.suffix.lower() != ".xlsx":
             raise ValueError("output_filename must end in .xlsx")
 

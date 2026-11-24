@@ -61,7 +61,7 @@ def test_readme_header_is_the_product_logo(readme: Path) -> None:
 def test_product_icon_and_rasters() -> None:
     assert _ico_sizes(ROOT / "assets" / "icon.ico") == {(s, s) for s in ICO_SIZES}
     assert _png_size(ROOT / "assets" / "logo-mark-512.png") == (512, 512)
-    assert _png_size(ROOT / "extensions" / "vscode" / "media" / "icon.png") == (
+    assert _png_size(ROOT / "packages" / "vscode-extension" / "media" / "icon.png") == (
         512,
         512,
     )
@@ -72,7 +72,11 @@ def test_product_icon_and_rasters() -> None:
 def test_product_mark_is_not_the_cerberus_mark() -> None:
     product = (ROOT / "assets" / "logo-mark.svg").read_text(encoding="utf-8")
     assert product != (CERBERUS / "mark.svg").read_text(encoding="utf-8")
-    assert not (ROOT / "assets" / "social-preview.png").exists()
+    # A social preview may exist, but it must not be one of the Cerberus images.
+    preview = ROOT / "assets" / "social-preview.png"
+    if preview.exists():
+        data = preview.read_bytes()
+        assert all(data != p.read_bytes() for p in CERBERUS.glob("*.png"))
 
 
 CERBERUS_FILES = [

@@ -28,6 +28,10 @@ on:
         required: false
         default: ""
 
+# Least privilege: the job below states the write permissions it needs.
+permissions:
+  contents: read
+
 jobs:
   release:
     runs-on: windows-latest
@@ -103,10 +107,10 @@ jobs:
         with:
           node-version: 24   # npm 11; npm 10 cannot install the extension's dependencies
           cache: npm
-          cache-dependency-path: extensions/vscode/package-lock.json
+          cache-dependency-path: packages/vscode-extension/package-lock.json
 
       - name: Build and test the VS Code extension
-        working-directory: extensions/vscode
+        working-directory: packages/vscode-extension
         shell: pwsh
         run: |
           npm ci
@@ -129,7 +133,7 @@ jobs:
           ./scripts/build-release.ps1
           -Version "${{ steps.tag.outputs.version }}"
           -RevitVersion "${{ inputs.revit_version || 'All' }}"
-          -VSCodePackage "extensions/vscode/aec-model-bridge-${{ steps.tag.outputs.version }}.vsix"
+          -VSCodePackage "packages/vscode-extension/aec-model-bridge-${{ steps.tag.outputs.version }}.vsix"
 
       # Issue #159: the bundle must start from a path other than the build path. Copy the staged
       # python folder elsewhere and send one MCP initialize through each documented start command.
@@ -252,6 +256,16 @@ jobs:
         run: gh workflow run publish-mcp.yml --ref "${{ steps.tag.outputs.tag }}"
 
       # Releases created with GITHUB_TOKEN do not trigger release-event workflows.
+      - name: Start PyPI publishing
+        if: ${{ steps.tag.outputs.prerelease == 'false' && !inputs.dry_run }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          gh workflow run publish-pypi.yml --ref $env:RELEASE_TAG -f "tag=$env:RELEASE_TAG"
+          if ($LASTEXITCODE -ne 0) { throw "PyPI publish dispatch failed" }
+
       - name: Start extension store publishing
         if: ${{ steps.tag.outputs.prerelease == 'false' && !inputs.dry_run }}
         shell: pwsh

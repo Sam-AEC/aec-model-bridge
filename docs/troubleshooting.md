@@ -13,6 +13,10 @@ python -m revit_mcp_server doctor --json
 
 (`aec-model-bridge-doctor` is the same command.) It reads your setup and changes nothing: Python version, package version against `VERSION`, mode, whether the workspace exists and is writable, the Revit add-in registry entry and whether it has a session token (Windows only; "N/A" elsewhere; the token value is never shown), whether the bridge port answers within one second, `ifcopenshell`, other optional packages, and the MCP client config files it knows (Claude Desktop, Claude Code, Cursor, Windsurf, VS Code, Gemini CLI, Codex). A client entry that points at an `.exe` launcher under `python\Scripts` is flagged FAIL ([#159](https://github.com/Sam-AEC/aec-model-bridge/issues/159)); use `uvx` or `python -m revit_mcp_server`. Exit code 0 means no FAIL, 1 means at least one. Paste the table into a bug report; it carries no tokens or client environment values.
 
+## Error codes
+
+A failed tool call carries an error kind (`structuredContent.error.kind`) or, for module tools, a result `kind` with a `hint`. The [error catalogue](error-catalogue.md) lists every kind and exception class, when it happens and what to do.
+
 ## Where the logs are
 
 | Log | Location | What it shows |
@@ -130,7 +134,7 @@ The panel's Setup check card calls the hub's `GET /diagnostics` (127.0.0.1, port
 | `workspace` | The workspace is not writable. Set `MCP_REVIT_WORKSPACE_DIR` to a writable absolute path that is also in `MCP_REVIT_ALLOWED_DIRECTORIES`. |
 | `ai_provider` | Chat has no AI. Set `MCP_REVIT_ANTHROPIC_API_KEY`, or sign in to the `claude` or `codex` CLI, then restart Revit. Plans and reports do not need it. |
 
-Response shape: `{ "ok", "approval_mode", "approval_mode_note", "dev_mode", "auto_expires_at", "checks": [ { "id", "ok", "detail", "next_step" } ] }`. The `approval_mode` check fails for `auto` because `auto` skips approvals. `/health` returns a minimal status and needs no token. See [ADR 0018](0018-explicit-development-mode.md).
+Response shape: `{ "ok", "approval_mode", "approval_mode_note", "dev_mode", "auto_expires_at", "checks": [ { "id", "ok", "detail", "next_step" } ] }`. The `approval_mode` check fails for `auto` because `auto` skips approvals. `/health` returns a minimal status and needs no token. See [ADR 0018](adr/0018-explicit-development-mode.md).
 
 ## Approval problems
 

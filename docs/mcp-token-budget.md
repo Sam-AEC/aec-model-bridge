@@ -2,7 +2,7 @@
 
 Measured 2026-11-05 with `MCP_REVIT_MODE=mock`, the supplied Python interpreter, a temporary workspace, no user modules or provider credentials, and no Revit model execution. Baseline captured at `87d1d1bb5312ccb9868786860cbc66f76c47b895` before production changes; results were reported before edits.
 
-The checkout exposes **309** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
+The checkout exposes **311** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
 
 ## Initial profile and response pass
 
@@ -65,13 +65,13 @@ Core is 82% smaller than full and 77% smaller than daily. It is still above 10k 
 
 The family map is three lines in `SERVER_INSTRUCTIONS` (447 characters, about 112 tokens, sent once at initialisation, not part of the tool list). It names the prefixes and says a tool missing from the list is hidden by the startup profile and how to reach it (switch profile and restart). Instructions total 1,379 characters (about 345 tokens); the approval and Dev mode sentences are byte-for-byte unchanged and a test pins them. Core plus map is about 14,263 tokens.
 
-What core keeps, and why (49 tools plus the approval tools):
+What core keeps, and why (50 tools plus the approval tools):
 
 | Family | Tools | Why |
 | --- | ---: | --- |
 | Context and results | 4 | `revit_get_context` (Dev flag, document), `revit_health`, `revit_get_document_info`, `revit_get_result` for async answers |
 | Jobs | 2 | `job_status`, `job_cancel`: follow and stop a long run |
-| Snapshots | 3 | `snapshot_take`, `snapshot_query`, `snapshot_diff`: the before/after evidence |
+| Snapshots | 4 | `snapshot_take`, `snapshot_query`, `snapshot_diff`: the before/after evidence; `snapshot_compute`: one-call answers over a snapshot |
 | QA checks and issues | 5 | `qaqc_checker_run_check`, `list_issues`, `resolve_issue`, `list_rules`, `list_rule_packs`: the issue loop (pack import/export/validate stay hidden) |
 | Review and checks | 4 | `revit_review`, `revit_warnings_delta`, `revit_check_levels_grids`, `revit_system_report`: composite read-only verdicts |
 | Module audits | 7 | naming, doors and rooms, sheets and views, warnings triage, model bloat, links and worksets, `revit_cleanup_audit`: the routine coordinator audits |

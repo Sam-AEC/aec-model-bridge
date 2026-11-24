@@ -11,7 +11,8 @@
     "revit"
   ],
   "permissions": [
-    "model.read"
+    "model.read",
+    "files.write"
   ],
   "commands": [
     {

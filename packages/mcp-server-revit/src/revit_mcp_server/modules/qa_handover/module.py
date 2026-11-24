@@ -14,6 +14,7 @@ snapshot loading and the path guard are reused from report_generator; the snapsh
 comparison from model_changes.
 """
 from __future__ import annotations
+from revit_mcp_server.security.module_permissions import writable_path
 
 import hashlib
 import importlib.util
@@ -425,7 +426,7 @@ class QaHandoverModule:
             raise ValueError("The report is too large; lower max_ids or list fewer plan_ids.")
         paths = {}
         for ext, text in (("json", blob), ("md", markdown)):
-            path = rg._confined(workspace, f"reports/{output_name}.{ext}")
+            path = writable_path(workspace, rg._confined(workspace, f"reports/{output_name}.{ext}"))
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(text, encoding="utf-8")
             paths[ext] = str(path)

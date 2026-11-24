@@ -16,7 +16,7 @@ from urllib.request import Request, urlopen
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-FIXTURE_DIR = REPO_ROOT / "fixtures" / "canonical-model"
+FIXTURE_DIR = REPO_ROOT / "packages" / "mcp-server-revit" / "tests" / "fixtures" / "canonical-model"
 DEFAULT_OUTPUT = FIXTURE_DIR / "generated" / "canonical_test_model.rvt"
 MANIFEST_PATH = FIXTURE_DIR / "manifest.json"
 
@@ -213,10 +213,10 @@ def manifest(output_path: Path = DEFAULT_OUTPUT) -> dict[str, Any]:
         "name": "canonical_test_model",
         "generator": "scripts/revit/generate_canonical_test_model.py",
         "output_path": output_label(output_path),
-        "seeded_defects": "fixtures/canonical-model/seeded-defects.json",
+        "seeded_defects": "packages/mcp-server-revit/tests/fixtures/canonical-model/seeded-defects.json",
         "goldens": {
-            "snapshot_summary": "fixtures/canonical-model/goldens/snapshot-summary.json",
-            "qaqc_findings_summary": "fixtures/canonical-model/goldens/qaqc-findings-summary.json",
+            "snapshot_summary": "packages/mcp-server-revit/tests/fixtures/canonical-model/goldens/snapshot-summary.json",
+            "qaqc_findings_summary": "packages/mcp-server-revit/tests/fixtures/canonical-model/goldens/qaqc-findings-summary.json",
         },
         "expected_counts": EXPECTED_COUNTS,
         "supported_seeded_rules": SUPPORTED_SEEDED_RULES,

@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.10.0.schema.json
+# Template. Fill with packaging/winget/fill_manifests.py; do not submit as is.
+PackageIdentifier: SamAEC.AECModelBridge
+PackageVersion: __VERSION__
+PackageLocale: en-US
+Publisher: Sam-AEC
+PublisherUrl: https://github.com/Sam-AEC
+PublisherSupportUrl: https://github.com/Sam-AEC/aec-model-bridge/issues
+PackageName: AEC Model Bridge
+PackageUrl: https://github.com/Sam-AEC/aec-model-bridge
+License: GPL-3.0-or-later OR commercial
+LicenseUrl: https://github.com/Sam-AEC/aec-model-bridge/blob/main/LICENSING.md
+Copyright: Copyright (c) Sam-AEC
+ShortDescription: Revit MCP server and add-in. AI clients read and edit Revit models through plans that a person approves.
+Description: |-
+  AEC Model Bridge is a Model Context Protocol (MCP) server with a native Autodesk Revit add-in.
+  MCP clients such as Claude, Codex and Cursor read the open Revit model and propose changes as plans.
+  Nothing in the model changes until a person approves a plan in the Revit panel.
+  The installer adds the add-in for Revit 2024 to 2027 and a bundled Python with the MCP server.
+  Autodesk Revit is required and is not installed by this package.
+Moniker: aec-model-bridge
+Tags:
+  - revit
+  - bim
+  - mcp
+  - aec
+  - autodesk
+ReleaseNotesUrl: __RELEASE_NOTES_URL__
+ManifestType: defaultLocale
+ManifestVersion: 1.10.0

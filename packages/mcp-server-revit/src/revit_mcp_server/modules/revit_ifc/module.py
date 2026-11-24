@@ -188,11 +188,13 @@ class _OutsideWorkspace(ValueError):
     pass
 
 
-def _in_workspace(workspace: Any, candidate: Path) -> Path:
+def _in_workspace(workspace: Any, candidate: Path, write: bool = False) -> Path:
     """Same rule as revit_docs.export: resolve and require the path inside the sandbox (plans/ and proofs/ refused)."""
     if workspace is None or not getattr(workspace, "assert_in_workspace", None):
         raise _OutsideWorkspace("no workspace is configured, so no path can be validated")
     try:
+        if write and callable(getattr(workspace, "assert_writable", None)):
+            return workspace.assert_writable(Path(candidate))
         return workspace.assert_in_workspace(Path(candidate))
     except Exception as exc:  # noqa: BLE001 - WorkspaceViolation or an OS error while resolving
         raise _OutsideWorkspace(str(exc)) from exc
@@ -659,7 +661,7 @@ class RevitIfcModule:
             target = Path(path)
             if target.suffix.lower() != ".ifc":
                 raise ValueError("path must end in .ifc")
-            target = _in_workspace(workspace, target)
+            target = _in_workspace(workspace, target, write=True)
             cats = _names(categories, "categories", 60)
             id_list = [] if ids is None else [_int(v, "ids") for v in (ids if isinstance(ids, (list, tuple)) else [ids])]
             if len(id_list) > 20000:

@@ -1,0 +1,91 @@
+name: Live Revit verification (maintainers)
+description: A run sheet for checking merged behaviour on Windows with a live Revit. CI covers mock mode only.
+title: "verify: <feature or PR> on Revit <year>"
+labels: ["type: task", "status: needs-live-verification"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for checks that need Windows and a live Revit. Run mutating steps on a disposable model copy only.
+        Record results in the issue. Each failed check gets its own bug report, linked from here.
+        Behaviour stays marked UNVERIFIED in the docs until a check here passes (see `docs/release-checklist.md`).
+  - type: textarea
+    id: scope
+    attributes:
+      label: What is being verified
+      description: Link the pull requests, issues or CHANGELOG lines. Name the tools and settings involved.
+    validations:
+      required: true
+  - type: input
+    id: commit
+    attributes:
+      label: Commit or release under test
+      placeholder: "v1.6.0-rc1 or 0dcb1d4"
+    validations:
+      required: true
+  - type: dropdown
+    id: revit
+    attributes:
+      label: Revit versions to cover
+      multiple: true
+      options:
+        - Revit 2024 (net48)
+        - Revit 2025 (net8)
+        - Revit 2026 (net8)
+        - Revit 2027 (net10)
+    validations:
+      required: true
+  - type: dropdown
+    id: model
+    attributes:
+      label: Model type
+      multiple: true
+      options:
+        - Canonical fixture model
+        - Workshared model
+        - Model with Revit links
+        - Model with CAD imports or links
+        - Large project (record element count)
+    validations:
+      required: true
+  - type: dropdown
+    id: clients
+    attributes:
+      label: MCP clients
+      multiple: true
+      options:
+        - Claude Desktop
+        - Claude Code
+        - VS Code (GitHub Copilot agent mode)
+        - Cursor
+        - Codex
+        - Panel chat
+        - Not relevant
+  - type: textarea
+    id: checks
+    attributes:
+      label: Checks
+      description: One checkbox per check. Each states the exact tool call or UI action and the expected result.
+      value: |
+        - [ ] <tool call or UI step>: expected <result>
+        - [ ] <tool call or UI step>: expected <result>
+    validations:
+      required: true
+  - type: textarea
+    id: results
+    attributes:
+      label: Results
+      description: Fill in while running. One row per check.
+      value: |
+        | Check | Revit | Result (PASS / FAIL / not run) | Measured | Issue |
+        | --- | --- | --- | --- | --- |
+        |  |  |  |  |  |
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety
+      options:
+        - label: Mutating steps run only on a disposable model copy.
+          required: true
+        - label: Docs status lines will be updated only for checks that passed.
+          required: true

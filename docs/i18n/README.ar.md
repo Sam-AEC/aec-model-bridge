@@ -6,7 +6,7 @@
 
 <div dir="rtl">
 
-> تمت هذه الترجمة بمساعدة الذكاء الاصطناعي. المرجع الأساسي هو ملف [README](../../README.md) الإنجليزي، ونرحّب بالتصحيحات عبر pull request (راجع [CONTRIBUTING.md](../../CONTRIBUTING.md)).
+> تمت هذه الترجمة بمساعدة الذكاء الاصطناعي. المرجع الأساسي هو ملف [README](../../README.md) الإنجليزي، ونرحّب بالتصحيحات عبر pull request (راجع [CONTRIBUTING.md](../../.github/CONTRIBUTING.md)).
 
 </div>
 
@@ -18,6 +18,7 @@
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 [![Revit](https://img.shields.io/badge/Revit-2024--2027-0696D7?style=flat-square)](#إصدارات-revit-المدعومة)
 [![License](https://img.shields.io/badge/license-GPL--3.0%20%2B%20commercial-2563EB?style=flat-square)](../../LICENSING.md)
+[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/Sam-AEC/aec-model-bridge?style=flat-square&label=OpenSSF%20Scorecard)](https://scorecard.dev/viewer/?uri=github.com/Sam-AEC/aec-model-bridge)
 
 [ابدأ الآن](#البدء-السريع) | [أمثلة على سير العمل](#أمثلة-على-سير-العمل) | [الأدوات](../tools-generated.md) | [التوثيق](#التوثيق) | [التنزيل](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -127,7 +128,7 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 هل تريد الاطلاع على الأدوات أولًا دون Revit؟ اضبط `"MCP_REVIT_MODE": "mock"`. عندئذٍ يعمل الخادم في أي مكان، ويسرد كل الأدوات مع مخططاتها، ويعيد ردودًا جاهزة دون أن يلمس أي نموذج. يوجد ملف `Dockerfile` للوضع التجريبي نفسه في جذر المستودع (`docker build -t aec-model-bridge .` ثم `docker run -i --rm aec-model-bridge`).
 
-تستخدم VS Code؟ يسجّل [مصدر الامتداد وخطوات التثبيت المحلي](../../extensions/vscode/README.md) خادم MCP ويعرض حالة الاتصال بـ Revit. لم يُنشر الامتداد في Marketplace.
+تستخدم VS Code؟ يسجّل [مصدر الامتداد وخطوات التثبيت المحلي](../../packages/vscode-extension/README.md) خادم MCP ويعرض حالة الاتصال بـ Revit. لم يُنشر الامتداد في Marketplace.
 
 ### نظرة سريعة على الأدوات
 
@@ -135,14 +136,14 @@ the plan in Revit, apply it and read the values back to confirm the result.
 | --- | --- | --- |
 | Revit | 110 | قراءة النموذج، وإنشاء العناصر والمعاملات والمناظير واللوحات والجداول وتحريرها، والتصدير، والعمل المشترك (worksharing) |
 | الموافقة | 6 | تخطيط تغييرات النموذج ومراجعتها واعتمادها وتنفيذها والتراجع عنها |
-| الوحدات | 113 | فحص اللقطات، وشبكات المعاملات، وفحوص QA/QC، والوصفات، والتقارير، والتحديدات |
+| الوحدات | 114 | فحص اللقطات، وشبكات المعاملات، وفحوص QA/QC، والوصفات، والتقارير، والتحديدات |
 | Rhino وGrasshopper | 19 | الهندسة، والطبقات، والخامات، والعمليات المنطقية (boolean) |
 | Speckle | 17 | المشاريع، والنماذج، والإصدارات، والإرسال والاستقبال |
 | Navisworks | 15 | شجرة النموذج، ونقاط الرؤية، واختبارات التعارض (قيد التطوير) |
 | IFC | 7 | قراءة ملفات IFC دون Revit: البنية، والخصائص، والتحقق |
-| الرسم البياني، واللقطات، والتصدير، والمهام | 22 | تدقيق الرسم البياني الدلالي، وفروق اللقطات، والتصدير إلى SQLite، والمهام الخلفية |
+| الرسم البياني، واللقطات، والتصدير، والمهام | 23 | تدقيق الرسم البياني الدلالي، وفروق اللقطات، والتصدير إلى SQLite، والمهام الخلفية |
 
-تُدرج 309 أداة في الإعداد الافتراضي (عُدّت من الخادم الحالي في الوضع التجريبي mock). تظهر أدوات Autodesk Data عند ضبط بيانات اعتماد APS. يسرد [مرجع الأدوات](../tools-generated.md) كل أداة. تحمل كل أداة تعليقات MCP التوضيحية (`readOnlyHint` و`destructiveHint` و`idempotentHint` و`openWorldHint`)، ليتمكّن العملاء من التمييز بين القراءة والكتابة.
+تُدرج 311 أداة في الإعداد الافتراضي (عُدّت من الخادم الحالي في الوضع التجريبي mock). تظهر أدوات Autodesk Data عند ضبط بيانات اعتماد APS. يسرد [مرجع الأدوات](../tools-generated.md) كل أداة. تحمل كل أداة تعليقات MCP التوضيحية (`readOnlyHint` و`destructiveHint` و`idempotentHint` و`openWorldHint`)، ليتمكّن العملاء من التمييز بين القراءة والكتابة.
 
 ### أتمتة Revit المتقدمة
 
@@ -187,7 +188,7 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 <sub>مصدر المخطط: [approval-flow.mmd](../diagrams/approval-flow.mmd). أعد توليد الصور بالأمر `python scripts/render_diagrams.py`.</sub>
 
-إذا تبيّن أن خطة ما خاطئة، فتراجع عنها بـ Ctrl+Z في Revit. كل كتابة لمعامل هي معاملة مسمّاة مستقلة، لذا قد تحتاج خطة واحدة إلى عدة ضغطات. التراجع بخطوة واحدة عن خطة كاملة مخطَّط له ولم يُبنَ بعد. يعيد الطريق الثاني هو خطة تراجع: يصيغ المساعد واحدة بالأداة `plan_revert` انطلاقًا من إثبات خطة نُفّذت، وتوافق عليها كأي خطة أخرى. `rollback_plan` مخصص للأشخاص فقط وليس زرًا ولا أمرًا، فلا تعتمد عليه. لم يُتحقَّق من أيٍّ من هذه المسارات في جلسة Revit حقيقية بعد (UNVERIFIED). أما العمليات التي لا يمكن عكسها، مثل كتابة الملفات، فلا يتراجع عنها أيٌّ منها، ولا تطلب تأكيدًا ثانيًا بعد (مخطَّط له). تعرض قائمة الخطط في اللوحة الخطط المعلّقة فقط؛ ويعمل الأمر `aec-model-bridge-approve show <plan_id>` مع خطة في أي حالة، بينما لا توجد حزم `proofs/` إلا للخطط التي نُفّذت (أو جرت محاولة تنفيذها). دورة الحياة موضحة في [ADR 0008](../0008-approval-gate-lifecycle.md).
+إذا تبيّن أن خطة ما خاطئة، فتراجع عنها بـ Ctrl+Z في Revit. كل كتابة لمعامل هي معاملة مسمّاة مستقلة، لذا قد تحتاج خطة واحدة إلى عدة ضغطات. التراجع بخطوة واحدة عن خطة كاملة مخطَّط له ولم يُبنَ بعد. يعيد الطريق الثاني هو خطة تراجع: يصيغ المساعد واحدة بالأداة `plan_revert` انطلاقًا من إثبات خطة نُفّذت، وتوافق عليها كأي خطة أخرى. `rollback_plan` مخصص للأشخاص فقط وليس زرًا ولا أمرًا، فلا تعتمد عليه. لم يُتحقَّق من أيٍّ من هذه المسارات في جلسة Revit حقيقية بعد (UNVERIFIED). أما العمليات التي لا يمكن عكسها، مثل كتابة الملفات، فلا يتراجع عنها أيٌّ منها، ولا تطلب تأكيدًا ثانيًا بعد (مخطَّط له). تعرض قائمة الخطط في اللوحة الخطط المعلّقة فقط؛ ويعمل الأمر `aec-model-bridge-approve show <plan_id>` مع خطة في أي حالة، بينما لا توجد حزم `proofs/` إلا للخطط التي نُفّذت (أو جرت محاولة تنفيذها). دورة الحياة موضحة في [ADR 0008](../adr/0008-approval-gate-lifecycle.md).
 
 في خطوط المعالجة الآلية غير المراقَبة يمكنك ضبط `MCP_REVIT_APPROVAL_MODE=auto`. يؤدي ذلك إلى إيقاف المراجعة البشرية، لذا استخدمه في بيئة خاضعة للتحكم فقط.
 
@@ -349,7 +350,7 @@ Invoke-RestMethod "$($switch.endpoint)/health"
 - تحتاج الأدوات التي تغيّر النموذج إلى خطة معتمدة ما لم توقف الموافقة.
 - تُسجَّل استدعاءات الأدوات في سجل تدقيق، وتُخفى القيم السرية.
 
-التفاصيل في [docs/security.md](../security.md). للإبلاغ عن ثغرة أمنية، اتبع [SECURITY.md](../../SECURITY.md).
+التفاصيل في [docs/security.md](../security.md). للإبلاغ عن ثغرة أمنية، اتبع [SECURITY.md](../../.github/SECURITY.md).
 
 ## الأسئلة الشائعة
 
@@ -359,7 +360,7 @@ Invoke-RestMethod "$($switch.endpoint)/health"
 
 ### ما مساعدو الذكاء الاصطناعي الذين يعملون معه؟
 
-أي عميل MCP قادر على تشغيل خادم stdio محلي. نوثّق إعداد Claude Desktop وVS Code مع GitHub Copilot وCursor وCodex، والعملاء الذين يقرؤون إعداد `mcpServers` القياسي. ويُتوقع أن تعمل Windsurf وCline وRoo Code وContinue وZed وClaude Code وGemini CLI بالطريقة نفسها، لكنها لم تُختبر. راجع [التوافق](../compatibility.md). ويمكن لمحادثة اللوحة أيضًا استخدام مفتاح Anthropic API أو أداتي سطر الأوامر `claude` أو `codex` إذا كانتا مثبّتتين. راجع [ADR 0012](../0012-native-agent-chat-backend.md).
+أي عميل MCP قادر على تشغيل خادم stdio محلي. نوثّق إعداد Claude Desktop وVS Code مع GitHub Copilot وCursor وCodex، والعملاء الذين يقرؤون إعداد `mcpServers` القياسي. ويُتوقع أن تعمل Windsurf وCline وRoo Code وContinue وZed وClaude Code وGemini CLI بالطريقة نفسها، لكنها لم تُختبر. راجع [التوافق](../compatibility.md). ويمكن لمحادثة اللوحة أيضًا استخدام مفتاح Anthropic API أو أداتي سطر الأوامر `claude` أو `codex` إذا كانتا مثبّتتين. راجع [ADR 0012](../adr/0012-native-agent-chat-backend.md).
 
 ### هل يستطيع الذكاء الاصطناعي تغيير نموذجي دون أن يسأل؟
 
@@ -398,17 +399,17 @@ python -m pytest packages/mcp-server-revit/tests
 
 <div dir="rtl">
 
-يبني CI خادم Python وأهداف الإضافة لإصدارات Revit من 2024 إلى 2027. راجع [CONTRIBUTING.md](../../CONTRIBUTING.md) قبل فتح pull request.
+يبني CI خادم Python وأهداف الإضافة لإصدارات Revit من 2024 إلى 2027. راجع [CONTRIBUTING.md](../../.github/CONTRIBUTING.md) قبل فتح pull request.
 
 ## التوثيق
 
 - [دليل التثبيت](../install.md)
 - [مرجع الأدوات](../tools-generated.md)
-- [البنية المعمارية](../0001-multi-provider-architecture.md)
+- [البنية المعمارية](../adr/0001-multi-provider-architecture.md)
 - [مرجع الإعدادات](../configuration-reference.md)
 - [الأمان](../security.md)
 - [الإصدارات والنسخ](../versioning.md)
-- [دليل المساهمة](../../CONTRIBUTING.md) و [مدونة السلوك](../../CODE_OF_CONDUCT.md)
+- [دليل المساهمة](../../.github/CONTRIBUTING.md) و [مدونة السلوك](../../.github/CODE_OF_CONDUCT.md)
 
 ## Built with
 

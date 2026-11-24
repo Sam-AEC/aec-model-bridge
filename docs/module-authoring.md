@@ -73,7 +73,7 @@ An unknown name (a typo, or the old `workspace.write`, which is now `files.write
 
 - `python.host` is checked each time a command runs.
 - `files.write`: the `workspace` argument a handler receives has `workspace.assert_writable(path)`. Call it on every path you are about to write. It does what `assert_in_workspace` does and also refuses with a `WorkspaceViolation` when neither the manifest nor the command declares `files.write`. `MCP_REVIT_MODULE_PERMISSION_MODE` is `enforce` (default) or `warn` (log and allow, for third-party modules that need time to declare the permission).
-  Modules run in the server process, so this check covers handlers that use `assert_writable`; it is not a sandbox against code that calls `open()` directly.
+  Built-in modules use the same check: every built-in write path calls it, and a built-in whose manifest lacks `files.write` is refused. Modules run in the server process, so for a third-party module this covers handlers that use `assert_writable`; it is not a sandbox against code that calls `open()` directly.
 
 ## 3a. Importing other files from a module
 

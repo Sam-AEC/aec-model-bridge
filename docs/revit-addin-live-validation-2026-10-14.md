@@ -41,5 +41,5 @@ or geometry acceptance still need the explicitly requested scratch-project suite
 The initial automated suite passed **1,752 tests, with 17 skips**; after LIVE-01, **150 focused tests** passed, including the new regressions.
 
 Detailed responses are saved locally under `artifacts/bridge-upgrade-verification/`: `live-context.json`, `live-runtime.json`,
-`live-read-checks.json`, `live-extra-checks.json` and `live-family-hotfix.json`. See [ADR 0018](0018-explicit-development-mode.md)
+`live-read-checks.json`, `live-extra-checks.json` and `live-family-hotfix.json`. See [ADR 0018](adr/0018-explicit-development-mode.md)
 and [the preflight prompt](prompts/revit-agent-preflight-and-verify.md) for continuation rules.

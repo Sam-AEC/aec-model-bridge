@@ -6,7 +6,7 @@ the panel gets a real chat surface without this hub owning an LLM agent
 loop. This module is the opposite bet - it owns the model call and the
 tool-calling loop directly against the Anthropic API using only an API key,
 because the CLI-shelling path fails out of the box on a fresh install with
-neither CLI on PATH (see docs/0012-native-agent-chat-backend.md for the
+neither CLI on PATH (see docs/adr/0012-native-agent-chat-backend.md for the
 decision record). Both modules keep the exact same safety boundary: a
 mutating Revit tool call must pass ApprovalGate.check_tool_execution before
 it runs, no matter which chat surface requested it - this module is not

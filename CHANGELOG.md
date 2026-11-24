@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+- Add-in: `revit.get_context` now reports `revit.pid` and `revit.started_at` (UTC), so approved plans are bound to the Revit process that drafted them and refused by another Revit or after a restart (#152). UNVERIFIED in a live Revit with two sessions open.
+- Docs: `llms-full.txt` (llms.txt, AGENTS.md and the docs it links in one file, from `scripts/make_llms_full.py`) and `docs/error-catalogue.md` (every error kind and exception class with when and what to do, from `scripts/make_error_catalogue.py` and `scripts/error_catalogue_notes.json`); tests fail when either is stale or a code lacks an entry.
+- `ifc_validate` works with IfcOpenShell 0.8: it passes a logger to `ifcopenshell.validate` and reports its errors (message, entity, attribute). Before, every call failed inside the validator and returned that failure as the only error.
+- README headline is now "AI for Revit you can trust"; the social preview card matches.
+- `scripts/project_board.py` creates or refreshes the public GitHub Project board from issue labels (Priority, Size, Area, Owner, Needs Revit); setup and views in `docs/project-board.md`.
+- Tool count is now 311 (114 module tools, 6 approval tools, `search_tools`). `server.json` and `manifest.json` now say 300+ tools.
+- New `sheet_set_qa_check` (module `sheet_set_qa`): read-only sheet checks before an issue on a saved snapshot: duplicate and equivalent sheet numbers, numbering gaps within a prefix series, empty title block fields (configurable; defaults Sheet Number, Sheet Name, Drawn By, Checked By, Sheet Issue Date), sheets with no placed views, and numbers or names that break a regex, with severities, `ready_for_issue` and an optional CSV. Checks the snapshot cannot support are reported as not run. See `docs/sheet-set-qa.md`. UNVERIFIED on snapshots from live Revit.
+- `model_health_score` takes `html_filename`: a self-contained HTML dashboard (no scripts, fonts or external links; model text escaped) with the score and components, the trend chart, top open issues of the latest stored QA/QC run (issue store opened read-only) and parameter completeness. See `docs/qa-handover-report.md`.
+
+- `snapshot_compute` answers a model question in one read-only call: a pipeline of up to 12 named steps over a saved snapshot (join type, host, level, room, group, hosted or relations; where with all, any, not and field-to-field comparison; group_by with count, sum, avg, min, max, distinct, list; sort, select, limit) that returns only the result. The pipeline is data, not code: no expressions or regular expressions run, lists are bounded and unknown keys are refused. It is in the `core` profile.
+- `assets/social-preview.png` (1280x640) for the repository social preview.
+- Repository layout: community files (`CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md`) moved to `.github/`; `TRADEMARKS.md` to `docs/legal/`; ADRs to `docs/adr/`; the VS Code extension from `extensions/vscode/` to `packages/vscode-extension/`; the Claude Code plugin from `plugin/` to `packages/claude-plugin/`; the canonical test model fixtures to `packages/mcp-server-revit/tests/fixtures/`; example rule packs to `docs/examples/rule_packs/`. Links, workflows, `scripts/version.py` and tests point to the new paths.
+- Built-in modules now write files through the `files.write` check, and the manifests of `selection_tools`, `model_inspector`, `parameter_manager` and `revit_ifc` declare it (#157).
+- Tests: panel test servers poll every 10 ms instead of 0.5 s (about 4 s per CPU-minute of teardown saved), a mtime-order test no longer sleeps, and `tests/test_security_branch_gaps.py` covers fail-closed branches of the approval override, gating, binding and redaction helpers.
+- Issue tracker: new issue forms (bug report with Revit, add-in, mode, approval mode and client fields; problem-first feature request; documentation; live Revit verification run sheet), updated contact links, a prefixed label taxonomy in `.github/labels.yml`, and `docs/issue-guide.md` with title, label, milestone, tracking-issue and acceptance-criteria rules.
+- Release: `publish-pypi.yml` now runs after each stable release (dispatched by `release.yml`, or on `release: published`), builds the wheel and sdist from the tag, and publishes with PyPI Trusted Publishing in a `pypi` environment. Pre-release tags are refused. Setup steps are in `docs/release-checklist.md`.
+- Security: new `scorecard.yml` workflow runs the OpenSSF Scorecard weekly and on pushes to `main`, uploads SARIF to code scanning, and feeds a README badge. `release.yml`, `publish-pypi.yml` and `publish-mcp.yml` now set top-level read-only `permissions:`.
+- Packaging: winget manifest templates for the Windows installer in `packaging/winget/`, `fill_manifests.py` to fill version, URL and SHA-256 for a release (checked against `SHA256SUMS.txt`), and `docs/winget.md` on submitting with `wingetcreate`. Nothing is submitted.
+- Docs: prompt library in `docs/prompts/` (53 prompts in nine themed files, each with tools, expected result, safety note for writes and mock-test status), linked from `README.md` and `llms.txt`; `tests/test_prompt_library.py` checks every tool name against the registry.
+
 ## 1.5.1 - 2026-11-24
 
 - Excel import trims Boolean cells before reading them, so `" true "` stays true.

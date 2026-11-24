@@ -4,7 +4,7 @@
 
 [English](../../README.md) | [简体中文](README.zh-CN.md) | [Español](README.es.md) | [हिन्दी](README.hi.md) | [العربية](README.ar.md) | [Português (BR)](README.pt-BR.md) | [Русский](README.ru.md) | [日本語](README.ja.md) | [Deutsch](README.de.md) | [Français](README.fr.md) | [Bahasa Indonesia](README.id.md) | [Türkçe](README.tr.md) | **한국어** | [Tiếng Việt](README.vi.md) | [Italiano](README.it.md) | [Polski](README.pl.md) | [繁體中文](README.zh-TW.md)
 
-> 이 문서는 AI의 도움으로 번역되었습니다. 영문 [README](../../README.md)가 기준 문서이며, 오류나 개선 사항은 Pull Request로 알려 주세요. 자세한 내용은 [CONTRIBUTING.md](../../CONTRIBUTING.md)를 참고하세요.
+> 이 문서는 AI의 도움으로 번역되었습니다. 영문 [README](../../README.md)가 기준 문서이며, 오류나 개선 사항은 Pull Request로 알려 주세요. 자세한 내용은 [CONTRIBUTING.md](../../.github/CONTRIBUTING.md)를 참고하세요.
 
 **열려 있는 Revit 모델에 대해 AI에게 물어보세요. 기본 설정에서는 계획을 승인하기 전까지 쓰기 도구가 차단됩니다.**
 
@@ -14,6 +14,7 @@ Revit 2024 – 2027용 오픈소스 MCP 서버와 네이티브 애드인. Claude
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 [![Revit](https://img.shields.io/badge/Revit-2024--2027-0696D7?style=flat-square)](#지원하는-revit-버전)
 [![License](https://img.shields.io/badge/license-GPL--3.0%20%2B%20commercial-2563EB?style=flat-square)](../../LICENSING.md)
+[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/Sam-AEC/aec-model-bridge?style=flat-square&label=OpenSSF%20Scorecard)](https://scorecard.dev/viewer/?uri=github.com/Sam-AEC/aec-model-bridge)
 
 [시작하기](#빠른-시작) | [워크플로 예시](#워크플로-예시) | [도구](../tools-generated.md) | [문서](#문서) | [다운로드](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -109,7 +110,7 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 먼저 Revit 없이 도구를 살펴보고 싶다면 `"MCP_REVIT_MODE": "mock"`으로 설정하세요. 서버는 어디서든 시작되고, 모든 도구를 스키마와 함께 나열하며, 모델을 건드리지 않고 미리 정해진 응답을 반환합니다. 같은 mock 모드용 `Dockerfile`이 저장소 루트에 있습니다(`docker build -t aec-model-bridge .` 후 `docker run -i --rm aec-model-bridge`).
 
-VS Code를 사용하시나요? [확장 프로그램 소스와 로컬 설치 단계](../../extensions/vscode/README.md)에서 MCP 서버를 등록하고 Revit 연결 상태를 확인할 수 있습니다. Marketplace에는 게시되지 않았습니다.
+VS Code를 사용하시나요? [확장 프로그램 소스와 로컬 설치 단계](../../packages/vscode-extension/README.md)에서 MCP 서버를 등록하고 Revit 연결 상태를 확인할 수 있습니다. Marketplace에는 게시되지 않았습니다.
 
 ### 도구 한눈에 보기
 
@@ -117,14 +118,14 @@ VS Code를 사용하시나요? [확장 프로그램 소스와 로컬 설치 단�
 | --- | --- | --- |
 | Revit | 110 | 모델 읽기, 요소·매개변수·뷰·시트·일람표 생성 및 편집, 내보내기, 워크셰어링 |
 | 승인 | 6 | 모델 변경의 계획, 검토, 승인, 실행, 롤백 |
-| 모듈 | 113 | 스냅샷 검사, 매개변수 그리드, QA/QC 점검, 레시피, 보고서, 선택 |
+| 모듈 | 114 | 스냅샷 검사, 매개변수 그리드, QA/QC 점검, 레시피, 보고서, 선택 |
 | Rhino 및 Grasshopper | 19 | 지오메트리, 레이어, 재료, 불리언 연산 |
 | Speckle | 17 | 프로젝트, 모델, 버전, 전송 및 수신 |
 | Navisworks | 15 | 모델 트리, 뷰포인트, 간섭 검토(개발 중) |
 | IFC | 7 | Revit 없이 IFC 파일 읽기: 구조, 속성, 검증 |
-| 그래프, 스냅샷, 내보내기, 작업 | 22 | 시맨틱 그래프 감사, 스냅샷 비교, SQLite 내보내기, 백그라운드 작업 |
+| 그래프, 스냅샷, 내보내기, 작업 | 23 | 시맨틱 그래프 감사, 스냅샷 비교, SQLite 내보내기, 백그라운드 작업 |
 
-기본 설정에서는 309개의 도구가 나열됩니다(mock 모드에서 현재 서버 기준으로 집계). Autodesk Data 도구는 APS 자격 증명을 구성하면 나타납니다. [도구 레퍼런스](../tools-generated.md)에서 모든 도구를 확인할 수 있습니다. 각 도구에는 MCP 어노테이션(`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)이 있어 클라이언트가 읽기와 쓰기를 구분할 수 있습니다.
+기본 설정에서는 311개의 도구가 나열됩니다(mock 모드에서 현재 서버 기준으로 집계). Autodesk Data 도구는 APS 자격 증명을 구성하면 나타납니다. [도구 레퍼런스](../tools-generated.md)에서 모든 도구를 확인할 수 있습니다. 각 도구에는 MCP 어노테이션(`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)이 있어 클라이언트가 읽기와 쓰기를 구분할 수 있습니다.
 
 ### 고급 Revit 자동화
 
@@ -169,7 +170,7 @@ MCP 클라이언트는 하나의 Python 허브와 통신합니다. 허브는 각
 
 <sub>다이어그램 소스: [approval-flow.mmd](../diagrams/approval-flow.mmd). 이미지는 `python scripts/render_diagrams.py`로 다시 생성합니다.</sub>
 
-계획이 잘못된 것으로 드러나면 Revit의 Ctrl+Z로 되돌리세요. 매개변수 쓰기는 각각 이름이 붙은 별도 트랜잭션이므로, 계획 하나를 되돌리려면 여러 번 눌러야 할 수 있습니다. 계획 전체를 한 번에 되돌리는 기능은 계획 단계이며 아직 구현되지 않았습니다. 두 번째 방법은 되돌리기 계획입니다. 어시스턴트가 실행된 계획의 증빙으로 `plan_revert`를 사용해 초안을 만들고, 다른 계획과 똑같이 사용자가 승인합니다. `rollback_plan`은 사람 전용이며 버튼도 명령도 아니므로 기대하지 마세요. 이 방법들은 모두 실제 Revit 세션에서 아직 검증되지 않았습니다(UNVERIFIED). 파일 출력처럼 되돌릴 수 없는 작업은 어떤 방법으로도 되돌릴 수 없으며, 한 번 더 확인하는 기능은 아직 없습니다(계획 단계). 패널의 Plans 목록에는 대기 중인 계획만 표시됩니다. `aec-model-bridge-approve show <plan_id>`는 어떤 상태의 계획에도 사용할 수 있지만, `proofs/` 번들은 실행된(또는 실행을 시도한) 계획에만 존재합니다. 전체 수명 주기는 [ADR 0008](../0008-approval-gate-lifecycle.md)에 있습니다.
+계획이 잘못된 것으로 드러나면 Revit의 Ctrl+Z로 되돌리세요. 매개변수 쓰기는 각각 이름이 붙은 별도 트랜잭션이므로, 계획 하나를 되돌리려면 여러 번 눌러야 할 수 있습니다. 계획 전체를 한 번에 되돌리는 기능은 계획 단계이며 아직 구현되지 않았습니다. 두 번째 방법은 되돌리기 계획입니다. 어시스턴트가 실행된 계획의 증빙으로 `plan_revert`를 사용해 초안을 만들고, 다른 계획과 똑같이 사용자가 승인합니다. `rollback_plan`은 사람 전용이며 버튼도 명령도 아니므로 기대하지 마세요. 이 방법들은 모두 실제 Revit 세션에서 아직 검증되지 않았습니다(UNVERIFIED). 파일 출력처럼 되돌릴 수 없는 작업은 어떤 방법으로도 되돌릴 수 없으며, 한 번 더 확인하는 기능은 아직 없습니다(계획 단계). 패널의 Plans 목록에는 대기 중인 계획만 표시됩니다. `aec-model-bridge-approve show <plan_id>`는 어떤 상태의 계획에도 사용할 수 있지만, `proofs/` 번들은 실행된(또는 실행을 시도한) 계획에만 존재합니다. 전체 수명 주기는 [ADR 0008](../adr/0008-approval-gate-lifecycle.md)에 있습니다.
 
 무인 파이프라인에서는 `MCP_REVIT_APPROVAL_MODE=auto`를 설정할 수 있습니다. 사람의 확인을 끄는 설정이므로 통제된 환경에서만 사용하세요.
 
@@ -303,7 +304,7 @@ Invoke-RestMethod "$($switch.endpoint)/health"
 - 승인을 끄지 않는 한, 모델을 변경하는 도구에는 승인된 계획이 필요합니다.
 - 도구 호출은 감사 로그에 기록되며, 시크릿은 마스킹됩니다.
 
-자세한 내용은 [docs/security.md](../security.md)에 있습니다. 취약점을 신고하려면 [SECURITY.md](../../SECURITY.md)를 따르세요.
+자세한 내용은 [docs/security.md](../security.md)에 있습니다. 취약점을 신고하려면 [SECURITY.md](../../.github/SECURITY.md)를 따르세요.
 
 ## FAQ
 
@@ -313,7 +314,7 @@ Model Context Protocol(MCP)은 AI 어시스턴트가 다른 소프트웨어의 �
 
 ### 어떤 AI 어시스턴트와 함께 쓸 수 있나요?
 
-로컬 stdio 서버를 시작할 수 있는 모든 MCP 클라이언트에서 사용할 수 있습니다. Claude Desktop, GitHub Copilot과 함께 쓰는 VS Code, Cursor, Codex, 그리고 표준 `mcpServers` 설정을 읽는 클라이언트에 대한 문서를 제공합니다. Windsurf, Cline, Roo Code, Continue, Zed, Claude Code, Gemini CLI도 같은 방식으로 동작할 것으로 예상되지만 테스트되지 않았습니다. [호환성](../compatibility.md)을 참고하세요. 패널 채팅은 Anthropic API 키나, 설치되어 있다면 `claude` 또는 `codex` 명령줄 도구도 사용할 수 있습니다. [ADR 0012](../0012-native-agent-chat-backend.md)를 참고하세요.
+로컬 stdio 서버를 시작할 수 있는 모든 MCP 클라이언트에서 사용할 수 있습니다. Claude Desktop, GitHub Copilot과 함께 쓰는 VS Code, Cursor, Codex, 그리고 표준 `mcpServers` 설정을 읽는 클라이언트에 대한 문서를 제공합니다. Windsurf, Cline, Roo Code, Continue, Zed, Claude Code, Gemini CLI도 같은 방식으로 동작할 것으로 예상되지만 테스트되지 않았습니다. [호환성](../compatibility.md)을 참고하세요. 패널 채팅은 Anthropic API 키나, 설치되어 있다면 `claude` 또는 `codex` 명령줄 도구도 사용할 수 있습니다. [ADR 0012](../adr/0012-native-agent-chat-backend.md)를 참고하세요.
 
 ### AI가 묻지 않고 모델을 변경할 수 있나요?
 
@@ -348,17 +349,17 @@ python -m pytest packages/mcp-server-revit/tests
 .\scripts\package.ps1 -RevitVersion All
 ```
 
-CI는 Python 서버와 Revit 2024~2027용 애드인 대상을 빌드합니다. Pull Request를 열기 전에 [CONTRIBUTING.md](../../CONTRIBUTING.md)를 읽어 보세요.
+CI는 Python 서버와 Revit 2024~2027용 애드인 대상을 빌드합니다. Pull Request를 열기 전에 [CONTRIBUTING.md](../../.github/CONTRIBUTING.md)를 읽어 보세요.
 
 ## 문서
 
 - [설치 가이드](../install.md)
 - [도구 레퍼런스](../tools-generated.md)
-- [아키텍처](../0001-multi-provider-architecture.md)
+- [아키텍처](../adr/0001-multi-provider-architecture.md)
 - [구성 레퍼런스](../configuration-reference.md)
 - [보안](../security.md)
 - [버전 관리와 릴리스](../versioning.md)
-- [기여 가이드](../../CONTRIBUTING.md) 및 [행동 강령](../../CODE_OF_CONDUCT.md)
+- [기여 가이드](../../.github/CONTRIBUTING.md) 및 [행동 강령](../../.github/CODE_OF_CONDUCT.md)
 
 ## Built with
 

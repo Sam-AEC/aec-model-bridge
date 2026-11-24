@@ -4,7 +4,7 @@
 
 [English](../../README.md) | [简体中文](README.zh-CN.md) | [Español](README.es.md) | [हिन्दी](README.hi.md) | [العربية](README.ar.md) | [Português (BR)](README.pt-BR.md) | [Русский](README.ru.md) | [日本語](README.ja.md) | [Deutsch](README.de.md) | [Français](README.fr.md) | [Bahasa Indonesia](README.id.md) | [Türkçe](README.tr.md) | [한국어](README.ko.md) | **Tiếng Việt** | [Italiano](README.it.md) | [Polski](README.pl.md) | [繁體中文](README.zh-TW.md)
 
-> Bản dịch này được thực hiện với sự hỗ trợ của AI. [README](../../README.md) tiếng Anh là bản gốc; rất hoan nghênh các chỉnh sửa qua pull request (xem [CONTRIBUTING.md](../../CONTRIBUTING.md)).
+> Bản dịch này được thực hiện với sự hỗ trợ của AI. [README](../../README.md) tiếng Anh là bản gốc; rất hoan nghênh các chỉnh sửa qua pull request (xem [CONTRIBUTING.md](../../.github/CONTRIBUTING.md)).
 
 **Hỏi AI về mô hình Revit bạn đang mở. Theo mặc định, các công cụ ghi bị chặn cho đến khi bạn phê duyệt một kế hoạch.**
 
@@ -14,6 +14,7 @@ Máy chủ MCP mã nguồn mở và add-in gốc cho Revit 2024 – 2027. Hoạt
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 [![Revit](https://img.shields.io/badge/Revit-2024--2027-0696D7?style=flat-square)](#các-phiên-bản-revit-được-hỗ-trợ)
 [![License](https://img.shields.io/badge/license-GPL--3.0%20%2B%20commercial-2563EB?style=flat-square)](../../LICENSING.md)
+[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/Sam-AEC/aec-model-bridge?style=flat-square&label=OpenSSF%20Scorecard)](https://scorecard.dev/viewer/?uri=github.com/Sam-AEC/aec-model-bridge)
 
 [Bắt đầu](#bắt-đầu-nhanh) | [Quy trình mẫu](#quy-trình-mẫu) | [Công cụ](../tools-generated.md) | [Tài liệu](#tài-liệu) | [Tải xuống](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -109,7 +110,7 @@ Các nút này chỉ cần [uv](https://docs.astral.sh/uv/getting-started/instal
 
 Muốn xem các công cụ trước mà chưa có Revit? Hãy đặt `"MCP_REVIT_MODE": "mock"`. Khi đó máy chủ chạy được ở bất kỳ đâu, liệt kê mọi công cụ cùng lược đồ của chúng và trả về các phản hồi dựng sẵn mà không chạm vào mô hình nào. Một `Dockerfile` cho cùng chế độ mock này nằm ở thư mục gốc của kho mã (`docker build -t aec-model-bridge .`, sau đó `docker run -i --rm aec-model-bridge`).
 
-Dùng VS Code? [Mã nguồn tiện ích mở rộng và các bước cài đặt cục bộ](../../extensions/vscode/README.md) sẽ đăng ký máy chủ MCP và hiển thị trạng thái kết nối Revit. Tiện ích này chưa được đăng lên Marketplace.
+Dùng VS Code? [Mã nguồn tiện ích mở rộng và các bước cài đặt cục bộ](../../packages/vscode-extension/README.md) sẽ đăng ký máy chủ MCP và hiển thị trạng thái kết nối Revit. Tiện ích này chưa được đăng lên Marketplace.
 
 ### Tổng quan công cụ
 
@@ -117,14 +118,14 @@ Dùng VS Code? [Mã nguồn tiện ích mở rộng và các bước cài đặt
 | --- | --- | --- |
 | Revit | 110 | Đọc mô hình, tạo và chỉnh sửa phần tử, tham số, view, sheet, bảng thống kê (schedule), xuất dữ liệu, làm việc chung (worksharing) |
 | Phê duyệt | 6 | Lập kế hoạch, xem xét, phê duyệt, thực thi và hoàn tác các thay đổi mô hình |
-| Mô-đun | 113 | Kiểm tra snapshot, lưới tham số, kiểm tra QA/QC, recipe, báo cáo, vùng chọn |
+| Mô-đun | 114 | Kiểm tra snapshot, lưới tham số, kiểm tra QA/QC, recipe, báo cáo, vùng chọn |
 | Rhino và Grasshopper | 19 | Hình học, layer, vật liệu, phép toán boolean |
 | Speckle | 17 | Dự án, mô hình, phiên bản, gửi và nhận |
 | Navisworks | 15 | Cây mô hình, viewpoint, kiểm tra va chạm (đang phát triển) |
 | IFC | 7 | Đọc tệp IFC mà không cần Revit: cấu trúc, thuộc tính, xác thực |
-| Đồ thị, snapshot, xuất dữ liệu, tác vụ | 22 | Kiểm toán đồ thị ngữ nghĩa, so sánh snapshot, xuất SQLite, tác vụ nền |
+| Đồ thị, snapshot, xuất dữ liệu, tác vụ | 23 | Kiểm toán đồ thị ngữ nghĩa, so sánh snapshot, xuất SQLite, tác vụ nền |
 
-Cấu hình mặc định liệt kê 309 công cụ (đếm từ máy chủ hiện tại ở chế độ mock). Các công cụ Autodesk Data xuất hiện khi đã cấu hình thông tin xác thực APS. [Tài liệu tham khảo công cụ](../tools-generated.md) liệt kê từng công cụ. Mỗi công cụ đều có chú thích MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) để ứng dụng khách phân biệt thao tác đọc với ghi.
+Cấu hình mặc định liệt kê 311 công cụ (đếm từ máy chủ hiện tại ở chế độ mock). Các công cụ Autodesk Data xuất hiện khi đã cấu hình thông tin xác thực APS. [Tài liệu tham khảo công cụ](../tools-generated.md) liệt kê từng công cụ. Mỗi công cụ đều có chú thích MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) để ứng dụng khách phân biệt thao tác đọc với ghi.
 
 ### Tự động hóa Revit nâng cao
 
@@ -169,7 +170,7 @@ Bảng điều khiển hiển thị nội dung xem xét kế hoạch qua "Show t
 
 <sub>Nguồn sơ đồ: [approval-flow.mmd](../diagrams/approval-flow.mmd). Tạo lại hình ảnh bằng `python scripts/render_diagrams.py`.</sub>
 
-Nếu một kế hoạch hóa ra sai, hãy hoàn tác bằng Ctrl+Z trong Revit. Mỗi lần ghi tham số là một giao dịch có tên riêng, nên một kế hoạch có thể cần nhấn nhiều lần. Hoàn tác cả kế hoạch chỉ trong một bước đã được lên kế hoạch nhưng chưa được xây dựng. Cách thứ hai là kế hoạch hoàn nguyên: trợ lý soạn một kế hoạch bằng `plan_revert` từ bằng chứng của một kế hoạch đã thực thi, và bạn phê duyệt nó như mọi kế hoạch khác. `rollback_plan` chỉ dành cho con người và không phải là nút hay lệnh, vì vậy đừng trông cậy vào nó. Chưa cách nào trong số này được xác minh trong một phiên Revit thực tế (UNVERIFIED). Các thao tác không thể đảo ngược, chẳng hạn xuất tệp, không thể hoàn tác bằng cách nào trong số đó và hiện chưa yêu cầu xác nhận lần hai (đã lên kế hoạch). Danh sách Plans của bảng điều khiển chỉ hiển thị các kế hoạch đang chờ; `aec-model-bridge-approve show <plan_id>` dùng được cho kế hoạch ở bất kỳ trạng thái nào, còn các gói `proofs/` chỉ tồn tại cho những kế hoạch đã được thực thi (hoặc đã thử thực thi). Vòng đời được mô tả trong [ADR 0008](../0008-approval-gate-lifecycle.md).
+Nếu một kế hoạch hóa ra sai, hãy hoàn tác bằng Ctrl+Z trong Revit. Mỗi lần ghi tham số là một giao dịch có tên riêng, nên một kế hoạch có thể cần nhấn nhiều lần. Hoàn tác cả kế hoạch chỉ trong một bước đã được lên kế hoạch nhưng chưa được xây dựng. Cách thứ hai là kế hoạch hoàn nguyên: trợ lý soạn một kế hoạch bằng `plan_revert` từ bằng chứng của một kế hoạch đã thực thi, và bạn phê duyệt nó như mọi kế hoạch khác. `rollback_plan` chỉ dành cho con người và không phải là nút hay lệnh, vì vậy đừng trông cậy vào nó. Chưa cách nào trong số này được xác minh trong một phiên Revit thực tế (UNVERIFIED). Các thao tác không thể đảo ngược, chẳng hạn xuất tệp, không thể hoàn tác bằng cách nào trong số đó và hiện chưa yêu cầu xác nhận lần hai (đã lên kế hoạch). Danh sách Plans của bảng điều khiển chỉ hiển thị các kế hoạch đang chờ; `aec-model-bridge-approve show <plan_id>` dùng được cho kế hoạch ở bất kỳ trạng thái nào, còn các gói `proofs/` chỉ tồn tại cho những kế hoạch đã được thực thi (hoặc đã thử thực thi). Vòng đời được mô tả trong [ADR 0008](../adr/0008-approval-gate-lifecycle.md).
 
 Với các pipeline chạy tự động, bạn có thể đặt `MCP_REVIT_APPROVAL_MODE=auto`. Thiết lập này tắt bước kiểm tra của con người, vì vậy chỉ dùng trong môi trường được kiểm soát.
 
@@ -303,7 +304,7 @@ Phản hồi phải cho biết `healthy` và phiên bản Revit đang chạy. Tr
 - Các công cụ thay đổi mô hình cần một kế hoạch đã phê duyệt trừ khi bạn tắt phê duyệt.
 - Các lệnh gọi công cụ được ghi vào nhật ký kiểm toán, và thông tin bí mật được che đi.
 
-Chi tiết nằm trong [docs/security.md](../security.md). Để báo cáo lỗ hổng bảo mật, hãy làm theo [SECURITY.md](../../SECURITY.md).
+Chi tiết nằm trong [docs/security.md](../security.md). Để báo cáo lỗ hổng bảo mật, hãy làm theo [SECURITY.md](../../.github/SECURITY.md).
 
 ## Câu hỏi thường gặp
 
@@ -313,7 +314,7 @@ Model Context Protocol (MCP) là một tiêu chuẩn mở cho phép trợ lý AI
 
 ### Những trợ lý AI nào dùng được?
 
-Bất kỳ ứng dụng khách MCP nào có thể khởi chạy máy chủ stdio cục bộ. Chúng tôi có tài liệu cho Claude Desktop, VS Code với GitHub Copilot, Cursor và Codex, cùng các ứng dụng khách đọc cấu hình `mcpServers` tiêu chuẩn. Windsurf, Cline, Roo Code, Continue, Zed, Claude Code và Gemini CLI cũng nên hoạt động theo cách tương tự nhưng chưa được kiểm thử. Xem [khả năng tương thích](../compatibility.md). Trò chuyện trong bảng điều khiển cũng có thể dùng khóa API của Anthropic hoặc các công cụ dòng lệnh `claude` hay `codex` nếu đã cài. Xem [ADR 0012](../0012-native-agent-chat-backend.md).
+Bất kỳ ứng dụng khách MCP nào có thể khởi chạy máy chủ stdio cục bộ. Chúng tôi có tài liệu cho Claude Desktop, VS Code với GitHub Copilot, Cursor và Codex, cùng các ứng dụng khách đọc cấu hình `mcpServers` tiêu chuẩn. Windsurf, Cline, Roo Code, Continue, Zed, Claude Code và Gemini CLI cũng nên hoạt động theo cách tương tự nhưng chưa được kiểm thử. Xem [khả năng tương thích](../compatibility.md). Trò chuyện trong bảng điều khiển cũng có thể dùng khóa API của Anthropic hoặc các công cụ dòng lệnh `claude` hay `codex` nếu đã cài. Xem [ADR 0012](../adr/0012-native-agent-chat-backend.md).
 
 ### AI có thể thay đổi mô hình của tôi mà không hỏi không?
 
@@ -348,17 +349,17 @@ python -m pytest packages/mcp-server-revit/tests
 .\scripts\package.ps1 -RevitVersion All
 ```
 
-CI build máy chủ Python và các mục tiêu add-in cho Revit 2024 đến 2027. Hãy đọc [CONTRIBUTING.md](../../CONTRIBUTING.md) trước khi mở pull request.
+CI build máy chủ Python và các mục tiêu add-in cho Revit 2024 đến 2027. Hãy đọc [CONTRIBUTING.md](../../.github/CONTRIBUTING.md) trước khi mở pull request.
 
 ## Tài liệu
 
 - [Hướng dẫn cài đặt](../install.md)
 - [Tài liệu tham khảo công cụ](../tools-generated.md)
-- [Kiến trúc](../0001-multi-provider-architecture.md)
+- [Kiến trúc](../adr/0001-multi-provider-architecture.md)
 - [Tài liệu tham khảo cấu hình](../configuration-reference.md)
 - [Bảo mật](../security.md)
 - [Quản lý phiên bản và phát hành](../versioning.md)
-- [Hướng dẫn đóng góp](../../CONTRIBUTING.md) và [Quy tắc ứng xử](../../CODE_OF_CONDUCT.md)
+- [Hướng dẫn đóng góp](../../.github/CONTRIBUTING.md) và [Quy tắc ứng xử](../../.github/CODE_OF_CONDUCT.md)
 
 ## Built with
 

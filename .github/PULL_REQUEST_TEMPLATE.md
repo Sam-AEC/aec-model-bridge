@@ -4,7 +4,7 @@
 
 ## Checklist
 
-- [ ] I opened or commented on an issue first, and signed the contributor agreement if this changes code (see [CONTRIBUTING.md](../CONTRIBUTING.md)).
+- [ ] I opened or commented on an issue first, and signed the contributor agreement if this changes code (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 - [ ] The change is scoped to one feature, fix or documentation update.
 - [ ] `python -m ruff check packages/mcp-server-revit/src packages/mcp-server-revit/tests` passes.
 - [ ] `python -m pytest packages/mcp-server-revit/tests` passes.

@@ -11,6 +11,8 @@ Each release also carries:
 - `SHA256SUMS.txt`: a SHA-256 checksum for every other release file, including the SBOM.
 - `aec-model-bridge-<version>.cdx.json`: a CycloneDX software bill of materials (SBOM) for the Python distributions actually installed in the shipped bundle, including installation tools such as pip.
 
+The PyPI package is built from the stable tag by `.github/workflows/publish-pypi.yml` and uploaded with Trusted Publishing, so no PyPI token is stored in the repository. `pypa/gh-action-pypi-publish` uploads digital attestations (PEP 740) by default with Trusted Publishing; this is UNVERIFIED until the first upload. `.github/workflows/scorecard.yml` runs the OpenSSF Scorecard weekly and publishes the result shown by the README badge.
+
 ## What is not signed
 
 - The Windows installer (`AECModelBridge-Setup-<version>.exe`) and the add-in DLLs are **not Authenticode code signed**. Windows SmartScreen may warn about the installer. The provenance attestation proves where the file was built, but Windows itself does not check it.

@@ -10,7 +10,7 @@
   "plugins": [
     {
       "name": "aec-model-bridge",
-      "source": "./plugin",
+      "source": "./packages/claude-plugin",
       "description": "Revit MCP server with an approval gate, plus a skill for the safe read, check, propose, approve flow.",
       "version": "1.5.1",
       "license": "GPL-3.0-or-later",

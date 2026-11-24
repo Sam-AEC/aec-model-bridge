@@ -4,7 +4,7 @@
 
 [English](../../README.md) | **简体中文** | [Español](README.es.md) | [हिन्दी](README.hi.md) | [العربية](README.ar.md) | [Português (BR)](README.pt-BR.md) | [Русский](README.ru.md) | [日本語](README.ja.md) | [Deutsch](README.de.md) | [Français](README.fr.md) | [Bahasa Indonesia](README.id.md) | [Türkçe](README.tr.md) | [한국어](README.ko.md) | [Tiếng Việt](README.vi.md) | [Italiano](README.it.md) | [Polski](README.pl.md) | [繁體中文](README.zh-TW.md)
 
-> 本文为 AI 辅助翻译。内容以英文版 [README](../../README.md) 为准；发现错误或有改进建议，欢迎通过 Pull Request 提交，详见 [CONTRIBUTING.md](../../CONTRIBUTING.md)。
+> 本文为 AI 辅助翻译。内容以英文版 [README](../../README.md) 为准；发现错误或有改进建议，欢迎通过 Pull Request 提交，详见 [CONTRIBUTING.md](../../.github/CONTRIBUTING.md)。
 
 **就你当前打开的 Revit 模型向 AI 提问。默认情况下，在你批准计划之前，写入类工具会被拦截。**
 
@@ -14,6 +14,7 @@
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 [![Revit](https://img.shields.io/badge/Revit-2024--2027-0696D7?style=flat-square)](#支持的-revit-版本)
 [![License](https://img.shields.io/badge/license-GPL--3.0%20%2B%20commercial-2563EB?style=flat-square)](../../LICENSING.md)
+[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/Sam-AEC/aec-model-bridge?style=flat-square&label=OpenSSF%20Scorecard)](https://scorecard.dev/viewer/?uri=github.com/Sam-AEC/aec-model-bridge)
 
 [快速开始](#快速开始) | [示例工作流](#示例工作流) | [工具](../tools-generated.md) | [文档](#文档) | [下载](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -110,7 +111,7 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 想先在没有 Revit 的情况下看看这些工具？请设置 `"MCP_REVIT_MODE": "mock"`。服务器可在任何机器上启动，列出所有工具及其 schema，并返回预设的响应，而不会触碰任何模型。仓库根目录提供了同样用于 mock 模式的 `Dockerfile`（`docker build -t aec-model-bridge .`，然后 `docker run -i --rm aec-model-bridge`）。
 
-使用 VS Code？[扩展源码和本地安装步骤](../../extensions/vscode/README.md)会注册 MCP 服务器并显示 Revit 连接状态。该扩展尚未发布到 Marketplace。
+使用 VS Code？[扩展源码和本地安装步骤](../../packages/vscode-extension/README.md)会注册 MCP 服务器并显示 Revit 连接状态。该扩展尚未发布到 Marketplace。
 
 ### 工具一览
 
@@ -118,14 +119,14 @@ the plan in Revit, apply it and read the values back to confirm the result.
 | --- | --- | --- |
 | Revit | 110 | 读取模型，创建和编辑构件、参数、视图、图纸、明细表，导出，工作共享 |
 | 审批 | 6 | 规划、审阅、批准、执行并回滚模型变更 |
-| 模块 | 113 | 快照检查、参数网格、QA/QC 检查、配方、报告、选择集 |
+| 模块 | 114 | 快照检查、参数网格、QA/QC 检查、配方、报告、选择集 |
 | Rhino 与 Grasshopper | 19 | 几何体、图层、材质、布尔运算 |
 | Speckle | 17 | 项目、模型、版本、发送与接收 |
 | Navisworks | 15 | 模型树、视点、碰撞测试（开发中） |
 | IFC | 7 | 无需 Revit 即可读取 IFC 文件：结构、属性、校验 |
-| 图谱、快照、导出、作业 | 22 | 语义图谱审计、快照差异比对、SQLite 导出、后台作业 |
+| 图谱、快照、导出、作业 | 23 | 语义图谱审计、快照差异比对、SQLite 导出、后台作业 |
 
-默认配置下共列出 309 个工具（在 mock 模式下统计自当前服务器）。配置 APS 凭据后会出现 Autodesk Data 工具。[工具参考](../tools-generated.md)列出了所有工具。每个工具都带有 MCP 注解（`readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`），客户端据此区分读取和写入。
+默认配置下共列出 311 个工具（在 mock 模式下统计自当前服务器）。配置 APS 凭据后会出现 Autodesk Data 工具。[工具参考](../tools-generated.md)列出了所有工具。每个工具都带有 MCP 注解（`readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`），客户端据此区分读取和写入。
 
 ### 高级 Revit 自动化
 
@@ -170,7 +171,7 @@ hub 会拦截任何会修改模型的工具调用，除非它附带已批准的�
 
 <sub>图表源文件：[approval-flow.mmd](../diagrams/approval-flow.mmd)。使用 `python scripts/render_diagrams.py` 重新生成图片。</sub>
 
-如果计划有误，请在 Revit 中用 Ctrl+Z 撤销。每次参数写入都是各自独立的命名事务，因此一个计划可能需要按多次。整个计划一步撤销的功能已列入计划，尚未实现。第二种方式是还原计划：助手根据已执行计划的凭证，用 `plan_revert` 起草一个新计划，再像批准其他计划一样批准它。`rollback_plan` 仅供人使用，既不是按钮也不是命令，因此不要指望它。这些方式目前都尚未在真实的 Revit 会话中验证（UNVERIFIED）。无法撤销的操作（例如文件输出）这些方式都无法撤销，目前也尚未要求再次确认（已列入计划）。面板的 Plans 列表只显示待处理的计划；`aec-model-bridge-approve show <plan_id>` 适用于任何状态的计划，而 `proofs/` 包只存在于已执行（或尝试执行）的计划。完整生命周期见 [ADR 0008](../0008-approval-gate-lifecycle.md)。
+如果计划有误，请在 Revit 中用 Ctrl+Z 撤销。每次参数写入都是各自独立的命名事务，因此一个计划可能需要按多次。整个计划一步撤销的功能已列入计划，尚未实现。第二种方式是还原计划：助手根据已执行计划的凭证，用 `plan_revert` 起草一个新计划，再像批准其他计划一样批准它。`rollback_plan` 仅供人使用，既不是按钮也不是命令，因此不要指望它。这些方式目前都尚未在真实的 Revit 会话中验证（UNVERIFIED）。无法撤销的操作（例如文件输出）这些方式都无法撤销，目前也尚未要求再次确认（已列入计划）。面板的 Plans 列表只显示待处理的计划；`aec-model-bridge-approve show <plan_id>` 适用于任何状态的计划，而 `proofs/` 包只存在于已执行（或尝试执行）的计划。完整生命周期见 [ADR 0008](../adr/0008-approval-gate-lifecycle.md)。
 
 对于无人值守的流水线，可以设置 `MCP_REVIT_APPROVAL_MODE=auto`。这会关闭人工检查，因此请仅在受控环境中使用。
 
@@ -304,7 +305,7 @@ Invoke-RestMethod "$($switch.endpoint)/health"
 - 除非关闭审批，否则会修改模型的工具都需要已批准的计划。
 - 工具调用会写入审计日志，并对机密信息脱敏。
 
-详情见 [docs/security.md](../security.md)。如需报告漏洞，请遵循 [SECURITY.md](../../SECURITY.md)。
+详情见 [docs/security.md](../security.md)。如需报告漏洞，请遵循 [SECURITY.md](../../.github/SECURITY.md)。
 
 ## 常见问题
 
@@ -314,7 +315,7 @@ Model Context Protocol（MCP）是一项开放标准，让 AI 助手能够调用
 
 ### 哪些 AI 助手可以使用？
 
-任何能够启动本地 stdio 服务器的 MCP 客户端。我们为 Claude Desktop、搭配 GitHub Copilot 的 VS Code、Cursor 和 Codex，以及读取标准 `mcpServers` 配置的客户端提供了文档。Windsurf、Cline、Roo Code、Continue、Zed、Claude Code 和 Gemini CLI 应当也能以同样方式工作，但尚未测试。参见[兼容性说明](../compatibility.md)。面板聊天也可以使用 Anthropic API 密钥，或已安装的 `claude` 或 `codex` 命令行工具。参见 [ADR 0012](../0012-native-agent-chat-backend.md)。
+任何能够启动本地 stdio 服务器的 MCP 客户端。我们为 Claude Desktop、搭配 GitHub Copilot 的 VS Code、Cursor 和 Codex，以及读取标准 `mcpServers` 配置的客户端提供了文档。Windsurf、Cline、Roo Code、Continue、Zed、Claude Code 和 Gemini CLI 应当也能以同样方式工作，但尚未测试。参见[兼容性说明](../compatibility.md)。面板聊天也可以使用 Anthropic API 密钥，或已安装的 `claude` 或 `codex` 命令行工具。参见 [ADR 0012](../adr/0012-native-agent-chat-backend.md)。
 
 ### AI 会未经询问就修改我的模型吗？
 
@@ -349,17 +350,17 @@ python -m pytest packages/mcp-server-revit/tests
 .\scripts\package.ps1 -RevitVersion All
 ```
 
-CI 会构建 Python 服务器以及面向 Revit 2024 至 2027 的插件目标。提交 Pull Request 之前请先阅读 [CONTRIBUTING.md](../../CONTRIBUTING.md)。
+CI 会构建 Python 服务器以及面向 Revit 2024 至 2027 的插件目标。提交 Pull Request 之前请先阅读 [CONTRIBUTING.md](../../.github/CONTRIBUTING.md)。
 
 ## 文档
 
 - [安装指南](../install.md)
 - [工具参考](../tools-generated.md)
-- [架构](../0001-multi-provider-architecture.md)
+- [架构](../adr/0001-multi-provider-architecture.md)
 - [配置参考](../configuration-reference.md)
 - [安全](../security.md)
 - [版本与发布](../versioning.md)
-- [贡献指南](../../CONTRIBUTING.md) 和 [行为准则](../../CODE_OF_CONDUCT.md)
+- [贡献指南](../../.github/CONTRIBUTING.md) 和 [行为准则](../../.github/CODE_OF_CONDUCT.md)
 
 ## Built with
 

@@ -4,7 +4,7 @@
 
 [English](../../README.md) | [简体中文](README.zh-CN.md) | [Español](README.es.md) | [हिन्दी](README.hi.md) | [العربية](README.ar.md) | [Português (BR)](README.pt-BR.md) | [Русский](README.ru.md) | [日本語](README.ja.md) | [Deutsch](README.de.md) | **Français** | [Bahasa Indonesia](README.id.md) | [Türkçe](README.tr.md) | [한국어](README.ko.md) | [Tiếng Việt](README.vi.md) | [Italiano](README.it.md) | [Polski](README.pl.md) | [繁體中文](README.zh-TW.md)
 
-> Cette traduction a été réalisée avec l'aide de l'IA. Le [README](../../README.md) en anglais fait foi ; les corrections sont les bienvenues via une pull request (voir [CONTRIBUTING.md](../../CONTRIBUTING.md)).
+> Cette traduction a été réalisée avec l'aide de l'IA. Le [README](../../README.md) en anglais fait foi ; les corrections sont les bienvenues via une pull request (voir [CONTRIBUTING.md](../../.github/CONTRIBUTING.md)).
 
 **Interrogez votre IA sur le modèle Revit que vous avez ouvert. Par défaut, les outils d'écriture sont bloqués tant que vous n'avez pas approuvé un plan.**
 
@@ -14,6 +14,7 @@ Serveur MCP open source et add-in natif pour Revit 2024 – 2027. Fonctionne ave
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 [![Revit](https://img.shields.io/badge/Revit-2024--2027-0696D7?style=flat-square)](#versions-de-revit-prises-en-charge)
 [![License](https://img.shields.io/badge/license-GPL--3.0%20%2B%20commercial-2563EB?style=flat-square)](../../LICENSING.md)
+[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/Sam-AEC/aec-model-bridge?style=flat-square&label=OpenSSF%20Scorecard)](https://scorecard.dev/viewer/?uri=github.com/Sam-AEC/aec-model-bridge)
 
 [Démarrage](#démarrage-rapide) | [Exemples de flux de travail](#exemples-de-flux-de-travail) | [Outils](../tools-generated.md) | [Documentation](#documentation) | [Télécharger](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -109,7 +110,7 @@ Pour l'automatisation de Revit en direct, il vous faut Windows, Revit 2024 à 20
 
 Vous voulez d'abord voir les outils, sans Revit ? Définissez `"MCP_REVIT_MODE": "mock"`. Le serveur démarre alors n'importe où, liste chaque outil avec son schéma et renvoie des réponses prédéfinies sans toucher à un modèle. Un `Dockerfile` pour ce même mode mock se trouve à la racine du dépôt (`docker build -t aec-model-bridge .`, puis `docker run -i --rm aec-model-bridge`).
 
-Vous utilisez VS Code ? Les [sources de l'extension et les étapes d'installation locale](../../extensions/vscode/README.md) enregistrent le serveur MCP et affichent l'état de la connexion à Revit. Elle n'a pas été publiée sur le Marketplace.
+Vous utilisez VS Code ? Les [sources de l'extension et les étapes d'installation locale](../../packages/vscode-extension/README.md) enregistrent le serveur MCP et affichent l'état de la connexion à Revit. Elle n'a pas été publiée sur le Marketplace.
 
 ### Les outils en bref
 
@@ -117,14 +118,14 @@ Vous utilisez VS Code ? Les [sources de l'extension et les étapes d'installatio
 | --- | --- | --- |
 | Revit | 110 | Lire le modèle, créer et modifier des éléments, paramètres, vues, feuilles, nomenclatures, exports, travail collaboratif (worksharing) |
 | Approbation | 6 | Planifier, examiner, approuver, exécuter et annuler les modifications du modèle |
-| Modules | 113 | Inspection de snapshots, grilles de paramètres, contrôles QA/QC, recettes, rapports, sélections |
+| Modules | 114 | Inspection de snapshots, grilles de paramètres, contrôles QA/QC, recettes, rapports, sélections |
 | Rhino et Grasshopper | 19 | Géométrie, calques, matériaux, opérations booléennes |
 | Speckle | 17 | Projets, modèles, versions, envoi et réception |
 | Navisworks | 15 | Arbre du modèle, points de vue, tests de collision (en cours) |
 | IFC | 7 | Lire des fichiers IFC sans Revit : structure, propriétés, validation |
-| Graphe, snapshots, exports, tâches | 22 | Audits du graphe sémantique, différences entre snapshots, export SQLite, tâches en arrière-plan |
+| Graphe, snapshots, exports, tâches | 23 | Audits du graphe sémantique, différences entre snapshots, export SQLite, tâches en arrière-plan |
 
-309 outils sont listés dans la configuration par défaut (comptés sur le serveur actuel en mode mock). Les outils Autodesk Data apparaissent lorsque les identifiants APS sont configurés. La [référence des outils](../tools-generated.md) les liste tous. Chaque outil porte des annotations MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), pour que les clients distinguent les lectures des écritures.
+311 outils sont listés dans la configuration par défaut (comptés sur le serveur actuel en mode mock). Les outils Autodesk Data apparaissent lorsque les identifiants APS sont configurés. La [référence des outils](../tools-generated.md) les liste tous. Chaque outil porte des annotations MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), pour que les clients distinguent les lectures des écritures.
 
 ### Automatisation avancée de Revit
 
@@ -169,7 +170,7 @@ Le panneau affiche la revue du plan avec "Show the review to enable Approve" et 
 
 <sub>Source du schéma : [approval-flow.mmd](../diagrams/approval-flow.mmd). Régénérez les images avec `python scripts/render_diagrams.py`.</sub>
 
-Si un plan se révèle erroné, annulez-le avec Ctrl+Z dans Revit. Chaque écriture de paramètre est sa propre transaction nommée, donc un plan peut demander plusieurs appuis. Une annulation en une seule étape pour un plan entier est prévue, pas encore construite. Une deuxième voie est un plan d'annulation : l'assistant en rédige un avec `plan_revert` à partir de la preuve d'un plan exécuté, et vous l'approuvez comme n'importe quel autre plan. `rollback_plan` est réservé aux personnes et n'est ni un bouton ni une commande ; ne comptez donc pas dessus. Aucune de ces voies n'est encore vérifiée dans une vraie session Revit (UNVERIFIED). Les opérations irréversibles, comme l'écriture de fichiers, ne sont annulées par aucune d'elles et ne demandent pas encore de seconde confirmation (prévu). La liste Plans du panneau n'affiche que les plans en attente ; `aec-model-bridge-approve show <plan_id>` fonctionne pour un plan dans n'importe quel état, tandis que les lots `proofs/` n'existent que pour les plans exécutés (ou tentés). Le cycle de vie est décrit dans l'[ADR 0008](../0008-approval-gate-lifecycle.md).
+Si un plan se révèle erroné, annulez-le avec Ctrl+Z dans Revit. Chaque écriture de paramètre est sa propre transaction nommée, donc un plan peut demander plusieurs appuis. Une annulation en une seule étape pour un plan entier est prévue, pas encore construite. Une deuxième voie est un plan d'annulation : l'assistant en rédige un avec `plan_revert` à partir de la preuve d'un plan exécuté, et vous l'approuvez comme n'importe quel autre plan. `rollback_plan` est réservé aux personnes et n'est ni un bouton ni une commande ; ne comptez donc pas dessus. Aucune de ces voies n'est encore vérifiée dans une vraie session Revit (UNVERIFIED). Les opérations irréversibles, comme l'écriture de fichiers, ne sont annulées par aucune d'elles et ne demandent pas encore de seconde confirmation (prévu). La liste Plans du panneau n'affiche que les plans en attente ; `aec-model-bridge-approve show <plan_id>` fonctionne pour un plan dans n'importe quel état, tandis que les lots `proofs/` n'existent que pour les plans exécutés (ou tentés). Le cycle de vie est décrit dans l'[ADR 0008](../adr/0008-approval-gate-lifecycle.md).
 
 Pour les pipelines sans surveillance, vous pouvez définir `MCP_REVIT_APPROVAL_MODE=auto`. Cela désactive la vérification par un humain ; ne l'utilisez donc que dans un environnement maîtrisé.
 
@@ -303,7 +304,7 @@ La réponse doit indiquer `healthy` et la version de Revit en cours d'exécution
 - Les outils qui modifient le modèle exigent un plan approuvé, sauf si vous désactivez l'approbation.
 - Les appels d'outils sont consignés dans un journal d'audit, et les secrets sont masqués.
 
-Les détails se trouvent dans [docs/security.md](../security.md). Pour signaler une vulnérabilité, suivez [SECURITY.md](../../SECURITY.md).
+Les détails se trouvent dans [docs/security.md](../security.md). Pour signaler une vulnérabilité, suivez [SECURITY.md](../../.github/SECURITY.md).
 
 ## FAQ
 
@@ -313,7 +314,7 @@ Le Model Context Protocol (MCP) est un standard ouvert qui permet aux assistants
 
 ### Avec quels assistants IA cela fonctionne-t-il ?
 
-Avec tout client MCP capable de lancer un serveur stdio local. Nous documentons Claude Desktop, VS Code avec GitHub Copilot, Cursor et Codex, ainsi que les clients qui lisent une configuration `mcpServers` standard. Windsurf, Cline, Roo Code, Continue, Zed, Claude Code et Gemini CLI devraient fonctionner de la même façon, mais n'ont pas été testés. Voir la [compatibilité](../compatibility.md). Le chat du panneau peut aussi utiliser une clé d'API Anthropic ou les outils en ligne de commande `claude` ou `codex`, s'ils sont installés. Voir l'[ADR 0012](../0012-native-agent-chat-backend.md).
+Avec tout client MCP capable de lancer un serveur stdio local. Nous documentons Claude Desktop, VS Code avec GitHub Copilot, Cursor et Codex, ainsi que les clients qui lisent une configuration `mcpServers` standard. Windsurf, Cline, Roo Code, Continue, Zed, Claude Code et Gemini CLI devraient fonctionner de la même façon, mais n'ont pas été testés. Voir la [compatibilité](../compatibility.md). Le chat du panneau peut aussi utiliser une clé d'API Anthropic ou les outils en ligne de commande `claude` ou `codex`, s'ils sont installés. Voir l'[ADR 0012](../adr/0012-native-agent-chat-backend.md).
 
 ### L'IA peut-elle modifier mon modèle sans demander ?
 
@@ -348,17 +349,17 @@ python -m pytest packages/mcp-server-revit/tests
 .\scripts\package.ps1 -RevitVersion All
 ```
 
-La CI compile le serveur Python et les cibles de l'add-in pour Revit 2024 à 2027. Lisez [CONTRIBUTING.md](../../CONTRIBUTING.md) avant d'ouvrir une pull request.
+La CI compile le serveur Python et les cibles de l'add-in pour Revit 2024 à 2027. Lisez [CONTRIBUTING.md](../../.github/CONTRIBUTING.md) avant d'ouvrir une pull request.
 
 ## Documentation
 
 - [Guide d'installation](../install.md)
 - [Référence des outils](../tools-generated.md)
-- [Architecture](../0001-multi-provider-architecture.md)
+- [Architecture](../adr/0001-multi-provider-architecture.md)
 - [Référence de configuration](../configuration-reference.md)
 - [Sécurité](../security.md)
 - [Versionnage et publications](../versioning.md)
-- [Contribuer](../../CONTRIBUTING.md) et [Code de conduite](../../CODE_OF_CONDUCT.md)
+- [Contribuer](../../.github/CONTRIBUTING.md) et [Code de conduite](../../.github/CODE_OF_CONDUCT.md)
 
 ## Built with
 

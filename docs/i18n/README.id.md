@@ -4,7 +4,7 @@
 
 [English](../../README.md) | [简体中文](README.zh-CN.md) | [Español](README.es.md) | [हिन्दी](README.hi.md) | [العربية](README.ar.md) | [Português (BR)](README.pt-BR.md) | [Русский](README.ru.md) | [日本語](README.ja.md) | [Deutsch](README.de.md) | [Français](README.fr.md) | **Bahasa Indonesia** | [Türkçe](README.tr.md) | [한국어](README.ko.md) | [Tiếng Việt](README.vi.md) | [Italiano](README.it.md) | [Polski](README.pl.md) | [繁體中文](README.zh-TW.md)
 
-> Terjemahan ini dibuat dengan bantuan AI. README bahasa Inggris ([README](../../README.md)) adalah sumber acuan; koreksi sangat kami hargai melalui pull request (lihat [CONTRIBUTING.md](../../CONTRIBUTING.md)).
+> Terjemahan ini dibuat dengan bantuan AI. README bahasa Inggris ([README](../../README.md)) adalah sumber acuan; koreksi sangat kami hargai melalui pull request (lihat [CONTRIBUTING.md](../../.github/CONTRIBUTING.md)).
 
 **Tanyakan model Revit yang sedang Anda buka kepada AI Anda. Secara default, tool penulisan diblokir sampai Anda menyetujui sebuah rencana.**
 
@@ -14,6 +14,7 @@ Server MCP sumber terbuka dan add-in native untuk Revit 2024 – 2027. Bekerja d
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 [![Revit](https://img.shields.io/badge/Revit-2024--2027-0696D7?style=flat-square)](#versi-revit-yang-didukung)
 [![License](https://img.shields.io/badge/license-GPL--3.0%20%2B%20commercial-2563EB?style=flat-square)](../../LICENSING.md)
+[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/Sam-AEC/aec-model-bridge?style=flat-square&label=OpenSSF%20Scorecard)](https://scorecard.dev/viewer/?uri=github.com/Sam-AEC/aec-model-bridge)
 
 [Mulai](#mulai-cepat) | [Contoh alur kerja](#contoh-alur-kerja) | [Tool](../tools-generated.md) | [Dokumentasi](#dokumentasi) | [Unduh](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -109,7 +110,7 @@ Untuk otomatisasi Revit secara langsung, Anda memerlukan Windows, Revit 2024 sam
 
 Ingin melihat tool-nya dulu tanpa Revit? Atur `"MCP_REVIT_MODE": "mock"`. Server lalu bisa berjalan di mana saja, menampilkan semua tool beserta skemanya, dan mengembalikan respons contoh tanpa menyentuh model. `Dockerfile` untuk mode mock yang sama ada di root repositori (`docker build -t aec-model-bridge .`, lalu `docker run -i --rm aec-model-bridge`).
 
-Memakai VS Code? [Sumber ekstensi dan langkah instalasi lokal](../../extensions/vscode/README.md) mendaftarkan server MCP dan menampilkan status koneksi Revit. Ekstensi ini belum dipublikasikan di Marketplace.
+Memakai VS Code? [Sumber ekstensi dan langkah instalasi lokal](../../packages/vscode-extension/README.md) mendaftarkan server MCP dan menampilkan status koneksi Revit. Ekstensi ini belum dipublikasikan di Marketplace.
 
 ### Ringkasan tool
 
@@ -117,14 +118,14 @@ Memakai VS Code? [Sumber ekstensi dan langkah instalasi lokal](../../extensions/
 | --- | --- | --- |
 | Revit | 110 | Membaca model, membuat dan mengedit elemen, parameter, view, sheet, schedule, ekspor, worksharing |
 | Persetujuan | 6 | Merencanakan, meninjau, menyetujui, menjalankan, dan membatalkan perubahan model |
-| Modul | 113 | Inspeksi snapshot, grid parameter, pemeriksaan QA/QC, resep, laporan, seleksi |
+| Modul | 114 | Inspeksi snapshot, grid parameter, pemeriksaan QA/QC, resep, laporan, seleksi |
 | Rhino dan Grasshopper | 19 | Geometri, layer, material, operasi boolean |
 | Speckle | 17 | Proyek, model, versi, kirim dan terima |
 | Navisworks | 15 | Model tree, viewpoint, uji clash (dalam pengerjaan) |
 | IFC | 7 | Membaca file IFC tanpa Revit: struktur, properti, validasi |
-| Graf, snapshot, ekspor, job | 22 | Audit graf semantik, selisih snapshot, ekspor SQLite, job latar belakang |
+| Graf, snapshot, ekspor, job | 23 | Audit graf semantik, selisih snapshot, ekspor SQLite, job latar belakang |
 
-Ada 309 tool yang terdaftar pada pengaturan default (dihitung dari server saat ini dalam mode mock). Tool Autodesk Data muncul saat kredensial APS dikonfigurasi. [Referensi tool](../tools-generated.md) mencantumkan setiap tool. Setiap tool membawa anotasi MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), sehingga klien dapat membedakan operasi baca dari tulis.
+Ada 311 tool yang terdaftar pada pengaturan default (dihitung dari server saat ini dalam mode mock). Tool Autodesk Data muncul saat kredensial APS dikonfigurasi. [Referensi tool](../tools-generated.md) mencantumkan setiap tool. Setiap tool membawa anotasi MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), sehingga klien dapat membedakan operasi baca dari tulis.
 
 ### Otomatisasi Revit lanjutan
 
@@ -169,7 +170,7 @@ Panel menampilkan tinjauan rencana melalui "Show the review to enable Approve" d
 
 <sub>Sumber diagram: [approval-flow.mmd](../diagrams/approval-flow.mmd). Buat ulang gambar dengan `python scripts/render_diagrams.py`.</sub>
 
-Jika sebuah rencana ternyata keliru, batalkan dengan Ctrl+Z di Revit. Setiap penulisan parameter adalah transaksi bernama tersendiri, jadi satu rencana bisa memerlukan beberapa kali penekanan. Undo satu langkah untuk seluruh rencana masih direncanakan, belum dibangun. Jalur kedua adalah rencana pembalikan: asisten menyusunnya dengan `plan_revert` dari bukti rencana yang sudah dieksekusi, dan Anda menyetujuinya seperti rencana lainnya. `rollback_plan` hanya untuk manusia dan bukan tombol maupun perintah, jadi jangan mengandalkannya. Belum ada jalur ini yang diverifikasi di sesi Revit yang sebenarnya (UNVERIFIED). Operasi yang tidak dapat dibatalkan, seperti keluaran file, tidak dibatalkan oleh jalur mana pun dan belum meminta konfirmasi kedua (direncanakan). Daftar Plans di panel hanya menampilkan rencana yang tertunda; `aec-model-bridge-approve show <plan_id>` berfungsi untuk rencana dalam status apa pun, sedangkan bundel `proofs/` hanya ada untuk rencana yang dieksekusi (atau dicoba). Siklus hidupnya ada di [ADR 0008](../0008-approval-gate-lifecycle.md).
+Jika sebuah rencana ternyata keliru, batalkan dengan Ctrl+Z di Revit. Setiap penulisan parameter adalah transaksi bernama tersendiri, jadi satu rencana bisa memerlukan beberapa kali penekanan. Undo satu langkah untuk seluruh rencana masih direncanakan, belum dibangun. Jalur kedua adalah rencana pembalikan: asisten menyusunnya dengan `plan_revert` dari bukti rencana yang sudah dieksekusi, dan Anda menyetujuinya seperti rencana lainnya. `rollback_plan` hanya untuk manusia dan bukan tombol maupun perintah, jadi jangan mengandalkannya. Belum ada jalur ini yang diverifikasi di sesi Revit yang sebenarnya (UNVERIFIED). Operasi yang tidak dapat dibatalkan, seperti keluaran file, tidak dibatalkan oleh jalur mana pun dan belum meminta konfirmasi kedua (direncanakan). Daftar Plans di panel hanya menampilkan rencana yang tertunda; `aec-model-bridge-approve show <plan_id>` berfungsi untuk rencana dalam status apa pun, sedangkan bundel `proofs/` hanya ada untuk rencana yang dieksekusi (atau dicoba). Siklus hidupnya ada di [ADR 0008](../adr/0008-approval-gate-lifecycle.md).
 
 Untuk pipeline tanpa pengawasan, Anda dapat mengatur `MCP_REVIT_APPROVAL_MODE=auto`. Ini mematikan pemeriksaan manusia, jadi gunakan hanya di lingkungan yang terkendali.
 
@@ -303,7 +304,7 @@ Respons harus menunjukkan `healthy` dan versi Revit yang berjalan. Di Revit, car
 - Tool yang mengubah model memerlukan rencana yang disetujui kecuali Anda mematikan persetujuan.
 - Panggilan tool dicatat dalam log audit, dan rahasia disamarkan.
 
-Detailnya ada di [docs/security.md](../security.md). Untuk melaporkan kerentanan, ikuti [SECURITY.md](../../SECURITY.md).
+Detailnya ada di [docs/security.md](../security.md). Untuk melaporkan kerentanan, ikuti [SECURITY.md](../../.github/SECURITY.md).
 
 ## FAQ
 
@@ -313,7 +314,7 @@ Model Context Protocol (MCP) adalah standar terbuka yang memungkinkan asisten AI
 
 ### Asisten AI apa saja yang bisa dipakai?
 
-Klien MCP apa pun yang dapat menjalankan server stdio lokal. Kami mendokumentasikan Claude Desktop, VS Code dengan GitHub Copilot, Cursor, dan Codex, serta klien yang membaca konfigurasi `mcpServers` standar. Windsurf, Cline, Roo Code, Continue, Zed, Claude Code, dan Gemini CLI seharusnya bekerja dengan cara yang sama, tetapi belum diuji. Lihat [kompatibilitas](../compatibility.md). Chat di panel juga dapat memakai API key Anthropic atau tool command-line `claude` atau `codex` jika terpasang. Lihat [ADR 0012](../0012-native-agent-chat-backend.md).
+Klien MCP apa pun yang dapat menjalankan server stdio lokal. Kami mendokumentasikan Claude Desktop, VS Code dengan GitHub Copilot, Cursor, dan Codex, serta klien yang membaca konfigurasi `mcpServers` standar. Windsurf, Cline, Roo Code, Continue, Zed, Claude Code, dan Gemini CLI seharusnya bekerja dengan cara yang sama, tetapi belum diuji. Lihat [kompatibilitas](../compatibility.md). Chat di panel juga dapat memakai API key Anthropic atau tool command-line `claude` atau `codex` jika terpasang. Lihat [ADR 0012](../adr/0012-native-agent-chat-backend.md).
 
 ### Bisakah AI mengubah model saya tanpa bertanya?
 
@@ -348,17 +349,17 @@ python -m pytest packages/mcp-server-revit/tests
 .\scripts\package.ps1 -RevitVersion All
 ```
 
-CI membangun server Python dan target add-in untuk Revit 2024 sampai 2027. Baca [CONTRIBUTING.md](../../CONTRIBUTING.md) sebelum membuka pull request.
+CI membangun server Python dan target add-in untuk Revit 2024 sampai 2027. Baca [CONTRIBUTING.md](../../.github/CONTRIBUTING.md) sebelum membuka pull request.
 
 ## Dokumentasi
 
 - [Panduan instalasi](../install.md)
 - [Referensi tool](../tools-generated.md)
-- [Arsitektur](../0001-multi-provider-architecture.md)
+- [Arsitektur](../adr/0001-multi-provider-architecture.md)
 - [Referensi konfigurasi](../configuration-reference.md)
 - [Keamanan](../security.md)
 - [Versioning dan rilis](../versioning.md)
-- [Kontribusi](../../CONTRIBUTING.md) dan [Kode Etik](../../CODE_OF_CONDUCT.md)
+- [Kontribusi](../../.github/CONTRIBUTING.md) dan [Kode Etik](../../.github/CODE_OF_CONDUCT.md)
 
 ## Built with
 

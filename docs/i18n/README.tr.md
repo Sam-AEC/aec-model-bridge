@@ -4,7 +4,7 @@
 
 [English](../../README.md) | [简体中文](README.zh-CN.md) | [Español](README.es.md) | [हिन्दी](README.hi.md) | [العربية](README.ar.md) | [Português (BR)](README.pt-BR.md) | [Русский](README.ru.md) | [日本語](README.ja.md) | [Deutsch](README.de.md) | [Français](README.fr.md) | [Bahasa Indonesia](README.id.md) | **Türkçe** | [한국어](README.ko.md) | [Tiếng Việt](README.vi.md) | [Italiano](README.it.md) | [Polski](README.pl.md) | [繁體中文](README.zh-TW.md)
 
-> Bu çeviri yapay zekâ desteğiyle hazırlanmıştır. Esas kaynak İngilizce [README](../../README.md) dosyasıdır; düzeltmeler için pull request göndermekten çekinmeyin (bkz. [CONTRIBUTING.md](../../CONTRIBUTING.md)).
+> Bu çeviri yapay zekâ desteğiyle hazırlanmıştır. Esas kaynak İngilizce [README](../../README.md) dosyasıdır; düzeltmeler için pull request göndermekten çekinmeyin (bkz. [CONTRIBUTING.md](../../.github/CONTRIBUTING.md)).
 
 **Açık Revit modelinizi yapay zekâya sorun. Varsayılan olarak siz bir planı onaylayana kadar yazma araçları engellenir.**
 
@@ -14,6 +14,7 @@ Revit 2024 – 2027 için açık kaynaklı MCP sunucusu ve yerel eklenti. Claude
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 [![Revit](https://img.shields.io/badge/Revit-2024--2027-0696D7?style=flat-square)](#desteklenen-revit-sürümleri)
 [![License](https://img.shields.io/badge/license-GPL--3.0%20%2B%20commercial-2563EB?style=flat-square)](../../LICENSING.md)
+[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/Sam-AEC/aec-model-bridge?style=flat-square&label=OpenSSF%20Scorecard)](https://scorecard.dev/viewer/?uri=github.com/Sam-AEC/aec-model-bridge)
 
 [Başlangıç](#hızlı-başlangıç) | [Örnek iş akışları](#örnek-iş-akışları) | [Araçlar](../tools-generated.md) | [Dokümantasyon](#dokümantasyon) | [İndir](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -109,7 +110,7 @@ Canlı Revit otomasyonu için Windows, lisanslı Revit 2024–2027, Python 3.11 
 
 Önce araçlara Revit olmadan göz atmak mı istiyorsunuz? `"MCP_REVIT_MODE": "mock"` ayarlayın. Sunucu her yerde başlar, tüm araçları şemalarıyla listeler ve bir modele dokunmadan hazır yanıtlar döndürür. Aynı mock modu için bir `Dockerfile` deponun kök dizinindedir (`docker build -t aec-model-bridge .`, ardından `docker run -i --rm aec-model-bridge`).
 
-VS Code mu kullanıyorsunuz? [Eklenti kaynağı ve yerel kurulum adımları](../../extensions/vscode/README.md) MCP sunucusunu kaydeder ve Revit bağlantı durumunu gösterir. Marketplace'te yayımlanmamıştır.
+VS Code mu kullanıyorsunuz? [Eklenti kaynağı ve yerel kurulum adımları](../../packages/vscode-extension/README.md) MCP sunucusunu kaydeder ve Revit bağlantı durumunu gösterir. Marketplace'te yayımlanmamıştır.
 
 ### Araçlara genel bakış
 
@@ -117,14 +118,14 @@ VS Code mu kullanıyorsunuz? [Eklenti kaynağı ve yerel kurulum adımları](../
 | --- | --- | --- |
 | Revit | 110 | Modeli okuma; eleman, parametre, görünüm, pafta, çizelge oluşturma ve düzenleme; dışa aktarma; çalışma paylaşımı (worksharing) |
 | Onay | 6 | Model değişikliklerini planlama, inceleme, onaylama, çalıştırma ve geri alma |
-| Modüller | 113 | Snapshot incelemesi, parametre ızgaraları, QA/QC kontrolleri, reçeteler, raporlar, seçimler |
+| Modüller | 114 | Snapshot incelemesi, parametre ızgaraları, QA/QC kontrolleri, reçeteler, raporlar, seçimler |
 | Rhino ve Grasshopper | 19 | Geometri, katmanlar, malzemeler, boolean işlemleri |
 | Speckle | 17 | Projeler, modeller, sürümler, gönderme ve alma |
 | Navisworks | 15 | Model ağacı, bakış noktaları, çakışma testleri (geliştirme sürüyor) |
 | IFC | 7 | IFC dosyalarını Revit olmadan okuma: yapı, özellikler, doğrulama |
-| Grafik, snapshot'lar, dışa aktarmalar, işler | 22 | Anlamsal grafik denetimleri, snapshot farkları, SQLite dışa aktarma, arka plan işleri |
+| Grafik, snapshot'lar, dışa aktarmalar, işler | 23 | Anlamsal grafik denetimleri, snapshot farkları, SQLite dışa aktarma, arka plan işleri |
 
-Varsayılan kurulumda 309 araç listelenir (mock modundaki mevcut sunucudan sayılmıştır). Autodesk Data araçları, APS kimlik bilgileri yapılandırıldığında görünür. [Araç başvurusu](../tools-generated.md) tüm araçları listeler. Her araç, istemcilerin okuma ile yazmayı ayırt edebilmesi için MCP ek açıklamaları (annotations; `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) taşır.
+Varsayılan kurulumda 311 araç listelenir (mock modundaki mevcut sunucudan sayılmıştır). Autodesk Data araçları, APS kimlik bilgileri yapılandırıldığında görünür. [Araç başvurusu](../tools-generated.md) tüm araçları listeler. Her araç, istemcilerin okuma ile yazmayı ayırt edebilmesi için MCP ek açıklamaları (annotations; `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) taşır.
 
 ### Gelişmiş Revit otomasyonu
 
@@ -169,7 +170,7 @@ Panel, plan incelemesini "Show the review to enable Approve" ile gösterir; onay
 
 <sub>Diyagram kaynağı: [approval-flow.mmd](../diagrams/approval-flow.mmd). Görselleri `python scripts/render_diagrams.py` ile yeniden oluşturun.</sub>
 
-Bir plan hatalı çıkarsa Revit'te Ctrl+Z ile geri alın. Her parametre yazımı kendi adlandırılmış işlemidir, bu yüzden tek bir plan için birkaç kez basmanız gerekebilir. Tüm plan için tek adımda geri alma planlanmıştır, henüz yapılmamıştır. İkinci yol bir geri alma planıdır: asistan, yürütülmüş bir planın kanıtından `plan_revert` ile bir taslak hazırlar ve siz onu diğer planlar gibi onaylarsınız. `rollback_plan` yalnızca insanlar içindir; ne bir düğmedir ne de bir komut, bu yüzden ona güvenmeyin. Bu yolların hiçbiri henüz gerçek bir Revit oturumunda doğrulanmadı (UNVERIFIED). Dosya çıktısı gibi geri alınamayan işlemler bunların hiçbiriyle geri alınamaz ve henüz ikinci bir onay istemez (planlanmıştır). Panelin Plans listesi yalnızca bekleyen planları gösterir; `aec-model-bridge-approve show <plan_id>` her durumdaki bir plan için çalışır, `proofs/` paketleri ise yalnızca yürütülen (veya yürütülmeye çalışılan) planlar için vardır. Yaşam döngüsü [ADR 0008](../0008-approval-gate-lifecycle.md) belgesindedir.
+Bir plan hatalı çıkarsa Revit'te Ctrl+Z ile geri alın. Her parametre yazımı kendi adlandırılmış işlemidir, bu yüzden tek bir plan için birkaç kez basmanız gerekebilir. Tüm plan için tek adımda geri alma planlanmıştır, henüz yapılmamıştır. İkinci yol bir geri alma planıdır: asistan, yürütülmüş bir planın kanıtından `plan_revert` ile bir taslak hazırlar ve siz onu diğer planlar gibi onaylarsınız. `rollback_plan` yalnızca insanlar içindir; ne bir düğmedir ne de bir komut, bu yüzden ona güvenmeyin. Bu yolların hiçbiri henüz gerçek bir Revit oturumunda doğrulanmadı (UNVERIFIED). Dosya çıktısı gibi geri alınamayan işlemler bunların hiçbiriyle geri alınamaz ve henüz ikinci bir onay istemez (planlanmıştır). Panelin Plans listesi yalnızca bekleyen planları gösterir; `aec-model-bridge-approve show <plan_id>` her durumdaki bir plan için çalışır, `proofs/` paketleri ise yalnızca yürütülen (veya yürütülmeye çalışılan) planlar için vardır. Yaşam döngüsü [ADR 0008](../adr/0008-approval-gate-lifecycle.md) belgesindedir.
 
 Gözetimsiz pipeline'lar için `MCP_REVIT_APPROVAL_MODE=auto` ayarlayabilirsiniz. Bu, insan denetimini kapatır; bu yüzden yalnızca kontrollü bir ortamda kullanın.
 
@@ -303,7 +304,7 @@ Yanıt `healthy` ve çalışan Revit sürümünü bildirmelidir. Revit'te `AEC B
 - Onayı kapatmadığınız sürece modeli değiştiren araçlar onaylanmış bir plan gerektirir.
 - Araç çağrıları bir denetim günlüğüne yazılır ve gizli bilgiler maskelenir.
 
-Ayrıntılar [docs/security.md](../security.md) içindedir. Bir güvenlik açığı bildirmek için [SECURITY.md](../../SECURITY.md) belgesini izleyin.
+Ayrıntılar [docs/security.md](../security.md) içindedir. Bir güvenlik açığı bildirmek için [SECURITY.md](../../.github/SECURITY.md) belgesini izleyin.
 
 ## SSS
 
@@ -313,7 +314,7 @@ Model Context Protocol (MCP), yapay zekâ asistanlarının başka yazılımlarda
 
 ### Hangi yapay zekâ asistanlarıyla çalışır?
 
-Yerel bir stdio sunucusu başlatabilen her MCP istemcisiyle. Claude Desktop'ı, GitHub Copilot'lı VS Code'u, Cursor'ı, Codex'i ve standart bir `mcpServers` yapılandırması okuyan istemcileri belgeliyoruz. Windsurf, Cline, Roo Code, Continue, Zed, Claude Code ve Gemini CLI'ın da aynı şekilde çalışması beklenir, ancak test edilmemiştir. Bkz. [uyumluluk](../compatibility.md). Panel sohbeti ayrıca bir Anthropic API anahtarını veya kuruluysa `claude` ya da `codex` komut satırı araçlarını kullanabilir. Bkz. [ADR 0012](../0012-native-agent-chat-backend.md).
+Yerel bir stdio sunucusu başlatabilen her MCP istemcisiyle. Claude Desktop'ı, GitHub Copilot'lı VS Code'u, Cursor'ı, Codex'i ve standart bir `mcpServers` yapılandırması okuyan istemcileri belgeliyoruz. Windsurf, Cline, Roo Code, Continue, Zed, Claude Code ve Gemini CLI'ın da aynı şekilde çalışması beklenir, ancak test edilmemiştir. Bkz. [uyumluluk](../compatibility.md). Panel sohbeti ayrıca bir Anthropic API anahtarını veya kuruluysa `claude` ya da `codex` komut satırı araçlarını kullanabilir. Bkz. [ADR 0012](../adr/0012-native-agent-chat-backend.md).
 
 ### Yapay zekâ modelimi sormadan değiştirebilir mi?
 
@@ -348,17 +349,17 @@ python -m pytest packages/mcp-server-revit/tests
 .\scripts\package.ps1 -RevitVersion All
 ```
 
-CI, Python sunucusunu ve Revit 2024–2027 için eklenti hedeflerini derler. Pull request açmadan önce [CONTRIBUTING.md](../../CONTRIBUTING.md) belgesine bakın.
+CI, Python sunucusunu ve Revit 2024–2027 için eklenti hedeflerini derler. Pull request açmadan önce [CONTRIBUTING.md](../../.github/CONTRIBUTING.md) belgesine bakın.
 
 ## Dokümantasyon
 
 - [Kurulum kılavuzu](../install.md)
 - [Araç başvurusu](../tools-generated.md)
-- [Mimari](../0001-multi-provider-architecture.md)
+- [Mimari](../adr/0001-multi-provider-architecture.md)
 - [Yapılandırma başvurusu](../configuration-reference.md)
 - [Güvenlik](../security.md)
 - [Sürümleme ve yayınlar](../versioning.md)
-- [Katkıda bulunma](../../CONTRIBUTING.md) ve [Davranış Kuralları](../../CODE_OF_CONDUCT.md)
+- [Katkıda bulunma](../../.github/CONTRIBUTING.md) ve [Davranış Kuralları](../../.github/CODE_OF_CONDUCT.md)
 
 ## Built with
 

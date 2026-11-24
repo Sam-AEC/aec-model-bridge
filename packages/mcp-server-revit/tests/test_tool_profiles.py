@@ -309,11 +309,11 @@ def test_approval_provider_is_allowed_even_for_a_hand_built_excluding_profile():
 
 # ---- core profile: a short allowlist of tool names -----------------------------------
 
-CORE_COUNT = 56  # CORE_TOOLS (49) + the six always-visible approval tools + search_tools
+CORE_COUNT = 57  # CORE_TOOLS (50) + the six always-visible approval tools + search_tools
 
 
 def test_core_list_is_pinned_and_names_each_tool_once():
-    assert len(CORE_TOOLS) == 49 and len(set(CORE_TOOLS)) == 49
+    assert len(CORE_TOOLS) == 50 and len(set(CORE_TOOLS)) == 50
     assert not APPROVAL_TOOLS & set(CORE_TOOLS)  # approval tools come from the provider rule
 
 

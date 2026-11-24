@@ -523,11 +523,22 @@ class IfcProvider(AECProvider):
             try:
                 # Runs standard validation
                 validate = importlib.import_module("ifcopenshell.validate")
-                for error in validate.validate(ifc_file):
+                # IfcOpenShell 0.8 reports through a logger and returns None.
+                logger = validate.json_logger()
+                validate.validate(ifc_file, logger)
+                for stmt in logger.statements:
+                    if stmt.get("level") not in ("error", "critical"):
+                        continue
+                    instance = stmt.get("instance")
+                    entity = None
+                    if instance is not None and hasattr(instance, "id"):
+                        entity = instance
                     errors.append({
-                        "message": error.message,
-                        "element_id": error.instance.id() if error.instance else None,
-                        "element_class": error.instance.is_a() if error.instance else None
+                        "message": str(stmt.get("message", ""))[:500],
+                        "element_id": entity.id() if entity is not None else None,
+                        "element_class": entity.is_a() if entity is not None else None,
+                        "instance": str(instance)[:200] if instance is not None else None,
+                        "attribute": stmt.get("attribute"),
                     })
                     if len(errors) >= 100:  # cap validation reports
                         break
