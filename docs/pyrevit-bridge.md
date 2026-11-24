@@ -1,10 +1,12 @@
 # pyRevit Bridge module
 
-Status: in 1.5.0, Python side only (see below).
+Status: in 1.5.0, Python side only. The run tool is hidden from the tool list (see below).
 
 The built-in `pyrevit_bridge` module lets existing pyRevit pushbutton scripts be discovered and run as tools behind the [approval gate](0008-approval-gate-lifecycle.md), without rewriting them.
 
-> **Status: Python side only.** Running a script inside Revit needs a provider tool `revit_run_pyrevit_script` and an add-in handler for the bridge call `revit.run_pyrevit_script`. Neither exists, and the add-in side is **NOT implemented and UNVERIFIED**. Nothing here has been tested against a live Revit or pyRevit install. Until the runner exists, `run_pyrevit_script` raises a bridge error, so the approval layer records a failure instead of a completed action. Claimed actions remain consumed on failure under the current approval policy; a person must review a new plan before retrying.
+> **Status: run tool hidden.** `pyrevit_bridge_run_pyrevit_script` is not listed in the `full`, `daily` or `core` profiles and a call to it is refused, until an add-in runner exists. The list and plan tools stay available.
+>
+> **Python side only.** Running a script inside Revit needs a provider tool `revit_run_pyrevit_script` and an add-in handler for the bridge call `revit.run_pyrevit_script`. Neither exists, and the add-in side is **NOT implemented and UNVERIFIED**. Nothing here has been tested against a live Revit or pyRevit install. Until the runner exists, `run_pyrevit_script` raises a bridge error, so the approval layer records a failure instead of a completed action. Claimed actions remain consumed on failure under the current approval policy; a person must review a new plan before retrying.
 
 ## Configuration
 
@@ -19,7 +21,7 @@ rejects them before approval; source is never decoded with replacement character
 | --- | --- | --- |
 | `pyrevit_bridge_list_pyrevit_scripts` | read-only | Returns `id`, `title` (pushbutton folder name), `tab`, `panel`, `description` (module docstring if present) and `has_write_calls`. |
 | `pyrevit_bridge_plan_run_pyrevit_script` | read-only | Returns an ActionPlan draft with script path, SHA-256 and the detected write-call lines. Never executes. |
-| `pyrevit_bridge_run_pyrevit_script` | mutating, needs approved `plan_id` | Re-reads the script, checks its SHA-256 against the approved plan, then calls the bridge. |
+| `pyrevit_bridge_run_pyrevit_script` (hidden, not listed) | mutating, needs approved `plan_id` | Re-reads the script, checks its SHA-256 against the approved plan, then calls the bridge. |
 
 Script ids look like `0:Tools.extension/Arch.tab/Rooms.panel/Renumber.pushbutton/script.py`; the number is the index of the directory in the env var.
 

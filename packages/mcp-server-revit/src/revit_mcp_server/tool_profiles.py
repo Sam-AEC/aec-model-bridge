@@ -45,6 +45,12 @@ CORE_TOOLS = (
 )
 
 
+# Tools hidden in every profile until the thing behind them exists. The pyRevit run tool has
+# no add-in runner yet (docs/pyrevit-bridge.md), so a live call could only report bridge_unavailable.
+# The pyRevit list and plan tools stay available.
+HIDDEN_TOOLS = ("pyrevit_bridge_run_pyrevit_script",)
+
+
 # Provider that owns plan_actions, execute_plan, list_pending_plans and the other
 # approval tools. No profile may hide it: without it a client cannot see or follow
 # the approval flow that guards every write.
@@ -65,6 +71,8 @@ class ToolProfile:
     def allows(self, provider_id: str, module_id: str | None = None, tool_name: str | None = None) -> bool:
         if provider_id == APPROVAL_PROVIDER_ID:
             return True
+        if tool_name in HIDDEN_TOOLS:
+            return False
         if self.tools is not None and tool_name not in self.tools:
             return False
         identities = (provider_id,) if module_id is None else (provider_id, module_id)
