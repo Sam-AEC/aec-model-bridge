@@ -103,6 +103,8 @@ class Config(BaseSettings):
     allowed_directories: List[DirectoryPath] = Field(default_factory=list)
     bridge_url: str | None = Field(default=None)
     host_version: str | None = Field(default=None)
+    # "http" (default) or "pipe" (ADR 0021). Unset falls back to AEC_BRIDGE_TRANSPORT, then "http".
+    bridge_transport: str | None = Field(default=None)
     mode: BridgeMode = Field(default=BridgeMode.mock)
     audit_log: Path = Field(default_factory=lambda: Path("audit.log"))
     log_level: str = Field("INFO")

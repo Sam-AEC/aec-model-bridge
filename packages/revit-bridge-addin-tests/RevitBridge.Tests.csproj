@@ -40,5 +40,6 @@
     <Compile Include="..\revit-bridge-addin\src\Bridge\WorkspaceMonitor.cs" Link="Linked\WorkspaceMonitor.cs" />
     <Compile Include="..\revit-bridge-addin\src\Bridge\WorkspaceDirectory.cs" Link="Linked\WorkspaceDirectory.cs" />
     <Compile Include="..\revit-bridge-addin\src\Bridge\SnapshotViewRecords.cs" Link="Linked\SnapshotViewRecords.cs" />
+    <Compile Include="..\revit-bridge-addin\src\Bridge\PipeFraming.cs" Link="Linked\PipeFraming.cs" />
   </ItemGroup>
 </Project>
