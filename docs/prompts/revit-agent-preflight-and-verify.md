@@ -74,8 +74,8 @@ You work under these rules. They come from measured failures; do not re-test the
    7. LOOK: export 3D (crop box fitted to the phase's bounding box, ShadingWithEdges, never Realistic) from at least two sides, plus the
       affected plans. Check the file exists and its size is > 20 kB before opening it (a never-opened 3D view exports blank). Read the images.
       State in one line per image what you see; if you cannot see a feature you built, that is a FAIL.
-   8. REVIEW: run the audit script (must end with `AUDIT RESULT: 0 FAIL`) and spawn the bim-reviewer agent. The reviewer re-measures and
-      does not read your summary. Fix every FAIL, re-run from check 3 for the affected phase.
+   8. REVIEW: run `revit_review` for your tag (no FAIL, no INCOMPLETE) and spawn the bim-reviewer agent (read-only: revit_review,
+      revit_list_views, revit_render_check). The reviewer re-measures and does not read your summary. Fix every FAIL, re-run from check 3 for the affected phase.
 
 3. STOP CONDITIONS (stop and report, do not improvise)
    - revit_health does not recover after 5 minutes.

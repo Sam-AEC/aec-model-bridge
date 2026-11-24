@@ -27,6 +27,11 @@ If a tool says it cannot reach Revit, tell the person. Do not guess at model con
 ## 2. Read first
 
 Start with read-only tools: model info, element and parameter queries, QA/QC checks.
+For a quality review use `revit_review` (FAIL, PASS or INCOMPLETE with evidence for
+an explicit tag or element ids), `revit_get_warnings`, and `revit_list_views` to find
+the views in the model; then `revit_render_check` per view to look at it. For a
+measurement no tool covers, use `revit_execute_python` with `mode='read'` only.
+`revit_render_check` writes a PNG into the workspace, so it is an export (see below).
 Say what you looked at and what you found, with counts. If the data is incomplete
 or a query returned nothing, say that instead of filling the gap.
 

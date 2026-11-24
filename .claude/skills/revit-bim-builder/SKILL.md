@@ -6,7 +6,7 @@ description: Build or modify BIM content in a live Revit session through AEC Mod
 # Build, measure, review, repeat
 
 A model is not done when the commands succeed. It is done when it has been measured and an independent reviewer
-(the `bim-reviewer` agent, or `scripts/revit/bim_review/bim-review.ps1`) finds nothing. Published text-to-BIM benchmarks
+(the `bim-reviewer` agent, which uses `revit_review` and `revit_render_check`) finds nothing. Published text-to-BIM benchmarks
 put the best models near 50%, with failures in spatial reasoning and consistency, so assume your first attempt has
 defects and build the loop in.
 
@@ -19,7 +19,8 @@ defects and build the loop in.
    warning count before and after, orientation by probing a point outside the wall.
 4. Render the views to PNG and LOOK at them. Image review caught a swinging garage door, a blank 3D view and a section
    that was not a cut.
-5. Run the reviewer. Fix every FAIL. Repeat until it passes, then report the numbers.
+5. Run the reviewer (`revit_review` with your tag, then the `bim-reviewer` agent). Fix every FAIL. Repeat until it
+   passes, then report the numbers.
 
 ## Units, coordinates, levels
 - Revit internal length is feet. millimetres / 304.8. metres / 0.3048.
