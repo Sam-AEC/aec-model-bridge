@@ -2,7 +2,7 @@
 
 Measured 2026-11-05 with `MCP_REVIT_MODE=mock`, the supplied Python interpreter, a temporary workspace, no user modules or provider credentials, and no Revit model execution. Baseline captured at `87d1d1bb5312ccb9868786860cbc66f76c47b895` before production changes; results were reported before edits.
 
-The checkout exposes **311** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
+The checkout exposes **312** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
 
 ## Initial profile and response pass
 
@@ -97,6 +97,23 @@ Twenty read tools advertise an MCP `outputSchema` (`src/revit_mcp_server/output_
 | `core` | 57 | 59,612 | 63,522 | 14,903 | 15,881 |
 
 The schemas add about 1,000 tokens in every profile (1.2% of full, 6.6% of core); 19 of the 20 tools are visible in `core` (all but `module_list_commands`). A successful call to one of these tools now carries its result twice: as text (unchanged) and as `structuredContent`. A client that passes only one of them to the model sees no change in response cost.
+## Follow-up: deferred loading and the always-loaded set
+
+A client with tool search can defer this server and keep a short always-loaded set: `ALWAYS_LOADED_TOOLS` in `tool_profiles.py` (`revit_get_context`, `snapshot_take`, `snapshot_compute`, `search_tools`, `context_report`, `plan_actions`, `execute_plan`, `list_pending_plans`). Setup: [deferred tool loading](deferred-tool-loading.md).
+
+Same method as above (mock mode, chars / 4 over `list_tools`), with 312 tools, after `context_report` and the `_meta` always-load flag were added. `--always-loaded` measures only the always-loaded set. Names-only is the JSON list of tool names.
+
+| Setup | Tools in prompt | ~Tokens of tool definitions |
+| --- | ---: | ---: |
+| `full`, no deferral | 312 | 83,278 |
+| `daily`, no deferral | 241 | 65,312 |
+| `core`, no deferral | 58 | 15,094 |
+| Always-loaded set only (any profile) | 8 | 1,832 |
+| `full` deferred, plus names of the 304 deferred tools | 8 + 304 names | about 3,740 |
+
+With the Claude API tool search tool, deferred definitions are not in the prompt until a search returns them, so the startup cost is the always-loaded row plus the search tool itself. Claude Code lists the names of deferred tools at session start; the last row estimates that from names-only JSON (7,772 characters for all 312 names) and is not a measurement of Claude Code's own prompt. Neither row was measured in a live client. Server instructions (about 345 tokens) are sent in every setup.
+
+Reproduce: `python scripts/measure_mcp_tokens.py --always-loaded --output always-loaded.json`, and `--profile full|daily|core` for the other rows. `--only-tools a,b,c` measures any other subset.
 
 ## What dominates?
 

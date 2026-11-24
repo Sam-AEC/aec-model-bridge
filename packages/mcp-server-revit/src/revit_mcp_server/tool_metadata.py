@@ -23,6 +23,10 @@ from mcp.types import Tool, ToolAnnotations
 from .output_schemas import output_schema_for
 from .providers.base import ProviderTool
 from .result_presentation import APPROVAL_TOOLS, add_response_schema
+from .tool_profiles import ALWAYS_LOADED_TOOLS
+
+# MCP tool `_meta` key that asks Claude Code to load a tool up front under tool search.
+ALWAYS_LOAD_META_KEY = "anthropic/alwaysLoad"
 
 PLAN_ID_DESCRIPTION = "Approved plan ID; see the server approval instructions."
 
@@ -813,6 +817,11 @@ def enrich_tool(provider_id: str, tool: ProviderTool) -> Tool:
             prop["description"] = text
     add_response_schema(tool.name, schema)
     output_schema = output_schema_for(tool.name)
+    extra: dict[str, Any] = {}
+    if tool.name in ALWAYS_LOADED_TOOLS:
+        # Claude Code loads a tool marked this way up front when tool search defers the rest.
+        # Passed by alias: the SDK keeps a `meta=` keyword as an unrelated extra field.
+        extra["_meta"] = {ALWAYS_LOAD_META_KEY: True}
     return Tool(
         name=tool.name,
         title=humanize(tool.name),
@@ -820,4 +829,5 @@ def enrich_tool(provider_id: str, tool: ProviderTool) -> Tool:
         inputSchema=schema,
         outputSchema=copy.deepcopy(output_schema) if output_schema else None,
         annotations=annotations_for(provider_id, tool),
+        **extra,
     )

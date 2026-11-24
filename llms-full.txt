@@ -23,7 +23,9 @@ Files in this document:
 - docs/module-authoring.md
 - docs/rule-packs.md
 - docs/mcp-token-budget.md
+- docs/deferred-tool-loading.md
 - docs/snapshot-compute.md
+- packages/claude-plugin/skills/aec-model-bridge/SKILL.md
 - docs/dev-workflow.md
 - docs/release-checklist.md
 - docs/versioning.md
@@ -43,7 +45,7 @@ Not copied (read them from the repository):
 > Open-source Revit MCP server (Model Context Protocol) and native Revit add-in. AI assistants such as Claude, Codex and Cursor read and edit the BIM model open in Revit 2024 to 2027. Every model change is a plan that a person approves first (approval gate). Also reads IFC files; Rhino, Grasshopper and Speckle integrations included.
 
 - Protocol: Model Context Protocol, stdio transport. Any MCP client that can start a local server works.
-- Tools: 311 in the default setup, counted in mock mode. Revit has 110 of them.
+- Tools: 312 in the default setup, counted in mock mode. Revit has 110 of them.
 - Safety: tools that change the model are blocked until a plan is approved. An unattended mode exists and is opt-in.
 - Platform: live Revit work needs Windows and a licensed Revit. Mock mode (sample data) needs neither.
 - Licence: GPL-3.0-or-later with the Revit Linking Exception, plus a commercial option.
@@ -75,7 +77,9 @@ Not copied (read them from the repository):
 - [Module authoring](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/module-authoring.md): write a plug-in module.
 - [Rule packs](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/rule-packs.md): BIM QA/QC rules.
 - [MCP token budget](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/mcp-token-budget.md): tool profiles and context size.
+- [Deferred tool loading](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/deferred-tool-loading.md): Claude Code and Claude API config that defers the server behind tool search and keeps eight tools loaded.
 - [snapshot_compute](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/snapshot-compute.md): one-call read-only query pipelines over a saved snapshot.
+- [Operator skill](https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/claude-plugin/skills/aec-model-bridge/SKILL.md): Agent Skills file that teaches clients to use few calls and small results.
 - [Dev workflow](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/dev-workflow.md): build, test and release commands.
 - [Agent instructions](https://github.com/Sam-AEC/aec-model-bridge/blob/main/AGENTS.md): repository layout, commands and rules for coding agents.
 
@@ -145,10 +149,11 @@ python ../../scripts/version.py check       # VERSION, pyproject and manifests m
 
 **AI assistants read the Revit model you have open. By default, nothing in it changes until you approve a plan.**
 
-Open-source Revit MCP server · Revit 2024 – 2027 · 311 tools · Claude, Codex, Cursor and other MCP clients
+Open-source Revit MCP server · Revit 2024 – 2027 · 312 tools · Claude, Codex, Cursor and other MCP clients
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Sam-AEC/aec-model-bridge/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Sam-AEC/aec-model-bridge/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
+[![Coverage floor](https://img.shields.io/badge/coverage_floor-80%25-0F766E?style=flat-square)](packages/mcp-server-revit/pyproject.toml)
 [![Revit](https://img.shields.io/badge/Revit-2024--2027-0696D7?style=flat-square)](#supported-revit-versions)
 [![License](https://img.shields.io/badge/license-GPL--3.0%20%2B%20commercial-2563EB?style=flat-square)](LICENSING.md)
 [![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/Sam-AEC/aec-model-bridge?style=flat-square&label=OpenSSF%20Scorecard)](https://scorecard.dev/viewer/?uri=github.com/Sam-AEC/aec-model-bridge)
@@ -333,9 +338,9 @@ published to the Marketplace.
 | Speckle | 17 | Projects, models, versions, send and receive |
 | Navisworks | 15 | Model tree, viewpoints, clash tests (in progress) |
 | IFC | 7 | Read IFC files without Revit: structure, properties, validation |
-| Graph, snapshots, exports, jobs | 23 | Semantic graph audits, snapshot diffs, SQLite export, background jobs |
+| Graph, snapshots, exports, jobs | 24 | Semantic graph audits, snapshot diffs, SQLite export, background jobs |
 
-311 tools are listed in the default setup (counted from the current server in mock
+312 tools are listed in the default setup (counted from the current server in mock
 mode). The Autodesk Data tools appear when APS credentials are configured. The
 [tool reference](docs/tools-generated.md) lists every tool. Each tool carries
 MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`,
@@ -1381,7 +1386,16 @@ aec-model-bridge doctor
 python -m revit_mcp_server doctor --json
 ```
 
-(`aec-model-bridge-doctor` is the same command.) It reads your setup and changes nothing: Python version, package version against `VERSION`, mode, whether the workspace exists and is writable, the Revit add-in registry entry and whether it has a session token (Windows only; "N/A" elsewhere; the token value is never shown), whether the bridge port answers within one second, `ifcopenshell`, other optional packages, and the MCP client config files it knows (Claude Desktop, Claude Code, Cursor, Windsurf, VS Code, Gemini CLI, Codex). A client entry that points at an `.exe` launcher under `python\Scripts` is flagged FAIL ([#159](https://github.com/Sam-AEC/aec-model-bridge/issues/159)); use `uvx` or `python -m revit_mcp_server`. Exit code 0 means no FAIL, 1 means at least one. Paste the table into a bug report; it carries no tokens or client environment values.
+(`aec-model-bridge-doctor` is the same command.) Without `--fix` it reads your setup and changes nothing: Python version, package version against `VERSION`, mode, whether the workspace exists and is writable, the Revit add-in registry entry and whether it has a session token (Windows only; "N/A" elsewhere; the token value is never shown), whether the bridge port answers within one second, `ifcopenshell`, other optional packages, and the MCP client config files it knows (Claude Desktop, Claude Code, Cursor, Windsurf, VS Code, Gemini CLI, Codex). A client entry that points at an `.exe` launcher under `python\Scripts` is flagged FAIL ([#159](https://github.com/Sam-AEC/aec-model-bridge/issues/159)); use `uvx` or `python -m revit_mcp_server`. Exit code 0 means no FAIL, 1 means at least one. Paste the table into a bug report; it carries no tokens or client environment values.
+
+The table is followed by the fixes the doctor could apply. `aec-model-bridge doctor --fix` applies them, prints each result, then prints the table for the state after the fixes:
+
+- creates a missing workspace folder;
+- gives the owner read, write and search access to a workspace folder the current user owns (POSIX);
+- deletes add-in registry files whose Revit process is not running (Windows), and checks again just before each delete;
+- points a client entry that FAILs (an `.exe` launcher or a missing command) at the Python running the doctor, as `<python> -m revit_mcp_server`. The old file is kept as `<file>.aec-backup-<timestamp>`; `env` and every other key stay as they are. Codex (`config.toml`) entries are listed for a manual edit.
+
+It never starts or contacts Revit, never deletes user data and never changes approval settings. Unreadable registry files and config files that do not parse are left alone. The Windows fixes are UNVERIFIED on Windows.
 
 ## Error codes
 
@@ -3335,17 +3349,55 @@ Assertions:
 - `all elements have <field>`: matched elements missing that top-level element
   field are issues.
 
+The validator rejects anything else, with the list of supported names in the
+message. There is no regular-expression operator, so naming-pattern checks (for
+example "door Mark must match `D-###`") cannot be expressed. Filter rules have
+no uniqueness operator; a pipeline rule can find duplicate values with
+`group_by` and `aggregate`, but its rows are groups, so those issues have no
+element.
+
+### Pipeline rules
+
+A rule can use `pipeline` instead of `filter` and `assertion`. It holds
+[snapshot_compute](snapshot-compute.md) steps, and every row of the last step
+is an issue: `uid` gives the element, and `label` (if a step selects one),
+`type_name` or `category` gives the label. Keep `uid` in the rows; a `select`
+without it gives issues with no element. A row whose `uid` is not text (for
+example a `list` aggregate named `uid`) fails the rule with an error.
+
+```yaml
+  - id: door_rating_below_wall
+    severity: error
+    description: "Door fire rating is lower than the fire rating of its host wall."
+    pipeline:
+      - join: [host]
+        where:
+          - {field: category, value: OST_Doors}
+          - {field: params.Fire Rating, op: lt, value: {field: host.params.Fire Rating}}
+```
+
+- Pipelines can use joins, field-to-field comparisons, `spatial`, `group_by` and
+  every other step key, so checks that `filter` cannot express fit in a pack.
+- The validator checks the steps without a model and refuses unknown keys, ops,
+  joins and aggregates with the step name. A rule with both `pipeline` and
+  `filter` or `assertion` is refused.
+- `link:` sources are refused in rule packs.
+- Relation joins read the snapshot's relations in `run_check` and in the
+  reports that run rule packs.
+- A server older than this change warns that `pipeline` is an unknown field and
+  runs the rule as if it had no filter, so every element becomes an issue. Use
+  pipeline rules only with servers that support them.
+
+[`docs/examples/rule_packs/door-room-pipeline.yaml`](examples/rule_packs/door-room-pipeline.yaml)
+has the three `door-room-basics` rules written as pipelines, plus the rule
+above. On the mock snapshot the three converted rules find the same issues as
+the originals (`tests/test_qaqc_pipeline_rules.py`).
+
 Stored findings belong to their rule pack. Running one pack only reconciles that
 pack's issues, and identical rule IDs in different packs stay independent.
 Overwriting a pack refreshes its open issues' severity and message on the next run.
 Existing databases migrate without deleting history; older issues without a pack
 identity are assigned to `core`.
-
-The validator rejects anything else, with the list of supported names in the
-message. There is no regular-expression operator and no uniqueness operator in
-the engine today, so naming-pattern checks (for example "door Mark must match
-`D-###`") and duplicate-number checks cannot be expressed yet. They are not
-validated as "supported" and are not in the example pack.
 
 ## Example pack
 
@@ -3376,7 +3428,7 @@ The result gives pass, fail or skipped per specification (skipped means the spec
 
 Measured 2026-11-05 with `MCP_REVIT_MODE=mock`, the supplied Python interpreter, a temporary workspace, no user modules or provider credentials, and no Revit model execution. Baseline captured at `87d1d1bb5312ccb9868786860cbc66f76c47b895` before production changes; results were reported before edits.
 
-The checkout exposes **311** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
+The checkout exposes **312** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
 
 ## Initial profile and response pass
 
@@ -3471,6 +3523,23 @@ Twenty read tools advertise an MCP `outputSchema` (`src/revit_mcp_server/output_
 | `core` | 57 | 59,612 | 63,522 | 14,903 | 15,881 |
 
 The schemas add about 1,000 tokens in every profile (1.2% of full, 6.6% of core); 19 of the 20 tools are visible in `core` (all but `module_list_commands`). A successful call to one of these tools now carries its result twice: as text (unchanged) and as `structuredContent`. A client that passes only one of them to the model sees no change in response cost.
+## Follow-up: deferred loading and the always-loaded set
+
+A client with tool search can defer this server and keep a short always-loaded set: `ALWAYS_LOADED_TOOLS` in `tool_profiles.py` (`revit_get_context`, `snapshot_take`, `snapshot_compute`, `search_tools`, `context_report`, `plan_actions`, `execute_plan`, `list_pending_plans`). Setup: [deferred tool loading](deferred-tool-loading.md).
+
+Same method as above (mock mode, chars / 4 over `list_tools`), with 312 tools, after `context_report` and the `_meta` always-load flag were added. `--always-loaded` measures only the always-loaded set. Names-only is the JSON list of tool names.
+
+| Setup | Tools in prompt | ~Tokens of tool definitions |
+| --- | ---: | ---: |
+| `full`, no deferral | 312 | 83,278 |
+| `daily`, no deferral | 241 | 65,312 |
+| `core`, no deferral | 58 | 15,094 |
+| Always-loaded set only (any profile) | 8 | 1,832 |
+| `full` deferred, plus names of the 304 deferred tools | 8 + 304 names | about 3,740 |
+
+With the Claude API tool search tool, deferred definitions are not in the prompt until a search returns them, so the startup cost is the always-loaded row plus the search tool itself. Claude Code lists the names of deferred tools at session start; the last row estimates that from names-only JSON (7,772 characters for all 312 names) and is not a measurement of Claude Code's own prompt. Neither row was measured in a live client. Server instructions (about 345 tokens) are sent in every setup.
+
+Reproduce: `python scripts/measure_mcp_tokens.py --always-loaded --output always-loaded.json`, and `--profile full|daily|core` for the other rows. `--only-tools a,b,c` measures any other subset.
 
 ## What dominates?
 
@@ -3620,6 +3689,153 @@ To reproduce the original baseline, run the initial measurement script against t
 
 Evidence: the JSON files the commands above write (before, after full, after compact, after daily). They are not kept in the repository; earlier copies are in the commit history.
 
+=== FILE: docs/deferred-tool-loading.md ===
+
+# Deferred tool loading
+
+The full tool list is about 83k tokens and `core` about 15k (see [MCP token budget](mcp-token-budget.md)). A client with tool search can leave most tool definitions out of the prompt and load each one when a search returns it. The prompt prefix then stays small and cacheable.
+
+This page shows how to defer the AEC Model Bridge server and keep a short always-loaded set. Deferral changes what the model sees, not what the server allows. Every write still needs a plan that a person approves.
+
+## The always-loaded set
+
+These eight tools stay loaded. The list is `ALWAYS_LOADED_TOOLS` in `packages/mcp-server-revit/src/revit_mcp_server/tool_profiles.py`, and a test pins it.
+
+| Tool | Why it stays loaded |
+| --- | --- |
+| `revit_get_context` | Mode, Dev flag and document at the start of every task |
+| `snapshot_take` | One capture of the model for later questions |
+| `snapshot_compute` | Answers over a snapshot in one call |
+| `search_tools` | Finds any tool, including tools the profile hides |
+| `context_report` | Profile, tool count and tool-list size |
+| `plan_actions` | Drafts the plan for any write |
+| `execute_plan` | Runs a plan after a person approves it |
+| `list_pending_plans` | Plan state |
+
+All eight are visible in the `core`, `daily` and `full` profiles. Together they are about 1,832 tokens.
+
+In `tools/list` the server marks each of these tools with `"_meta": {"anthropic/alwaysLoad": true}`. No other tool carries the flag.
+
+## Claude Code
+
+Claude Code turns tool search on by default: MCP tools are deferred and Claude searches for them. A tool whose `_meta` has `"anthropic/alwaysLoad": true` loads up front. So the default plugin or `claude mcp add` setup already defers the server and keeps the eight tools loaded. No extra setting is needed.
+
+The plugin's `.mcp.json` (unchanged, shown for reference):
+
+```json
+{
+  "mcpServers": {
+    "aec-model-bridge": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/Sam-AEC/aec-model-bridge#subdirectory=packages/mcp-server-revit",
+        "aec-model-bridge"
+      ],
+      "env": {
+        "MCP_REVIT_MODE": "bridge"
+      }
+    }
+  }
+}
+```
+
+Settings that change this, from the Claude Code MCP docs:
+
+- Leave `alwaysLoad` out of the server entry. With `"alwaysLoad": true` every tool of the server loads up front. With `"alwaysLoad": false` every tool is deferred, including the eight marked ones (Claude Code v2.1.287 or later).
+- `ENABLE_TOOL_SEARCH`: unset or `true` defers MCP tools. `auto` or `auto:N` defers only when tool definitions pass 10% (or N%) of the context window. `false` loads every tool up front.
+- On models earlier than Claude Opus 4 and Sonnet 4, on some Google Cloud Agent Platform models and on Microsoft Foundry deployments hosted on Azure, Claude Code loads every tool up front.
+- Run `/context` to see which tools are loaded and which are deferred.
+
+Combine deferral with a profile when the client cannot defer: `MCP_REVIT_TOOL_PROFILE=core` in `env` lists about 58 tools.
+
+UNVERIFIED: the `_meta` flag and the deferral behaviour were checked against the Claude Code docs, not observed in a live Claude Code session with this server.
+
+## Claude API
+
+This server speaks MCP over stdio on the machine that runs Revit. The API's MCP connector (`mcp_servers` and `mcp_toolset`) only reaches servers exposed over public HTTPS, so it cannot start this server. Do not expose the Revit bridge to the internet for this.
+
+Use your own MCP client instead: start the server, read `tools/list`, and pass the tools to the Messages API with the tool search tool. Set `defer_loading: true` on every tool except the always-loaded set. At least one tool must stay non-deferred; the tool search tool itself must never be deferred.
+
+```python
+import anthropic
+
+ALWAYS_LOADED = {
+    "revit_get_context", "snapshot_take", "snapshot_compute", "search_tools",
+    "context_report", "plan_actions", "execute_plan", "list_pending_plans",
+}
+
+
+def to_api_tools(mcp_tools):
+    """mcp_tools: the Tool list from an MCP ClientSession.list_tools() call."""
+    tools = [{"type": "tool_search_tool_bm25_20251119", "name": "tool_search_tool_bm25"}]
+    for tool in mcp_tools:
+        entry = {
+            "name": tool.name,
+            "description": tool.description or "",
+            "input_schema": tool.inputSchema,
+        }
+        if tool.name not in ALWAYS_LOADED:
+            entry["defer_loading"] = True
+        tools.append(entry)
+    return tools
+
+
+client = anthropic.Anthropic()
+response = client.messages.create(
+    model="claude-opus-5-5",
+    max_tokens=16000,
+    tools=to_api_tools(mcp_tools),
+    messages=[{"role": "user", "content": "How many doors on Level 1 have no fire rating?"}],
+)
+```
+
+Notes from the tool search docs:
+
+- Send every tool definition on every request, deferred ones included. The API needs them to run the search and expand `tool_reference` blocks.
+- Pass the assistant content back unchanged, including `server_tool_use` and `tool_search_tool_result` blocks. Never return a `tool_result` for a `srvtoolu_...` id.
+- A deferred tool cannot also carry `cache_control`. Put the cache breakpoint on a non-deferred tool.
+- `tool_search_tool_regex_20251119` is the regex variant; the BM25 variant takes natural-language queries.
+- When Claude calls a tool, run it through your MCP session with `call_tool` and return the result as a `tool_result`. The server's approval gate applies to those calls as to any other client.
+
+If you run the server behind your own remote HTTPS MCP endpoint (not shipped by this project), the connector shape is one `mcp_toolset` that defers the server and keeps the eight tools loaded, with the beta header `mcp-client-2025-11-20`:
+
+```json
+{
+  "mcp_servers": [
+    {"type": "url", "url": "https://mcp.example.com/mcp", "name": "aec-model-bridge"}
+  ],
+  "tools": [
+    {"type": "tool_search_tool_bm25_20251119", "name": "tool_search_tool_bm25"},
+    {
+      "type": "mcp_toolset",
+      "mcp_server_name": "aec-model-bridge",
+      "default_config": {"defer_loading": true},
+      "configs": {
+        "revit_get_context": {"defer_loading": false},
+        "snapshot_take": {"defer_loading": false},
+        "snapshot_compute": {"defer_loading": false},
+        "search_tools": {"defer_loading": false},
+        "context_report": {"defer_loading": false},
+        "plan_actions": {"defer_loading": false},
+        "execute_plan": {"defer_loading": false},
+        "list_pending_plans": {"defer_loading": false}
+      }
+    }
+  ]
+}
+```
+
+UNVERIFIED: neither snippet was run against the live API with this server. The field names come from the tool search and MCP connector docs.
+
+## Two searches
+
+The client's tool search finds deferred tools that the profile lists. The server's `search_tools` searches every registered tool and says which profile shows a hidden one. Both return exact tool names, and a client calls a tool by that name. A tool that the profile hides is never in `tools/list`, so client tool search cannot find it; `search_tools` can, and its `note` tells the person how to switch profile.
+
+## Other clients
+
+Codex, Cursor and other MCP clients: UNVERIFIED. Where a client has no deferral, use `MCP_REVIT_TOOL_PROFILE=core`.
+
 === FILE: docs/snapshot-compute.md ===
 
 # snapshot_compute: one-call model queries
@@ -3635,8 +3851,9 @@ Take a snapshot first with `snapshot_take` (scope it with `categories` on large 
 | Key | Meaning |
 |---|---|
 | `name` | Step name. Later steps read it as `$name`. Default `stepN`. |
-| `from` | `elements` (default), `types`, `relations` or `$<earlier step>`. |
+| `from` | `elements` (default), `types`, `relations`, `$<earlier step>` or `link:<snapshot_id>` (see Linked snapshots). |
 | `join` | List of `type`, `host`, `level`, `room`, `group`, `hosted`, `relation_out`, `relation_in`, or `{"rel": ..., "as": ..., "kind": ...}`. The related record is added under `as` (default the join name). `hosted` and the relation joins add a list of up to 50 elements. |
+| `spatial` | `{"with": "$<earlier step>", "test": ..., "distance": feet, "as": name}`. Adds the rows of that step whose bounding box passes the test (see Spatial joins). |
 | `where` | `{"field", "op", "value", "ci"}`, a list (all must match), or `{"all": [...]}`, `{"any": [...]}`, `{"not": {...}}`. Ops: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `nin`, `contains`, `startswith`, `endswith`, `exists`, `empty`. `value: {"field": "path"}` compares two fields of the same row. |
 | `group_by` | Path or list of paths. |
 | `aggregate` | `{"name": {"op", "field"}}` with `count`, `sum`, `avg`, `min`, `max`, `distinct`, `list`. Without `group_by` it returns one row. |
@@ -3644,7 +3861,9 @@ Take a snapshot first with `snapshot_take` (scope it with `categories` on large 
 | `select` | List of paths or `{"field", "as"}`. |
 | `limit` | Rows kept by the step. |
 
-Top level: `return` names the step to return (default the last); `max_rows` (1 to 1000, default 100) caps rows in the reply while `row_count` gives the total.
+A step runs its parts in this order: `from`, `join`, `spatial`, `where`, `group_by` and `aggregate`, `sort`, `select`, `limit`. So `where` can test join and spatial results, and rows are narrowed before a spatial join only in an earlier step.
+
+Top level: `steps` or `query` (one of them); `params` (with `query` only); `return` names the step to return (default the last, or the saved query's `return`); `max_rows` (1 to 1000, default 100) caps rows in the reply while `row_count` gives the total.
 
 Paths are dotted. A parameter yields its value: `params.Mark`, `host.params.Fire Rating`, `type.params.Width`, `location.xyz.2`, `bbox.max.0`.
 
@@ -3684,13 +3903,218 @@ Rooms with no number, largest first:
 }]}
 ```
 
+## Spatial joins
+
+`spatial` compares each row's `bbox` with the `bbox` of every row of an earlier step and adds the matches under `as` (default the earlier step's name), at most 50, plus `<as>_count` with the full number.
+
+| `test` | A row matches when |
+|---|---|
+| `overlaps` | the two boxes share any point (touching counts). |
+| `contains` | the row's box holds the other box. |
+| `within` | the row's box lies inside the other box. |
+| `within_distance` | the gap between the boxes is at most `distance` (0 to 1000). The gap is 0 when the boxes overlap. |
+
+- Distances are in the snapshot's `bbox` units. Revit's internal unit is feet; that the add-in writes `bbox` in feet is UNVERIFIED in a live Revit.
+- A row without a valid `bbox` (missing, not three numbers, or min above max) never matches. `select` drops `bbox`, so keep it in steps a later spatial join reads.
+- An element never matches itself (same `uid` and same `_snapshot_id`).
+- The number of comparisons is rows with a box times `with` rows with a box. Above 250,000 the step is refused; narrow both sides with `where` in earlier steps.
+- Bounding boxes are axis-aligned and larger than the element, so results are candidates, not exact clashes.
+
+Doors whose boxes touch more than one wall:
+
+```json
+{"snapshot_id": "01J...", "steps": [
+  {"name": "walls", "where": {"field": "category", "value": "OST_Walls"}},
+  {"name": "doors", "where": {"field": "category", "value": "OST_Doors"}},
+  {"from": "$doors", "spatial": {"with": "$walls", "test": "overlaps", "as": "walls"},
+   "where": {"field": "walls_count", "op": "gt", "value": 1},
+   "select": ["params.Mark", "walls_count", {"field": "walls.0.uid", "as": "first_wall"}]}
+]}
+```
+
+## Linked snapshots
+
+`from: "link:<snapshot_id>"` reads the elements of another saved snapshot in the same workspace, for example a snapshot taken in a linked model. Use it to compare a host and a link in one call.
+
+- Each row from a link carries `_snapshot_id`. Host rows do not.
+- Joins on link rows (`type`, `host`, `hosted`, relations) look up records in that link's snapshot.
+- At most 4 linked snapshots per call. Reading the same link in several steps counts once.
+- The id is checked like `snapshot_id`: a plain name of a file in `<workspace>/snapshots/`. A missing or invalid snapshot is refused with the step name.
+- The reply lists `linked_snapshots`. `partial_snapshot` is true when the host or any link is partial.
+- No link transform is applied. Spatial joins between host and link rows are only meaningful when both snapshots share coordinates (UNVERIFIED for snapshots taken from live linked models).
+
+Walls of the host that overlap walls of a link:
+
+```json
+{"snapshot_id": "01J...HOST", "steps": [
+  {"name": "link_walls", "from": "link:01J...LINK", "where": {"field": "category", "value": "OST_Walls"}},
+  {"name": "host_walls", "where": {"field": "category", "value": "OST_Walls"}},
+  {"from": "$host_walls", "spatial": {"with": "$link_walls", "test": "overlaps", "as": "clash"},
+   "where": {"field": "clash_count", "op": "gt", "value": 0}, "select": ["uid", "clash_count"]}
+]}
+```
+
+## Saved queries
+
+`query: "<name>"` runs the pipeline in `<workspace>/queries/<name>.json` instead of `steps`. Names use letters, digits, `_` and `-`, without `.json`; paths are refused. The file is at most 256,000 bytes. Write it with any file tool; there is no separate tool for it.
+
+The file is a list of steps, or an object:
+
+| Key | Meaning |
+|---|---|
+| `steps` | Required. Steps as above. |
+| `return` | Step to return. The call's `return` takes precedence. |
+| `params` | Default values for params. |
+| `description` | Text for people. |
+
+`{"$param": "name"}` anywhere in `steps` is replaced by the whole JSON value of that param from the call's `params`, or else from the file's `params`. Text is never templated: `"$param"` inside a string stays as it is, and a param value is not searched for more `$param`. The result is checked exactly like inline steps.
+
+Refused: a missing or unreadable file, invalid JSON, unknown top-level keys, a `$param` with no value, a call param the steps do not use, more than 20 params, and param names other than letters, digits and `_`.
+
+`<workspace>/queries/doors_by_mark.json`:
+
+```json
+{"description": "Doors whose Mark is in a list.",
+ "params": {"category": "OST_Doors"},
+ "steps": [{"where": [
+   {"field": "category", "value": {"$param": "category"}},
+   {"field": "params.Mark", "op": "in", "value": {"$param": "marks"}}
+ ], "select": ["uid", "params.Mark"]}]}
+```
+
+Call: `{"snapshot_id": "01J...", "query": "doors_by_mark", "params": {"marks": ["D-101", "D-102"]}}`.
+
+## Rule packs
+
+A QA/QC rule can be a pipeline: the rule field `pipeline` holds steps, and each row of the last step is an issue. See [rule-packs.md](rule-packs.md).
+
 ## Limits and safety
 
-- Read-only. It reads a snapshot file in the workspace and never calls Revit.
-- No expressions, code or regular expressions are evaluated. Unknown keys, ops, joins and aggregates are refused with a message that names the step.
-- At most 12 steps, 50 clauses per `all` or `any`, 6 nesting levels, 50 items per list aggregate or list join, 500 characters per text value.
+- Read-only. It reads snapshot and query files in the workspace and never calls Revit.
+- No expressions, code or regular expressions are evaluated. Unknown keys, ops, joins, spatial tests and aggregates are refused with a message that names the step.
+- At most 12 steps, 50 clauses per `all` or `any`, 6 nesting levels, 50 items per list aggregate, list join or spatial match list, 500 characters per text value, 4 linked snapshots, 250,000 spatial comparisons per step.
 - `partial_snapshot: true` means the snapshot hit its size limit and does not cover the whole model.
 - Element-to-room joins read `room_uids`, which the add-in extractor does not fill for every element (UNVERIFIED in a live Revit).
+
+=== FILE: packages/claude-plugin/skills/aec-model-bridge/SKILL.md ===
+
+---
+name: aec-model-bridge
+description: How to operate the AEC Model Bridge Revit MCP server with few calls and small results. Use at the start of any task that reads or changes a Revit model through AEC Model Bridge tools. Covers context and approval mode, tool profiles, finding tools, snapshot queries, compact output, plans and error kinds.
+---
+
+# Operate AEC Model Bridge efficiently
+
+AEC Model Bridge exposes a Revit model through MCP tools. Writes go through
+plans that a person approves. This skill keeps calls few and results small.
+For the review and approval steps in detail, also use the `revit-review` skill
+when it is installed.
+
+## 1. Read context once
+
+Call `revit_get_context` once at the start of a task. Read from `server`:
+
+- `server.dev_mode`: when true, the person enabled Dev mode for this session.
+  Write tools are called directly, with no plan. Stay inside the scope the
+  person gave and verify every change.
+- `server.approval_mode`: `look_only` allows reads only. `ask_first` needs a
+  plan that a person approves before any write. `auto` is a time-limited window
+  that a person opened in the panel.
+- `server.plans_required`, when present: when true, every write needs a plan,
+  whatever the other fields say.
+
+Do not call it again unless the person says Revit, the document or the mode
+changed. If it reports `mock: true`, the data is sample data. Say so in every
+report.
+
+## 2. Know the profile
+
+The server starts with one tool profile: `core` (smallest), `daily` or
+`full` (all tools). A tool that the profile hides is not listed and is refused
+with kind `tool_profile_blocked`. Only the person can change the profile and
+restart the server.
+
+Call `context_report` when you need the active profile, the listed tool count
+or the context cost of the tool list. It also gives tips to use less.
+
+## 3. Search before you guess
+
+Do not guess tool names. Call `search_tools` with a few words, for example
+`{"query": "door fire rating", "limit": 5, "include_schema": false}`. Each
+match says whether the current profile shows it and, if not, which profile
+does. Ask for schemas only for the tool you will call.
+
+## 4. One snapshot, then compute
+
+For any question about more than a few elements:
+
+1. Call `snapshot_take` once. Scope it with `categories` on large models.
+2. Answer with `snapshot_compute`: a pipeline of steps (join, where,
+   group_by, aggregate, sort, select, limit) that returns only the result.
+3. Reuse the same `snapshot_id` for follow-up questions. Take a new snapshot
+   only after the model changed.
+
+Use `snapshot_diff` to compare two snapshots. Do not read elements one at a
+time with `revit_get_element_parameters` in a loop. The pipeline syntax is in
+`docs/snapshot-compute.md`.
+
+## 5. Ask for less
+
+- On list reads such as `revit_list_elements`, pass `limit`, `offset` or
+  `count_only`.
+- Where the schema offers `response_options`, pass `fields` to keep only the
+  paths you need. Read results are compact by default.
+- In `snapshot_compute`, end with `select` and `limit`, and set `max_rows`.
+- A result marked `truncated: true` was trimmed. Narrow the call; do not
+  repeat it unchanged.
+
+## 6. One plan per change set
+
+When writes need a plan:
+
+1. Collect every change for one purpose, then call `plan_actions` once with all
+   actions. Do not make one plan per element.
+2. Show the person the preview: elements, old values, new values, and the
+   blast radius.
+3. Stop. Ask the person to approve the plan in the AEC Bridge panel or with
+   the `aec-model-bridge-approve` command. Never approve, reject or roll back a
+   plan yourself. Those tools are not available to clients, and a call returns
+   kind `human_only`.
+4. After the person approves, call `execute_plan`. Use `list_pending_plans` to
+   check plan state.
+5. Confirm the change from the result, or read the values back. Never say a
+   change was made until a result confirms it.
+
+## 7. Read the error kind
+
+A failed call returns `isError: true` and `structuredContent.error.kind`. A
+module tool returns `ok: false` with `kind`, `message` and `hint`. Look the
+kind up in `docs/error-catalogue.md`, which says when it happens and what to do.
+The common ones:
+
+- `approval_blocked`: no matching approved plan. Make a plan with
+  `plan_actions` and ask the person to approve it. Do not retry unchanged.
+- `tool_profile_blocked`: the profile hides the tool. Use a listed tool, or ask
+  the person to switch the profile.
+- `unknown_tool`: wrong name. Call `search_tools`.
+- `bridge_error`: Revit is not reachable or the command failed. Call
+  `revit_health` and tell the person.
+- `human_only`: stop and ask the person.
+
+## Install in other clients
+
+The skill folder follows the Agent Skills format (a folder with `SKILL.md`).
+Copy the `aec-model-bridge` folder:
+
+- Claude Code: install the plugin with `/plugin marketplace add Sam-AEC/aec-model-bridge`
+  and `/plugin install aec-model-bridge@aec-model-bridge`. The skill loads from
+  the plugin. Or copy the folder to `.claude/skills/` in a project.
+- Codex: copy the folder to `.agents/skills/` in the repository or to
+  `~/.agents/skills/` for every repository. Older Codex docs name
+  `.codex/skills/`. UNVERIFIED: check with `/skills` in Codex.
+- Cursor: copy the folder to `.cursor/skills/` in the project. Cursor
+  documents that it also reads `.claude/skills/` and `.codex/skills/`.
+  UNVERIFIED in a live Cursor session.
 
 === FILE: docs/dev-workflow.md ===
 
