@@ -1,35 +1,40 @@
 name: Bug report
-description: Something does not work as documented.
-title: "[Bug]: "
-labels: ["bug"]
+description: A tool, the add-in, the panel or the installer does not behave as documented.
+title: "<component>: <what fails> when <condition>"
+labels: ["type: bug", "status: triage"]
 body:
   - type: markdown
     attributes:
       value: |
         Thanks for the report. For security problems, do not open an issue. Use the private reporting steps in [SECURITY.md](https://github.com/Sam-AEC/aec-model-bridge/blob/main/.github/SECURITY.md).
+        One problem per issue. Search [open and closed issues](https://github.com/Sam-AEC/aec-model-bridge/issues?q=is%3Aissue) first.
+        Security problems go through [private reporting](https://github.com/Sam-AEC/aec-model-bridge/security/advisories/new), not a public issue.
+        Write the title as `<component>: <what fails> when <condition>`, for example `panel: Approve Selected skips expired plans without a message`.
   - type: textarea
-    id: what-happened
+    id: summary
     attributes:
       label: What happened
-      description: What you did, what you expected, and what you got instead.
+      description: What you did, what you expected, and what you got instead. Quote error text exactly.
     validations:
       required: true
   - type: textarea
     id: steps
     attributes:
       label: Steps to reproduce
+      description: The smallest sequence that shows the problem. Name the tool calls and their arguments. Say whether it also happens in mock mode.
       placeholder: |
-        1. Open a model in Revit 2026
-        2. Ask the assistant to ...
-        3. See the error
+        1. Start the server with MCP_REVIT_MODE=bridge and open a workshared model in Revit 2026
+        2. Ask the client to call `revit_extract_snapshot`
+        3. Call `sheet_view_audit_run_audit` with the snapshot id
+        4. The result says 0 views
     validations:
       required: true
   - type: input
     id: version
     attributes:
       label: AEC Model Bridge version
-      description: From the release name, or `python -m pip show aec-model-bridge`.
-      placeholder: "1.3.2"
+      description: From the release or installer name, `aec-model-bridge doctor`, or `python -m pip show aec-model-bridge`. For a source build, give the commit.
+      placeholder: "1.5.1"
     validations:
       required: true
   - type: dropdown
@@ -37,30 +42,95 @@ body:
     attributes:
       label: Host application
       options:
-        - Revit 2024
-        - Revit 2025
-        - Revit 2026
-        - Revit 2027
+        - Revit 2024 (net48)
+        - Revit 2025 (net8)
+        - Revit 2026 (net8)
+        - Revit 2027 (net10)
+        - No host (mock mode)
+        - IFC files only
         - Rhino / Grasshopper
         - Navisworks
-        - IFC files only (no host)
-        - Other
+        - Other (say which in the description)
     validations:
       required: true
   - type: input
+    id: addin-version
+    attributes:
+      label: Add-in version
+      description: The add-in version shown by `aec-model-bridge doctor`, or the installer version. Write `n/a` in mock mode.
+      placeholder: "1.5.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Server mode
+      description: The value of `MCP_REVIT_MODE`.
+      options:
+        - bridge (live Revit)
+        - mock
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: approval-mode
+    attributes:
+      label: Approval mode
+      description: As shown in the panel Settings.
+      options:
+        - Ask first (default)
+        - Auto (timed)
+        - Dev
+        - Look only
+        - Not sure
+        - Not relevant
+    validations:
+      required: true
+  - type: dropdown
     id: client
     attributes:
       label: MCP client
-      description: The client you connect with, and its version.
-      placeholder: Claude Desktop 1.x, VS Code, Codex, ...
+      options:
+        - Claude Desktop
+        - Claude Code
+        - VS Code (GitHub Copilot agent mode)
+        - Cursor
+        - Codex
+        - Panel chat
+        - Other (say which and the version below)
+    validations:
+      required: true
   - type: input
-    id: os-python
+    id: client-version
+    attributes:
+      label: Client version and tool profile
+      description: Client version, and `MCP_REVIT_TOOL_PROFILE` if set (`full`, `daily`, `core`, `custom`).
+      placeholder: "Claude Desktop 1.4, profile core"
+  - type: input
+    id: environment
     attributes:
       label: Windows and Python version
-      placeholder: Windows 11, Python 3.11
+      placeholder: "Windows 11 24H2, Python 3.11 (bundled)"
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `aec-model-bridge doctor`
+      description: Optional. The command never prints the session token.
+      render: text
   - type: textarea
     id: logs
     attributes:
-      label: Logs or error output
-      description: Remove file paths, project names and anything confidential first.
+      label: Logs
+      description: |
+        Relevant lines from `%APPDATA%\AECModelBridge\Logs\bridge.jsonl` (add-in) and `panel-hub.log` (hub), or the server stderr.
+        Remove project names, file paths, user names and anything confidential. Never paste the session token.
       render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: I removed confidential project data, paths and tokens from this report.
+          required: true

@@ -1,38 +1,84 @@
 name: Feature request
-description: Suggest a new tool, workflow or improvement.
-title: "[Feature]: "
-labels: ["enhancement"]
+description: Describe a task you cannot do today. Start with the problem, not the solution.
+title: "<area>: <capability in plain words>"
+labels: ["type: feature", "status: triage"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Write the title as `<area>: <capability>`, for example `qa: check door fire rating against the host wall rating`.
+        Model writes always go through a plan that a person approves. A request that needs a write path around that gate will be declined.
   - type: textarea
     id: problem
     attributes:
-      label: What are you trying to do
-      description: Describe the task or problem, not the solution.
+      label: Problem
+      description: Who is blocked, doing which task, and what it costs them today. No solution yet.
+      placeholder: A BIM coordinator checking a 300-door model has to compare door and wall fire ratings by hand in a schedule.
     validations:
       required: true
   - type: textarea
+    id: workaround
+    attributes:
+      label: Current workaround
+      description: What you do today, with which tools, and why it is not enough.
+  - type: textarea
     id: proposal
     attributes:
-      label: What you would like
-      description: The tool, option or behaviour you have in mind, if any.
+      label: Proposed behaviour
+      description: The tool, argument, setting or output you have in mind. Name existing tools it would extend.
   - type: textarea
-    id: alternatives
+    id: acceptance
     attributes:
-      label: What you do today
-      description: Workarounds or other tools you have tried.
+      label: How we know it is done
+      description: Observable results, one per line. Each should be checkable by a test or a single live run.
+      placeholder: |
+        - [ ] On the canonical fixture, the rule reports the 2 doors whose rating is lower than the wall.
+        - [ ] A door in a wall without a rating is reported as "not rated", not as a pass.
   - type: dropdown
     id: area
     attributes:
       label: Area
       options:
-        - Revit tools
-        - Rhino / Grasshopper
-        - Navisworks
-        - IFC / Speckle
-        - Approval flow and security
-        - Install and documentation
+        - approval (plans, approval gate, proof)
+        - qa (rule packs and model checks)
+        - snapshot (snapshot content and schema)
+        - interop (IFC, BCF, Excel, CSV, Power BI, clash reports)
+        - mcp (protocol features, transports, schemas)
+        - panel (approval panel UI)
+        - addin (Revit add-in)
+        - install (installer, launchers, doctor)
+        - security (paths, sandbox, redaction, audit)
+        - modules (plug-in module system)
         - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: write
+    attributes:
+      label: Does this change the model?
+      options:
+        - No, read-only
+        - Yes, through a plan that a person approves
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: live
+    attributes:
+      label: Can it be tested without Revit?
+      description: Mock mode (`MCP_REVIT_MODE=mock`) covers the Python server. Add-in changes need Windows and Revit.
+      options:
+        - Yes, in mock mode
+        - Partly; a live Revit check is also needed
+        - No, needs live Revit
+        - Not sure
+  - type: textarea
+    id: prior-art
+    attributes:
+      label: Prior art
+      description: Other tools or projects that do this, with links.
   - type: markdown
     attributes:
       value: |
         If you plan to send a code pull request, please read [CONTRIBUTING.md](https://github.com/Sam-AEC/aec-model-bridge/blob/main/.github/CONTRIBUTING.md) first. Code contributions need a signed contributor agreement.
+        Planning to send a pull request? Read [CONTRIBUTING.md](https://github.com/Sam-AEC/aec-model-bridge/blob/main/CONTRIBUTING.md) first and comment on the issue before you start.
