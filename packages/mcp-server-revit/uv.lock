@@ -42,6 +42,7 @@ dev = [
     { name = "ruff" },
 ]
 ids = [
+    { name = "ifcopenshell" },
     { name = "ifctester" },
 ]
 
@@ -53,6 +54,7 @@ requires-dist = [
     { name = "graphql-core", specifier = ">=3.2.12" },
     { name = "httpx", specifier = ">=0.24" },
     { name = "ifcopenshell", specifier = ">=0.7.0" },
+    { name = "ifcopenshell", marker = "extra == 'ids'", specifier = ">=0.8,<0.9" },
     { name = "ifctester", marker = "extra == 'ids'", specifier = ">=0.8,<0.9" },
     { name = "mcp", specifier = ">=1.30.0,<2" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.8" },
