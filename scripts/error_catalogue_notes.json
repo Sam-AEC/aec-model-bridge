@@ -19,6 +19,10 @@
     "when": "Revit ran the command and it failed. Only this error marks an in-flight approved action as failed.",
     "do": "Read the attached result. Plan a corrected action; the old approval is used up."
   },
+  "class/CursorError": {
+    "when": "A read cursor is malformed, unknown, expired, past the end or belongs to another call. Returned to clients as kind invalid_cursor.",
+    "do": "Call the tool again without a cursor, or repeat the first call's tool, arguments and fields exactly with the cursor."
+  },
   "class/DomainMismatch": {
     "when": "A system belongs to a different domain than the tool's kind.",
     "do": "Pick a system of the tool's kind, for example pipe systems for pipes."
@@ -530,6 +534,10 @@
   "mcp/human_only": {
     "when": "An AI client called approve_plan, reject_plan or rollback_plan.",
     "do": "Stop. Ask the person to approve, reject or roll back the plan in the Revit panel or with the aec-model-bridge-approve command."
+  },
+  "mcp/invalid_cursor": {
+    "when": "response_options.cursor was refused: it expired (default 600 seconds), the server restarted, it came from another call, or the tool takes no cursor.",
+    "do": "Call the tool again without a cursor and page from the new answer."
   },
   "mcp/invalid_response_options": {
     "when": "The response_options argument is not an object, names an unsupported key, or has a value of the wrong type.",

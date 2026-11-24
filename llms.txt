@@ -38,6 +38,7 @@
 - [Performance](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/performance.md): server cold start, bridge client compression and routing, `revit_perf_report`.
 - [Deferred tool loading](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/deferred-tool-loading.md): Claude Code and Claude API config that defers the server behind tool search and keeps eight tools loaded.
 - [snapshot_compute](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/snapshot-compute.md): one-call read-only query pipelines over a saved snapshot.
+- [Read result cursors](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/read-cursors.md): size cap, cursors and saved results for large read answers.
 - [Operator skill](https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/claude-plugin/skills/aec-model-bridge/SKILL.md): Agent Skills file that teaches clients to use few calls and small results.
 - [Dev workflow](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/dev-workflow.md): build, test and release commands.
 - [Agent instructions](https://github.com/Sam-AEC/aec-model-bridge/blob/main/AGENTS.md): repository layout, commands and rules for coding agents.

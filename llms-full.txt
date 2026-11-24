@@ -26,6 +26,7 @@ Files in this document:
 - docs/performance.md
 - docs/deferred-tool-loading.md
 - docs/snapshot-compute.md
+- docs/read-cursors.md
 - packages/claude-plugin/skills/aec-model-bridge/SKILL.md
 - docs/dev-workflow.md
 - docs/release-checklist.md
@@ -81,6 +82,7 @@ Not copied (read them from the repository):
 - [Performance](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/performance.md): server cold start, bridge client compression and routing, `revit_perf_report`.
 - [Deferred tool loading](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/deferred-tool-loading.md): Claude Code and Claude API config that defers the server behind tool search and keeps eight tools loaded.
 - [snapshot_compute](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/snapshot-compute.md): one-call read-only query pipelines over a saved snapshot.
+- [Read result cursors](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/read-cursors.md): size cap, cursors and saved results for large read answers.
 - [Operator skill](https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/claude-plugin/skills/aec-model-bridge/SKILL.md): Agent Skills file that teaches clients to use few calls and small results.
 - [Dev workflow](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/dev-workflow.md): build, test and release commands.
 - [Agent instructions](https://github.com/Sam-AEC/aec-model-bridge/blob/main/AGENTS.md): repository layout, commands and rules for coding agents.
@@ -1300,6 +1302,8 @@ The server has two modes. Set the mode with `MCP_REVIT_MODE`.
 | `MCP_REVIT_AUDIT_LOG` | No | `audit.log` | Path of the audit log. A relative path resolves against the working directory of the server process. See [Logging and audit](logging-and-audit.md). |
 | `MCP_REVIT_LOG_LEVEL` | No | `INFO` | Log level of the server. |
 | `MCP_REVIT_REDACT_RESPONSES` | No | `off` | Masks personal data in tool responses and tool errors. `off` changes nothing extra. `basic` masks email addresses and the local OS user name. `strict` also masks person fields such as `author`, `owner`, `created_by` and `user`. Any other value fails closed to `strict`. Paths and secrets are always masked, at every level. Read on each call. It does not change what Revit or the audit log hold. |
+| `MCP_REVIT_READ_MAX_CHARS` | No | `20000` | Size cap in characters for read-only tool results; `0` turns it off. Longer results are cut at list rows and carry a cursor. `response_options.max_chars` overrides it per call. A value that is not an integer is ignored. Read on each call. See [Read result cursors](read-cursors.md). |
+| `MCP_REVIT_READ_CURSOR_TTL` | No | `600` | Seconds a read cursor stays valid, from 1 to 3600. Read when a cursor is stored or checked. |
 | `MCP_REVIT_APPROVAL_MODE` | No | `ask_first` | One of `look_only`, `ask_first` (alias `required`) or `auto`; trimmed and case-insensitive. `look_only` refuses every tool that changes the model and lets reads through. `ask_first` needs a `plan_id` for an approved plan before a model change runs. `auto` turns the approval check off. Any other value fails closed to `ask_first` and logs a warning. The mode cannot be changed over MCP. Live-Revit behaviour is UNVERIFIED. See [Security](security.md). Leave it at `ask_first` unless you have a reason. |
 | `MCP_REVIT_TOOL_PROFILE` | No | `full` | Which tools the MCP server lists: `full` (all, about 80k tokens), `daily` (hides Rhino, Speckle, Navisworks, IFC, MEP and a few more, about 62k), `core` (54 tools for the coordinator loop, about 14k) or `custom` (needs the file below). Tools outside the profile are not listed and calls to them are refused. Read once at startup; restart the MCP server to change it. Approval tools are always visible. See [MCP token budget](mcp-token-budget.md). |
 | `MCP_REVIT_TOOL_PROFILE_FILE` | No | unset | JSON file with `include` / `exclude` provider or module ID globs. Required for `custom`; narrows `full`, `daily` or `core`. |
@@ -1657,11 +1661,11 @@ A tool failure reaches an MCP client in one of two shapes:
 Refusals never change the model. A refused write needs a new plan that a person approves.
 For logs and connection problems see [troubleshooting](troubleshooting.md).
 
-Entries: 136.
+Entries: 138.
 
 ## Tool error kinds
 
-Set by the MCP layer as `structuredContent.error.kind` when a call fails with `isError`. Entries: 7.
+Set by the MCP layer as `structuredContent.error.kind` when a call fails with `isError`. Entries: 8.
 
 ### `approval_blocked`
 
@@ -1685,6 +1689,12 @@ Set by the MCP layer as `structuredContent.error.kind` when a call fails with `i
 
 - When: An AI client called approve_plan, reject_plan or rollback_plan.
 - What to do: Stop. Ask the person to approve, reject or roll back the plan in the Revit panel or with the aec-model-bridge-approve command.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
+
+### `invalid_cursor`
+
+- When: response_options.cursor was refused: it expired (default 600 seconds), the server restarted, it came from another call, or the tool takes no cursor.
+- What to do: Call the tool again without a cursor and page from the new answer.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
 
 ### `invalid_response_options`
@@ -2383,7 +2393,7 @@ Set by module tools as `kind` in an `ok: false` result, next to `message`, `elem
 
 ## Exception classes
 
-Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 17.
+Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 18.
 
 ### `ApprovalExpired`
 
@@ -2414,6 +2424,12 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 - When: Revit ran the command and it failed. Only this error marks an in-flight approved action as failed.
 - What to do: Read the attached result. Plan a corrected action; the old approval is used up.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/errors.py`
+
+### `CursorError`
+
+- When: A read cursor is malformed, unknown, expired, past the end or belongs to another call. Returned to clients as kind invalid_cursor.
+- What to do: Call the tool again without a cursor, or repeat the first call's tool, arguments and fields exactly with the cursor.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/read_cursor.py`
 
 ### `DomainMismatch`
 
@@ -4044,6 +4060,71 @@ A QA/QC rule can be a pipeline: the rule field `pipeline` holds steps, and each 
 - At most 12 steps, 50 clauses per `all` or `any`, 6 nesting levels, 50 items per list aggregate, list join or spatial match list, 500 characters per text value, 4 linked snapshots, 250,000 spatial comparisons per step.
 - `partial_snapshot: true` means the snapshot hit its size limit and does not cover the whole model.
 - Element-to-room joins read `room_uids`, which the add-in extractor does not fill for every element (UNVERIFIED in a live Revit).
+
+=== FILE: docs/read-cursors.md ===
+
+# Read result cursors
+
+A read-only tool result longer than the size cap is cut at list rows. The answer says how much was left out and how to get the rest. Write tools, plans, proofs, approvals, jobs and errors are never cut.
+
+## The cap
+
+- Default: 20,000 characters of result JSON (`DEFAULT_MAX_CHARS`).
+- Server-wide: `MCP_REVIT_READ_MAX_CHARS` (characters, `0` = off). Read on each call.
+- Per call: `response_options.max_chars` (`0` = off). It overrides the server value.
+- The largest list in the result is cut first, at a row boundary. The answer stays valid JSON.
+
+## A cut answer
+
+| Field | Meaning |
+| --- | --- |
+| `truncated` | `true` when rows were left out. |
+| `total` | Rows in the full list. |
+| `returned` | Rows in this answer. |
+| `truncated_field` | Dotted path of the list that was cut, for example `elements` or `data.rows`. |
+| `also_trimmed` | Other lists that were cut, with their counts. Only the first list pages. |
+| `cursor` | Opaque string for the next part. |
+| `next` | One line on how to use `cursor` or `resource_uri`. |
+| `resource_uri` | Present instead of `cursor` when the list was too large to keep in memory. |
+
+When the result already has a key with one of these names, the markers move under `truncation`.
+
+## Next part
+
+Repeat the same tool with the same arguments and `fields`, and add the cursor:
+
+```json
+{"category": "Walls", "response_options": {"cursor": "rc...-120"}}
+```
+
+- The server returns the next rows from memory. The tool is not run again, so Revit is not asked twice.
+- The part holds the cut list only, at its path, with `truncated`, `total`, `offset`, `returned` and, when rows remain, a new `cursor`.
+- `max_chars` and `compact` may change between parts. Each part holds at least one row.
+- A cursor can be repeated until it expires.
+
+## Refusals
+
+A cursor is refused with kind `invalid_cursor` and a plain message when:
+
+- it expired. Cursors last `MCP_REVIT_READ_CURSOR_TTL` seconds (default 600, at most 3600);
+- the server restarted. Cursors live only in the server process;
+- the tool, arguments or `fields` differ from the call that issued it;
+- it is malformed or points past the end.
+
+Call the tool again without a cursor to start over.
+
+## Storage limits
+
+- At most 32 cursors, and about 16 million characters in total. The oldest go first.
+- A cut list longer than 2 million characters is not kept in memory. The full redacted result is saved to `<workspace>/results/<id>.json` and the answer carries `resource_uri` (`aec://result/<id>`) plus an MCP resource link. Read it with `resources/read`.
+- Only the newest 20 saved results are kept. Ids are checked with `safe_child`, so a link resolves only inside the workspace `results` folder.
+- Saved and stored results are the redacted answer, never the raw provider output.
+
+## Where it applies
+
+Every read-only tool, including `revit_list_elements`, `revit_list_views`, `revit_list_families`, `revit_get_element_parameters`, `module_list_commands` and `snapshot_compute`. The five tools in `READERS` advertise `cursor` in their `response_options` schema; other read-only tools accept it without listing it. The list tools that take `limit` and `offset` still page in the provider; cursors page what the size cap cut.
+
+Behaviour against a live Revit is UNVERIFIED; tests use mock and stub providers.
 
 === FILE: packages/claude-plugin/skills/aec-model-bridge/SKILL.md ===
 

@@ -12,11 +12,11 @@ A tool failure reaches an MCP client in one of two shapes:
 Refusals never change the model. A refused write needs a new plan that a person approves.
 For logs and connection problems see [troubleshooting](troubleshooting.md).
 
-Entries: 136.
+Entries: 138.
 
 ## Tool error kinds
 
-Set by the MCP layer as `structuredContent.error.kind` when a call fails with `isError`. Entries: 7.
+Set by the MCP layer as `structuredContent.error.kind` when a call fails with `isError`. Entries: 8.
 
 ### `approval_blocked`
 
@@ -40,6 +40,12 @@ Set by the MCP layer as `structuredContent.error.kind` when a call fails with `i
 
 - When: An AI client called approve_plan, reject_plan or rollback_plan.
 - What to do: Stop. Ask the person to approve, reject or roll back the plan in the Revit panel or with the aec-model-bridge-approve command.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
+
+### `invalid_cursor`
+
+- When: response_options.cursor was refused: it expired (default 600 seconds), the server restarted, it came from another call, or the tool takes no cursor.
+- What to do: Call the tool again without a cursor and page from the new answer.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
 
 ### `invalid_response_options`
@@ -738,7 +744,7 @@ Set by module tools as `kind` in an `ok: false` result, next to `message`, `elem
 
 ## Exception classes
 
-Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 17.
+Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 18.
 
 ### `ApprovalExpired`
 
@@ -769,6 +775,12 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 - When: Revit ran the command and it failed. Only this error marks an in-flight approved action as failed.
 - What to do: Read the attached result. Plan a corrected action; the old approval is used up.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/errors.py`
+
+### `CursorError`
+
+- When: A read cursor is malformed, unknown, expired, past the end or belongs to another call. Returned to clients as kind invalid_cursor.
+- What to do: Call the tool again without a cursor, or repeat the first call's tool, arguments and fields exactly with the cursor.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/read_cursor.py`
 
 ### `DomainMismatch`
 
