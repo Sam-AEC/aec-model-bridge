@@ -24,7 +24,7 @@ def panel(tmp_path, monkeypatch):
     monkeypatch.setattr(panel_server.config, "mode", BridgeMode.mock)
     monkeypatch.setenv("MCP_PANEL_TOKEN_FILE", str(tmp_path / "panel.token"))
     server = panel_server.build_server(port=0, workspace=WorkspaceMonitor([tmp_path]))
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
     thread.start()
     try:
         yield server
