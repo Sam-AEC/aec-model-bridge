@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Module permissions (#157): one canonical list in `security/module_permissions.py` (`model.read`, `model.write`, `model.delete`, `params.write`, `files.write`, `net.local`, `net.cloud`, `python.host`); the authoring guide lists exactly those. Four built-in manifests that used `workspace.write` now say `files.write`. Unknown names log a warning at load (a load error in a later release). Handlers get `workspace.assert_writable(path)`, which refuses when `files.write` is not granted (`MCP_REVIT_MODULE_PERMISSION_MODE=warn` only logs; default `enforce`). The guide also documents that module siblings must be loaded by file path.
 - New `core` tool profile (`MCP_REVIT_TOOL_PROFILE=core`): 54 tools (49 for the BIM-coordinator loop plus the five approval tools), about 14k catalogue tokens against about 80k for `full` and 62k for `daily`. Tools outside it are not listed and are refused with a message that says to switch to `daily` or `full` and restart. `full` and `daily` are unchanged.
 - The server instructions end with a three-line tool-family map (prefixes, and how to reach hidden families by switching profile), about 110 tokens. The approval and Dev mode wording is unchanged.
 - New read-only tool `qa_handover_build_report` (roadmap priority 4): a short hand-over report of QA findings per rule, before/after re-check counts, approved parameter changes from plan proof bundles and an explicit not-verified list, written as JSON and Markdown under `reports/` in the workspace. See `docs/qa-handover-report.md`. UNVERIFIED in a live Revit session.
