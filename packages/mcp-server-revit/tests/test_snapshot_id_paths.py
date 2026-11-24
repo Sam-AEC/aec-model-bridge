@@ -26,6 +26,7 @@ from revit_mcp_server.modules.schedule_consistency import module as schedule_con
 from revit_mcp_server.modules.selection_tools import module as selection_tools
 from revit_mcp_server.modules.sheet_view_audit import module as sheet_view_audit
 from revit_mcp_server.modules.warnings_triage import module as warnings_triage
+from revit_mcp_server.providers.semantic_provider import SemanticProvider
 from revit_mcp_server.semantic import engine
 
 PLAIN = "plain snapshot name"
@@ -186,14 +187,26 @@ def test_real_snapshot_id_still_loads_everywhere(ws):
         familytype_mapper._load_snapshot("missing", ws)
 
 
-RAW_JOIN = re.compile(r"""f["']\{snapshot_id\}\.json["']""")
+@pytest.mark.parametrize("raw", BAD_IDS)
+def test_semantic_provider_load_snapshot_refuses_a_hostile_snapshot_id(ws, opened, raw):
+    provider = SemanticProvider(ws)
+    with pytest.raises(ValueError, match=PLAIN):
+        provider._load_snapshot(_bad(ws, raw))
+    _assert_nothing_outside(ws, opened)
 
 
-def test_no_raw_snapshot_id_json_join_under_modules_or_semantic():
+def test_semantic_provider_loads_a_real_snapshot(ws):
+    assert SemanticProvider(ws)._load_snapshot("snap1") is not None
+
+
+RAW_JOIN = re.compile(r"""f["']\{[A-Za-z_.]*snapshot_id\}\.json["']""")
+
+
+def test_no_raw_snapshot_id_json_join_anywhere_in_src():
     offenders = []
-    for folder in ("modules", "semantic"):
-        for path in (SRC / folder).rglob("*.py"):
-            for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-                if RAW_JOIN.search(line):
-                    offenders.append(f"{path.relative_to(SRC)}:{n}")
+    for path in SRC.rglob("*.py"):
+        for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            code = line.split("#", 1)[0]
+            if RAW_JOIN.search(code) and "``" not in code:  # docstrings/comments may name the pattern
+                offenders.append(f"{path.relative_to(SRC)}:{n}")
     assert not offenders, "use security.safe_paths.snapshot_file instead: " + ", ".join(offenders)
