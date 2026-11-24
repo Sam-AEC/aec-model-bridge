@@ -661,6 +661,10 @@ NOT_READ_ONLY: dict[str, tuple[bool, bool]] = {
     "job_cancel": (True, True),
     "revit_job_cancel": (True, True),
     "rhino_generate_diagrid_tower": (False, False),
+    # Write files under the workspace only (no model change, so no approval plan); saving over an
+    # existing recipe or spec file replaces it.
+    "revit_recipe_save": (False, True),
+    "revit_sparing_export_spec": (False, True),
 }
 
 # Mutating tools that only add things (or only change UI/plan state): they cannot
