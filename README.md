@@ -339,6 +339,8 @@ automation needs both.
 
 ### 1. Install the MCP server
 
+To run the server without a clone, use `uvx` as in [Manual setup](#quick-start) or the [install guide](docs/install.md#run-the-server-with-uvx). The short `uvx aec-model-bridge` form needs a PyPI release, which has not happened yet. To work on the source:
+
 ```powershell
 git clone https://github.com/Sam-AEC/aec-model-bridge.git
 cd aec-model-bridge

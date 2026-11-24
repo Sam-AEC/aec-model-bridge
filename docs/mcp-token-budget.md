@@ -84,7 +84,7 @@ What core keeps, and why (50 tools plus the approval tools):
 
 Left out on purpose: single-purpose creators (walls, sheets, views, MEP, sparing), exports, recipes, family editing, revisions, Rhino, Speckle, Navisworks, IFC and rule-pack admin. Reach them with `daily` or `full`. A user custom profile file can still narrow `core` but cannot hide approval tools.
 
-Reproduce: `python scripts/measure_mcp_tokens.py --profile core --output docs/mcp-token-measurement-after-core.json`. Evidence: [after core](mcp-token-measurement-after-core.json).
+Reproduce: `python scripts/measure_mcp_tokens.py --profile core --output docs/mcp-token-measurement-after-core.json`. The command writes the evidence file. Measurement files are not kept in the repository.
 
 ## Follow-up: deferred loading and the always-loaded set
 
@@ -138,8 +138,7 @@ stored plan; its hash identifies that full plan. Distinct after-state data,
 errors and running-result diagnostics remain visible. This option does not
 enable arbitrary plan field selection.
 
-Before: [script fixture](mcp-token-measurement-plan-script-before.json).
-After: [same fixture with argument omission](mcp-token-measurement-plan-script-after.json).
+Evidence: `mcp-token-measurement-plan-script-before.json` (script fixture) and `mcp-token-measurement-plan-script-after.json` (same fixture with argument omission). The commands under Reproduce write them; they are not kept in the repository.
 
 ## Baseline by provider
 
@@ -249,6 +248,6 @@ Python files pass Ruff. Independent review found no remaining concrete defects.
 & python scripts/measure_mcp_tokens.py --profile daily --compact-read-results --plan-script-chars 16384 --omit-plan-arguments --output docs/mcp-token-measurement-plan-script-after.json
 ```
 
-To reproduce the original baseline, run the initial measurement script against the original source commit. Do not overwrite the preserved before artifact. Optional `--profile-file` accepts a custom include/exclude file. Each run records its Git HEAD and settings; after snapshots were captured on the working tree during implementation.
+To reproduce the original baseline, run the initial measurement script against the original source commit. Optional `--profile-file` accepts a custom include/exclude file. Each run records its Git HEAD and settings; after snapshots were captured on the working tree during implementation.
 
-Evidence: [before](mcp-token-measurement-before.json), [after full](mcp-token-measurement-after-full.json), [after compact](mcp-token-measurement-after-compact.json), [after daily](mcp-token-measurement-after-daily.json).
+Evidence: the JSON files the commands above write (before, after full, after compact, after daily). They are not kept in the repository; earlier copies are in the commit history.

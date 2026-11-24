@@ -245,7 +245,7 @@ DESCRIPTIONS: dict[str, str] = {
     "plan_actions": (
         "Create a draft ActionPlan describing the model changes you want to make, capturing the before-state of each. "
         "Nothing is changed in the model; the plan must be approved before any write tool will run. "
-        "If revit_get_context shows server.dev_mode true, skip this and call the write tool directly with no plan_id."
+        "Use it only when revit_get_context shows server.plans_required true; otherwise call the write tool directly with no plan_id."
     ),
     "list_pending_plans": "List all ActionPlans that are waiting for review. Read-only.",
     "approve_plan": "Approve a pending ActionPlan so that its actions may be executed. This is the human approval step.",

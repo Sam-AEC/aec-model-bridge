@@ -404,8 +404,9 @@ def test_server_instructions_carry_the_family_map_and_unchanged_approval_text():
         "You cannot approve, reject or roll back a plan, and must not try to work around that. ",
         "Only after the person tells you the plan is approved, call execute_plan (or pass the plan_id to the write tool "
         "with exactly the arguments that were approved; an approved action runs once). ",
-        "Dev mode: if revit_get_context shows server.dev_mode true, call write tools directly, "
-        "with no plan_actions and no plan_id; otherwise the plan steps above apply.",
+        "Before the first change in a task, call revit_get_context once and read server.plans_required: "
+        "false (Dev mode or Auto) means call write tools directly, with no plan_actions and no plan_id; "
+        "true means the plan steps above apply.",
     ):
         assert phrase in text
     assert len(text) < 2400
