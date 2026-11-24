@@ -104,7 +104,7 @@ def compute_components(data: Dict[str, Any], rule_pack: str = "", workspace: Any
     if rule_pack:
         failed: List[Any] = []
         groups = rg._review_findings(elements, types, (data.get("source") or {}).get("doc_guid") or data["snapshot_id"],
-                                     rule_pack, workspace, failed)
+                                     rule_pack, workspace, failed, data.get("relations"))
         if failed:
             skip("qa_findings", "Rules could not run, so the result is unknown: " + ", ".join(map(str, failed)))
         elif not elements:
