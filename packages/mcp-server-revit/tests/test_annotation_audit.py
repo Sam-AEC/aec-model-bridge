@@ -25,6 +25,7 @@ WRITE_WORDS = {
 }
 REVIEWED_READ_ONLY = {
     "sheet_view_audit_run_audit",          # audits a saved snapshot
+    "sheet_set_qa_check",                  # "set" is "sheet set"; checks a saved snapshot
     "model_inspector_run_saved_query",     # reads a saved query and runs it on a snapshot
     "recipe_runner_get_run_status",        # status read
     "parameter_manager_plan_set_params",   # computes a plan proposal; the write goes through plan_actions

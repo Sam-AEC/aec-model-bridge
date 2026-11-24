@@ -1,0 +1,34 @@
+{
+  "id": "sheet_set_qa",
+  "name": "Sheet Set QA",
+  "version": "1.0.0",
+  "schema_version": 1,
+  "min_hub_version": "1.2.0",
+  "description": "Read-only pre-issue checks on the sheets in a saved snapshot: duplicate or non-sequential sheet numbers within a prefix, missing title block fields, sheets with no placed views, and sheet numbers or names that break a pattern. Checks the snapshot cannot support are reported as not run. Optional CSV in the workspace.",
+  "author": "AEC Model Bridge",
+  "license": "GPL-3.0-or-later",
+  "requires_providers": ["semantic"],
+  "permissions": ["model.read", "files.write"],
+  "commands": [
+    {
+      "id": "check",
+      "title": "Sheet Set QA Before Issue",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {"type": "string", "description": "Saved snapshot to check. It must contain sheet records."},
+          "sheet_numbers": {"type": "array", "items": {"type": "string"}, "maxItems": 2000, "description": "Only check these sheet numbers (the issue set). A listed number that is not in the snapshot is an error. Leave empty to check every sheet."},
+          "required_fields": {"type": "array", "items": {"type": "string"}, "maxItems": 50, "description": "Sheet or title block fields that must be filled. Defaults to Sheet Number, Sheet Name, Drawn By, Checked By, Sheet Issue Date."},
+          "number_pattern": {"type": "string", "description": "Regular expression every sheet number must fully match. Default: letters, optional separator, digits, optional suffix (A-101, S201, M-101.1, A-101a). Empty string turns the check off."},
+          "name_pattern": {"type": "string", "description": "Regular expression every sheet name must fully match. Default: no leading or trailing spaces and not the Revit default 'Unnamed'. Empty string turns the check off."},
+          "series_size": {"type": "integer", "default": 100, "description": "Numbers within a prefix are grouped in series of this size (A-101..A-199 is one series at 100); gaps are only reported inside a series. 1 to 100000."},
+          "csv_filename": {"type": "string", "description": "Optional .csv file name inside the workspace with one row per sheet per finding."}
+        },
+        "required": ["snapshot_id"]
+      }
+    }
+  ]
+}
