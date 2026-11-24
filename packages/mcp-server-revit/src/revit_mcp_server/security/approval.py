@@ -619,7 +619,7 @@ class ApprovalGate:
 
     def _read_live_binding(self) -> Optional[Dict[str, Any]]:
         reuse = _PROBE_REUSE.get()
-        if reuse is not None and reuse["live"] is not None and time.monotonic() - reuse["at"] <= reuse["max_age"]:
+        if reuse is not None and reuse["live"] is not None and time.monotonic() - reuse["at"] < reuse["max_age"]:
             return reuse["live"]
         live = binding_mod.live_binding(self.binding_probe()) if self.binding_probe else None
         if reuse is not None and live is not None:

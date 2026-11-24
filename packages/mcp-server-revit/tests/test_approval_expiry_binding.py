@@ -558,8 +558,12 @@ async def test_twenty_action_plan_probes_once(provider):
 
 
 @pytest.mark.anyio
-async def test_probe_is_repeated_when_the_reused_read_is_too_old(provider):
+async def test_probe_is_repeated_when_the_reused_read_is_too_old(provider, monkeypatch):
     approval, live = provider
+    # A frozen clock stands in for Windows' coarse monotonic clock: two reads in the
+    # same tick must still not reuse a probe when max_age is 0.
+    import revit_mcp_server.security.approval as approval_mod
+    monkeypatch.setattr(approval_mod.time, "monotonic", lambda: 100.0)
     calls = []
     approval.gate.binding_probe = lambda: calls.append(1) or live["context"]
     plan = await _draft(approval)
