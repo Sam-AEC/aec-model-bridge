@@ -20,6 +20,8 @@ CI does not start Revit. Tests that touch Revit use mock providers.
 
 Run on a Windows machine with Revit, starting with the write test in section 5. Mark each PASS or FAIL.
 
+The step-by-step [live acceptance run sheet](live-acceptance-runsheet.md) (issue #147) covers the items below and the snapshot modules, plan expiry and binding, the `core` profile, the `bim-reviewer` agent and the rollback gap.
+
 1. First real write (for example `revit_set_parameter_value` through an approved plan). A crash here is the most important finding.
 2. Undo behaviour. The add-in names one transaction per action, so undoing a plan takes one Ctrl+Z per action. Check this, and check `rollback_plan`, which can skip actions that have no recorded before-value.
 3. Two Revits open at once: requests reach the Revit the person means ([ADR 0014](0014-multi-revit-routing.md), the "Several Revits" section of security.md).

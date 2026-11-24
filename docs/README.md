@@ -50,6 +50,7 @@ The 16 translated READMEs in [i18n/](i18n/) follow the English README, which is 
 - [design/tokens.md](design/tokens.md): design tokens for the add-in and panel UI ([design/review.html](design/review.html) is the visual review page).
 - [design/readme-visuals/README.md](design/readme-visuals/README.md): README artwork sources, rendering and demo assets.
 - [release-checklist.md](release-checklist.md): ordered ship-ready checklist, what CI proves and what still needs a live Revit.
+- [live-acceptance-runsheet.md](live-acceptance-runsheet.md): run sheet for the live Revit acceptance of PRs 60, 64, 76 to 84, the `bim-reviewer` agent and the rollback gap (#147).
 - [release-retirement.md](release-retirement.md): reviewed release inventory and future cleanup procedure.
 - [examples/hermes-desktop.json](examples/hermes-desktop.json): sample client config for Hermes Desktop.
 
