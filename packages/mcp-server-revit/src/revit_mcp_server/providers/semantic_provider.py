@@ -6,6 +6,7 @@ import uuid
 
 from revit_mcp_server.errors import BridgeError
 from revit_mcp_server.providers.base import AECProvider, ProviderTool
+from revit_mcp_server.security.safe_paths import snapshot_file
 from revit_mcp_server.security.workspace import WorkspaceMonitor
 from revit_mcp_server.semantic import engine
 from revit_mcp_server.semantic.models import Snapshot
@@ -178,7 +179,7 @@ class SemanticProvider(AECProvider):
 
     def _load_snapshot(self, snapshot_id: str) -> Snapshot:
         snapshots_dir = self.workspace.allowed_directories[0] / "snapshots"
-        snapshot_path = snapshots_dir / f"{snapshot_id}.json"
+        snapshot_path = snapshot_file(snapshots_dir, snapshot_id)  # ValueError for a hostile id
         
         if not snapshot_path.exists():
             raise BridgeError(f"Snapshot '{snapshot_id}' not found in workspace snapshots directory")
