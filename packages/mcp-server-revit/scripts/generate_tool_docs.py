@@ -30,6 +30,7 @@ from revit_mcp_server.providers import (  # noqa: E402
     NavisworksProvider,
     ApprovalProvider,
     ModuleProvider,
+    ToolSearchProvider,
 )
 from revit_mcp_server.module_registry import ModuleRegistry  # noqa: E402
 from revit_mcp_server.tool_metadata import DESCRIPTIONS  # noqa: E402
@@ -82,6 +83,7 @@ def main():
     add_provider("Rhino", lambda: RhinoProvider(workspace=workspace))
     add_provider("Navisworks", lambda: NavisworksProvider(workspace=workspace))
     add_provider("Semantic Graph", lambda: SemanticGraphProvider())
+    add_provider("Tool Search", lambda: ToolSearchProvider(registry=registry))
     add_provider("Speckle", lambda: SpeckleProvider(client_id="dummy"))
     add_provider("Autodesk Data", lambda: AutodeskDataProvider(client_id="dummy"))
     if McpProxyProvider:
