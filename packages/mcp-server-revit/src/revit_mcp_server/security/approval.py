@@ -40,7 +40,7 @@ VOLATILE_ARGUMENT_KEYS = frozenset({"plan_id", "run_async", "idempotency_key"})
 # hashed review block (which has its own validated parameter).
 _RESERVED_EXTRA_KEYS = frozenset({
     "review", "hash_version", "plan_hash", "approved_hash", "plan_id", "created_at", "actions", "binding",
-}) | proof_mod.STATE_PLAN_KEYS
+}) | proof_mod.STATE_PLAN_KEYS | proof_mod.DERIVED_PLAN_KEYS
 
 ACTION_ID_RE = re.compile(r"act_[0-9a-f]{12}")
 INFLIGHT_KEY_RE = re.compile(r"[A-Za-z0-9_-]{1,80}")
@@ -330,6 +330,7 @@ class ApprovalGate:
         before_storage_types: Optional[List[Optional[str]]] = None,
         review: Optional[Dict[str, Any]] = None,
         binding: Any = _UNBOUND,
+        policy_hash: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Draft a plan. ``review`` (summary, reasoning, citations, ...) is validated,
         canonicalised and covered by the plan hash. ``binding`` (a dict, or None when the live
@@ -387,6 +388,8 @@ class ApprovalGate:
             plan["skipped"] = skipped
         if extra:
             plan.update({k: v for k, v in extra.items() if k not in ("plan_id", "state", "actions")})
+        if policy_hash:
+            plan["policy_hash"] = policy_hash  # bookkeeping, not hashed
         if review is not None:
             plan["review"] = review
             plan["hash_version"] = proof_mod.HASH_VERSION_REVIEW
