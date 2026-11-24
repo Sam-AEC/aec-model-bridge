@@ -5,6 +5,7 @@ import json
 from types import SimpleNamespace
 
 import pytest
+from mcp.types import CallToolResult
 
 from revit_mcp_server import mcp_server
 from revit_mcp_server.result_presentation import (
@@ -173,7 +174,9 @@ def execution(monkeypatch):
 
 
 def _body(answer):
-    return answer[0].text.split("Result:\n", 1)[1]
+    # Tools with an outputSchema answer with a CallToolResult; the text content is the same.
+    content = answer.content if isinstance(answer, CallToolResult) else answer
+    return content[0].text.split("Result:\n", 1)[1]
 
 
 def test_call_tool_compacts_and_caps_read_only_results(execution):

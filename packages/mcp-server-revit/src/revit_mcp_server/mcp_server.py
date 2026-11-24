@@ -25,6 +25,7 @@ from .security.dispatch import (
 from .security.audit import redact_data as _redact_secrets
 from .security.response_redaction import redact_response
 from .security.module_execution import authorized_module_execution
+from .output_schemas import output_schema_for, structured_for
 from .tool_metadata import enrich_tool, is_read_only_tool
 from .result_presentation import result_json, split_response_options
 from .tool_profiles import ToolProfileBlocked, load_tool_profile
@@ -196,7 +197,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
             )
             response_text = f"✓ Job {job_ref.job_id} queued successfully\n\n"
             response_text += f"Result:\n{json.dumps(job_ref.to_dict(), indent=2)}"
-            return [TextContent(type="text", text=response_text)]
+            return _text_only(name, response_text)
 
         # Execute the tool on the provider
         try:
@@ -222,16 +223,23 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
                 f"Resume with {outcome.resume}. Do not repeat the call.\n\n"
                 f"Result:\n{result_json(redacted_result, response_options, project=False)}"
             )
-            return [TextContent(type="text", text=text)]
+            return _text_only(name, text)
 
         # Format the response
+        body = result_json(redacted_result, response_options, project=not failed, read_only=read_only)
         response_text = f"{name} returned a failure\n\n" if failed else f"✓ {name} executed successfully\n\n"
-        response_text += f"Result:\n{result_json(redacted_result, response_options, project=not failed, read_only=read_only)}"
+        response_text += f"Result:\n{body}"
 
         if failed:
             return CallToolResult(
                 isError=True, content=[TextContent(type="text", text=response_text)],
                 structuredContent=redacted_result,
+            )
+        if output_schema_for(name) is not None:
+            # Structured output is the same JSON the text shows, checked against the tool's schema.
+            return CallToolResult(
+                content=[TextContent(type="text", text=response_text)],
+                structuredContent=structured_for(name, _json_object(body)),
             )
         return [TextContent(type="text", text=response_text)]
 
@@ -247,6 +255,24 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
 
 
 _result_failed = result_failed
+
+
+def _text_only(name: str, text: str) -> list[TextContent] | CallToolResult:
+    """A text answer with no structured output (queued job, still running).
+
+    For a tool with an outputSchema it is returned as a CallToolResult, which the SDK passes
+    through as is; a bare content list would fail the SDK's output check."""
+    content = [TextContent(type="text", text=text)]
+    if output_schema_for(name) is not None:
+        return CallToolResult(content=content)
+    return content
+
+
+def _json_object(text: str) -> Any:
+    try:
+        return json.loads(text)
+    except ValueError:
+        return None
 
 
 def redact_data(value):

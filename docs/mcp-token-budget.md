@@ -86,6 +86,18 @@ Left out on purpose: single-purpose creators (walls, sheets, views, MEP, sparing
 
 Reproduce: `python scripts/measure_mcp_tokens.py --profile core --output docs/mcp-token-measurement-after-core.json`. The command writes the evidence file. Measurement files are not kept in the repository.
 
+## Follow-up: output schemas
+
+Twenty read tools advertise an MCP `outputSchema` (`src/revit_mcp_server/output_schemas.py`). Each schema lists only the main top-level keys and their types, so it stays small. Same method as above (mock mode, `scripts/measure_mcp_tokens.py`, chars / 4 over `list_tools`), measured with and without the schemas on the same tree:
+
+| Profile | Tools | Characters without | Characters with | ~Tokens without | ~Tokens with |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `full` | 311 | 332,323 | 336,308 | 83,081 | 84,077 |
+| `daily` | 240 | 260,460 | 264,445 | 65,115 | 66,111 |
+| `core` | 57 | 59,612 | 63,522 | 14,903 | 15,881 |
+
+The schemas add about 1,000 tokens in every profile (1.2% of full, 6.6% of core); 19 of the 20 tools are visible in `core` (all but `module_list_commands`). A successful call to one of these tools now carries its result twice: as text (unchanged) and as `structuredContent`. A client that passes only one of them to the model sees no change in response cost.
+
 ## What dominates?
 
 *Dated: 2026-11-05. The `module_list_commands` size below is from before the 2026-11-16 trims; see the follow-up sections above.*
