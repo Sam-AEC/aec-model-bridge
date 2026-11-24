@@ -91,3 +91,10 @@ def test_whitespace_is_part_of_the_value_and_blank_cells_are_skipped(pm, workspa
     wb.save(path)
     prev = pm.import_params_xlsx(xlsx_filename="ws.xlsx", workspace=workspace)["preview"]
     assert prev["planned"][0]["updates"] == {"Mark": {"before": "D-101", "after": "D-101 "}}
+
+
+@pytest.mark.parametrize("cell", [" true ", "yes ", " 1", "TRUE"])
+def test_boolean_cells_ignore_surrounding_spaces(cell):
+    el = {"uid": "u1", "element_id": 1, "params": {"Is Fire Door": {"storage": "Boolean", "v": True}}}
+    planned, blocked, counts = _mod._plan_rows([{"uid": "u1", "Is Fire Door": cell}], [el], skip_unchanged=True)
+    assert planned == [] and blocked == [] and counts["unchanged_rows"] == 1

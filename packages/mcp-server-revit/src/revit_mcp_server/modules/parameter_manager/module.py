@@ -132,7 +132,7 @@ def _plan_rows(
                 elif storage == "Integer":
                     new_val = int(val_str)
                 elif storage == "Boolean":
-                    new_val = val_str.lower() in ("true", "1", "yes")
+                    new_val = val_str.strip().lower() in ("true", "1", "yes")
                 else:
                     new_val = val_str
             except (ValueError, TypeError, AttributeError):
