@@ -39,6 +39,7 @@ returned in ``output``. A write recipe may call ``meta("changed_ids", "1,2")``.
 UNVERIFIED: nothing here has run against a live Revit. See docs/recipes-library.md.
 """
 from __future__ import annotations
+from revit_mcp_server.security.module_permissions import writable_path
 
 import re
 import time
@@ -313,6 +314,7 @@ class RevitRecipesModule:
             if mode not in MODES:
                 raise RecipeError("invalid_input", "mode must be 'read' or 'write'")
             store = _store(workspace)
+            writable_path(workspace, Path(workspace.allowed_directories[0]) / "recipes")
             text = check_code(code)
             if mode == "read":
                 hits = find_violations(build_script(text, "{}"))
@@ -390,6 +392,7 @@ class RevitRecipesModule:
         tool = "revit_recipe_delete"
         try:
             recipe_id = validate_recipe_id(id)
+            writable_path(workspace, Path(workspace.allowed_directories[0]) / "recipes")
             _store(workspace).delete(recipe_id)
         except RecipeError as exc:
             return _fail(tool, exc)

@@ -16,6 +16,7 @@ All group write commands produce ActionPlan dicts (not executed here) that must 
 approved via the approval provider before forwarding to Revit.
 """
 from __future__ import annotations
+from revit_mcp_server.security.module_permissions import writable_path
 
 import json
 import logging
@@ -45,7 +46,7 @@ def _load_selections(workspace: Any) -> Dict[str, List[str]]:
     return {}
 
 def _save_selections(selections: Dict[str, List[str]], workspace: Any) -> None:
-    sf = _selections_file(workspace)
+    sf = writable_path(workspace, _selections_file(workspace))
     with open(sf, "w", encoding="utf-8") as f:
         json.dump(selections, f, indent=2)
 
@@ -112,7 +113,7 @@ class SelectionToolsModule:
     def set_selection(self, element_uids: List[str], workspace: Any = None, **_) -> Dict[str, Any]:
         """Stage element UIDs to be selected. The dockable panel / bridge picks this up."""
         # Write pending selection to workspace for the plugin to pick up
-        pending_path = _workspace_dir(workspace) / "pending_selection.json"
+        pending_path = writable_path(workspace, _workspace_dir(workspace) / "pending_selection.json")
         with open(pending_path, "w", encoding="utf-8") as f:
             json.dump({"element_uids": element_uids}, f, indent=2)
         return {

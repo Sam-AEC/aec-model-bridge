@@ -17,6 +17,7 @@ Definitions (also in docs/qa-handover-report.md):
     by the most elements; ties by name).
 """
 from __future__ import annotations
+from revit_mcp_server.security.module_permissions import writable_path
 
 import csv
 import html
@@ -182,7 +183,7 @@ def _html_text(title: str, coverage: List[Dict[str, str]], rows: List[Dict[str, 
 def _write(workspace: Any, filename: str, suffix: str, text: str) -> str:
     if not isinstance(filename, str) or not filename.lower().endswith(suffix):
         raise ValueError(f"The output file name must end in {suffix}")
-    path = rg._confined(workspace, filename)
+    path = writable_path(workspace, rg._confined(workspace, filename))
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
     return str(path)

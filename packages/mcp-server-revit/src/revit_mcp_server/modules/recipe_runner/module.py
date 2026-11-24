@@ -22,6 +22,7 @@ Template variables: {{key}} → replaced from context dict.
 Condition: minimal eval — supports == != >= <= comparisons on {{prev.field}}.
 """
 from __future__ import annotations
+from revit_mcp_server.security.module_permissions import writable_path
 
 import json
 import logging
@@ -151,7 +152,7 @@ def _load_runs(workspace: Any) -> List[Dict[str, Any]]:
 def _save_run(run: Dict[str, Any], workspace: Any) -> None:
     runs = _load_runs(workspace)
     runs.append(run)
-    with open(_run_log_path(workspace), "w", encoding="utf-8") as f:
+    with open(writable_path(workspace, _run_log_path(workspace)), "w", encoding="utf-8") as f:
         json.dump(runs, f, indent=2, default=str)
 
 def _run_status(step_results: List[Dict[str, Any]], dry_run: bool) -> str:
