@@ -62,6 +62,8 @@ dev = [
     "pytest-timeout>=2.3",
     # CI runs the suite with -n auto.
     "pytest-xdist>=3.6",
+    # Property-based tests of the approval gate, safe paths and input validation (tests/test_property_*.py).
+    "hypothesis>=6.100",
     # The wheel-contents test builds the package; CI also uses it for the sdist.
     "build>=1.2",
     "ruff>=0.0",
@@ -125,6 +127,31 @@ filterwarnings = [
     "error::DeprecationWarning:revit_mcp_server",
     "ignore::ResourceWarning",
     "ignore::pytest.PytestUnraisableExceptionWarning",
+]
+
+# Mutation testing of the trust boundary (security/). Run by hand, not in CI; see
+# .github/CONTRIBUTING.md "Property and mutation tests". mutmut is not a dependency:
+#   uv run --with mutmut mutmut run      (Linux or macOS; mutmut needs fork)
+[tool.mutmut]
+source_paths = ["src/"]
+only_mutate = ["src/revit_mcp_server/security/*"]
+pytest_add_cli_args = ["-p", "no:cacheprovider"]
+pytest_add_cli_args_test_selection = [
+    "tests/test_approval_gate.py",
+    "tests/test_approval_modes.py",
+    "tests/test_approval_override.py",
+    "tests/test_approval_expiry_binding.py",
+    "tests/test_approval_in_flight.py",
+    "tests/test_approval_recovery.py",
+    "tests/test_approval_v2.py",
+    "tests/test_approval_v2_hardening.py",
+    "tests/test_dev_mode.py",
+    "tests/test_safe_paths.py",
+    "tests/test_proof_and_revert.py",
+    "tests/test_plan_gate_reachability.py",
+    "tests/test_property_gate.py",
+    "tests/test_property_safe_paths.py",
+    "tests/test_property_input_fuzz.py",
 ]
 
 [tool.coverage.run]

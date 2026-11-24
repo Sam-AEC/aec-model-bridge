@@ -13,8 +13,13 @@ RESERVED_DIRS = ("plans", "proofs")
 
 
 def _real(path: "Path | str") -> str:
-    """Absolute, symlink-free, normalised form of ``path`` (it need not exist)."""
-    return os.path.normpath(os.path.realpath(os.fspath(path)))
+    """Absolute, symlink-free, normalised form of ``path`` (it need not exist).
+
+    A NUL character is refused as a sandbox violation; the OS layer would raise a bare ValueError."""
+    text = os.fspath(path)
+    if "\x00" in str(text):
+        raise WorkspaceViolation("The path contains a NUL character; refusing it.")
+    return os.path.normpath(os.path.realpath(text))
 
 
 def _is_within(path: str, directory: str) -> bool:
