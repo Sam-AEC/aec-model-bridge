@@ -1,0 +1,32 @@
+{
+  "id": "ids_validator",
+  "name": "IDS Validator",
+  "version": "1.0.0",
+  "schema_version": 1,
+  "min_hub_version": "1.2.0",
+  "description": "Read-only check of an IFC file against a buildingSMART IDS file (needs the optional ids extra: ifctester). Per-specification pass/fail and failing GlobalIds; optional HTML or JSON report in the workspace.",
+  "author": "AEC Model Bridge",
+  "license": "GPL-3.0-or-later",
+  "requires_providers": ["semantic"],
+  "permissions": ["model.read", "files.write"],
+  "commands": [
+    {
+      "id": "validate_ifc",
+      "title": "Validate IFC Against IDS",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "ifc_path": {"type": "string", "description": "Path of the .ifc file, inside the workspace."},
+          "ids_path": {"type": "string", "description": "Path of the .ids file, inside the workspace."},
+          "max_failed": {"type": "integer", "default": 50, "description": "Failing entities listed per specification (1 to 500); the counts are always complete."},
+          "html_filename": {"type": "string", "description": "Optional .html report file name inside the workspace."},
+          "json_filename": {"type": "string", "description": "Optional .json file name inside the workspace for the capped result."}
+        },
+        "required": ["ifc_path", "ids_path"]
+      }
+    }
+  ]
+}

@@ -92,7 +92,7 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install --upgrade build pytest
-          python -m pip install -e "packages/mcp-server-revit[dev]"
+          python -m pip install -e "packages/mcp-server-revit[dev,ids]"
 
       - name: Run Python tests
         shell: pwsh

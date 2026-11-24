@@ -66,6 +66,9 @@ dev = [
     "mypy>=1.8",
 ]
 
+# IDS validation (ids_validator_validate_ifc): buildingSMART IDS checker from IfcOpenShell. Capped below 0.9, which needs a newer ifcopenshell than the 0.8.x this project locks.
+ids = ["ifctester>=0.8,<0.9"]
+
 [project.urls]
 Homepage = "https://github.com/Sam-AEC/aec-model-bridge"
 Repository = "https://github.com/Sam-AEC/aec-model-bridge"
