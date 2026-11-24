@@ -61,17 +61,55 @@ Assertions:
 - `all elements have <field>`: matched elements missing that top-level element
   field are issues.
 
+The validator rejects anything else, with the list of supported names in the
+message. There is no regular-expression operator, so naming-pattern checks (for
+example "door Mark must match `D-###`") cannot be expressed. Filter rules have
+no uniqueness operator; a pipeline rule can find duplicate values with
+`group_by` and `aggregate`, but its rows are groups, so those issues have no
+element.
+
+### Pipeline rules
+
+A rule can use `pipeline` instead of `filter` and `assertion`. It holds
+[snapshot_compute](snapshot-compute.md) steps, and every row of the last step
+is an issue: `uid` gives the element, and `label` (if a step selects one),
+`type_name` or `category` gives the label. Keep `uid` in the rows; a `select`
+without it gives issues with no element. A row whose `uid` is not text (for
+example a `list` aggregate named `uid`) fails the rule with an error.
+
+```yaml
+  - id: door_rating_below_wall
+    severity: error
+    description: "Door fire rating is lower than the fire rating of its host wall."
+    pipeline:
+      - join: [host]
+        where:
+          - {field: category, value: OST_Doors}
+          - {field: params.Fire Rating, op: lt, value: {field: host.params.Fire Rating}}
+```
+
+- Pipelines can use joins, field-to-field comparisons, `spatial`, `group_by` and
+  every other step key, so checks that `filter` cannot express fit in a pack.
+- The validator checks the steps without a model and refuses unknown keys, ops,
+  joins and aggregates with the step name. A rule with both `pipeline` and
+  `filter` or `assertion` is refused.
+- `link:` sources are refused in rule packs.
+- Relation joins read the snapshot's relations in `run_check` and in the
+  reports that run rule packs.
+- A server older than this change warns that `pipeline` is an unknown field and
+  runs the rule as if it had no filter, so every element becomes an issue. Use
+  pipeline rules only with servers that support them.
+
+[`docs/examples/rule_packs/door-room-pipeline.yaml`](examples/rule_packs/door-room-pipeline.yaml)
+has the three `door-room-basics` rules written as pipelines, plus the rule
+above. On the mock snapshot the three converted rules find the same issues as
+the originals (`tests/test_qaqc_pipeline_rules.py`).
+
 Stored findings belong to their rule pack. Running one pack only reconciles that
 pack's issues, and identical rule IDs in different packs stay independent.
 Overwriting a pack refreshes its open issues' severity and message on the next run.
 Existing databases migrate without deleting history; older issues without a pack
 identity are assigned to `core`.
-
-The validator rejects anything else, with the list of supported names in the
-message. There is no regular-expression operator and no uniqueness operator in
-the engine today, so naming-pattern checks (for example "door Mark must match
-`D-###`") and duplicate-number checks cannot be expressed yet. They are not
-validated as "supported" and are not in the example pack.
 
 ## Example pack
 
