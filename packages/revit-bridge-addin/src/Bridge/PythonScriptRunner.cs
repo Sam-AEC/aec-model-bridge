@@ -41,6 +41,144 @@ internal static class PythonScriptRunner
         return ReadModeRules.FindViolations(script);
     }
 
+    // ---- Warm engine (#286) ----
+    // One engine per Revit session, with RevitAPI and RevitAPIUI loaded once. Each run gets a new ScriptScope
+    // and its own output streams. Scripts run only on the Revit thread, one at a time, so these fields need no
+    // lock. What a script leaves in shared Python state (sys.modules, builtins) is not reset between runs; the
+    // engine is replaced after RecycleRuns scripts, when the document changes, when the per-run reset fails,
+    // after an exception that may have broken the runtime, and after a script that touched the model in read
+    // mode or left a transaction open.
+    private static readonly int RecycleRuns = PythonEngineReusePolicy.ReadRecycleRuns();
+    private static ScriptEngine? _engine;
+    private static ScriptScope? _engineResetScope;
+    private static RedirectingStream? _engineOutput;
+    private static RedirectingStream? _engineError;
+    private static string? _engineDocumentKey;
+    private static int _engineRuns;
+
+    // Runs in a private scope before every warm run, while the streams still point at Stream.Null: flushes
+    // what the previous script left buffered (it is discarded), then puts back stdout, stderr and sys.path in
+    // case that script replaced them. Written for both IronPython 2.7 and 3.4.
+    private const string ResetScript =
+        "import sys\n" +
+        "for _amb_stream in (sys.stdout, sys.stderr):\n" +
+        "    try:\n" +
+        "        _amb_stream.flush()\n" +
+        "    except Exception:\n" +
+        "        pass\n" +
+        "sys.stdout = _amb_stdout\n" +
+        "sys.stderr = _amb_stderr\n" +
+        "sys.stdout.flush()\n" +
+        "sys.stderr.flush()\n" +
+        "sys.path[:] = _amb_sys_path\n";
+
+    private static ScriptEngine AcquireEngine(Document doc, Stream output, Stream error)
+    {
+        var documentKey = DocumentKey(doc);
+        if (_engine != null && PythonEngineReusePolicy.RecycleReason(_engineRuns, RecycleRuns, _engineDocumentKey, documentKey) != null)
+        {
+            ShutdownEngine();
+        }
+
+        if (_engine != null)
+        {
+            try
+            {
+                _engine.Execute(ResetScript, _engineResetScope!);
+            }
+            catch
+            {
+                // The previous script left the runtime in a state the reset cannot undo: start over.
+                ShutdownEngine();
+            }
+        }
+
+        if (_engine == null)
+        {
+            StartEngine(documentKey);
+        }
+
+        _engineOutput!.Target = output;
+        _engineError!.Target = error;
+        _engineRuns++;
+        return _engine!;
+    }
+
+    private static void StartEngine(string documentKey)
+    {
+        var engine = PythonEngineFactory.Create();
+        try
+        {
+            // Pre-load Revit assemblies so the script can use "from Autodesk.Revit.DB import *"
+            engine.Runtime.LoadAssembly(typeof(Document).Assembly);       // RevitAPI.dll
+            engine.Runtime.LoadAssembly(typeof(UIApplication).Assembly);  // RevitAPIUI.dll
+
+            var output = new RedirectingStream();
+            var error = new RedirectingStream();
+            engine.Runtime.IO.SetOutput(output, Encoding.UTF8);
+            engine.Runtime.IO.SetErrorOutput(error, Encoding.UTF8);
+
+            var resetScope = engine.CreateScope();
+            // Keep the stream objects the engine was started with (they write to the RedirectingStreams), so the
+            // reset can put them back without relying on sys.__stdout__.
+            engine.Execute("import sys\n_amb_sys_path = list(sys.path)\n_amb_stdout = sys.stdout\n_amb_stderr = sys.stderr\n", resetScope);
+
+            _engine = engine;
+            _engineResetScope = resetScope;
+            _engineOutput = output;
+            _engineError = error;
+            _engineDocumentKey = documentKey;
+            _engineRuns = 0;
+        }
+        catch
+        {
+            PythonEngineFactory.ShutdownQuietly(engine);
+            throw;
+        }
+    }
+
+    /// <summary>Detaches this run's streams and shuts the engine down if the run asked for that.</summary>
+    private static void ReleaseEngine(ScriptEngine? engine, bool drop)
+    {
+        if (engine == null || !ReferenceEquals(engine, _engine))
+        {
+            // Not the warm engine (should not happen): never leave it running.
+            PythonEngineFactory.ShutdownQuietly(engine);
+            return;
+        }
+        if (_engineOutput != null) _engineOutput.Target = Stream.Null;
+        if (_engineError != null) _engineError.Target = Stream.Null;
+        // At the run limit the engine is shut down now instead of idling until the next script, so
+        // AEC_BRIDGE_PYTHON_RECYCLE_RUNS=1 behaves like the old one-engine-per-script runner (the opt-out).
+        if (drop || _engineRuns >= RecycleRuns) ShutdownEngine();
+    }
+
+    /// <summary>Shuts the warm engine down; the next script starts a new one. Never throws. Call on the Revit thread.</summary>
+    internal static void ShutdownEngine()
+    {
+        var engine = _engine;
+        _engine = null;
+        _engineResetScope = null;
+        _engineOutput = null;
+        _engineError = null;
+        _engineDocumentKey = null;
+        _engineRuns = 0;
+        PythonEngineFactory.ShutdownQuietly(engine);
+    }
+
+    private static bool IsEngineFatal(Exception ex)
+    {
+        return ex is OutOfMemoryException
+            || ex is InsufficientExecutionStackException
+            || ex is InvalidProgramException;
+    }
+
+    private static string DocumentKey(Document doc)
+    {
+        try { return doc.Title + "|" + doc.PathName; }
+        catch { return ""; }
+    }
+
     internal static object Run(UIApplication app, Document doc, string script, string? requestedMode)
     {
         var mode = NormalizeMode(requestedMode);
@@ -63,6 +201,7 @@ internal static class PythonScriptRunner
         object? runtime = null;
         ScriptEngine? engine = null;
         ScriptScope? scope = null;
+        var dropEngine = false;
         var changedCount = 0;
         var savesBlocked = 0;
         var scriptWarnings = new List<BridgeFailureMessage>();
@@ -73,15 +212,11 @@ internal static class PythonScriptRunner
 
         try
         {
-            engine = PythonEngineFactory.Create();
-            runtime = PythonEngineFactory.Describe(engine);
-            // Pre-load Revit assemblies so the script can use "from Autodesk.Revit.DB import *"
-            engine.Runtime.LoadAssembly(typeof(Document).Assembly);       // RevitAPI.dll
-            engine.Runtime.LoadAssembly(typeof(UIApplication).Assembly);  // RevitAPIUI.dll
+            // The warm engine (Revit assemblies already loaded) with its stdout and stderr pointed at this run's streams.
+            engine = AcquireEngine(doc, outputMs, errorMs);
+            runtime = PythonEngineFactory.Describe(engine, _engineRuns);
 
-            engine.Runtime.IO.SetOutput(outputMs, Encoding.UTF8);
-            engine.Runtime.IO.SetErrorOutput(errorMs, Encoding.UTF8);
-
+            // A new scope per run: variables set by one script are absent in the next.
             scope = engine.CreateScope();
             scope.SetVariable("doc", doc);
             scope.SetVariable("uidoc", app.ActiveUIDocument);
@@ -132,6 +267,7 @@ internal static class PythonScriptRunner
             var left = RollBackOpenTransactions(doc, scope);
             if (left.RolledBack > 0)
             {
+                dropEngine = true;
                 return Result(false, output,
                     "The script ended with a transaction still open (started, never committed). It was rolled back, so its changes were discarded."
                     + (left.StillOpen ? " The document still reports an open transaction that the bridge cannot reach; check Revit before continuing." : "")
@@ -142,6 +278,7 @@ internal static class PythonScriptRunner
             var guardNote = EndReadGuard(ref readGuard, app, onChanged, ref changedCount);
             if (changedCount > 0 || savesBlocked > 0)
             {
+                dropEngine = true;
                 return Result(false, output,
                     $"Read-mode violation: the script touched the model ({changedCount} element changes, {savesBlocked} save attempts blocked). "
                     + guardNote,
@@ -149,6 +286,7 @@ internal static class PythonScriptRunner
             }
             if (guardNote.Length > 0)
             {
+                dropEngine = true;
                 return Result(false, output, guardNote, mode, progress, "read_mode_guard_failed", changedCount, runtime);
             }
 
@@ -181,6 +319,9 @@ internal static class PythonScriptRunner
             }
             if (!PythonEngineFactory.StandardLibraryAvailable && error.Contains("No module named"))
                 error += "\n" + PythonEngineFactory.MissingLibraryWarning;
+            // An ordinary Python error leaves the engine usable (the next run's reset checks that). Drop it when
+            // the script misbehaved or the failure may have left the runtime in a bad state.
+            dropEngine = PythonEngineReusePolicy.RecycleAfterResult(kind) || IsEngineFatal(ex);
             return Result(false, "", error, mode, progress, kind, changedCount, runtime, left.RolledBack);
         }
         finally
@@ -191,8 +332,9 @@ internal static class PythonScriptRunner
                 int unused = 0;
                 EndReadGuard(ref readGuard, app, onChanged, ref unused);
             }
-            // Shut the runtime down after every script, success or failure, so nothing carries over.
-            PythonEngineFactory.ShutdownQuietly(engine);
+            // The engine stays warm for the next script (#286); this run's streams are detached from it, and it
+            // is shut down here when the run asked for that (see ReleaseEngine).
+            ReleaseEngine(engine, dropEngine);
             if (onChanged != null) app.Application.DocumentChanged -= onChanged;
             if (onSaving != null) app.Application.DocumentSaving -= onSaving;
             if (onSavingAs != null) app.Application.DocumentSavingAs -= onSavingAs;

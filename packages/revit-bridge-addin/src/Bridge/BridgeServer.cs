@@ -261,8 +261,10 @@ public class BridgeServer
 
         if (snapshot != null && snapshot.IsFinished && snapshot.ResponseJson != null)
         {
-            Log.Information("Request completed: {RequestId} {Tool} {State} {DurationMs}ms",
-                requestId, tool, snapshot.State, (DateTime.UtcNow - startTime).TotalMilliseconds);
+            var timings = snapshot.Timings;
+            Log.Information("Request completed: {RequestId} {Tool} {State} {DurationMs}ms queued_ms={QueuedMs} run_ms={RunMs} serialize_ms={SerializeMs} bytes={ResponseBytes}",
+                requestId, tool, snapshot.State, (DateTime.UtcNow - startTime).TotalMilliseconds,
+                timings?.QueuedMs, timings?.RunMs, timings?.SerializeMs, timings?.ResponseBytes);
             RespondRaw(context, 200, snapshot.ResponseJson);
             return;
         }
@@ -321,7 +323,9 @@ public class BridgeServer
             retained_results = _queue.FinishedCount,
             running = running == null
                 ? null
-                : new { request_id = running.RequestId, tool = running.Tool, age_ms = running.ElapsedMs }
+                : new { request_id = running.RequestId, tool = running.Tool, age_ms = running.ElapsedMs },
+            // Rolling run time (ms on the Revit thread) and response size per tool, last 200 runs each.
+            timings = _queue.Timings.ToHealth()
         };
         Respond(context, 200, health);
         return Task.CompletedTask;
