@@ -22,6 +22,10 @@ from mcp.types import Tool, ToolAnnotations
 
 from .providers.base import ProviderTool
 from .result_presentation import APPROVAL_TOOLS, add_response_schema
+from .tool_profiles import ALWAYS_LOADED_TOOLS
+
+# MCP tool `_meta` key that asks Claude Code to load a tool up front under tool search.
+ALWAYS_LOAD_META_KEY = "anthropic/alwaysLoad"
 
 PLAN_ID_DESCRIPTION = "Approved plan ID; see the server approval instructions."
 
@@ -241,7 +245,7 @@ DESCRIPTIONS: dict[str, str] = {
     "plan_actions": (
         "Create a draft ActionPlan describing the model changes you want to make, capturing the before-state of each. "
         "Nothing is changed in the model; the plan must be approved before any write tool will run. "
-        "If revit_get_context shows server.dev_mode true, skip this and call the write tool directly with no plan_id."
+        "Use it only when revit_get_context shows server.plans_required true; otherwise call the write tool directly with no plan_id."
     ),
     "list_pending_plans": "List all ActionPlans that are waiting for review. Read-only.",
     "approve_plan": "Approve a pending ActionPlan so that its actions may be executed. This is the human approval step.",
@@ -785,10 +789,16 @@ def enrich_tool(provider_id: str, tool: ProviderTool) -> Tool:
         if text:
             prop["description"] = text
     add_response_schema(tool.name, schema)
+    extra: dict[str, Any] = {}
+    if tool.name in ALWAYS_LOADED_TOOLS:
+        # Claude Code loads a tool marked this way up front when tool search defers the rest.
+        # Passed by alias: the SDK keeps a `meta=` keyword as an unrelated extra field.
+        extra["_meta"] = {ALWAYS_LOAD_META_KEY: True}
     return Tool(
         name=tool.name,
         title=humanize(tool.name),
         description=description,
         inputSchema=schema,
         annotations=annotations_for(provider_id, tool),
+        **extra,
     )

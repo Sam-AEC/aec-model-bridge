@@ -1,0 +1,140 @@
+# Documentation site. Build: pip install -r docs/requirements.txt, then
+# mkdocs build --strict. .github/workflows/docs.yml builds it on pull requests and
+# deploys it to GitHub Pages from main.
+site_name: AEC Model Bridge
+site_description: Revit MCP server with a native Revit add-in. AI clients read and edit BIM models through plans a person approves.
+site_url: https://sam-aec.github.io/aec-model-bridge/
+repo_url: https://github.com/Sam-AEC/aec-model-bridge
+repo_name: Sam-AEC/aec-model-bridge
+edit_uri: edit/main/docs/
+docs_dir: docs
+strict: true
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+# Links from docs/ to repository files outside docs/ become GitHub links.
+hooks:
+  - scripts/mkdocs_hooks.py
+
+# Not part of the site: translated READMEs (rendered on GitHub, checked by tests),
+# design prototypes, recipe scripts and the docs build requirements.
+exclude_docs: |
+  i18n/
+  design/
+  recipes/
+  diagrams/
+  requirements.txt
+
+validation:
+  nav:
+    omitted_files: warn
+    not_found: warn
+  links:
+    not_found: warn
+    anchors: warn
+    absolute_links: info
+    unrecognized_links: warn
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.superfences
+  - pymdownx.details
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Install:
+      - Install AEC Model Bridge: install.md
+      - MCP clients: clients.md
+      - Compatibility: compatibility.md
+      - Troubleshooting: troubleshooting.md
+      - winget package: winget.md
+  - Use:
+      - Tools reference: tools-generated.md
+      - Prompt library:
+          - prompts/README.md
+          - Pre-flight and verification: prompts/revit-agent-preflight-and-verify.md
+          - Model QA and health: prompts/model-qa-and-health.md
+          - Parameters and data: prompts/parameters-and-data.md
+          - Sheets and documentation: prompts/sheets-and-documentation.md
+          - Views and annotation: prompts/views-and-annotation.md
+          - Coordination and clashes: prompts/coordination-and-clashes.md
+          - IFC and BCF exchange: prompts/ifc-bcf-exchange.md
+          - Handover: prompts/handover.md
+          - Dynamo: prompts/dynamo.md
+          - Scripting with execute_python: prompts/scripting-execute-python.md
+      - snapshot_compute: snapshot-compute.md
+      - Preview in model: preview-in-model.md
+      - Clash triage: clash-triage.md
+      - BCF issue exchange: bcf-exchange.md
+      - Parameter Excel round-trip: parameter-excel-roundtrip.md
+      - Sheet set QA: sheet-set-qa.md
+      - QA handover report: qa-handover-report.md
+      - Rule packs: rule-packs.md
+      - Recipe library: recipes-library.md
+      - pyRevit bridge: pyrevit-bridge.md
+      - Error catalogue: error-catalogue.md
+  - Security:
+      - Security model: security.md
+      - Approval flow: adr/0008-approval-gate-lifecycle.md
+      - Proof bundles and revert plans: proof-and-revert.md
+      - Logging and audit: logging-and-audit.md
+      - Privacy: privacy.md
+      - Supply chain: supply-chain.md
+  - Configuration:
+      - Configuration reference: configuration-reference.md
+      - MCP token budget: mcp-token-budget.md
+      - Deferred tool loading: deferred-tool-loading.md
+      - Performance: performance.md
+      - Target frameworks and dependencies: target-frameworks-and-dependencies.md
+  - Develop:
+      - Module authoring: module-authoring.md
+      - Build and install scripts: build-and-install-scripts.md
+      - Branches and merging: dev-workflow.md
+      - Ribbon icons: RIBBON_ICONS.md
+      - Issue guide: issue-guide.md
+      - Project board: project-board.md
+  - Releases:
+      - Versioning and releases: versioning.md
+      - Deprecation policy: deprecation-policy.md
+      - Release checklist: release-checklist.md
+      - Live validation (Revit 2024): revit-addin-live-validation-2026-10-14.md
+      - Discussions setup: maintainer/discussions.md
+  - ADRs:
+      - adr/0001-multi-provider-architecture.md
+      - adr/0002-switch-contract-v2.md
+      - adr/0007-hub-performance-posture.md
+      - adr/0008-approval-gate-lifecycle.md
+      - adr/0009-plugin-module-system.md
+      - adr/0010-snapshot-schema.md
+      - adr/0011-panel-architecture.md
+      - adr/0012-native-agent-chat-backend.md
+      - adr/0014-multi-revit-routing.md
+      - adr/0017-approval-document-binding-and-expiry.md
+      - adr/0018-explicit-development-mode.md
+  - Legal:
+      - Trademarks: legal/TRADEMARKS.md
+      - CLA draft: legal/CLA-DRAFT.md

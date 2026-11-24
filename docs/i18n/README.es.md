@@ -152,9 +152,9 @@ publicado en el Marketplace.
 | Speckle | 17 | Proyectos, modelos, versiones, envío y recepción |
 | Navisworks | 15 | Árbol del modelo, puntos de vista, pruebas de interferencias (en desarrollo) |
 | IFC | 7 | Leer archivos IFC sin Revit: estructura, propiedades, validación |
-| Grafo, instantáneas, exportaciones, tareas | 23 | Auditorías del grafo semántico, diferencias entre instantáneas, exportación a SQLite, tareas en segundo plano |
+| Grafo, instantáneas, exportaciones, tareas | 24 | Auditorías del grafo semántico, diferencias entre instantáneas, exportación a SQLite, tareas en segundo plano |
 
-En la configuración predeterminada aparecen 312 herramientas (contadas desde el servidor actual en modo
+En la configuración predeterminada aparecen 313 herramientas (contadas desde el servidor actual en modo
 mock). Las herramientas de Autodesk Data aparecen cuando se configuran credenciales de APS. La
 [referencia de herramientas](../tools-generated.md) las enumera todas. Cada herramienta incluye
 anotaciones MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`,

@@ -49,10 +49,12 @@ Run on a Windows machine with Revit, starting with the write test in section 5. 
 1. Open the pull request from `dev` to `main` and review it. Do not merge until sections 1 and 2 are done or their gaps are accepted in writing.
 2. Import the repository rulesets in GitHub settings.
 3. Upload `docs/images/readme/social-preview.png` under repository Settings, General, Social preview. Only an admin can set it.
-4. Have counsel review the licences and the rule packs ([rule-packs.md](rule-packs.md), [LICENSING.md](../LICENSING.md)).
-5. Have native speakers review the 16 translated READMEs in `docs/i18n/`, including the Plans view note, approval and undo wording, and the current screenshot alt text. Source corrections do not establish native-language review.
-6. Run a pilot with BIM coordinators. None has been run yet.
-7. Tag and publish the release ([versioning.md](versioning.md)).
+4. Enable the docs site: repository Settings, Pages, Build and deployment, Source: GitHub Actions. `.github/workflows/docs.yml` then deploys the MkDocs site on the next push to `main` that touches `docs/` or `mkdocs.yml` (or run the workflow by hand). Until then the deploy job fails and the site is not published.
+5. Enable Discussions and create the categories in [maintainer/discussions.md](maintainer/discussions.md).
+6. Have counsel review the licences and the rule packs ([rule-packs.md](rule-packs.md), [LICENSING.md](../LICENSING.md)).
+7. Have native speakers review the 16 translated READMEs in `docs/i18n/`, including the Plans view note, approval and undo wording, and the current screenshot alt text. Source corrections do not establish native-language review.
+8. Run a pilot with BIM coordinators. None has been run yet.
+9. Tag and publish the release ([versioning.md](versioning.md)).
 
 ## 5. Minimal safe write test
 
@@ -95,8 +97,8 @@ Nothing here is automated except the workflows named. Account steps belong to th
 | GitHub MCP Registry, VS Code gallery | Read from the official registry. `.vscode/mcp.json` gives a workspace install. | Follows the official registry. |
 | Claude Code plugin | `.claude-plugin/marketplace.json` and `packages/claude-plugin/`. Users run `/plugin marketplace add Sam-AEC/aec-model-bridge`, then `/plugin install aec-model-bridge@aec-model-bridge`. Schema UNVERIFIED against `claude plugin validate`. | In the repository only. |
 | Anthropic directory | Local `.mcpb` listings are reported as no longer accepted (UNVERIFIED); a local server goes in as a plugin through the developer portal. Needs the privacy policy in `privacy.md` (referenced from `manifest.json`). | Not submitted. |
-| Glama | `glama.json` at the repository root on `main`; claim ownership while signed in as `Sam-AEC`. Re-claim after changing the file. | Not claimed. |
-| Smithery | `smithery.yaml` builds the root `Dockerfile` in mock mode only. Listings must say live use needs Revit. | Not listed. |
+| Glama | `glama.json` at the repository root on `main`; claim ownership while signed in as `Sam-AEC`. Re-claim after changing the file. The file lists maintainers only; the listing text is reported to come from the repository About text and README (UNVERIFIED), so those must say mock mode runs without Revit and live use needs Windows, Revit 2024 to 2027 and the add-in. | Not claimed. |
+| Smithery | `smithery.yaml` builds the root `Dockerfile` in mock mode only. Its config description says mock mode runs without Revit and live use needs Windows, Revit 2024 to 2027 and the add-in. | Not listed. |
 | Cline marketplace | Issue in the Cline marketplace repository with a 400x400 logo (none in the repo). Process UNVERIFIED. | Not submitted. |
 | Other directories (PulseMCP, MCP.Directory, MCP.so) | Submit the repository URL; they read the README and registry data. | Not submitted. |
 

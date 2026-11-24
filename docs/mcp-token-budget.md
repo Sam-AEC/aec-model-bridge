@@ -2,7 +2,7 @@
 
 Measured 2026-11-05 with `MCP_REVIT_MODE=mock`, the supplied Python interpreter, a temporary workspace, no user modules or provider credentials, and no Revit model execution. Baseline captured at `87d1d1bb5312ccb9868786860cbc66f76c47b895` before production changes; results were reported before edits.
 
-The checkout exposes **312** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
+The checkout exposes **313** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
 
 ## Initial profile and response pass
 
@@ -84,7 +84,25 @@ What core keeps, and why (50 tools plus the approval tools):
 
 Left out on purpose: single-purpose creators (walls, sheets, views, MEP, sparing), exports, recipes, family editing, revisions, Rhino, Speckle, Navisworks, IFC and rule-pack admin. Reach them with `daily` or `full`. A user custom profile file can still narrow `core` but cannot hide approval tools.
 
-Reproduce: `python scripts/measure_mcp_tokens.py --profile core --output docs/mcp-token-measurement-after-core.json`. Evidence: [after core](mcp-token-measurement-after-core.json).
+Reproduce: `python scripts/measure_mcp_tokens.py --profile core --output docs/mcp-token-measurement-after-core.json`. The command writes the evidence file. Measurement files are not kept in the repository.
+
+## Follow-up: deferred loading and the always-loaded set
+
+A client with tool search can defer this server and keep a short always-loaded set: `ALWAYS_LOADED_TOOLS` in `tool_profiles.py` (`revit_get_context`, `snapshot_take`, `snapshot_compute`, `search_tools`, `context_report`, `plan_actions`, `execute_plan`, `list_pending_plans`). Setup: [deferred tool loading](deferred-tool-loading.md).
+
+Same method as above (mock mode, chars / 4 over `list_tools`), with 312 tools, after `context_report` and the `_meta` always-load flag were added. `--always-loaded` measures only the always-loaded set. Names-only is the JSON list of tool names.
+
+| Setup | Tools in prompt | ~Tokens of tool definitions |
+| --- | ---: | ---: |
+| `full`, no deferral | 312 | 83,278 |
+| `daily`, no deferral | 241 | 65,312 |
+| `core`, no deferral | 58 | 15,094 |
+| Always-loaded set only (any profile) | 8 | 1,832 |
+| `full` deferred, plus names of the 304 deferred tools | 8 + 304 names | about 3,740 |
+
+With the Claude API tool search tool, deferred definitions are not in the prompt until a search returns them, so the startup cost is the always-loaded row plus the search tool itself. Claude Code lists the names of deferred tools at session start; the last row estimates that from names-only JSON (7,772 characters for all 312 names) and is not a measurement of Claude Code's own prompt. Neither row was measured in a live client. Server instructions (about 345 tokens) are sent in every setup.
+
+Reproduce: `python scripts/measure_mcp_tokens.py --always-loaded --output always-loaded.json`, and `--profile full|daily|core` for the other rows. `--only-tools a,b,c` measures any other subset.
 
 ## What dominates?
 
@@ -120,8 +138,7 @@ stored plan; its hash identifies that full plan. Distinct after-state data,
 errors and running-result diagnostics remain visible. This option does not
 enable arbitrary plan field selection.
 
-Before: [script fixture](mcp-token-measurement-plan-script-before.json).
-After: [same fixture with argument omission](mcp-token-measurement-plan-script-after.json).
+Evidence: `mcp-token-measurement-plan-script-before.json` (script fixture) and `mcp-token-measurement-plan-script-after.json` (same fixture with argument omission). The commands under Reproduce write them; they are not kept in the repository.
 
 ## Baseline by provider
 
@@ -231,6 +248,6 @@ Python files pass Ruff. Independent review found no remaining concrete defects.
 & python scripts/measure_mcp_tokens.py --profile daily --compact-read-results --plan-script-chars 16384 --omit-plan-arguments --output docs/mcp-token-measurement-plan-script-after.json
 ```
 
-To reproduce the original baseline, run the initial measurement script against the original source commit. Do not overwrite the preserved before artifact. Optional `--profile-file` accepts a custom include/exclude file. Each run records its Git HEAD and settings; after snapshots were captured on the working tree during implementation.
+To reproduce the original baseline, run the initial measurement script against the original source commit. Optional `--profile-file` accepts a custom include/exclude file. Each run records its Git HEAD and settings; after snapshots were captured on the working tree during implementation.
 
-Evidence: [before](mcp-token-measurement-before.json), [after full](mcp-token-measurement-after-full.json), [after compact](mcp-token-measurement-after-compact.json), [after daily](mcp-token-measurement-after-daily.json).
+Evidence: the JSON files the commands above write (before, after full, after compact, after daily). They are not kept in the repository; earlier copies are in the commit history.

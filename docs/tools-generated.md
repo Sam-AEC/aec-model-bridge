@@ -400,3 +400,10 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `exporter_graph_to_sqlite` | Extract the active semantic network graph and dump its nodes, properties, and typed edges to a local SQLite database in the workspace. | No | sync |
 | `exporter_to_sqlite` | Export a structured payload of BIM elements, parameters, and relationships to a local SQLite database in the workspace. | No | sync |
 
+## Tool Search Provider
+
+| Tool Name | Description | Mutating? | Execution Type |
+| --- | --- | --- | --- |
+| `context_report` | Report what this server's tool list costs in context: active profile, listed tool count, approximate characters and tokens (chars/4), the 10 largest tool definitions and tips to use less. | No | sync |
+| `search_tools` | Search every tool this server has, including tools the current profile hides, and return the best matches with their schemas. | No | sync |
+
