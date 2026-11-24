@@ -12,7 +12,7 @@ A tool failure reaches an MCP client in one of two shapes:
 Refusals never change the model. A refused write needs a new plan that a person approves.
 For logs and connection problems see [troubleshooting](troubleshooting.md).
 
-Entries: 136.
+Entries: 137.
 
 ## Tool error kinds
 
@@ -738,7 +738,7 @@ Set by module tools as `kind` in an `ok: false` result, next to `message`, `elem
 
 ## Exception classes
 
-Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 17.
+Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 18.
 
 ### `ApprovalExpired`
 
@@ -757,6 +757,12 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 - When: Communication with the Revit bridge failed, or a tool reported a failure. Returned to clients as kind bridge_error.
 - What to do: Run revit_health and check that Revit is running with the add-in.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/errors.py`
+
+### `CassetteError`
+
+- When: Replay mode cannot open, read or match a cassette, or MCP_REVIT_RECORD is not a plain cassette name. A kind of BridgeError, returned as bridge_error.
+- What to do: Set MCP_REVIT_CASSETTE to a readable cassette file, record the session again for an unmatched request, or use a plain name (letters, digits, _ or -) for MCP_REVIT_RECORD. See docs/record-replay.md.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/bridge/cassette.py`
 
 ### `CategoryMismatch`
 

@@ -106,6 +106,7 @@ nav:
       - Supply chain: supply-chain.md
   - Configuration:
       - Configuration reference: configuration-reference.md
+      - Record and replay: record-replay.md
       - MCP token budget: mcp-token-budget.md
       - Target frameworks and dependencies: target-frameworks-and-dependencies.md
   - Develop:

@@ -11,6 +11,10 @@
     "when": "Communication with the Revit bridge failed, or a tool reported a failure. Returned to clients as kind bridge_error.",
     "do": "Run revit_health and check that Revit is running with the add-in."
   },
+  "class/CassetteError": {
+    "when": "Replay mode cannot open, read or match a cassette, or MCP_REVIT_RECORD is not a plain cassette name. A kind of BridgeError, returned as bridge_error.",
+    "do": "Set MCP_REVIT_CASSETTE to a readable cassette file, record the session again for an unmatched request, or use a plain name (letters, digits, _ or -) for MCP_REVIT_RECORD. See docs/record-replay.md."
+  },
   "class/CategoryMismatch": {
     "when": "A family spec uses a category that does not fit its port kinds.",
     "do": "Pick a category that fits the port kinds or fix the ports. Nothing was sent to Revit."
