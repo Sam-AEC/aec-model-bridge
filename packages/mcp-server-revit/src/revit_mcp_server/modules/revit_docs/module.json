@@ -13,7 +13,7 @@
   "permissions": [
     "model.read",
     "model.write",
-    "workspace.write"
+    "files.write"
   ],
   "commands": [
     {

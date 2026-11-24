@@ -25,7 +25,7 @@ Every module must ship a schema-compliant manifest:
   "min_hub_version": "1.2.0",
   "requires_providers": ["revit", "graph"],
   "requires_tools": ["revit_get_warnings"],
-  "permissions": ["model.read", "workspace.write"],
+  "permissions": ["model.read", "files.write"],
   "commands": [
     {
       "id": "run_health_check",
@@ -56,7 +56,7 @@ Permissions are declared in the manifest and enforced by the hub at dispatch tim
 - `model.read`: Grants read-only access to elements/properties.
 - `model.write`: Permits modifications (requires approval gate).
 - `model.delete`: Permits destructive actions (requires explicit confirmation).
-- `workspace.write`: Restricted file output within the sandboxed workspace.
+- `files.write`: Restricted file output within the sandboxed workspace.
 - `net.local`: Inter-app communication on local loopback.
 - `net.cloud`: External synchronization (Speckle, ACC).
 - `python.host`: Raw execution access (off by default, requires expert profile).
