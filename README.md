@@ -8,7 +8,7 @@
 
 **AI assistants read the Revit model you have open. By default, nothing in it changes until you approve a plan.**
 
-Open source · Revit 2024 – 2027 · 307 tools · Claude, Codex, Cursor and other MCP clients
+Open source · Revit 2024 – 2027 · 309 tools · Claude, Codex, Cursor and other MCP clients
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Sam-AEC/aec-model-bridge/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Sam-AEC/aec-model-bridge/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
