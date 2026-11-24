@@ -46,6 +46,22 @@ public static partial class BridgeCommandFactory
             };
         }
 
+        // Process identity binds approved plans to this Revit (ADR 0014, issue #152): a plan
+        // approved against one Revit is refused by another, or by this one after a restart.
+        int? pid = null;
+        string? startedAt = null;
+        try
+        {
+            using var process = System.Diagnostics.Process.GetCurrentProcess();
+            pid = process.Id;
+            startedAt = process.StartTime.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ",
+                System.Globalization.CultureInfo.InvariantCulture);
+        }
+        catch (Exception)
+        {
+            // Not available (restricted process access): plans stay document-bound only.
+        }
+
         var queue = App.Server?.Queue;
         return new
         {
@@ -55,7 +71,9 @@ public static partial class BridgeCommandFactory
                 version = app.Application.VersionNumber,
                 name = app.Application.VersionName,
                 build = app.Application.VersionBuild,
-                username = app.Application.Username
+                username = app.Application.Username,
+                pid,
+                started_at = startedAt
             },
             document,
             queue = new
