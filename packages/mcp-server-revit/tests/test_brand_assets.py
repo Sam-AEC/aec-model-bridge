@@ -72,7 +72,11 @@ def test_product_icon_and_rasters() -> None:
 def test_product_mark_is_not_the_cerberus_mark() -> None:
     product = (ROOT / "assets" / "logo-mark.svg").read_text(encoding="utf-8")
     assert product != (CERBERUS / "mark.svg").read_text(encoding="utf-8")
-    assert not (ROOT / "assets" / "social-preview.png").exists()
+    # A social preview may exist, but it must not be one of the Cerberus images.
+    preview = ROOT / "assets" / "social-preview.png"
+    if preview.exists():
+        data = preview.read_bytes()
+        assert all(data != p.read_bytes() for p in CERBERUS.glob("*.png"))
 
 
 CERBERUS_FILES = [
