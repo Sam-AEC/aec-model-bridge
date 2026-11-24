@@ -36,6 +36,8 @@ class SemanticProvider(AECProvider):
             return await self._snapshot_query(arguments)
         elif name == "snapshot_diff":
             return await self._snapshot_diff(arguments)
+        elif name == "snapshot_compute":
+            return await self._snapshot_compute(arguments)
         else:
             raise BridgeError(f"Unknown tool '{name}' on semantic provider")
 
@@ -82,6 +84,50 @@ class SemanticProvider(AECProvider):
                     },
                     "required": ["snapshot_id", "filter"]
                 }
+            ),
+            ProviderTool(
+                name="snapshot_compute",
+                description=(
+                    "Answer a model question in one call: run a read-only pipeline of named steps over a saved "
+                    "snapshot and return only the result. Each step reads 'elements', 'types', 'relations' or "
+                    "'$<earlier step>', then join (type, host, level, room, group, hosted, relation_out, "
+                    "relation_in), where (field/op/value with all, any, not; value {\"field\": path} compares "
+                    "two fields), group_by with aggregate (count, sum, avg, min, max, distinct, list), sort, "
+                    "select and limit. Paths are dotted: 'params.Fire Rating', 'host.params.Fire Rating', "
+                    "'type.family'. Use it instead of many list or inspect calls. Never touches Revit."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "snapshot_id": {"type": "string"},
+                        "steps": {
+                            "type": "array",
+                            "description": "Named steps run in order; a step reads a source or '$<earlier step>'.",
+                            "minItems": 1,
+                            "maxItems": 12,
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "from": {"type": "string", "default": "elements"},
+                                    "join": {"type": "array", "items": {}},
+                                    "where": {},
+                                    "group_by": {"type": "array", "items": {"type": "string"}},
+                                    "aggregate": {"type": "object"},
+                                    "sort": {"type": "array", "items": {}},
+                                    "select": {"type": "array", "items": {}},
+                                    "limit": {"type": "integer", "minimum": 0},
+                                },
+                            },
+                        },
+                        "return": {"type": "string", "description": "Step to return; default the last."},
+                        "max_rows": {
+                            "type": "integer", "minimum": 1, "maximum": 1000, "default": 100,
+                            "description": "Rows returned from the result step; row_count still gives the total.",
+                        },
+                    },
+                    "required": ["snapshot_id", "steps"],
+                },
             ),
             ProviderTool(
                 name="snapshot_diff",
@@ -176,6 +222,20 @@ class SemanticProvider(AECProvider):
             "deleted": diff["deleted"],
             "modified": [el.model_dump(by_alias=True) for el in diff["modified"]]
         }
+
+    async def _snapshot_compute(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        from revit_mcp_server.semantic.compute import QueryError, run_pipeline
+
+        snapshot = self._load_snapshot(arguments["snapshot_id"])
+        try:
+            return run_pipeline(
+                snapshot,
+                arguments.get("steps"),
+                return_step=arguments.get("return"),
+                max_rows=arguments.get("max_rows", 100),
+            )
+        except QueryError as exc:
+            raise BridgeError(f"snapshot_compute refused the pipeline: {exc}") from exc
 
     def _load_snapshot(self, snapshot_id: str) -> Snapshot:
         snapshots_dir = self.workspace.allowed_directories[0] / "snapshots"

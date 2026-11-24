@@ -123,7 +123,7 @@ Dùng VS Code? [Mã nguồn tiện ích mở rộng và các bước cài đặt
 | Speckle | 17 | Dự án, mô hình, phiên bản, gửi và nhận |
 | Navisworks | 15 | Cây mô hình, viewpoint, kiểm tra va chạm (đang phát triển) |
 | IFC | 7 | Đọc tệp IFC mà không cần Revit: cấu trúc, thuộc tính, xác thực |
-| Đồ thị, snapshot, xuất dữ liệu, tác vụ | 22 | Kiểm toán đồ thị ngữ nghĩa, so sánh snapshot, xuất SQLite, tác vụ nền |
+| Đồ thị, snapshot, xuất dữ liệu, tác vụ | 23 | Kiểm toán đồ thị ngữ nghĩa, so sánh snapshot, xuất SQLite, tác vụ nền |
 
 Cấu hình mặc định liệt kê 310 công cụ (đếm từ máy chủ hiện tại ở chế độ mock). Các công cụ Autodesk Data xuất hiện khi đã cấu hình thông tin xác thực APS. [Tài liệu tham khảo công cụ](../tools-generated.md) liệt kê từng công cụ. Mỗi công cụ đều có chú thích MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) để ứng dụng khách phân biệt thao tác đọc với ghi.
 

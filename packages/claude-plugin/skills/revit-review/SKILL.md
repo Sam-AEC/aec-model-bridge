@@ -30,6 +30,13 @@ Start with read-only tools: model info, element and parameter queries, QA/QC che
 Say what you looked at and what you found, with counts. If the data is incomplete
 or a query returned nothing, say that instead of filling the gap.
 
+For questions that span many elements, take one snapshot (`snapshot_take`) and
+answer with `snapshot_compute` instead of reading elements one by one. One
+pipeline can join doors to their host walls, filter, group and count, and it
+returns only the answer. Use `select` and `max_rows` to keep results short. If
+the result says `partial_snapshot`, the snapshot does not cover the whole model:
+say so, or take a narrower snapshot with `categories`.
+
 ## 3. Check before you propose
 
 Check the facts the change depends on: which elements, which parameter, what the

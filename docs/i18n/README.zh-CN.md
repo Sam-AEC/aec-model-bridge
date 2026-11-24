@@ -124,7 +124,7 @@ the plan in Revit, apply it and read the values back to confirm the result.
 | Speckle | 17 | 项目、模型、版本、发送与接收 |
 | Navisworks | 15 | 模型树、视点、碰撞测试（开发中） |
 | IFC | 7 | 无需 Revit 即可读取 IFC 文件：结构、属性、校验 |
-| 图谱、快照、导出、作业 | 22 | 语义图谱审计、快照差异比对、SQLite 导出、后台作业 |
+| 图谱、快照、导出、作业 | 23 | 语义图谱审计、快照差异比对、SQLite 导出、后台作业 |
 
 默认配置下共列出 310 个工具（在 mock 模式下统计自当前服务器）。配置 APS 凭据后会出现 Autodesk Data 工具。[工具参考](../tools-generated.md)列出了所有工具。每个工具都带有 MCP 注解（`readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`），客户端据此区分读取和写入。
 
