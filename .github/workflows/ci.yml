@@ -151,7 +151,7 @@ jobs:
         env:
           VENV_BIN: ${{ runner.os == 'Windows' && 'Scripts' || 'bin' }}
         run: |
-          count="$(packages/mcp-server-revit/.venv/${VENV_BIN}/ruff format --check packages/mcp-server-revit/src packages/mcp-server-revit/tests 2>&1 | grep -c '^Would reformat' || true)"
+          count="$("packages/mcp-server-revit/.venv/${VENV_BIN}/ruff" format --check packages/mcp-server-revit/src packages/mcp-server-revit/tests 2>&1 | grep -c '^Would reformat' || true)"
           echo "ruff format would change ${count} files (not enforced)." | tee -a "$GITHUB_STEP_SUMMARY"
 
       # Run from the package directory: [tool.coverage.run] source is a relative path.
