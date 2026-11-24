@@ -71,6 +71,11 @@ def fields_from_labels(labels: list[str], is_pr: bool = False) -> dict[str, str]
     return values
 
 
+def fields_to_clear(values: dict[str, str]) -> list[str]:
+    """Managed fields with no value from the current labels; their old value is cleared."""
+    return [name for name in FIELDS if name not in values]
+
+
 def gh(*args: str) -> str:
     result = subprocess.run(["gh", *args], capture_output=True, text=True, encoding="utf-8")
     if result.returncode != 0:
@@ -148,6 +153,11 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             gh("project", "item-edit", "--id", item["id"], "--project-id", project_id,
                "--field-id", field["id"], "--single-select-option-id", option["id"])
+        # Labels are the source of truth: clear a managed field whose label was removed.
+        for name in fields_to_clear(values):
+            if name in fields:
+                gh("project", "item-edit", "--id", item["id"], "--project-id", project_id,
+                   "--field-id", fields[name]["id"], "--clear")
         print(f"#{issue['number']} {values}")
 
     print(f"Done: {len(issues)} items on https://github.com/users/{OWNER}/projects/{number}")

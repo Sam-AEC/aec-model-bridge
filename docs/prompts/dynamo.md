@@ -32,9 +32,10 @@ First run the read part with mode "read". If the node writes, draft a plan with 
 ```text
 I am about to run the Dynamo graph "{graph_name}". Record what it changes. Change nothing yourself.
 1. Take a snapshot now with snapshot_take and tell me its id.
-2. Wait until I say the graph has run.
-3. Take a second snapshot and compare them with model_changes_compare_snapshots.
-4. Run revit_warnings_delta. Report elements added, removed and modified per category, parameter changes and new warnings.
+2. Run revit_warnings_delta without a baseline_id to save a warnings baseline, and keep the baseline_id it returns.
+3. Wait until I say the graph has run.
+4. Take a second snapshot and compare them with model_changes_compare_snapshots.
+5. Run revit_warnings_delta with the baseline_id from step 2. Report elements added, removed and modified per category, parameter changes and new warnings.
 ```
 
 - **Tools:** `snapshot_take`, `model_changes_compare_snapshots`, `revit_warnings_delta`

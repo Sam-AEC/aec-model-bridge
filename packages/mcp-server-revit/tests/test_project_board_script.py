@@ -44,3 +44,10 @@ def test_needs_revit():
 def test_field_set_and_area_order():
     assert board.AREAS == sorted(board.AREAS)
     assert set(board.FIELDS) == {"Priority", "Size", "Area", "Owner", "Needs Revit"}
+
+
+def test_removed_labels_clear_their_fields():
+    values = board.fields_from_labels(["size: S"], is_pr=True)
+    assert board.fields_to_clear(values) == ["Priority", "Area", "Owner"]
+    assert board.fields_to_clear(board.fields_from_labels(
+        ["priority: P0", "size: L", "area: ci", "help wanted"])) == []

@@ -417,7 +417,7 @@
   },
   "kind/script_exception": {
     "when": "The embedded script raised an exception inside Revit.",
-    "do": "The embedded script failed inside Revit. It is read-only, so the model was not changed."
+    "do": "A read-only call changed nothing. A write recipe may have committed changes before it failed: check the model before repeating it, and repeat it only through a new approved plan."
   },
   "kind/shared_parameter_file_missing": {
     "when": "Revit has no shared parameter file set and none was passed.",

@@ -127,7 +127,7 @@ List levels without plan views, duplicate elevations and coincident grids. List 
 Tell me what changed in the open model since the last snapshot. Change nothing.
 1. List snapshots with model_changes_list_snapshots. If there is no earlier snapshot of this document, take one now and stop.
 2. Take a new snapshot and compare it with the previous one using model_changes_compare_snapshots.
-3. Run revit_warnings_delta for the warning change.
+3. If I gave you a warnings baseline_id from the last check, run revit_warnings_delta with it. If not, run revit_warnings_delta without one: say that new warnings cannot be compared this time, and give me the baseline_id it returns for next time.
 Report elements added, removed and modified per category, notable parameter changes, and new warnings.
 ```
 

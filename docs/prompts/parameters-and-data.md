@@ -47,13 +47,13 @@ Set "{parameter}" to "{value}" on {category} elements on level "{level}".
 Export {parameter_list} for all {category} elements to Excel so I can edit it.
 Take a snapshot and run parameter_manager_export_params_xlsx with output_filename "{file}". Tell me the path and the number of rows.
 When I say the file is edited, run parameter_manager_import_params_xlsx with the same snapshot_id. Show me the row diff: element, parameter, old value, new value. Do not include unchanged rows.
-The import creates a draft plan. You cannot approve it; tell me to approve it in the Revit panel and wait.
+The import returns a draft. Pass its actions to plan_actions and give me the plan_id. You cannot approve it; tell me to approve it in the Revit panel and wait.
 After I approve, run execute_plan, take a new snapshot and confirm the change with snapshot_diff.
 ```
 
-- **Tools:** `snapshot_take`, `parameter_manager_export_params_xlsx`, `parameter_manager_import_params_xlsx`, `execute_plan`, `snapshot_diff`
+- **Tools:** `snapshot_take`, `parameter_manager_export_params_xlsx`, `parameter_manager_import_params_xlsx`, `plan_actions`, `execute_plan`, `snapshot_diff`
 - **Expected result:** An .xlsx in the workspace, then a draft plan with only changed rows, then a diff after execution.
-- **Safety:** The import only drafts a plan. The values are written by `execute_plan` after a person approves.
+- **Safety:** The import only returns a draft; `plan_actions` registers it for approval. The values are written by `execute_plan` after a person approves.
 - **Tested:** Mock: exercised (export only; import and execute were not run).
 
 ### PAR-04 Duplicate Marks and missing required values

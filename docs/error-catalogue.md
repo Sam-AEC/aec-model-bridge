@@ -589,7 +589,7 @@ Set by module tools as `kind` in an `ok: false` result, next to `message`, `elem
 ### `script_exception`
 
 - When: The embedded script raised an exception inside Revit.
-- What to do: The embedded script failed inside Revit. It is read-only, so the model was not changed.
+- What to do: A read-only call changed nothing. A write recipe may have committed changes before it failed: check the model before repeating it, and repeat it only through a new approved plan.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/modules/revit/module.py`, `packages/mcp-server-revit/src/revit_mcp_server/modules/revit_cleanup/module.py`, `packages/mcp-server-revit/src/revit_mcp_server/modules/revit_docs/module.py`, `packages/mcp-server-revit/src/revit_mcp_server/modules/revit_family/module.py`, `packages/mcp-server-revit/src/revit_mcp_server/modules/revit_ifc/module.py`, `packages/mcp-server-revit/src/revit_mcp_server/modules/revit_mep/module.py`, `packages/mcp-server-revit/src/revit_mcp_server/modules/revit_params/module.py`, `packages/mcp-server-revit/src/revit_mcp_server/modules/revit_recipes/module.py`, `packages/mcp-server-revit/src/revit_mcp_server/modules/revit_sparing/module.py`
 
 ### `shared_parameter_file_missing`
