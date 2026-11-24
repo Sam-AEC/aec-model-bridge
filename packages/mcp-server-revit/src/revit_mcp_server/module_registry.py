@@ -11,6 +11,8 @@ from typing import Any, Callable, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from .security.module_permissions import unknown_permissions
+
 
 logger = logging.getLogger(__name__)
 
@@ -163,6 +165,11 @@ class ModuleRegistry:
                 data = json.load(f)
                 
             manifest = ModuleManifest(**data)
+
+            # Unknown permission names are only a warning for one release (issue #157); later a load error.
+            declared = list(manifest.permissions) + [p for c in manifest.commands for p in c.permissions]
+            for bad in unknown_permissions(declared):
+                logger.warning(f"Module '{manifest.id}' declares unknown permission '{bad}' (see docs/module-authoring.md)")
             
             # Version checks: min_hub_version gate
             try:

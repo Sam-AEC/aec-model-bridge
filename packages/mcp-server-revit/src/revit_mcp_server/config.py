@@ -111,6 +111,7 @@ class Config(BaseSettings):
     pending_ttl: int = Field(default=PENDING_TTL_DEFAULT)  # seconds a draft stays approvable; 0 = no limit
     enable_user_modules: bool = Field(default=False)
     allow_python_host: bool = Field(default=False)
+    module_permission_mode: str = Field(default="enforce")  # "enforce" or "warn" for files.write (issue #157)
     anthropic_api_key: str | None = Field(default=None)
 
     _auto_dirs: List[Path] = PrivateAttr(default_factory=list)
