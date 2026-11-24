@@ -71,6 +71,15 @@ namespace RevitBridge.Bridge
                     ActiveDocumentName = args.GetDocument()?.Title;
                     DocumentDirtyTracker.HandleDocumentChanged(sender, args);
                 };
+                // Incremental snapshots (issue 290) trust the change journal only while it saw every
+                // change. These events load changes that may not raise DocumentChanged, or give the
+                // document a new identity, so they start a new journal epoch (next snapshot is full).
+                var controlled = application.ControlledApplication;
+                controlled.DocumentOpened += (sender, args) => DocumentDirtyTracker.ResetDocument(args.Document);
+                controlled.DocumentClosing += (sender, args) => DocumentDirtyTracker.ResetDocument(args.Document);
+                controlled.DocumentSynchronizedWithCentral += (sender, args) => DocumentDirtyTracker.ResetDocument(args.Document);
+                controlled.DocumentReloadedLatest += (sender, args) => DocumentDirtyTracker.ResetDocument(args.Document);
+                controlled.DocumentSavedAs += (sender, args) => DocumentDirtyTracker.ResetDocument(args.Document);
                 application.ViewActivated += (sender, args) =>
                 {
                     ActiveDocumentName = args.CurrentActiveView?.Document?.Title;

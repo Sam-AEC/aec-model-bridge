@@ -5024,11 +5024,25 @@ public static partial class BridgeCommandFactory
             throw new InvalidOperationException("No active document");
 
         var clock = System.Diagnostics.Stopwatch.StartNew();
-        bool dirtyOnly = payload.ValueKind == JsonValueKind.Object &&
+        bool isObject = payload.ValueKind == JsonValueKind.Object;
+
+        // Issue 289: a cursor continues a sliced extraction. Every other option comes from the slice
+        // session the first call created, so the slices of one snapshot always use the same scope.
+        var cursor = isObject ? PayloadJson.OptionalString(payload, "cursor") : null;
+        if (cursor != null)
+            return ContinueSnapshotSlices(app, doc, cursor, clock);
+
+        bool dirtyOnly = isObject &&
                          payload.TryGetProperty("dirty_only", out var dirtyProp) &&
                          dirtyProp.ValueKind == JsonValueKind.True;
+        bool sliced = isObject && payload.TryGetProperty("slice_size", out var sliceProp) &&
+                      sliceProp.ValueKind == JsonValueKind.Number;
         var maxElements = ReadSnapshotInt(payload, "max_elements", SnapshotDefaultMaxElements, 1, 200000);
-        var budgetMs = ReadSnapshotInt(payload, "time_budget_ms", SnapshotDefaultBudgetMs, 1000, 25000);
+        // Sliced: time_budget_ms is the budget of one slice (one Revit turn), not of the whole snapshot.
+        var budgetMs = ReadSnapshotInt(payload, "time_budget_ms",
+            sliced ? SnapshotSliceDefaultBudgetMs : SnapshotDefaultBudgetMs, 1000, 25000);
+        var sliceSize = ReadSnapshotInt(payload, "slice_size", SnapshotDefaultSliceSize, 10, 5000);
+        var paramRequests = ReadSnapshotParams(payload);
         var unknownCategories = new List<string>();
         var categories = ReadSnapshotCategories(payload, unknownCategories);
         string snapshotId = Guid.NewGuid().ToString("N");
@@ -5037,6 +5051,10 @@ public static partial class BridgeCommandFactory
         var snapshotDir = Path.Combine(workspaceDir, "snapshots");
         Directory.CreateDirectory(snapshotDir);
         var snapshotPath = Path.Combine(snapshotDir, $"{snapshotId}.json");
+
+        // Change-journal position at the start of this capture. A later incremental snapshot re-reads
+        // everything changed after it, including changes made while this capture was running.
+        DocumentDirtyTracker.GetJournalState(doc, out var trackerEpoch, out var trackerSeq);
 
         // Ids first: no element objects are built until they are actually written.
         var idsToExtract = new List<ElementId>();
@@ -5077,9 +5095,67 @@ public static partial class BridgeCommandFactory
                 .ToElementIds());
         }
 
+        // Issue 290: incremental capture against a base snapshot. Only the elements changed since the
+        // base (and the instances of changed types) are read; the full list of UniqueIds in scope goes
+        // with them so the server can drop deleted elements and keep the rest from the base.
+        var baseEpoch = isObject ? PayloadJson.OptionalString(payload, "base_epoch") : null;
+        bool incrementalRequested = baseEpoch != null;
+        bool incremental = false;
+        string? incrementalReason = null;
+        List<string>? currentUids = null;
+        if (incrementalRequested && dirtyOnly)
+        {
+            incrementalReason = "dirty_only and an incremental base cannot be combined; a dirty-only capture was taken.";
+        }
+        else if (incrementalRequested)
+        {
+            var changed = DocumentDirtyTracker.GetChangedSince(doc, baseEpoch!, ReadSnapshotLong(payload, "base_seq", -1));
+            if (changed == null)
+            {
+                incrementalReason = "The change journal of this document does not cover the base snapshot (another document, " +
+                                    "a reopen, reload, sync with central, save as, or a Revit restart since then); a full snapshot was taken.";
+            }
+            else if (idsToExtract.Count > maxElements)
+            {
+                incrementalReason = $"The scope has {idsToExtract.Count} elements, more than max_elements ({maxElements}); " +
+                                    "a full snapshot was taken.";
+            }
+            else
+            {
+                var reread = SelectSnapshotElementsToReread(doc, idsToExtract, changed, out currentUids);
+                idsToExtract = reread;
+                incremental = true;
+            }
+        }
+
         // Views and sheets (issue 142): only for a whole-model capture. A category-filtered or dirty-only
         // snapshot writes null for them, and the audit then reports "views not captured: result not rated".
         var captureViews = !dirtyOnly && categories.Count == 0;
+
+        if (sliced && !incremental)
+        {
+            var session = new SnapshotSliceSession
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                DocKey = DocumentDirtyTracker.DocumentKey(doc),
+                SnapshotId = snapshotId,
+                SnapshotDir = snapshotDir,
+                Ids = idsToExtract.Count > maxElements ? idsToExtract.GetRange(0, maxElements) : idsToExtract,
+                Candidates = idsToExtract.Count,
+                CapTruncated = idsToExtract.Count > maxElements,
+                MaxElements = maxElements,
+                BudgetMs = budgetMs,
+                SliceSize = sliceSize,
+                DirtyOnly = dirtyOnly,
+                Categories = categories.Select(c => c.ToString()).ToList(),
+                Params = paramRequests,
+                TrackerEpoch = trackerEpoch,
+                TrackerSeq = trackerSeq,
+                LastUsedUtc = DateTime.UtcNow,
+            };
+            return StartSnapshotSlices(app, doc, session, captureViews, dirtyIds, unknownCategories, incrementalReason, clock);
+        }
+
         var viewRecords = new List<object?>();
         var sheetRecords = new List<object?>();
         var viewsTruncated = false;
@@ -5090,6 +5166,7 @@ public static partial class BridgeCommandFactory
         var totalCandidates = idsToExtract.Count;
         var truncated = false;
         var skippedHeavy = 0;
+        var typeCache = new Dictionary<long, SnapshotTypeInfo>();
         var elementRecords = new List<object>();
         foreach (var id in idsToExtract)
         {
@@ -5099,52 +5176,8 @@ public static partial class BridgeCommandFactory
                 break;
             }
 
-            var elem = doc.GetElement(id);
-            if (elem == null || string.IsNullOrEmpty(elem.UniqueId)) continue;
-
-            Element? typeElem = null;
-            try { typeElem = doc.GetElement(elem.GetTypeId()); } catch { }
-
-            var paramsDict = new Dictionary<string, object>();
-            foreach (Parameter param in elem.Parameters)
-            {
-                if (!param.HasValue) continue;
-                if (IsHeavySnapshotParameter(elem, param)) { skippedHeavy++; continue; }
-
-                object val = SnapshotParameterValue(param);
-
-                paramsDict[param.Definition.Name] = new
-                {
-                    v = val,
-                    storage = param.StorageType.ToString(),
-                    instance = true,
-                    @readonly = param.IsReadOnly
-                };
-            }
-
-            // Retain localized labels while also supplying stable built-in names for consumers.
-            AddSnapshotNameAliases(elem, paramsDict);
-            string catName = elem.Category?.BuiltInCategory.ToString() ?? elem.Category?.Name ?? "None";
-
-            elementRecords.Add(new
-            {
-                uid = elem.UniqueId,
-                amb_uid = elem.UniqueId,
-                element_id = elem.Id.Value,
-                category = catName,
-                @class = elem.GetType().Name,
-                name = elem.Name,
-                sheet_number = (elem as ViewSheet)?.SheetNumber,
-                type_uid = elem.GetTypeId().Value.ToString(),
-                family = typeElem?.get_Parameter(BuiltInParameter.ALL_MODEL_FAMILY_NAME)?.AsString() ?? typeElem?.Name ?? string.Empty,
-                type_name = typeElem?.Name ?? string.Empty,
-                level_uid = elem.LevelId != ElementId.InvalidElementId ? elem.LevelId.Value.ToString() : null,
-                location = GetSnapshotPointLocation(elem),
-                // The QA rules (door_no_host, window_no_host) test host_uid. Without it every hosted door
-                // was reported as unhosted (1,006 false errors on a real model).
-                host_uid = (elem as FamilyInstance)?.Host?.UniqueId,
-                @params = paramsDict
-            });
+            var record = BuildSnapshotElementRecord(doc, id, paramRequests, typeCache, ref skippedHeavy);
+            if (record != null) elementRecords.Add(record);
         }
 
         var deletedIdsList = dirtyOnly
@@ -5169,31 +5202,57 @@ public static partial class BridgeCommandFactory
             ["views_truncated"] = viewsTruncated,
             ["sheets_truncated"] = sheetsTruncated,
         };
+        AddSnapshotScopeCounts(counts, paramRequests, trackerEpoch, trackerSeq);
+        if (incrementalRequested)
+        {
+            counts["incremental"] = incremental;
+            if (incrementalReason != null) counts["incremental_reason"] = incrementalReason;
+        }
+
+        // An incremental capture holds only the changed elements; it is written next to the snapshot
+        // path, never under it, so no tool can read it as a whole snapshot before the server merges it.
+        if (incremental)
+            snapshotPath = Path.Combine(snapshotDir, $"{snapshotId}.delta.json");
 
         // views / sheets are null (JSON null) when they were not captured; the audit treats a non-list
         // "views" as "views not captured: result not rated".
-        var snapshot = new
+        var source = SnapshotSource(app, doc);
+        string json;
+        if (incremental)
         {
-            schema = "amb.snapshot/1",
-            snapshot_id = snapshotId,
-            taken_at = DateTime.UtcNow.ToString("o"),
-            source = new
+            json = JsonSerializer.Serialize(new
             {
-                app = "revit",
-                app_version = app.Application.VersionNumber,
-                doc_guid = doc.ProjectInformation?.UniqueId ?? doc.Title,
-                doc_title = doc.Title,
-                units = "SI"
-            },
-            elements = elementRecords,
-            views = captureViews ? viewRecords : null,
-            sheets = captureViews ? sheetRecords : null,
-            dirty_only = dirtyOnly,
-            counts,
-            deleted = deletedIdsList
-        };
-
-        var json = JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = false });
+                schema = "amb.snapshot/1",
+                snapshot_id = snapshotId,
+                taken_at = DateTime.UtcNow.ToString("o"),
+                source,
+                elements = elementRecords,
+                views = captureViews ? viewRecords : null,
+                sheets = captureViews ? sheetRecords : null,
+                dirty_only = dirtyOnly,
+                counts,
+                deleted = deletedIdsList,
+                incremental = true,
+                current_uids = currentUids
+            }, new JsonSerializerOptions { WriteIndented = false });
+        }
+        else
+        {
+            var snapshot = new
+            {
+                schema = "amb.snapshot/1",
+                snapshot_id = snapshotId,
+                taken_at = DateTime.UtcNow.ToString("o"),
+                source,
+                elements = elementRecords,
+                views = captureViews ? viewRecords : null,
+                sheets = captureViews ? sheetRecords : null,
+                dirty_only = dirtyOnly,
+                counts,
+                deleted = deletedIdsList
+            };
+            json = JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = false });
+        }
         File.WriteAllText(snapshotPath, json);
 
         return new
@@ -5208,11 +5267,475 @@ public static partial class BridgeCommandFactory
             truncated,
             elapsed_ms = clock.ElapsedMilliseconds,
             unknown_categories = unknownCategories,
+            incremental,
+            incremental_reason = incrementalReason,
             note = truncated
                 ? $"Partial snapshot: {elementRecords.Count} of {totalCandidates} elements captured within the " +
                   $"{maxElements}-element / {budgetMs} ms limits. Pass 'categories' (for example [\"Doors\",\"Rooms\"]) " +
                   "or raise max_elements to capture what the check needs."
                 : null
+        };
+    }
+
+    // --- Snapshot extraction helpers (issues 289, 290) ------------------------------------------------
+
+    // Sliced extraction: a slice reads about this many elements in one Revit turn, then hands control
+    // back to Revit. The time budget of a slice ends it early on slow elements.
+    private const int SnapshotDefaultSliceSize = 200;
+    private const int SnapshotSliceDefaultBudgetMs = 2000;
+    private const int SnapshotMaxParams = 100;
+    private const int SnapshotMaxParamNameLength = 200;
+    private const int SnapshotMaxSliceSessions = 4;
+    private static readonly TimeSpan SnapshotSliceSessionTtl = TimeSpan.FromMinutes(15);
+
+    private sealed class SnapshotTypeInfo
+    {
+        public string Family = string.Empty;
+        public string TypeName = string.Empty;
+    }
+
+    private sealed class SnapshotParamRequest
+    {
+        public string Name = string.Empty;
+        public BuiltInParameter? BuiltIn;
+    }
+
+    private sealed class SnapshotSliceSession
+    {
+        public string Id = string.Empty;
+        public string DocKey = string.Empty;
+        public string SnapshotId = string.Empty;
+        public string SnapshotDir = string.Empty;
+        public List<ElementId> Ids = new List<ElementId>();
+        public int Candidates;
+        public bool CapTruncated;
+        public int MaxElements;
+        public int BudgetMs;
+        public int SliceSize;
+        public bool DirtyOnly;
+        public List<string> Categories = new List<string>();
+        public List<SnapshotParamRequest>? Params;
+        public string TrackerEpoch = string.Empty;
+        public long TrackerSeq;
+        public int SkippedHeavy;
+        public readonly Dictionary<long, SnapshotTypeInfo> TypeCache = new Dictionary<long, SnapshotTypeInfo>();
+        public DateTime LastUsedUtc;
+    }
+
+    private static readonly Dictionary<string, SnapshotSliceSession> _snapshotSliceSessions =
+        new Dictionary<string, SnapshotSliceSession>(StringComparer.Ordinal);
+    private static readonly object _snapshotSliceLock = new object();
+
+    private static long ReadSnapshotLong(JsonElement payload, string name, long fallback)
+    {
+        if (payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty(name, out var el)
+            && el.ValueKind == JsonValueKind.Number && el.TryGetInt64(out var v))
+        {
+            return v;
+        }
+        return fallback;
+    }
+
+    /// <summary>
+    /// The optional "params" list: read only these parameters instead of every parameter. A name written
+    /// like a built-in id (for example ALL_MODEL_MARK) is read with get_Parameter; any other name with
+    /// LookupParameter. Returns null when the list is absent. Refuses a malformed list.
+    /// </summary>
+    private static List<SnapshotParamRequest>? ReadSnapshotParams(JsonElement payload)
+    {
+        if (payload.ValueKind != JsonValueKind.Object || !payload.TryGetProperty("params", out var arr)
+            || arr.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+        if (arr.ValueKind != JsonValueKind.Array)
+            throw new ArgumentException("params must be a list of parameter names");
+
+        var result = new List<SnapshotParamRequest>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var item in arr.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.String)
+                throw new ArgumentException("params must contain only parameter names (strings)");
+            var name = (item.GetString() ?? string.Empty).Trim();
+            if (name.Length == 0)
+                throw new ArgumentException("params must not contain an empty name");
+            if (name.Length > SnapshotMaxParamNameLength)
+                throw new ArgumentException($"params names must be at most {SnapshotMaxParamNameLength} characters");
+            if (!seen.Add(name)) continue;
+            result.Add(new SnapshotParamRequest { Name = name, BuiltIn = ParseSnapshotBuiltInParameter(name) });
+        }
+        if (result.Count == 0)
+            throw new ArgumentException("params must name at least one parameter; leave it out to read every parameter");
+        if (result.Count > SnapshotMaxParams)
+            throw new ArgumentException($"params can name at most {SnapshotMaxParams} parameters");
+        return result;
+    }
+
+    private static BuiltInParameter? ParseSnapshotBuiltInParameter(string name)
+    {
+        if (name.Length == 0 || name[0] < 'A' || name[0] > 'Z') return null;
+        foreach (var c in name)
+        {
+            if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_')) return null;
+        }
+        if (!Enum.TryParse(name, false, out BuiltInParameter bip)) return null;
+        if (!Enum.IsDefined(typeof(BuiltInParameter), bip) || bip == BuiltInParameter.INVALID) return null;
+        return bip;
+    }
+
+    /// <summary>Family and type name of a type element, read once per extraction and reused.</summary>
+    private static SnapshotTypeInfo GetSnapshotTypeInfo(Document doc, ElementId typeId, Dictionary<long, SnapshotTypeInfo> cache)
+    {
+        var key = typeId.Value;
+        if (cache.TryGetValue(key, out var cached)) return cached;
+
+        Element? typeElem = null;
+        try { typeElem = doc.GetElement(typeId); } catch { }
+        var info = new SnapshotTypeInfo
+        {
+            Family = typeElem?.get_Parameter(BuiltInParameter.ALL_MODEL_FAMILY_NAME)?.AsString() ?? typeElem?.Name ?? string.Empty,
+            TypeName = typeElem?.Name ?? string.Empty
+        };
+        cache[key] = info;
+        return info;
+    }
+
+    /// <summary>One element record of the snapshot, or null when the element is gone or has no UniqueId.</summary>
+    private static object? BuildSnapshotElementRecord(
+        Document doc, ElementId id, List<SnapshotParamRequest>? paramRequests,
+        Dictionary<long, SnapshotTypeInfo> typeCache, ref int skippedHeavy)
+    {
+        var elem = doc.GetElement(id);
+        if (elem == null || string.IsNullOrEmpty(elem.UniqueId)) return null;
+
+        var typeId = elem.GetTypeId();
+        var typeInfo = GetSnapshotTypeInfo(doc, typeId, typeCache);
+
+        var paramsDict = new Dictionary<string, object>();
+        if (paramRequests == null)
+        {
+            foreach (Parameter param in elem.Parameters)
+            {
+                if (!param.HasValue) continue;
+                if (IsHeavySnapshotParameter(elem, param)) { skippedHeavy++; continue; }
+
+                object val = SnapshotParameterValue(param);
+
+                paramsDict[param.Definition.Name] = new
+                {
+                    v = val,
+                    storage = param.StorageType.ToString(),
+                    instance = true,
+                    @readonly = param.IsReadOnly
+                };
+            }
+
+            // Retain localized labels while also supplying stable built-in names for consumers.
+            AddSnapshotNameAliases(elem, paramsDict);
+        }
+        else
+        {
+            // Projection: only the named parameters, keyed by the name the caller gave.
+            foreach (var request in paramRequests)
+            {
+                Parameter? param = null;
+                try
+                {
+                    param = request.BuiltIn.HasValue
+                        ? elem.get_Parameter(request.BuiltIn.Value)
+                        : elem.LookupParameter(request.Name);
+                }
+                catch { }
+                if (param == null || !param.HasValue) continue;
+                if (IsHeavySnapshotParameter(elem, param)) { skippedHeavy++; continue; }
+
+                object val = SnapshotParameterValue(param);
+
+                paramsDict[request.Name] = new
+                {
+                    v = val,
+                    storage = param.StorageType.ToString(),
+                    instance = true,
+                    @readonly = param.IsReadOnly
+                };
+            }
+        }
+
+        string catName = elem.Category?.BuiltInCategory.ToString() ?? elem.Category?.Name ?? "None";
+
+        return new
+        {
+            uid = elem.UniqueId,
+            amb_uid = elem.UniqueId,
+            element_id = elem.Id.Value,
+            category = catName,
+            @class = elem.GetType().Name,
+            name = elem.Name,
+            sheet_number = (elem as ViewSheet)?.SheetNumber,
+            type_uid = typeId.Value.ToString(),
+            family = typeInfo.Family,
+            type_name = typeInfo.TypeName,
+            level_uid = elem.LevelId != ElementId.InvalidElementId ? elem.LevelId.Value.ToString() : null,
+            location = GetSnapshotPointLocation(elem),
+            // The QA rules (door_no_host, window_no_host) test host_uid. Without it every hosted door
+            // was reported as unhosted (1,006 false errors on a real model).
+            host_uid = (elem as FamilyInstance)?.Host?.UniqueId,
+            @params = paramsDict
+        };
+    }
+
+    private static object SnapshotSource(UIApplication app, Document doc) => new
+    {
+        app = "revit",
+        app_version = app.Application.VersionNumber,
+        doc_guid = doc.ProjectInformation?.UniqueId ?? doc.Title,
+        doc_title = doc.Title,
+        units = "SI"
+    };
+
+    private static void AddSnapshotScopeCounts(
+        Dictionary<string, object> counts, List<SnapshotParamRequest>? paramRequests, string trackerEpoch, long trackerSeq)
+    {
+        // A parameter-limited snapshot is a partial capture for every check that reads other parameters.
+        if (paramRequests != null) counts["params"] = paramRequests.Select(p => p.Name).ToList();
+        // Journal position at the start of the capture: what a later incremental snapshot starts from.
+        counts["tracker"] = new Dictionary<string, object> { ["epoch"] = trackerEpoch, ["seq"] = trackerSeq };
+    }
+
+    /// <summary>
+    /// Incremental capture: the ids in scope whose records must be read again (changed elements, and
+    /// instances of changed types or families, whose family and type names are copied into their
+    /// records), plus every UniqueId in scope in collector order.
+    /// </summary>
+    private static List<ElementId> SelectSnapshotElementsToReread(
+        Document doc, List<ElementId> scope, HashSet<string> changed, out List<string> currentUids)
+    {
+        var changedTypeIds = new HashSet<long>();
+        foreach (var uid in changed)
+        {
+            try
+            {
+                var e = doc.GetElement(uid);
+                if (e is ElementType) changedTypeIds.Add(e.Id.Value);
+                else if (e is Family family)
+                {
+                    foreach (var symbolId in family.GetFamilySymbolIds()) changedTypeIds.Add(symbolId.Value);
+                }
+            }
+            catch { }
+        }
+
+        currentUids = new List<string>(scope.Count);
+        var reread = new List<ElementId>();
+        foreach (var id in scope)
+        {
+            var elem = doc.GetElement(id);
+            if (elem == null || string.IsNullOrEmpty(elem.UniqueId)) continue;
+            currentUids.Add(elem.UniqueId);
+            bool again = changed.Contains(elem.UniqueId);
+            if (!again && changedTypeIds.Count > 0)
+            {
+                try { again = changedTypeIds.Contains(elem.GetTypeId().Value); }
+                catch { again = true; }
+            }
+            if (again) reread.Add(id);
+        }
+        return reread;
+    }
+
+    private static void RegisterSnapshotSliceSession(SnapshotSliceSession session)
+    {
+        lock (_snapshotSliceLock)
+        {
+            var now = DateTime.UtcNow;
+            foreach (var stale in _snapshotSliceSessions.Values
+                         .Where(s => now - s.LastUsedUtc > SnapshotSliceSessionTtl).Select(s => s.Id).ToList())
+            {
+                _snapshotSliceSessions.Remove(stale);
+            }
+            while (_snapshotSliceSessions.Count >= SnapshotMaxSliceSessions)
+            {
+                var oldest = _snapshotSliceSessions.Values.OrderBy(s => s.LastUsedUtc).First().Id;
+                _snapshotSliceSessions.Remove(oldest);
+            }
+            _snapshotSliceSessions[session.Id] = session;
+        }
+    }
+
+    /// <summary>
+    /// First call of a sliced snapshot. With views and sheets in scope it captures only those (with the
+    /// single-call time budget, so they are as complete as in a single-call snapshot); otherwise it reads
+    /// the first slice of elements.
+    /// </summary>
+    private static object StartSnapshotSlices(
+        UIApplication app, Document doc, SnapshotSliceSession session, bool captureViews,
+        List<string> dirtyIds, List<string> unknownCategories, string? incrementalReason,
+        System.Diagnostics.Stopwatch clock)
+    {
+        RegisterSnapshotSliceSession(session);
+        if (!captureViews)
+            return RunSnapshotSlice(app, doc, session, 0, clock, true, unknownCategories, dirtyIds, incrementalReason);
+
+        var viewRecords = new List<object?>();
+        var sheetRecords = new List<object?>();
+        CaptureSnapshotViewsAndSheets(doc, clock, SnapshotDefaultBudgetMs, viewRecords, sheetRecords,
+            out var viewsTruncated, out var sheetsTruncated);
+
+        var counts = SnapshotSliceCounts(session, captureViews: true, viewRecords.Count, sheetRecords.Count,
+            viewsTruncated, sheetsTruncated, incrementalReason);
+        var partPath = Path.Combine(session.SnapshotDir, $"{session.SnapshotId}.part-start.json");
+        var part = new
+        {
+            schema = "amb.snapshot/1",
+            snapshot_id = session.SnapshotId,
+            taken_at = DateTime.UtcNow.ToString("o"),
+            source = SnapshotSource(app, doc),
+            elements = new List<object>(),
+            views = viewRecords,
+            sheets = sheetRecords,
+            dirty_only = session.DirtyOnly,
+            counts,
+            deleted = new List<string>(),
+            part = new { offset = 0, next_offset = 0, first = true }
+        };
+        File.WriteAllText(partPath, JsonSerializer.Serialize(part, new JsonSerializerOptions { WriteIndented = false }));
+
+        return SnapshotSliceResult(doc, session, partPath, 0, 0, 0, clock, unknownCategories, incrementalReason);
+    }
+
+    private static object ContinueSnapshotSlices(UIApplication app, Document doc, string cursor, System.Diagnostics.Stopwatch clock)
+    {
+        var colon = cursor.LastIndexOf(':');
+        if (colon <= 0 || !int.TryParse(cursor.Substring(colon + 1), out var offset))
+            throw new ArgumentException("cursor is not a snapshot slice cursor; pass the next_cursor of the previous slice");
+        var sessionId = cursor.Substring(0, colon);
+
+        SnapshotSliceSession? session;
+        lock (_snapshotSliceLock)
+        {
+            _snapshotSliceSessions.TryGetValue(sessionId, out session);
+        }
+        if (session == null)
+            throw new InvalidOperationException(
+                "The snapshot slice cursor is unknown or expired (unused for 15 minutes, replaced by newer sliced " +
+                "snapshots, or Revit restarted). Start the snapshot again without a cursor.");
+        if (!string.Equals(DocumentDirtyTracker.DocumentKey(doc), session.DocKey, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                "The active document changed during a sliced snapshot. Start the snapshot again without a cursor.");
+        if (offset < 0 || offset > session.Ids.Count)
+            throw new ArgumentException("cursor offset is outside this snapshot");
+
+        session.LastUsedUtc = DateTime.UtcNow;
+        return RunSnapshotSlice(app, doc, session, offset, clock, false, new List<string>(), null, null);
+    }
+
+    /// <summary>Read the elements of one slice from offset, write them to a part file, return the next cursor.</summary>
+    private static object RunSnapshotSlice(
+        UIApplication app, Document doc, SnapshotSliceSession session, int offset,
+        System.Diagnostics.Stopwatch clock, bool first, List<string> unknownCategories,
+        List<string>? dirtyIds, string? incrementalReason)
+    {
+        var records = new List<object>();
+        var skipped = 0;
+        var index = offset;
+        while (index < session.Ids.Count)
+        {
+            // At least one element per slice, so every slice makes progress.
+            if (index > offset && (index - offset >= session.SliceSize || clock.ElapsedMilliseconds > session.BudgetMs))
+                break;
+            var record = BuildSnapshotElementRecord(doc, session.Ids[index], session.Params, session.TypeCache, ref skipped);
+            if (record != null) records.Add(record);
+            index++;
+        }
+        session.SkippedHeavy += skipped;
+
+        var deleted = first && session.DirtyOnly && dirtyIds != null
+            ? dirtyIds.Where(id => id.StartsWith("deleted:")).Select(id => id.Substring(8)).ToList()
+            : new List<string>();
+        var counts = SnapshotSliceCounts(session, captureViews: false, 0, 0, false, false, incrementalReason);
+        var partPath = Path.Combine(session.SnapshotDir, $"{session.SnapshotId}.part-{offset:D7}.json");
+        var part = new
+        {
+            schema = "amb.snapshot/1",
+            snapshot_id = session.SnapshotId,
+            taken_at = DateTime.UtcNow.ToString("o"),
+            source = SnapshotSource(app, doc),
+            elements = records,
+            views = (List<object?>?)null,
+            sheets = (List<object?>?)null,
+            dirty_only = session.DirtyOnly,
+            counts,
+            deleted,
+            part = new { offset, next_offset = index, first }
+        };
+        File.WriteAllText(partPath, JsonSerializer.Serialize(part, new JsonSerializerOptions { WriteIndented = false }));
+
+        return SnapshotSliceResult(doc, session, partPath, offset, index, records.Count, clock, unknownCategories, incrementalReason);
+    }
+
+    private static Dictionary<string, object> SnapshotSliceCounts(
+        SnapshotSliceSession session, bool captureViews, int views, int sheets,
+        bool viewsTruncated, bool sheetsTruncated, string? incrementalReason)
+    {
+        var counts = new Dictionary<string, object>
+        {
+            ["candidates"] = session.Candidates,
+            ["truncated"] = session.CapTruncated,
+            ["dirty_only"] = session.DirtyOnly,
+            ["max_elements"] = session.MaxElements,
+            ["time_budget_ms"] = session.BudgetMs,
+            ["slice_size"] = session.SliceSize,
+            ["skipped_area_volume_values"] = session.SkippedHeavy,
+            ["categories"] = session.Categories,
+            ["views_captured"] = views,
+            ["sheets_captured"] = sheets,
+            ["views_truncated"] = viewsTruncated,
+            ["sheets_truncated"] = sheetsTruncated,
+            ["views_in_scope"] = captureViews,
+        };
+        AddSnapshotScopeCounts(counts, session.Params, session.TrackerEpoch, session.TrackerSeq);
+        if (incrementalReason != null)
+        {
+            counts["incremental"] = false;
+            counts["incremental_reason"] = incrementalReason;
+        }
+        return counts;
+    }
+
+    private static object SnapshotSliceResult(
+        Document doc, SnapshotSliceSession session, string partPath, int offset, int nextOffset, int elementCount,
+        System.Diagnostics.Stopwatch clock, List<string> unknownCategories, string? incrementalReason)
+    {
+        bool done = nextOffset >= session.Ids.Count;
+        if (done)
+        {
+            lock (_snapshotSliceLock)
+            {
+                _snapshotSliceSessions.Remove(session.Id);
+            }
+        }
+        // Edits between slices make the snapshot a mix of before and after; the server reports it.
+        DocumentDirtyTracker.GetJournalState(doc, out var epochNow, out var seqNow);
+        bool changedDuringCapture = !string.Equals(epochNow, session.TrackerEpoch, StringComparison.Ordinal)
+                                    || seqNow != session.TrackerSeq;
+        return new
+        {
+            snapshot_id = session.SnapshotId,
+            path = partPath,
+            sliced = true,
+            slice_offset = offset,
+            next_offset = nextOffset,
+            next_cursor = done ? null : $"{session.Id}:{nextOffset}",
+            total = session.Ids.Count,
+            element_count = elementCount,
+            candidates = session.Candidates,
+            truncated = session.CapTruncated,
+            changed_during_capture = changedDuringCapture,
+            elapsed_ms = clock.ElapsedMilliseconds,
+            unknown_categories = unknownCategories,
+            incremental = false,
+            incremental_reason = incrementalReason
         };
     }
 

@@ -23,6 +23,10 @@
     "when": "A system belongs to a different domain than the tool's kind.",
     "do": "Pick a system of the tool's kind, for example pipe systems for pipes."
   },
+  "class/IncrementalMergeError": {
+    "when": "An incremental snapshot capture does not fit its base snapshot (another document, a cut-short capture, or an element missing from both).",
+    "do": "Nothing to do. snapshot_take catches it, takes a full snapshot and gives the reason in counts.incremental_reason."
+  },
   "class/InstanceRoutingError": {
     "when": "A panel request cannot be routed to exactly one running Revit.",
     "do": "Pass instance with the integer pid of the Revit process, or leave only one Revit open."

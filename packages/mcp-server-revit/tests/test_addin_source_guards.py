@@ -58,17 +58,24 @@ def test_queue_does_not_enqueue_a_retried_request_id_twice():
     assert "_inflight.TryAdd" in enqueue and "return;" in enqueue
 
 
+def _snapshot_record_body() -> str:
+    return _method_body(FACTORY.read_text(encoding="utf-8"), r"private static object\? BuildSnapshotElementRecord\(")
+
+
 def test_snapshot_is_bounded_by_count_and_time_and_skips_geometry_computed_values():
     body = _method_body(FACTORY.read_text(encoding="utf-8"), r"private static object ExecuteExtractSnapshot\(")
     assert "ElapsedMilliseconds > budgetMs" in body and "maxElements" in body
     assert "truncated" in body
-    assert "IsHeavySnapshotParameter" in body
+    assert "BuildSnapshotElementRecord(" in body
+    record = _snapshot_record_body()
+    # Both the full read and the params projection skip geometry-computed values.
+    assert record.count("IsHeavySnapshotParameter") == 2
     assert "ToElementIds()" in body, "collect ids first; do not materialise every element up front"
 
 
 def test_snapshot_records_carry_host_uid_for_the_hosting_rules():
     """door_no_host / window_no_host test host_uid; leaving it out flagged every hosted door."""
-    body = _method_body(FACTORY.read_text(encoding="utf-8"), r"private static object ExecuteExtractSnapshot\(")
+    body = _snapshot_record_body()
     assert re.search(r"host_uid\s*=\s*\(elem as FamilyInstance\)\?\.Host\?\.UniqueId", body)
 
 
@@ -142,3 +149,38 @@ def test_check_clashes_has_a_budget_and_does_not_look_names_up_in_the_pair_loop(
     assert "get_BoundingBox" not in loop, "bounding boxes must be cached outside the pair loop"
     assert ".Name" not in loop.replace("d1.Name", "").replace("d2.Name", ""), "Name lookups must go through the cache"
     assert "WhereElementIsNotElementType" in source[source.index("CollectClashCandidates(Document"):]
+
+
+# --- sliced and incremental snapshots (issues 289, 290) -------------------------------------------
+
+def test_snapshot_reads_each_type_once_and_supports_a_params_projection():
+    record = _snapshot_record_body()
+    assert "GetSnapshotTypeInfo(doc, typeId, typeCache)" in record
+    assert "doc.GetElement(elem.GetTypeId())" not in record, "type element must come from the per-extraction cache"
+    assert "LookupParameter(request.Name)" in record and "get_Parameter(request.BuiltIn.Value)" in record
+
+
+def test_snapshot_slices_always_progress_and_stay_bounded():
+    source = FACTORY.read_text(encoding="utf-8")
+    run = _method_body(source, r"private static object RunSnapshotSlice\(")
+    assert "index > offset &&" in run, "a slice must read at least one element"
+    assert "session.SliceSize" in run and "session.BudgetMs" in run
+    cont = _method_body(source, r"private static object ContinueSnapshotSlices\(")
+    assert "session.DocKey" in cont, "a cursor must not continue on another document"
+
+
+def test_change_journal_resets_on_events_that_bypass_document_changed():
+    app = (ADDIN_SRC / "Bridge" / "App.cs").read_text(encoding="utf-8")
+    for event in ("DocumentOpened", "DocumentClosing", "DocumentSynchronizedWithCentral",
+                  "DocumentReloadedLatest", "DocumentSavedAs"):
+        assert re.search(event + r" \+= \(sender, args\) => DocumentDirtyTracker\.ResetDocument\(args\.Document\)", app), event
+    tracker = (ADDIN_SRC / "Bridge" / "DocumentDirtyTracker.cs").read_text(encoding="utf-8")
+    changed_since = _method_body(tracker, r"public static HashSet<string>\? GetChangedSince\(")
+    assert "journal.Epoch, epoch" in changed_since and "return null;" in changed_since
+
+
+def test_change_journal_is_bounded_and_overflow_starts_a_new_epoch():
+    tracker = (ADDIN_SRC / "Bridge" / "DocumentDirtyTracker.cs").read_text(encoding="utf-8")
+    handler = _method_body(tracker, r"public static void HandleDocumentChanged\(")
+    assert "ChangedAt.Count > JournalMaxEntries" in handler
+    assert "_journals[key] = new Journal();" in handler, "an overflowing journal must get a new epoch"

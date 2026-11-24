@@ -264,7 +264,7 @@ def _review_findings(
 def _is_partial_snapshot(data: Dict[str, Any]) -> bool:
     counts = data.get("counts") or {}
     return bool(data.get("dirty_only") or counts.get("dirty_only")
-                or counts.get("truncated") or counts.get("categories"))
+                or counts.get("truncated") or counts.get("categories") or counts.get("params"))
 
 
 def _failed_rules_note(label: str, failed: List[Any]) -> str:

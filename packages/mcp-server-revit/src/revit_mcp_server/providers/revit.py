@@ -26,6 +26,19 @@ from . import revit_context
 logger = logging.getLogger(__name__)
 
 
+# Options the add-in's revit.extract_snapshot reads (issues 289, 290). Values pass through
+# unchanged; the add-in validates and clamps them and refuses a malformed params list.
+_SNAPSHOT_PAYLOAD_KEYS = (
+    "categories", "max_elements", "time_budget_ms", "params", "slice_size", "cursor", "base_epoch", "base_seq",
+)
+
+
+def _snapshot_payload(args: Dict[str, Any]) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {"dirty_only": args.get("dirty_only", False)}
+    payload.update({k: args[k] for k in _SNAPSHOT_PAYLOAD_KEYS if args.get(k) is not None})
+    return payload
+
+
 def _optional(args: Dict[str, Any], *names: str) -> Dict[str, Any]:
     """Forward only the arguments the caller actually gave, so the add-in applies its own defaults."""
     return {name: args[name] for name in names if args.get(name) is not None}
@@ -979,7 +992,7 @@ class RevitProvider(AECProvider):
             ),
             "revit_extract_snapshot": (
                 "revit.extract_snapshot",
-                lambda args: {"dirty_only": args.get("dirty_only", False)},
+                _snapshot_payload,
             ),
             "revit_get_snapshot_delta": ("revit.get_snapshot_delta", lambda args: {}),
         }

@@ -433,5 +433,5 @@ def run_pipeline(
         "rows": rows[:max_rows],
         "truncated": len(rows) > max_rows,
         "step_counts": counts,
-        "partial_snapshot": bool(snapshot.counts.get("truncated")),
+        "partial_snapshot": bool(snapshot.counts.get("truncated") or snapshot.counts.get("params")),
     }

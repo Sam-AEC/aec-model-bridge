@@ -12,7 +12,7 @@ A tool failure reaches an MCP client in one of two shapes:
 Refusals never change the model. A refused write needs a new plan that a person approves.
 For logs and connection problems see [troubleshooting](troubleshooting.md).
 
-Entries: 136.
+Entries: 137.
 
 ## Tool error kinds
 
@@ -738,7 +738,7 @@ Set by module tools as `kind` in an `ok: false` result, next to `message`, `elem
 
 ## Exception classes
 
-Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 17.
+Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 18.
 
 ### `ApprovalExpired`
 
@@ -775,6 +775,12 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 - When: A system belongs to a different domain than the tool's kind.
 - What to do: Pick a system of the tool's kind, for example pipe systems for pipes.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/modules/revit_mep/module.py`
+
+### `IncrementalMergeError`
+
+- When: An incremental snapshot capture does not fit its base snapshot (another document, a cut-short capture, or an element missing from both).
+- What to do: Nothing to do. snapshot_take catches it, takes a full snapshot and gives the reason in counts.incremental_reason.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/semantic/engine.py`
 
 ### `InstanceRoutingError`
 
