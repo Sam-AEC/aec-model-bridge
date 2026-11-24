@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Tests: `test_docs_site_nav.py` checks that every page in `docs/` is in the mkdocs nav or excluded, so the strict docs build cannot fail on a missing nav entry.
 - New read-only tool `context_report` (#275), visible in every profile like `search_tools`: active profile, listed tool count, approximate characters and tokens (chars/4) of the tool list, the 10 largest tool definitions, the size of the always-loaded set and short tips. `core` now lists 58 tools.
 - Deferred tool loading (#270): `ALWAYS_LOADED_TOOLS` in `tool_profiles.py` names eight tools to keep loaded under tool search, and `tools/list` marks each with `_meta["anthropic/alwaysLoad"]: true`. `docs/deferred-tool-loading.md` has Claude Code and Claude API config; `scripts/measure_mcp_tokens.py` takes `--always-loaded` and `--only-tools`, and `docs/mcp-token-budget.md` has the measured sizes (about 1,832 tokens for the set). UNVERIFIED in a live client.
 - New `aec-model-bridge` skill in the Claude Code plugin (#276), in the Agent Skills format: read context once, pick a profile, `search_tools` before guessing, one snapshot then `snapshot_compute`, compact output, one plan per change set, never approve, error kinds. Install notes for Codex and Cursor are UNVERIFIED. A test checks that every tool it names exists.
