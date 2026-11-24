@@ -10,6 +10,7 @@ Files in this document:
 - docs/install.md
 - docs/clients.md
 - docs/compatibility.md
+- docs/prompts/README.md
 - docs/configuration-reference.md
 - docs/troubleshooting.md
 - docs/error-catalogue.md
@@ -22,6 +23,7 @@ Files in this document:
 - docs/module-authoring.md
 - docs/rule-packs.md
 - docs/mcp-token-budget.md
+- docs/snapshot-compute.md
 - docs/dev-workflow.md
 - docs/release-checklist.md
 - docs/versioning.md
@@ -41,7 +43,7 @@ Not copied (read them from the repository):
 > Open-source Revit MCP server (Model Context Protocol) and native Revit add-in. AI assistants such as Claude, Codex and Cursor read and edit the BIM model open in Revit 2024 to 2027. Every model change is a plan that a person approves first (approval gate). Also reads IFC files; Rhino, Grasshopper and Speckle integrations included.
 
 - Protocol: Model Context Protocol, stdio transport. Any MCP client that can start a local server works.
-- Tools: 309 in the default setup, counted in mock mode. Revit has 110 of them.
+- Tools: 311 in the default setup, counted in mock mode. Revit has 110 of them.
 - Safety: tools that change the model are blocked until a plan is approved. An unattended mode exists and is opt-in.
 - Platform: live Revit work needs Windows and a licensed Revit. Mock mode (sample data) needs neither.
 - Licence: GPL-3.0-or-later with the Revit Linking Exception, plus a commercial option.
@@ -53,6 +55,7 @@ Not copied (read them from the repository):
 - [Other MCP clients](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/clients.md): config for Codex, Gemini CLI, JetBrains, Visual Studio, Windsurf and Cline.
 - [Compatibility](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/compatibility.md): tested clients, agent frameworks, applications and file formats (IFC, BCF).
 - [Tool catalog](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/tools-generated.md): every tool with its read or write flag.
+- [Prompt library](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/prompts/README.md): 53 copy-ready prompts for BIM coordinators, each mapped to tools and the approval flow.
 - [Configuration reference](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/configuration-reference.md): environment variables, runtime modes, approval modes.
 - [Troubleshooting](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/troubleshooting.md): log locations, connection, approval and install errors, panel Setup check.
 - [Error catalogue](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/error-catalogue.md): every error kind and exception class the server returns, when it happens and what to do.
@@ -72,6 +75,7 @@ Not copied (read them from the repository):
 - [Module authoring](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/module-authoring.md): write a plug-in module.
 - [Rule packs](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/rule-packs.md): BIM QA/QC rules.
 - [MCP token budget](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/mcp-token-budget.md): tool profiles and context size.
+- [snapshot_compute](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/snapshot-compute.md): one-call read-only query pipelines over a saved snapshot.
 - [Dev workflow](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/dev-workflow.md): build, test and release commands.
 - [Agent instructions](https://github.com/Sam-AEC/aec-model-bridge/blob/main/AGENTS.md): repository layout, commands and rules for coding agents.
 
@@ -137,16 +141,17 @@ python ../../scripts/version.py check       # VERSION, pyproject and manifests m
 
 **English** | [简体中文](docs/i18n/README.zh-CN.md) | [Español](docs/i18n/README.es.md) | [हिन्दी](docs/i18n/README.hi.md) | [العربية](docs/i18n/README.ar.md) | [Português (BR)](docs/i18n/README.pt-BR.md) | [Русский](docs/i18n/README.ru.md) | [日本語](docs/i18n/README.ja.md) | [Deutsch](docs/i18n/README.de.md) | [Français](docs/i18n/README.fr.md) | [Bahasa Indonesia](docs/i18n/README.id.md) | [Türkçe](docs/i18n/README.tr.md) | [한국어](docs/i18n/README.ko.md) | [Tiếng Việt](docs/i18n/README.vi.md) | [Italiano](docs/i18n/README.it.md) | [Polski](docs/i18n/README.pl.md) | [繁體中文](docs/i18n/README.zh-TW.md)
 
-# The Revit MCP server that asks first
+# AI for Revit you can trust
 
 **AI assistants read the Revit model you have open. By default, nothing in it changes until you approve a plan.**
 
-Open source · Revit 2024 – 2027 · 309 tools · Claude, Codex, Cursor and other MCP clients
+Open-source Revit MCP server · Revit 2024 – 2027 · 311 tools · Claude, Codex, Cursor and other MCP clients
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Sam-AEC/aec-model-bridge/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Sam-AEC/aec-model-bridge/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 [![Revit](https://img.shields.io/badge/Revit-2024--2027-0696D7?style=flat-square)](#supported-revit-versions)
 [![License](https://img.shields.io/badge/license-GPL--3.0%20%2B%20commercial-2563EB?style=flat-square)](LICENSING.md)
+[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/Sam-AEC/aec-model-bridge?style=flat-square&label=OpenSSF%20Scorecard)](https://scorecard.dev/viewer/?uri=github.com/Sam-AEC/aec-model-bridge)
 
 [Get started](#quick-start) | [Example workflows](#example-workflows) | [Tools](docs/tools-generated.md) | [Documentation](#documentation) | [Download](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -323,14 +328,14 @@ published to the Marketplace.
 | --- | --- | --- |
 | Revit | 110 | Read the model, create and edit elements, parameters, views, sheets, schedules, exports, worksharing |
 | Approval | 6 | Plan, review, approve, execute and roll back model changes; show the workspace policy |
-| Modules | 113 | Snapshot inspection, parameter grids, QA/QC checks, recipes, reports, selections |
+| Modules | 114 | Snapshot inspection, parameter grids, QA/QC checks, recipes, reports, selections |
 | Rhino and Grasshopper | 19 | Geometry, layers, materials, boolean operations |
 | Speckle | 17 | Projects, models, versions, send and receive |
 | Navisworks | 15 | Model tree, viewpoints, clash tests (in progress) |
 | IFC | 7 | Read IFC files without Revit: structure, properties, validation |
-| Graph, snapshots, exports, jobs | 22 | Semantic graph audits, snapshot diffs, SQLite export, background jobs |
+| Graph, snapshots, exports, jobs | 23 | Semantic graph audits, snapshot diffs, SQLite export, background jobs |
 
-309 tools are listed in the default setup (counted from the current server in mock
+311 tools are listed in the default setup (counted from the current server in mock
 mode). The Autodesk Data tools appear when APS credentials are configured. The
 [tool reference](docs/tools-generated.md) lists every tool. Each tool carries
 MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`,
@@ -672,6 +677,7 @@ See [CONTRIBUTING.md](.github/CONTRIBUTING.md) before opening a pull request.
 
 - [Installation guide](docs/install.md)
 - [Tool reference](docs/tools-generated.md)
+- [Prompt library](docs/prompts/README.md): copy-ready prompts for QA, data, sheets, coordination, IFC/BCF and hand-over
 - [Architecture](docs/adr/0001-multi-provider-architecture.md)
 - [Configuration reference](docs/configuration-reference.md)
 - [Security](docs/security.md)
@@ -1136,6 +1142,106 @@ Registry files for the official MCP Registry (`server.json`), Smithery (`smither
 
 Set `MCP_REVIT_MODE` to `mock`. Any client above can then browse the tools and get sample answers. Live mode does not use mock data.
 
+=== FILE: docs/prompts/README.md ===
+
+# Prompt library
+
+Copy-ready prompts for BIM coordinators, BIM managers and computational designers who use an AI client with AEC Model Bridge. Each prompt names the tools it should lead to. Reads run freely. Every model change ends in a plan that a person approves in the Revit panel or with `aec-model-bridge-approve`.
+
+The server also ships five MCP prompts (`qa_review`, `parameter_fix`, `sheet_prep`, `handover_report`, `first_run`); see [clients](../clients.md#prompts-and-resources). This library is longer and covers more tasks. Paste a prompt into the chat; nothing here is registered with the server.
+
+## Files
+
+| File | Prompts | Covers |
+| --- | --- | --- |
+| [model-qa-and-health.md](model-qa-and-health.md) | 8 | First look, warnings, rule packs, health score, bloat, links and worksets, levels and grids, change tracking |
+| [parameters-and-data.md](parameters-and-data.md) | 8 | Completeness, bulk fill, Excel round trip, duplicate Marks, shared parameters, schedules, revert, quantities |
+| [sheets-and-documentation.md](sheets-and-documentation.md) | 8 | Pre-issue audit, naming, sheets from CSV, renumbering, view placement, revisions, title blocks, PDF export |
+| [views-and-annotation.md](views-and-annotation.md) | 5 | View templates, crop alignment, tagging, review views, blank-view check |
+| [coordination-and-clashes.md](coordination-and-clashes.md) | 5 | Category clashes, measured overlaps, Navisworks clash triage, MEP open ends, joins and openings |
+| [ifc-bcf-exchange.md](ifc-bcf-exchange.md) | 5 | IFC inspection, IDS checks, IFC export check, BCF export and import |
+| [handover.md](handover.md) | 4 | QA hand-over report, Excel review pack, asset data completeness, change record |
+| [scripting-execute-python.md](scripting-execute-python.md) | 5 | Read-only scripts, API lookup, write scripts under a plan, debugging, pyRevit scripts |
+| [dynamo.md](dynamo.md) | 5 | Porting Dynamo Python nodes, checking graph results, data for graphs, Player scripts as recipes |
+| [revit-agent-preflight-and-verify.md](revit-agent-preflight-and-verify.md) | 1 | Long system prompt for agents that build in live Revit |
+
+## How to use a prompt
+
+1. Pick a prompt. Replace every `{placeholder}` with your value. Leave optional parts out rather than guessing.
+2. Paste it into your MCP client (Claude Desktop, Claude Code, Codex, Cursor, VS Code and others; see [install](../install.md)).
+3. Read what the assistant reports. It should name the document, the scope and the counts before it proposes anything.
+4. For a change, review the plan in the Revit panel (Plans view). Approve, or reject and say what to change.
+5. Ask the assistant to read the result back. A prompt is finished when the read-back matches the plan.
+
+Set `MCP_REVIT_MODE=mock` to try any prompt with sample data and no Revit. Mock results are sample data, not your model.
+
+## How prompts map to the approval flow
+
+Every prompt follows the same order:
+
+| Step | What the assistant does | Tools (examples) |
+| --- | --- | --- |
+| Inspect | Confirms the document and reads what it needs. No approval needed. | `revit_get_context`, `snapshot_take`, `revit_get_parameters` |
+| Propose | Drafts a plan with exact tool arguments and a short review text. | `parameter_manager_plan_set_params`, `plan_actions` |
+| Approve | A person approves in the Revit panel or with `aec-model-bridge-approve`. The assistant cannot approve, and approval tools are not offered to AI clients. | none |
+| Execute | Runs the approved plan once, with exactly the approved arguments. | `execute_plan` |
+| Verify | Reads the result back and reports what changed and what did not. | `snapshot_diff`, `get_proof_bundle` |
+| Undo (if needed) | Drafts a revert plan from the proof bundle; it is approved like any other plan. | `plan_revert` |
+
+Rules every prompt keeps:
+
+- A write tool called without an approved plan is refused. In mock mode the refusal is the same as in live mode.
+- `dry_run` on a write tool still needs an approved plan (observed in mock mode). Use read tools to preview instead.
+- `revit_execute_python` with `mode` "read" needs no approval and cannot open transactions. With `mode` "write" it needs an approved plan.
+- File outputs (PDF, IFC, BCF, Excel) do not change the model, but a file export through `revit_export` still goes through a plan. Files are written inside the workspace only.
+- If the panel shows Dev mode or a timed Auto window, per-change approval is off. Switch it off for these prompts.
+
+## Placeholders
+
+- `{level}`: a level name as it appears in Revit, for example `Level 02`.
+- `{category}`: a Revit category name, for example `Doors`, `Walls`, `Mechanical Equipment`.
+- `{parameter}` and `{value}`: a parameter name and the value to set.
+- `{snapshot_id}`: an id returned by `snapshot_take`. Most module tools need one; pass it rather than relying on a default.
+- `{file}`: a file name inside the workspace folder.
+
+## Test status
+
+Each prompt has a **Tested** line:
+
+- **Mock: exercised** means the listed tool sequence was called in `MCP_REVIT_MODE=mock` and returned without an error, or a write stopped at the approval gate as expected. The prompt text itself was not run through an AI client, and mock data says nothing about a real model.
+- **Untested** means the tool sequence was not called in mock mode, usually because it needs live Revit, Navisworks or an approved plan.
+
+No prompt here has a verified live-Revit result. Treat live behaviour as UNVERIFIED (see [release checklist](../release-checklist.md)).
+
+## Sources
+
+The prompt set draws on these sources. Pages were found by web search; some could not be fetched from the build environment, so claims are limited to what the search summaries showed.
+
+- MCP prompts specification (user-controlled prompts, declared arguments, argument validation): https://modelcontextprotocol.io/specification/2025-11-25/server/prompts
+- Anthropic prompting best practices (be clear and direct, examples, XML tags): https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/be-clear-and-direct
+- OpenAI prompt engineering best practices (instructions first, specific format, examples): https://help.openai.com/en/articles/6654000
+- Autodesk Revit API forum, "CHATgpt to help with scripts" (useful for simple API tasks and refactoring): https://forums.autodesk.com/t5/revit-api-forum/chatgpt-to-help-with-scripts/m-p/11730013
+- Autodesk Revit Architecture forum, "Integrating ChatGPT with Revit": https://forums.autodesk.com/t5/revit-architecture-forum/integrating-chatgpt-with-revit/m-p/12415371
+- Autodesk University, "Conversational BIM: From Prompts to Projects" (2025): https://www.autodesk.com/autodesk-university/class/Conversational-BIM-From-Prompts-to-Projects-2025
+- Autodesk University, "AI-Ready BIM Foundation: Push-Button Cross-Discipline Automation with Revit MCP, Dynamo and pyRevit" (2026): https://www.autodesk.com/autodesk-university/class/AI-Ready-BIM-Foundation-Push-Button-Cross-Discipline-Automation-with-Revit-MCP-Dynamo-and-pyRevit-2026
+- Autodesk University, "Design Requirements Verification with BIM Automation and AI Agents" (2026): https://www.autodesk.com/autodesk-university/class/Design-Requirements-Verification-with-BIM-Automation-and-AI-Agents-2026
+- Autodesk Validation Tool documentation (model checks against project standards): https://help.autodesk.com/view/VTDOCS/ENU/
+- Archgyan, "ChatGPT prompts for architects" (BIM coordination prompts; specific, contextual prompts work better): https://archgyan.com/chatgpt-prompts-for-architects
+- Imaginit, "Chat GPT for Revit use" (scripts generated for Dynamo): https://resources.imaginit.com/building-solutions-blog/chat-gpt-for-revit-use
+- Dynamo Python Primer (UnwrapElement, transactions): https://dynamopythonprimer.gitbook.io/dynamo-python-primer/4-revit-specific-topics/working-with-transactions
+- Dynamo Primer, graph strategies: https://primer2.dynamobim.org/9_best_practices/1-graph-strategies
+
+The Dynamo forum (forum.dynamobim.com) was searched but no thread was returned by the search tool, so no forum thread is cited.
+
+## Contribute a prompt
+
+1. Add it to the themed file it fits, with the next free id (for example `QA-09`).
+2. Use the same fields: When to use, Prompt, Tools, Expected result, Safety (for anything that writes), Tested.
+3. Name real tools only. Check names with `search_tools` or [the tool catalog](../tools-generated.md). Write tool names on the **Tools** line in backticks.
+4. A prompt that changes the model must say that the assistant drafts a plan, that it cannot approve, and that it waits for the person. Never tell the assistant to approve a plan, and never name a human-only tool such as the approve, reject or rollback tools.
+5. Mark it **Untested** unless you ran the tool sequence in mock mode. Do not claim live results.
+6. Update the count in the table above and run `uv run pytest -q tests/test_prompt_library.py` from `packages/mcp-server-revit`. The test checks every tool name against the registry.
+
 === FILE: docs/configuration-reference.md ===
 
 # Configuration reference
@@ -1506,7 +1612,7 @@ A tool failure reaches an MCP client in one of two shapes:
 Refusals never change the model. A refused write needs a new plan that a person approves.
 For logs and connection problems see [troubleshooting](troubleshooting.md).
 
-Entries: 135.
+Entries: 136.
 
 ## Tool error kinds
 
@@ -2232,7 +2338,7 @@ Set by module tools as `kind` in an `ok: false` result, next to `message`, `elem
 
 ## Exception classes
 
-Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 16.
+Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 17.
 
 ### `ApprovalExpired`
 
@@ -2287,6 +2393,12 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 - When: The workspace policy file is invalid, or a plan breaks one of its rules. All writes are refused while the file is invalid.
 - What to do: Change the plan to fit the policy, or ask the person to fix or relax the policy file (docs/security.md).
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/security/policy.py`
+
+### `QueryError`
+
+- When: A snapshot_compute pipeline is malformed: an unknown key, op, join or aggregate, a missing value, a bad 'from', or a limit exceeded. The message names the step.
+- What to do: Fix the step the message names and call again. Nothing was read from Revit or written.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/semantic/compute.py`
 
 ### `ReadModeViolation`
 
@@ -3238,7 +3350,7 @@ The result gives pass, fail or skipped per specification (skipped means the spec
 
 Measured 2026-11-05 with `MCP_REVIT_MODE=mock`, the supplied Python interpreter, a temporary workspace, no user modules or provider credentials, and no Revit model execution. Baseline captured at `87d1d1bb5312ccb9868786860cbc66f76c47b895` before production changes; results were reported before edits.
 
-The checkout exposes **309** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
+The checkout exposes **311** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
 
 ## Initial profile and response pass
 
@@ -3301,13 +3413,13 @@ Core is 82% smaller than full and 77% smaller than daily. It is still above 10k 
 
 The family map is three lines in `SERVER_INSTRUCTIONS` (447 characters, about 112 tokens, sent once at initialisation, not part of the tool list). It names the prefixes and says a tool missing from the list is hidden by the startup profile and how to reach it (switch profile and restart). Instructions total 1,379 characters (about 345 tokens); the approval and Dev mode sentences are byte-for-byte unchanged and a test pins them. Core plus map is about 14,263 tokens.
 
-What core keeps, and why (49 tools plus the approval tools):
+What core keeps, and why (50 tools plus the approval tools):
 
 | Family | Tools | Why |
 | --- | ---: | --- |
 | Context and results | 4 | `revit_get_context` (Dev flag, document), `revit_health`, `revit_get_document_info`, `revit_get_result` for async answers |
 | Jobs | 2 | `job_status`, `job_cancel`: follow and stop a long run |
-| Snapshots | 3 | `snapshot_take`, `snapshot_query`, `snapshot_diff`: the before/after evidence |
+| Snapshots | 4 | `snapshot_take`, `snapshot_query`, `snapshot_diff`: the before/after evidence; `snapshot_compute`: one-call answers over a snapshot |
 | QA checks and issues | 5 | `qaqc_checker_run_check`, `list_issues`, `resolve_issue`, `list_rules`, `list_rule_packs`: the issue loop (pack import/export/validate stay hidden) |
 | Review and checks | 4 | `revit_review`, `revit_warnings_delta`, `revit_check_levels_grids`, `revit_system_report`: composite read-only verdicts |
 | Module audits | 7 | naming, doors and rooms, sheets and views, warnings triage, model bloat, links and worksets, `revit_cleanup_audit`: the routine coordinator audits |
@@ -3471,6 +3583,78 @@ To reproduce the original baseline, run the initial measurement script against t
 
 Evidence: [before](mcp-token-measurement-before.json), [after full](mcp-token-measurement-after-full.json), [after compact](mcp-token-measurement-after-compact.json), [after daily](mcp-token-measurement-after-daily.json).
 
+=== FILE: docs/snapshot-compute.md ===
+
+# snapshot_compute: one-call model queries
+
+`snapshot_compute` runs a read-only pipeline over a saved snapshot and returns only the result. Use it when a question would otherwise take many list, inspect or parameter calls. It follows the pattern of composing tool work in one request and keeping intermediate rows out of the model context, without running model-written code.
+
+Take a snapshot first with `snapshot_take` (scope it with `categories` on large models), then pass its `snapshot_id`.
+
+## Pipeline
+
+`steps` is a list of up to 12 objects, run in order. Each step can have:
+
+| Key | Meaning |
+|---|---|
+| `name` | Step name. Later steps read it as `$name`. Default `stepN`. |
+| `from` | `elements` (default), `types`, `relations` or `$<earlier step>`. |
+| `join` | List of `type`, `host`, `level`, `room`, `group`, `hosted`, `relation_out`, `relation_in`, or `{"rel": ..., "as": ..., "kind": ...}`. The related record is added under `as` (default the join name). `hosted` and the relation joins add a list of up to 50 elements. |
+| `where` | `{"field", "op", "value", "ci"}`, a list (all must match), or `{"all": [...]}`, `{"any": [...]}`, `{"not": {...}}`. Ops: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `nin`, `contains`, `startswith`, `endswith`, `exists`, `empty`. `value: {"field": "path"}` compares two fields of the same row. |
+| `group_by` | Path or list of paths. |
+| `aggregate` | `{"name": {"op", "field"}}` with `count`, `sum`, `avg`, `min`, `max`, `distinct`, `list`. Without `group_by` it returns one row. |
+| `sort` | Path, `{"field", "desc"}` or a list of them. Numbers sort before text; missing values last. |
+| `select` | List of paths or `{"field", "as"}`. |
+| `limit` | Rows kept by the step. |
+
+Top level: `return` names the step to return (default the last); `max_rows` (1 to 1000, default 100) caps rows in the reply while `row_count` gives the total.
+
+Paths are dotted. A parameter yields its value: `params.Mark`, `host.params.Fire Rating`, `type.params.Width`, `location.xyz.2`, `bbox.max.0`.
+
+Numbers compare as numbers, including numeric text such as `"60"`. A comparison between a number and non-numeric text does not match.
+
+## Examples
+
+Doors rated lower than their host wall:
+
+```json
+{"snapshot_id": "01J...", "steps": [{
+  "join": ["host"],
+  "where": [
+    {"field": "category", "value": "OST_Doors"},
+    {"field": "params.Fire Rating", "op": "lt", "value": {"field": "host.params.Fire Rating"}}
+  ],
+  "select": [{"field": "params.Mark", "as": "door"}, {"field": "host.params.Fire Rating", "as": "wall"}]
+}]}
+```
+
+Door count and marks per level:
+
+```json
+{"snapshot_id": "01J...", "steps": [
+  {"name": "doors", "where": {"field": "category", "value": "OST_Doors"}, "join": ["level"]},
+  {"from": "$doors", "group_by": ["level.type_name"],
+   "aggregate": {"n": "count", "marks": {"op": "list", "field": "params.Mark"}}}
+]}
+```
+
+Rooms with no number, largest first:
+
+```json
+{"snapshot_id": "01J...", "steps": [{
+  "where": [{"field": "category", "value": "OST_Rooms"}, {"field": "params.Number", "op": "empty"}],
+  "sort": {"field": "params.Area", "desc": true}, "select": ["uid", "name", "params.Area"]
+}]}
+```
+
+## Limits and safety
+
+- Read-only. It reads a snapshot file in the workspace and never calls Revit.
+- No expressions, code or regular expressions are evaluated. Unknown keys, ops, joins and aggregates are refused with a message that names the step.
+- At most 12 steps, 50 clauses per `all` or `any`, 6 nesting levels, 50 items per list aggregate or list join, 500 characters per text value.
+- `partial_snapshot: true` means the snapshot hit its size limit and does not cover the whole model.
+- Element-to-room joins read `room_uids`, which the add-in extractor does not fill for every element (UNVERIFIED in a live Revit).
+
 === FILE: docs/dev-workflow.md ===
 
 # Branches and merging
@@ -3617,8 +3801,9 @@ Nothing here is automated except the workflows named. Account steps belong to th
 | Target | How | State |
 |---|---|---|
 | Official MCP Registry | `server.json` is the source. `.github/workflows/publish-mcp.yml` publishes with GitHub OIDC when a release is published or on manual dispatch. Manual: `mcp-publisher login github`, `mcp-publisher publish`, after `mcp-publisher validate`. | Configured. Update `server.json` version, artifact URL and SHA-256 when the `.mcpb` changes. |
-| PyPI | `.github/workflows/publish-pypi.yml`, run by hand after adding a pending trusted publisher at pypi.org (project `aec-model-bridge`, owner `Sam-AEC`, repository `aec-model-bridge`, workflow `publish-pypi.yml`, no environment). The `mcp-name` marker is in `packages/mcp-server-revit/README.md`. | Not published. Build, `twine check --strict` and a clean-venv install passed. |
+| PyPI | `.github/workflows/publish-pypi.yml` builds the wheel and sdist from the stable tag and publishes with Trusted Publishing (OIDC, no token) in the `pypi` environment. `release.yml` dispatches it after it creates a non-prerelease release; it also runs on `release: published` and by hand (`workflow_dispatch` with `tag`). Pre-release tags are refused. One-time setup is in [PyPI trusted publisher](#pypi-trusted-publisher). The `mcp-name` marker is in `packages/mcp-server-revit/README.md`. | Not published. Build, `twine check --strict` and a clean-venv install passed. |
 | VS Code Marketplace, Open VSX | `.github/workflows/vscode-extension.yml` publishes when a non-pre-release GitHub release tag equals the extension version. Secrets: `VSCE_PAT`, `OVSX_PAT`. A store with no secret is skipped. Publisher and namespace `Sam-AEC` must exist. | Not published. Edit the extension README section "Build and install locally" before the first release. |
+| winget | Templates in `packaging/winget/manifests/`, filled by `packaging/winget/fill_manifests.py <version>` from the published installer and `SHA256SUMS.txt`. The maintainer submits with `wingetcreate`; see [winget.md](winget.md). | Not submitted. |
 | GitHub MCP Registry, VS Code gallery | Read from the official registry. `.vscode/mcp.json` gives a workspace install. | Follows the official registry. |
 | Claude Code plugin | `.claude-plugin/marketplace.json` and `packages/claude-plugin/`. Users run `/plugin marketplace add Sam-AEC/aec-model-bridge`, then `/plugin install aec-model-bridge@aec-model-bridge`. Schema UNVERIFIED against `claude plugin validate`. | In the repository only. |
 | Anthropic directory | Local `.mcpb` listings are reported as no longer accepted (UNVERIFIED); a local server goes in as a plugin through the developer portal. Needs the privacy policy in `privacy.md` (referenced from `manifest.json`). | Not submitted. |
@@ -3626,6 +3811,20 @@ Nothing here is automated except the workflows named. Account steps belong to th
 | Smithery | `smithery.yaml` builds the root `Dockerfile` in mock mode only. Listings must say live use needs Revit. | Not listed. |
 | Cline marketplace | Issue in the Cline marketplace repository with a 400x400 logo (none in the repo). Process UNVERIFIED. | Not submitted. |
 | Other directories (PulseMCP, MCP.Directory, MCP.so) | Submit the repository URL; they read the README and registry data. | Not submitted. |
+
+### PyPI trusted publisher
+
+Do once, signed in to pypi.org and GitHub as the maintainer. Nothing in the repository can do these steps.
+
+1. On GitHub: Settings, Environments, New environment, name `pypi`. Under deployment branches and tags, choose "Selected branches and tags" and add the tag rule `v*`. Optional: add yourself as a required reviewer, so each upload waits for a click.
+2. On pypi.org: Account settings, Publishing, "Add a new pending publisher" (the project does not exist yet), GitHub tab. Enter PyPI project name `aec-model-bridge`, owner `Sam-AEC`, repository `aec-model-bridge`, workflow name `publish-pypi.yml`, environment name `pypi`. After the first upload the pending publisher becomes a normal trusted publisher on the project.
+3. Check: run `publish-pypi.yml` by hand with the latest stable tag, or wait for the next stable release. A wrong environment or workflow name fails at the upload step with `invalid-publisher`.
+
+The environment name on PyPI and in the workflow must match. If an older pending publisher exists with no environment, delete it and add the one above.
+
+### OpenSSF Scorecard
+
+`.github/workflows/scorecard.yml` runs weekly and on pushes to `main`, uploads results to code scanning and publishes them to the Scorecard API for the README badge. The badge shows "invalid" until the first run on `main` completes.
 
 claude.ai on the web and phones accepts only remote HTTPS connectors, so it cannot reach a local Revit.
 

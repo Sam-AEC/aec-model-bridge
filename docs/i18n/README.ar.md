@@ -143,7 +143,7 @@ the plan in Revit, apply it and read the values back to confirm the result.
 | IFC | 7 | قراءة ملفات IFC دون Revit: البنية، والخصائص، والتحقق |
 | الرسم البياني، واللقطات، والتصدير، والمهام | 23 | تدقيق الرسم البياني الدلالي، وفروق اللقطات، والتصدير إلى SQLite، والمهام الخلفية |
 
-تُدرج 310 أداة في الإعداد الافتراضي (عُدّت من الخادم الحالي في الوضع التجريبي mock). تظهر أدوات Autodesk Data عند ضبط بيانات اعتماد APS. يسرد [مرجع الأدوات](../tools-generated.md) كل أداة. تحمل كل أداة تعليقات MCP التوضيحية (`readOnlyHint` و`destructiveHint` و`idempotentHint` و`openWorldHint`)، ليتمكّن العملاء من التمييز بين القراءة والكتابة.
+تُدرج 311 أداة في الإعداد الافتراضي (عُدّت من الخادم الحالي في الوضع التجريبي mock). تظهر أدوات Autodesk Data عند ضبط بيانات اعتماد APS. يسرد [مرجع الأدوات](../tools-generated.md) كل أداة. تحمل كل أداة تعليقات MCP التوضيحية (`readOnlyHint` و`destructiveHint` و`idempotentHint` و`openWorldHint`)، ليتمكّن العملاء من التمييز بين القراءة والكتابة.
 
 ### أتمتة Revit المتقدمة
 

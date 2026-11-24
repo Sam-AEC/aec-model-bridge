@@ -125,7 +125,7 @@ Używasz VS Code? [Kod źródłowy rozszerzenia i kroki lokalnej instalacji](../
 | IFC | 7 | Odczyt plików IFC bez Revit: struktura, właściwości, walidacja |
 | Graf, migawki, eksporty, zadania | 23 | Audyty grafu semantycznego, różnice migawek, eksport do SQLite, zadania w tle |
 
-W konfiguracji domyślnej widocznych jest 310 narzędzi (policzone na aktualnym serwerze w trybie mock). Narzędzia Autodesk Data pojawiają się po skonfigurowaniu poświadczeń APS. [Opis narzędzi](../tools-generated.md) zawiera listę wszystkich. Każde narzędzie ma adnotacje MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), dzięki czemu klienci odróżniają odczyty od zapisów.
+W konfiguracji domyślnej widocznych jest 311 narzędzi (policzone na aktualnym serwerze w trybie mock). Narzędzia Autodesk Data pojawiają się po skonfigurowaniu poświadczeń APS. [Opis narzędzi](../tools-generated.md) zawiera listę wszystkich. Każde narzędzie ma adnotacje MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), dzięki czemu klienci odróżniają odczyty od zapisów.
 
 ### Zaawansowana automatyzacja Revit
 

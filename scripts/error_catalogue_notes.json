@@ -35,6 +35,10 @@
     "when": "The workspace policy file is invalid, or a plan breaks one of its rules. All writes are refused while the file is invalid.",
     "do": "Change the plan to fit the policy, or ask the person to fix or relax the policy file (docs/security.md)."
   },
+  "class/QueryError": {
+    "when": "A snapshot_compute pipeline is malformed: an unknown key, op, join or aggregate, a missing value, a bad 'from', or a limit exceeded. The message names the step.",
+    "do": "Fix the step the message names and call again. Nothing was read from Revit or written."
+  },
   "class/ReadModeViolation": {
     "when": "A script marked mode read contains something that could change the model.",
     "do": "Remove the model-changing code, or run the script as a write that goes through a plan."

@@ -125,7 +125,7 @@ VS Code mu kullanıyorsunuz? [Eklenti kaynağı ve yerel kurulum adımları](../
 | IFC | 7 | IFC dosyalarını Revit olmadan okuma: yapı, özellikler, doğrulama |
 | Grafik, snapshot'lar, dışa aktarmalar, işler | 23 | Anlamsal grafik denetimleri, snapshot farkları, SQLite dışa aktarma, arka plan işleri |
 
-Varsayılan kurulumda 310 araç listelenir (mock modundaki mevcut sunucudan sayılmıştır). Autodesk Data araçları, APS kimlik bilgileri yapılandırıldığında görünür. [Araç başvurusu](../tools-generated.md) tüm araçları listeler. Her araç, istemcilerin okuma ile yazmayı ayırt edebilmesi için MCP ek açıklamaları (annotations; `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) taşır.
+Varsayılan kurulumda 311 araç listelenir (mock modundaki mevcut sunucudan sayılmıştır). Autodesk Data araçları, APS kimlik bilgileri yapılandırıldığında görünür. [Araç başvurusu](../tools-generated.md) tüm araçları listeler. Her araç, istemcilerin okuma ile yazmayı ayırt edebilmesi için MCP ek açıklamaları (annotations; `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) taşır.
 
 ### Gelişmiş Revit otomasyonu
 

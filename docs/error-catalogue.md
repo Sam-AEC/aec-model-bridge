@@ -12,7 +12,7 @@ A tool failure reaches an MCP client in one of two shapes:
 Refusals never change the model. A refused write needs a new plan that a person approves.
 For logs and connection problems see [troubleshooting](troubleshooting.md).
 
-Entries: 135.
+Entries: 136.
 
 ## Tool error kinds
 
@@ -738,7 +738,7 @@ Set by module tools as `kind` in an `ok: false` result, next to `message`, `elem
 
 ## Exception classes
 
-Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 16.
+Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 17.
 
 ### `ApprovalExpired`
 
@@ -793,6 +793,12 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 - When: The workspace policy file is invalid, or a plan breaks one of its rules. All writes are refused while the file is invalid.
 - What to do: Change the plan to fit the policy, or ask the person to fix or relax the policy file (docs/security.md).
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/security/policy.py`
+
+### `QueryError`
+
+- When: A snapshot_compute pipeline is malformed: an unknown key, op, join or aggregate, a missing value, a bad 'from', or a limit exceeded. The message names the step.
+- What to do: Fix the step the message names and call again. Nothing was read from Revit or written.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/semantic/compute.py`
 
 ### `ReadModeViolation`
 
