@@ -309,7 +309,7 @@ def test_approval_provider_is_allowed_even_for_a_hand_built_excluding_profile():
 
 # ---- core profile: a short allowlist of tool names -----------------------------------
 
-CORE_COUNT = 57  # CORE_TOOLS (50) + the six always-visible approval tools + search_tools
+CORE_COUNT = 58  # CORE_TOOLS (50) + the six always-visible approval tools + search_tools + context_report
 
 
 def test_core_list_is_pinned_and_names_each_tool_once():
@@ -323,7 +323,7 @@ def test_core_exposes_only_its_list_plus_approval_tools(tmp_path):
     assert set(CORE_TOOLS) <= everything, "CORE_TOOLS names a tool that no longer exists"
     registry.freeze_tool_profile(load_tool_profile({"MCP_REVIT_TOOL_PROFILE": "core"}))
     names = {t.name for t in registry.get_all_tools()} - HUMAN_ONLY_TOOLS  # human-only tools are never listed
-    assert names == set(CORE_TOOLS) | APPROVAL_TOOLS | {"search_tools"}
+    assert names == set(CORE_TOOLS) | APPROVAL_TOOLS | {"search_tools", "context_report"}
     assert len(names) == CORE_COUNT
 
 
