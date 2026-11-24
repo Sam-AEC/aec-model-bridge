@@ -258,12 +258,12 @@ class ScheduleConsistencyModule:
             summary += " Whether zero-area rooms are placed is unknown (no room level or location saved)."
         if missing_area:
             summary += f" Not enough data to check zero area for {missing_area} room(s) without Area."
-        if coverage.get("truncated") or coverage.get("categories") or coverage.get("dirty_only"):
-            summary += " Snapshot capture was truncated, category-filtered, or dirty-only; these results cover only the captured doors and rooms."
+        if coverage.get("truncated") or coverage.get("categories") or coverage.get("params") or coverage.get("dirty_only"):
+            summary += " Snapshot capture was truncated, category-filtered, parameter-limited, or dirty-only; these results cover only the captured doors and rooms."
 
         return {
             "read_only": True,
-            "complete": not bool(coverage.get("truncated") or coverage.get("categories") or coverage.get("dirty_only") or any(
+            "complete": not bool(coverage.get("truncated") or coverage.get("categories") or coverage.get("params") or coverage.get("dirty_only") or any(
                 row["check_id"] != "door_mark_pattern_mismatch" for row in skipped)),
             "snapshot_id": snapshot_id or "(mock)",
             "doors_checked": len(doors),

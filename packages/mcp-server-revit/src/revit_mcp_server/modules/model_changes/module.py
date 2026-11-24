@@ -318,6 +318,8 @@ class ModelChangesModule:
                 raise ValueError(f"Snapshot '{sid}' is a partial capture; comparing it would report uncaptured elements as removed. Capture two complete snapshots first.")
         if set((snap_a.get("counts") or {}).get("categories") or []) != set((snap_b.get("counts") or {}).get("categories") or []):
             raise ValueError("Snapshots cover different category filters. Capture both with the same categories before comparing.")
+        if set((snap_a.get("counts") or {}).get("params") or []) != set((snap_b.get("counts") or {}).get("params") or []):
+            raise ValueError("Snapshots read different params lists. Capture both with the same params before comparing.")
         guid_a = (snap_a.get("source") or {}).get("doc_guid")
         guid_b = (snap_b.get("source") or {}).get("doc_guid")
         if guid_a and guid_b and guid_a != guid_b:

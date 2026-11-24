@@ -256,7 +256,7 @@ class _Index:
             self.rel_out.setdefault(rel.get("from"), []).append(rel)
             self.rel_in.setdefault(rel.get("to"), []).append(rel)
         counts = _snapshot_attr(snapshot, "counts")
-        self.partial = isinstance(counts, Mapping) and bool(counts.get("truncated"))
+        self.partial = isinstance(counts, Mapping) and bool(counts.get("truncated") or counts.get("params"))
 
 
 def _join(

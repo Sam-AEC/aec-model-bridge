@@ -148,10 +148,31 @@ Call: `{"snapshot_id": "01J...", "query": "doors_by_mark", "params": {"marks": [
 
 A QA/QC rule can be a pipeline: the rule field `pipeline` holds steps, and each row of the last step is an issue. See [rule-packs.md](rule-packs.md).
 
+## Taking smaller or faster snapshots
+
+`snapshot_take` options that reduce what the add-in reads (issues #289, #290):
+
+| Option | Effect |
+|---|---|
+| `categories` | Read only these categories, for example `["Doors", "Rooms"]`. |
+| `params` | Read only these parameters (up to 100 names such as `"Mark"`, or built-in ids such as `ALL_MODEL_MARK`). The snapshot records `counts.params`, and QA modules treat it as partial for checks that read other parameters. |
+| `slice_size` | 10 to 5000. Read about this many elements per Revit turn and assemble the slices into one snapshot. If the model changes between slices, the reply has `changed_during_capture: true`. |
+| `base_snapshot_id` | Incremental capture. The add-in re-reads only elements changed since that snapshot (and instances of changed types), lists every element in scope, and the server merges the result with the base into a new full snapshot. |
+
+An incremental capture falls back to a full capture, and says why in `incremental_reason`, when:
+
+- the base is partial (truncated, dirty-only) or was taken with other `categories` or `params`;
+- the base has no change-journal position (mock mode or an older add-in);
+- the add-in's change journal does not cover the base: another document, a reopen, reload, sync with central, save as, a Revit restart, or a journal that grew past its entry limit;
+- the add-in does not return an incremental capture (older add-in);
+- the delta cannot be merged (another document, cut short, or an element missing from both).
+
+Whether slices and incremental captures are faster than a full capture on a real model is UNVERIFIED in a live Revit. Whether the change journal sees every change (for example from links, worksharing or undo) is also UNVERIFIED.
+
 ## Limits and safety
 
 - Read-only. It reads snapshot and query files in the workspace and never calls Revit.
 - No expressions, code or regular expressions are evaluated. Unknown keys, ops, joins, spatial tests and aggregates are refused with a message that names the step.
 - At most 12 steps, 50 clauses per `all` or `any`, 6 nesting levels, 50 items per list aggregate, list join or spatial match list, 500 characters per text value, 4 linked snapshots, 250,000 spatial comparisons per step.
-- `partial_snapshot: true` means the snapshot hit its size limit and does not cover the whole model.
+- `partial_snapshot: true` means the snapshot hit its size limit or was taken with `params`, so it does not cover the whole model or every parameter.
 - Element-to-room joins read `room_uids`, which the add-in extractor does not fill for every element (UNVERIFIED in a live Revit).
