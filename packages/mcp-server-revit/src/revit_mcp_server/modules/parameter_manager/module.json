@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "schema_version": 1,
   "min_hub_version": "1.2.0",
-  "description": "Parameter management workflows (W5): filter parameter grid, diff before/after values, plan-time validation, batch-set with inverse rollback plan, and CSV import/export.",
+  "description": "Parameter management workflows (W5): filter parameter grid, diff before/after values, plan-time validation, batch-set with inverse rollback plan, CSV import/export, and Excel (.xlsx) round-trip to a reviewed plan.",
   "author": "AEC Model Bridge",
   "license": "GPL-3.0-or-later",
   "requires_providers": ["revit", "semantic"],
@@ -96,6 +96,38 @@
           "snapshot_id": {"type": "string"}
         },
         "required": ["csv_filename"]
+      }
+    },
+    {
+      "id": "export_params_xlsx",
+      "title": "Export Parameters to Excel",
+      "surface": ["mcp"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {"type": "string"},
+          "element_filter": {"type": "object"},
+          "param_names": {"type": "array", "items": {"type": "string"}},
+          "output_filename": {"type": "string", "default": "params_export.xlsx"}
+        },
+        "required": ["element_filter", "param_names"]
+      }
+    },
+    {
+      "id": "import_params_xlsx",
+      "title": "Import Parameters from Excel",
+      "surface": ["mcp"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "xlsx_filename": {"type": "string"},
+          "snapshot_id": {"type": "string"}
+        },
+        "required": ["xlsx_filename"]
       }
     }
   ]

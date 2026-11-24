@@ -7,6 +7,8 @@ Commands:
   plan_set_params     — Validate params and produce an ActionPlan draft.
   export_params_csv   — Write param values to a CSV file in workspace.
   import_params_csv   — Read param updates from CSV → ActionPlan draft.
+  export_params_xlsx  — Write param values to an .xlsx workbook in workspace.
+  import_params_xlsx  — Read an edited workbook, diff vs snapshot → ActionPlan draft.
 
 Validation rules (P9.2):
   - readonly params are blocked
@@ -19,6 +21,7 @@ from __future__ import annotations
 import csv
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -87,6 +90,90 @@ def _match_element(el: Dict[str, Any], filter_dsl: Dict[str, Any]) -> bool:
                 if param is None or str(param.get("v")) != str(val["value"]):
                     return False
     return True
+
+_RESERVED_COLS = {"uid", "element_id", "category", "family", "type_name"}
+_XLSX_NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,80}")
+
+
+def _plan_rows(
+    rows: List[Dict[str, Any]], elements: List[Dict[str, Any]], skip_unchanged: bool = False
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, int]]:
+    """Diff edited rows (string cells) against snapshot elements.
+
+    Returns (planned, blocked, row_counts). With skip_unchanged, cells equal to the
+    snapshot value and blank cells produce no update.
+    """
+    els_by_uid = {el["uid"]: el for el in elements}
+    planned: List[Dict[str, Any]] = []
+    blocked: List[Dict[str, Any]] = []
+    counts = {"rows": 0, "changed_rows": 0, "unchanged_rows": 0, "unknown_rows": 0}
+    for row in rows:
+        uid = str(row.get("uid") or "").strip()
+        if not uid:
+            continue
+        counts["rows"] += 1
+        el = els_by_uid.get(uid)
+        if not el:
+            counts["unknown_rows"] += 1
+            blocked.append({"uid": uid, "reason": "Element not found in snapshot."})
+            continue
+        el_updates: Dict[str, Any] = {}
+        for pname, val_str in row.items():
+            if pname in _RESERVED_COLS or not pname:
+                continue
+            pinfo = el.get("params", {}).get(pname)
+            storage = pinfo.get("storage") if pinfo else "String"
+            before = pinfo.get("v") if pinfo else None
+            if skip_unchanged and (val_str is None or val_str == ""):
+                continue
+            try:
+                if storage == "Double":
+                    new_val = float(val_str)
+                elif storage == "Integer":
+                    new_val = int(val_str)
+                elif storage == "Boolean":
+                    new_val = val_str.lower() in ("true", "1", "yes")
+                else:
+                    new_val = val_str
+            except (ValueError, TypeError, AttributeError):
+                blocked.append({"uid": uid, "param": pname, "reason": f"Cannot cast '{val_str}' to {storage}"})
+                continue
+            if skip_unchanged and new_val == before:
+                continue
+            ok, reason = _validate_param_update(el, pname, new_val)
+            if ok:
+                el_updates[pname] = {"before": before, "after": new_val}
+            else:
+                blocked.append({"uid": uid, "param": pname, "reason": reason})
+        if el_updates:
+            counts["changed_rows"] += 1
+            planned.append({"uid": uid, "element_id": el.get("element_id"), "updates": el_updates})
+        else:
+            counts["unchanged_rows"] += 1
+    return planned, blocked, counts
+
+
+def _cell_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, float) and value.is_integer() and abs(value) < 1e15:
+        return str(int(value))
+    return str(value).strip() if isinstance(value, str) else str(value)
+
+
+def _xlsx_path(workspace: Any, filename: str) -> Path:
+    """Workspace-root .xlsx path for a plain file name (via safe_child)."""
+    from revit_mcp_server.security.safe_paths import safe_child
+
+    def refuse(_reason: str) -> Exception:
+        return ValueError("xlsx_filename must be a plain '<name>.xlsx' file name in the workspace.")
+
+    if not isinstance(filename, str) or not filename.lower().endswith(".xlsx"):
+        raise refuse("name")
+    return safe_child(_workspace_dir(workspace), filename[:-5], ".xlsx", _XLSX_NAME_RE, refuse)
+
 
 def _validate_param_update(
     el: Dict[str, Any],
@@ -353,57 +440,10 @@ class ParameterManagerModule:
             raise ValueError(f"CSV file '{csv_filename}' not found in workspace.")
         
         elements = self._get_elements(snapshot_id, workspace)
-        els_by_uid = {el["uid"]: el for el in elements}
-        
-        planned = []
-        blocked = []
-        
         with open(csv_path, "r", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            reserved_cols = {"uid", "element_id", "category", "family", "type_name"}
-            for row in reader:
-                uid = row.get("uid", "").strip()
-                if not uid:
-                    continue
-                el = els_by_uid.get(uid)
-                if not el:
-                    blocked.append({"uid": uid, "reason": "Element not found in snapshot."})
-                    continue
-                
-                el_updates = {}
-                for pname, val_str in row.items():
-                    if pname in reserved_cols or not pname:
-                        continue
-                    # Try cast to appropriate type via current param storage
-                    pinfo = el.get("params", {}).get(pname)
-                    storage = pinfo.get("storage") if pinfo else "String"
-                    
-                    # Cast value
-                    try:
-                        if storage == "Double":
-                            new_val = float(val_str)
-                        elif storage == "Integer":
-                            new_val = int(val_str)
-                        elif storage == "Boolean":
-                            new_val = val_str.lower() in ("true", "1", "yes")
-                        else:
-                            new_val = val_str
-                    except (ValueError, TypeError):
-                        blocked.append({"uid": uid, "param": pname, "reason": f"Cannot cast '{val_str}' to {storage}"})
-                        continue
-                    
-                    ok, reason = _validate_param_update(el, pname, new_val)
-                    if ok:
-                        el_updates[pname] = {
-                            "before": pinfo.get("v") if pinfo else None,
-                            "after": new_val,
-                        }
-                    else:
-                        blocked.append({"uid": uid, "param": pname, "reason": reason})
-                
-                if el_updates:
-                    planned.append({"uid": uid, "element_id": el.get("element_id"), "updates": el_updates})
-        
+            rows = list(csv.DictReader(f))
+        planned, blocked, _ = _plan_rows(rows, elements)
+
         preview = {
             "csv_filename": csv_filename,
             "planned_count": len(planned),
@@ -412,6 +452,73 @@ class ParameterManagerModule:
         }
         
         return _make_action_plan("import_params_csv", {"csv_filename": csv_filename}, {**preview, "planned": planned})
+
+    def export_params_xlsx(
+        self,
+        element_filter: Dict[str, Any],
+        param_names: List[str],
+        snapshot_id: str = "",
+        output_filename: str = "params_export.xlsx",
+        workspace: Any = None,
+        **_,
+    ) -> Dict[str, Any]:
+        from openpyxl import Workbook
+
+        elements = self._get_elements(snapshot_id, workspace)
+        matched = [el for el in elements if _match_element(el, element_filter)]
+        output_path = _xlsx_path(workspace, output_filename)
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Parameters"
+        ws.append(["uid", "element_id", "category", "family", "type_name"] + list(param_names))
+        for el in matched:
+            row = [el["uid"], el.get("element_id", ""), el.get("category", ""),
+                   el.get("family", ""), el.get("type_name", "")]
+            for pname in param_names:
+                pinfo = el.get("params", {}).get(pname)
+                row.append(pinfo.get("v") if pinfo else None)
+            ws.append(row)
+        wb.save(output_path)
+        return {
+            "status": "exported",
+            "output_file": str(output_path),
+            "element_count": len(matched),
+            "param_names": param_names,
+        }
+
+    def import_params_xlsx(
+        self,
+        xlsx_filename: str,
+        snapshot_id: str = "",
+        workspace: Any = None,
+        **_,
+    ) -> Dict[str, Any]:
+        from openpyxl import load_workbook
+
+        path = _xlsx_path(workspace, xlsx_filename)
+        if not path.exists():
+            raise ValueError(f"Workbook '{xlsx_filename}' not found in workspace.")
+        elements = self._get_elements(snapshot_id, workspace)
+        wb = load_workbook(path, read_only=True, data_only=True)
+        try:
+            ws = wb["Parameters"] if "Parameters" in wb.sheetnames else wb.worksheets[0]
+            it = ws.iter_rows(values_only=True)
+            header = next(it, None)
+            names = [str(h).strip() if h is not None else "" for h in (header or [])]
+            if "uid" not in names:
+                raise ValueError("Workbook must have a header row with a 'uid' column.")
+            rows = [{n: _cell_text(c) for n, c in zip(names, r)} for r in it]
+        finally:
+            wb.close()
+        planned, blocked, counts = _plan_rows(rows, elements, skip_unchanged=True)
+        preview = {
+            "xlsx_filename": xlsx_filename,
+            "planned_count": len(planned),
+            "blocked_count": len(blocked),
+            "blocked": blocked,
+            "row_diff": counts,
+        }
+        return _make_action_plan("import_params_xlsx", {"xlsx_filename": xlsx_filename}, {**preview, "planned": planned})
 
     # -----------------------------------------------------------------------
     # Internal helpers
