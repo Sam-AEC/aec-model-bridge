@@ -1,3 +1,5 @@
+import argparse
+import hashlib
 import json
 import math
 import re
@@ -136,6 +138,42 @@ def redact_for_approval(value: Any, key: str | None = None) -> Any:
     return value
 
 
+GENESIS_HASH = "0" * 64
+
+
+def _entry_hash(entry: Mapping[str, Any]) -> str:
+    body = {k: v for k, v in entry.items() if k != "hash"}
+    canonical = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _last_hash(path: Path) -> str:
+    """Return the hash of the last chained line, or the genesis hash."""
+    if not path.exists():
+        return GENESIS_HASH
+    last = ""
+    with path.open("rb") as fh:
+        fh.seek(0, 2)
+        size = fh.tell()
+        block = 4096
+        data = b""
+        pos = size
+        while pos > 0 and data.count(b"\n") < 2:
+            step = min(block, pos)
+            pos -= step
+            fh.seek(pos)
+            data = fh.read(step) + data
+        for raw in reversed(data.splitlines()):
+            if raw.strip():
+                last = raw.decode("utf-8", errors="replace")
+                break
+    try:
+        value = json.loads(last).get("hash")
+    except (ValueError, AttributeError):
+        return GENESIS_HASH
+    return value if isinstance(value, str) and len(value) == 64 else GENESIS_HASH
+
+
 class AuditRecorder:
     def __init__(self, path: Path):
         self.path = path
@@ -148,7 +186,66 @@ class AuditRecorder:
             "request_id": request_id,
             "payload": redact_data(payload),
             "response": redact_data(response),
+            "prev_hash": _last_hash(self.path),
         }
+        entry["hash"] = _entry_hash(entry)
         with self.path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(entry) + "\n")
 
+
+def verify_audit_log(path: Path) -> dict:
+    """Check the hash chain of an audit log.
+
+    Lines written before chaining existed (no ``hash`` field) are accepted only
+    at the start of the file. Returns ``{"ok", "entries", "legacy_entries",
+    "error", "line"}``.
+    """
+    result: dict = {"ok": True, "entries": 0, "legacy_entries": 0, "error": None, "line": None}
+
+    def fail(line_no: int, message: str) -> dict:
+        result.update(ok=False, error=message, line=line_no)
+        return result
+
+    path = Path(path)
+    if not path.exists():
+        return fail(0, "audit log not found")
+    prev = GENESIS_HASH
+    chained = False
+    with path.open("r", encoding="utf-8") as fh:
+        for line_no, raw in enumerate(fh, 1):
+            if not raw.strip():
+                continue
+            try:
+                entry = json.loads(raw)
+            except ValueError:
+                return fail(line_no, "line is not valid JSON")
+            if not isinstance(entry, dict):
+                return fail(line_no, "line is not a JSON object")
+            if "hash" not in entry:
+                if chained:
+                    return fail(line_no, "unchained line after chain start")
+                result["legacy_entries"] += 1
+                continue
+            chained = True
+            if entry.get("prev_hash") != prev:
+                return fail(line_no, "chain broken: previous hash does not match (line removed, reordered or edited)")
+            if entry["hash"] != _entry_hash(entry):
+                return fail(line_no, "entry hash does not match its content (line edited)")
+            prev = entry["hash"]
+            result["entries"] += 1
+    return result
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="python -m revit_mcp_server.security.audit")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+    v = sub.add_parser("verify", help="verify the hash chain of an audit log")
+    v.add_argument("path", type=Path)
+    args = parser.parse_args(argv)
+    result = verify_audit_log(args.path)
+    print(json.dumps(result))
+    return 0 if result["ok"] else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
