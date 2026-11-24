@@ -622,7 +622,11 @@ def test_tools_are_registered_read_only_and_documented(listed: Any) -> None:
         assert name in tools, name
         assert gate[name].is_mutating is False
         ann = tools[name].annotations
-        assert ann.readOnlyHint is True and ann.destructiveHint is False and ann.idempotentHint is True
+        if name == "revit_warnings_delta":
+            # Never changes the model, but a call without baseline_id saves a new baseline file.
+            assert ann.readOnlyHint is False and ann.destructiveHint is False and ann.idempotentHint is False
+        else:
+            assert ann.readOnlyHint is True and ann.destructiveHint is False and ann.idempotentHint is True
         assert ann.openWorldHint is False
         assert "Read-only" in tools[name].description and len(tools[name].description) > 150
         props = tools[name].inputSchema["properties"]

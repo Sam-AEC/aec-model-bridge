@@ -49,12 +49,17 @@ def _call(name, arguments):
     return asyncio.run(mcp_server.call_tool(name, arguments))
 
 
+def _content(answer):
+    # Tools with an outputSchema answer with a CallToolResult; the others with a content list.
+    return getattr(answer, "content", answer)
+
+
 def _body(answer):
-    return json.loads(answer[0].text.split("Result:\n", 1)[1])
+    return json.loads(_content(answer)[0].text.split("Result:\n", 1)[1])
 
 
 def _raw(answer):
-    return answer[0].text.split("Result:\n", 1)[1]
+    return _content(answer)[0].text.split("Result:\n", 1)[1]
 
 
 # ---- truncation carries a cursor, paging reaches the end ------------------------------------------
@@ -75,7 +80,7 @@ def test_paging_to_the_end_returns_every_row_once_within_the_budget(server):
     while page.get("cursor"):
         answer = _call("revit_list_elements", {**args, "response_options": {"max_chars": 4000, "cursor": page["cursor"]}})
         assert len(_raw(answer)) <= 4000
-        assert "not run again" in answer[0].text
+        assert "not run again" in _content(answer)[0].text
         page = _body(answer)
         assert page["offset"] == len(rows) and page["total"] == 2000
         rows.extend(page["elements"])
@@ -257,7 +262,7 @@ def test_list_too_large_for_memory_is_saved_and_linked(server, tmp_path, monkeyp
     assert body["truncated"] is True and "cursor" not in body
     uri = body["resource_uri"]
     assert uri.startswith("aec://result/r") and len(_raw(answer)) <= DEFAULT_MAX_CHARS
-    assert answer[1].type == "resource_link" and str(answer[1].uri) == uri
+    assert _content(answer)[1].type == "resource_link" and str(_content(answer)[1].uri) == uri
     saved = list((tmp_path / "results").glob("*.json"))
     assert len(saved) == 1 and saved[0].parent == tmp_path / "results"
     text = mcp_resources.read_resource(uri, tmp_path, None)
@@ -287,3 +292,14 @@ def test_without_a_workspace_a_huge_list_has_no_cursor_or_link(monkeypatch):
     ctx = Context("t", "b")
     out = json.loads(result_json({"elements": _rows(2000)}, {}, read_only=True, cursor=ctx))
     assert out["truncated"] is True and "cursor" not in out and "resource_uri" not in out
+
+
+def test_cursor_page_for_a_tool_with_an_output_schema_is_a_call_tool_result():
+    """The SDK rejects a bare content list from a tool that declares an outputSchema."""
+    from mcp.types import CallToolResult
+
+    from revit_mcp_server.output_schemas import output_schema_for
+
+    assert output_schema_for("snapshot_compute") is not None
+    answer = mcp_server._text_only("snapshot_compute", "✓ snapshot_compute next part")
+    assert isinstance(answer, CallToolResult) and answer.structuredContent is None
