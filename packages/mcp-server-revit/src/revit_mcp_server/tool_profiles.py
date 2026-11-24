@@ -45,6 +45,16 @@ CORE_TOOLS = (
 )
 
 
+# Tools a client should keep loaded when it defers the rest of this server behind tool
+# search (docs/deferred-tool-loading.md). list_tools marks each with
+# `_meta["anthropic/alwaysLoad"] = true`. Every name must be visible in every built-in
+# profile, so a deferred client can always read context, search, snapshot and plan.
+ALWAYS_LOADED_TOOLS = (
+    "revit_get_context", "snapshot_take", "snapshot_compute", "search_tools",
+    "context_report", "plan_actions", "execute_plan", "list_pending_plans",
+)
+
+
 # Tools hidden in every profile until the thing behind them exists. The pyRevit run tool has
 # no add-in runner yet (docs/pyrevit-bridge.md), so a live call could only report bridge_unavailable.
 # The pyRevit list and plan tools stay available.
