@@ -60,7 +60,7 @@ def test_executor_runs_writes_alone_and_bounds_each_revit_turn():
     share = _method_body(policy, r"public static bool MayShareTurn\(")
     assert "if (!isReadOnly(name)) return false;" in share
     factory = FACTORY.read_text(encoding="utf-8")
-    assert "if (!attr.IsMutating) _readOnlyCommands.Add(attr.Name);" in factory
+    assert "if (!attr.IsMutating && !attr.ConfirmationRequired)" in factory and "_readOnlyCommands.Add(attr.Name);" in factory
 
 
 def test_fast_wake_is_opt_in_and_attached_only_while_work_is_queued():
@@ -208,3 +208,68 @@ def test_change_journal_is_bounded_and_overflow_starts_a_new_epoch():
     handler = _method_body(tracker, r"public static void HandleDocumentChanged\(")
     assert "ChangedAt.Count > JournalMaxEntries" in handler
     assert "_journals[key] = new Journal();" in handler, "an overflowing journal must get a new epoch"
+# --- Batch reads, dispatch table, UniqueId cache, gzip (#277, #291, #292) ----------------------------
+# UNVERIFIED in live Revit. The Revit-free parts have C# unit tests in packages/revit-bridge-addin-tests.
+
+def test_batch_command_is_read_only_and_checks_every_member_before_running():
+    source = _factory_text()
+    assert re.search(r'\[BridgeCommand\("revit\.batch", IsMutating = false\)\]', source)
+    body = _method_body(source, r"private static object ExecuteBatch\(UIApplication app, JsonElement payload\)")
+    assert body.index("BridgeBatch.Parse(payload, IsReadOnlyCommand)") < body.index("Execute(app, member.Tool")
+    assert "TimeBudgetMs" in body, "a batch must not hold Revit without a bound"
+    batch = (ADDIN_SRC / "Bridge" / "BridgeBatch.cs").read_text(encoding="utf-8")
+    assert "MaxCommands = 25" in batch
+    assert "cannot be nested" in batch and "not a read-only command" in batch
+    ctor = _method_body(source, r"static BridgeCommandFactory\(\)")
+    assert "if (!attr.IsMutating && !attr.ConfirmationRequired)" in ctor
+
+
+def test_batch_members_cannot_open_a_transaction_or_run_side_effect_commands():
+    source = _factory_text()
+    create = _method_body(source, r"public static BridgeTransaction CreateTransaction\(Document doc, string name\)")
+    assert create.index("if (InReadBatch)") < create.index("new BridgeTransaction(")
+    body = _method_body(source, r"private static object ExecuteBatch\(UIApplication app, JsonElement payload\)")
+    assert body.index("_readBatchDepth++;") < body.index("Execute(app, member.Tool")
+    assert "finally" in body and "_readBatchDepth--;" in body
+    batch = (ADDIN_SRC / "Bridge" / "BridgeBatch.cs").read_text(encoding="utf-8")
+    parse = batch[batch.index("public static List<BridgeBatchMember> Parse("):]
+    assert parse.index("HasSideEffects(tool)") < parse.index("members.Add(")
+
+
+def test_execute_restores_outer_state_so_batch_members_do_not_clear_it():
+    body = _method_body(_factory_text(), r"public static object Execute\(UIApplication app, string tool, JsonElement payload\)")
+    assert "CurrentActionId = outerActionId;" in body
+    assert "_currentTransactionMessages = outerMessages;" in body
+
+
+def test_dispatch_table_is_built_once_and_refuses_duplicate_names():
+    source = _factory_text()
+    ctor = _method_body(source, r"static BridgeCommandFactory\(\)")
+    assert "_handlers = BridgeDispatchTable.Build(entries);" in ctor
+    assert "_handlers[" not in source, "handlers must not be added one by one (a duplicate would overwrite)"
+    table = (ADDIN_SRC / "Bridge" / "BridgeDispatchTable.cs").read_text(encoding="utf-8")
+    assert "#if NET8_0_OR_GREATER" in table and "ToFrozenDictionary" in table
+    assert "declared more than once" in table
+    app = (ADDIN_SRC / "Bridge" / "App.cs").read_text(encoding="utf-8")
+    assert "BridgeCommandFactory.GetToolCatalog()" in app, "the table must be built at startup"
+
+
+def test_unique_id_lookups_go_through_the_checked_cache():
+    source = _factory_text()
+    for name in ("ExecuteSelectByUniqueIds", "ExecutePreviewElements"):
+        assert "ElementLookup.ByUniqueId(doc," in _method_body(source, rf"private static object {name}\(")
+    lookup = (ADDIN_SRC / "Bridge" / "ElementLookup.cs").read_text(encoding="utf-8")
+    body = _method_body(lookup, r"internal static Element\? ByUniqueId\(Document doc, string\? uniqueId\)")
+    assert "hit.UniqueId" in body, "a cached id must be checked against the UniqueId before use"
+    app = (ADDIN_SRC / "Bridge" / "App.cs").read_text(encoding="utf-8")
+    for hook in ("ElementLookup.OnDocumentChanged(args)", "ElementLookup.OnDocumentClosing(args)", "ElementLookup.OnViewActivated(args)"):
+        assert hook in app, hook
+
+
+def test_large_responses_are_gzipped_only_when_the_client_asks():
+    server = (ADDIN_SRC / "Bridge" / "BridgeServer.cs").read_text(encoding="utf-8")
+    body = _method_body(server, r"private void RespondRaw\(HttpListenerContext context, int statusCode, string json\)")
+    assert 'ResponseCompression.ShouldGzip(context.Request.Headers["Accept-Encoding"], buffer.Length)' in body
+    assert '"Content-Encoding", "gzip"' in body
+    compression = (ADDIN_SRC / "Bridge" / "ResponseCompression.cs").read_text(encoding="utf-8")
+    assert "MinBytes = 64 * 1024" in compression

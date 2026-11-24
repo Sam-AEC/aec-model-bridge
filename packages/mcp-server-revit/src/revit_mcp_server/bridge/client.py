@@ -14,6 +14,10 @@ DEFAULT_SOFT_WAIT_SECONDS = 25.0
 # Poll gaps after the add-in's own wait: 0.5 s, 1 s, 2 s, then 3 s until the soft wait ends.
 _POLL_BACKOFF = (0.5, 1.0, 2.0, 3.0)
 _MAX_POLL_FAILURES = 3
+# revit.batch (#277): the add-in command name and its member cap (BridgeBatch.MaxCommands in C#).
+BATCH_COMMAND = "revit.batch"
+MAX_BATCH_COMMANDS = 25
+_BATCH_EXTRA_WAITS = 3
 
 
 def _soft_wait_from_env() -> float:
@@ -161,6 +165,66 @@ class BridgeClient:
         enabled = _validation_from_env() if self.validate_payloads is None else self.validate_payloads
         if enabled:
             validate_command(tool, payload)
+    def supports_batch(self) -> bool:
+        """True when the add-in's command list names revit.batch (#277). Unknown catalog: False."""
+        return bool(self._tool_catalog) and BATCH_COMMAND in self._tool_catalog
+
+    def call_batch(self, commands: list[dict[str, Any]]) -> list[Any]:
+        """Run up to MAX_BATCH_COMMANDS add-in reads in one Revit turn (revit.batch).
+
+        ``commands`` is [{"tool": "revit.x", "payload": {...}}, ...]. Returns one entry per command,
+        in order: the unwrapped result dict, or the CommandFailed for a command that failed. The
+        add-in refuses the whole batch when a member is not read-only; that raises here. Callers must
+        check that every member is a read-only tool before calling (RevitProvider.execute_read_batch).
+        """
+        if not commands:
+            return []
+        if len(commands) > MAX_BATCH_COMMANDS:
+            raise ValueError(f"A batch takes at most {MAX_BATCH_COMMANDS} commands; got {len(commands)}.")
+        members = []
+        for index, command in enumerate(commands):
+            tool = command.get("tool") if isinstance(command, dict) else None
+            payload = command.get("payload", {}) if isinstance(command, dict) else None
+            if not isinstance(tool, str) or not tool:
+                raise ValueError(f"Batch command {index} needs a tool name.")
+            if tool == BATCH_COMMAND:
+                raise ValueError("Batches cannot be nested.")
+            if payload is not None and not isinstance(payload, dict):
+                raise ValueError(f"Batch command {index} ({tool}) has a payload that is not an object.")
+            members.append({"tool": tool, "payload": payload or {}})
+
+        result = self.call_tool(BATCH_COMMAND, {"commands": members})
+        # Reads are bounded, but a slow batch can outlive one soft wait. Keep collecting it for a
+        # few more waits instead of returning a "running" envelope the caller cannot split up.
+        for _ in range(_BATCH_EXTRA_WAITS):
+            if not self._is_running(result):
+                break
+            result = self.get_result(str(result.get("request_id")))
+        if self._is_running(result):
+            raise BridgeError(
+                f"The read batch (request {result.get('request_id')}) is still running in Revit. "
+                "Collect it with revit_get_result."
+            )
+
+        entries = result.get("results") if isinstance(result, dict) else None
+        if not isinstance(entries, list) or len(entries) != len(members):
+            raise BridgeError("The add-in returned a batch result that does not match the request.")
+        out: list[Any] = []
+        for member, entry in zip(members, entries):
+            if not isinstance(entry, dict):
+                out.append(CommandFailed(f"Bridge error: no result for {member['tool']}"))
+            elif entry.get("ok") is True:
+                try:
+                    out.append(self._unwrap({"status": "ok", "result": entry.get("result")}))
+                except BridgeError as exc:
+                    out.append(exc)
+            else:
+                payload = entry.get("result")
+                out.append(CommandFailed(
+                    f"Bridge error: {entry.get('error') or 'Unknown error'}",
+                    payload=payload if isinstance(payload, dict) else None,
+                ))
+        return out
 
     def get_result(self, request_id: str, wait_s: float | None = None) -> dict[str, Any]:
         """Collect the outcome of an earlier call by request id.

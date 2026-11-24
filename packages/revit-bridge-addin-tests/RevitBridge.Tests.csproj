@@ -44,5 +44,9 @@
     <Compile Include="..\revit-bridge-addin\src\Bridge\ExecutorTurnPolicy.cs" Link="Linked\ExecutorTurnPolicy.cs" />
     <Compile Include="..\revit-bridge-addin\src\Bridge\PythonEngineReusePolicy.cs" Link="Linked\PythonEngineReusePolicy.cs" />
     <Compile Include="..\revit-bridge-addin\src\Bridge\PipeFraming.cs" Link="Linked\PipeFraming.cs" />
+    <Compile Include="..\revit-bridge-addin\src\Bridge\BridgeBatch.cs" Link="Linked\BridgeBatch.cs" />
+    <Compile Include="..\revit-bridge-addin\src\Bridge\BridgeDispatchTable.cs" Link="Linked\BridgeDispatchTable.cs" />
+    <Compile Include="..\revit-bridge-addin\src\Bridge\ResponseCompression.cs" Link="Linked\ResponseCompression.cs" />
+    <Compile Include="..\revit-bridge-addin\src\Bridge\UniqueIdCache.cs" Link="Linked\UniqueIdCache.cs" />
   </ItemGroup>
 </Project>

@@ -420,6 +420,15 @@ public class BridgeServer
         context.Response.StatusCode = statusCode;
         context.Response.ContentType = "application/json";
         var buffer = Encoding.UTF8.GetBytes(json);
+        // Large results (snapshots, element lists) are gzipped when the client asks for it; small
+        // responses stay plain. httpx sends Accept-Encoding: gzip and decodes it on its own.
+        if (ResponseCompression.ShouldGzip(context.Request.Headers["Accept-Encoding"], buffer.Length))
+        {
+            buffer = ResponseCompression.Gzip(buffer);
+            context.Response.AddHeader("Content-Encoding", "gzip");
+            context.Response.AddHeader("Vary", "Accept-Encoding");
+        }
+        context.Response.ContentLength64 = buffer.Length;
         context.Response.OutputStream.Write(buffer, 0, buffer.Length);
         context.Response.Close();
     }

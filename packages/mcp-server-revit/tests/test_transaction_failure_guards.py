@@ -21,7 +21,10 @@ def test_factory_has_no_unchecked_or_raw_transactions():
     assert "new Transaction(" not in source
     assert source.count(".CommitChecked();") >= 59  # place_door/place_window share one commit in PlaceHostedOpening
     assert "BridgeTransactionResults.AppendWarnings(result, _currentTransactionMessages)" in source
-    assert "_currentTransactionMessages = null;" in source
+    # Cleared after each command: Execute restores the value it found (null at the top level, the
+    # batch's own list for a revit.batch member).
+    assert "var outerMessages = _currentTransactionMessages;" in source
+    assert "_currentTransactionMessages = outerMessages;" in source
 
 
 STUBS = r"""
