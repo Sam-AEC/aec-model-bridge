@@ -4,10 +4,11 @@
 
 **English** | [简体中文](docs/i18n/README.zh-CN.md) | [Español](docs/i18n/README.es.md) | [हिन्दी](docs/i18n/README.hi.md) | [العربية](docs/i18n/README.ar.md) | [Português (BR)](docs/i18n/README.pt-BR.md) | [Русский](docs/i18n/README.ru.md) | [日本語](docs/i18n/README.ja.md) | [Deutsch](docs/i18n/README.de.md) | [Français](docs/i18n/README.fr.md) | [Bahasa Indonesia](docs/i18n/README.id.md) | [Türkçe](docs/i18n/README.tr.md) | [한국어](docs/i18n/README.ko.md) | [Tiếng Việt](docs/i18n/README.vi.md) | [Italiano](docs/i18n/README.it.md) | [Polski](docs/i18n/README.pl.md) | [繁體中文](docs/i18n/README.zh-TW.md)
 
+# The Revit MCP server that asks first
 
-**Ask your AI about the Revit model you have open. By default, write tools are blocked until you approve a plan.**
+**AI assistants read the Revit model you have open. By default, nothing in it changes until you approve a plan.**
 
-Open-source MCP server and native add-in for Revit 2024 – 2027. Works with Claude, Codex and other MCP clients.
+Open source · Revit 2024 – 2027 · 307 tools · Claude, Codex, Cursor and other MCP clients
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Sam-AEC/aec-model-bridge/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Sam-AEC/aec-model-bridge/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
@@ -16,39 +17,57 @@ Open-source MCP server and native add-in for Revit 2024 – 2027. Works with Cla
 
 [Get started](#quick-start) | [Example workflows](#example-workflows) | [Tools](docs/tools-generated.md) | [Documentation](#documentation) | [Download](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
+<img src="assets/readme-flow.svg" alt="Three steps. 1, AI proposes: it reads the model and drafts a plan, and nothing is written. 2, You approve: you review the plan in the Revit panel, and only a person can approve. 3, Revit changes: the approved actions run once and a proof file records each one." width="900">
+
 </div>
 
-Status: 1.5.0. Writes, rollback and recovery still need live acceptance in Revit; see **Status and limits** below.
+**Pre-release (1.5.0).** Read-only checks have run in a live Revit 2024 session. Writes and rollback have automated tests only and still need live acceptance in Revit. See [status and limits](#status-and-limits).
 
 <p align="center">
   <img src="docs/images/readme/revit-villa-panel.png" alt="Revit villa model beside the AEC Model Bridge panel with Dev mode enabled." width="900">
 </p>
 
-AEC Model Bridge is the open-source Revit MCP server that lets Claude, Codex,
-Cursor and other AI assistants read and edit your open Revit model. By default
-you approve every change first. It has two parts: a Python MCP server and a
-native Revit add-in. Read-only tools inspect the model straight away. Model
-changes need an approved plan by default.
-[See the approval flow](#how-approval-works).
+AEC Model Bridge is an open-source Revit MCP server with a native Revit
+add-in. Claude, Codex, Cursor and other AI assistants use it to read your open
+model and to propose edits.
 
+- **Reads run straight away.** Warnings, elements, parameters, sheets, views.
+- **Writes wait for you.** The assistant drafts a plan with `plan_actions`. You
+  review it in the Revit panel. `execute_plan` applies it only after you approve.
+- **Every executed plan leaves a proof file** that records what changed. The
+  assistant can draft a revert plan from it, and you approve that the same way.
+- **No Revit on this machine?** Mock mode starts the server anywhere and returns
+  sample data. [Try it in 60 seconds](#quick-start).
+
+[See the approval flow](#how-approval-works).
 
 **Who it is for.** BIM coordinators and managers who want an AI assistant to
 check model quality, find affected elements and prepare parameter fixes, while a
 person stays in control of every change. You do not need to write scripts.
 
-**Status and limits.** This is pre-release software.
+<a id="status-and-limits"></a>
+**Status and limits.** This is pre-release software. Try it on a copy of a
+project first: approving a plan changes the open model.
 
-- Bounded read-only checks in Revit 2024 are recorded in the
-  [live validation report](docs/revit-addin-live-validation-2026-10-14.md).
-  These checks do not establish that writes, rollback, recovery or other Revit
-  years work. Those paths still need live acceptance. The Python server also
-  has automated tests; CI builds do not start Revit. See the
-  [release checklist](docs/release-checklist.md).
-- This page describes the current development state. The latest GitHub release
-  may not include everything described here.
-- Try it on a copy of a project first. Approving a plan changes the open model.
-- Some limits are known and listed under [How approval works](#how-approval-works)
-  and in [docs/security.md](docs/security.md).
+- Verified live: bounded read-only checks in Revit 2024
+  ([report](docs/revit-addin-live-validation-2026-10-14.md)).
+- Not yet verified live: writes, rollback, recovery, and Revit 2025 to 2027. CI
+  runs the Python tests and compiles the add-in, but does not start Revit. See
+  the [release checklist](docs/release-checklist.md).
+- This page follows the development branch. The latest release may not include
+  everything described here.
+- Known limits are listed under [How approval works](#how-approval-works) and in
+  [docs/security.md](docs/security.md).
+
+Setup is documented for Claude Desktop, VS Code with GitHub Copilot, Cursor and
+Codex. The server speaks standard MCP over stdio, so Claude Code, Windsurf,
+Cline, Continue, Zed and Gemini CLI should work too. The
+[compatibility](docs/compatibility.md) page lists what is documented and what
+is untested.
+
+The same server also inspects IFC files, automates Rhino and Grasshopper, and
+connects to Speckle. [Integration status](#other-integrations) shows which
+providers are available and which are still in progress.
 
 ## Star History
 
@@ -59,16 +78,6 @@ person stays in control of every change. You do not need to write scripts.
    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
  </picture>
 </a>
-
-Setup is documented for Claude Desktop, VS Code with GitHub Copilot, Cursor and
-Codex. The server is a standard MCP stdio server, so other clients such as
-Claude Code, Windsurf, Cline, Continue, Zed and Gemini CLI should work too. The
-[compatibility](docs/compatibility.md) page lists what is documented and what
-is untested.
-
-The same server also inspects IFC files, automates Rhino and Grasshopper, and
-connects to Speckle. [Integration status](#other-integrations) shows which
-providers are available and which are still in progress.
 
 ## Example workflows
 

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- README first screen rewritten: headline "The Revit MCP server that asks first", a three-step picture (`assets/readme-flow.svg`: AI proposes, you approve, Revit changes), a one-line pre-release status with the detail kept under "Status and limits", and the compatibility paragraphs moved above Star History. Headings are unchanged. A test now checks the tool count stated under the headline.
 - Agent tooling: a Sonnet `issue-fixer` subagent; shared `.claude/settings.json` that allows the test/lint commands and blocks reads of very large generated files. `.gitignore` now tracks `.claude/agents`, `.claude/skills` and `.claude/settings.json` only.
 - Docs reorganised for coding agents: root `AGENTS.md` (with `CLAUDE.md` importing it) and nested `AGENTS.md` for the server, add-in and panel; `llms.txt` rewritten to the llmstxt.org format; roadmap, audit, demo and getting-started pages removed (install buttons, first check and registry steps now live in `docs/install.md`, `docs/troubleshooting.md` and `docs/release-checklist.md`).
 - New `aec-model-bridge doctor` command (also `python -m revit_mcp_server doctor` and `aec-model-bridge-doctor`, `--json` for machine output): a read-only table of Python and package version, mode, workspace, add-in registry and session-token presence (Windows), bridge port, `ifcopenshell`, optional packages and known MCP client configs, flagging entries that point at a `python\\Scripts` `.exe` launcher (#159). Exit 1 on any FAIL; never prints the token. See `docs/troubleshooting.md`. UNVERIFIED on Windows.

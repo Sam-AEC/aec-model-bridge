@@ -52,6 +52,14 @@ def test_readme_headline_and_table(counts: dict) -> None:
     assert [int(n) for n in ROW_RE.findall(text)] == expected_table(counts)
 
 
+def test_readme_first_screen_count(counts: dict) -> None:
+    # The line under the headline repeats the total ("... · 307 tools · ..."); it must not drift.
+    head = read(ROOT / "README.md").split("## ", 1)[0]
+    stated = [int(n) for n in re.findall(r"(?<![\d.])(\d{2,4}) tools\b", head)]
+    assert stated, "README first screen no longer states the tool count"
+    assert set(stated) == {counts["tools"]}
+
+
 def test_llms_txt(counts: dict) -> None:
     text = read(ROOT / "llms.txt")
     match = re.search(r"Tools: (\d+) in the default setup.*?Revit has (\d+) of them", text)
