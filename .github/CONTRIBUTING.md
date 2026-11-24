@@ -69,7 +69,7 @@ Supported Revit versions are 2024 (net48), 2025 and 2026 (net8.0-windows), and
 
 ## Good first issues
 
-You do not need Revit or Windows for these. The Python tests run in mock mode.
+You do not need Revit or Windows for these. The Python tests run in mock mode. The [project board](https://github.com/users/Sam-AEC/projects) has a Contributors view of open community issues by area ([how the board works](../docs/project-board.md)).
 
 ### Run the tests
 
