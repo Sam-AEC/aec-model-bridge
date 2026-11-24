@@ -108,7 +108,6 @@ to match. If you leave out `snapshot_id`, most of these modules now refuse in
 bridge mode with a clear message, and return generated sample data only in mock
 mode. Not every module has that guard yet (`model_bloat` does not), so always
 pass `snapshot_id`. For live inspection, use the direct Revit tools above.
-[Planned fixes and demo](docs/roadmap.md).
 
 ## Quick start
 
@@ -128,7 +127,7 @@ pass `snapshot_id`. For live inspection, use the direct Revit tools above.
 
 **One-click install**
 
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](docs/install-buttons.md#vs-code)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](docs/install.md#vs-code)
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -534,17 +533,11 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 - [Architecture](docs/0001-multi-provider-architecture.md)
 - [Configuration reference](docs/configuration-reference.md)
 - [Security](docs/security.md)
-- [MCP clients and registry](docs/marketplaces.md)
 - [Versioning and releases](docs/versioning.md)
 - [Release checklist](docs/release-checklist.md)
-- [First check after install](docs/first-check.md)
-- [Demo runbook](docs/demo-runbook.md)
 - [Proof bundles and revert plans](docs/proof-and-revert.md)
 - [Privacy](docs/privacy.md)
-- [Roadmap](docs/roadmap.md)
-- [All documentation](docs/README.md)
 - [Contributing](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md)
-- [Contributors](CONTRIBUTORS.md)
 
 ## Built with
 

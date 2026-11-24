@@ -71,13 +71,13 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 需要修改時，助理會用 `plan_actions` 建立計畫；你先在 Revit 面板中檢視，`execute_plan` 才會套用。IFC 檢視不需要 Revit 即可執行。
 
-快照型的 QA/QC 與報告模組需要相容且已儲存的快照。目前從 Revit 將快照交給模組時，檔名與工作區必須一致；省略 `snapshot_id` 可能會回傳產生的範例資料。即時檢查請直接使用上述 Revit 工具。[規劃中的修正與示範](../roadmap.md)。
+快照型的 QA/QC 與報告模組需要相容且已儲存的快照。目前從 Revit 將快照交給模組時，檔名與工作區必須一致；省略 `snapshot_id` 可能會回傳產生的範例資料。即時檢查請直接使用上述 Revit 工具。。
 
 ## 快速開始
 
 **一鍵安裝**
 
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install-buttons.md#vs-code)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install.md#vs-code)
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -357,11 +357,8 @@ CI 會建置 Python 伺服器，以及適用於 Revit 2024 至 2027 的增益集
 - [架構](../0001-multi-provider-architecture.md)
 - [設定參考](../configuration-reference.md)
 - [安全性](../security.md)
-- [MCP 用戶端與登錄表](../marketplaces.md)
 - [版本與發行](../versioning.md)
-- [全部文件](../README.md)
 - [貢獻指南](../../CONTRIBUTING.md) 與 [行為準則](../../CODE_OF_CONDUCT.md)
-- [貢獻者](../../CONTRIBUTORS.md)
 
 ## Built with
 

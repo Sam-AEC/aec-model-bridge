@@ -71,13 +71,13 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 Przy edycji asystent tworzy plan za pomocą `plan_actions`; przeglądasz go w panelu Revit, zanim `execute_plan` go zastosuje. Przegląd IFC działa bez Revit.
 
-Moduły QA/QC i raportów oparte na migawkach (snapshot) wymagają zgodnej, zapisanej migawki. Obecne przekazanie migawki z Revit do modułu wymaga zgodności nazwy pliku i obszaru roboczego; pominięcie `snapshot_id` może zwrócić wygenerowane dane przykładowe. Do inspekcji na żywo używaj bezpośrednich narzędzi Revit wymienionych wyżej. [Planowane poprawki i demo](../roadmap.md).
+Moduły QA/QC i raportów oparte na migawkach (snapshot) wymagają zgodnej, zapisanej migawki. Obecne przekazanie migawki z Revit do modułu wymaga zgodności nazwy pliku i obszaru roboczego; pominięcie `snapshot_id` może zwrócić wygenerowane dane przykładowe. Do inspekcji na żywo używaj bezpośrednich narzędzi Revit wymienionych wyżej.
 
 ## Szybki start
 
 **Instalacja jednym kliknięciem**
 
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install-buttons.md#vs-code)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install.md#vs-code)
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -357,11 +357,8 @@ CI kompiluje serwer w Pythonie oraz cele dodatku dla Revit 2024–2027. Przed ot
 - [Architektura](../0001-multi-provider-architecture.md)
 - [Opis konfiguracji](../configuration-reference.md)
 - [Bezpieczeństwo](../security.md)
-- [Klienci MCP i rejestr](../marketplaces.md)
 - [Wersjonowanie i wydania](../versioning.md)
-- [Cała dokumentacja](../README.md)
 - [Jak współtworzyć](../../CONTRIBUTING.md) i [Kodeks postępowania](../../CODE_OF_CONDUCT.md)
-- [Współtwórcy](../../CONTRIBUTORS.md)
 
 ## Built with
 

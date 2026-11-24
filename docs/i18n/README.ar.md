@@ -85,13 +85,13 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 في التعديلات، ينشئ المساعد خطة باستخدام `plan_actions`؛ وتراجعها أنت في لوحة Revit قبل أن يطبّقها `execute_plan`. مراجعة IFC تعمل دون Revit.
 
-تتطلب وحدات QA/QC والتقارير القائمة على اللقطات (snapshots) لقطة محفوظة متوافقة. ويحتاج تمرير اللقطة حاليًا من Revit إلى الوحدة إلى تطابق اسم الملف ومساحة العمل؛ وقد يؤدي حذف `snapshot_id` إلى إرجاع بيانات نموذجية مولَّدة. استخدم أدوات Revit المباشرة أعلاه للفحص الحي. [الإصلاحات المخططة والعرض التجريبي](../roadmap.md).
+تتطلب وحدات QA/QC والتقارير القائمة على اللقطات (snapshots) لقطة محفوظة متوافقة. ويحتاج تمرير اللقطة حاليًا من Revit إلى الوحدة إلى تطابق اسم الملف ومساحة العمل؛ وقد يؤدي حذف `snapshot_id` إلى إرجاع بيانات نموذجية مولَّدة. استخدم أدوات Revit المباشرة أعلاه للفحص الحي.
 
 ## البدء السريع
 
 **التثبيت بنقرة واحدة**
 
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install-buttons.md#vs-code)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install.md#vs-code)
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -407,11 +407,8 @@ python -m pytest packages/mcp-server-revit/tests
 - [البنية المعمارية](../0001-multi-provider-architecture.md)
 - [مرجع الإعدادات](../configuration-reference.md)
 - [الأمان](../security.md)
-- [عملاء MCP والسجل](../marketplaces.md)
 - [الإصدارات والنسخ](../versioning.md)
-- [كل التوثيق](../README.md)
 - [دليل المساهمة](../../CONTRIBUTING.md) و [مدونة السلوك](../../CODE_OF_CONDUCT.md)
-- [المساهمون](../../CONTRIBUTORS.md)
 
 ## Built with
 

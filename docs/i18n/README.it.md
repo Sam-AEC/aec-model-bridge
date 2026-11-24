@@ -71,13 +71,13 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 Per le modifiche, l'assistente crea un piano con `plan_actions`; lo esamini nel pannello di Revit prima che `execute_plan` lo applichi. La verifica IFC funziona senza Revit.
 
-I moduli di QA/QC e di report basati su snapshot richiedono uno snapshot salvato compatibile. L'attuale passaggio dello snapshot da Revit al modulo richiede che nome del file e workspace coincidano; omettendo `snapshot_id` possono essere restituiti dati di esempio generati. Per l'ispezione in tempo reale usa direttamente gli strumenti Revit indicati sopra. [Correzioni previste e demo](../roadmap.md).
+I moduli di QA/QC e di report basati su snapshot richiedono uno snapshot salvato compatibile. L'attuale passaggio dello snapshot da Revit al modulo richiede che nome del file e workspace coincidano; omettendo `snapshot_id` possono essere restituiti dati di esempio generati. Per l'ispezione in tempo reale usa direttamente gli strumenti Revit indicati sopra.
 
 ## Avvio rapido
 
 **Installazione con un clic**
 
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install-buttons.md#vs-code)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install.md#vs-code)
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -357,11 +357,8 @@ La CI compila il server Python e i target dell'add-in per Revit 2024-2027. Leggi
 - [Architettura](../0001-multi-provider-architecture.md)
 - [Riferimento della configurazione](../configuration-reference.md)
 - [Sicurezza](../security.md)
-- [Client MCP e registry](../marketplaces.md)
 - [Versioning e release](../versioning.md)
-- [Tutta la documentazione](../README.md)
 - [Come contribuire](../../CONTRIBUTING.md) e [Codice di condotta](../../CODE_OF_CONDUCT.md)
-- [Collaboratori](../../CONTRIBUTORS.md)
 
 ## Built with
 

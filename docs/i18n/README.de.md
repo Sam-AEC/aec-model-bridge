@@ -71,13 +71,13 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 Für Änderungen erstellt der Assistent mit `plan_actions` einen Plan; Sie prüfen ihn im Revit-Panel, bevor `execute_plan` ihn anwendet. Die IFC-Prüfung läuft ohne Revit.
 
-Die Snapshot-basierten QA/QC- und Berichtsmodule benötigen einen kompatiblen gespeicherten Snapshot. Die aktuelle Übergabe des Snapshots von Revit an das Modul erfordert übereinstimmenden Dateinamen und Arbeitsbereich; ohne `snapshot_id` können generierte Beispieldaten zurückkommen. Für die Live-Prüfung nutzen Sie die direkten Revit-Werkzeuge oben. [Geplante Korrekturen und Demo](../roadmap.md).
+Die Snapshot-basierten QA/QC- und Berichtsmodule benötigen einen kompatiblen gespeicherten Snapshot. Die aktuelle Übergabe des Snapshots von Revit an das Modul erfordert übereinstimmenden Dateinamen und Arbeitsbereich; ohne `snapshot_id` können generierte Beispieldaten zurückkommen. Für die Live-Prüfung nutzen Sie die direkten Revit-Werkzeuge oben.
 
 ## Schnellstart
 
 **Installation mit einem Klick**
 
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install-buttons.md#vs-code)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install.md#vs-code)
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -357,11 +357,8 @@ Die CI baut den Python-Server und die Add-in-Ziele für Revit 2024 bis 2027. Les
 - [Architektur](../0001-multi-provider-architecture.md)
 - [Konfigurationsreferenz](../configuration-reference.md)
 - [Sicherheit](../security.md)
-- [MCP-Clients und Registry](../marketplaces.md)
 - [Versionierung und Releases](../versioning.md)
-- [Gesamte Dokumentation](../README.md)
 - [Mitwirken](../../CONTRIBUTING.md) und [Verhaltenskodex](../../CODE_OF_CONDUCT.md)
-- [Mitwirkende](../../CONTRIBUTORS.md)
 
 ## Built with
 

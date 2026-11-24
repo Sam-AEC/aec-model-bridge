@@ -9,11 +9,11 @@ This page separates two groups. The first is what this repository documents and 
 | Client | Status | How to connect |
 | --- | --- | --- |
 | Claude Desktop | Documented here | Install the `.mcpb` bundle from the [latest release](https://github.com/Sam-AEC/aec-model-bridge/releases/latest), or tick the Claude Desktop option in the installer. The README shows the `claude_desktop_config.json` entry. |
-| VS Code with GitHub Copilot (agent mode) | Documented here | Use the [VS Code extension](../extensions/vscode/README.md), the committed [`.vscode/mcp.json`](../.vscode/mcp.json), or the install link in [install-buttons.md](install-buttons.md). |
+| VS Code with GitHub Copilot (agent mode) | Documented here | Use the [VS Code extension](../extensions/vscode/README.md), the committed [`.vscode/mcp.json`](../.vscode/mcp.json), or the install link in [install.md](install.md#vs-code). |
 | Cursor | Documented here | Use the Cursor install link in the README, or add the `mcpServers` entry from the README. |
 | Codex | Documented here | The README states Codex uses the same values as the Claude Desktop entry. The panel chat can also call the `codex` command-line tool. |
 | Hermes Desktop | Example provided | Start from [`docs/examples/hermes-desktop.json`](examples/hermes-desktop.json). |
-| Windsurf, Cline, Roo Code, Continue | Same configuration shape, not tested | [marketplaces.md](marketplaces.md) lists these as accepting the `mcpServers` entry. |
+| Windsurf, Cline, Roo Code, Continue | Same configuration shape, not tested | [clients.md](clients.md) has the entry for each. |
 | Claude Code, Zed, Gemini CLI, Goose, LM Studio, JetBrains AI Assistant | Standard MCP clients, not tested | They can start a stdio MCP server. Use the same command, arguments and environment variables as the README entry. Check each client's own MCP documentation for where the entry goes. |
 
 ## Agent frameworks
@@ -40,7 +40,7 @@ Live work always needs the Revit add-in. The server talks to a running copy of R
 
 ## Where the server is listed
 
-Registry files for the official MCP Registry (`server.json`), Smithery (`smithery.yaml`, mock mode) and Glama (`glama.json`) are in the repository root. See [marketplaces.md](marketplaces.md) for the current status of each listing.
+Registry files for the official MCP Registry (`server.json`), Smithery (`smithery.yaml`, mock mode) and Glama (`glama.json`) are in the repository root. See [release-checklist.md](release-checklist.md#7-registries-and-stores) for the state of each listing.
 
 ## Try it without Revit
 

@@ -1,6 +1,6 @@
 """
 revit_docs module - documentation automation for a live Revit session (plan items 1.10, 2.6, 2.7 and the
-documentation tools of section 13 of docs/upgrade-plan-hands-and-eyes.md).
+documentation tools).
 
 Commands (the MCP tool name is the ``mcp_tool`` of the command in module.json):
   list_views_sheets_schedules  read-only  counts, names, ids, templates, sheet placement, unplaced views

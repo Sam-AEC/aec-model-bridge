@@ -71,13 +71,13 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 편집할 때는 어시스턴트가 `plan_actions`로 계획을 만들고, `execute_plan`이 적용하기 전에 Revit 패널에서 검토합니다. IFC 검토는 Revit 없이 실행됩니다.
 
-스냅샷 QA/QC 및 보고서 모듈에는 호환되는 저장된 스냅샷이 필요합니다. 현재 Revit에서 모듈로 스냅샷을 넘기려면 파일 이름과 작업 공간이 일치해야 하며, `snapshot_id`를 생략하면 생성된 샘플 데이터가 반환될 수 있습니다. 실시간 조회에는 위의 Revit 도구를 직접 사용하세요. [예정된 수정 사항과 데모](../roadmap.md).
+스냅샷 QA/QC 및 보고서 모듈에는 호환되는 저장된 스냅샷이 필요합니다. 현재 Revit에서 모듈로 스냅샷을 넘기려면 파일 이름과 작업 공간이 일치해야 하며, `snapshot_id`를 생략하면 생성된 샘플 데이터가 반환될 수 있습니다. 실시간 조회에는 위의 Revit 도구를 직접 사용하세요.
 
 ## 빠른 시작
 
 **원클릭 설치**
 
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install-buttons.md#vs-code)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install.md#vs-code)
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -357,11 +357,8 @@ CI는 Python 서버와 Revit 2024~2027용 애드인 대상을 빌드합니다. P
 - [아키텍처](../0001-multi-provider-architecture.md)
 - [구성 레퍼런스](../configuration-reference.md)
 - [보안](../security.md)
-- [MCP 클라이언트와 레지스트리](../marketplaces.md)
 - [버전 관리와 릴리스](../versioning.md)
-- [전체 문서](../README.md)
 - [기여 가이드](../../CONTRIBUTING.md) 및 [행동 강령](../../CODE_OF_CONDUCT.md)
-- [기여자](../../CONTRIBUTORS.md)
 
 ## Built with
 

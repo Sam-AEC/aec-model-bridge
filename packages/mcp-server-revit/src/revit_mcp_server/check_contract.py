@@ -1,7 +1,6 @@
 """Output contract, script-output parser and pagination for the read-only Revit check tools.
 
-Implements section 6 (output contract) and item 1.12 (pagination and budgets) of
-``docs/upgrade-plan-hands-and-eyes.md``. It is pure Python with no Revit dependency, so
+Implements the output contract and pagination with budgets. It is pure Python with no Revit dependency, so
 every function here is unit-testable with canned script output.
 
 A check tool runs an embedded IronPython 2.7 script inside Revit. The script prints a
