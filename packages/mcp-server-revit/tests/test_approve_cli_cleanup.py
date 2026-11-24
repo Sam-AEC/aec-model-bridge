@@ -92,3 +92,17 @@ def test_older_than_must_be_finite_and_not_negative(plans, capsys, bad):
     assert exc.value.code == 2
     assert "--older-than must be" in capsys.readouterr().err
     assert approve_cli.main(ws + ["reject", "--older-than", "7", "--dry-run"]) == 0
+
+
+@pytest.mark.parametrize("command,word", [("approve", "approved"), ("reject", "rejected")])
+def test_cannot_be_past_tense_text(tmp_path, capsys, command, word):
+    gate = ApprovalGate(tmp_path, "ask_first")
+    pid = _plan(gate, "x")
+    stored = gate.load_plan(pid)
+    stored["state"] = "executed"  # neither approvable nor rejectable
+    gate.save_plan(stored)
+    capsys.readouterr()
+    assert approve_cli.main(["--workspace", str(tmp_path), command, pid, "--yes"]) == 1
+    err = capsys.readouterr().err
+    assert f"it cannot be {word}." in err
+    assert "approveed" not in err and "rejecteded" not in err

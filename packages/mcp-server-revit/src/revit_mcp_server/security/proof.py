@@ -374,8 +374,13 @@ def _load_snapshot_doc(workspace_dir: Path, snapshot_id: Optional[str]) -> Tuple
         for el in snap.get("elements", []):
             if el.get("element_id") is not None and el.get("uid"):
                 uids[str(el["element_id"])] = el["uid"]
-    except Exception:
-        doc["note"] = "snapshot file could not be read; document identity unavailable"
+    except (OSError, ValueError, AttributeError, TypeError) as e:
+        # OSError: missing/unreadable file; ValueError: bad id (safe-path error) or invalid JSON
+        # (JSONDecodeError); AttributeError/TypeError: JSON that is not the expected shape.
+        reason = f"{type(e).__name__}: {e}"
+        doc["snapshot_error"] = reason
+        doc["note"] = f"snapshot could not be read ({reason}); document identity and element uids unavailable"
+        uids = {}
     return doc, uids
 
 

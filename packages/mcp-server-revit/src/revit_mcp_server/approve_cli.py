@@ -315,6 +315,9 @@ def _reject_pending(gate: ApprovalGate, args: Any) -> int:
     return 1 if failed else 0
 
 
+_PAST_TENSE = {"approve": "approved", "reject": "rejected"}
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         prog="aec-model-bridge-approve",
@@ -420,7 +423,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     allowed = ("pending",) if args.command == "approve" else ("pending", "approved")
     if plan.get("state") not in allowed:
-        print(f"\nPlan is '{safe_text(plan.get('state'))}'; it cannot be {args.command}ed.", file=sys.stderr)
+        print(f"\nPlan is '{safe_text(plan.get('state'))}'; it cannot be {_PAST_TENSE[args.command]}.", file=sys.stderr)
         return 1
     if expired and args.command == "approve":
         print("\nThis plan has expired and cannot be approved. Reject it and ask for a new plan.", file=sys.stderr)
