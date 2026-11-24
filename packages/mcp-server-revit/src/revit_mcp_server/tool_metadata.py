@@ -359,6 +359,7 @@ DESCRIPTIONS: dict[str, str] = {
     # --- Graph / Speckle / jobs / snapshots --------------------------------
     "snapshot_take": "Extract and save a semantic BIM snapshot of the active Revit model into the workspace and return its snapshot_id. Large models are captured within a size and time limit (truncated=true says so); scope it with categories.",
     "snapshot_query": "Query the element records of a saved snapshot with the filter DSL. Read-only.",
+    "snapshot_compute": "Answer a model question in one call: a read-only pipeline of steps (join, where, group, aggregate, sort, select) over a saved snapshot. Read-only.",
     "snapshot_diff": "Compare two saved snapshots and report added, deleted and modified elements. Read-only.",
     "speckle_health": "Check that the Speckle provider is configured and report whether it can reach the Speckle server.",
     "speckle_auth_status": "Report the current Speckle OAuth authentication status of this server (signed in or not).",

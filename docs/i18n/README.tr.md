@@ -122,9 +122,9 @@ VS Code mu kullanıyorsunuz? [Eklenti kaynağı ve yerel kurulum adımları](../
 | Speckle | 17 | Projeler, modeller, sürümler, gönderme ve alma |
 | Navisworks | 15 | Model ağacı, bakış noktaları, çakışma testleri (geliştirme sürüyor) |
 | IFC | 7 | IFC dosyalarını Revit olmadan okuma: yapı, özellikler, doğrulama |
-| Grafik, snapshot'lar, dışa aktarmalar, işler | 22 | Anlamsal grafik denetimleri, snapshot farkları, SQLite dışa aktarma, arka plan işleri |
+| Grafik, snapshot'lar, dışa aktarmalar, işler | 23 | Anlamsal grafik denetimleri, snapshot farkları, SQLite dışa aktarma, arka plan işleri |
 
-Varsayılan kurulumda 309 araç listelenir (mock modundaki mevcut sunucudan sayılmıştır). Autodesk Data araçları, APS kimlik bilgileri yapılandırıldığında görünür. [Araç başvurusu](../tools-generated.md) tüm araçları listeler. Her araç, istemcilerin okuma ile yazmayı ayırt edebilmesi için MCP ek açıklamaları (annotations; `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) taşır.
+Varsayılan kurulumda 310 araç listelenir (mock modundaki mevcut sunucudan sayılmıştır). Autodesk Data araçları, APS kimlik bilgileri yapılandırıldığında görünür. [Araç başvurusu](../tools-generated.md) tüm araçları listeler. Her araç, istemcilerin okuma ile yazmayı ayırt edebilmesi için MCP ek açıklamaları (annotations; `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) taşır.
 
 ### Gelişmiş Revit otomasyonu
 

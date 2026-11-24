@@ -52,7 +52,7 @@ a permitted workspace directory.
 | --- | --- |
 | `full` | All tools, as before. Human-only approval/rejection/rollback tools remain unavailable to AI clients. |
 | `daily` | Keeps Revit sparing, groups, recipes, sections/tags/views, parameters, plans/jobs and general inspection. Hides `revit_mep` (including native duct/pipe creation), `revit_ifc`, and provider/module IDs matching `rhino*`, `speckle*`, `navisworks*`, `bcf_exchange*`, `clash_triage*`, `ifc*`. |
-| `core` | 49 named tools for the BIM-coordinator loop (context, snapshots, QA checks and audits, element reads, parameters, selection, `revit_execute_python`, `revit_api_lookup`) plus the always-visible approval tools: 54 tools, about 14k tokens against about 80k for `full`. Everything else is hidden and refused; switch to `daily` or `full` and restart to reach it. See [token budget](../../docs/mcp-token-budget.md). |
+| `core` | 50 named tools for the BIM-coordinator loop (context, snapshots, QA checks and audits, element reads, parameters, selection, `revit_execute_python`, `revit_api_lookup`) plus the always-visible approval tools and `search_tools`: 57 tools, about 14k tokens against about 80k for `full`. Everything else is hidden and refused; switch to `daily` or `full` and restart to reach it. See [token budget](../../docs/mcp-token-budget.md). |
 | `custom` | Tools whose provider or manifest module ID matches the file's include globs, minus exclusions. |
 
 The owner can add `"MCP_REVIT_TOOL_PROFILE": "daily"` (or `"core"`) to this server's `env`

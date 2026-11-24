@@ -8,7 +8,7 @@
 
 **AI assistants read the Revit model you have open. By default, nothing in it changes until you approve a plan.**
 
-Open source · Revit 2024 – 2027 · 309 tools · Claude, Codex, Cursor and other MCP clients
+Open source · Revit 2024 – 2027 · 310 tools · Claude, Codex, Cursor and other MCP clients
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Sam-AEC/aec-model-bridge/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Sam-AEC/aec-model-bridge/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
@@ -195,9 +195,9 @@ published to the Marketplace.
 | Speckle | 17 | Projects, models, versions, send and receive |
 | Navisworks | 15 | Model tree, viewpoints, clash tests (in progress) |
 | IFC | 7 | Read IFC files without Revit: structure, properties, validation |
-| Graph, snapshots, exports, jobs | 22 | Semantic graph audits, snapshot diffs, SQLite export, background jobs |
+| Graph, snapshots, exports, jobs | 23 | Semantic graph audits, snapshot diffs, SQLite export, background jobs |
 
-309 tools are listed in the default setup (counted from the current server in mock
+310 tools are listed in the default setup (counted from the current server in mock
 mode). The Autodesk Data tools appear when APS credentials are configured. The
 [tool reference](docs/tools-generated.md) lists every tool. Each tool carries
 MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`,

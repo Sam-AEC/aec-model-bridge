@@ -122,9 +122,9 @@ Sie nutzen VS Code? Der [Quellcode der Erweiterung und die lokalen Installations
 | Speckle | 17 | Projekte, Modelle, Versionen, Senden und Empfangen |
 | Navisworks | 15 | Modellbaum, Ansichtspunkte, Kollisionsprüfungen (in Arbeit) |
 | IFC | 7 | IFC-Dateien ohne Revit lesen: Struktur, Eigenschaften, Validierung |
-| Graph, Snapshots, Exporte, Jobs | 22 | Audits des semantischen Graphen, Snapshot-Vergleiche, SQLite-Export, Hintergrundjobs |
+| Graph, Snapshots, Exporte, Jobs | 23 | Audits des semantischen Graphen, Snapshot-Vergleiche, SQLite-Export, Hintergrundjobs |
 
-In der Standardkonfiguration werden 309 Werkzeuge aufgelistet (gezählt am aktuellen Server im Mock-Modus). Die Autodesk-Data-Werkzeuge erscheinen, wenn APS-Zugangsdaten konfiguriert sind. Die [Werkzeugreferenz](../tools-generated.md) listet jedes Werkzeug auf. Jedes Werkzeug trägt MCP-Annotationen (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), sodass Clients Lese- von Schreibzugriffen unterscheiden können.
+In der Standardkonfiguration werden 310 Werkzeuge aufgelistet (gezählt am aktuellen Server im Mock-Modus). Die Autodesk-Data-Werkzeuge erscheinen, wenn APS-Zugangsdaten konfiguriert sind. Die [Werkzeugreferenz](../tools-generated.md) listet jedes Werkzeug auf. Jedes Werkzeug trägt MCP-Annotationen (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), sodass Clients Lese- von Schreibzugriffen unterscheiden können.
 
 ### Erweiterte Revit-Automatisierung
 
