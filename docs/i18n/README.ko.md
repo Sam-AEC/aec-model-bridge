@@ -123,9 +123,9 @@ VS Code를 사용하시나요? [확장 프로그램 소스와 로컬 설치 단�
 | Speckle | 17 | 프로젝트, 모델, 버전, 전송 및 수신 |
 | Navisworks | 15 | 모델 트리, 뷰포인트, 간섭 검토(개발 중) |
 | IFC | 7 | Revit 없이 IFC 파일 읽기: 구조, 속성, 검증 |
-| 그래프, 스냅샷, 내보내기, 작업 | 23 | 시맨틱 그래프 감사, 스냅샷 비교, SQLite 내보내기, 백그라운드 작업 |
+| 그래프, 스냅샷, 내보내기, 작업 | 24 | 시맨틱 그래프 감사, 스냅샷 비교, SQLite 내보내기, 백그라운드 작업 |
 
-기본 설정에서는 311개의 도구가 나열됩니다(mock 모드에서 현재 서버 기준으로 집계). Autodesk Data 도구는 APS 자격 증명을 구성하면 나타납니다. [도구 레퍼런스](../tools-generated.md)에서 모든 도구를 확인할 수 있습니다. 각 도구에는 MCP 어노테이션(`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)이 있어 클라이언트가 읽기와 쓰기를 구분할 수 있습니다.
+기본 설정에서는 312개의 도구가 나열됩니다(mock 모드에서 현재 서버 기준으로 집계). Autodesk Data 도구는 APS 자격 증명을 구성하면 나타납니다. [도구 레퍼런스](../tools-generated.md)에서 모든 도구를 확인할 수 있습니다. 각 도구에는 MCP 어노테이션(`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`)이 있어 클라이언트가 읽기와 쓰기를 구분할 수 있습니다.
 
 ### 고급 Revit 자동화
 
