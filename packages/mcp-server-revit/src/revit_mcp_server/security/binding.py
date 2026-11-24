@@ -12,8 +12,10 @@ from __future__ import annotations
 import hashlib
 from typing import Any, Dict, List, Optional
 
-# The process id is not part of revit_get_context today, so it is not recorded.
-BINDING_KEYS = ("doc_guid", "central_path_hash", "doc_title", "revit_version", "active_view_id")
+# ``revit_pid`` and ``revit_started_at`` name the Revit process (ADR 0014). They are recorded only when
+# revit_get_context reports ``revit.pid`` and ``revit.started_at``; a plan without them is not process-bound.
+BINDING_KEYS = ("doc_guid", "central_path_hash", "doc_title", "revit_version", "active_view_id",
+                "revit_pid", "revit_started_at")
 _VIEW_ARGUMENT_KEYS = ("view_id", "view_ids")
 
 
@@ -43,13 +45,20 @@ def live_binding(context: Any) -> Optional[Dict[str, Any]]:
         return None
     revit = context.get("revit") if isinstance(context.get("revit"), dict) else {}
     view = doc.get("active_view") if isinstance(doc.get("active_view"), dict) else {}
-    return {
+    out = {
         "doc_guid": guid,
         "central_path_hash": central,
         "doc_title": doc.get("title") if isinstance(doc.get("title"), str) else None,
         "revit_version": str(revit["version"]) if revit.get("version") is not None else None,
         "active_view_id": view.get("id") if isinstance(view.get("id"), int) else None,
     }
+    pid = revit.get("pid")
+    if isinstance(pid, int) and not isinstance(pid, bool):
+        out["revit_pid"] = pid
+    started = revit.get("started_at")
+    if isinstance(started, str) and started:
+        out["revit_started_at"] = started
+    return out
 
 
 def binding_from_context(context: Any, actions: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -78,6 +87,10 @@ def mismatches(bound: Dict[str, Any], live: Dict[str, Any]) -> List[str]:
                 out.append("central model path differs")
             elif key == "doc_guid":
                 out.append("document id differs")
+            elif key in ("revit_pid", "revit_started_at"):
+                msg = "this is a different Revit process than the one the plan was drafted in"
+                if msg not in out:
+                    out.append(msg)
             elif key == "doc_title":
                 out.append(f"document title: plan {want!r}, Revit {live.get(key)!r}")
             else:

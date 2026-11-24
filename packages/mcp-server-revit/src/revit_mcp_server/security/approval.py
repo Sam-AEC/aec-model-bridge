@@ -1,4 +1,5 @@
 import contextlib
+import contextvars
 import getpass
 import os
 import re
@@ -76,6 +77,8 @@ class ApprovalExpired(BridgeError):
     """An approval is older than approval_ttl. Only a new plan that a person approves renews anything."""
 
 
+BINDING_PROBE_REUSE_S = 10.0  # one execute_plan reads the live document again after this many seconds
+_PROBE_REUSE: "contextvars.ContextVar[Optional[Dict[str, Any]]]" = contextvars.ContextVar("binding_probe_reuse", default=None)
 _UNBOUND = object()  # create_plan(binding=...) default: the plan carries no binding key (older format)
 
 
@@ -596,6 +599,26 @@ class ApprovalGate:
                 "draft a new plan and ask the person to approve it."
             )
 
+    @contextlib.contextmanager
+    def reuse_binding_probe(self, max_age_s: float = BINDING_PROBE_REUSE_S):
+        """Inside this block one live-document read is shared by every verify_binding call (one
+        execute_plan), and read again once it is older than ``max_age_s`` seconds. Only a
+        successful read is kept; a failed one is retried by the next call."""
+        token = _PROBE_REUSE.set({"max_age": max_age_s, "at": None, "live": None})
+        try:
+            yield
+        finally:
+            _PROBE_REUSE.reset(token)
+
+    def _read_live_binding(self) -> Optional[Dict[str, Any]]:
+        reuse = _PROBE_REUSE.get()
+        if reuse is not None and reuse["live"] is not None and time.monotonic() - reuse["at"] <= reuse["max_age"]:
+            return reuse["live"]
+        live = binding_mod.live_binding(self.binding_probe()) if self.binding_probe else None
+        if reuse is not None and live is not None:
+            reuse["at"], reuse["live"] = time.monotonic(), live
+        return live
+
     def verify_binding(self, plan: Dict[str, Any]) -> None:
         """Refuse when the live Revit document is not the one the plan was drafted for. A plan with
         no binding (drafted without a live Revit, or before bindings existed) is never refused here.
@@ -605,7 +628,7 @@ class ApprovalGate:
             return
         plan_id = plan.get("plan_id")
         try:
-            live = binding_mod.live_binding(self.binding_probe()) if self.binding_probe else None
+            live = self._read_live_binding()
         except Exception as e:  # noqa: BLE001 - any failure to read means "cannot confirm"
             logger.warning("Could not read the live document for plan %s: %s", plan_id, e)
             live = None
