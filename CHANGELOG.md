@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Issue tracker: new issue forms (bug report with Revit, add-in, mode, approval mode and client fields; problem-first feature request; documentation; live Revit verification run sheet), updated contact links, a prefixed label taxonomy in `.github/labels.yml`, and `docs/issue-guide.md` with title, label, milestone, tracking-issue and acceptance-criteria rules.
+
 ## 1.5.1 - 2026-11-24
 
 - CI: a `changes` job skips the add-in and Rhino builds on pull requests that do not touch C#; pull requests run Python on Windows 3.11 and Ubuntu 3.13, while pushes to `main`/`dev`, a nightly run and manual runs keep the full matrix (Ubuntu is no longer experimental). Installs use `uv sync --locked` with a cache, tests run in parallel (`pytest-xdist`), and the coverage floor rises from 55% to 80% (measured 83%).

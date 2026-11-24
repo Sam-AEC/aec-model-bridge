@@ -42,6 +42,7 @@
 - [Changelog](https://github.com/Sam-AEC/aec-model-bridge/blob/main/CHANGELOG.md): changes per release.
 - [Licensing](https://github.com/Sam-AEC/aec-model-bridge/blob/main/LICENSING.md): GPL terms, Revit Linking Exception, commercial licence.
 - [Support](https://github.com/Sam-AEC/aec-model-bridge/blob/main/SUPPORT.md): where to ask and report bugs.
+- [Issue guide](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/issue-guide.md): issue titles, labels, milestones, tracking issues and acceptance criteria.
 
 ## Optional
 

@@ -1,15 +1,19 @@
-# General installation and usage questions can use a blank issue; bug and
-# feature forms remain available for reports that fit those categories.
+# Forms record version, host and mode. Blank issues stay enabled because
+# SUPPORT.md sends usage questions there. Security reports go elsewhere.
 blank_issues_enabled: true
 contact_links:
   - name: Report a security vulnerability
     url: https://github.com/Sam-AEC/aec-model-bridge/security/advisories/new
-    about: Please report security problems privately, not as a public issue. See SECURITY.md.
-  - name: Get help or ask a question
+    about: Report security problems privately, never as a public issue. See SECURITY.md.
+  - name: Installation or usage question
     url: https://github.com/Sam-AEC/aec-model-bridge/blob/main/SUPPORT.md
-    about: Where to ask, what to include, and what is and is not supported.
-  # TODO(owner): GitHub Discussions is not confirmed as enabled. If you turn it
-  # on (Settings -> General -> Features -> Discussions), add a contact link here:
-  #   - name: Ask the community
-  #     url: https://github.com/Sam-AEC/aec-model-bridge/discussions
-  #     about: Questions and ideas that are not bug reports.
+    about: Where to ask, what to include, and what is supported. Run `aec-model-bridge doctor` first.
+  - name: Troubleshooting guide
+    url: https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/troubleshooting.md
+    about: Known start-up, connection and add-in problems, with the log lines to look at.
+  - name: How issues are written and labelled
+    url: https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/issue-guide.md
+    about: Title rules, labels, milestones and acceptance criteria.
+  - name: MCP protocol or SDK problem
+    url: https://github.com/modelcontextprotocol/python-sdk/issues
+    about: Bugs that reproduce with the MCP Python SDK alone belong in that repository.
