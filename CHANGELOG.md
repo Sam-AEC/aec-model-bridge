@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- README headline is now "AI for Revit you can trust"; the social preview card matches.
 - `assets/social-preview.png` (1280x640) for the repository social preview.
 - Repository layout: community files (`CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md`) moved to `.github/`; `TRADEMARKS.md` to `docs/legal/`; ADRs to `docs/adr/`; the VS Code extension from `extensions/vscode/` to `packages/vscode-extension/`; the Claude Code plugin from `plugin/` to `packages/claude-plugin/`; the canonical test model fixtures to `packages/mcp-server-revit/tests/fixtures/`; example rule packs to `docs/examples/rule_packs/`. Links, workflows, `scripts/version.py` and tests point to the new paths.
 - Built-in modules now write files through the `files.write` check, and the manifests of `selection_tools`, `model_inspector`, `parameter_manager` and `revit_ifc` declare it (#157).
