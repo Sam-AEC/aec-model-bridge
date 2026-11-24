@@ -239,6 +239,12 @@ The response should include:
 
 The reported year matches the Revit version that is running.
 
+## Supported start command
+
+The supported way to start the server is `python.exe -m revit_mcp_server` (the bundled one is `C:\ProgramData\AECModelBridge\python\python.exe`). `-m revit_mcp_server.mcp_server` is the same server and also works. The installer's client setup writes `python.exe -m revit_mcp_server.mcp_server`.
+
+The bundle also has relocatable launchers `python\Scripts\aec-model-bridge.cmd`, `revit-mcp-server.cmd`, `aec-model-bridge-panel-server.cmd` and `aec-model-bridge-approve.cmd`. They call `python.exe` next to them, so they keep working if the folder moves. Releases before the fix for issue #159 shipped pip `.exe` launchers in that folder; those exit silently on a user PC. Do not point a client at an `.exe` in `python\Scripts`.
+
 ## Mock mode
 
 Mock mode runs the MCP server without Revit. It returns sample data:

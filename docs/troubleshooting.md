@@ -236,6 +236,8 @@ If the hashes do not match, do not run the file. Report it.
 .\.venv\Scripts\python.exe -m revit_mcp_server.mcp_server
 ```
 
+For the installer bundle, use its own interpreter: `C:\ProgramData\AECModelBridge\python\python.exe -m revit_mcp_server`. If you are on a release older than the fix for issue #159, `python\Scripts\aec-model-bridge.exe` (and the other `.exe` files in that folder) exits with code 1 and prints nothing, because pip wrote the build machine's path into them. Point your client at `python.exe` with the arguments `-m revit_mcp_server` instead, or install a release that ships the `.cmd` launchers.
+
 A healthy server starts and waits silently for input. Press Ctrl+C to stop it. Then fix what the terminal showed, and restart the client.
 
 **Copy to the bug report:** your config with any keys removed, and the terminal error.
