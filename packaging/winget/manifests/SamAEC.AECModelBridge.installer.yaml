@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.10.0.schema.json
+# Template. Fill with packaging/winget/fill_manifests.py; do not submit as is.
+# Inno Setup installer from scripts/installer/AECModelBridge.iss (PrivilegesRequired=lowest,
+# x64 only, fixed folder C:\ProgramData\AECModelBridge). ProductCode is the Inno AppId plus _is1.
+PackageIdentifier: SamAEC.AECModelBridge
+PackageVersion: __VERSION__
+MinimumOSVersion: 10.0.0.0
+InstallerType: inno
+Scope: user
+InstallModes:
+  - interactive
+  - silent
+  - silentWithProgress
+UpgradeBehavior: install
+ProductCode: '{D41A24F3-87B1-4A51-9F31-30919E371C25}_is1'
+AppsAndFeaturesEntries:
+  - DisplayName: AEC Model Bridge
+    Publisher: Sam-AEC
+    ProductCode: '{D41A24F3-87B1-4A51-9F31-30919E371C25}_is1'
+Installers:
+  - Architecture: x64
+    InstallerUrl: __INSTALLER_URL__
+    InstallerSha256: __INSTALLER_SHA256__
+ManifestType: installer
+ManifestVersion: 1.10.0

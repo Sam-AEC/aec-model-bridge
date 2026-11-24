@@ -8,6 +8,9 @@
 - Built-in modules now write files through the `files.write` check, and the manifests of `selection_tools`, `model_inspector`, `parameter_manager` and `revit_ifc` declare it (#157).
 - Tests: panel test servers poll every 10 ms instead of 0.5 s (about 4 s per CPU-minute of teardown saved), a mtime-order test no longer sleeps, and `tests/test_security_branch_gaps.py` covers fail-closed branches of the approval override, gating, binding and redaction helpers.
 - Issue tracker: new issue forms (bug report with Revit, add-in, mode, approval mode and client fields; problem-first feature request; documentation; live Revit verification run sheet), updated contact links, a prefixed label taxonomy in `.github/labels.yml`, and `docs/issue-guide.md` with title, label, milestone, tracking-issue and acceptance-criteria rules.
+- Release: `publish-pypi.yml` now runs after each stable release (dispatched by `release.yml`, or on `release: published`), builds the wheel and sdist from the tag, and publishes with PyPI Trusted Publishing in a `pypi` environment. Pre-release tags are refused. Setup steps are in `docs/release-checklist.md`.
+- Security: new `scorecard.yml` workflow runs the OpenSSF Scorecard weekly and on pushes to `main`, uploads SARIF to code scanning, and feeds a README badge. `release.yml`, `publish-pypi.yml` and `publish-mcp.yml` now set top-level read-only `permissions:`.
+- Packaging: winget manifest templates for the Windows installer in `packaging/winget/`, `fill_manifests.py` to fill version, URL and SHA-256 for a release (checked against `SHA256SUMS.txt`), and `docs/winget.md` on submitting with `wingetcreate`. Nothing is submitted.
 
 ## 1.5.1 - 2026-11-24
 
