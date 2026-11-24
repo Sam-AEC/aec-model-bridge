@@ -55,6 +55,9 @@ HIDDEN_TOOLS = ("pyrevit_bridge_run_pyrevit_script",)
 # approval tools. No profile may hide it: without it a client cannot see or follow
 # the approval flow that guards every write.
 APPROVAL_PROVIDER_ID = "approval"
+# Read-only search over the full registry. Also visible in every profile, so a
+# client on `core` can learn which profile shows a hidden tool.
+TOOL_SEARCH_PROVIDER_ID = "tool_search"
 
 
 class ToolProfileBlocked(BridgeError):
@@ -69,7 +72,7 @@ class ToolProfile:
     tools: tuple[str, ...] | None = None  # exact tool names; None means no name filter
 
     def allows(self, provider_id: str, module_id: str | None = None, tool_name: str | None = None) -> bool:
-        if provider_id == APPROVAL_PROVIDER_ID:
+        if provider_id in (APPROVAL_PROVIDER_ID, TOOL_SEARCH_PROVIDER_ID):
             return True
         if tool_name in HIDDEN_TOOLS:
             return False
