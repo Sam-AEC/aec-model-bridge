@@ -573,7 +573,7 @@ class ApprovalGate:
         if plan.get("state") != "approved":
             hint = ""
             if plan.get("state") == "pending" and self.dev_mode:
-                hint = " Dev mode is on: omit plan_id to run unplanned, or have the person approve this plan."
+                hint = " The plan is pending. In Dev mode, omit plan_id to run unplanned, or have a person approve it."
             raise BridgeError(
                 f"Plan '{plan_id}' is in state '{plan.get('state')}', not 'approved'. Execution blocked.{hint}")
         self._verify_unchanged_since_approval(plan)

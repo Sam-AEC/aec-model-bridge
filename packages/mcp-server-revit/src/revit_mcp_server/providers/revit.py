@@ -405,7 +405,15 @@ class RevitProvider(AECProvider):
         path_keys = ["path", "csv_path", "output_path", "file_path", "template_path"]
         for key in path_keys:
             if key in arguments and isinstance(arguments[key], str):
-                self.workspace.assert_in_workspace(Path(arguments[key]))
+                try:
+                    self.workspace.assert_in_workspace(Path(arguments[key]))
+                except WorkspaceViolation as exc:
+                    if "outside the allowed workspace" not in str(exc):
+                        raise
+                    folders = ", ".join(str(d) for d in self.workspace.allowed_directories)
+                    raise WorkspaceViolation(
+                        f"{exc}. Dev mode does not change this. Use a path inside the workspace folder: {folders}"
+                    ) from exc
 
     @staticmethod
     def _placement_location(args: Dict[str, Any]) -> Dict[str, Any]:
