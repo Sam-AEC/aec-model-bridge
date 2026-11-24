@@ -12,6 +12,7 @@ Open-source Revit MCP server · Revit 2024 – 2027 · 311 tools · Claude, Code
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Sam-AEC/aec-model-bridge/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Sam-AEC/aec-model-bridge/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
+[![Coverage floor](https://img.shields.io/badge/coverage_floor-80%25-0F766E?style=flat-square)](packages/mcp-server-revit/pyproject.toml)
 [![Revit](https://img.shields.io/badge/Revit-2024--2027-0696D7?style=flat-square)](#supported-revit-versions)
 [![License](https://img.shields.io/badge/license-GPL--3.0%20%2B%20commercial-2563EB?style=flat-square)](LICENSING.md)
 [![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/Sam-AEC/aec-model-bridge?style=flat-square&label=OpenSSF%20Scorecard)](https://scorecard.dev/viewer/?uri=github.com/Sam-AEC/aec-model-bridge)
@@ -338,6 +339,8 @@ You install two parts: the Python MCP server and the Revit add-in. Live Revit
 automation needs both.
 
 ### 1. Install the MCP server
+
+To run the server without a clone, use `uvx` as in [Manual setup](#quick-start) or the [install guide](docs/install.md#run-the-server-with-uvx). The short `uvx aec-model-bridge` form needs a PyPI release, which has not happened yet. To work on the source:
 
 ```powershell
 git clone https://github.com/Sam-AEC/aec-model-bridge.git
