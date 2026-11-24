@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Built-in modules now write files through the `files.write` check, and the manifests of `selection_tools`, `model_inspector`, `parameter_manager` and `revit_ifc` declare it (#157).
+
 ## 1.5.1 - 2026-11-24
 
 - CI: a `changes` job skips the add-in and Rhino builds on pull requests that do not touch C#; pull requests run Python on Windows 3.11 and Ubuntu 3.13, while pushes to `main`/`dev`, a nightly run and manual runs keep the full matrix (Ubuntu is no longer experimental). Installs use `uv sync --locked` with a cache, tests run in parallel (`pytest-xdist`), and the coverage floor rises from 55% to 80% (measured 83%).

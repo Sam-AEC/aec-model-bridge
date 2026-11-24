@@ -28,6 +28,7 @@ flagged. A change between two points is only given when both are complete captur
 the same components; otherwise ``delta`` is null with a reason.
 """
 from __future__ import annotations
+from revit_mcp_server.security.module_permissions import writable_path
 
 import csv
 import importlib.util
@@ -263,7 +264,7 @@ class ModelHealthModule:
                 points = [{"snapshot_id": data["snapshot_id"], "taken_at": data["taken_at"], "score": current["score"],
                            "delta": None, "comparable": False, "partial": current["partial"],
                            "components": current["components"], "excluded": current["excluded"]}]
-            path = rg._confined(workspace, csv_filename)
+            path = writable_path(workspace, rg._confined(workspace, csv_filename))
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(_csv_text(points), encoding="utf-8")
             files["csv_file"] = str(path)
