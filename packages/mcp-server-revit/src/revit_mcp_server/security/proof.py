@@ -195,7 +195,9 @@ def approved_content(plan: Dict[str, Any]) -> Dict[str, Any]:
     values), the review, the reverted plan id and the unhashed revert metadata. The hub
     compares this before and after output redaction (panel_plans_redacted)."""
     view = plan.get("review_view")
+    extra = {"binding": plan["binding"]} if "binding" in plan else {}
     return {
+        **extra,
         "actions": plan.get("actions"),
         "review": view.get("review") if isinstance(view, dict) else None,
         "reverts_plan_id": plan.get("reverts_plan_id"),
@@ -467,6 +469,7 @@ def build_proof(
                          f"(approved via {plan.get('approved_via') or 'unknown'}); not an authenticated identity"
         if plan.get("approved_by") else "approver identity was not recorded",
         "document": document,
+        "binding": plan.get("binding"),
         "plan_hash": plan_content_hash(plan),
         "hash_version": plan_hash_version(plan),
         "review": plan.get("review"),

@@ -257,6 +257,11 @@ class ApprovalProvider(AECProvider):
         raise BridgeError(f"'{name}' is not a plan decision.")
 
     async def _execute_plan(self, plan_id: str) -> Dict[str, Any]:
+        # One live-document read serves every action of this plan (see ApprovalGate.reuse_binding_probe).
+        with self.gate.reuse_binding_probe():
+            return await self._execute_plan_actions(plan_id)
+
+    async def _execute_plan_actions(self, plan_id: str) -> Dict[str, Any]:
         """Run every action in an approved plan, report-and-continue on failure.
 
         A partially-failed plan is left in state 'approved' (not 'executed') so it is
@@ -305,6 +310,9 @@ class ApprovalProvider(AECProvider):
                 resume = "Inspect the model and recover the running action through the approval CLI."
             pending_results.append({"action_id": previous.get("action_id"), "key": key, "resume": resume})
         had_failure = any(a.get("state") in ("failed", "abandoned") for a in plan["actions"])
+        # True once any action of this plan has been claimed (now or in an earlier run).
+        started = had_failure or bool(pending_results) or any(
+            a.get("state") not in ("pending", None) for a in plan["actions"])
         for action in plan["actions"]:
             if action.get("state") not in ("pending", None):
                 continue  # already consumed (e.g. a direct call earlier): never run an approved action twice
@@ -316,9 +324,13 @@ class ApprovalProvider(AECProvider):
             try:
                 claim = self.gate.claim_action(tool, args)
             except Exception as e:
+                if not started:
+                    # Refused before anything ran: the plan stays approved and can run once the cause is fixed.
+                    raise
                 had_failure = True
                 results.append({"action_id": action.get("action_id"), "tool": tool, "error": str(e)})
                 continue
+            started = True
             provider = self.registry.lookup_tool_provider(tool)
             if not provider:
                 had_failure = True

@@ -507,3 +507,107 @@ async def test_expired_pending_cannot_be_approved_even_if_listing_flags_are_pass
     assert approval.gate.load_plan(plan["plan_id"])["state"] == "pending"
     # A non-boolean flag does not count as asking for the full list.
     assert (await approval.execute_tool("list_pending_plans", {"include_expired": "yes"}))["plans"] == []
+
+
+# ---- follow-ups (#152) -----------------------------------------------------------------
+
+
+def ctx_proc(pid, started="2026-01-01T08:00:00Z", **kw):
+    c = ctx(**kw)
+    c["revit"].update({"pid": pid, "started_at": started})
+    return c
+
+
+@pytest.mark.anyio
+async def test_same_file_in_another_revit_process_is_refused(provider):
+    approval, live = provider
+    live["context"] = ctx_proc(1)
+    plan = await _draft(approval)
+    assert plan["binding"]["revit_pid"] == 1 and plan["binding"]["revit_started_at"] == "2026-01-01T08:00:00Z"
+    await panel_decide(approval, "approve_plan", plan["plan_id"])
+    live["context"] = ctx_proc(2)
+    with pytest.raises(BridgeError, match="different Revit process"):
+        await approval.execute_tool("execute_plan", {"plan_id": plan["plan_id"]})
+    live["context"] = ctx_proc(1, started="2026-01-02T08:00:00Z")  # recycled pid, later start
+    with pytest.raises(BridgeError, match="different Revit process"):
+        await approval.execute_tool("execute_plan", {"plan_id": plan["plan_id"]})
+    live["context"] = ctx()  # a Revit that does not report its process cannot confirm: refused
+    with pytest.raises(BridgeError, match="different Revit process"):
+        await approval.execute_tool("execute_plan", {"plan_id": plan["plan_id"]})
+    live["context"] = ctx_proc(1)
+    result = await approval.execute_tool("execute_plan", {"plan_id": plan["plan_id"]})
+    assert result["state"] == "executed"
+
+
+@pytest.mark.anyio
+async def test_twenty_action_plan_probes_once(provider):
+    approval, live = provider
+    calls = []
+
+    def probe():
+        calls.append(1)
+        return live["context"]
+    approval.gate.binding_probe = probe
+    actions = [{"tool": SET, "arguments": _args(element_id=1, value=str(i))} for i in range(20)]
+    plan = await approval.execute_tool("plan_actions", {"actions": actions})
+    await panel_decide(approval, "approve_plan", plan["plan_id"])
+    calls.clear()
+    result = await approval.execute_tool("execute_plan", {"plan_id": plan["plan_id"]})
+    assert result["ok"] is True and len(result["results"]) == 20
+    assert len(calls) == 1
+
+
+@pytest.mark.anyio
+async def test_probe_is_repeated_when_the_reused_read_is_too_old(provider):
+    approval, live = provider
+    calls = []
+    approval.gate.binding_probe = lambda: calls.append(1) or live["context"]
+    plan = await _draft(approval)
+    await panel_decide(approval, "approve_plan", plan["plan_id"])
+    calls.clear()
+    with approval.gate.reuse_binding_probe(max_age_s=0.0):
+        approval.gate.verify_binding(approval.gate.load_plan(plan["plan_id"]))
+        approval.gate.verify_binding(approval.gate.load_plan(plan["plan_id"]))
+    assert len(calls) == 2
+
+
+@pytest.mark.anyio
+async def test_proof_bundle_carries_the_binding(provider):
+    approval, live = provider
+    plan = await _draft(approval)
+    await panel_decide(approval, "approve_plan", plan["plan_id"])
+    await approval.execute_tool("execute_plan", {"plan_id": plan["plan_id"]})
+    bundle = approval.gate.load_proof(plan["plan_id"])
+    assert bundle["binding"] == plan["binding"]
+
+
+def test_panel_guard_warns_when_redaction_changes_the_binding():
+    plan = {"plan_id": "p", "state": "pending", "created_at": "t", "actions": [], "binding": {"doc_title": "Villa"}}
+    assert proof_mod.approved_content(plan)["binding"] == {"doc_title": "Villa"}
+    assert "binding" not in proof_mod.approved_content({"actions": []})
+
+    def narrow(x):
+        return json.loads(json.dumps(x).replace("Villa", "***"))
+    out = proof_mod.panel_plans_redacted({"plans": [plan]}, lambda x: x, narrow)
+    assert out["plans"][0]["review_view"]["status"] == "invalid"
+    out = proof_mod.panel_plans_redacted({"plans": [plan]}, lambda x: x, lambda x: x)
+    assert out["plans"][0]["review_view"]["status"] != "invalid"
+
+
+@pytest.mark.anyio
+async def test_refusal_before_the_first_action_leaves_the_plan_approved(provider):
+    approval, live = provider
+    plan = await _draft(approval)
+    await panel_decide(approval, "approve_plan", plan["plan_id"])
+    real = approval.gate.claim_action
+
+    def refuse(tool, args):
+        raise BridgeError("not now")
+    approval.gate.claim_action = refuse
+    with pytest.raises(BridgeError, match="not now"):
+        await approval.execute_tool("execute_plan", {"plan_id": plan["plan_id"]})
+    stored = approval.gate.load_plan(plan["plan_id"])
+    assert stored["state"] == "approved" and stored["actions"][0]["state"] == "pending"
+    approval.gate.claim_action = real  # cause fixed: the same plan runs
+    result = await approval.execute_tool("execute_plan", {"plan_id": plan["plan_id"]})
+    assert result["ok"] is True and result["state"] == "executed"
