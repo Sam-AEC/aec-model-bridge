@@ -17,6 +17,8 @@
 - [Tool catalog](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/tools-generated.md): every tool with its read or write flag.
 - [Configuration reference](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/configuration-reference.md): environment variables, runtime modes, approval modes.
 - [Troubleshooting](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/troubleshooting.md): log locations, connection, approval and install errors, panel Setup check.
+- [Error catalogue](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/error-catalogue.md): every error kind and exception class the server returns, when it happens and what to do.
+- [Full text](https://github.com/Sam-AEC/aec-model-bridge/blob/main/llms-full.txt): this file and the agent docs it links, in one file.
 
 ## Approval and safety
 
