@@ -8,13 +8,14 @@ os.environ.setdefault("MCP_REVIT_WORKSPACE_DIR", str(workspace))
 os.environ.setdefault("MCP_REVIT_ALLOWED_DIRECTORIES", str(workspace))
 os.environ.setdefault("MCP_REVIT_MODE", "mock")
 
-# Add src folder to sys.path to allow imports
+# Add src folder to sys.path to allow imports. The imports below must follow
+# this edit (hence the targeted noqa: E402 on each).
 src_path = Path(__file__).resolve().parent.parent / "src"
 sys.path.insert(0, str(src_path))
 
-from revit_mcp_server.security.workspace import WorkspaceMonitor
-from revit_mcp_server.jobs import JobManager
-from revit_mcp_server.providers import (
+from revit_mcp_server.security.workspace import WorkspaceMonitor  # noqa: E402
+from revit_mcp_server.jobs import JobManager  # noqa: E402
+from revit_mcp_server.providers import (  # noqa: E402
     ProviderRegistry,
     RevitProvider,
     IfcProvider,
@@ -30,9 +31,9 @@ from revit_mcp_server.providers import (
     ApprovalProvider,
     ModuleProvider,
 )
-from revit_mcp_server.module_registry import ModuleRegistry
-from revit_mcp_server.tool_metadata import DESCRIPTIONS
-from revit_mcp_server.config import config
+from revit_mcp_server.module_registry import ModuleRegistry  # noqa: E402
+from revit_mcp_server.tool_metadata import DESCRIPTIONS  # noqa: E402
+from revit_mcp_server.config import config  # noqa: E402
 
 try:
     from revit_mcp_server.providers import McpProxyProvider
