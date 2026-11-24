@@ -6,6 +6,31 @@ Before you start, finish the [install guide](install.md) (the Revit add-in is a 
 
 After saving, ask the assistant to list the AEC Model Bridge tools. With Revit open and the **AEC Bridge** tab visible, ask it to read the model name. Model changes stay blocked until you approve a plan in the Revit panel, whatever auto-approve the client has. See [privacy](privacy.md) and [security](security.md).
 
+## Prompts and resources
+
+Besides tools, the server offers MCP prompts and read-only resources. Support depends on the client: many show prompts as slash commands or a prompt picker, and some ignore resources.
+
+Prompts (each is short text that names real tools; none approves anything for you):
+
+| Prompt | Use |
+| --- | --- |
+| `qa_review` | Warnings, QA/QC checks and a report. Read-only. Optional `rule_pack`, `category`. |
+| `parameter_fix` | Find elements, draft a plan, wait for your approval in the panel, read back. Needs `category`, `parameter`, `value`; optional `level`. |
+| `sheet_prep` | Sheet and view checks before issue. Read-only. |
+| `handover_report` | Build the QA hand-over report. |
+| `first_run` | A short tour that changes nothing; fine in mock mode. |
+
+Resources (JSON, redacted like tool results, ids validated, nothing writable):
+
+| URI | Content |
+| --- | --- |
+| `aec://workspace/snapshots` | Saved snapshots, newest first (up to 100). |
+| `aec://snapshot/{id}/summary` | Counts, source and coverage of one snapshot, not its elements. |
+| `aec://plans/pending` | Pending plan ids, state and summary. |
+| `aec://plan/{id}` | One plan. |
+| `aec://proof/{id}` | The proof bundle of an executed plan. |
+| `aec://qa/latest` | Issue counts by severity and status for the latest QA/QC run. |
+
 ## Cline (VS Code)
 
 *MCP Servers, Installed, Configure MCP Servers* opens `cline_mcp_settings.json`. Cline can also install by itself from [llms-install.md](../llms-install.md). Leave its auto-approve off for tools that change the model.
