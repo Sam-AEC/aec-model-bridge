@@ -6,6 +6,7 @@
 - Built-in modules now write files through the `files.write` check, and the manifests of `selection_tools`, `model_inspector`, `parameter_manager` and `revit_ifc` declare it (#157).
 - Tests: panel test servers poll every 10 ms instead of 0.5 s (about 4 s per CPU-minute of teardown saved), a mtime-order test no longer sleeps, and `tests/test_security_branch_gaps.py` covers fail-closed branches of the approval override, gating, binding and redaction helpers.
 - Issue tracker: new issue forms (bug report with Revit, add-in, mode, approval mode and client fields; problem-first feature request; documentation; live Revit verification run sheet), updated contact links, a prefixed label taxonomy in `.github/labels.yml`, and `docs/issue-guide.md` with title, label, milestone, tracking-issue and acceptance-criteria rules.
+- Docs: prompt library in `docs/prompts/` (53 prompts in nine themed files, each with tools, expected result, safety note for writes and mock-test status), linked from `README.md` and `llms.txt`; `tests/test_prompt_library.py` checks every tool name against the registry.
 
 ## 1.5.1 - 2026-11-24
 

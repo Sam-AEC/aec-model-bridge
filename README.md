@@ -539,6 +539,7 @@ See [CONTRIBUTING.md](.github/CONTRIBUTING.md) before opening a pull request.
 
 - [Installation guide](docs/install.md)
 - [Tool reference](docs/tools-generated.md)
+- [Prompt library](docs/prompts/README.md): copy-ready prompts for QA, data, sheets, coordination, IFC/BCF and hand-over
 - [Architecture](docs/adr/0001-multi-provider-architecture.md)
 - [Configuration reference](docs/configuration-reference.md)
 - [Security](docs/security.md)

@@ -15,6 +15,7 @@
 - [Other MCP clients](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/clients.md): config for Codex, Gemini CLI, JetBrains, Visual Studio, Windsurf and Cline.
 - [Compatibility](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/compatibility.md): tested clients, agent frameworks, applications and file formats (IFC, BCF).
 - [Tool catalog](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/tools-generated.md): every tool with its read or write flag.
+- [Prompt library](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/prompts/README.md): 53 copy-ready prompts for BIM coordinators, each mapped to tools and the approval flow.
 - [Configuration reference](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/configuration-reference.md): environment variables, runtime modes, approval modes.
 - [Troubleshooting](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/troubleshooting.md): log locations, connection, approval and install errors, panel Setup check.
 
