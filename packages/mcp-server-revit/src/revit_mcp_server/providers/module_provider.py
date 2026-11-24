@@ -10,6 +10,7 @@ from revit_mcp_server.errors import BridgeError
 from revit_mcp_server.module_registry import ModuleRegistry, ModuleInstance, CommandSpec
 from revit_mcp_server.security.dispatch import refuse_human_only, run_gated_tool
 from revit_mcp_server.security.module_execution import capture_module_execution, module_execution_authorized
+from revit_mcp_server.security.module_permissions import ModuleWorkspace
 from revit_mcp_server.security.workspace import WorkspaceMonitor
 from .base import AECProvider, ProviderTool
 
@@ -188,7 +189,8 @@ class ModuleProvider(AECProvider):
         # Run execution
         try:
             authorized_name = name if command_spec.is_mutating and module_execution_authorized(name) else None
-            result = await self._run_callable(cmd_fn, arguments, authorized_name=authorized_name)
+            result = await self._run_callable(cmd_fn, arguments, authorized_name=authorized_name,
+                                              granted=set(required_perms), label=name)
         except Exception as e:
             raise BridgeError(f"Command execution failed: {e}") from e
             
@@ -240,7 +242,8 @@ class ModuleProvider(AECProvider):
             })
         return {"modules": module_list}
 
-    async def _run_callable(self, func: Callable[..., Any], arguments: Dict[str, Any], authorized_name: Optional[str] = None) -> Any:
+    async def _run_callable(self, func: Callable[..., Any], arguments: Dict[str, Any], authorized_name: Optional[str] = None,
+                            granted: Optional[set] = None, label: str = "") -> Any:
         loop = asyncio.get_running_loop()
         sig = inspect.signature(func)
         kwargs = {}
@@ -250,7 +253,9 @@ class ModuleProvider(AECProvider):
             if param_name in ("payload", "arguments"):
                 kwargs[param_name] = arguments
             elif param_name == "workspace":
-                kwargs[param_name] = self.workspace
+                kwargs[param_name] = self.workspace if granted is None else ModuleWorkspace(
+                    self.workspace, granted, label,
+                    getattr(self.registry.config, "module_permission_mode", "enforce"))
             elif param_name == "tool_executor" and self.tool_registry:
                 kwargs[param_name] = self._sync_tool_executor(loop)
             elif param_name == "approved_executor" and authorized_name and self.tool_registry:

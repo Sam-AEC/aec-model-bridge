@@ -78,14 +78,20 @@ STATE_PLAN_KEYS = frozenset({
     "rejected_at", "rejected_via", "rejected_after_approval", "executed_at", "results",
     "expired", "expired_at", "expired_reason",
     "is_reversible", "reversible_strategy",
+    "policy_hash",  # bookkeeping: hash of the policy file in force when the plan was drafted
 })
+
+
+# Keys the server computes when it shows a plan (plan_review.review_aids). They are never stored on a
+# plan and are overwritten on display, so they are neither approved content nor unhashed metadata.
+DERIVED_PLAN_KEYS = frozenset({"preview", "preview_markdown", "blast_radius"})
 
 
 def unhashed_metadata_keys(plan: Dict[str, Any]) -> List[str]:
     """Keys on the plan that are not part of the approval hash (excluding the plan's own
     lifecycle state). Treat their content as metadata, not approved content."""
     hashed = HASHED_PLAN_KEYS_V2 if plan.get("hash_version") == HASH_VERSION_REVIEW else HASHED_PLAN_KEYS_V1
-    return sorted(str(k) for k in plan if k not in hashed and k not in STATE_PLAN_KEYS)
+    return sorted(str(k) for k in plan if k not in hashed and k not in STATE_PLAN_KEYS and k not in DERIVED_PLAN_KEYS)
 
 
 def _review_str(value: Any, field: str, limit: int, required: bool = False) -> str:
@@ -189,7 +195,9 @@ def approved_content(plan: Dict[str, Any]) -> Dict[str, Any]:
     values), the review, the reverted plan id and the unhashed revert metadata. The hub
     compares this before and after output redaction (panel_plans_redacted)."""
     view = plan.get("review_view")
+    extra = {"binding": plan["binding"]} if "binding" in plan else {}
     return {
+        **extra,
         "actions": plan.get("actions"),
         "review": view.get("review") if isinstance(view, dict) else None,
         "reverts_plan_id": plan.get("reverts_plan_id"),
@@ -302,6 +310,10 @@ def panel_plans_redacted(result: Any, redact_full: Any, redact_narrow: Any) -> A
         approved = approved_content(before)
         narrow = redact_narrow(approved)
         after["actions"] = narrow["actions"]
+        # The preview and blast radius restate the approved actions, so they get the same narrow pass.
+        derived = {k: before[k] for k in DERIVED_PLAN_KEYS if k in before}
+        if derived:
+            after.update(redact_narrow(derived))
         for key, value in narrow["legacy"].items():
             after[key] = value
         if "reverts_plan_id" in before:
@@ -374,8 +386,13 @@ def _load_snapshot_doc(workspace_dir: Path, snapshot_id: Optional[str]) -> Tuple
         for el in snap.get("elements", []):
             if el.get("element_id") is not None and el.get("uid"):
                 uids[str(el["element_id"])] = el["uid"]
-    except Exception:
-        doc["note"] = "snapshot file could not be read; document identity unavailable"
+    except (OSError, ValueError, AttributeError, TypeError) as e:
+        # OSError: missing/unreadable file; ValueError: bad id (safe-path error) or invalid JSON
+        # (JSONDecodeError); AttributeError/TypeError: JSON that is not the expected shape.
+        reason = f"{type(e).__name__}: {e}"
+        doc["snapshot_error"] = reason
+        doc["note"] = f"snapshot could not be read ({reason}); document identity and element uids unavailable"
+        uids = {}
     return doc, uids
 
 
@@ -452,6 +469,7 @@ def build_proof(
                          f"(approved via {plan.get('approved_via') or 'unknown'}); not an authenticated identity"
         if plan.get("approved_by") else "approver identity was not recorded",
         "document": document,
+        "binding": plan.get("binding"),
         "plan_hash": plan_content_hash(plan),
         "hash_version": plan_hash_version(plan),
         "review": plan.get("review"),

@@ -71,13 +71,13 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 Für Änderungen erstellt der Assistent mit `plan_actions` einen Plan; Sie prüfen ihn im Revit-Panel, bevor `execute_plan` ihn anwendet. Die IFC-Prüfung läuft ohne Revit.
 
-Die Snapshot-basierten QA/QC- und Berichtsmodule benötigen einen kompatiblen gespeicherten Snapshot. Die aktuelle Übergabe des Snapshots von Revit an das Modul erfordert übereinstimmenden Dateinamen und Arbeitsbereich; ohne `snapshot_id` können generierte Beispieldaten zurückkommen. Für die Live-Prüfung nutzen Sie die direkten Revit-Werkzeuge oben. [Geplante Korrekturen und Demo](../roadmap.md).
+Die Snapshot-basierten QA/QC- und Berichtsmodule benötigen einen kompatiblen gespeicherten Snapshot. Die aktuelle Übergabe des Snapshots von Revit an das Modul erfordert übereinstimmenden Dateinamen und Arbeitsbereich; ohne `snapshot_id` können generierte Beispieldaten zurückkommen. Für die Live-Prüfung nutzen Sie die direkten Revit-Werkzeuge oben.
 
 ## Schnellstart
 
 **Installation mit einem Klick**
 
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install-buttons.md#vs-code)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install.md#vs-code)
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -116,15 +116,15 @@ Sie nutzen VS Code? Der [Quellcode der Erweiterung und die lokalen Installations
 | Bereich | Werkzeuge | Was sie tun |
 | --- | --- | --- |
 | Revit | 110 | Modell lesen, Elemente, Parameter, Ansichten, Pläne und Bauteillisten erstellen und bearbeiten, Exporte, Worksharing |
-| Freigabe | 5 | Modelländerungen planen, prüfen, freigeben, ausführen und zurücksetzen |
-| Module | 109 | Snapshot-Prüfung, Parametertabellen, QA/QC-Prüfungen, Rezepte, Berichte, Auswahlen |
+| Freigabe | 6 | Modelländerungen planen, prüfen, freigeben, ausführen und zurücksetzen |
+| Module | 113 | Snapshot-Prüfung, Parametertabellen, QA/QC-Prüfungen, Rezepte, Berichte, Auswahlen |
 | Rhino und Grasshopper | 19 | Geometrie, Layer, Materialien, boolesche Operationen |
 | Speckle | 17 | Projekte, Modelle, Versionen, Senden und Empfangen |
 | Navisworks | 15 | Modellbaum, Ansichtspunkte, Kollisionsprüfungen (in Arbeit) |
 | IFC | 7 | IFC-Dateien ohne Revit lesen: Struktur, Eigenschaften, Validierung |
-| Graph, Snapshots, Exporte, Jobs | 21 | Audits des semantischen Graphen, Snapshot-Vergleiche, SQLite-Export, Hintergrundjobs |
+| Graph, Snapshots, Exporte, Jobs | 22 | Audits des semantischen Graphen, Snapshot-Vergleiche, SQLite-Export, Hintergrundjobs |
 
-In der Standardkonfiguration werden 303 Werkzeuge aufgelistet (gezählt am aktuellen Server im Mock-Modus). Die Autodesk-Data-Werkzeuge erscheinen, wenn APS-Zugangsdaten konfiguriert sind. Die [Werkzeugreferenz](../tools-generated.md) listet jedes Werkzeug auf. Jedes Werkzeug trägt MCP-Annotationen (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), sodass Clients Lese- von Schreibzugriffen unterscheiden können.
+In der Standardkonfiguration werden 309 Werkzeuge aufgelistet (gezählt am aktuellen Server im Mock-Modus). Die Autodesk-Data-Werkzeuge erscheinen, wenn APS-Zugangsdaten konfiguriert sind. Die [Werkzeugreferenz](../tools-generated.md) listet jedes Werkzeug auf. Jedes Werkzeug trägt MCP-Annotationen (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), sodass Clients Lese- von Schreibzugriffen unterscheiden können.
 
 ### Erweiterte Revit-Automatisierung
 
@@ -357,11 +357,8 @@ Die CI baut den Python-Server und die Add-in-Ziele für Revit 2024 bis 2027. Les
 - [Architektur](../0001-multi-provider-architecture.md)
 - [Konfigurationsreferenz](../configuration-reference.md)
 - [Sicherheit](../security.md)
-- [MCP-Clients und Registry](../marketplaces.md)
 - [Versionierung und Releases](../versioning.md)
-- [Gesamte Dokumentation](../README.md)
 - [Mitwirken](../../CONTRIBUTING.md) und [Verhaltenskodex](../../CODE_OF_CONDUCT.md)
-- [Mitwirkende](../../CONTRIBUTORS.md)
 
 ## Built with
 

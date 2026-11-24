@@ -263,7 +263,7 @@ def test_panel_registry_is_unfiltered_even_when_env_requests_daily(tmp_path, mon
     assert registry.is_tool_visible("native_alias")
 
 
-APPROVAL_TOOLS = {"plan_actions", "execute_plan", "list_pending_plans", "plan_revert", "get_proof_bundle"}
+APPROVAL_TOOLS = {"plan_actions", "execute_plan", "list_pending_plans", "plan_revert", "get_proof_bundle", "policy_show"}
 
 
 def _approval_names(profile):
@@ -309,7 +309,7 @@ def test_approval_provider_is_allowed_even_for_a_hand_built_excluding_profile():
 
 # ---- core profile: a short allowlist of tool names -----------------------------------
 
-CORE_COUNT = 54  # CORE_TOOLS (49) + the five always-visible approval tools
+CORE_COUNT = 56  # CORE_TOOLS (49) + the six always-visible approval tools + search_tools
 
 
 def test_core_list_is_pinned_and_names_each_tool_once():
@@ -323,7 +323,7 @@ def test_core_exposes_only_its_list_plus_approval_tools(tmp_path):
     assert set(CORE_TOOLS) <= everything, "CORE_TOOLS names a tool that no longer exists"
     registry.freeze_tool_profile(load_tool_profile({"MCP_REVIT_TOOL_PROFILE": "core"}))
     names = {t.name for t in registry.get_all_tools()} - HUMAN_ONLY_TOOLS  # human-only tools are never listed
-    assert names == set(CORE_TOOLS) | APPROVAL_TOOLS
+    assert names == set(CORE_TOOLS) | APPROVAL_TOOLS | {"search_tools"}
     assert len(names) == CORE_COUNT
 
 
@@ -409,3 +409,18 @@ def test_server_instructions_carry_the_family_map_and_unchanged_approval_text():
     ):
         assert phrase in text
     assert len(text) < 2400
+
+
+@pytest.mark.parametrize("profile", ["full", "daily", "core"])
+def test_pyrevit_run_tool_is_hidden_until_an_addin_runner_exists(tmp_path, profile):
+    run = "pyrevit_bridge_run_pyrevit_script"
+    registry, *_ = build_registry(WorkspaceMonitor([tmp_path]))
+    assert run in {t.name for t in registry.get_all_tools()}
+    registry.freeze_tool_profile(load_tool_profile({"MCP_REVIT_TOOL_PROFILE": profile}))
+    names = {t.name for t in registry.get_all_tools()}
+    assert run not in names
+    if profile != "core":
+        assert "pyrevit_bridge_list_pyrevit_scripts" in names
+        assert "pyrevit_bridge_plan_run_pyrevit_script" in names
+    with pytest.raises(ToolProfileBlocked):
+        registry.lookup_tool(run)

@@ -230,7 +230,8 @@ def test_huge_plan_and_pending_list_pass_through_byte_identical(tmp_path, monkey
         plan = json.loads(body)
         stored = approval.gate.load_plan(plan["plan_id"])
         assert "truncated" not in plan and len(plan["actions"]) == 400
-        assert body == json.dumps(stored, indent=2)
+        derived = {k: plan.pop(k) for k in ("preview", "preview_markdown", "blast_radius")}
+        assert body == json.dumps({**stored, **derived}, indent=2)  # review aids are added, never trimmed
         assert plan == stored
 
         listing = _body(asyncio.run(mcp_server.call_tool("list_pending_plans", {})))

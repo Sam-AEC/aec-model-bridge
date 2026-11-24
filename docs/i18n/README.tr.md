@@ -71,13 +71,13 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 Düzenlemeler için asistan `plan_actions` ile bir plan oluşturur; `execute_plan` uygulamadan önce planı Revit panelinde incelersiniz. IFC incelemesi Revit olmadan çalışır.
 
-Snapshot tabanlı QA/QC ve rapor modülleri, uyumlu ve kaydedilmiş bir snapshot gerektirir. Revit'ten modüle snapshot aktarımı şu anda dosya adı ve çalışma alanının uyumlu olmasını gerektirir; `snapshot_id` verilmezse üretilmiş örnek veri dönebilir. Canlı inceleme için yukarıdaki doğrudan Revit araçlarını kullanın. [Planlanan düzeltmeler ve demo](../roadmap.md).
+Snapshot tabanlı QA/QC ve rapor modülleri, uyumlu ve kaydedilmiş bir snapshot gerektirir. Revit'ten modüle snapshot aktarımı şu anda dosya adı ve çalışma alanının uyumlu olmasını gerektirir; `snapshot_id` verilmezse üretilmiş örnek veri dönebilir. Canlı inceleme için yukarıdaki doğrudan Revit araçlarını kullanın.
 
 ## Hızlı başlangıç
 
 **Tek tıkla kurulum**
 
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install-buttons.md#vs-code)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install.md#vs-code)
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -116,15 +116,15 @@ VS Code mu kullanıyorsunuz? [Eklenti kaynağı ve yerel kurulum adımları](../
 | Alan | Araçlar | Ne yaparlar |
 | --- | --- | --- |
 | Revit | 110 | Modeli okuma; eleman, parametre, görünüm, pafta, çizelge oluşturma ve düzenleme; dışa aktarma; çalışma paylaşımı (worksharing) |
-| Onay | 5 | Model değişikliklerini planlama, inceleme, onaylama, çalıştırma ve geri alma |
-| Modüller | 109 | Snapshot incelemesi, parametre ızgaraları, QA/QC kontrolleri, reçeteler, raporlar, seçimler |
+| Onay | 6 | Model değişikliklerini planlama, inceleme, onaylama, çalıştırma ve geri alma |
+| Modüller | 113 | Snapshot incelemesi, parametre ızgaraları, QA/QC kontrolleri, reçeteler, raporlar, seçimler |
 | Rhino ve Grasshopper | 19 | Geometri, katmanlar, malzemeler, boolean işlemleri |
 | Speckle | 17 | Projeler, modeller, sürümler, gönderme ve alma |
 | Navisworks | 15 | Model ağacı, bakış noktaları, çakışma testleri (geliştirme sürüyor) |
 | IFC | 7 | IFC dosyalarını Revit olmadan okuma: yapı, özellikler, doğrulama |
-| Grafik, snapshot'lar, dışa aktarmalar, işler | 21 | Anlamsal grafik denetimleri, snapshot farkları, SQLite dışa aktarma, arka plan işleri |
+| Grafik, snapshot'lar, dışa aktarmalar, işler | 22 | Anlamsal grafik denetimleri, snapshot farkları, SQLite dışa aktarma, arka plan işleri |
 
-Varsayılan kurulumda 303 araç listelenir (mock modundaki mevcut sunucudan sayılmıştır). Autodesk Data araçları, APS kimlik bilgileri yapılandırıldığında görünür. [Araç başvurusu](../tools-generated.md) tüm araçları listeler. Her araç, istemcilerin okuma ile yazmayı ayırt edebilmesi için MCP ek açıklamaları (annotations; `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) taşır.
+Varsayılan kurulumda 309 araç listelenir (mock modundaki mevcut sunucudan sayılmıştır). Autodesk Data araçları, APS kimlik bilgileri yapılandırıldığında görünür. [Araç başvurusu](../tools-generated.md) tüm araçları listeler. Her araç, istemcilerin okuma ile yazmayı ayırt edebilmesi için MCP ek açıklamaları (annotations; `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) taşır.
 
 ### Gelişmiş Revit otomasyonu
 
@@ -357,11 +357,8 @@ CI, Python sunucusunu ve Revit 2024–2027 için eklenti hedeflerini derler. Pul
 - [Mimari](../0001-multi-provider-architecture.md)
 - [Yapılandırma başvurusu](../configuration-reference.md)
 - [Güvenlik](../security.md)
-- [MCP istemcileri ve kayıt defteri](../marketplaces.md)
 - [Sürümleme ve yayınlar](../versioning.md)
-- [Tüm dokümantasyon](../README.md)
 - [Katkıda bulunma](../../CONTRIBUTING.md) ve [Davranış Kuralları](../../CODE_OF_CONDUCT.md)
-- [Katkıda bulunanlar](../../CONTRIBUTORS.md)
 
 ## Built with
 

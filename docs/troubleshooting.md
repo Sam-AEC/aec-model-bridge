@@ -4,6 +4,15 @@ Find your symptom, check the likely cause, and try the fix. Every entry says whe
 
 Each entry comes from a failure mode in the code. Claims about Windows, antivirus or a particular AI client that the code cannot show are tagged **UNVERIFIED**.
 
+## Run the doctor
+
+```text
+aec-model-bridge doctor
+python -m revit_mcp_server doctor --json
+```
+
+(`aec-model-bridge-doctor` is the same command.) It reads your setup and changes nothing: Python version, package version against `VERSION`, mode, whether the workspace exists and is writable, the Revit add-in registry entry and whether it has a session token (Windows only; "N/A" elsewhere; the token value is never shown), whether the bridge port answers within one second, `ifcopenshell`, other optional packages, and the MCP client config files it knows (Claude Desktop, Claude Code, Cursor, Windsurf, VS Code, Gemini CLI, Codex). A client entry that points at an `.exe` launcher under `python\Scripts` is flagged FAIL ([#159](https://github.com/Sam-AEC/aec-model-bridge/issues/159)); use `uvx` or `python -m revit_mcp_server`. Exit code 0 means no FAIL, 1 means at least one. Paste the table into a bug report; it carries no tokens or client environment values.
+
 ## Where the logs are
 
 | Log | Location | What it shows |
@@ -109,6 +118,20 @@ If you set `MCP_REVIT_HOST_VERSION`, the server only accepts a bridge for that y
 
 ---
 
+## Panel setup check
+
+The panel's Setup check card calls the hub's `GET /diagnostics` (127.0.0.1, port 8787 unless `MCP_PANEL_HTTP_PORT` is set) and retries every five seconds. If the card stays on "Checking setup", restart Revit and read `%APPDATA%\AECModelBridge\Logs\bridge.jsonl`.
+
+| Check | If it fails |
+|---|---|
+| `hub` | The panel cannot reach the Python hub. Restart Revit, or run `aec-model-bridge-panel-server`, then press Refresh. |
+| `mode` | The hub is in mock mode and returns sample data. Set `MCP_REVIT_MODE=bridge` and restart the hub. |
+| `revit_bridge` | No running Revit has the add-in. Open Revit with the AEC Bridge tab and a project. Check the add-in year matches the Revit year. |
+| `workspace` | The workspace is not writable. Set `MCP_REVIT_WORKSPACE_DIR` to a writable absolute path that is also in `MCP_REVIT_ALLOWED_DIRECTORIES`. |
+| `ai_provider` | Chat has no AI. Set `MCP_REVIT_ANTHROPIC_API_KEY`, or sign in to the `claude` or `codex` CLI, then restart Revit. Plans and reports do not need it. |
+
+Response shape: `{ "ok", "approval_mode", "approval_mode_note", "dev_mode", "auto_expires_at", "checks": [ { "id", "ok", "detail", "next_step" } ] }`. The `approval_mode` check fails for `auto` because `auto` skips approvals. `/health` returns a minimal status and needs no token. See [ADR 0018](0018-explicit-development-mode.md).
+
 ## Approval problems
 
 ### Live mode rejects an empty snapshot_id
@@ -143,7 +166,7 @@ If you set `MCP_REVIT_HOST_VERSION`, the server only accepts a bridge for that y
 
 **Cause:** the hub may have refused the call. The panel Run Log shows a `Plan approve` entry as soon as you click, even if the hub says no.
 
-**Fix:** press Refresh and check the plan state. An `Error: plan.approve` entry in the Run Log means the hub rejected the call. Check `panel-hub.log`. See the [demo runbook](demo-runbook.md) for more.
+**Fix:** press Refresh and check the plan state. An `Error: plan.approve` entry in the Run Log means the hub rejected the call. Check `panel-hub.log`.
 
 ---
 
@@ -212,6 +235,8 @@ If the hashes do not match, do not run the file. Report it.
 ```powershell
 .\.venv\Scripts\python.exe -m revit_mcp_server.mcp_server
 ```
+
+For the installer bundle, use its own interpreter: `C:\ProgramData\AECModelBridge\python\python.exe -m revit_mcp_server`. If you are on a release older than the fix for issue #159, `python\Scripts\aec-model-bridge.exe` (and the other `.exe` files in that folder) exits with code 1 and prints nothing, because pip wrote the build machine's path into them. Point your client at `python.exe` with the arguments `-m revit_mcp_server` instead, or install a release that ships the `.cmd` launchers.
 
 A healthy server starts and waits silently for input. Press Ctrl+C to stop it. Then fix what the terminal showed, and restart the client.
 

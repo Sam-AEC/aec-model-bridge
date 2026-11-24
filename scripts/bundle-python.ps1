@@ -89,6 +89,29 @@ finally {
     Remove-Item -LiteralPath $requirements -Force -ErrorAction SilentlyContinue
 }
 
+# pip writes console launchers (python\Scripts\*.exe) that embed the absolute path of the
+# interpreter used at build time (the CI runner's dist folder), so they exit silently on any
+# other machine (issue #159). Replace them with relocatable .cmd launchers that find
+# python.exe relative to themselves.
+$scriptsDir = Join-Path $pythonDir "Scripts"
+$launchers = [ordered]@{
+    "aec-model-bridge"              = "revit_mcp_server"
+    "revit-mcp-server"              = "revit_mcp_server"
+    "aec-model-bridge-panel-server" = "revit_mcp_server.panel_server"
+    "aec-model-bridge-approve"      = "revit_mcp_server.approve_cli"
+}
+if (Test-Path -LiteralPath $scriptsDir) {
+    # Every pip .exe launcher has the same build-path problem, ours and pip's own.
+    foreach ($exe in @(Get-ChildItem -LiteralPath $scriptsDir -Filter "*.exe" -ErrorAction SilentlyContinue)) {
+        Remove-Item -LiteralPath $exe.FullName -Force
+    }
+    foreach ($name in $launchers.Keys) {
+        $cmdBody = "@echo off`r`n`"%~dp0..\python.exe`" -m $($launchers[$name]) %*`r`n"
+        [System.IO.File]::WriteAllText((Join-Path $scriptsDir "$name.cmd"), $cmdBody, (New-Object System.Text.ASCIIEncoding))
+    }
+    Write-Host "  Wrote relocatable .cmd launchers in $scriptsDir" -ForegroundColor Gray
+}
+
 Write-Host "  Verifying bundled Python runtime..." -ForegroundColor Yellow
 & "$pythonExe" -c "import revit_mcp_server; print('revit_mcp_server imported successfully')"
 if ($LASTEXITCODE -eq 0) {

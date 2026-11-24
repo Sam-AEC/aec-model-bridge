@@ -1,7 +1,7 @@
 [project]
 name = "aec-model-bridge"
-version = "1.5.0"
-description = "Independent Model Context Protocol integration for Autodesk Revit software"
+version = "1.5.1"
+description = "Revit MCP server (Model Context Protocol) for Claude, Codex and Cursor: read and edit BIM and IFC models, every change human-approved"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "GPL-3.0-or-later"
@@ -9,7 +9,7 @@ license-files = ["LICENSE", "NOTICE", "LICENSING.md", "LICENSES/*"]
 authors = [
     { name = "Sam-AEC" },
 ]
-keywords = ["mcp", "revit", "autodesk", "bim", "ai"]
+keywords = ["mcp", "model-context-protocol", "revit", "autodesk", "bim", "ifc", "aec", "claude", "codex", "cursor", "ai"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -53,17 +53,24 @@ aec-model-bridge = "revit_mcp_server.mcp_server:run_mcp_server"
 revit-mcp-server = "revit_mcp_server.mcp_server:run_mcp_server"
 aec-model-bridge-panel-server = "revit_mcp_server.panel_server:run_panel_server"
 aec-model-bridge-approve = "revit_mcp_server.approve_cli:run"
+aec-model-bridge-doctor = "revit_mcp_server.doctor:run"
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
     "pytest-timeout>=2.3",
+    # CI runs the suite with -n auto.
+    "pytest-xdist>=3.6",
     # The wheel-contents test builds the package; CI also uses it for the sdist.
     "build>=1.2",
     "ruff>=0.0",
     "mypy>=1.8",
 ]
+
+# IDS validation (ids_validator_validate_ifc): buildingSMART IDS checker from IfcOpenShell.
+# ifctester 0.8.x fails against ifcopenshell 0.9 (no wrapped_data), so both stay on 0.8.x.
+ids = ["ifctester>=0.8,<0.9", "ifcopenshell>=0.8,<0.9"]
 
 [project.urls]
 Homepage = "https://github.com/Sam-AEC/aec-model-bridge"
@@ -129,9 +136,9 @@ omit = ["*/tests/*", "*/_version.py"]
 source = ["src/revit_mcp_server", "*/site-packages/revit_mcp_server"]
 
 [tool.coverage.report]
-# Measured at 59% (line + branch) when this gate was introduced; the floor sits a
-# few points below so noise does not break CI but a real drop does.
-fail_under = 55
+# Measured at 83% (line + branch) in 1.5.1; the floor sits a few points below so
+# platform differences do not break CI but a real drop does.
+fail_under = 80
 skip_covered = true
 exclude_also = [
     "if TYPE_CHECKING:",

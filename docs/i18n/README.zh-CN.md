@@ -72,13 +72,13 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 对于修改操作，助手会用 `plan_actions` 创建计划；你在 Revit 面板中审阅后，`execute_plan` 才会执行。IFC 审查无需 Revit 即可运行。
 
-快照 QA/QC 和报告模块需要兼容的已保存快照。目前从 Revit 到模块的快照交接需要文件名和工作区保持一致；省略 `snapshot_id` 可能会返回生成的示例数据。实时检查请使用上面的 Revit 直接工具。[计划中的修复与演示](../roadmap.md)。
+快照 QA/QC 和报告模块需要兼容的已保存快照。目前从 Revit 到模块的快照交接需要文件名和工作区保持一致；省略 `snapshot_id` 可能会返回生成的示例数据。实时检查请使用上面的 Revit 直接工具。。
 
 ## 快速开始
 
 **一键安装**
 
-[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install-buttons.md#vs-code)
+[![Install in VS Code](https://img.shields.io/badge/Install_in-VS_Code-0098FF?style=for-the-badge)](../install.md#vs-code)
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -117,15 +117,15 @@ the plan in Revit, apply it and read the values back to confirm the result.
 | 领域 | 工具数 | 功能 |
 | --- | --- | --- |
 | Revit | 110 | 读取模型，创建和编辑构件、参数、视图、图纸、明细表，导出，工作共享 |
-| 审批 | 5 | 规划、审阅、批准、执行并回滚模型变更 |
-| 模块 | 109 | 快照检查、参数网格、QA/QC 检查、配方、报告、选择集 |
+| 审批 | 6 | 规划、审阅、批准、执行并回滚模型变更 |
+| 模块 | 113 | 快照检查、参数网格、QA/QC 检查、配方、报告、选择集 |
 | Rhino 与 Grasshopper | 19 | 几何体、图层、材质、布尔运算 |
 | Speckle | 17 | 项目、模型、版本、发送与接收 |
 | Navisworks | 15 | 模型树、视点、碰撞测试（开发中） |
 | IFC | 7 | 无需 Revit 即可读取 IFC 文件：结构、属性、校验 |
-| 图谱、快照、导出、作业 | 21 | 语义图谱审计、快照差异比对、SQLite 导出、后台作业 |
+| 图谱、快照、导出、作业 | 22 | 语义图谱审计、快照差异比对、SQLite 导出、后台作业 |
 
-默认配置下共列出 303 个工具（在 mock 模式下统计自当前服务器）。配置 APS 凭据后会出现 Autodesk Data 工具。[工具参考](../tools-generated.md)列出了所有工具。每个工具都带有 MCP 注解（`readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`），客户端据此区分读取和写入。
+默认配置下共列出 309 个工具（在 mock 模式下统计自当前服务器）。配置 APS 凭据后会出现 Autodesk Data 工具。[工具参考](../tools-generated.md)列出了所有工具。每个工具都带有 MCP 注解（`readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`），客户端据此区分读取和写入。
 
 ### 高级 Revit 自动化
 
@@ -358,11 +358,8 @@ CI 会构建 Python 服务器以及面向 Revit 2024 至 2027 的插件目标。
 - [架构](../0001-multi-provider-architecture.md)
 - [配置参考](../configuration-reference.md)
 - [安全](../security.md)
-- [MCP 客户端与注册表](../marketplaces.md)
 - [版本与发布](../versioning.md)
-- [全部文档](../README.md)
 - [贡献指南](../../CONTRIBUTING.md) 和 [行为准则](../../CODE_OF_CONDUCT.md)
-- [贡献者](../../CONTRIBUTORS.md)
 
 ## Built with
 

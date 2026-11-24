@@ -92,7 +92,7 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install --upgrade build pytest
-          python -m pip install -e "packages/mcp-server-revit[dev]"
+          python -m pip install -e "packages/mcp-server-revit[dev,ids]"
 
       - name: Run Python tests
         shell: pwsh
@@ -130,6 +130,27 @@ jobs:
           -Version "${{ steps.tag.outputs.version }}"
           -RevitVersion "${{ inputs.revit_version || 'All' }}"
           -VSCodePackage "extensions/vscode/aec-model-bridge-${{ steps.tag.outputs.version }}.vsix"
+
+      # Issue #159: the bundle must start from a path other than the build path. Copy the staged
+      # python folder elsewhere and send one MCP initialize through each documented start command.
+      - name: Smoke-test the relocated bundle (MCP initialize)
+        shell: pwsh
+        run: |
+          $relocated = Join-Path $env:RUNNER_TEMP 'relocated-bundle'
+          if (Test-Path -LiteralPath $relocated) { Remove-Item -LiteralPath $relocated -Recurse -Force }
+          New-Item -ItemType Directory -Path $relocated | Out-Null
+          Copy-Item -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'dist/AECModelBridge/python') -Destination $relocated -Recurse
+          $py = Join-Path $relocated 'python/python.exe'
+          $env:MCP_REVIT_MODE = 'mock'
+          python scripts/ci/smoke_mcp_initialize.py -- $py -m revit_mcp_server
+          if ($LASTEXITCODE -ne 0) { throw "python.exe -m revit_mcp_server failed from the relocated bundle" }
+          python scripts/ci/smoke_mcp_initialize.py -- $py -m revit_mcp_server.mcp_server
+          if ($LASTEXITCODE -ne 0) { throw "python.exe -m revit_mcp_server.mcp_server failed from the relocated bundle" }
+          $cmd = Join-Path $relocated 'python/Scripts/aec-model-bridge.cmd'
+          python scripts/ci/smoke_mcp_initialize.py -- cmd.exe /c $cmd
+          if ($LASTEXITCODE -ne 0) { throw "aec-model-bridge.cmd failed from the relocated bundle" }
+          $leftover = @(Get-ChildItem -LiteralPath (Join-Path $relocated 'python/Scripts') -Filter '*.exe' -ErrorAction SilentlyContinue)
+          if ($leftover.Count -gt 0) { throw "Build-path console launchers remain: $($leftover.Name -join ', ')" }
 
       # The double-click installer carries all four Revit years, so it needs the full package.
       - name: Install Inno Setup

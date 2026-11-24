@@ -71,7 +71,7 @@ the contributing rules:
   dual licensing, in the countries that matter.
 - How to handle contributors who are employees, and companies that contribute.
 - How to treat the earlier contributions made while the project was
-  MIT-licensed (see [CONTRIBUTORS.md](../../CONTRIBUTORS.md)).
+  MIT-licensed.
 - Whether the "open-source licence stays available" promise in item 4 should
   be binding, and in what words.
 - Whether AI-assisted contributions need an extra statement.

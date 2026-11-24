@@ -1,4 +1,5 @@
 import contextlib
+import contextvars
 import getpass
 import os
 import re
@@ -40,7 +41,7 @@ VOLATILE_ARGUMENT_KEYS = frozenset({"plan_id", "run_async", "idempotency_key"})
 # hashed review block (which has its own validated parameter).
 _RESERVED_EXTRA_KEYS = frozenset({
     "review", "hash_version", "plan_hash", "approved_hash", "plan_id", "created_at", "actions", "binding",
-}) | proof_mod.STATE_PLAN_KEYS
+}) | proof_mod.STATE_PLAN_KEYS | proof_mod.DERIVED_PLAN_KEYS
 
 ACTION_ID_RE = re.compile(r"act_[0-9a-f]{12}")
 INFLIGHT_KEY_RE = re.compile(r"[A-Za-z0-9_-]{1,80}")
@@ -76,6 +77,8 @@ class ApprovalExpired(BridgeError):
     """An approval is older than approval_ttl. Only a new plan that a person approves renews anything."""
 
 
+BINDING_PROBE_REUSE_S = 10.0  # one execute_plan reads the live document again after this many seconds
+_PROBE_REUSE: "contextvars.ContextVar[Optional[Dict[str, Any]]]" = contextvars.ContextVar("binding_probe_reuse", default=None)
 _UNBOUND = object()  # create_plan(binding=...) default: the plan carries no binding key (older format)
 
 
@@ -141,16 +144,20 @@ def plan_hash(plan: Dict[str, Any]) -> str:
 def _locked_file(path: Path) -> Iterator[None]:
     """Exclusive lock on ``path`` across processes (fcntl on POSIX, msvcrt on Windows)."""
     path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        import fcntl
+        msvcrt = None
+    except ImportError:  # pragma: no cover - Windows
+        import msvcrt
+        fcntl = None
     with open(path, "a+b") as fh:
-        try:
-            import fcntl
+        if fcntl is not None:
             fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
             try:
                 yield
             finally:
                 fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
-        except ImportError:  # pragma: no cover - Windows
-            import msvcrt
+        else:  # pragma: no cover - Windows
             fh.seek(0)
             msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)
             try:
@@ -330,6 +337,7 @@ class ApprovalGate:
         before_storage_types: Optional[List[Optional[str]]] = None,
         review: Optional[Dict[str, Any]] = None,
         binding: Any = _UNBOUND,
+        policy_hash: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Draft a plan. ``review`` (summary, reasoning, citations, ...) is validated,
         canonicalised and covered by the plan hash. ``binding`` (a dict, or None when the live
@@ -387,6 +395,8 @@ class ApprovalGate:
             plan["skipped"] = skipped
         if extra:
             plan.update({k: v for k, v in extra.items() if k not in ("plan_id", "state", "actions")})
+        if policy_hash:
+            plan["policy_hash"] = policy_hash  # bookkeeping, not hashed
         if review is not None:
             plan["review"] = review
             plan["hash_version"] = proof_mod.HASH_VERSION_REVIEW
@@ -573,7 +583,7 @@ class ApprovalGate:
         if plan.get("state") != "approved":
             hint = ""
             if plan.get("state") == "pending" and self.dev_mode:
-                hint = " Dev mode is on: omit plan_id to run unplanned, or have the person approve this plan."
+                hint = " The plan is pending. In Dev mode, omit plan_id to run unplanned, or have a person approve it."
             raise BridgeError(
                 f"Plan '{plan_id}' is in state '{plan.get('state')}', not 'approved'. Execution blocked.{hint}")
         self._verify_unchanged_since_approval(plan)
@@ -596,6 +606,26 @@ class ApprovalGate:
                 "draft a new plan and ask the person to approve it."
             )
 
+    @contextlib.contextmanager
+    def reuse_binding_probe(self, max_age_s: float = BINDING_PROBE_REUSE_S):
+        """Inside this block one live-document read is shared by every verify_binding call (one
+        execute_plan), and read again once it is older than ``max_age_s`` seconds. Only a
+        successful read is kept; a failed one is retried by the next call."""
+        token = _PROBE_REUSE.set({"max_age": max_age_s, "at": None, "live": None})
+        try:
+            yield
+        finally:
+            _PROBE_REUSE.reset(token)
+
+    def _read_live_binding(self) -> Optional[Dict[str, Any]]:
+        reuse = _PROBE_REUSE.get()
+        if reuse is not None and reuse["live"] is not None and time.monotonic() - reuse["at"] < reuse["max_age"]:
+            return reuse["live"]
+        live = binding_mod.live_binding(self.binding_probe()) if self.binding_probe else None
+        if reuse is not None and live is not None:
+            reuse["at"], reuse["live"] = time.monotonic(), live
+        return live
+
     def verify_binding(self, plan: Dict[str, Any]) -> None:
         """Refuse when the live Revit document is not the one the plan was drafted for. A plan with
         no binding (drafted without a live Revit, or before bindings existed) is never refused here.
@@ -605,7 +635,7 @@ class ApprovalGate:
             return
         plan_id = plan.get("plan_id")
         try:
-            live = binding_mod.live_binding(self.binding_probe()) if self.binding_probe else None
+            live = self._read_live_binding()
         except Exception as e:  # noqa: BLE001 - any failure to read means "cannot confirm"
             logger.warning("Could not read the live document for plan %s: %s", plan_id, e)
             live = None

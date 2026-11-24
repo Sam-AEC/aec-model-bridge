@@ -921,3 +921,9 @@ p {
   font-size: 12px;
   line-height: 1.5;
 }
+
+.plan-preview { margin: 8px 0; overflow-x: auto; }
+.plan-blast { margin: 0 0 6px; font-weight: 600; }
+.plan-blast[data-risk="high"] { color: var(--danger, #b42318); }
+.plan-preview-table { border-collapse: collapse; width: 100%; font-size: 12px; }
+.plan-preview-table th, .plan-preview-table td { border: 1px solid var(--line, #c8ccd0); padding: 3px 6px; text-align: left; vertical-align: top; overflow-wrap: anywhere; }

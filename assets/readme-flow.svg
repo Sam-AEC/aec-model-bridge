@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 170" role="img" aria-labelledby="t d">
+  <title id="t">AI proposes, you approve, Revit changes</title>
+  <desc id="d">Three steps. 1: the AI reads the model and drafts a plan; nothing is written. 2: you review the plan in the Revit panel; only a person can approve. 3: Revit runs the approved actions once and a proof file records each change.</desc>
+  <style>
+    .f { font-family: "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif; }
+    .box { fill: #F6F8FA; stroke: #C9D1DA; stroke-width: 1.5; }
+    .key { fill: #E6F6F8; stroke: #0091A7; stroke-width: 2; }
+    .n { font-size: 13px; font-weight: 700; fill: #0091A7; letter-spacing: 1px; }
+    .h { font-size: 24px; font-weight: 700; fill: #18202C; }
+    .p { font-size: 15px; fill: #46505E; }
+    .a { stroke: #7A8696; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    @media (prefers-color-scheme: dark) {
+      .box { fill: #161B22; stroke: #3A4452; }
+      .key { fill: #0F2A30; stroke: #3FC3D6; }
+      .n { fill: #3FC3D6; }
+      .h { fill: #E9EEF5; }
+      .p { fill: #A9B4C2; }
+      .a { stroke: #8B97A7; }
+    }
+  </style>
+  <g class="f">
+    <rect class="box" x="1" y="10" width="262" height="150" rx="12"/>
+    <text class="n" x="24" y="44">1</text>
+    <text class="h" x="24" y="78">AI proposes</text>
+    <text class="p" x="24" y="110">Reads the model, drafts a plan.</text>
+    <text class="p" x="24" y="134">Nothing is written.</text>
+
+    <path class="a" d="M279 85 H303 M295 77 L303 85 L295 93"/>
+
+    <rect class="key" x="319" y="10" width="262" height="150" rx="12"/>
+    <text class="n" x="342" y="44">2</text>
+    <text class="h" x="342" y="78">You approve</text>
+    <text class="p" x="342" y="110">Review it in the Revit panel.</text>
+    <text class="p" x="342" y="134">Only a person can approve.</text>
+
+    <path class="a" d="M597 85 H621 M613 77 L621 85 L613 93"/>
+
+    <rect class="box" x="637" y="10" width="262" height="150" rx="12"/>
+    <text class="n" x="660" y="44">3</text>
+    <text class="h" x="660" y="78">Revit changes</text>
+    <text class="p" x="660" y="110">Approved actions run once.</text>
+    <text class="p" x="660" y="134">A proof file records each one.</text>
+  </g>
+</svg>

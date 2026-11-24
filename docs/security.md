@@ -1,7 +1,5 @@
 # Security model
 
-Status: in 1.5.0.
-
 Bounded Revit 2024 read-only checks ran on 14 October 2026; see the [live validation record](revit-addin-live-validation-2026-10-14.md). Mutating acceptance, recovery and multi-instance routing remain unverified. The [release checklist](release-checklist.md) tracks the remaining checks.
 
 AEC Model Bridge uses several layers to protect your models and files from unwanted or destructive actions by AI agents. The layers are: clear trust boundaries, loopback-only connections, a workspace sandbox, input checks, an approval step for changes, and audit logs.
@@ -178,6 +176,10 @@ Dev permits unplanned writes while retaining Look only lockdown. Calls supplying
 - **Proxied tools.** Tools forwarded to an external MCP server (`providers/proxy.py`) are unknown to this server, so each one is treated as a model change and needs an approved plan. It skips the gate only if its upstream name starts with `get_`, `list_`, `read_`, `query_`, `search_` or `describe_` and the upstream advertises `readOnlyHint: true`. If the upstream sends no `readOnlyHint` at all, the name prefix alone decides. `readOnlyHint: false` or `destructiveHint: true` always means gated. Users of proxied servers therefore need plan approval for any proxied write.
 - **Navisworks.** Only `health`, `get_document_info`, `get_model_tree`, `get_selection`, `list_viewpoints`, `list_clash_tests` and `get_clash_results` skip the gate. Every other Navisworks tool, including any added later, is gated. This includes `navisworks_reflect_get` and `revit_reflect_get`: a property getter on an arbitrary object can have side effects.
 - **UNVERIFIED:** `revit_calculate_material_quantities` stays ungated although the Revit add-in marks it mutating. The flag looks wrong, but this needs a Revit run to confirm; it is listed in `KNOWN_UNGATED` in `tests/test_addin_hub_contract.py`.
+
+### Workspace policy
+
+An optional `policy.yaml` (or `MCP_REVIT_POLICY_FILE`) can block tools or parameters, limit categories and cap plan size. It is checked when a plan is drafted and again just before `execute_plan` runs its first action, so a tightened policy stops plans that were drafted earlier. It only adds refusals: approval stays with a person, and no policy rule approves or runs a plan. An invalid file refuses all plan drafting and execution. See [Policy file](configuration-reference.md#policy-file).
 
 ### Plan review in the panel
 

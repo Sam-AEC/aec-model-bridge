@@ -1,3 +1,5 @@
+import sys
+
 import pytest
 from revit_mcp_server.security.approval import ApprovalGate
 from revit_mcp_server.errors import BridgeError
@@ -105,3 +107,15 @@ async def test_rollback_generalizes_to_a_batch_of_actions(tmp_path):
     assert next(c["value"] for c in calls if c["element_id"] == 1) == "30"
     assert next(c["value"] for c in calls if c["element_id"] == 2) == "45"
     assert gate.load_plan(plan_id)["state"] == "rolled_back"
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX fcntl path")
+def test_locked_file_does_not_swallow_body_importerror(tmp_path):
+    from revit_mcp_server.security.approval import _locked_file
+
+    entered = []
+    with pytest.raises(ImportError, match="from the body"):
+        with _locked_file(tmp_path / "x.lock"):
+            entered.append(1)
+            raise ImportError("from the body")
+    assert entered == [1]  # body ran exactly once; no msvcrt fallback re-entered it

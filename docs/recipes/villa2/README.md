@@ -19,6 +19,6 @@ Order and what each phase proves:
 | clashes | `../toolkit/intersections.py` | wall/floor/roof solid overlaps in m3 |
 | views | `views.py` | 3D (cropped), plans; PNGs exported to `villa2-review` |
 
-Lessons (also in `docs/bim-agent-findings.md`, section F): draw exterior walls with the exterior on the LEFT of the direction instead of calling `Flip`;
+Lessons (also in the `revit-bim-builder` skill): draw exterior walls with the exterior on the LEFT of the direction instead of calling `Flip`;
 walls stop at slab undersides; a single `revit_execute_python` call must stay under 30 s (families one per call);
 arch openings are cut with void-family instances, not with a family Opening.

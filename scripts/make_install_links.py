@@ -6,7 +6,7 @@ Usage:
     python scripts/make_install_links.py --json   # print as JSON
     python scripts/make_install_links.py --check  # fail if README.md is out of date
 
-How each link is built is documented in docs/install-buttons.md.
+How each link is built is documented in docs/install.md.
 """
 from __future__ import annotations
 
@@ -101,7 +101,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.check:
         readme = (Path(__file__).resolve().parent.parent / "README.md").read_text(encoding="utf-8")
         stale = [k for k in ("cursor_web_link", "claude_desktop_bundle") if links[k] not in readme]
-        if "docs/install-buttons.md#vs-code" not in readme:
+        if "docs/install.md#vs-code" not in readme:
             stale.append("vscode_button")
         if stale:
             print("README.md is out of date for: " + ", ".join(stale), file=sys.stderr)

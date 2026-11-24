@@ -16,10 +16,25 @@ The code is in [packages/mcp-server-revit/src/revit_mcp_server/security/audit.py
 - the request ID
 - the payload
 - the response
+- `prev_hash` and `hash`, a SHA-256 chain
 
 Tokens, secrets and file paths are replaced before the line is written. See [Security](security.md). Set the file with `MCP_REVIT_AUDIT_LOG`. The default is `audit.log` in the working directory of the server process.
 
 This log shows what the MCP server asked for.
+
+### Tamper evidence
+
+Each line holds the hash of the line before it (`prev_hash`) and a hash of its own content (`hash`). The first chained line uses 64 zeros as `prev_hash`. Lines are still plain JSON.
+
+Check a log:
+
+```bash
+python -m revit_mcp_server.security.audit verify audit.log
+```
+
+The command prints a JSON result and exits 1 if the chain is broken. `verify_audit_log(path)` does the same in Python. Edited, reordered or removed middle lines are reported with the line number. Lines written before chaining existed are accepted only at the start of the file.
+
+Limits: removing lines from the end of the file is not detected, and anyone who can rewrite the whole file can rebuild the chain. Keep a copy of the last hash somewhere else if you need to rule that out.
 
 Note: in the current code, only the legacy server (`legacy/server.py`) creates an `AuditRecorder`. The main server (`mcp_server.py`) uses the same redaction but does not write this file. If `audit.log` is missing, this is the likely reason.
 

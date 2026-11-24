@@ -11,7 +11,10 @@ from typing import Any
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import CallToolResult, Tool, TextContent
+from mcp.server.lowlevel.helper_types import ReadResourceContents
+from mcp.types import CallToolResult, GetPromptResult, Prompt, Resource, ResourceTemplate, Tool, TextContent
+
+from . import mcp_prompts, mcp_resources
 
 from .errors import BridgeError, CommandFailed
 from .registry_factory import build_registry
@@ -19,7 +22,8 @@ from .security.approval import HUMAN_ONLY_TOOLS
 from .security.dispatch import (
     gate_after, gate_after_result, gate_before, result_failed, settle_in_flight,
 )
-from .security.audit import redact_data
+from .security.audit import redact_data as _redact_secrets
+from .security.response_redaction import redact_response
 from .security.module_execution import authorized_module_execution
 from .tool_metadata import enrich_tool, is_read_only_tool
 from .result_presentation import result_json, split_response_options
@@ -76,6 +80,7 @@ app = _make_server()
 registry = None
 approval_provider = None
 job_manager = None
+workspace_monitor = None
 
 
 @app.list_tools()
@@ -88,6 +93,35 @@ async def list_tools() -> list[Tool]:
         for provider, t in registry.get_tools_with_providers()
         if t.name not in HUMAN_ONLY_TOOLS
     ]
+
+@app.list_prompts()
+async def list_prompts() -> list[Prompt]:
+    return mcp_prompts.list_prompts()
+
+
+@app.get_prompt()
+async def get_prompt(name: str, arguments: dict[str, str] | None) -> GetPromptResult:
+    return mcp_prompts.get_prompt(name, arguments)
+
+
+@app.list_resources()
+async def list_resources() -> list[Resource]:
+    return mcp_resources.list_resources()
+
+
+@app.list_resource_templates()
+async def list_resource_templates() -> list[ResourceTemplate]:
+    return mcp_resources.list_resource_templates()
+
+
+@app.read_resource()
+async def read_resource(uri: Any) -> list[ReadResourceContents]:
+    """Read-only workspace resources. Ids are validated and results redacted in mcp_resources."""
+    text = mcp_resources.read_resource(
+        uri, workspace_monitor.allowed_directories[0], approval_provider.gate,
+    )
+    return [ReadResourceContents(content=text, mime_type=mcp_resources.MIME)]
+
 
 @app.call_tool()
 async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolResult:
@@ -213,6 +247,11 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
 _result_failed = result_failed
 
 
+def redact_data(value):
+    """Secrets and paths always; personal data when MCP_REVIT_REDACT_RESPONSES is set."""
+    return redact_response(_redact_secrets(value))
+
+
 def _tool_error(kind: str, message: str, result: dict | None = None) -> CallToolResult:
     """Preserve readable diagnostics while telling MCP clients the call failed."""
     message = redact_data(message)
@@ -228,9 +267,9 @@ def _tool_error(kind: str, message: str, result: dict | None = None) -> CallTool
 
 async def main():
     """Run the MCP server."""
-    global registry, approval_provider, job_manager
+    global registry, approval_provider, job_manager, workspace_monitor
     profile = load_tool_profile()  # fail invalid settings before provider construction
-    registry, approval_provider, job_manager, _module_registry, _workspace = build_registry()
+    registry, approval_provider, job_manager, _module_registry, workspace_monitor = build_registry()
     try:
         registry.freeze_tool_profile(profile)
         async with stdio_server() as (read_stream, write_stream):
@@ -244,6 +283,13 @@ async def main():
 
 def run_mcp_server():
     """Entry point for running the MCP server."""
+    import sys
+
+    if sys.argv[1:2] == ["doctor"]:
+        from .doctor import main as doctor_main
+
+        sys.exit(doctor_main(sys.argv[2:]))
+
     from .cli_flags import handle_standard_flags
 
     handle_standard_flags(
