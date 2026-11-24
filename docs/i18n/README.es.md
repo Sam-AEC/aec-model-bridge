@@ -4,7 +4,7 @@
 
 [English](../../README.md) | [简体中文](README.zh-CN.md) | **Español** | [हिन्दी](README.hi.md) | [العربية](README.ar.md) | [Português (BR)](README.pt-BR.md) | [Русский](README.ru.md) | [日本語](README.ja.md) | [Deutsch](README.de.md) | [Français](README.fr.md) | [Bahasa Indonesia](README.id.md) | [Türkçe](README.tr.md) | [한국어](README.ko.md) | [Tiếng Việt](README.vi.md) | [Italiano](README.it.md) | [Polski](README.pl.md) | [繁體中文](README.zh-TW.md)
 
-> Esta traducción se ha realizado con ayuda de IA. El [README](../../README.md) en inglés es la fuente de referencia; las correcciones son bienvenidas mediante pull request (consulta [CONTRIBUTING.md](../../CONTRIBUTING.md)).
+> Esta traducción se ha realizado con ayuda de IA. El [README](../../README.md) en inglés es la fuente de referencia; las correcciones son bienvenidas mediante pull request (consulta [CONTRIBUTING.md](../../.github/CONTRIBUTING.md)).
 
 **Pregunta a tu IA sobre el modelo de Revit que tienes abierto. De forma predeterminada, las herramientas de escritura quedan bloqueadas hasta que apruebes un plan.**
 
@@ -136,7 +136,7 @@ respuestas predefinidas sin tocar ningún modelo. En la raíz del repositorio ha
 modo mock (`docker build -t aec-model-bridge .` y después
 `docker run -i --rm aec-model-bridge`).
 
-¿Usas VS Code? El [código de la extensión y los pasos de instalación local](../../extensions/vscode/README.md)
+¿Usas VS Code? El [código de la extensión y los pasos de instalación local](../../packages/vscode-extension/README.md)
 registran el servidor MCP y muestran el estado de la conexión con Revit. Aún no se ha
 publicado en el Marketplace.
 
@@ -218,7 +218,7 @@ Si un plan resulta ser erróneo, deshazlo con Ctrl+Z en Revit. Cada escritura de
 es su propia transacción con nombre, así que un plan puede requerir varias pulsaciones.
 Un deshacer en un solo paso para un plan completo está planificado, no construido.
 Una segunda vía es un plan de reversión: el asistente lo redacta con `plan_revert` a partir de la prueba de un plan ejecutado, y tú lo apruebas como cualquier otro plan. `rollback_plan` es solo para personas y no es un botón ni un comando, así que no cuentes con él. Ninguna de estas vías está verificada todavía en una sesión real de Revit (UNVERIFIED). Las operaciones que no se pueden revertir, como la escritura de archivos, no se deshacen por ninguna de ellas y todavía no piden una segunda confirmación (planificado). La lista Plans del panel muestra solo los planes pendientes; `aec-model-bridge-approve show <plan_id>` funciona con un plan en cualquier estado, mientras que los paquetes de `proofs/` solo existen para los planes que se ejecutaron (o se intentaron). El ciclo de vida está descrito en
-[ADR 0008](../0008-approval-gate-lifecycle.md).
+[ADR 0008](../adr/0008-approval-gate-lifecycle.md).
 
 Para pipelines desatendidos puedes definir `MCP_REVIT_APPROVAL_MODE=auto`. Eso desactiva
 la revisión humana, así que úsalo solo en un entorno controlado.
@@ -380,7 +380,7 @@ y About.
 - Las llamadas a herramientas se registran en un registro de auditoría y los secretos se enmascaran.
 
 Los detalles están en [docs/security.md](../security.md). Para notificar una
-vulnerabilidad, sigue [SECURITY.md](../../SECURITY.md).
+vulnerabilidad, sigue [SECURITY.md](../../.github/SECURITY.md).
 
 ## Preguntas frecuentes
 
@@ -398,7 +398,7 @@ Desktop, VS Code con GitHub Copilot, Cursor y Codex, y los clientes que leen una
 `mcpServers`. Windsurf, Cline, Roo Code, Continue, Zed, Claude Code y Gemini CLI deberían funcionar
 de la misma manera, pero no se han probado. Consulta la [compatibilidad](../compatibility.md). El chat del panel también puede usar una clave de API de Anthropic
 o las herramientas de línea de comandos `claude` o `codex`, si están instaladas. Consulta
-[ADR 0012](../0012-native-agent-chat-backend.md).
+[ADR 0012](../adr/0012-native-agent-chat-backend.md).
 
 ### ¿Puede la IA cambiar mi modelo sin preguntar?
 
@@ -446,17 +446,17 @@ python -m pytest packages/mcp-server-revit/tests
 ```
 
 La CI compila el servidor de Python y los destinos del complemento para Revit 2024 a 2027.
-Consulta [CONTRIBUTING.md](../../CONTRIBUTING.md) antes de abrir un pull request.
+Consulta [CONTRIBUTING.md](../../.github/CONTRIBUTING.md) antes de abrir un pull request.
 
 ## Documentación
 
 - [Guía de instalación](../install.md)
 - [Referencia de herramientas](../tools-generated.md)
-- [Arquitectura](../0001-multi-provider-architecture.md)
+- [Arquitectura](../adr/0001-multi-provider-architecture.md)
 - [Referencia de configuración](../configuration-reference.md)
 - [Seguridad](../security.md)
 - [Versionado y publicaciones](../versioning.md)
-- [Guía de contribución](../../CONTRIBUTING.md) y [Código de conducta](../../CODE_OF_CONDUCT.md)
+- [Guía de contribución](../../.github/CONTRIBUTING.md) y [Código de conducta](../../.github/CODE_OF_CONDUCT.md)
 
 ## Built with
 

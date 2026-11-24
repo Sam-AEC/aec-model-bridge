@@ -3,7 +3,7 @@
 This file is a draft for discussion. No lawyer has reviewed it. It is **not in
 force**: nobody has signed it, the project does not accept contributions under
 it today, and nothing in it changes the terms in [LICENSING.md](../../LICENSING.md)
-or [CONTRIBUTING.md](../../CONTRIBUTING.md). The wording below is a starting
+or [CONTRIBUTING.md](../../.github/CONTRIBUTING.md). The wording below is a starting
 point for a lawyer to rewrite. The project may adopt Option A, Option B, both,
 or neither.
 

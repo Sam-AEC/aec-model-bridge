@@ -6,7 +6,7 @@ Status: not in 1.5.0 (see below).
 Accepted, implemented in part (see "As built"). Not verified against a live Revit.
 
 ## Context
-A person approves a plan after reading its actions. Today the approval records the plan hash, who approved, when and through which channel (see [security](security.md)). It does not record which Revit document, view or instance the person had in mind, and it never expires. An approved plan stays executable until it runs, is rejected, or its running actions are abandoned.
+A person approves a plan after reading its actions. Today the approval records the plan hash, who approved, when and through which channel (see [security](../security.md)). It does not record which Revit document, view or instance the person had in mind, and it never expires. An approved plan stays executable until it runs, is rejected, or its running actions are abandoned.
 
 Consequences, read from the code:
 

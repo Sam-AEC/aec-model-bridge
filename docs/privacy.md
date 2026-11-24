@@ -60,4 +60,4 @@ Data held by your AI provider, Speckle or Autodesk is deleted through those serv
 
 ## Questions
 
-Open an issue at <https://github.com/Sam-AEC/aec-model-bridge/issues>. For security problems, see [SECURITY.md](../SECURITY.md).
+Open an issue at <https://github.com/Sam-AEC/aec-model-bridge/issues>. For security problems, see [SECURITY.md](../.github/SECURITY.md).

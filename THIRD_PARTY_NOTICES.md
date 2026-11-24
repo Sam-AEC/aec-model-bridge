@@ -7264,11 +7264,11 @@ Source: `<PackageReference>` items in `packages/*/*.csproj`. Only the package id
 | xunit | 2.9.3 | all targets | see package | `packages/revit-bridge-addin-tests/RevitBridge.Tests.csproj` |
 | xunit.runner.visualstudio | 3.1.4 | all targets | see package | `packages/revit-bridge-addin-tests/RevitBridge.Tests.csproj` |
 
-The Revit, Navisworks and Rhino host assemblies (`RevitAPI.dll`, `RevitAPIUI.dll`, `Autodesk.Navisworks.*`) are referenced from the user's own installation and are not distributed. See [TRADEMARKS.md](TRADEMARKS.md).
+The Revit, Navisworks and Rhino host assemblies (`RevitAPI.dll`, `RevitAPIUI.dll`, `Autodesk.Navisworks.*`) are referenced from the user's own installation and are not distributed. See [TRADEMARKS.md](docs/legal/TRADEMARKS.md).
 
 ## npm packages (VS Code extension)
 
-Source: `extensions/vscode/package.json` and `package-lock.json`. Licence strings are taken from the lock file. The extension declares 0 runtime dependencies and is packaged with `vsce package --no-dependencies`; the TypeScript is bundled by esbuild. Packages marked dev only are build and test tools and are not shipped in the extension. If a runtime import is ever added, re-check the bundle.
+Source: `packages/vscode-extension/package.json` and `package-lock.json`. Licence strings are taken from the lock file. The extension declares 0 runtime dependencies and is packaged with `vsce package --no-dependencies`; the TypeScript is bundled by esbuild. Packages marked dev only are build and test tools and are not shipped in the extension. If a runtime import is ever added, re-check the bundle.
 
 Runtime packages in the lock file: 0. Dev-only packages: 232.
 

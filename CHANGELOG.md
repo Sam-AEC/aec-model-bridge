@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Repository layout: community files (`CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md`) moved to `.github/`; `TRADEMARKS.md` to `docs/legal/`; ADRs to `docs/adr/`; the VS Code extension from `extensions/vscode/` to `packages/vscode-extension/`; the Claude Code plugin from `plugin/` to `packages/claude-plugin/`; the canonical test model fixtures to `packages/mcp-server-revit/tests/fixtures/`; example rule packs to `docs/examples/rule_packs/`. Links, workflows, `scripts/version.py` and tests point to the new paths.
+
 ## 1.5.1 - 2026-11-24
 
 - CI: a `changes` job skips the add-in and Rhino builds on pull requests that do not touch C#; pull requests run Python on Windows 3.11 and Ubuntu 3.13, while pushes to `main`/`dev`, a nightly run and manual runs keep the full matrix (Ubuntu is no longer experimental). Installs use `uv sync --locked` with a cache, tests run in parallel (`pytest-xdist`), and the coverage floor rises from 55% to 80% (measured 83%).

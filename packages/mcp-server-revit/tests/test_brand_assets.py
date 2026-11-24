@@ -61,7 +61,7 @@ def test_readme_header_is_the_product_logo(readme: Path) -> None:
 def test_product_icon_and_rasters() -> None:
     assert _ico_sizes(ROOT / "assets" / "icon.ico") == {(s, s) for s in ICO_SIZES}
     assert _png_size(ROOT / "assets" / "logo-mark-512.png") == (512, 512)
-    assert _png_size(ROOT / "extensions" / "vscode" / "media" / "icon.png") == (
+    assert _png_size(ROOT / "packages" / "vscode-extension" / "media" / "icon.png") == (
         512,
         512,
     )

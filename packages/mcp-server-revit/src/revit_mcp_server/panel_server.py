@@ -117,7 +117,7 @@ def resolve_instance(instance: Any, tool: str):
 
     The document title is not in the registry, so it is carried for messages only and is
     not used to match. A pid alone can be reused by Windows; that is the open item in
-    docs/0014-multi-revit-routing.md.
+    docs/adr/0014-multi-revit-routing.md.
     """
     from .config import BridgeMode
     from .bridge import discovery
@@ -566,7 +566,7 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
         uses_cli = provider == "codex" or not config.anthropic_api_key
         if uses_cli:
             # The CLI starts its own MCP server process, which picks the newest Revit and cannot
-            # be pinned yet (docs/0014-multi-revit-routing.md, problem 4). Refuse rather than guess.
+            # be pinned yet (docs/adr/0014-multi-revit-routing.md, problem 4). Refuse rather than guess.
             from .bridge import discovery
             from .config import BridgeMode
 

@@ -20,7 +20,7 @@
 
 ## Approval and safety
 
-- [Approval gate lifecycle](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/0008-approval-gate-lifecycle.md): plan, review, approve, execute, roll back.
+- [Approval gate lifecycle](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/adr/0008-approval-gate-lifecycle.md): plan, review, approve, execute, roll back.
 - [Security model](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/security.md): trust boundaries, panel token, workspace sandbox, what the gate does not protect.
 - [Proof bundles and revert plans](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/proof-and-revert.md): what is recorded for each executed plan and how to undo it.
 - [Logging and audit](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/logging-and-audit.md): audit log format and redaction.
@@ -28,7 +28,7 @@
 
 ## Extend and build
 
-- [Architecture](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/0001-multi-provider-architecture.md): providers, modules and the Revit bridge.
+- [Architecture](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/adr/0001-multi-provider-architecture.md): providers, modules and the Revit bridge.
 - [Module authoring](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/module-authoring.md): write a plug-in module.
 - [Rule packs](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/rule-packs.md): BIM QA/QC rules.
 - [MCP token budget](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/mcp-token-budget.md): tool profiles and context size.
@@ -41,7 +41,7 @@
 - [Versioning](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/versioning.md): version numbers and release process.
 - [Changelog](https://github.com/Sam-AEC/aec-model-bridge/blob/main/CHANGELOG.md): changes per release.
 - [Licensing](https://github.com/Sam-AEC/aec-model-bridge/blob/main/LICENSING.md): GPL terms, Revit Linking Exception, commercial licence.
-- [Support](https://github.com/Sam-AEC/aec-model-bridge/blob/main/SUPPORT.md): where to ask and report bugs.
+- [Support](https://github.com/Sam-AEC/aec-model-bridge/blob/main/.github/SUPPORT.md): where to ask and report bugs.
 
 ## Optional
 

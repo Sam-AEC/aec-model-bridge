@@ -6,7 +6,7 @@ contact_links:
     url: https://github.com/Sam-AEC/aec-model-bridge/security/advisories/new
     about: Please report security problems privately, not as a public issue. See SECURITY.md.
   - name: Get help or ask a question
-    url: https://github.com/Sam-AEC/aec-model-bridge/blob/main/SUPPORT.md
+    url: https://github.com/Sam-AEC/aec-model-bridge/blob/main/.github/SUPPORT.md
     about: Where to ask, what to include, and what is and is not supported.
   # TODO(owner): GitHub Discussions is not confirmed as enabled. If you turn it
   # on (Settings -> General -> Features -> Discussions), add a contact link here:

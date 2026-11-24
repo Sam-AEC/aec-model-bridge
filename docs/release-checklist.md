@@ -20,7 +20,7 @@ Run on a Windows machine with Revit, starting with the write test in section 5. 
 
 1. First real write (for example `revit_set_parameter_value` through an approved plan). A crash here is the most important finding.
 2. Undo behaviour. The add-in names one transaction per action, so undoing a plan takes one Ctrl+Z per action. Check this, and check `rollback_plan`, which can skip actions that have no recorded before-value.
-3. Two Revits open at once: requests reach the Revit the person means ([ADR 0014](0014-multi-revit-routing.md), the "Several Revits" section of security.md).
+3. Two Revits open at once: requests reach the Revit the person means ([ADR 0014](adr/0014-multi-revit-routing.md), the "Several Revits" section of security.md).
 4. The WebView2 panel loads, lists pending plans and approves one. Run `aec-model-bridge-approve show <plan_id>` for the same plan and compare it with what the panel showed.
 5. Windows ACL on `%LOCALAPPDATA%\AECModelBridge\panel-hub.token`: only the current user has access. Windows does not re-verify the ACL on read.
 6. The Revit 2024 Release build and authenticated panel backend passed on 14 October 2026. Build and run the net8 and net10 targets as well, and repeat the release checks on each supported year.
@@ -92,7 +92,7 @@ Nothing here is automated except the workflows named. Account steps belong to th
 | PyPI | `.github/workflows/publish-pypi.yml`, run by hand after adding a pending trusted publisher at pypi.org (project `aec-model-bridge`, owner `Sam-AEC`, repository `aec-model-bridge`, workflow `publish-pypi.yml`, no environment). The `mcp-name` marker is in `packages/mcp-server-revit/README.md`. | Not published. Build, `twine check --strict` and a clean-venv install passed. |
 | VS Code Marketplace, Open VSX | `.github/workflows/vscode-extension.yml` publishes when a non-pre-release GitHub release tag equals the extension version. Secrets: `VSCE_PAT`, `OVSX_PAT`. A store with no secret is skipped. Publisher and namespace `Sam-AEC` must exist. | Not published. Edit the extension README section "Build and install locally" before the first release. |
 | GitHub MCP Registry, VS Code gallery | Read from the official registry. `.vscode/mcp.json` gives a workspace install. | Follows the official registry. |
-| Claude Code plugin | `.claude-plugin/marketplace.json` and `plugin/`. Users run `/plugin marketplace add Sam-AEC/aec-model-bridge`, then `/plugin install aec-model-bridge@aec-model-bridge`. Schema UNVERIFIED against `claude plugin validate`. | In the repository only. |
+| Claude Code plugin | `.claude-plugin/marketplace.json` and `packages/claude-plugin/`. Users run `/plugin marketplace add Sam-AEC/aec-model-bridge`, then `/plugin install aec-model-bridge@aec-model-bridge`. Schema UNVERIFIED against `claude plugin validate`. | In the repository only. |
 | Anthropic directory | Local `.mcpb` listings are reported as no longer accepted (UNVERIFIED); a local server goes in as a plugin through the developer portal. Needs the privacy policy in `privacy.md` (referenced from `manifest.json`). | Not submitted. |
 | Glama | `glama.json` at the repository root on `main`; claim ownership while signed in as `Sam-AEC`. Re-claim after changing the file. | Not claimed. |
 | Smithery | `smithery.yaml` builds the root `Dockerfile` in mock mode only. Listings must say live use needs Revit. | Not listed. |

@@ -2,7 +2,7 @@
 
 ## Decision: Navisworks clash to Revit fix loop, and BCF
 
-Status: proposed, scoping only. Only the read-only triage slice below and the BCF tools exist. Nothing here has run against a real Navisworks or Revit session, so claims about those programs are UNVERIFIED. The approval gate ([ADR 0008](0008-approval-gate-lifecycle.md)) stays in charge: the assistant may propose a fix, never apply one without an approved plan.
+Status: proposed, scoping only. Only the read-only triage slice below and the BCF tools exist. Nothing here has run against a real Navisworks or Revit session, so claims about those programs are UNVERIFIED. The approval gate ([ADR 0008](adr/0008-approval-gate-lifecycle.md)) stays in charge: the assistant may propose a fix, never apply one without an approved plan.
 
 The loop: Navisworks clash report, then an issue, then a proposed Revit fix, then the approval gate, then a change in Revit.
 

@@ -46,13 +46,13 @@ def _tag_url(v: str) -> str:
 # (file, regex with the version in group "v", how to render the version)
 # A pattern may match several times (server.json has two "version" keys).
 TARGETS: list[tuple[str, str, object]] = [
-    ("extensions/vscode/package.json", r'(?m)^  "version": "(?P<v>[^"]+)"', str),
-    ("extensions/vscode/package-lock.json", r'(?m)^  "version": "(?P<v>[^"]+)"', str),
-    ("extensions/vscode/package-lock.json", r'(?m)^    "": \{\s*\n      "name": "aec-model-bridge",\s*\n      "version": "(?P<v>[^"]+)"', str),
+    ("packages/vscode-extension/package.json", r'(?m)^  "version": "(?P<v>[^"]+)"', str),
+    ("packages/vscode-extension/package-lock.json", r'(?m)^  "version": "(?P<v>[^"]+)"', str),
+    ("packages/vscode-extension/package-lock.json", r'(?m)^    "": \{\s*\n      "name": "aec-model-bridge",\s*\n      "version": "(?P<v>[^"]+)"', str),
     ("packages/mcp-server-revit/pyproject.toml", r'(?m)^version = "(?P<v>[^"]+)"', str),
     ("packages/mcp-server-revit/uv.lock", r'(?m)^name = "aec-model-bridge"\r?\nversion = "(?P<v>[^"]+)"', str),
     ("packages/mcp-server-revit/manifest.json", r'(?m)^  "version": "(?P<v>[^"]+)"', str),
-    ("plugin/.claude-plugin/plugin.json", r'(?m)^  "version": "(?P<v>[^"]+)"', str),
+    ("packages/claude-plugin/.claude-plugin/plugin.json", r'(?m)^  "version": "(?P<v>[^"]+)"', str),
     (".claude-plugin/marketplace.json", r'(?m)^      "version": "(?P<v>[^"]+)"', str),
     ("server.json", r'(?m)^    "version":  "(?P<v>[^"]+)"', str),
     ("server.json", r'(?m)^ +"version":  "(?P<v>[^"]+)",\s*\n\s*"transport"', str),
@@ -105,7 +105,7 @@ def scan(version: str) -> list[str]:
                 problems.append(f"{rel}: found {m.group('v')}, want {want}")
     for rel in (
         "server.json", "packages/mcp-server-revit/manifest.json",
-        "extensions/vscode/package.json", "extensions/vscode/package-lock.json",
+        "packages/vscode-extension/package.json", "packages/vscode-extension/package-lock.json",
     ):
         json.loads(read(ROOT / rel))  # still valid JSON after edits
     return problems
