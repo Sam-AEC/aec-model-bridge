@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Docs: `llms-full.txt` (llms.txt, AGENTS.md and the docs it links in one file, from `scripts/make_llms_full.py`) and `docs/error-catalogue.md` (every error kind and exception class with when and what to do, from `scripts/make_error_catalogue.py` and `scripts/error_catalogue_notes.json`); tests fail when either is stale or a code lacks an entry.
 - Repository layout: community files (`CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md`) moved to `.github/`; `TRADEMARKS.md` to `docs/legal/`; ADRs to `docs/adr/`; the VS Code extension from `extensions/vscode/` to `packages/vscode-extension/`; the Claude Code plugin from `plugin/` to `packages/claude-plugin/`; the canonical test model fixtures to `packages/mcp-server-revit/tests/fixtures/`; example rule packs to `docs/examples/rule_packs/`. Links, workflows, `scripts/version.py` and tests point to the new paths.
 - Built-in modules now write files through the `files.write` check, and the manifests of `selection_tools`, `model_inspector`, `parameter_manager` and `revit_ifc` declare it (#157).
 - Tests: panel test servers poll every 10 ms instead of 0.5 s (about 4 s per CPU-minute of teardown saved), a mtime-order test no longer sleeps, and `tests/test_security_branch_gaps.py` covers fail-closed branches of the approval override, gating, binding and redaction helpers.
