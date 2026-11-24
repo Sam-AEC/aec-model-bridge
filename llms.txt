@@ -41,6 +41,7 @@
 - [Read result cursors](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/read-cursors.md): size cap, cursors and saved results for large read answers.
 - [Operator skill](https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/claude-plugin/skills/aec-model-bridge/SKILL.md): Agent Skills file that teaches clients to use few calls and small results.
 - [Dev workflow](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/dev-workflow.md): build, test and release commands.
+- [Record and replay](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/record-replay.md): record bridge traffic to a cassette and replay it without Revit as a regression test.
 - [Agent instructions](https://github.com/Sam-AEC/aec-model-bridge/blob/main/AGENTS.md): repository layout, commands and rules for coding agents.
 
 ## Project

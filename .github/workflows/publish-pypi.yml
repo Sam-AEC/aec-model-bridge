@@ -36,6 +36,8 @@ jobs:
     if: github.event_name != 'release' || !github.event.release.prerelease
     permissions:
       contents: read
+      id-token: write       # build provenance attestation
+      attestations: write
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
 
@@ -80,6 +82,11 @@ jobs:
         run: |
           python -m build
           python -m twine check --strict dist/*
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: packages/mcp-server-revit/dist/*
 
       - name: Upload distributions
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

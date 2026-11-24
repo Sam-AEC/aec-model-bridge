@@ -37,6 +37,8 @@ if not _env_loaded:
 class BridgeMode(str, Enum):
     mock = "mock"
     bridge = "bridge"
+    # Serves responses from a recorded cassette (MCP_REVIT_CASSETTE); never contacts Revit.
+    replay = "replay"
 
 
 class _RawEnvSource(env_source.EnvSettingsSource):

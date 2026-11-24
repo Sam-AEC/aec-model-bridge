@@ -5,11 +5,13 @@ import contextlib
 import contextvars
 import logging
 import math
+import os
 from pathlib import Path
 from typing import Any, Dict, List
 
 import httpx
 
+from ..bridge import cassette
 from ..bridge.client import BridgeClient
 from ..bridge.routing import RoutedBridgeCache
 from ..bridge.mock import MockBridge
@@ -189,6 +191,20 @@ class RevitProvider(AECProvider):
     def get_identity(self) -> str:
         return "revit"
 
+    @property
+    def _uses_bridge(self) -> bool:
+        """Calls go to a bridge object: the live add-in, or a recorded cassette in replay mode."""
+        return self.mode in (BridgeMode.bridge, BridgeMode.replay)
+
+    def _maybe_record(self, bridge):
+        """Wrap a live bridge in the opt-in cassette recorder (MCP_REVIT_RECORD). An invalid
+        recording name fails closed: every call then reports why, nothing is sent unrecorded."""
+        try:
+            return cassette.wrap_for_recording(bridge, config.workspace_dir)
+        except cassette.CassetteError as exc:
+            logger.error("%s", exc)
+            return UnavailableBridge(str(exc))
+
     def _active_bridge(self):
         return _BRIDGE_OVERRIDE.get() or self._bridge
 
@@ -214,7 +230,11 @@ class RevitProvider(AECProvider):
         live = self._live_route_keys()
         if live is not None:
             self._routed_bridges.evict_missing(live, keep=key)
-        factory = self._bridge_factory or (lambda u, t=None: BridgeClient(u, token=t))
+        base_factory = self._bridge_factory or (lambda u, t=None: BridgeClient(u, token=t))
+
+        def factory(u, t=None):
+            return self._maybe_record(base_factory(u, t))
+
         bridge = self._routed_bridges.get(key, factory)
         reset = _BRIDGE_OVERRIDE.set(bridge)
         try:
@@ -250,6 +270,8 @@ class RevitProvider(AECProvider):
         return name == "revit_execute_python" and is_read_mode_call(arguments)
 
     def _build_bridge(self, factory=None):
+        if self.mode == BridgeMode.replay:
+            return cassette.replay_bridge_from_env()
         if self.mode == BridgeMode.bridge:
             from ..bridge.discovery import available_host_versions, select_switch
 
@@ -303,7 +325,9 @@ class RevitProvider(AECProvider):
                     bridge.initialize()
                 except Exception as e:
                     logger.error(f"Failed to initialize Revit Bridge client: {e}")
-            return bridge
+            return self._maybe_record(bridge)
+        if (os.environ.get(cassette.RECORD_ENV) or "").strip():
+            logger.warning("%s is ignored in mock mode; only live bridge traffic is recorded.", cassette.RECORD_ENV)
         return MockBridge()
 
     def get_capabilities(self) -> List[ProviderTool]:
@@ -311,6 +335,8 @@ class RevitProvider(AECProvider):
         return self._capabilities
 
     async def check_health(self) -> Dict[str, Any]:
+        if self.mode == BridgeMode.replay:
+            return {"status": "healthy", "mode": "replay"}
         if self.mode == BridgeMode.bridge:
             try:
                 # Direct check
@@ -323,7 +349,7 @@ class RevitProvider(AECProvider):
         return {"status": "healthy", "mode": "mock"}
 
     def _list_commands(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        if self.mode != BridgeMode.bridge:
+        if not self._uses_bridge:
             raise ValueError("revit_list_commands asks the live Revit add-in; it is not available in mock mode.")
         listed = self._active_bridge().list_commands()
         needle = str(arguments.get("contains") or "").lower()
@@ -346,7 +372,7 @@ class RevitProvider(AECProvider):
 
         if name == "revit_inspect_elements":
             validate_inspection(arguments)
-            if self.mode != BridgeMode.bridge:
+            if not self._uses_bridge:
                 raise ValueError("revit_inspect_elements requires a live Revit connection; it is not available in mock mode.")
             return await inspect_elements(self.execute_tool, arguments)
 
@@ -357,7 +383,7 @@ class RevitProvider(AECProvider):
                 revit_perf.perf_report, self._active_bridge(), arguments, live=self.mode == BridgeMode.bridge
             )
         if name == "revit_get_result":
-            if self.mode != BridgeMode.bridge:
+            if not self._uses_bridge:
                 raise ValueError("revit_get_result needs a live Revit connection; it is not available in mock mode.")
             return await asyncio.to_thread(revit_context.get_result, self._active_bridge(), arguments)
 
@@ -381,13 +407,13 @@ class RevitProvider(AECProvider):
                 bridge_tool = str(arguments.get("command") or "")
                 if not _RAW_COMMAND_RE.fullmatch(bridge_tool):
                     raise ValueError("revit_raw_command needs a command like 'revit.create_wall'.")
-                if self.mode != BridgeMode.bridge:
+                if not self._uses_bridge:
                     raise ValueError("revit_raw_command talks to a live Revit add-in; it is not available in mock mode.")
             payload = payload_builder(arguments)
             if "request_id" in arguments and "request_id" not in payload:
                 payload["request_id"] = arguments["request_id"]
 
-        if self.mode == BridgeMode.bridge:
+        if self._uses_bridge:
             # Under bridge mode, run the legacy handler for validation/prep only — its
             # return value is discarded, the bridge call below is the real result.
             legacy_dot_name = bridge_tool
@@ -410,7 +436,8 @@ class RevitProvider(AECProvider):
             # Send to bridge client. send_tool blocks (HTTP plus polling for up to the soft
             # wait), so run it off the event loop; the loop keeps serving other calls (B-16).
             bridge = self._active_bridge()
-            return await asyncio.to_thread(bridge.send_tool, bridge_tool, payload)
+            with cassette.tool_call(name, arguments):
+                return await asyncio.to_thread(bridge.send_tool, bridge_tool, payload)
         else:
             # Mock mode
             legacy_dot_name = bridge_tool

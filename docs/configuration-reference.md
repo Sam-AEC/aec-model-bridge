@@ -4,16 +4,19 @@ This page lists the environment variables, package files and runtime modes of th
 
 ## Runtime modes
 
-The server has two modes. Set the mode with `MCP_REVIT_MODE`.
+The server has three modes. Set the mode with `MCP_REVIT_MODE`.
 
 - `mock`: uses built-in sample data. Use it for tests, development and trying the tools without Revit. This is the default.
 - `bridge`: connects to a running Revit add-in. The server finds the add-in through its local registry entry, or through an explicit bridge URL.
+- `replay`: serves Revit responses from a recorded cassette (`MCP_REVIT_CASSETTE`) and never contacts Revit. See [Record and replay](record-replay.md).
 
 ## Environment variables
 
 | Variable | Required | Default | Description |
 |---|---:|---|---|
-| `MCP_REVIT_MODE` | No | `mock` | Selects `mock` or `bridge`. Set `bridge` for live Revit. |
+| `MCP_REVIT_MODE` | No | `mock` | Selects `mock`, `bridge` or `replay`. Set `bridge` for live Revit. |
+| `MCP_REVIT_RECORD` | No | unset | Bridge mode only. Records each bridge request and response to `<workspace>/cassettes/<name>.jsonl` with secrets, paths and user names masked. A plain name (letters, digits, `_`, `-`); `1`, `true`, `on` or `yes` pick a timestamped name. A path is refused and every Revit call then reports why. A cassette can still hold model data; review it before sharing. See [Record and replay](record-replay.md). |
+| `MCP_REVIT_CASSETTE` | With `replay` | unset | Cassette file that `MCP_REVIT_MODE=replay` serves. A request with no recorded match fails with a plain error. |
 | `MCP_REVIT_BRIDGE_URL` | No | auto-discovered | Explicit URL of the Revit bridge. Overrides registry discovery. |
 | `MCP_REVIT_HOST_VERSION` | No | newest live Revit | Revit year to pick from the local registry, such as `2024` or `2026`. |
 | `MCP_REVIT_ALLOWED_DIRECTORIES` | No | the workspace directory | Directories the server may read and write, separated by semicolons. The path guard checks against exactly this list. A value you set always wins. |
