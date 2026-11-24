@@ -29,6 +29,7 @@ from .providers import (
     ApprovalProvider,
     ModuleProvider,
     SemanticProvider,
+    ToolSearchProvider,
 )
 from .module_registry import ModuleRegistry
 from .security.workspace import WorkspaceMonitor
@@ -71,6 +72,9 @@ def build_registry(
     module_registry = ModuleRegistry(config_obj=config)
     module_registry.discover_and_load()
     registry.register(ModuleProvider(module_registry=module_registry, workspace=workspace, tool_registry=registry))
+
+    # Read-only tool search over the full registry; visible in every profile.
+    registry.register(ToolSearchProvider(registry=registry))
 
     # Initialize Job Manager and Job Provider
     job_manager = JobManager()

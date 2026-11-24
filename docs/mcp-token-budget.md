@@ -2,7 +2,7 @@
 
 Measured 2026-11-05 with `MCP_REVIT_MODE=mock`, the supplied Python interpreter, a temporary workspace, no user modules or provider credentials, and no Revit model execution. Baseline captured at `87d1d1bb5312ccb9868786860cbc66f76c47b895` before production changes; results were reported before edits.
 
-The checkout exposes **303** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
+The checkout exposes **304** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
 
 ## Initial profile and response pass
 
@@ -85,6 +85,10 @@ What core keeps, and why (49 tools plus the approval tools):
 Left out on purpose: single-purpose creators (walls, sheets, views, MEP, sparing), exports, recipes, family editing, revisions, Rhino, Speckle, Navisworks, IFC and rule-pack admin. Reach them with `daily` or `full`. A user custom profile file can still narrow `core` but cannot hide approval tools.
 
 Reproduce: `python scripts/measure_mcp_tokens.py --profile core --output docs/mcp-token-measurement-after-core.json`. Evidence: [after core](mcp-token-measurement-after-core.json).
+
+### search_tools
+
+`search_tools` is a read-only tool that searches the whole registry by name, description and annotations, including tools the active profile hides. It is visible in every profile, like the approval tools, so `core` exposes 55 tools and the default setup lists 304. A hidden match carries a note naming the profile that shows it. Ranking is fixed token matching with a name tie-break, so the same query returns the same order. The figures above were measured before this tool and are not re-measured; it adds one tool definition.
 
 ## What dominates?
 

@@ -122,9 +122,9 @@ Memakai VS Code? [Sumber ekstensi dan langkah instalasi lokal](../../extensions/
 | Speckle | 17 | Proyek, model, versi, kirim dan terima |
 | Navisworks | 15 | Model tree, viewpoint, uji clash (dalam pengerjaan) |
 | IFC | 7 | Membaca file IFC tanpa Revit: struktur, properti, validasi |
-| Graf, snapshot, ekspor, job | 21 | Audit graf semantik, selisih snapshot, ekspor SQLite, job latar belakang |
+| Graf, snapshot, ekspor, job | 22 | Audit graf semantik, selisih snapshot, ekspor SQLite, job latar belakang |
 
-Ada 303 tool yang terdaftar pada pengaturan default (dihitung dari server saat ini dalam mode mock). Tool Autodesk Data muncul saat kredensial APS dikonfigurasi. [Referensi tool](../tools-generated.md) mencantumkan setiap tool. Setiap tool membawa anotasi MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), sehingga klien dapat membedakan operasi baca dari tulis.
+Ada 304 tool yang terdaftar pada pengaturan default (dihitung dari server saat ini dalam mode mock). Tool Autodesk Data muncul saat kredensial APS dikonfigurasi. [Referensi tool](../tools-generated.md) mencantumkan setiap tool. Setiap tool membawa anotasi MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), sehingga klien dapat membedakan operasi baca dari tulis.
 
 ### Otomatisasi Revit lanjutan
 
