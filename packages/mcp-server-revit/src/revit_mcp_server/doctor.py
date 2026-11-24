@@ -11,6 +11,7 @@ import argparse
 import importlib.util
 import json
 import os
+import re
 import shutil
 import socket
 import sys
@@ -249,6 +250,10 @@ def _is_ours(name: str, entry: dict) -> bool:
 
 def _scripts_exe(command: str) -> bool:
     norm = command.replace("\\", "/").lower()
+    # A venv keeps its interpreter in Scripts (python.exe, pythonw.exe); only the
+    # pip-generated console-script launchers are the #159 problem.
+    if re.fullmatch(r"pythonw?(\d+(\.\d+)?)?\.exe", norm.rsplit("/", 1)[-1]):
+        return False
     return norm.endswith(".exe") and "/scripts/" in norm and "python" in norm
 
 

@@ -182,3 +182,10 @@ def test_doctor_subcommand_routes_from_entry_point(monkeypatch):
     with pytest.raises(SystemExit) as exc:
         mcp_server.run_mcp_server()
     assert exc.value.code == 7
+
+
+def test_venv_interpreter_in_scripts_is_not_a_launcher():
+    venv_python = "C:\\work\\proj\\.venv\\Scripts\\python.exe"
+    assert not doctor._scripts_exe(venv_python)
+    assert not doctor._scripts_exe(venv_python.replace("python.exe", "pythonw.exe"))
+    assert doctor._scripts_exe("C:\\Python312\\Scripts\\aec-model-bridge.exe")
