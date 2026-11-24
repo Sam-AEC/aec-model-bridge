@@ -1,0 +1,32 @@
+{
+  "id": "model_health",
+  "name": "Model Health Trend",
+  "version": "1.0.0",
+  "schema_version": 1,
+  "min_hub_version": "1.2.0",
+  "description": "Read-only health score per saved snapshot from the inputs the snapshot holds, and a trend across all saved snapshots of the same document. Missing inputs are listed, not scored as zero.",
+  "author": "AEC Model Bridge",
+  "license": "GPL-3.0-or-later",
+  "requires_providers": ["semantic"],
+  "permissions": ["model.read", "files.write"],
+  "commands": [
+    {
+      "id": "score",
+      "title": "Model Health Score and Trend",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {"type": "string", "description": "Saved snapshot to score. Required when connected to Revit."},
+          "rule_pack": {"type": "string", "description": "Optional QA/QC rule pack. When given, error and warning rule hits count toward the score; when empty, QA is left out."},
+          "include_trend": {"type": "boolean", "default": true, "description": "Also score every saved snapshot of the same document, oldest first, with changes."},
+          "max_points": {"type": "integer", "default": 50, "description": "Latest N snapshots in the trend (1 to 500)."},
+          "csv_filename": {"type": "string", "description": "Optional .csv file name inside the workspace for the trend."}
+        },
+        "required": []
+      }
+    }
+  ]
+}

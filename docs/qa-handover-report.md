@@ -43,3 +43,19 @@ A finding is "resolved" when its rule and element UniqueId appear before and no 
 - `total` is every element of that category (on that level) in the snapshot. A blank or missing value counts as not filled; `0` and `false` count as filled. An element that lacks a parameter altogether is not filled, so the rate is "of all elements of the category".
 - A truncated, dirty-only or category-filtered snapshot is labelled partial in the result, in `coverage`, and as a banner in the HTML. Its rates describe the captured elements only.
 - The result lists at most `max_rows` rows; the files hold every row. It never changes the model. Without `snapshot_id` it refuses when connected to Revit; in mock mode it uses generated sample data and says so.
+
+## Model health score and trend
+
+`model_health_score` gives a score from 0 to 100 (higher is better) for one snapshot and a trend across all saved snapshots with the same `source.doc_guid`, oldest first by `taken_at`, with the change from the previous point. It is a rough indicator, not a measure of file size or speed.
+
+Score = sum(weight x subscore) / sum(weight), over the components the snapshot can support:
+
+| Component | Weight | Subscore (0 to 100) | Needs |
+| --- | --- | --- | --- |
+| `warnings` | 25 | 100 - 5 x warnings per 1000 elements, minimum 0 | `counts.warnings` in the snapshot |
+| `qa_findings` | 25 | 100 x (1 - elements hit by an error or warning rule / elements) | a `rule_pack` argument |
+| `unplaced_rooms` | 20 | 100 x (1 - unplaced rooms / rooms) | room elements |
+| `unused_types` | 15 | 100 x (1 - unused non-system types / non-system types) | a type list, matching instances, a complete capture |
+| `completeness` | 15 | filled / total over the 5 most common parameters per category | elements with parameters |
+
+An input the snapshot does not have is left out and listed under `excluded` with the reason; it is never scored as 0 or 100. No usable input means no score. A change (`delta`) is given only when both points are complete captures that used the same components; otherwise it is `null` with a `delta_note`. Today the add-in does not write `counts.warnings`, so that component is normally excluded. `csv_filename` writes the trend as CSV in the workspace.
