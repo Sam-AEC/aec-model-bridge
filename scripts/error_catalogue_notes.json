@@ -76,7 +76,7 @@
     "do": "Look up the kind in this file."
   },
   "class/AppsResourceError": {
-    "when": "A ui:// MCP Apps URI is unknown, names a plan that is not allowed or not found, or MCP_REVIT_MCP_APPS is false.",
+    "when": "A ui:// MCP Apps URI is unknown, names a plan that is not allowed or not found, or MCP_REVIT_MCP_APPS is off.",
     "do": "Use ui://aec-model-bridge/plan-review or a plan id from list_pending_plans; check MCP_REVIT_MCP_APPS."
   },
   "class/ResourceError": {
