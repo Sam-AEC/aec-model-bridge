@@ -92,6 +92,7 @@ nav:
       - Preview in model: preview-in-model.md
       - Clash triage: clash-triage.md
       - BCF issue exchange: bcf-exchange.md
+      - IFC and Speckle round trip: ifc-speckle-roundtrip.md
       - Parameter Excel round-trip: parameter-excel-roundtrip.md
       - Sheet set QA: sheet-set-qa.md
       - QA handover report: qa-handover-report.md
