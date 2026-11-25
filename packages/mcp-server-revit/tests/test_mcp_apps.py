@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 from datetime import datetime, timedelta, timezone
+from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
@@ -66,8 +67,39 @@ def _xss_plan(gate):
     )
 
 
+class _RawElements(HTMLParser):
+    """Collects every <script> and <style> element as (tag, attributes, raw text). The parser
+    matches tag names in any letter case, as a browser does."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=False)
+        self.found: list = []
+        self._open = None
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ("script", "style"):
+            self._open = (tag, dict(attrs), [])
+
+    def handle_data(self, data):
+        if self._open is not None:
+            self._open[2].append(data)
+
+    def handle_endtag(self, tag):
+        if self._open is not None and tag == self._open[0]:
+            self.found.append((tag, self._open[1], "".join(self._open[2])))
+            self._open = None
+
+
+def _elements(html, tag):
+    parser = _RawElements()
+    parser.feed(html)
+    parser.close()
+    return [(attrs, text) for name, attrs, text in parser.found if name == tag]
+
+
 def _scripts(html):
-    return re.findall(r"<script([^>]*)>(.*?)</script>", html, flags=re.S)
+    """(attributes, text) of every script element, in page order."""
+    return _elements(html, "script")
 
 
 # ---- resource listing and reading ------------------------------------------
@@ -96,7 +128,7 @@ def test_per_plan_view_embeds_the_plan(apps_on, gate):
         [{"7": {"Mark": "A"}}])
     html, meta = mcp_apps.read_resource(f"ui://aec-model-bridge/plan-review/{plan['plan_id']}", gate)
     attrs, data = _scripts(html)[0]
-    assert 'type="application/json"' in attrs
+    assert attrs.get("type") == "application/json"
     embedded = json.loads(data)
     assert embedded["approval_mode"] == "ask_first"
     shown = embedded["plans"][0]
@@ -120,8 +152,13 @@ def test_bad_view_uris_refused(apps_on, uri, gate):
 def test_model_text_is_escaped(apps_on, gate):
     plan = _xss_plan(gate)
     html, _ = mcp_apps.read_resource(f"ui://aec-model-bridge/plan-review/{plan['plan_id']}", gate)
-    # Exactly two script elements: the inert JSON data block and the view's own code.
-    assert html.count("<script") == 2 and html.count("</script") == 2
+    # Exactly two script elements: the inert JSON data block and the view's own code. Tags are
+    # matched in any letter case, so an injected <SCRIPT> would be counted too.
+    scripts = _scripts(html)
+    assert [attrs.get("type") for attrs, _ in scripts] == ["application/json", None]
+    assert scripts[1][1] == mcp_apps._SCRIPT
+    lowered = html.lower()
+    assert lowered.count("<script") == 2 and lowered.count("</script") == 2
     for raw in ("<script>alert", "<img src=x", "<b>bold", "<i>b</i>", "onerror=alert(1)>"):
         assert raw not in html
     data = _scripts(html)[0][1]
@@ -142,18 +179,19 @@ def test_view_loads_nothing_from_the_network(apps_on, gate):
     for html in (mcp_apps.render_html(None),
                  mcp_apps.read_resource(f"ui://aec-model-bridge/plan-review/{plan['plan_id']}", gate)[0]):
         # The page without its inert JSON data block (model text there is checked as escaped above).
-        page = re.sub(r'<script type="application/json"[^>]*>.*?</script>', "", html, flags=re.S)
+        data = [text for attrs, text in _scripts(html) if attrs.get("type") == "application/json"]
+        page = html.replace(data[0], "", 1) if data else html
         assert not re.search(r"https?:|wss?:|//[a-z0-9]", page, flags=re.I)
         for banned in (" src=", " href=", "@import", "url(", "fetch(", "XMLHttpRequest", "WebSocket",
                        "<iframe", "<link", "<img", "<form"):
-            assert banned not in page, banned
+            assert banned.lower() not in page.lower(), banned
 
 
 def test_csp_allows_only_the_inline_code_by_hash():
     html = mcp_apps.render_html(None)
     csp = re.search(r'http-equiv="Content-Security-Policy" content="([^"]+)"', html).group(1)
     code = _scripts(html)[-1][1]
-    style = re.search(r"<style>(.*?)</style>", html, flags=re.S).group(1)
+    style = _elements(html, "style")[0][1]
 
     def digest(text):
         return "sha256-" + base64.b64encode(hashlib.sha256(text.encode()).digest()).decode()
