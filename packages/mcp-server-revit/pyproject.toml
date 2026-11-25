@@ -114,6 +114,7 @@ timeout = 120
 markers = [
     "timeout(seconds): per-test time limit (provided by pytest-timeout; registered so --strict-markers works without it)",
     "e2e: marks Revit bridge end-to-end tests (opt in with AEC_MODEL_BRIDGE_E2E=1)",
+    "slow: builds a wheel (about 57 s); CI runs it on the primary leg only (deselect with '-m \"not slow\"')",
     "perf: marks tests as performance benchmarks (deselect with '-m \"not perf\"')",
 ]
 # Later entries win. Warnings are errors, except: third-party deprecations (not

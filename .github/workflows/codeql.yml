@@ -5,12 +5,36 @@ name: CodeQL
 # (script injection, unpinned actions, excessive permissions), with the security-extended queries. Results appear under
 # Security -> Code scanning. If "default setup" for CodeQL is enabled in the repo
 # settings, disable it first: the two cannot be active at the same time.
+#
+# Pushes to main and dev, the weekly schedule and manual runs analyse every language.
+# A pull request analyses only the languages whose files it changes, and a pull request
+# that touches none of them (docs only, for example) does not start the workflow. This
+# workflow is not a required check (branch rules require only ci-success), so a skipped
+# run cannot leave a pull request pending.
 on:
   push:
     branches:
       - main
       - dev
   pull_request:
+    paths:
+      - "**.py"
+      - "**.pyi"
+      - "**.js"
+      - "**.jsx"
+      - "**.mjs"
+      - "**.cjs"
+      - "**.ts"
+      - "**.tsx"
+      - "**.html"
+      - "**.cs"
+      - "**.csproj"
+      - "**.props"
+      - "**.targets"
+      - "global.json"
+      - ".github/workflows/**"
+      - ".github/actions/**"
+      - ".github/codeql/**"
   schedule:
     - cron: "23 4 * * 1" # Mondays 04:23 UTC
   workflow_dispatch:
@@ -23,8 +47,66 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Picks the languages to analyse. Uses the API file list, so no history checkout.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      languages: ${{ steps.decide.outputs.languages }}
+    steps:
+      - name: Decide languages
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          all='["python","actions","javascript-typescript","csharp"]'
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "languages=$all" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          files="$RUNNER_TEMP/files.txt"
+          page=1
+          : > "$files"
+          while :; do
+            batch="$(gh api "repos/$REPO/pulls/$PR/files?per_page=100&page=$page" --jq '.[].filename')"
+            [ -z "$batch" ] && break
+            printf '%s\n' "$batch" >> "$files"
+            page=$((page + 1))
+          done
+          echo "Changed files: $(wc -l < "$files")"
+          # An empty list means the API gave nothing useful: analyse everything.
+          if [ ! -s "$files" ]; then
+            echo "languages=$all" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Test folders are excluded from analysis (.github/codeql/codeql-config.yml).
+          has() { grep -Eq "$1" "$files"; }
+          langs=()
+          if has '^\.github/(codeql/|workflows/codeql\.yml$)'; then
+            echo "languages=$all" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          grep -Ev '/tests?/' "$files" | grep -Eq '\.pyi?$' && langs+=(python)
+          has '^\.github/(workflows|actions)/' && langs+=(actions)
+          grep -Ev '^panel/vendor/|/node_modules/|/tests?/' "$files" | grep -Eq '\.(js|jsx|mjs|cjs|ts|tsx|html)$' && langs+=(javascript-typescript)
+          grep -Ev -- '-tests/|/tests?/' "$files" | grep -Eq '\.(cs|csproj|props|targets)$|^global\.json$' && langs+=(csharp)
+          if [ "${#langs[@]}" -eq 0 ]; then
+            json='[]'
+          else
+            json="$(printf '%s\n' "${langs[@]}" | jq -R . | jq -sc .)"
+          fi
+          echo "languages=$json" | tee -a "$GITHUB_OUTPUT"
+
   analyze:
     name: analyze (${{ matrix.language }})
+    needs: changes
+    if: needs.changes.outputs.languages != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -34,11 +116,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language:
-          - python
-          - actions
-          - javascript-typescript
-          - csharp
+        language: ${{ fromJSON(needs.changes.outputs.languages) }}
 
     steps:
       - name: Checkout repository
