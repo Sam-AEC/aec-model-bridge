@@ -70,6 +70,7 @@ nav:
       - Install AEC Model Bridge: install.md
       - MCP clients: clients.md
       - Compatibility: compatibility.md
+      - Beside Autodesk's Revit MCP server: run-beside-autodesk-revit-mcp.md
       - Troubleshooting: troubleshooting.md
       - winget package: winget.md
   - Use:
