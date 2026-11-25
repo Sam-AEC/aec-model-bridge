@@ -3,7 +3,8 @@
 A model can draft a plan but must not approve it. The Revit panel is one place a
 person does that; this is the other. It reads and writes the same plan store as the
 server (``<workspace>/plans``), prints the plan in plain language and its content
-hash first, and only approves after the person types the plan id. The approval is
+hash first, and only approves after the person types the plan id. The review lists, per
+action, each element with the parameter and its old and new value (see approve_review). The approval is
 bound to that hash: it is refused if the plan changed after it was printed. Without
 a terminal it refuses unless ``--yes`` is given. Model-written text is printed with
 control characters escaped.
@@ -19,16 +20,16 @@ import math
 import re
 import sys
 import textwrap
-import unicodedata
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from .approve_review import (build_review, color_supported, is_cut, render_review, review_json, safe_text,
+                             terminal_width)
 from .config import config
 from .errors import BridgeError
 from .security import proof as proof_mod
 from .security.approval import STALE_RUNNING_SECONDS, ApprovalGate, local_user, plan_hash, running_actions
-from .security.plan_review import review_aids
 from .security.proof import normalize_review
 from .security.recipe_store import RecipeError, RecipeStore, validate_recipe_id
 
@@ -40,20 +41,6 @@ def _gate(workspace: Optional[str]) -> ApprovalGate:
         config.allowed_directories[0] if config.allowed_directories else config.workspace_dir
     )
     return ApprovalGate(base, config.approval_mode)
-
-
-def safe_text(value: Any) -> str:
-    """Make model-controlled text safe to print: control and format characters
-    (ESC/ANSI/OSC sequences, carriage returns, bidi overrides, zero-width marks)
-    are shown as visible escapes instead of being sent to the terminal."""
-    out = []
-    for ch in str(value):
-        if unicodedata.category(ch) in ("Cc", "Cf", "Zl", "Zp", "Cs", "Co", "Cn"):
-            code = ord(ch)
-            out.append(f"\\x{code:02x}" if code <= 0xFF else f"\\u{code:04x}" if code <= 0xFFFF else f"\\U{code:08x}")
-        else:
-            out.append(ch)
-    return "".join(out)
 
 
 def _actions(plan: Dict[str, Any]) -> List[Any]:
@@ -166,7 +153,7 @@ def describe_plan(plan: Dict[str, Any], expired: Optional[str] = None) -> str:
         f"Actions: {len(actions)}",
     ]
     tools: Dict[str, int] = {}
-    for a in actions:
+    for a in _actions(plan):
         t = safe_text(a.get("tool") if isinstance(a, dict) else "<malformed action>")
         tools[t] = tools.get(t, 0) + 1
     if tools:
@@ -189,6 +176,14 @@ def describe_plan(plan: Dict[str, Any], expired: Optional[str] = None) -> str:
         before = (a.get("diff") or {}).get("before") if isinstance(a.get("diff"), dict) else None
         if before:
             lines.append(f"     current value: {safe_text(before)}")
+    lines.extend(plan_extras(plan))
+    return "\n".join(lines)
+
+
+def plan_extras(plan: Dict[str, Any]) -> List[str]:
+    """Everything describe_plan prints after the actions: stuck and abandoned actions, the
+    reverted plan, the hashed review block, unhashed fields and the approval record."""
+    lines: List[str] = []
     stuck = running_actions(plan)
     if stuck:
         lines.append("\nActions stuck in 'running' (claimed, no result recorded; the process may have died):")
@@ -200,7 +195,7 @@ def describe_plan(plan: Dict[str, Any], expired: Optional[str] = None) -> str:
         lines.append(f"  Nothing recovers these automatically. After {STALE_RUNNING_SECONDS // 60} minutes a person can run "
                      f"`aec-model-bridge-approve recover {safe_text(plan.get('plan_id'))} --reason ...` "
                      "(the action is abandoned and never re-run).")
-    for a in actions:
+    for a in _actions(plan):
         if isinstance(a, dict) and a.get("state") == "abandoned":
             lines.append(f"Abandoned: {safe_text(a.get('action_id'))} at {safe_text(a.get('abandoned_at', '-'))} by "
                          f"{safe_text(a.get('abandoned_by', '-'))}: {safe_text(a.get('abandoned_reason', '-'))}")
@@ -227,7 +222,7 @@ def describe_plan(plan: Dict[str, Any], expired: Optional[str] = None) -> str:
             f"\nApproved by: {safe_text(plan.get('approved_by', '-'))} via {safe_text(plan.get('approved_via', '-'))} "
             f"at {safe_text(plan.get('approved_at', '-'))}"
         )
-    return "\n".join(lines)
+    return lines
 
 
 def _confirm(plan_id: str, verb: str, assume_yes: bool, what: str = "plan id", target: str = "it") -> bool:
@@ -316,6 +311,16 @@ def _reject_pending(gate: ApprovalGate, args: Any) -> int:
     return 1 if failed else 0
 
 
+def _review_options(p: argparse.ArgumentParser, with_json: bool) -> None:
+    p.add_argument("--all", action="store_true", dest="review_all",
+                   help="print every change row and full values (default: the first rows, then '+N more')")
+    p.add_argument("--color", action="store_true", dest="review_color",
+                   help="color the review when the terminal supports it and NO_COLOR is unset (default: no color)")
+    if with_json:
+        p.add_argument("--json", action="store_true", dest="review_json",
+                       help="print the review as JSON and exit (review only, never approves)")
+
+
 _PAST_TENSE = {"approve": "approved", "reject": "rejected"}
 
 
@@ -325,12 +330,19 @@ def main(argv: Optional[List[str]] = None) -> int:
         description="Review and approve or reject plans drafted by an AI assistant. Humans only.",
     )
     parser.add_argument("--workspace", help="workspace folder holding plans/ (default: the configured workspace)")
-    sub = parser.add_subparsers(dest="command", required=True)
+    parser.add_argument("--show", metavar="PLAN_ID", dest="show_plan_id",
+                        help="print the review of one plan and exit; never approves (same as: show PLAN_ID)")
+    parser.add_argument("--all", action="store_true", dest="top_all", help="with --show: print every row and full values")
+    parser.add_argument("--json", action="store_true", dest="top_json", help="with --show: print the review as JSON")
+    parser.add_argument("--color", action="store_true", dest="top_color",
+                        help="with --show: color the review when the terminal supports it and NO_COLOR is unset")
+    sub = parser.add_subparsers(dest="command")
     sub.add_parser("list", help="list pending plans").add_argument(
         "--all", action="store_true", help="also list expired pending plans (they cannot be approved)")
     for name in ("show", "approve", "reject"):
         p = sub.add_parser(name, help=f"{name} a plan")
         p.add_argument("plan_id", nargs="?" if name == "reject" else None)
+        _review_options(p, with_json=name == "show")
         if name != "show":
             p.add_argument("--yes", action="store_true", help=f"{name} without the typed confirmation")
         if name == "reject":
@@ -345,6 +357,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     rec.add_argument("--reason", required=True, help="why the action is being abandoned (recorded)")
     rec.add_argument("--force", action="store_true", help="also abandon actions younger than the stale threshold")
     rec.add_argument("--yes", action="store_true", help="recover without the typed confirmation")
+    _review_options(rec, with_json=False)
     std = sub.add_parser("recipe-standing", help="give one write recipe a standing approval, bound to its id and code hash")
     std.add_argument("recipe_id")
     std.add_argument("--sha256", required=True, help="sha256 of the recipe code you reviewed (revit_recipe_get shows it)")
@@ -352,8 +365,21 @@ def main(argv: Optional[List[str]] = None) -> int:
     rev = sub.add_parser("recipe-revoke", help="remove the standing approval of a recipe")
     rev.add_argument("recipe_id")
     args = parser.parse_args(argv)
+    if args.show_plan_id is not None:
+        if args.command:
+            parser.error("--show PLAN_ID cannot be combined with a command")
+        args.command, args.plan_id = "show", args.show_plan_id
+        args.review_all, args.review_json, args.review_color = args.top_all, args.top_json, args.top_color
+    elif not args.command:
+        parser.error("a command is required (list, show, approve, reject, recover, recipe-standing, "
+                     "recipe-revoke), or --show PLAN_ID")
+    elif args.top_all or args.top_json or args.top_color:
+        parser.error("--all, --json and --color go after the command (for example: show PLAN_ID --all), "
+                     "or with --show PLAN_ID")
     if args.command == "reject":
         bulk = args.all_pending or args.older_than is not None
+        if bulk and (args.review_all or args.review_color):
+            parser.error("--all and --color go with one plan id, not with --older-than or --all-pending")
         if bool(args.plan_id) == bulk or (args.all_pending and args.older_than is not None):
             parser.error("reject needs exactly one of: a plan id, --older-than DAYS, or --all-pending")
         if args.dry_run and not bulk:
@@ -399,10 +425,15 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(f"Plan cannot be verified: {safe_text(e)}", file=sys.stderr)
         return 1
     expired = gate.expiry_reason(plan)
-    print(describe_plan(plan, expired))
-    aids = review_aids(plan, gate.workspace_dir)
-    if aids.get("preview_markdown"):
-        print("\nPreview (computed from the actions above, not part of the hash):\n" + "\n".join(safe_text(ln) for ln in aids["preview_markdown"].split("\n")))
+    review = build_review(plan, gate, shown_hash, expired, malformed_reasons(plan))
+    if getattr(args, "review_json", False):
+        print(review_json(review))  # args.command is "show": review only, nothing changes
+        return 0
+    print(render_review(review, show_all=args.review_all, width=terminal_width(),
+                        color=args.review_color and color_supported(sys.stdout)))
+    extras = plan_extras(plan)
+    if extras:
+        print("\n".join(extras))
     print(f"\nPlan hash: {shown_hash}")
 
     if args.command == "show":
@@ -440,6 +471,9 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     verb = args.command
     print()
+    if verb == "approve" and not args.review_all and is_cut(review):
+        print("Part of this plan was not printed above (rows left out or values cut). "
+              f"Run `aec-model-bridge-approve show {args.plan_id} --all` to see every row before approving.")
     if not _confirm(args.plan_id, verb, args.yes):
         print("Cancelled; plan unchanged.", file=sys.stderr)
         return 2

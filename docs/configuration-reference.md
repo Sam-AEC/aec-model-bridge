@@ -99,6 +99,30 @@ Element, category, level and workset values come from the action arguments and, 
 
 `plan_actions`, `list_pending_plans` and `aec-model-bridge-approve show` add `preview` (rows of element id, UniqueId, parameter, before, after, tool), `preview_markdown` (the same table, at most 25 rows and an "N more" line) and `blast_radius` (`element_count`, `action_count`, `categories`, `levels`, `worksets`, `risk`). They are computed when a plan is shown, are not stored and are not part of the plan hash. Risk is `low` up to 10 elements and 5 actions, `medium` up to 100 elements and 25 actions, `high` above that. A plan is at least `medium` when an action names no element or a tool name says delete, purge or remove. These are estimates from the arguments, not a check of the live model.
 
+## Command-line review (`aec-model-bridge-approve`)
+
+`aec-model-bridge-approve show <plan_id>`, `--show <plan_id>` and `approve <plan_id>` print the same review before anything else happens:
+
+- one table per action: element (id, plus name and Mark when the plan's snapshot can be read), parameter, old value -> new value. An action that sets no parameter shows its other arguments as the new value. An old value that was not recorded shows `(not captured)`.
+- counts (actions, elements, parameters, changes, old values captured), tools and the risk estimate above.
+- warnings: review warnings (hashed), unhashed legacy warnings, preview notes (actions that name no element, old values not captured, high risk), expiry and malformed actions.
+- the short plan hash, the approval mode in force, the expiry time (`pending_ttl` or `approval_ttl`) and the document binding. The full hash is printed at the end; the approval is bound to it.
+
+Old values and arguments come from the hashed plan. Element names and marks come from the snapshot and are not part of the hash.
+
+Output is plain ASCII layout with no ANSI codes, so it works in Windows cmd and PowerShell. `--color` adds color only when stdout is a terminal that supports it (on Windows: Windows Terminal, ConEmu, ANSICON, VS Code or a set `TERM`) and `NO_COLOR` is unset or empty. Long values wrap to the terminal width (60 to 200 columns). Model text is escaped. Without `--all`, at most 30 change rows and 300 characters per value are printed, followed by a `+N more ..., use --all` line. When that happens, `approve` says so above the confirmation prompt.
+
+| Option | Commands | Effect |
+| --- | --- | --- |
+| `--show PLAN_ID` | none (top level) | Print the review and exit. Never approves. Same as `show PLAN_ID`. |
+| `--all` | `--show`, `show`, `approve`, `reject`, `recover` | Print every row and full values. |
+| `--json` | `--show`, `show` | Print the review as JSON and exit. Not accepted by `approve`. |
+| `--color` | `--show`, `show`, `approve`, `reject`, `recover` | Color the review when supported (see above). |
+
+The JSON review has `schema: "aec-model-bridge/plan-review"`, `schema_version: 1`, `plan_id`, `state`, `created_at`, `plan_hash`, `plan_hash_short`, `approval_mode` (`mode`, `configured_mode`, `auto_expires_at`), `expiry` (`applies`, `expired`, `reason`, `rule`, `ttl_seconds`, `expires_at`), `binding` (`recorded`, `bound`, and when bound `doc_title`, `revit_version`, `active_view_id`), `counts`, `tools`, `risk`, `warnings` (`source`, `text`), `approvable`, `not_approvable_reasons`, `actions` (each with `changes`: `element_id` as a string or null, `element_name`, `mark`, `unique_id`, `parameter`, `old`, `old_captured`, `new`, `new_is_arguments`), `review`, `not_hashed_keys`, `snapshot_id` and `reverts_plan_id`. Values are not cut. `approvable` only reflects the plan's state, expiry and shape; it does not approve anything.
+
+Approval is unchanged: the person types the plan id after the review. Without a terminal the command refuses unless `--yes` is given. The review never changes the plan file.
+
 ## Notes
 
 - Run the server from the repository root, or from an environment where you installed the package in editable mode.
