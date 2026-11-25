@@ -55,10 +55,14 @@ internal static class PythonScriptRunner
     private static RedirectingStream? _engineError;
     private static string? _engineDocumentKey;
     private static int _engineRuns;
+    // True only after the end-of-run reset of the last read-mode script succeeded inside its read guard.
+    private static bool _engineClean;
 
-    // Runs in a private scope before every warm run, while the streams still point at Stream.Null: flushes
-    // what the previous script left buffered (it is discarded), then puts back stdout, stderr and sys.path in
-    // case that script replaced them. Written for both IronPython 2.7 and 3.4.
+    // Runs in a private scope at the end of every read-mode run, while that run's read guard is still open:
+    // flushes what the script left buffered, then puts back stdout, stderr and sys.path in case the script
+    // replaced them. Anything the script left behind that runs here (a custom flush, a hooked sys.path) runs
+    // inside the guard, so a model change is rolled back and reported as a read-mode violation. No Python runs
+    // between runs or before the next run's guard starts. Written for both IronPython 2.7 and 3.4.
     private const string ResetScript =
         "import sys\n" +
         "for _amb_stream in (sys.stdout, sys.stderr):\n" +
@@ -72,7 +76,7 @@ internal static class PythonScriptRunner
         "sys.stderr.flush()\n" +
         "sys.path[:] = _amb_sys_path\n";
 
-    private static ScriptEngine AcquireEngine(Document doc, Stream output, Stream error)
+    private static ScriptEngine AcquireEngine(Document doc, Stream output, Stream error, string mode)
     {
         var documentKey = DocumentKey(doc);
         if (_engine != null && PythonEngineReusePolicy.RecycleReason(_engineRuns, RecycleRuns, _engineDocumentKey, documentKey) != null)
@@ -80,17 +84,12 @@ internal static class PythonScriptRunner
             ShutdownEngine();
         }
 
-        if (_engine != null)
+        // A write-mode script always gets a fresh engine (and it is shut down after the run): state a read-mode
+        // script left in a shared engine must never run inside an approved write. An engine whose end-of-run
+        // reset did not succeed is never reused.
+        if (_engine != null && (mode == ModeWrite || !_engineClean))
         {
-            try
-            {
-                _engine.Execute(ResetScript, _engineResetScope!);
-            }
-            catch
-            {
-                // The previous script left the runtime in a state the reset cannot undo: start over.
-                ShutdownEngine();
-            }
+            ShutdownEngine();
         }
 
         if (_engine == null)
@@ -101,6 +100,7 @@ internal static class PythonScriptRunner
         _engineOutput!.Target = output;
         _engineError!.Target = error;
         _engineRuns++;
+        _engineClean = false;
         return _engine!;
     }
 
@@ -129,6 +129,7 @@ internal static class PythonScriptRunner
             _engineError = error;
             _engineDocumentKey = documentKey;
             _engineRuns = 0;
+            _engineClean = false;
         }
         catch
         {
@@ -150,7 +151,27 @@ internal static class PythonScriptRunner
         if (_engineError != null) _engineError.Target = Stream.Null;
         // At the run limit the engine is shut down now instead of idling until the next script, so
         // AEC_BRIDGE_PYTHON_RECYCLE_RUNS=1 behaves like the old one-engine-per-script runner (the opt-out).
-        if (drop || _engineRuns >= RecycleRuns) ShutdownEngine();
+        if (drop || !_engineClean || _engineRuns >= RecycleRuns) ShutdownEngine();
+    }
+
+    /// <summary>
+    /// End-of-run reset for a read-mode run, called while its read guard is still open (#286 review): the only
+    /// place script-controlled Python runs outside the script itself, so the guard rolls back and reports any
+    /// model change it makes. Marks the engine reusable only when the reset succeeds. Write-mode runs are never
+    /// reset: their engine is shut down after the run.
+    /// </summary>
+    private static void ResetInsideGuard(ScriptEngine? engine, string mode)
+    {
+        if (mode != ModeRead || engine == null || !ReferenceEquals(engine, _engine) || _engineResetScope == null) return;
+        try
+        {
+            engine.Execute(ResetScript, _engineResetScope);
+            _engineClean = true;
+        }
+        catch
+        {
+            _engineClean = false;
+        }
     }
 
     /// <summary>Shuts the warm engine down; the next script starts a new one. Never throws. Call on the Revit thread.</summary>
@@ -163,6 +184,7 @@ internal static class PythonScriptRunner
         _engineError = null;
         _engineDocumentKey = null;
         _engineRuns = 0;
+        _engineClean = false;
         PythonEngineFactory.ShutdownQuietly(engine);
     }
 
@@ -213,7 +235,7 @@ internal static class PythonScriptRunner
         try
         {
             // The warm engine (Revit assemblies already loaded) with its stdout and stderr pointed at this run's streams.
-            engine = AcquireEngine(doc, outputMs, errorMs);
+            engine = AcquireEngine(doc, outputMs, errorMs, mode);
             runtime = PythonEngineFactory.Describe(engine, _engineRuns);
 
             // A new scope per run: variables set by one script are absent in the next.
@@ -275,6 +297,7 @@ internal static class PythonScriptRunner
                     mode, progress, "transaction_left_open", changedCount, runtime, left.RolledBack);
             }
 
+            ResetInsideGuard(engine, mode);
             var guardNote = EndReadGuard(ref readGuard, app, onChanged, ref changedCount);
             if (changedCount > 0 || savesBlocked > 0)
             {
@@ -308,6 +331,7 @@ internal static class PythonScriptRunner
                 error = ex.Message;
             }
             var left = RollBackOpenTransactions(doc, scope);
+            ResetInsideGuard(engine, mode);
             var guardNote = EndReadGuard(ref readGuard, app, onChanged, ref changedCount);
             if (guardNote.Length > 0) error += Environment.NewLine + guardNote;
             var kind = changedCount > 0 || savesBlocked > 0 ? "read_mode_violation" : null;

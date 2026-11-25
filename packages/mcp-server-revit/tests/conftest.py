@@ -19,7 +19,9 @@ if settings is not None:
     # Property tests (tests/test_property_*.py). "default" keeps the full suite fast and
     # repeatable; "slow" searches much deeper. Select with AEC_HYPOTHESIS_PROFILE=slow.
     _common = dict(suppress_health_check=[HealthCheck.too_slow], print_blob=True)
-    settings.register_profile("default", max_examples=30, deadline=2000, derandomize=True,
+    # No per-example deadline: wall-clock limits fail on slow CI runners (Windows file system calls)
+    # without finding a bug. max_examples keeps the run short.
+    settings.register_profile("default", max_examples=30, deadline=None, derandomize=True,
                               database=None, **_common)
     settings.register_profile("slow", max_examples=2000, deadline=None, stateful_step_count=80, **_common)
     settings.load_profile(os.environ.get("AEC_HYPOTHESIS_PROFILE", "default"))
