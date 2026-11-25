@@ -1,6 +1,7 @@
 """Panel hub thread cap: BoundedThreadingHTTPServer and AEC_PANEL_MAX_THREADS."""
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import socket
@@ -18,6 +19,11 @@ from revit_mcp_server.panel_server import (
     max_threads_from_env,
 )
 from revit_mcp_server.security.workspace import WorkspaceMonitor
+
+
+def _request_threads() -> int:
+    """Live threads, not counting the single shared refusal closer."""
+    return sum(1 for t in threading.enumerate() if t.name != "panel-refusal-closer")
 
 
 def _wait_for(predicate, timeout: float = 5.0) -> None:
@@ -104,7 +110,7 @@ def test_full_cap_answers_503_without_a_new_thread(capped):
     _wait_for(lambda: len(entered) == 3)
     assert server.active_threads == 3
 
-    threads_before = threading.active_count()
+    threads_before = _request_threads()
     extra = socket.create_connection(("127.0.0.1", port), timeout=5)
     raw = _read_all(extra)
     status, headers, body = _status_headers_body(raw)
@@ -113,7 +119,7 @@ def test_full_cap_answers_503_without_a_new_thread(capped):
     assert headers["content-type"] == "application/json"
     payload = json.loads(body)
     assert payload == {"ok": False, "kind": "hub_busy", "error": panel_server.BUSY_ERROR}
-    assert threading.active_count() == threads_before
+    assert _request_threads() == threads_before
     assert server.active_threads == 3
     assert server.refused_busy == 1
 
@@ -133,6 +139,87 @@ def test_full_cap_refuses_a_client_that_already_sent_its_request(capped):
     release.set()
     for sock in held:
         _read_all(sock)
+
+
+def test_full_cap_delivers_the_whole_503_when_the_client_sends_a_large_body(capped):
+    server, release, entered = capped
+    port = server.server_address[1]
+    held = [_send(port, "GET", "/a"), _send(port, "GET", "/b"), _send(port, "POST", "/execute")]
+    _wait_for(lambda: len(entered) == 3)
+    body = b"x" * 200_000
+    sock = socket.create_connection(("127.0.0.1", port), timeout=5)
+    sock.sendall(
+        f"POST /execute HTTP/1.0\r\nContent-Length: {len(body)}\r\n\r\n".encode()
+        + body[:100]
+    )
+    time.sleep(0.05)  # the rest of the body arrives after the hub has answered
+    with contextlib.suppress(OSError):
+        sock.sendall(body[100:])
+    status, headers, payload = _status_headers_body(_read_all(sock))
+    assert status == 503
+    assert headers["retry-after"] == "1"
+    assert int(headers["content-length"]) == len(payload)
+    assert json.loads(payload)["kind"] == "hub_busy"
+    release.set()
+    for h in held:
+        _read_all(h)
+
+
+def test_refusal_drain_is_bounded_for_a_client_that_never_finishes(capped):
+    server, release, entered = capped
+    port = server.server_address[1]
+    held = [_send(port, "GET", "/a"), _send(port, "GET", "/b"), _send(port, "POST", "/execute")]
+    _wait_for(lambda: len(entered) == 3)
+    sock = socket.create_connection(("127.0.0.1", port), timeout=5)
+    sock.sendall(b"POST /execute HTTP/1.0\r\nContent-Length: 1000000\r\n\r\n")
+    started = time.monotonic()
+    _wait_for(lambda: server.refused_busy == 1)
+    status, _, _ = _status_headers_body(_read_all(sock))
+    assert status == 503
+    assert time.monotonic() - started < panel_server.REFUSAL_DRAIN_SECONDS + 2
+    release.set()
+    for h in held:
+        _read_all(h)
+
+
+def test_refusal_drain_does_not_block_the_accept_thread(capped, monkeypatch):
+    server, release, entered = capped
+    monkeypatch.setattr(panel_server, "REFUSAL_DRAIN_SECONDS", 2.0)
+    port = server.server_address[1]
+    held = [_send(port, "GET", "/a"), _send(port, "GET", "/b"), _send(port, "POST", "/execute")]
+    _wait_for(lambda: len(entered) == 3)
+    stalled = socket.create_connection(("127.0.0.1", port), timeout=5)
+    stalled.sendall(b"POST /execute HTTP/1.0\r\nContent-Length: 1000000\r\n\r\n")
+    _wait_for(lambda: server.refused_busy == 1)
+    started = time.monotonic()
+    second = socket.create_connection(("127.0.0.1", port), timeout=5)
+    second.sendall(b"GET /c HTTP/1.0\r\n\r\n")
+    second.settimeout(5)
+    first_bytes = second.recv(64)
+    assert first_bytes.startswith(b"HTTP/1.0 503") or first_bytes.startswith(b"HTTP/1.1 503")
+    assert time.monotonic() - started < 1.0
+    second.close()
+    stalled.close()
+    release.set()
+    for h in held:
+        _read_all(h)
+
+
+def test_full_refusal_queue_closes_at_once(capped, monkeypatch):
+    server, release, entered = capped
+    port = server.server_address[1]
+    held = [_send(port, "GET", "/a"), _send(port, "GET", "/b"), _send(port, "POST", "/execute")]
+    _wait_for(lambda: len(entered) == 3)
+    monkeypatch.setattr(server, "_refusal_queue", panel_server.queue.Queue(maxsize=1))
+    server._refusal_queue.put_nowait(object())  # full; the closer thread is not running
+    sock = socket.create_connection(("127.0.0.1", port), timeout=5)
+    sock.sendall(b"GET /c HTTP/1.0\r\n\r\n")
+    status, headers, _ = _status_headers_body(_read_all(sock))
+    assert status == 503
+    assert headers["retry-after"] == "1"
+    release.set()
+    for h in held:
+        _read_all(h)
 
 
 def test_reserved_slot_serves_execute_only(capped):
