@@ -31,6 +31,7 @@ SCRIPT_TOOLS = frozenset({
     "rhino_run_python", "rhino_invoke_method", "rhino_reflect_get", "rhino_reflect_set",
     "pyrevit_bridge_run_pyrevit_script", "pyrevit_bridge_plan_run_pyrevit_script",
     "revit_run_job",  # a job can wrap a script
+    "revit_raw_command",  # forwards any add-in command, including revit.execute_python
 })
 
 WRITE_TOOLS = frozenset({"plan_actions", "execute_plan", "plan_revert"})

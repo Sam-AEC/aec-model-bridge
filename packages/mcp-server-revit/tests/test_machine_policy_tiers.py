@@ -252,3 +252,25 @@ def test_doctor_shows_files_hashes_tiers_and_dev(tmp_path):
     assert "not active" in check.detail and check.status == doctor.OK
     mf.write_text("bad: [")
     assert doctor.check_policy(doctor._load_config(env), env).status == doctor.FAIL
+
+
+def test_raw_command_is_in_the_script_tier(server):
+    """revit_raw_command can forward revit.execute_python, so it must not stay in the write tier."""
+    registry, _, _ = server
+    tool = registry.lookup_tool("revit_raw_command")
+    assert tiers.tier_of("revit_raw_command", tool, registry.lookup_tool_provider("revit_raw_command").get_identity()) == "script"
+
+
+def test_shared_dispatcher_enforces_tier_policy(server, tmp_path, monkeypatch):
+    """Panel, chat and module calls go through run_gated_tool; it must refuse an off tier too."""
+    from revit_mcp_server.security.dispatch import run_gated_tool
+    registry, approval, ws = server
+    export_tool = next(t.name for p, t in registry.get_tools_with_providers()
+                       if t.name not in tiers.CONTROL_TOOLS and tiers.tier_of(t.name, t, p.get_identity()) == "export")
+    machine(tmp_path, monkeypatch, "blocked_tiers: [export]")
+    with pytest.raises(pol.PolicyError, match="export"):
+        asyncio.run(run_gated_tool(registry, approval.gate, export_tool, {}))
+    script_tool = "revit_raw_command"
+    machine(tmp_path, monkeypatch, "blocked_tiers: [script]")
+    with pytest.raises(pol.PolicyError, match="script"):
+        asyncio.run(run_gated_tool(registry, approval.gate, script_tool, {"command": "revit.execute_python", "payload": {}}))
