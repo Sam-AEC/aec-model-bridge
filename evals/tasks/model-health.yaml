@@ -1,0 +1,10 @@
+id: model-health
+prompt: Give me a quick health score for this model.
+kind: read
+profile: full
+expected_tools:
+- [model_health_score]
+max_calls: 2
+plan_required: false
+forbidden_tools: [revit_execute_python, revit_raw_command]
+checker: {type: number, value: 80}

@@ -1,0 +1,6 @@
+{"meta": {"expect": {"passed": true}, "note": "Find the unplaced room, plan the delete, execute."}}
+{"tool": "model_inspector_ask", "arguments": {"filter": {"category": "OST_Rooms", "placed": false}}}
+{"tool": "plan_actions", "arguments": {"actions": [{"tool": "revit_delete_element", "arguments": {"element_id": 400}}]}}
+{"event": "human_approved", "plan_id": "plan_0123456789ab"}
+{"tool": "execute_plan", "arguments": {"plan_id": "plan_0123456789ab"}}
+{"answer": "You approved the plan and the unplaced room Office 1 (id 400) was deleted."}

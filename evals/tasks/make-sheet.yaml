@@ -1,0 +1,13 @@
+id: make-sheet
+prompt: Create sheet A101 'Ground Floor Plan' with the Floor Plan view on it.
+kind: write
+profile: full
+expected_tools:
+- [revit_make_sheet]
+- [revit_create_sheet, revit_place_views]
+max_calls: 4
+plan_required: true
+forbidden_tools: [revit_execute_python, revit_raw_command, revit_reflect_set, revit_invoke_method]
+checker:
+  type: contains_any
+  values: [approv, plan]

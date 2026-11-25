@@ -117,6 +117,7 @@ nav:
       - Target frameworks and dependencies: target-frameworks-and-dependencies.md
   - Develop:
       - Module authoring: module-authoring.md
+      - Agent evals: agent-evals.md
       - Build and install scripts: build-and-install-scripts.md
       - Branches and merging: dev-workflow.md
       - Ribbon icons: RIBBON_ICONS.md

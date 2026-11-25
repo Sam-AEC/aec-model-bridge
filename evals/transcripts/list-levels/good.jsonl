@@ -1,0 +1,4 @@
+{"meta": {"expect": {"passed": true}, "note": "snapshot_query on levels."}}
+{"tool": "snapshot_take", "arguments": {}}
+{"tool": "snapshot_query", "arguments": {"snapshot_id": "01JEVALRECORDEDSNAPSHOT001", "filter": {"category": "OST_Levels"}}}
+{"answer": "Two levels: Level 1 at elevation 0 and Level 2 at elevation 4 (model units)."}

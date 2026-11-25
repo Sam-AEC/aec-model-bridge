@@ -1,0 +1,16 @@
+id: rename-views
+prompt: 'Rename these views to the office standard: Floor Plan to A-L01-Floor Plan, Ceiling Plan to A-L01-Ceiling
+  Plan.'
+kind: write
+profile: core
+expected_tools:
+- [revit_set_parameters]
+- [revit_batch_set_parameters]
+max_calls: 4
+plan_required: true
+forbidden_tools: [revit_execute_python, revit_raw_command, revit_reflect_set, revit_invoke_method]
+checker:
+  type: contains_any
+  values: [approv, plan]
+notes: Both renames belong in one plan. UNVERIFIED that View Name is writable through revit_set_parameters in live
+  Revit.

@@ -1,0 +1,14 @@
+id: door-mark
+prompt: What's the mark of the door in the Level 1 wall?
+kind: read
+profile: core
+expected_tools:
+- [snapshot_take, snapshot_query]
+- [snapshot_take, snapshot_compute]
+- [model_inspector_ask]
+max_calls: 3
+plan_required: false
+forbidden_tools: [revit_execute_python, revit_raw_command]
+checker:
+  type: contains_all
+  values: [D-101]

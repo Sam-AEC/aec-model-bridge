@@ -1,0 +1,3 @@
+{"meta": {"expect": {"passed": true}, "note": "qaqc_checker_run_check with the core pack."}}
+{"tool": "qaqc_checker_run_check", "arguments": {"rule_pack": "core"}}
+{"answer": "1 error: room Office 1 is not placed. There are also 2 warnings for rooms without a name."}

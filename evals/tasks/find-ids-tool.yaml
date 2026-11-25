@@ -1,0 +1,12 @@
+id: find-ids-tool
+prompt: Is there a tool that checks an IFC file against an IDS?
+kind: discovery
+profile: core
+expected_tools:
+- [search_tools]
+max_calls: 2
+plan_required: false
+forbidden_tools: [revit_execute_python, revit_raw_command]
+checker:
+  type: contains_all
+  values: [ids_validator_validate_ifc]
