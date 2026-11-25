@@ -193,8 +193,13 @@ def test_authenticated_bodies_get_only_documented_answers(
     overrides = {} if content_length is None else {"content_length": content_length}
     # /agent/chat must never start a real CLI or call the API; /approval-mode must not change the mode.
     stub = {"ok": True, "response": "stub", "session_id": "s"}
+    # Route rate limits have their own tests (test_call_limits.py); thousands of examples would trip them.
+    # The chat dispatch itself is stubbed: which providers are installed on the runner (none on the
+    # secret-free nightly job, where every provider answers 502) is not what this parser test checks.
     with mock.patch.object(panel_server.agent_bridge, "run_agent_turn", return_value=stub), \
             mock.patch.object(panel_server.agent_native, "run_native_turn", return_value=stub), \
+            mock.patch.object(panel_server.PanelRequestHandler, "_dispatch_chat", return_value=stub), \
+            mock.patch.object(panel_server.PanelRequestHandler, "_rate_limited", return_value=False), \
             mock.patch.object(panel_server, "set_panel_mode"):
         status, payload = _drive(hub.cls, _request("POST", path, _headers(body, **overrides), body))
     event(f"status {status}")
