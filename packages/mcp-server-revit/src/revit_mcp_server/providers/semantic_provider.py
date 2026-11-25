@@ -214,7 +214,12 @@ class SemanticProvider(AECProvider):
             mapper = self.registry.get_provider("mapper")
             if mapper:
                 mappings = []
-                import ifcopenshell.guid  # lazy: heavy import, only needed here
+                try:
+                    import ifcopenshell.guid  # lazy: heavy import, only needed here
+                except ImportError:
+                    # Without ifcopenshell the snapshot is still valid; the
+                    # mappings just carry no IFC GlobalId.
+                    ifcopenshell = None
 
                 for el in snapshot.elements:
                     if el.uid:
@@ -222,7 +227,7 @@ class SemanticProvider(AECProvider):
                         guid_part = el.uid[:36]
                         try:
                             uuid_obj = uuid.UUID(guid_part)
-                            ifc_guid = ifcopenshell.guid.compress(uuid_obj.hex)
+                            ifc_guid = ifcopenshell.guid.compress(uuid_obj.hex) if ifcopenshell else None
                         except Exception:
                             ifc_guid = None
                         

@@ -74,6 +74,7 @@ You do not need Revit or Windows for these. The Python tests run in mock mode. T
 To skip local setup, open the repository in its dev container (`.devcontainer/devcontainer.json`, for example with GitHub Codespaces or the VS Code Dev Containers extension). It installs Python 3.13 and uv, runs `uv sync --all-extras` in `packages/mcp-server-revit`, and sets `MCP_REVIT_MODE=mock`.
 
 `examples/mock-tour.ipynb` walks through a read, a snapshot query, a `snapshot_compute` pipeline and a plan in mock mode, and stops where a person would approve.
+`examples/ifc-speckle-roundtrip.ipynb` does the same for an IFC and Speckle exchange round trip ([docs/ifc-speckle-roundtrip.md](../docs/ifc-speckle-roundtrip.md)).
 
 ### Run the tests
 
