@@ -422,3 +422,89 @@ def test_default_opener_keeps_the_win32_error_code():
     assert transport._opener is pipe_transport._windows_open
     source = inspect.getsource(pipe_transport._windows_open)
     assert "CreateFileW" in source and "ctypes.WinError(ctypes.get_last_error())" in source
+
+
+# --- panel hub instance routing ---------------------------------------------------------------------
+
+def _routed(tmp_path, monkeypatch, *, transport, platform="nt"):
+    monkeypatch.setattr(pipe_transport, "PLATFORM", platform)
+    monkeypatch.delenv("AEC_BRIDGE_TRANSPORT", raising=False)
+    monkeypatch.setattr(discovery, "discover_switch_list", lambda **kwargs: [])
+    made = []
+
+    def factory(url, token=None):
+        bridge = RecordingBridge(url, token)
+        made.append(bridge)
+        return bridge
+
+    provider = RevitProvider(
+        WorkspaceMonitor([tmp_path]), BridgeMode.bridge, bridge_url="http://127.0.0.1:3000",
+        bridge_factory=factory, bridge_transport=transport,
+    )
+    return provider, made
+
+
+def _route_to(provider, switch):
+    return provider.routed_to(switch.endpoint, switch.session_token, switch)
+
+
+def test_routed_client_uses_the_pipe_when_the_server_is_set_to_pipe(tmp_path, monkeypatch):
+    provider, _ = _routed(tmp_path, monkeypatch, transport="pipe")
+    with _route_to(provider, _switch(PIPE)) as bridge:
+        assert bridge.pipe == (PIPE, 4242)
+
+
+def test_routed_client_stays_on_http_by_default(tmp_path, monkeypatch):
+    provider, _ = _routed(tmp_path, monkeypatch, transport=None)
+    with _route_to(provider, _switch(PIPE)) as bridge:
+        assert bridge.pipe is None
+
+
+def test_routed_client_without_a_published_pipe_warns_and_uses_http(tmp_path, monkeypatch, caplog):
+    provider, _ = _routed(tmp_path, monkeypatch, transport="pipe")
+    with caplog.at_level("WARNING"):
+        with _route_to(provider, _switch(None)) as bridge:
+            assert bridge.pipe is None
+    assert "Falling back to HTTP" in caplog.text
+
+
+def test_routed_call_without_a_switch_warns_and_uses_http(tmp_path, monkeypatch, caplog):
+    provider, _ = _routed(tmp_path, monkeypatch, transport="pipe")
+    with caplog.at_level("WARNING"):
+        with provider.routed_to("http://127.0.0.1:39001", TOKEN) as bridge:
+            assert bridge.pipe is None
+    assert "Falling back to HTTP" in caplog.text
+
+
+def test_routed_pipe_off_windows_is_refused_before_any_client_is_built(tmp_path, monkeypatch):
+    provider, made = _routed(tmp_path, monkeypatch, transport="pipe", platform="posix")
+    with pytest.raises(BridgeError):
+        with _route_to(provider, _switch(PIPE)):
+            pass
+    assert made == []
+
+
+def test_routed_unknown_transport_is_refused(tmp_path, monkeypatch):
+    provider, made = _routed(tmp_path, monkeypatch, transport="carrier-pigeon")
+    with pytest.raises(BridgeError):
+        with _route_to(provider, _switch(PIPE)):
+            pass
+    assert made == []
+
+
+def test_hub_routing_passes_the_registry_entry(monkeypatch):
+    from revit_mcp_server import panel_server
+
+    seen = {}
+
+    class Provider:
+        def routed_to(self, endpoint, token, switch=None):
+            seen["args"] = (endpoint, token, switch)
+
+    class Registry:
+        def get_provider(self, name):
+            return Provider()
+
+    switch = _switch(PIPE)
+    panel_server._route(Registry(), switch)
+    assert seen["args"] == (switch.endpoint, switch.session_token, switch)
