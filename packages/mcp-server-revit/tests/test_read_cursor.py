@@ -303,3 +303,24 @@ def test_cursor_page_for_a_tool_with_an_output_schema_is_a_call_tool_result():
     assert output_schema_for("snapshot_compute") is not None
     answer = mcp_server._text_only("snapshot_compute", "✓ snapshot_compute next part")
     assert isinstance(answer, CallToolResult) and answer.structuredContent is None
+
+
+def test_strict_read_tools_accept_a_cursor_in_their_input_schema():
+    """#274 review: the SDK validates input against the schema before response_options is split off,
+    so a read-only tool with additionalProperties: false must list response_options.cursor."""
+    import jsonschema
+    from types import SimpleNamespace
+
+    from revit_mcp_server import tool_metadata
+
+    schema = {"type": "object", "additionalProperties": False,
+              "properties": {"ids": {"type": "array", "items": {"type": "integer"}}}}
+    read_tool = SimpleNamespace(is_mutating=False)
+    tool_metadata.add_cursor_option("revit_inspect_elements", read_tool, schema)
+    jsonschema.validate({"ids": [1], "response_options": {"cursor": "abc"}}, schema)
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate({"ids": [1], "response_options": {"other": 1}}, schema)
+
+    write_schema = {"type": "object", "additionalProperties": False, "properties": {}}
+    tool_metadata.add_cursor_option("revit_delete_elements", SimpleNamespace(is_mutating=True), write_schema)
+    assert "response_options" not in write_schema["properties"], "write tools take no cursor"

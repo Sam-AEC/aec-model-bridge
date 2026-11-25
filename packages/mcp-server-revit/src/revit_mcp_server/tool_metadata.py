@@ -765,6 +765,22 @@ def annotations_for(provider_id: str, tool: ProviderTool) -> ToolAnnotations:
     )
 
 
+def add_cursor_option(name: str, tool: Any, schema: dict) -> None:
+    """A read-only tool whose input schema forbids extra keys still has to accept the cursor its cut
+    answers hand out; the SDK validates input before response_options is split off (#274 review).
+    Only the cursor is listed, to keep the schema small."""
+    properties = schema.get("properties")
+    if schema.get("additionalProperties") is not False or not isinstance(properties, dict):
+        return
+    if "response_options" in properties or not is_read_only_tool(name, tool):
+        return
+    properties["response_options"] = {
+        "type": "object", "additionalProperties": False,
+        "properties": {"cursor": {"type": "string", "maxLength": 64}},
+        "description": "cursor: from a truncated answer, for the next part. Repeat the same arguments.",
+    }
+
+
 def is_read_only_tool(name: str, tool: Any) -> bool:
     """True when the tool's result is presented as a read (compact, size-capped): it does not change
     the model and is not an approval or job tool. Same rule as readOnlyHint, except that the report
@@ -816,6 +832,7 @@ def enrich_tool(provider_id: str, tool: ProviderTool) -> Tool:
         if text:
             prop["description"] = text
     add_response_schema(tool.name, schema)
+    add_cursor_option(tool.name, tool, schema)
     output_schema = output_schema_for(tool.name)
     extra: dict[str, Any] = {}
     if tool.name in ALWAYS_LOADED_TOOLS:
