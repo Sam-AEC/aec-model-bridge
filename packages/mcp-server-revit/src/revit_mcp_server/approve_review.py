@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from .security import proof as proof_mod
+from .security import rollback_preview
 from .security.approval import running_actions
 from .security.plan_review import ID_KEYS, ID_LIST_KEYS, element_ids_of, review_aids
 from .security.proof import normalize_review
@@ -247,11 +248,19 @@ def build_review(plan: Dict[str, Any], gate: Any, shown_hash: str, expired: Opti
     if stuck:
         warnings.append({"source": "state", "text": f"{len(stuck)} action(s) stuck in 'running' (details below)."})
 
+    preview = plan.get("rollback_preview") if "rollback_preview" in plan else None
+    preview_lines: List[str] = rollback_preview.markdown(preview) if "rollback_preview" in plan else []
     try:
         not_hashed = list(proof_mod.unhashed_metadata_keys(plan))
     except Exception:  # noqa: BLE001
         not_hashed = []
     reasons = list(problems)
+    if isinstance(preview, dict) and preview.get("rolled_back") is False:
+        reasons.append("the preview was not rolled back; check the model")
+        warnings.append({"source": "preview", "text": "The preview was NOT rolled back. Check the model before approving."})
+    elif isinstance(preview, dict) and preview.get("status") == "failed":
+        warnings.append({"source": "preview", "text": "A step failed in the rolled-back preview: "
+                         + str(preview.get("reason") or "no reason given")})
     if plan.get("state") != "pending":
         reasons.append(f"state is '{plan.get('state')}'")
     if expired:
@@ -282,6 +291,8 @@ def build_review(plan: Dict[str, Any], gate: Any, shown_hash: str, expired: Opti
         "not_approvable_reasons": reasons,
         "actions": actions,
         "review": review_block,
+        "rollback_preview": preview,
+        "rollback_preview_lines": preview_lines,
         "not_hashed_keys": not_hashed,
         "snapshot_id": plan.get("snapshot_id"),
         "reverts_plan_id": plan.get("reverts_plan_id"),
@@ -561,6 +572,11 @@ def render_review(review: Dict[str, Any], show_all: bool = False, width: Optiona
         for w in review["warnings"]:
             tag = {"not_hashed": " [not covered by the approval]", "review": " [from the hashed review]"}.get(w["source"], "")
             lines.extend(st.warn(ln) for ln in _wrapped("  ! ", safe_text(w["text"]) + tag, width))
+
+    if review.get("rollback_preview_lines"):
+        lines.append("")
+        for ln in review["rollback_preview_lines"]:
+            lines.extend(_wrapped("", safe_text(ln), width))
 
     shown = 0
     hidden_rows = 0

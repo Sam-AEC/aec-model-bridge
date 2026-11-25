@@ -31,6 +31,7 @@ public class PlanBatchTests
     [InlineData("revit.execute_python")]
     [InlineData("revit.export_image")]
     [InlineData("revit.execute_plan_batch")]
+    [InlineData("revit.preview_plan_batch")]
     [InlineData("revit.batch")]
     public void A_member_that_is_not_a_plain_model_write_refuses_the_whole_request(string tool)
     {
@@ -38,6 +39,19 @@ public class PlanBatchTests
             + ", {\"action_id\": \"act_2\", \"tool\": \"" + tool + "\", \"payload\": {}}]}"));
         Assert.Contains(tool, ex.Message);
         Assert.False(PlanBatch.IsBatchable(tool));
+    }
+
+    [Fact]
+    public void The_preview_command_takes_the_same_request_and_names_itself_in_errors()
+    {
+        var json = "{\"plan_id\": \"preview\", \"actions\": [" + OneAction + "]}";
+        Assert.Single(PlanBatch.Parse(Json.Parse(json), Registered.Contains, "revit.preview_plan_batch").Actions);
+        var ex = Assert.Throws<ArgumentException>(() =>
+            PlanBatch.Parse(Json.Parse("{\"plan_id\": \"preview\", \"actions\": []}"), Registered.Contains, "revit.preview_plan_batch"));
+        Assert.StartsWith("revit.preview_plan_batch ", ex.Message);
+        var wall = "{\"action_id\": \"act_2\", \"tool\": \"revit.create_wall\", \"payload\": {}}";
+        Assert.Throws<ArgumentException>(() =>
+            PlanBatch.Parse(Json.Parse("{\"plan_id\": \"preview\", \"actions\": [" + wall + "]}"), Registered.Contains, "revit.preview_plan_batch"));
     }
 
     [Fact]

@@ -18,6 +18,7 @@ from . import approval_signing as signing_mod
 from . import binding as binding_mod
 from . import file_binding
 from . import proof as proof_mod
+from . import rollback_preview as rollback_preview_mod
 from .approval_override import active_override
 from .dev_mode import active_dev, audit_dev_event
 from .recipe_store import RecipeStore, standing_authorizes
@@ -44,6 +45,7 @@ VOLATILE_ARGUMENT_KEYS = frozenset({"plan_id", "run_async", "idempotency_key"})
 # hashed review block (which has its own validated parameter).
 _RESERVED_EXTRA_KEYS = frozenset({
     "review", "hash_version", "plan_hash", "approved_hash", "plan_id", "created_at", "actions", "binding",
+    "rollback_preview",
 }) | proof_mod.STATE_PLAN_KEYS | proof_mod.DERIVED_PLAN_KEYS
 
 ACTION_ID_RE = re.compile(r"act_[0-9a-f]{12}")
@@ -364,12 +366,15 @@ class ApprovalGate:
         review: Optional[Dict[str, Any]] = None,
         binding: Any = _UNBOUND,
         policy_hash: Optional[str] = None,
+        rollback_preview: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Draft a plan. ``review`` (summary, reasoning, citations, ...) is validated,
         canonicalised and covered by the plan hash. ``binding`` (a dict, or None when the live
         document could not be identified) is stored inside the hashed plan; leave it out for the
         older, unbound format. ``extra`` is metadata only: it is NOT
-        hashed and must not be presented as approved content (see proof.unhashed_metadata_keys)."""
+        hashed and must not be presented as approved content (see proof.unhashed_metadata_keys).
+        ``rollback_preview`` (security/rollback_preview.py, #293) is the result of running the plan in a
+        group that was rolled back. It is stored inside the hashed plan; it is never an approval."""
         self.validate_actions(actions)
         # A file a tool reads at run time is bound by its sha256 in the hashed arguments.
         actions = file_binding.bind_actions(actions, self.workspace_monitor)
@@ -434,6 +439,11 @@ class ApprovalGate:
             except ValueError as e:
                 raise BridgeError(str(e))
             plan["binding"] = binding
+        if rollback_preview is not None:
+            try:
+                plan["rollback_preview"] = rollback_preview_mod.validate(rollback_preview)
+            except ValueError as e:
+                raise BridgeError(f"Invalid rollback preview: {e}")
         plan["plan_hash"] = plan_hash(plan)
         self.save_plan(plan)
         return plan
