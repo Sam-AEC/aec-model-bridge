@@ -400,3 +400,27 @@ def test_addin_command_uses_one_group_assimilates_and_rolls_back():
     assert "PlanBatch.TimeBudgetMs" in body
     assert "break;" in body, "the run must stop at the first failure"
     assert "doc.IsModifiable" in body, "an open transaction must refuse the batch before the group starts"
+
+
+@pytest.mark.anyio
+async def test_recording_runs_one_action_at_a_time_so_every_write_is_in_the_cassette(tmp_path, monkeypatch):
+    from revit_mcp_server.bridge import cassette
+    from revit_mcp_server.config import config
+
+    monkeypatch.setattr(config, "workspace_dir", tmp_path)
+    monkeypatch.setenv("MCP_REVIT_RECORD", "plan-run")
+    approval, revit, addin = make(tmp_path)
+    assert isinstance(revit._active_bridge(), cassette.RecordingBridge)
+    plan_id = await approved_plan(approval, [mark(1, "X"), mark(2, "Y")])
+
+    reply = await approval.execute_tool("execute_plan", {"plan_id": plan_id})
+
+    assert reply["state"] == "executed" and "batched" not in reply
+    assert addin.batches == []  # nothing went to the add-in past the recorder
+    path = tmp_path / "cassettes" / "plan-run.jsonl"
+    recorded = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    sets = [e["params"] for e in recorded if e["command"] == "revit.set_parameter_value"]
+    assert [(p["element_id"], p["value"]) for p in sets] == [(1, "X"), (2, "Y")]
+    assert [(c[1]["element_id"], c[1]["value"]) for c in writes(addin)] == [(1, "X"), (2, "Y")]
+    with pytest.raises(cassette.CassetteError):
+        revit._active_bridge().call_plan_batch(plan_id, "t", [])

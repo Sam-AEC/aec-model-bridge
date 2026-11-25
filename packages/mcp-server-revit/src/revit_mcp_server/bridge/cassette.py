@@ -146,7 +146,12 @@ class CassetteRecorder:
 
 
 class RecordingBridge:
-    """Wraps a live bridge client and records each call. Anything else passes straight through."""
+    """Wraps a live bridge client and records each call. Anything else passes straight through.
+
+    Batches are turned off while recording: the inner client would send a batch through its own
+    ``call_tool``, past this recorder, so the writes would be missing from the cassette. With
+    ``supports_batch`` and ``supports_plan_batch`` False the provider sends one request per
+    command, each recorded, and the cassette replays the same way (replay never batches)."""
 
     def __init__(self, inner: Any, recorder: CassetteRecorder) -> None:
         self._inner = inner
@@ -179,6 +184,18 @@ class RecordingBridge:
     def get_result(self, request_id: str, wait_s: float | None = None) -> dict:
         return self._run(GET_RESULT_COMMAND, {"request_id": request_id},
                          lambda: self._inner.get_result(request_id, wait_s=wait_s))
+
+    def supports_batch(self) -> bool:
+        return False
+
+    def supports_plan_batch(self) -> bool:
+        return False
+
+    def call_batch(self, *args: Any, **kwargs: Any) -> Any:
+        raise CassetteError("Read batches are not sent while recording; send each command on its own.")
+
+    def call_plan_batch(self, *args: Any, **kwargs: Any) -> Any:
+        raise CassetteError("Plan batches are not sent while recording; run the plan one action at a time.")
 
 
 def wrap_for_recording(bridge: Any, workspace: Any, value: str | None = None) -> Any:
