@@ -67,16 +67,25 @@ def test_workspace_missing_warns_and_file_fails(tmp_path):
     assert by_name["workspace"].status == FAIL
 
 
-@pytest.mark.skipif(os.name == "nt" or os.geteuid() == 0, reason="needs a non-root POSIX user")
-def test_unwritable_workspace_fails(tmp_path):
+def test_unwritable_workspace_fails(tmp_path, monkeypatch):
+    """Simulated, so it also runs as root: the writability probe raises PermissionError."""
     ws = tmp_path / "ws"
     ws.mkdir()
-    ws.chmod(0o500)
-    try:
-        by_name, _ = _run(tmp_path)
-        assert by_name["workspace"].status == FAIL
-    finally:
-        ws.chmod(0o700)
+
+    def denied(*args, **kwargs):
+        raise PermissionError(13, "Permission denied")
+    monkeypatch.setattr(doctor.tempfile, "NamedTemporaryFile", denied)
+    by_name, _ = _run(tmp_path)
+    assert by_name["workspace"].status == FAIL
+    assert "is not writable: Permission denied" in by_name["workspace"].detail
+
+
+def test_workspace_that_cannot_be_created_fails(tmp_path, monkeypatch):
+    monkeypatch.setattr(doctor.os, "access", lambda *a, **k: False)
+    env = _env(tmp_path, MCP_REVIT_WORKSPACE_DIR=str(tmp_path / "new" / "ws"))
+    by_name = {c.name: c for c in doctor.run_checks(env=env, platform="linux", home=tmp_path, cwd=tmp_path)}
+    assert by_name["workspace"].status == FAIL
+    assert "cannot be created (no write access to" in by_name["workspace"].detail
 
 
 def _registry(tmp_path, token=TOKEN, pid=None):

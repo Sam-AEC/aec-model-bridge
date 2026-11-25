@@ -20,7 +20,7 @@ from revit_mcp_server.security import proof as proof_mod
 from revit_mcp_server.security.approval import ApprovalGate, plan_hash
 from revit_mcp_server.security.recipe_store import ID_RE, RecipeError, RecipeStore
 from revit_mcp_server.security.safe_paths import PLAN_ID_RE, SNAPSHOT_ID_RE, safe_child, snapshot_file
-from revit_mcp_server.security.workspace import WorkspaceMonitor, is_reserved_path
+from revit_mcp_server.security.workspace import WorkspaceMonitor, _is_within, is_reserved_path
 
 SET = "revit_set_parameter_value"
 VALID_PLAN = "plan_0123456789ab"
@@ -366,14 +366,41 @@ def test_workspace_accepts_inside_and_refuses_outside_and_reserved(tmp_path):
     assert is_reserved_path(work / "plans", work) and not is_reserved_path(work / "plans2", work)
 
 
-@pytest.mark.skipif(os.name != "nt", reason="Windows paths ignore case")
-def test_workspace_ignores_case_on_windows(tmp_path):
+def test_workspace_ignores_case_when_casefold_is_on(tmp_path):
+    """Runs on every OS: the flag forces the Windows rule."""
     work = tmp_path / "Work"
     work.mkdir()
-    monitor = WorkspaceMonitor([work])
+    monitor = WorkspaceMonitor([work], casefold=True)
     monitor.assert_in_workspace(Path(str(work).upper()) / "a.txt")
     with pytest.raises(WorkspaceViolation, match="reserved"):
         monitor.assert_in_workspace(Path(str(work).upper()) / "PLANS" / "a.json")
+    assert is_reserved_path(Path(str(work).upper()) / "Proofs", work, casefold=True)
+
+
+def test_workspace_is_case_sensitive_when_casefold_is_off(tmp_path):
+    work = tmp_path / "Work"
+    work.mkdir()
+    # Compare strings directly: on Windows realpath() restores the real casing of an existing folder,
+    # so a resolved path cannot show the case-sensitive rule there.
+    base = os.path.join("root", "Work")
+    assert not _is_within(os.path.join("ROOT", "WORK", "a.txt"), base, casefold=False)
+    assert _is_within(os.path.join("root", "Work", "a.txt"), base, casefold=False)
+    assert _is_within(os.path.join("ROOT", "WORK", "a.txt"), base, casefold=True)
+    monitor = WorkspaceMonitor([work], casefold=False)
+    monitor.assert_in_workspace(work / "PLANS" / "a.json")  # a different folder name, not reserved
+    assert not is_reserved_path(work / "PLANS", work, casefold=False)
+
+
+def test_default_casefold_follows_the_os(tmp_path):
+    work = tmp_path / "Work"
+    work.mkdir()
+    monitor = WorkspaceMonitor([work])
+    other_case = Path(str(work).upper()) / "a.txt"
+    if os.name == "nt":
+        monitor.assert_in_workspace(other_case)
+    else:
+        with pytest.raises(WorkspaceViolation, match="outside the allowed workspace"):
+            monitor.assert_in_workspace(other_case)
 
 
 def test_safe_child_tells_the_caller_why_it_refused(tmp_path):
