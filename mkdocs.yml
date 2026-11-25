@@ -99,6 +99,7 @@ nav:
       - Python automation helpers: python-automation.md
       - pyRevit bridge: pyrevit-bridge.md
       - Error catalogue: error-catalogue.md
+      - Elicitation: elicitation.md
   - Security:
       - Security model: security.md
       - Approval flow: adr/0008-approval-gate-lifecycle.md
@@ -111,10 +112,13 @@ nav:
       - Record and replay: record-replay.md
       - MCP token budget: mcp-token-budget.md
       - Deferred tool loading: deferred-tool-loading.md
+      - Learned profile and usage counts: learned-profile.md
       - Performance: performance.md
+      - MCP Tasks: mcp-tasks.md
       - Target frameworks and dependencies: target-frameworks-and-dependencies.md
   - Develop:
       - Module authoring: module-authoring.md
+      - Agent evals: agent-evals.md
       - Build and install scripts: build-and-install-scripts.md
       - Branches and merging: dev-workflow.md
       - Ribbon icons: RIBBON_ICONS.md
@@ -143,6 +147,7 @@ nav:
       - adr/0019-optional-cpython-engine.md
       - adr/0020-single-command-contract.md
       - adr/0022-shared-command-contract.md
+      - adr/0023-mcp-spec-2026-07.md
   - Legal:
       - Trademarks: legal/TRADEMARKS.md
       - CLA draft: legal/CLA-DRAFT.md

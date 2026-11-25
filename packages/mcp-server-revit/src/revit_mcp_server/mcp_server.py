@@ -13,21 +13,26 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.server.lowlevel.helper_types import ReadResourceContents
 from mcp.types import (
-    CallToolResult, GetPromptResult, Prompt, Resource, ResourceLink, ResourceTemplate, Tool, TextContent,
+    CallToolResult, CreateTaskResult, GetPromptResult, Prompt, Resource, ResourceLink, ResourceTemplate, Tool,
+    TextContent,
 )
 
-from . import mcp_prompts, mcp_resources
+from . import mcp_prompts, mcp_resources, mcp_tasks
 
+from .elicitation import (
+    MAX_ROUNDS, ElicitationForbidden, InputNeeded, elicit_choice, elicitation_allowed, missing_export_path,
+)
 from .errors import BridgeError, CommandFailed
 from .registry_factory import build_registry
 from .security.approval import HUMAN_ONLY_TOOLS
 from .security.dispatch import (
-    gate_after, gate_after_result, gate_before, result_failed, settle_in_flight,
+    GET_RESULT_TOOL, gate_after, gate_after_result, gate_before, result_failed, settle_in_flight,
 )
+from .security.gating import requires_approval
 from .security.audit import redact_data as _redact_secrets
 from .security.response_redaction import redact_response
 from .security.module_execution import authorized_module_execution
-from .output_schemas import output_schema_for, structured_for
+from .output_schemas import fallback_structured, output_schema_for, structured_for
 from .tool_metadata import enrich_tool, is_read_only_tool
 from .read_cursor import Context as CursorContext, CursorError, binding as cursor_binding
 from .result_presentation import next_page, result_json, split_response_options
@@ -89,12 +94,18 @@ approval_provider = None
 job_manager = None
 workspace_monitor = None
 
+# MCP Tasks (see mcp_tasks.py and docs/mcp-tasks.md): task-augmented tools/call for
+# long tools, backed by job_manager. Clients that send no `task` field are unaffected.
+task_bridge = mcp_tasks.TaskBridge(lambda: job_manager)
+TASKS_ENABLED = mcp_tasks.register_task_handlers(app, task_bridge)
+
 
 @app.list_tools()
 async def list_tools() -> list[Tool]:
     """List all available AEC tools from registered providers."""
     # enrich_tool adds parameter docs and behaviour annotations (readOnlyHint,
     # destructiveHint, idempotentHint, openWorldHint) without changing behaviour.
+    # For MCP Tasks it also sets execution.taskSupport on mcp_tasks.TASK_TOOLS.
     return [
         enrich_tool(provider.get_identity(), t)
         for provider, t in registry.get_tools_with_providers()
@@ -131,8 +142,78 @@ async def read_resource(uri: Any) -> list[ReadResourceContents]:
 
 
 @app.call_tool()
-async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolResult:
-    """Execute a registered AEC tool."""
+async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolResult | CreateTaskResult:
+    """Execute a registered AEC tool.
+
+    When a tool needs one more input (InputNeeded) and the client declared elicitation,
+    the person is asked once per missing input and the call runs again with the answer.
+    Otherwise, or on decline, cancel or timeout, the call ends with the plain refusal.
+    Approval tools never ask (elicitation.elicitation_allowed).
+    """
+    rounds = 0
+    while True:
+        try:
+            return await _call_tool_once(name, arguments)
+        except InputNeeded as need:
+            answer = None
+            if rounds < MAX_ROUNDS and _may_elicit(name, arguments):
+                try:
+                    answer = await elicit_choice(
+                        _client_session(), need.question, need.options, tool=name, field=need.field,
+                        title=need.title, related_request_id=_request_id(),
+                    )
+                except ElicitationForbidden:
+                    answer = None
+            if answer is None:
+                return _tool_error("input_needed", need.refusal)
+            try:
+                arguments = need.apply(arguments if isinstance(arguments, dict) else {}, answer)
+            except InputNeeded as again:
+                return _tool_error("input_needed", again.refusal)
+            rounds += 1
+
+
+def _client_session() -> Any:
+    """The MCP session of the current request, or None outside a request (direct calls in tests)."""
+    try:
+        return app.request_context.session
+    except LookupError:
+        return None
+
+
+def _request_id() -> Any:
+    try:
+        return app.request_context.request_id
+    except LookupError:
+        return None
+
+
+def _workspace_root() -> Any:
+    try:
+        return workspace_monitor.allowed_directories[0]
+    except (AttributeError, IndexError, TypeError):
+        return None
+
+
+def _may_elicit(name: str, arguments: Any) -> bool:
+    """Ask only where an answer can be used: never for approval tools, never for a call that
+    carries a plan_id, and never for a call the gate would refuse without an approved plan
+    (an answer changes the arguments, so it cannot match an approved action)."""
+    if not elicitation_allowed(name):
+        return False
+    if isinstance(arguments, dict) and arguments.get("plan_id"):
+        return False
+    gate = getattr(approval_provider, "gate", None)
+    try:
+        tool_def = registry.lookup_tool(name)
+        if gate is None or tool_def is None or not tool_def.is_mutating:
+            return True
+        return not requires_approval(registry, name, tool_def, arguments) or gate.approval_mode == "auto"
+    except Exception:
+        return False  # fail closed: no question, plain refusal
+
+
+async def _call_tool_once(name: str, arguments: Any) -> list[TextContent] | CallToolResult | CreateTaskResult:
     if name in HUMAN_ONLY_TOOLS:
         return _tool_error("human_only", (
             f"Error: '{name}' is not available to AI clients. A person approves, rejects and rolls back "
@@ -145,6 +226,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
         return _tool_error("tool_profile_blocked", str(exc))
     if not provider:
         return _tool_error("unknown_tool", f"Error: Unknown tool '{name}'")
+    _count_call(name)
 
     try:
         read_only = is_read_only_tool(name, registry.lookup_tool(name))
@@ -155,6 +237,20 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
         arguments, response_options = split_response_options(name, arguments, read_only)
     except ValueError as exc:
         return _tool_error("invalid_response_options", str(exc))
+
+    # A task-augmented call (the client sent a `task` field) is refused before any
+    # approved action is claimed when the tool cannot run as a task.
+    task_metadata = mcp_tasks.request_task_metadata(app) if TASKS_ENABLED else None
+    if task_metadata is not None and name not in mcp_tasks.TASK_TOOLS:
+        return _tool_error("task_not_supported", (
+            f"'{name}' cannot run as a task. Call it without the task field. Only tools listed with "
+            "execution.taskSupport 'optional' accept task-augmented calls."
+        ))
+
+    # A missing export file name is found before the approval gate, so no approved action is used up.
+    need = missing_export_path(name, arguments, _workspace_root())
+    if need is not None:
+        raise need
 
     # Approval gate: a mutating call consumes its approved action here, before it
     # runs, so it can run at most once even if it fails or is called concurrently.
@@ -175,7 +271,11 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
             page = next_page(response_options, cursor_ctx)
         except CursorError as exc:
             return _tool_error("invalid_cursor", str(exc))
-        return _text_only(name, f"✓ {name} next part (from cursor, not run again)\n\nResult:\n{page}")
+        return _text_only(name, f"✓ {name} next part (from cursor, not run again)\n\nResult:\n{page}",
+                          _json_object(page), "This reply is a cursor page of an earlier result, not the full result.")
+
+    if task_metadata is not None:
+        return await _start_task(name, provider, arguments, claim, gate, response_options, read_only, task_metadata)
 
     try:
         # Check if deferred execution is requested.
@@ -212,8 +312,24 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
             )
             response_text = f"✓ Job {job_ref.job_id} queued successfully\n\n"
             response_text += f"Result:\n{json.dumps(job_ref.to_dict(), indent=2)}"
-            return _text_only(name, response_text)
+            return _text_only(name, response_text, None, "The call was queued as a job; it has no result yet.")
+    except CommandFailed as e:
+        return _tool_error("bridge_error", f"Revit Bridge Error: {str(e)}", result=e.payload)
+    except ToolProfileBlocked as e:
+        return _tool_error("tool_profile_blocked", str(e))
+    except BridgeError as e:
+        return _tool_error("bridge_error", f"Revit Bridge Error: {str(e)}")
+    except Exception as e:
+        return _tool_error("execution_error", f"Error: {str(e)}")
 
+    return await _execute_and_present(name, provider, arguments, claim, gate, response_options, read_only)
+
+
+async def _execute_and_present(name, provider, arguments, claim, gate, response_options, read_only,
+                               follow_job: bool = False) -> list[TextContent] | CallToolResult:
+    """Run the tool, book the approval outcome and format the reply (direct calls and tasks)."""
+    cursor_ctx = _cursor_context(name, arguments, response_options) if read_only else None
+    try:
         # Execute the tool on the provider
         try:
             with authorized_module_execution(name):
@@ -222,6 +338,20 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
             gate_after(gate, claim, ok=False, error=str(e) or type(e).__name__)
             settle_in_flight(gate, name, arguments, error=e)
             raise
+        if follow_job:
+            # A task waits for the real outcome: a revit_run_job for its Revit job, and any task
+            # tool for a request the bridge answered as still running (revit_get_result). If the
+            # task is cancelled meanwhile, the action is booked as still running, never as failed.
+            def book_running(last: Any) -> None:
+                gate_after_result(gate, claim, name, last)
+
+            try:
+                if name == mcp_tasks.RUN_JOB_TOOL:
+                    result = await mcp_tasks.follow_revit_job(provider, result, book_running)
+                result = await mcp_tasks.follow_revit_result(_fetch_revit_result, name, result, book_running)
+            except CommandFailed as e:
+                gate_after(gate, claim, ok=False, error=str(e) or type(e).__name__)
+                raise
         if claim is None:
             settle_in_flight(gate, name, arguments, result=result)
         outcome = gate_after_result(gate, claim, name, result)
@@ -238,7 +368,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
                 f"Resume with {outcome.resume}. Do not repeat the call.\n\n"
                 f"Result:\n{result_json(redacted_result, response_options, project=False)}"
             )
-            return _text_only(name, text)
+            return _text_only(name, text, None, "The call is still running; it has no final result yet.")
 
         # Format the response
         body = result_json(
@@ -262,6 +392,8 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
             return CallToolResult(content=content, structuredContent=structured_for(name, _json_object(body)))
         return content
 
+    except InputNeeded:
+        raise  # call_tool asks the person or returns the plain refusal
     except CommandFailed as e:
         return _tool_error("bridge_error", f"Revit Bridge Error: {str(e)}", result=e.payload)
     except ToolProfileBlocked as e:
@@ -271,6 +403,48 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
 
     except Exception as e:
         return _tool_error("execution_error", f"Error: {str(e)}")
+
+
+async def _fetch_revit_result(request_id: str) -> Any:
+    """revit_get_result for a task that follows a running request (read-only, never re-runs)."""
+    provider = registry.lookup_tool_provider(GET_RESULT_TOOL)
+    if provider is None:
+        raise BridgeError(f"{GET_RESULT_TOOL} is not available to follow request {request_id}.")
+    return await provider.execute_tool(GET_RESULT_TOOL, {"request_id": request_id})
+
+
+def _call_writes(name: str, arguments: Any) -> bool:
+    """True unless this call provably cannot change the model (fails closed)."""
+    try:
+        return requires_approval(registry, name, registry.lookup_tool(name), arguments)
+    except Exception:
+        return True
+
+
+async def _start_task(name, provider, arguments, claim, gate, response_options, read_only, task_metadata):
+    """Queue an already-gated call as an MCP task and return its CreateTaskResult."""
+    async def work() -> CallToolResult:
+        reply = await _execute_and_present(
+            name, provider, arguments, claim, gate, response_options, read_only, follow_job=True,
+        )
+        return reply if isinstance(reply, CallToolResult) else CallToolResult(content=list(reply), isError=False)
+
+    def cancelled_before_start() -> None:
+        gate_after(gate, claim, ok=False, error="Task cancelled before it started; nothing ran.")
+
+    try:
+        return await task_bridge.start(
+            tool=name,
+            writes=_call_writes(name, arguments),
+            metadata=task_metadata,
+            scope=mcp_tasks.session_scope(app),
+            work=work,
+            on_cancel_before_start=cancelled_before_start,
+        )
+    except Exception as e:
+        # Nothing was queued, so nothing ran; the claimed action is booked as failed.
+        gate_after(gate, claim, ok=False, error=str(e) or type(e).__name__)
+        return _tool_error("execution_error", f"Error: the task could not be started: {str(e)}")
 
 
 _result_failed = result_failed
@@ -284,14 +458,15 @@ def _cursor_context(name: str, arguments: Any, options: dict) -> CursorContext:
     return CursorContext(name, cursor_binding(name, arguments, options.get("fields")), workspace)
 
 
-def _text_only(name: str, text: str) -> list[TextContent] | CallToolResult:
-    """A text answer with no structured output (queued job, still running).
+def _text_only(name: str, text: str, value: Any = None, reason: str = "") -> list[TextContent] | CallToolResult:
+    """A successful answer that is not the tool's result (queued job, still running, cursor page).
 
-    For a tool with an outputSchema it is returned as a CallToolResult, which the SDK passes
-    through as is; a bare content list would fail the SDK's output check."""
+    For a tool with an outputSchema it is a CallToolResult whose structuredContent is a fallback
+    object that validates (output_schemas.fallback_structured): SDK clients that validate reject a
+    reply from such a tool without structuredContent."""
     content = [TextContent(type="text", text=text)]
     if output_schema_for(name) is not None:
-        return CallToolResult(content=content)
+        return CallToolResult(content=content, structuredContent=fallback_structured(name, value, reason))
     return content
 
 
@@ -300,6 +475,17 @@ def _json_object(text: str) -> Any:
         return json.loads(text)
     except ValueError:
         return None
+
+
+def _count_call(name: str) -> None:
+    """Count one call of a listed tool by name only (usage_counts.py). Never fails the call."""
+    counter = getattr(registry, "usage_counter", None)
+    if counter is None:
+        return
+    try:
+        counter.record(name)
+    except Exception as exc:
+        logger.debug("Tool usage count skipped: %s", exc)
 
 
 def redact_data(value):
@@ -324,8 +510,14 @@ async def main():
     """Run the MCP server."""
     global registry, approval_provider, job_manager, workspace_monitor
     profile = load_tool_profile()  # fail invalid settings before provider construction
+    if profile.detail:
+        logger.info(profile.detail)
+    from .config import config
+    from .usage_counts import start_counter
+    counter = start_counter(config.workspace_dir)  # local file only; MCP_REVIT_USAGE_COUNTS=off disables
     registry, approval_provider, job_manager, _module_registry, workspace_monitor = build_registry()
     try:
+        registry.usage_counter = counter
         registry.freeze_tool_profile(profile)
         async with stdio_server() as (read_stream, write_stream):
             await app.run(
@@ -334,6 +526,7 @@ async def main():
                 app.create_initialization_options()
             )
     finally:
+        counter.flush()
         await job_manager.shutdown(cancel_running=True)
 
 def run_mcp_server():

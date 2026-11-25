@@ -1,0 +1,12 @@
+id: add-revision
+prompt: Add a new revision 'Issued for Tender' dated 2026-12-01.
+kind: write
+profile: full
+expected_tools:
+- [revit_add_revision]
+max_calls: 3
+plan_required: true
+forbidden_tools: [revit_execute_python, revit_raw_command, revit_reflect_set, revit_invoke_method]
+checker:
+  type: contains_any
+  values: [approv, plan]

@@ -1,0 +1,7 @@
+{"meta": {"expect": {"passed": true}, "note": "Find the room, one plan, execute."}}
+{"tool": "snapshot_take", "arguments": {}}
+{"tool": "snapshot_query", "arguments": {"snapshot_id": "01JEVALRECORDEDSNAPSHOT001", "filter": {"category": "OST_Rooms", "parameter": {"name": "Number", "value": "101"}}}}
+{"tool": "plan_actions", "arguments": {"actions": [{"tool": "revit_set_parameters", "arguments": {"items": [{"id": 400, "params": {"Number": "103"}}]}}]}}
+{"event": "human_approved", "plan_id": "plan_0123456789ab"}
+{"tool": "execute_plan", "arguments": {"plan_id": "plan_0123456789ab"}}
+{"answer": "You approved the plan: room Office 1 is now number 103."}

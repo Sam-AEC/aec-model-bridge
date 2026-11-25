@@ -137,7 +137,8 @@ def test_queued_job_for_schema_tool_is_not_an_sdk_error(server):
     result = asyncio.run(handler(request)).root
     assert not result.isError, result.content[0].text
     assert "queued successfully" in result.content[0].text
-    assert result.structuredContent is None
+    jsonschema.validate(instance=result.structuredContent, schema=OUTPUT_SCHEMAS["revit_get_context"])
+    assert "queued" in result.structuredContent["structured_fallback"]["reason"]
 
 
 def test_tools_without_schema_keep_plain_text_results(server):
@@ -146,12 +147,72 @@ def test_tools_without_schema_keep_plain_text_results(server):
     assert result[0].text.startswith("✓ revit_list_views executed successfully")
 
 
-def test_value_that_does_not_match_is_left_out():
-    assert structured_for("snapshot_query", {"snapshot_id": 5}) is None
-    assert structured_for("snapshot_query", ["not", "an", "object"]) is None
+def test_value_that_does_not_match_gets_a_valid_fallback():
+    bad = structured_for("snapshot_query", {"snapshot_id": 5, "extra": "kept"})
+    jsonschema.validate(instance=bad, schema=OUTPUT_SCHEMAS["snapshot_query"])
+    assert bad["extra"] == "kept" and bad["snapshot_id"] == ""
+    assert bad["structured_fallback"]["filled"] == ["snapshot_id", "matches_count", "elements"]
+    listed = structured_for("snapshot_query", ["not", "an", "object"])
+    jsonschema.validate(instance=listed, schema=OUTPUT_SCHEMAS["snapshot_query"])
+    assert listed["result"] == ["not", "an", "object"]
     assert structured_for("revit_list_views", {"views": []}) is None
     good = {"snapshot_id": "s", "matches_count": 0, "elements": []}
     assert structured_for("snapshot_query", good) == good
+
+
+def test_fallback_keeps_valid_keys_and_fills_nested_required():
+    value = {"ok": True, "tool": "revit_get_context", "server": {"dev_mode": "yes"}, "warnings": "no"}
+    out = structured_for("revit_get_context", value)
+    jsonschema.validate(instance=out, schema=OUTPUT_SCHEMAS["revit_get_context"])
+    assert out["ok"] is True and out["tool"] == "revit_get_context"
+    assert out["server"] == {"approval_mode": "", "plans_required": False}
+    assert set(out["structured_fallback"]["filled"]) == {"server.approval_mode", "server.plans_required"}
+    assert set(out["structured_fallback"]["dropped"]) == {"server.dev_mode", "warnings"}
+
+
+@pytest.mark.parametrize("name", sorted(OUTPUT_SCHEMAS))
+def test_every_schema_allows_extra_keys_and_has_a_valid_empty_fallback(name):
+    schema = OUTPUT_SCHEMAS[name]
+    assert schema.get("additionalProperties") is True
+    for value in ({}, None, [], "text", {"unexpected": {"shape": 1}}):
+        jsonschema.validate(instance=structured_for(name, value), schema=schema)
+
+
+def test_sdk_client_accepts_a_result_that_does_not_match_the_schema(server, monkeypatch):
+    """Through the SDK's in-memory client session, which validates structuredContent against the
+    advertised outputSchema: an unexpected result shape, a queued job and a cursor-less reply do not
+    raise in the client."""
+    import anyio
+    from mcp.shared.memory import create_connected_server_and_client_session
+
+    provider = server.lookup_tool_provider("search_tools")
+    real = provider.execute_tool
+
+    async def odd(name, arguments):
+        if name == "search_tools":
+            return {"matched": "many", "surprise": [1, 2]}
+        return await real(name, arguments)
+
+    monkeypatch.setattr(provider, "execute_tool", odd)
+    # A JobManager binds to the first event loop that uses it; this test runs its own loop.
+    from revit_mcp_server.jobs import JobManager
+
+    monkeypatch.setattr(mcp_server, "job_manager", JobManager())
+
+    async def run():
+        async with create_connected_server_and_client_session(mcp_server.app) as client:
+            odd_reply = await client.call_tool("search_tools", {"query": "wall"})
+            queued = await client.call_tool("revit_get_context", {"run_async": True})
+            normal = await client.call_tool("snapshot_take", {})
+            return odd_reply, queued, normal
+
+    odd_reply, queued, normal = anyio.run(run)
+    assert not odd_reply.isError
+    assert odd_reply.structuredContent["surprise"] == [1, 2]
+    assert odd_reply.structuredContent["structured_fallback"]["filled"] == ["matched", "tools"]
+    assert '"matched": "many"' in odd_reply.content[0].text or '"matched":"many"' in odd_reply.content[0].text
+    assert not queued.isError and "structured_fallback" in queued.structuredContent
+    assert not normal.isError and "structured_fallback" not in normal.structuredContent
 
 
 def test_failed_call_keeps_error_result(server):

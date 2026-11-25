@@ -572,7 +572,7 @@
           },
           "path": {
             "type": "string",
-            "description": "Output file; its extension must match the format and it must lie inside the allowed workspace directories."
+            "description": "Output file; its extension must match the format and it must lie inside the allowed workspace directories. Required; a client that supports elicitation is asked for a file name when it is missing."
           },
           "sheets": {
             "type": "array",
@@ -624,8 +624,7 @@
           }
         },
         "required": [
-          "format",
-          "path"
+          "format"
         ]
       },
       "surface": [

@@ -97,6 +97,9 @@ Twenty read tools advertise an MCP `outputSchema` (`src/revit_mcp_server/output_
 | `core` | 57 | 59,612 | 63,522 | 14,903 | 15,881 |
 
 The schemas add about 1,000 tokens in every profile (1.2% of full, 6.6% of core); 19 of the 20 tools are visible in `core` (all but `module_list_commands`). A successful call to one of these tools now carries its result twice: as text (unchanged) and as `structuredContent`. A client that passes only one of them to the model sees no change in response cost.
+
+Every schema object now states `"additionalProperties": true` (about 30 characters per object, under 300 tokens in total; the table above predates it). Every successful reply of these tools carries `structuredContent`, because the Python SDK client rejects a reply without it. When a result does not match its schema, or the reply is a queued job, a call still running or a cursor page, the server sends a fallback object that validates: the result keys that match, required keys filled with empty values of their type, and `structured_fallback` with the reason and the filled and dropped keys. The text content holds the full result.
+
 ## Follow-up: deferred loading and the always-loaded set
 
 A client with tool search can defer this server and keep a short always-loaded set: `ALWAYS_LOADED_TOOLS` in `tool_profiles.py` (`revit_get_context`, `snapshot_take`, `snapshot_compute`, `search_tools`, `context_report`, `plan_actions`, `execute_plan`, `list_pending_plans`). Setup: [deferred tool loading](deferred-tool-loading.md).
@@ -114,6 +117,10 @@ Same method as above (mock mode, chars / 4 over `list_tools`), with 312 tools, a
 With the Claude API tool search tool, deferred definitions are not in the prompt until a search returns them, so the startup cost is the always-loaded row plus the search tool itself. Claude Code lists the names of deferred tools at session start; the last row estimates that from names-only JSON (7,772 characters for all 312 names) and is not a measurement of Claude Code's own prompt. Neither row was measured in a live client. Server instructions (about 345 tokens) are sent in every setup.
 
 Reproduce: `python scripts/measure_mcp_tokens.py --always-loaded --output always-loaded.json`, and `--profile full|daily|core` for the other rows. `--only-tools a,b,c` measures any other subset.
+
+## Follow-up: the `learned` profile
+
+`MCP_REVIT_TOOL_PROFILE=learned` lists `core`, the always-loaded set and the 25 most used tools of the last 30 days from local usage counts, so a list fits what one person actually calls. It falls back to `daily` with fewer than 50 counted calls. `context_report` shows the most used tools and suggests `learned` when it would list at most 75% of the current list. Details and privacy: [learned profile](learned-profile.md).
 
 ## What dominates?
 

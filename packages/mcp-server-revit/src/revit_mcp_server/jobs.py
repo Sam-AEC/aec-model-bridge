@@ -350,6 +350,31 @@ class JobManager:
             self._mark_terminal_locked(record)
             return record.snapshot()
 
+    async def cancel_if_queued(self, job_id: str) -> tuple[JobReference | None, bool]:
+        """Cancel a job only if it has not started; returns (snapshot, cancelled).
+
+        The check and the cancel happen under one lock, and _run_job checks the
+        status under the same lock before it calls the job function, so a job
+        that this method cancels never starts, and a started job is never cancelled.
+        """
+        self._ensure_loop()
+        async with self._lock:
+            self._prune_locked()
+            record = self._jobs.get(job_id)
+            if record is None:
+                return None, False
+            if record.status != JobStatus.queued:
+                return record.snapshot(), False
+            record.cancel_event.set()
+            record.status = JobStatus.cancelled
+            record.finished_at = _utc_now()
+            record.updated_at = record.finished_at
+            task = record.task
+            if task is not None and not task.done():
+                task.cancel()
+            self._mark_terminal_locked(record)
+            return record.snapshot(), True
+
     async def update_progress(
         self,
         job_id: str,

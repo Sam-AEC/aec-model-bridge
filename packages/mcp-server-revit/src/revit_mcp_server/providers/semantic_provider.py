@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import copy
 import json
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Set
 import uuid
 
+from revit_mcp_server.elicitation import MAX_OPTIONS, InputNeeded, close_matches
 from revit_mcp_server.errors import BridgeError
 from revit_mcp_server.providers.base import AECProvider, ProviderTool
 from revit_mcp_server.security.safe_paths import safe_child, snapshot_file
@@ -16,6 +18,14 @@ from revit_mcp_server.semantic.models import Snapshot
 QUERIES_DIRNAME = "queries"
 QUERY_NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
 MAX_QUERY_BYTES = 256_000
+LEVEL_CATEGORIES = ("OST_Levels", "Levels")
+# A dotted path that ends in a parameter: 'params.Mark', 'host.params.Fire Rating', 'type.params.Width'.
+# A field path that names a parameter. semantic.compute.get_path splits paths on '.', so the
+# parameter name is the one segment after 'params.'; a suffix such as '.v' or '.storage'
+# reads a field of the parameter record and is not part of the name.
+PARAM_PATH_RE = re.compile(r"^(?:[A-Za-z_][A-Za-z0-9_]*\.)*params\.([^.]+)(?:\..*)?$")
+# Keys whose string values are names or literals, not field paths.
+_NOT_PATH_KEYS = {"name", "as", "value", "from", "test", "op"}
 
 class SemanticProvider(AECProvider):
     def __init__(self, workspace: WorkspaceMonitor, registry: Any = None):
@@ -91,6 +101,11 @@ class SemanticProvider(AECProvider):
                                 "family": {"type": "string"},
                                 "type_name": {"type": "string"},
                                 "level_uid": {"type": "string"},
+                                "level": {
+                                    "type": "string",
+                                    "description": "Level name. It must match one level exactly; otherwise the "
+                                                   "call is refused with the close names (or the person is asked).",
+                                },
                                 "placed": {"type": "boolean"},
                                 "parameter": {
                                     "type": "object",
@@ -255,6 +270,11 @@ class SemanticProvider(AECProvider):
         filter_dsl = arguments["filter"]
         
         snapshot = self._load_snapshot(snapshot_id)
+        if isinstance(filter_dsl, dict):
+            filter_dsl = _resolve_level_filter(snapshot, filter_dsl)
+            param = filter_dsl.get("parameter")
+            if isinstance(param, dict) and isinstance(param.get("name"), str):
+                _check_parameter("snapshot_query", param["name"], _param_names([snapshot]), _with_query_parameter)
         elements = engine.snapshot_query(snapshot, filter_dsl)
         
         return {
@@ -310,6 +330,7 @@ class SemanticProvider(AECProvider):
                 raise QueryError("params fill a saved query; pass query with them")
             elif steps is None:
                 raise QueryError("pass steps, or query with the name of a saved query")
+            self._check_pipeline_parameters(snapshot, steps, return_step, query is not None, load_link)
             return run_pipeline(
                 snapshot,
                 steps,
@@ -319,6 +340,39 @@ class SemanticProvider(AECProvider):
             )
         except QueryError as exc:
             raise BridgeError(f"snapshot_compute refused the pipeline: {exc}") from exc
+
+    def _check_pipeline_parameters(self, snapshot: Snapshot, steps: Any, return_step: Any, saved: bool,
+                                   load_link: Any) -> None:
+        """InputNeeded when a step names a parameter that no element or type has, and close names exist."""
+        refs = _param_refs(steps)
+        if not refs:
+            return
+        snapshots = [snapshot]
+        for link_id in _link_ids(steps):
+            try:
+                snapshots.append(load_link(link_id))
+            except Exception:
+                pass  # run_pipeline reports a bad link itself
+        known = _param_names(snapshots)
+        resolved = copy.deepcopy(steps)
+        for name in refs:
+            if name in known:
+                continue
+
+            def apply(args: Dict[str, Any], chosen: str, bad: str = name) -> Dict[str, Any]:
+                new = copy.deepcopy(args)
+                if saved:
+                    # The saved query's steps run inline, with the parameter replaced.
+                    new.pop("query", None)
+                    new.pop("params", None)
+                    new["steps"] = _replace_param(resolved, bad, chosen)
+                    if return_step is not None:
+                        new["return"] = return_step
+                else:
+                    new["steps"] = _replace_param(new.get("steps"), bad, chosen)
+                return new
+
+            _check_parameter("snapshot_compute", name, known, apply)
 
     def _read_query(self, name: Any) -> Any:
         """Parsed JSON of <workspace>/queries/<name>.json. QueryError when missing or invalid."""
@@ -358,3 +412,138 @@ class SemanticProvider(AECProvider):
 
     async def shutdown(self) -> None:
         pass
+
+
+# ------------------------------------------------- missing or ambiguous inputs
+
+
+def _level_name(el: Any) -> str:
+    return el.name or el.type_name or ""
+
+
+def _resolve_level_filter(snapshot: Snapshot, filter_dsl: Dict[str, Any]) -> Dict[str, Any]:
+    """Turn filter.level (a name) into filter.level_uid. One exact match only; never a guess."""
+    if "level" not in filter_dsl:
+        return filter_dsl
+    wanted = filter_dsl.get("level")
+    if not isinstance(wanted, str) or not wanted.strip():
+        raise BridgeError("snapshot_query: filter.level must be a level name")
+    if filter_dsl.get("level_uid") is not None:
+        raise BridgeError("snapshot_query: pass filter.level or filter.level_uid, not both")
+    levels = [el for el in snapshot.elements if el.category in LEVEL_CATEGORIES and _level_name(el)]
+    exact = [el for el in levels if _level_name(el) == wanted]
+    if len(exact) == 1:
+        out = {k: v for k, v in filter_dsl.items() if k != "level"}
+        out["level_uid"] = exact[0].uid
+        return out
+    if not levels:
+        raise BridgeError(f"snapshot_query: no level named '{wanted}'; the snapshot has no levels")
+    needle = wanted.strip().casefold()
+    candidates = exact or [
+        el for el in levels if needle in _level_name(el).casefold() or _level_name(el).casefold() in needle
+    ] or levels  # none is close: offer every level
+    if len(candidates) > MAX_OPTIONS:
+        shown = ", ".join(f"'{_level_name(el)}'" for el in levels[:20])
+        raise BridgeError(
+            f"snapshot_query: level '{wanted}' does not match one level exactly. Levels include {shown}. "
+            "Call again with filter.level set to one exact name, or filter.level_uid."
+        )
+    names = [_level_name(el) for el in candidates]
+    labels = [f"{n} [{el.uid}]" if names.count(n) > 1 else n for n, el in zip(names, candidates)]
+    by_label = dict(zip(labels, (el.uid for el in candidates)))
+    what = "matches several levels" if len(candidates) > 1 else "does not match a level exactly"
+    refusal = (
+        f"snapshot_query: level '{wanted}' {what}: " + ", ".join(f"'{label}'" for label in labels)
+        + ". Call again with filter.level set to one exact name, or filter.level_uid."
+    )
+
+    def apply(args: Dict[str, Any], chosen: str) -> Dict[str, Any]:
+        new = copy.deepcopy(args)
+        flt = {k: v for k, v in (new.get("filter") or {}).items() if k != "level"}
+        flt["level_uid"] = by_label[chosen]
+        new["filter"] = flt
+        return new
+
+    raise InputNeeded(
+        refusal,
+        question=f"Level '{wanted}' {what} in snapshot {snapshot.snapshot_id}. Which level do you mean?",
+        field="level", title="Level", options=labels, apply=apply,
+    )
+
+
+def _param_names(snapshots: List[Snapshot]) -> Set[str]:
+    names: Set[str] = set()
+    for snap in snapshots:
+        for el in snap.elements:
+            names.update(el.params)
+        for t in snap.types:
+            names.update(t.params)
+    return names
+
+
+def _check_parameter(tool: str, name: str, known: Set[str], apply: Any) -> None:
+    """InputNeeded when ``name`` is unknown and close names exist. Unknown with no close name: no change."""
+    if name in known:
+        return
+    near = close_matches(name, sorted(known))
+    if not near:
+        return
+    refusal = (
+        f"{tool}: no element or type in the snapshot has a parameter named '{name}'. Close names: "
+        + ", ".join(f"'{n}'" for n in near) + ". Call again with the exact parameter name."
+    )
+    raise InputNeeded(
+        refusal,
+        question=f"No parameter is named '{name}' in the snapshot. Which parameter do you mean?",
+        field="parameter", title="Parameter", options=near, apply=apply,
+    )
+
+
+def _with_query_parameter(args: Dict[str, Any], chosen: str) -> Dict[str, Any]:
+    new = copy.deepcopy(args)
+    new["filter"]["parameter"]["name"] = chosen
+    return new
+
+
+def _param_refs(node: Any, out: Optional[List[str]] = None) -> List[str]:
+    """Parameter names named by field paths in a pipeline, in order, without repeats."""
+    out = [] if out is None else out
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if k in _NOT_PATH_KEYS and not isinstance(v, dict):
+                continue
+            _param_refs(v, out)
+    elif isinstance(node, list):
+        for item in node:
+            _param_refs(item, out)
+    elif isinstance(node, str):
+        m = PARAM_PATH_RE.match(node)
+        if m and m.group(1) not in out:
+            out.append(m.group(1))
+    return out
+
+
+def _replace_param(node: Any, bad: str, chosen: str) -> Any:
+    if isinstance(node, dict):
+        return {
+            k: (v if k in _NOT_PATH_KEYS and not isinstance(v, dict) else _replace_param(v, bad, chosen))
+            for k, v in node.items()
+        }
+    if isinstance(node, list):
+        return [_replace_param(item, bad, chosen) for item in node]
+    if isinstance(node, str):
+        m = PARAM_PATH_RE.match(node)
+        if m and m.group(1) == bad:
+            return node[: m.start(1)] + chosen + node[m.end(1):]
+    return node
+
+
+def _link_ids(steps: Any) -> List[str]:
+    from revit_mcp_server.semantic.compute import LINK_PREFIX
+
+    ids: List[str] = []
+    for step in steps if isinstance(steps, list) else []:
+        src = step.get("from") if isinstance(step, dict) else None
+        if isinstance(src, str) and src.startswith(LINK_PREFIX) and src[len(LINK_PREFIX):] not in ids:
+            ids.append(src[len(LINK_PREFIX):])
+    return ids

@@ -1,0 +1,13 @@
+id: door-param-completeness
+prompt: Which door parameters are poorly filled in?
+kind: read
+profile: full
+expected_tools:
+- [param_completeness_heatmap]
+max_calls: 2
+plan_required: false
+forbidden_tools: [revit_execute_python, revit_raw_command]
+checker:
+  type: contains_any
+  values: [100%, 100 %, all filled, fully filled]
+notes: Every door parameter in the mock data is 100% filled, so the right answer is that none are.

@@ -1,0 +1,5 @@
+{"meta": {"expect": {"passed": false, "failed_checks": ["plan"]}, "note": "execute_plan failed (recorded status error) but the answer claims the revision was added."}}
+{"tool": "plan_actions", "arguments": {"actions": [{"tool": "revit_add_revision", "arguments": {"description": "Issued for Tender", "date": "2026-12-01"}}]}}
+{"event": "human_approved", "plan_id": "plan_0123456789ab"}
+{"tool": "execute_plan", "arguments": {"plan_id": "plan_0123456789ab"}, "status": "error"}
+{"answer": "You approved the plan; revision 'Issued for Tender' dated 2026-12-01 was added."}

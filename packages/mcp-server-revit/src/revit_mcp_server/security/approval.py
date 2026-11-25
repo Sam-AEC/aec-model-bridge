@@ -14,12 +14,15 @@ from pathlib import Path
 from typing import Callable, Dict, Any, Iterator, List, Optional, Tuple
 from ..config import APPROVAL_MODES, config, normalize_approval_mode  # noqa: F401 (re-exported)
 from ..errors import BridgeError
+from . import approval_signing as signing_mod
 from . import binding as binding_mod
+from . import file_binding
 from . import proof as proof_mod
 from .approval_override import active_override
 from .dev_mode import active_dev, audit_dev_event
 from .recipe_store import RecipeStore, standing_authorizes
 from .safe_paths import PLAN_ID_RE, safe_child
+from .workspace import WorkspaceMonitor
 
 logger = logging.getLogger(__name__)
 
@@ -240,6 +243,9 @@ class ApprovalGate:
         self.binding_probe: Optional[Callable[[], Any]] = None
         self.override_token: Optional[str] = None  # tests; normally read from the panel token file
         self.approval_mode = approval_mode
+        # Workspace check for files whose content is bound to a plan (file_binding.py). The
+        # provider wiring sets the server's monitor; the default allows only the plan workspace.
+        self.workspace_monitor: WorkspaceMonitor = WorkspaceMonitor([workspace_dir])
         self.plans_dir = workspace_dir / "plans"
         self.plans_dir.mkdir(parents=True, exist_ok=True)
 
@@ -365,6 +371,8 @@ class ApprovalGate:
         older, unbound format. ``extra`` is metadata only: it is NOT
         hashed and must not be presented as approved content (see proof.unhashed_metadata_keys)."""
         self.validate_actions(actions)
+        # A file a tool reads at run time is bound by its sha256 in the hashed arguments.
+        actions = file_binding.bind_actions(actions, self.workspace_monitor)
         if proof_mod.has_nonfinite_float(actions) or proof_mod.has_nonfinite_float(review):
             raise BridgeError("A plan cannot hold NaN or Infinity.")
         reserved = sorted(k for k in (extra or {}) if k in _RESERVED_EXTRA_KEYS)
@@ -565,6 +573,11 @@ class ApprovalGate:
                 plan["approved_hash"] = now_hash
                 plan["approved_via"] = via
                 plan["approved_by"] = str(approver) if approver else local_user()
+                # Every channel approves through here, so every approval is signed (issue #313).
+                try:
+                    signing_mod.sign_plan(self.plans_dir, plan)
+                except signing_mod.ApprovalKeyError as e:
+                    raise ValueError(f"{e} The plan was not approved.") from None
             elif state == "rejected":
                 plan["rejected_at"] = now
                 if current == "approved":
@@ -611,9 +624,9 @@ class ApprovalGate:
         if expired:
             raise ApprovalExpired(expired)
 
-    @staticmethod
-    def _verify_unchanged_since_approval(plan: Dict[str, Any]) -> None:
-        """Refuse unless the plan still hashes to what a person approved (any state)."""
+    def _verify_unchanged_since_approval(self, plan: Dict[str, Any]) -> None:
+        """Refuse unless the plan still hashes to what a person approved (any state) and its
+        approval record carries a signature that verifies (issue #313; unsigned fails closed)."""
         plan_id = plan.get("plan_id")
         approved = plan.get("approved_hash")
         try:
@@ -625,6 +638,7 @@ class ApprovalGate:
                 f"Plan '{plan_id}' changed after it was approved (or has no approval record). Execution blocked; "
                 "draft a new plan and ask the person to approve it."
             )
+        signing_mod.require_signed(self.plans_dir, plan)
 
     @contextlib.contextmanager
     def reuse_binding_probe(self, max_age_s: float = BINDING_PROBE_REUSE_S):
@@ -671,6 +685,12 @@ class ApprovalGate:
                 f"document is {live.get('doc_title')!r} ({'; '.join(differs)}). Nothing ran. Open the right model "
                 "or draft a new plan for this one; a person must approve it again."
             )
+
+    def verify_bound_files(self, plan: Dict[str, Any]) -> None:
+        """Refuse when a file bound to an open action of ``plan`` no longer matches its approved digest."""
+        for action in plan.get("actions", []):
+            if action.get("state") in OPEN_ACTION_STATES:
+                file_binding.verify_action(action.get("tool"), action.get("arguments"), self.workspace_monitor)
 
     def check_tool_execution(self, tool_name: str, arguments: Dict[str, Any]) -> None:
         """Read-only check that a call is covered by an approved, unchanged plan.
@@ -769,10 +789,12 @@ class ApprovalGate:
                 # Dev permits unplanned calls; a supplied plan must still be
                 # approved, unchanged and consumed at most once.
                 return self._claim(plan_id, tool_name, arguments)
-            try:  # gate off: keep the plan bookkeeping when we can, never block
+            try:  # gate off: keep the plan bookkeeping when we can
                 return self._claim(plan_id, tool_name, arguments)
             except BridgeError:
-                return None
+                # The approval checks do not block in Auto, but the claim markers still do:
+                # an action of this plan runs at most once in every mode (issue #314).
+                return self._auto_claim(plan_id, tool_name, arguments)
         if not plan_id:
             raise BridgeError(f"Approval mode is enabled. Mutating tool '{tool_name}' requires a valid 'plan_id' parameter.")
         return self._claim(plan_id, tool_name, arguments)
@@ -801,6 +823,8 @@ class ApprovalGate:
                     raise self._no_action_error(plan_id, tool_name)
                 action_id = action.get("action_id")
                 tried.add(action_id)
+                # Before consuming: a changed bound file refuses the call and leaves the action open.
+                file_binding.verify_action(tool_name, action.get("arguments"), self.workspace_monitor)
                 marker = self._claim_marker(plan_id, action_id)
                 marker.parent.mkdir(parents=True, exist_ok=True)
                 try:
@@ -814,6 +838,48 @@ class ApprovalGate:
             action["claimed_at"] = datetime.now(timezone.utc).isoformat()
             self.save_plan(plan)
         return {"plan_id": plan_id, "action_id": action_id}
+
+    def _auto_claim(self, plan_id: Any, tool_name: str, arguments: Any) -> Optional[Dict[str, str]]:
+        """Auto mode (timed or configured, not Dev) for a call that carries a plan_id the full
+        claim refused. The approval checks are off, but the claim markers are not: a matching
+        action is claimed with the same O_EXCL marker, and a call whose every matching action was
+        already consumed is refused, whatever the action state on disk says. Returns None when the
+        plan does not exist or holds no action for this call (an unplanned call, allowed in Auto)."""
+        try:
+            validate_plan_id(plan_id)
+        except BridgeError:
+            return None
+        wanted = canonical_arguments(arguments)
+        with self._plan_lock(plan_id):
+            try:
+                plan = self.load_plan(plan_id)
+            except BridgeError:
+                plan = None
+            actions = plan.get("actions") if isinstance(plan, dict) else None
+            matching = [a for a in actions if isinstance(a, dict) and a.get("tool") == tool_name
+                        and canonical_arguments(a.get("arguments", {})) == wanted] if isinstance(actions, list) else []
+            if not matching:
+                return None
+            for action in matching:
+                if action.get("state") not in OPEN_ACTION_STATES:
+                    continue
+                action_id = action.get("action_id")
+                marker = self._claim_marker(plan_id, action_id)
+                marker.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    fd = os.open(str(marker), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+                except FileExistsError:
+                    continue  # consumed earlier; its recorded state is not trusted
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    f.write(datetime.now(timezone.utc).isoformat())
+                action["state"] = "running"
+                action["claimed_at"] = datetime.now(timezone.utc).isoformat()
+                self.save_plan(plan)
+                return {"plan_id": plan_id, "action_id": action_id}
+        raise BridgeError(
+            f"Plan '{plan_id}' already ran this '{tool_name}' action. An action runs at most once, in every "
+            "approval mode. Nothing ran. Draft a new plan for this change."
+        )
 
     def finish_action(self, claim: Optional[Dict[str, str]], ok: bool, error: Optional[str] = None,
                       only_if_running: bool = False) -> Optional[Dict[str, Any]]:

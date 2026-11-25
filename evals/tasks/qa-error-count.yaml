@@ -1,0 +1,10 @@
+id: qa-error-count
+prompt: Run the standard QA checks and tell me how many errors there are.
+kind: read
+profile: core
+expected_tools:
+- [qaqc_checker_run_check]
+max_calls: 2
+plan_required: false
+forbidden_tools: [revit_execute_python, revit_raw_command]
+checker: {type: number, value: 1}

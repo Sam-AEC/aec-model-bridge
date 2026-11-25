@@ -301,8 +301,16 @@ def test_cursor_page_for_a_tool_with_an_output_schema_is_a_call_tool_result():
     from revit_mcp_server.output_schemas import output_schema_for
 
     assert output_schema_for("snapshot_compute") is not None
-    answer = mcp_server._text_only("snapshot_compute", "✓ snapshot_compute next part")
-    assert isinstance(answer, CallToolResult) and answer.structuredContent is None
+    import jsonschema
+
+    from revit_mcp_server.output_schemas import OUTPUT_SCHEMAS
+
+    answer = mcp_server._text_only("snapshot_compute", "✓ snapshot_compute next part", {"rows": [1]}, "page")
+    assert isinstance(answer, CallToolResult) and not answer.isError
+    # The SDK client also rejects a reply without structuredContent, so a valid fallback is sent.
+    jsonschema.validate(instance=answer.structuredContent, schema=OUTPUT_SCHEMAS["snapshot_compute"])
+    assert answer.structuredContent["rows"] == [1]
+    assert answer.structuredContent["structured_fallback"]["reason"] == "page"
 
 
 def test_strict_read_tools_accept_a_cursor_in_their_input_schema():

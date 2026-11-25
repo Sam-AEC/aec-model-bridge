@@ -1,0 +1,3 @@
+{"meta": {"expect": {"passed": true}, "note": "revit_list_views_sheets_schedules."}}
+{"tool": "revit_list_views_sheets_schedules", "arguments": {}}
+{"answer": "Mock mode returned no views or sheets, so this cannot be answered here. In a live model this tool shows which views are on sheets."}

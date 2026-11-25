@@ -9,6 +9,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import math
+import os
 import re
 import sys
 from pathlib import Path
@@ -16,12 +17,14 @@ from pathlib import Path
 import httpx
 import pytest
 
+from revit_mcp_server.elicitation import EXPORT_PATH_TOOLS
 from revit_mcp_server.bridge import contract_generated as contract
 from revit_mcp_server.bridge.client import VALIDATE_ENV, BridgeClient
 from revit_mcp_server.bridge.contract_validate import payload_problems
 from revit_mcp_server.config import BridgeMode
-from revit_mcp_server.errors import BridgeContractError, SchemaValidationError
+from revit_mcp_server.errors import BridgeContractError, SchemaValidationError, WorkspaceViolation
 from revit_mcp_server.providers.revit import RevitProvider
+from revit_mcp_server.security import file_binding
 from revit_mcp_server.security.workspace import WorkspaceMonitor
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -131,21 +134,15 @@ def test_every_command_the_provider_sends_is_in_the_contract(tmp_path) -> None:
     assert sent - set(contract.COMMANDS) == set()
 
 
-# Tools whose payload builder does not produce what the add-in reads, found while seeding the contract.
-# The add-in fails on these payloads today; the client now refuses them before sending. Fixing a builder
-# removes its name from this list.
-KNOWN_BUILDER_MISMATCH_FULL_ARGS = {
-    "revit_batch_create_sheets_from_csv", "revit_batch_set_parameters", "revit_create_floor_plan_view",
-    "revit_create_project_parameter", "revit_create_shared_parameter", "revit_create_sheet",
-    "revit_duplicate_sheet", "revit_export_dwg", "revit_renumber_sheets", "revit_set_type_parameter",
-}
-KNOWN_BUILDER_MISMATCH_REQUIRED_ONLY = KNOWN_BUILDER_MISMATCH_FULL_ARGS | {
-    "revit_create_tag", "revit_create_text_note", "revit_edit_family", "revit_place_door",
-    "revit_place_window", "revit_set_element_material",
-}
+# Tools whose payload builder does not produce what the add-in reads. Fixing a builder removes its name
+# from this list; keep it empty. The client refuses a listed tool's payload before sending.
+KNOWN_BUILDER_MISMATCH_FULL_ARGS: set[str] = set()
+KNOWN_BUILDER_MISMATCH_REQUIRED_ONLY: set[str] = set()
+
+SAMPLE_CSV = "sheet_number,sheet_name\nA101,Plan\nA102,Section\n"
 
 
-def _sample(schema: dict, name: str, folder: Path):
+def _sample(schema: dict, name: str, folder: Path, index: int = 0):
     kind = schema.get("type")
     kind = kind[0] if isinstance(kind, list) else kind
     if "enum" in schema:
@@ -153,35 +150,264 @@ def _sample(schema: dict, name: str, folder: Path):
     if kind == "string":
         if "path" in name or "directory" in name:
             return str(folder / "out.dat")
-        return "walls" if "categor" in name else "x"
+        return "walls" if "categor" in name else f"x{index}" if index else "x"
     if kind == "integer":
-        return 1
+        return 1 + index
     if kind == "number":
         return 1.5
     if kind == "boolean":
         return True
     if kind == "array":
-        return [_sample(schema.get("items", {}), name, folder) for _ in range(3)]
+        return [_sample(schema.get("items", {}), name, folder, i) for i in range(3)]
     if kind == "object":
-        return {k: _sample(v, k, folder) for k, v in schema.get("properties", {}).items()}
+        return {k: _sample(v, k, folder, index) for k, v in schema.get("properties", {}).items()}
     return "x"
+
+
+def _sample_keys(schema: dict, required_only: bool) -> list[str]:
+    """Keys of one valid call: oneOf/anyOf take their first branch; oneOf drops the other branches' keys."""
+    props = schema.get("properties", {})
+    branches = schema.get("oneOf") or schema.get("anyOf") or []
+    first = branches[0].get("required", []) if branches else []
+    if required_only:
+        return list(dict.fromkeys([*schema.get("required", []), *first]))
+    others = {k for b in schema.get("oneOf", [])[1:] for k in b.get("required", [])} - set(first)
+    return [k for k in props if k not in others]
 
 
 @pytest.mark.parametrize("required_only", [False, True], ids=["all-args", "required-args"])
 def test_provider_payload_builders_against_the_contract(tmp_path, required_only) -> None:
+    (tmp_path / "out.dat").write_text(SAMPLE_CSV, encoding="utf-8", newline="")  # read by the CSV sheet builder
     provider = RevitProvider(workspace=WorkspaceMonitor([tmp_path]), mode=BridgeMode.mock)
     schemas = {t.name: t.input_schema for t in provider.get_capabilities()}
     mismatched = set()
     for tool, (bridge, builder) in provider._tool_mapping.items():
         if not bridge or contract.COMMANDS[bridge]["params"] == contract.UNCHECKED:
             continue
-        props = schemas.get(tool, {}).get("properties", {})
-        keys = schemas.get(tool, {}).get("required", []) if required_only else list(props)
-        payload = builder({k: _sample(props[k], k, tmp_path) for k in keys})
+        schema = schemas.get(tool, {})
+        props = schema.get("properties", {})
+        keys = _sample_keys(schema, required_only)
+        path_key = EXPORT_PATH_TOOLS.get(tool, (None,))[0]
+        if path_key and path_key in props and path_key not in keys:
+            # Not in the schema's required list so the MCP layer can ask for it (elicitation), but a
+            # call always reaches the builder with it set.
+            keys.append(path_key)
+        args = {k: _sample(props[k], k, tmp_path) for k in keys}
+        if "csv_sha256" in args:  # set by the server in plan_actions: the digest of the CSV it read
+            args["csv_sha256"] = file_binding.digest(SAMPLE_CSV.encode("utf-8"))
+        payload = builder(args)
         if payload_problems(contract.COMMANDS[bridge]["params"], payload, contract.DEFS):
             mismatched.add(tool)
     expected = KNOWN_BUILDER_MISMATCH_REQUIRED_ONLY if required_only else KNOWN_BUILDER_MISMATCH_FULL_ARGS
     assert mismatched == expected
+
+
+# ---------------------------------------------------------------- the 16 builders fixed against the contract
+
+
+@pytest.fixture
+def build(tmp_path):
+    provider = RevitProvider(workspace=WorkspaceMonitor([tmp_path]), mode=BridgeMode.mock)
+
+    def run(tool: str, args: dict) -> dict:
+        bridge, builder = provider._tool_mapping[tool]
+        payload = builder(args)
+        assert payload_problems(contract.COMMANDS[bridge]["params"], payload, contract.DEFS) == [], payload
+        assert None not in payload.values(), f"{tool} sent a null optional key: {payload}"
+        return payload
+
+    run.provider = provider
+    return run
+
+
+def test_create_sheet_payload(build) -> None:
+    assert build("revit_create_sheet", {"name": "Plan", "number": "A101"}) == {"sheet_number": "A101", "sheet_name": "Plan"}
+    full = build("revit_create_sheet", {"name": "Plan", "number": "A101", "titleblock_name": "A1 metric"})
+    assert full["titleblock_name"] == "A1 metric"
+
+
+def test_create_sheet_refuses_titleblock_id(build) -> None:
+    with pytest.raises(ValueError, match="titleblock_name"):
+        build("revit_create_sheet", {"name": "Plan", "number": "A101", "titleblock_id": 5})
+
+
+def test_create_floor_plan_view_payload(build) -> None:
+    assert build("revit_create_floor_plan_view", {"level_name": "L1"}) == {"level": "L1"}
+    assert build("revit_create_floor_plan_view", {"level_name": "L1", "view_name": "L1 plan"}) == {
+        "level": "L1", "name": "L1 plan"}
+
+
+def test_create_shared_parameter_payload(build) -> None:
+    assert build("revit_create_shared_parameter", {"name": "Fire rating", "visible": True}) == {
+        "name": "Fire rating", "parameter_type": "Text", "group_name": "General", "categories": []}
+    full = build("revit_create_shared_parameter",
+                 {"name": "R", "type": "Length", "group": "Data", "categories": ["Walls", "Doors"]})
+    assert full == {"name": "R", "parameter_type": "Length", "group_name": "Data", "categories": ["Walls", "Doors"]}
+
+
+def test_create_project_parameter_payload(build) -> None:
+    assert build("revit_create_project_parameter", {"name": "Zone", "category": "Rooms"}) == {
+        "name": "Zone", "parameter_type": "Text", "group": "General", "is_instance": True}
+    assert build("revit_create_project_parameter", {"name": "Zone", "is_instance": False})["is_instance"] is False
+
+
+def test_batch_set_parameters_payload(build) -> None:
+    payload = build("revit_batch_set_parameters", {"element_ids": [3, 4], "parameter_name": "Mark", "value": "A"})
+    assert payload == {"updates": [{"element_id": 3, "parameter_name": "Mark", "value": "A"},
+                                   {"element_id": 4, "parameter_name": "Mark", "value": "A"}]}
+    with pytest.raises(ValueError, match="non-empty list"):
+        build("revit_batch_set_parameters", {"element_ids": [], "parameter_name": "Mark", "value": "A"})
+
+
+def test_set_type_parameter_payload(build) -> None:
+    payload = build("revit_set_type_parameter", {"type_id": 77, "parameter_name": "Width", "value": 3})
+    assert payload == {"type_id": 77, "parameter_name": "Width", "value": 3}
+    # The older element_id name still works and maps to type_id.
+    assert build("revit_set_type_parameter", {"element_id": 77, "parameter_name": "Width", "value": 3}) == payload
+    with pytest.raises(ValueError, match="give one of them"):
+        build("revit_set_type_parameter", {"type_id": 1, "element_id": 2, "parameter_name": "W", "value": 3})
+
+
+def test_duplicate_sheet_payload(build) -> None:
+    args = {"sheet_id": 9, "new_sheet_number": "A102", "new_sheet_name": "Copy"}
+    assert build("revit_duplicate_sheet", args) == {
+        "source_sheet_id": 9, "new_sheet_number": "A102", "new_sheet_name": "Copy"}
+    assert build("revit_duplicate_sheet", {**args, "with_views": True})["duplicate_viewports"] is True
+    assert "duplicate_viewports" not in build("revit_duplicate_sheet", {**args, "duplicate_option": "Duplicate"})
+    with pytest.raises(ValueError, match="plain duplicate"):
+        build("revit_duplicate_sheet", {**args, "duplicate_option": "WithDetailing"})
+    with pytest.raises(ValueError, match="new_sheet_number"):
+        build("revit_duplicate_sheet", {"sheet_id": 9})
+
+
+def test_renumber_sheets_payload(build) -> None:
+    payload = build("revit_renumber_sheets", {"sheet_ids": [5, 6], "start_number": 101, "prefix": "A-"})
+    assert payload == {"sheets": [{"sheet_id": 5, "new_sheet_number": "A-101"},
+                                  {"sheet_id": 6, "new_sheet_number": "A-102"}]}
+    explicit = [{"sheet_id": 5, "new_sheet_number": "B1"}]
+    assert build("revit_renumber_sheets", {"sheets": explicit}) == {"sheets": explicit}
+
+
+@pytest.mark.parametrize("args, needle", [
+    ({"start_number": 1, "prefix": "A"}, "needs the sheets to renumber"),
+    ({"sheet_ids": [5, 5], "start_number": 1}, "listed twice"),
+    ({"sheets": [{"sheet_id": 1, "new_sheet_number": "A"}, {"sheet_id": 2, "new_sheet_number": "A"}]}, "same number"),
+    ({"sheets": [{"sheet_id": 1, "new_sheet_number": "A"}], "start_number": 1}, "not both"),
+])
+def test_renumber_sheets_refusals(build, args, needle) -> None:
+    with pytest.raises(ValueError, match=needle):
+        build("revit_renumber_sheets", args)
+
+
+def test_export_dwg_payload(build, tmp_path) -> None:
+    folder = os.path.realpath(tmp_path / "dwg")
+    assert build("revit_export_dwg", {"view_id": 12, "output_directory": folder}) == {
+        "view_ids": [12], "output_directory": folder}
+    assert build("revit_export_dwg", {"view_id": 12, "output_path": folder, "dwg_version": "AutoCAD2013"}) == {
+        "view_ids": [12], "output_directory": folder, "dwg_version": "AutoCAD2013"}
+    with pytest.raises(ValueError, match="needs a folder, not a file name"):
+        build("revit_export_dwg", {"view_id": 12, "output_path": str(tmp_path / "A101.dwg")})
+
+
+def test_export_dwg_sends_the_resolved_absolute_folder(build, tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    expected = os.path.join(os.path.realpath(tmp_path), "exports", "dwg")
+    for key in ("output_directory", "output_path"):
+        payload = build("revit_export_dwg", {"view_id": 12, key: "exports/../exports/dwg"})
+        assert payload["output_directory"] == expected and os.path.isabs(payload["output_directory"])
+    with pytest.raises(WorkspaceViolation):
+        build("revit_export_dwg", {"view_id": 12, "output_directory": "../elsewhere"})
+    with pytest.raises(ValueError, match="must be a folder path"):
+        build("revit_export_dwg", {"view_id": 12, "output_directory": 5})
+
+
+@pytest.mark.anyio
+async def test_export_dwg_output_directory_is_workspace_checked(tmp_path) -> None:
+    provider = RevitProvider(workspace=WorkspaceMonitor([tmp_path]), mode=BridgeMode.mock)
+    with pytest.raises(WorkspaceViolation):
+        await provider.execute_tool("revit_export_dwg", {"view_id": 1, "output_directory": "/outside/dwg"})
+
+
+def test_batch_create_sheets_from_csv_payload(build, tmp_path) -> None:
+    path = tmp_path / "sheets.csv"
+    path.write_text("Sheet Number,Sheet Name,Titleblock Name\nA101,Plan,\nA102,Section,A0\n\n", encoding="utf-8-sig", newline="")
+    payload = build("revit_batch_create_sheets_from_csv", {"csv_path": str(path), "titleblock_name": "A1"})
+    assert payload == {"sheets": [
+        {"sheet_number": "A101", "sheet_name": "Plan", "titleblock_name": "A1"},
+        {"sheet_number": "A102", "sheet_name": "Section", "titleblock_name": "A0"},
+    ]}
+    path.write_text("number,name\nA101,Plan\n", encoding="utf-8", newline="")
+    assert build("revit_batch_create_sheets_from_csv", {"csv_path": str(path)}) == {
+        "sheets": [{"sheet_number": "A101", "sheet_name": "Plan"}]}
+
+
+@pytest.mark.parametrize("text, needle", [
+    ("title\nA101\n", "column named sheet_number"),
+    ("sheet_number,sheet_name\nA101,\n", "line 2 needs both"),
+    ("sheet_number,sheet_name\nA101,Plan\nA101,Copy\n", "appears twice"),
+    ("sheet_number,sheet_name\n", "no sheet rows"),
+])
+def test_batch_create_sheets_from_csv_refusals(build, tmp_path, text, needle) -> None:
+    path = tmp_path / "sheets.csv"
+    path.write_text(text, encoding="utf-8", newline="")
+    with pytest.raises(ValueError, match=needle):
+        build("revit_batch_create_sheets_from_csv", {"csv_path": str(path)})
+
+
+def test_batch_create_sheets_from_csv_needs_an_existing_workspace_file(build, tmp_path) -> None:
+    with pytest.raises(ValueError, match="no CSV file"):
+        build("revit_batch_create_sheets_from_csv", {"csv_path": str(tmp_path / "missing.csv")})
+    with pytest.raises(WorkspaceViolation):
+        build("revit_batch_create_sheets_from_csv", {"csv_path": "/outside/sheets.csv"})
+
+
+@pytest.mark.anyio
+async def test_batch_create_sheets_from_csv_mock_counts_rows(tmp_path) -> None:
+    path = tmp_path / "sheets.csv"
+    path.write_text(SAMPLE_CSV, encoding="utf-8", newline="")
+    provider = RevitProvider(workspace=WorkspaceMonitor([tmp_path]), mode=BridgeMode.mock)
+    result = await provider.execute_tool("revit_batch_create_sheets_from_csv", {"csv_path": str(path)})
+    assert result == {"sheets_created": 2}
+
+
+@pytest.mark.parametrize("tool, args, optional", [
+    ("revit_create_tag", {"element_id": 1, "x": 0, "y": 0}, {"view_id": 4}),
+    ("revit_create_text_note", {"text": "Hi", "x": 0, "y": 0}, {"view_id": 4}),
+    ("revit_set_element_material", {"element_id": 1, "material_name": "Concrete"}, {"face_index": 2}),
+    ("revit_edit_family", {"family_name": "Desk"}, {"family_symbol_id": 3, "family_instance_id": 4}),
+    ("revit_place_door", {"wall_id": 1, "x": 0, "y": 0},
+     {"family_name": "D", "type_name": "T", "hand_flipped": True, "facing_flipped": False}),
+    ("revit_place_window", {"wall_id": 1, "location": {"x": 0, "y": 0}},
+     {"family_name": "W", "type_name": "T", "hand_flipped": False, "facing_flipped": True}),
+])
+def test_optional_arguments_are_omitted_not_null(build, tool, args, optional) -> None:
+    bare = build(tool, args)
+    assert not set(optional) & set(bare)
+    full = build(tool, {**args, **optional})
+    assert {k: full[k] for k in optional} == optional
+
+
+def test_edit_family_needs_one_identifier(build) -> None:
+    with pytest.raises(ValueError, match="family_name, family_symbol_id or family_instance_id"):
+        build("revit_edit_family", {})
+
+
+@pytest.mark.parametrize("tool", ["revit_place_door", "revit_place_window"])
+def test_openings_refuse_a_missing_position(build, tool) -> None:
+    with pytest.raises(ValueError, match="needs a position"):
+        build(tool, {"wall_id": 1})
+    with pytest.raises(ValueError, match="needs a position"):
+        build(tool, {"wall_id": 1, "location": {"x": 1}})
+
+
+def test_fixed_write_tools_stay_gated(build) -> None:
+    tools = {t.name: t for t in build.provider.get_capabilities()}
+    fixed = ["revit_batch_create_sheets_from_csv", "revit_batch_set_parameters", "revit_create_floor_plan_view",
+             "revit_create_project_parameter", "revit_create_shared_parameter", "revit_create_sheet",
+             "revit_duplicate_sheet", "revit_renumber_sheets", "revit_set_type_parameter", "revit_create_tag",
+             "revit_create_text_note", "revit_edit_family", "revit_place_door", "revit_place_window",
+             "revit_set_element_material"]
+    assert [name for name in fixed if not tools[name].is_mutating] == []
 
 
 # ---------------------------------------------------------------- validator

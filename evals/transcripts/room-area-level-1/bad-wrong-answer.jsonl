@@ -1,0 +1,4 @@
+{"meta": {"expect": {"passed": false, "failed_checks": ["answer"]}, "note": "Right tools, wrong number."}}
+{"tool": "snapshot_take", "arguments": {}}
+{"tool": "snapshot_compute", "arguments": {"snapshot_id": "01JEVALRECORDEDSNAPSHOT001", "steps": [{"where": [{"field": "category", "value": "OST_Rooms"}], "group_by": ["category"], "aggregate": {"area": {"op": "sum", "field": "params.Area"}}}]}}
+{"answer": "The total room area on Level 1 is 31 square metres."}

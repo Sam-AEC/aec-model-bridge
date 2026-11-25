@@ -9,6 +9,7 @@ AEC Model Bridge is software that runs on your own computer. This page says what
 - The project runs no servers and collects no data about you. It has no telemetry, no analytics and no crash reporting.
 - Your Revit model is read by software on your computer. Whatever the assistant reads from your model is sent to the AI provider you connected, because that is how the assistant can answer. That provider's privacy policy applies to it.
 - Logs, plans and proof files stay in folders on your computer. You can delete them.
+- If you turn it on (`MCP_REVIT_USAGE_COUNTS=on`), the server counts how often each tool is called, in a small file in your workspace, to build the optional `learned` tool profile. The file holds tool names, counts and dates only. It never leaves your computer. `MCP_REVIT_USAGE_COUNTS=off` turns it off.
 
 ## What runs on your computer
 
@@ -40,6 +41,7 @@ File arguments handled by the workspace guard are limited to the folders you all
 | What | Where |
 |---|---|
 | Workspace: approval plans (`plans`), proof bundles (`proofs`), model snapshots (`snapshots`) and files the tools write | `Documents\AEC Model Bridge` by default, or the folder in `MCP_REVIT_WORKSPACE_DIR` |
+| Tool usage counts (tool names, calls per day, last-used day; no arguments, results, model data or user names) | `<workspace>\usage\tool-usage.json`. Used only by the `learned` tool profile. Turn off with `MCP_REVIT_USAGE_COUNTS=off`; show or delete with `aec-model-bridge-usage show` or `reset`. See [learned-profile.md](learned-profile.md). |
 | Audit log of tool calls (if enabled) | The file in `MCP_REVIT_AUDIT_LOG`. Secrets, tokens and file paths are redacted before writing. See [logging-and-audit.md](logging-and-audit.md). |
 | Add-in log and panel log | `%APPDATA%\AECModelBridge\Logs` (`bridge.jsonl`, `panel-hub.log`) |
 | Bridge endpoint files (which port Revit uses) | `%LOCALAPPDATA%\AECModelBridge\registry` |
