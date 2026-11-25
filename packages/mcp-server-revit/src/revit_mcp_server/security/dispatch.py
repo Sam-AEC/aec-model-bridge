@@ -64,7 +64,7 @@ def gate_after(gate: Optional[ApprovalGate], claim: Optional[Dict[str, str]], ok
     try:
         gate.finish_action(claim, ok=ok, error=error)
     except Exception:
-        logger.exception("Could not record the outcome of plan action %s", claim)
+        logger.exception("Could not record the outcome of a plan action")
 
 
 def result_failed(result: Any) -> bool:
@@ -141,7 +141,7 @@ def gate_after_result(gate: Optional[ApprovalGate], claim: Optional[Dict[str, st
             try:
                 gate.mark_in_flight(claim, outcome.key, tool)
             except Exception:
-                logger.exception("Could not record plan action %s as in flight", claim)
+                logger.exception("Could not record a plan action as in flight")
         return outcome
     gate_after(gate, claim, ok=outcome.state == "ok", error=outcome.error)
     return outcome
@@ -192,7 +192,7 @@ def mark_timed_out(gate: Optional[ApprovalGate], claim: Optional[Dict[str, str]]
     try:
         gate.mark_in_flight(claim, key, tool)
     except Exception:
-        logger.exception("Could not record plan action %s as in flight after a timeout", claim)
+        logger.exception("Could not record a plan action as in flight after a timeout")
     return key
 
 

@@ -320,7 +320,7 @@ class ApprovalGate:
             with open(path, "r", encoding="utf-8") as f:
                 plan = json.load(f)
         except Exception as e:
-            logger.error("Failed to load plan %s: %s", plan_id, e)
+            logger.error("Failed to load a plan file: %s", type(e).__name__)
             return None
         if not isinstance(plan, dict) or plan.get("plan_id") != plan_id:
             raise BridgeError(f"Plan file for '{plan_id}' does not hold that plan; refusing to use it.")
@@ -597,7 +597,7 @@ class ApprovalGate:
             try:
                 self.record_proof(plan)
             except Exception:
-                logger.exception("Failed to write proof bundle for plan %s", plan_id)
+                logger.exception("Failed to write a proof bundle")
         return plan
 
     def record_proof(self, plan: Dict[str, Any], results: Optional[List[Dict[str, Any]]] = None,
@@ -927,7 +927,7 @@ class ApprovalGate:
             try:
                 self.record_proof(plan)
             except Exception:
-                logger.exception("Failed to write proof bundle for plan %s", plan_id)
+                logger.exception("Failed to write a proof bundle")
         return plan
 
     # -- in-flight actions: a call that outlived the wait ------------------------------
