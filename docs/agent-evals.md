@@ -78,7 +78,7 @@ Replay sends each recorded call through `mcp_server.call_tool` on a fresh mock r
 - A tool hidden by the profile fails with `tool_profile_blocked`.
 - A write called without a plan is refused by the approval gate.
 - `approve_plan` and the other human-only tools are refused.
-- `execute_plan`, and any call that carries a `plan_id`, are not sent. They are recorded as `awaits_approval`. The eval host never approves a plan.
+- `execute_plan`, and any write call (per the registry and the approval gate) that carries a `plan_id`, are not sent. They are recorded as `awaits_approval`. The eval host never approves a plan. A read call with a `plan_id` runs through the server as usual.
 - A `snapshot_id` or `plan_id` from the recorded session is replaced by the latest one the replay produced.
 
 A call that fails in replay does not count toward the `tools` check.

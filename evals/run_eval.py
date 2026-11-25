@@ -150,8 +150,9 @@ class ToolHost:
 
     Calls go through ``mcp_server.call_tool``, so the approval gate, profile and
     human-only refusals behave as in a real session. The host never approves a
-    plan: ``execute_plan`` and any call that carries a ``plan_id`` are recorded
-    with status ``awaits_approval`` and not dispatched. Every call is recorded.
+    plan: ``execute_plan`` and any write call (per the registry and the gate) that
+    carries a ``plan_id`` are recorded with status ``awaits_approval`` and not
+    dispatched. A read call with a ``plan_id`` runs through the server as usual. Every call is recorded.
     """
 
     def __init__(self, profile: str = "full", substitute_session_ids: bool = False) -> None:
@@ -212,10 +213,24 @@ class ToolHost:
                 out[key] = produced[-1]
         return out
 
+    def _writes(self, tool: str, arguments: dict[str, Any]) -> bool:
+        """True when the approval gate would hold this call for a plan (a write per the registry).
+
+        A read that carries a plan_id is dispatched as usual. When the provider's check raises,
+        the call is dispatched too, so the server path refuses it as in a real session.
+        """
+        from revit_mcp_server.security.gating import requires_approval
+
+        registry = self._state[0]
+        try:
+            return requires_approval(registry, tool, registry.lookup_tool(tool), arguments)
+        except Exception:
+            return False
+
     def call(self, tool: str, arguments: dict[str, Any] | None = None) -> Call:
         arguments = dict(arguments or {})
         sent = self._substitute(arguments) if self.substitute_session_ids else arguments
-        if tool not in self._human_only and (tool in EXECUTE_TOOLS or "plan_id" in sent):
+        if tool not in self._human_only and (tool in EXECUTE_TOOLS or ("plan_id" in sent and self._writes(tool, sent))):
             call = Call(tool, arguments, "awaits_approval",
                         "Not run: the eval host never approves plans. The plan flow is scored from the transcript.")
             self.calls.append(call)

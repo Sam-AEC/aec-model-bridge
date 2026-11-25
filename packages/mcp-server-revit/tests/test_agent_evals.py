@@ -170,6 +170,21 @@ def test_host_never_approves_and_keeps_the_gate(tmp_path):
     assert "search_tools" in {tool["name"] for tool in core.list_tools()}
 
 
+def test_host_dispatches_a_read_that_carries_a_plan_id():
+    host = ev.ToolHost("full")
+    read = host.call("snapshot_take", {"plan_id": "plan_0123456789ab"})
+    assert read.status != "awaits_approval"
+    assert host.call("revit_delete_element", {"element_id": 400, "plan_id": "plan_0123456789ab"}).status == "awaits_approval"
+    task = ev.Task(id="t", prompt="p", kind="read", profile="full", expected_tools=[["snapshot_take"]],
+                   max_calls=3, plan_required=False, forbidden_tools=[], checker=[{"type": "none", "reason": "r"}])
+    # A read that is not a write is scored from what the server returned, not as a held write.
+    bad = host.call("snapshot_query", {"snapshot_id": "nope", "plan_id": "plan_0123456789ab"})
+    assert bad.status == "error"
+    result = ev.score_transcript(task, ev.Transcript(calls=[bad], answer="x"), ev.load_tool_index(),
+                                 ev.human_only_tools())
+    assert result.failed_calls == 1
+
+
 def test_live_mode_records_and_scores(tasks, index, tmp_path):
     task = next(t for t in tasks if t.id == "count-doors")
 
