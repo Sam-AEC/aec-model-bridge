@@ -1,0 +1,28 @@
+name: Stale pull requests
+
+# Pull requests only. Issues are a backlog and are never closed by age.
+on:
+  schedule:
+    - cron: "41 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
+        with:
+          days-before-issue-stale: -1
+          days-before-issue-close: -1
+          days-before-pr-stale: 45
+          days-before-pr-close: 14
+          stale-pr-label: "status: stale"
+          exempt-pr-labels: "status: maintainer-only,status: needs-live-verification"
+          exempt-draft-pr: true
+          stale-pr-message: "No activity for 45 days. This pull request closes in 14 days unless it is updated."
