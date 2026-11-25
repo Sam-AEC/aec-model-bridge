@@ -24,6 +24,7 @@ from revit_mcp_server.bridge.contract_validate import payload_problems
 from revit_mcp_server.config import BridgeMode
 from revit_mcp_server.errors import BridgeContractError, SchemaValidationError, WorkspaceViolation
 from revit_mcp_server.providers.revit import RevitProvider
+from revit_mcp_server.security import file_binding
 from revit_mcp_server.security.workspace import WorkspaceMonitor
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -191,7 +192,10 @@ def test_provider_payload_builders_against_the_contract(tmp_path, required_only)
             # Not in the schema's required list so the MCP layer can ask for it (elicitation), but a
             # call always reaches the builder with it set.
             keys.append(path_key)
-        payload = builder({k: _sample(props[k], k, tmp_path) for k in keys})
+        args = {k: _sample(props[k], k, tmp_path) for k in keys}
+        if "csv_sha256" in args:  # set by the server in plan_actions: the digest of the CSV it read
+            args["csv_sha256"] = file_binding.digest(SAMPLE_CSV.encode("utf-8"))
+        payload = builder(args)
         if payload_problems(contract.COMMANDS[bridge]["params"], payload, contract.DEFS):
             mismatched.add(tool)
     expected = KNOWN_BUILDER_MISMATCH_REQUIRED_ONLY if required_only else KNOWN_BUILDER_MISMATCH_FULL_ARGS

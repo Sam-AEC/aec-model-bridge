@@ -115,6 +115,7 @@ class ApprovalProvider(AECProvider):
         # Use first allowed directory as workspace directory base
         workspace_base = workspace.allowed_directories[0] if workspace.allowed_directories else config.workspace_dir
         self.gate = ApprovalGate(workspace_base, approval_mode)
+        self.gate.workspace_monitor = workspace
 
     def get_identity(self) -> str:
         return "approval"
@@ -291,6 +292,7 @@ class ApprovalProvider(AECProvider):
             self.gate.expire_plan(plan_id)
             raise
         self.gate.verify_binding(plan)  # whole plan refused up front, so a wrong document consumes nothing
+        self.gate.verify_bound_files(plan)  # a changed bound file (e.g. the CSV) also refuses it up front
 
         # The policy may have tightened since drafting: re-check before the first action runs.
         check_actions(load_policy(self.gate.workspace_dir), plan["actions"], self.gate.workspace_dir,

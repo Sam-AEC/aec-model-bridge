@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from . import file_binding
 from . import proof as proof_mod
 
 UNKNOWN = "unknown"
@@ -256,6 +257,26 @@ def preview_markdown(rows: List[Dict[str, Any]], radius: Dict[str, Any], max_row
     return "\n".join(lines)
 
 
+def bound_files(plan: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """The files whose content the plan binds (security/file_binding.py): path, sha256 and rows."""
+    out: List[Dict[str, Any]] = []
+    for action in plan.get("actions", []) or []:
+        if isinstance(action, dict):
+            shown = file_binding.preview(action.get("tool"), action.get("arguments"))
+            if shown is not None:
+                out.append({"action_id": action.get("action_id"), "tool": action.get("tool"), **shown})
+    return out
+
+
+def _bound_files_markdown(files: List[Dict[str, Any]]) -> List[str]:
+    lines = []
+    for f in files:
+        rows = f" ({f['rows']} rows)" if "rows" in f else ""
+        lines.append(f"Bound file for {_md_cell(f['tool'])}: {_md_cell(f['path'])}{rows}, {_md_cell(f['sha256'])}. "
+                     "A different file content at run time is refused.")
+    return lines
+
+
 def review_aids(plan: Dict[str, Any], workspace_dir: Optional[Path] = None) -> Dict[str, Any]:
     """``preview``, ``preview_markdown`` and ``blast_radius`` for one plan. Never raises:
     on an internal error the plan is shown without them rather than failing the listing."""
@@ -263,12 +284,17 @@ def review_aids(plan: Dict[str, Any], workspace_dir: Optional[Path] = None) -> D
         index = snapshot_index(workspace_dir, plan.get("snapshot_id"))
         rows = preview_rows(plan, index)
         radius = blast_radius(plan, index)
-        return {
+        aids: Dict[str, Any] = {
             "preview": {"rows": rows[:PREVIEW_MAX_ROWS], "row_count": len(rows),
                         "rows_omitted": max(0, len(rows) - PREVIEW_MAX_ROWS)},
             "preview_markdown": preview_markdown(rows, radius),
             "blast_radius": radius,
         }
+        files = bound_files(plan)
+        if files:
+            aids["bound_files"] = files
+            aids["preview_markdown"] += "\n\n" + "\n".join(_bound_files_markdown(files))
+        return aids
     except Exception:  # noqa: BLE001
         return {}
 

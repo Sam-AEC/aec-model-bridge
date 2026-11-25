@@ -20,6 +20,7 @@ from ..config import BridgeMode, config
 from ..elicitation import missing_export_path
 from ..errors import BridgeError, CommandFailed, WorkspaceViolation
 from ..legacy.tools import TOOL_HANDLERS
+from ..security import file_binding
 from ..security.read_mode import execute_python_payload, is_read_mode_call
 from ..security.workspace import WorkspaceMonitor
 from .base import AECProvider, ProviderTool, enrich_mutation_metadata
@@ -621,6 +622,11 @@ class RevitProvider(AECProvider):
         csv_path = args.get("csv_path")
         if not isinstance(csv_path, str) or not csv_path:
             raise ValueError("revit_batch_create_sheets_from_csv needs csv_path, a CSV file inside the workspace.")
+        tool = "revit_batch_create_sheets_from_csv"
+        if file_binding.bound_file(tool).digest_key in args:
+            # Planned call: parse exactly the bytes checked against the approved digest.
+            data = file_binding.read_verified(tool, args, self.workspace)
+            return revit_payloads.sheets_from_csv_bytes(data, args.get("titleblock_name"))
         resolved = self.workspace.assert_in_workspace(Path(csv_path))
         return revit_payloads.sheets_from_csv(resolved, args.get("titleblock_name"))
 
@@ -1574,7 +1580,10 @@ class RevitProvider(AECProvider):
             description="Create multiple sheets from a CSV file",
             inputSchema={
                 "type": "object",
-                "properties": {"csv_path": {"type": "string"}, "titleblock_name": {"type": "string"}},
+                "properties": {
+                    "csv_path": {"type": "string"}, "titleblock_name": {"type": "string"},
+                    "csv_sha256": {"type": "string"}, "csv_row_count": {"type": "integer"},
+                },
                 "required": ["csv_path"],
             },
         ),
