@@ -863,13 +863,23 @@
           },
           "is_instance": {
             "type": "boolean"
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "visible": {
+            "type": "boolean"
           }
         },
         "required": [
           "name",
           "parameter_type",
           "group",
-          "is_instance"
+          "is_instance",
+          "categories"
         ]
       }
     },
@@ -1002,11 +1012,17 @@
           "categories": {
             "type": "array",
             "items": {
-              "type": [
-                "string",
-                "null"
-              ]
+              "type": "string"
             }
+          },
+          "is_instance": {
+            "type": "boolean"
+          },
+          "visible": {
+            "type": "boolean"
+          },
+          "definition_group": {
+            "type": "string"
           }
         },
         "required": [

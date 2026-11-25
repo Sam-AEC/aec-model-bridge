@@ -46,6 +46,14 @@ def _optional(args: Dict[str, Any], *names: str) -> Dict[str, Any]:
     return {name: args[name] for name in names if args.get(name) is not None}
 
 
+def _category_names(value: Any) -> Any:
+    """Category names as a list. One name becomes a one-item list; anything else passes unchanged
+    so the contract check refuses it with a plain message."""
+    if isinstance(value, str):
+        return [value]
+    return value
+
+
 # Read tools whose add-in result is one unpaginated list. limit, offset and count_only slice that
 # list here, after the add-in answered; nothing is sent to Revit differently. value = the list key.
 PAGED_READS = {
@@ -767,9 +775,10 @@ class RevitProvider(AECProvider):
                 "revit.create_shared_parameter",
                 lambda args: {
                     "name": args.get("name"),
-                    "group": args.get("group", "General"),
-                    "type": args.get("type", "Text"),
-                    "visible": args.get("visible", True),
+                    "parameter_type": args.get("type") or "Text",
+                    "group_name": args.get("group") or "Data",
+                    "categories": _category_names(args.get("categories")),
+                    **_optional(args, "is_instance", "visible", "definition_group"),
                 },
             ),
             "revit_list_project_parameters": ("revit.list_project_parameters", lambda args: {}),
@@ -777,10 +786,11 @@ class RevitProvider(AECProvider):
                 "revit.create_project_parameter",
                 lambda args: {
                     "name": args.get("name"),
-                    "group": args.get("group", "General"),
-                    "type": args.get("type", "Text"),
-                    "category": args.get("category"),
-                    "visible": args.get("visible", True),
+                    "parameter_type": args.get("type") or "Text",
+                    "group": args.get("group") or "Data",
+                    "is_instance": args.get("is_instance", True),
+                    "categories": _category_names(args.get("categories")),
+                    **_optional(args, "visible"),
                 },
             ),
             "revit_batch_set_parameters": (
@@ -1555,16 +1565,19 @@ class RevitProvider(AECProvider):
         ),
         ProviderTool(
             name="revit_create_shared_parameter",
-            description="Create a new shared parameter",
+            description="Create a shared parameter in the shared parameter file set in Revit and bind it to categories",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "name": {"type": "string"},
+                    "categories": {"type": "array", "items": {"type": "string"}},
                     "group": {"type": "string"},
                     "type": {"type": "string"},
+                    "is_instance": {"type": "boolean"},
                     "visible": {"type": "boolean"},
+                    "definition_group": {"type": "string"},
                 },
-                "required": ["name"],
+                "required": ["name", "categories"],
             },
         ),
         ProviderTool(
@@ -1574,16 +1587,18 @@ class RevitProvider(AECProvider):
         ),
         ProviderTool(
             name="revit_create_project_parameter",
-            description="Create a new project parameter",
+            description="Create a project parameter and bind it to categories",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "name": {"type": "string"},
-                    "category": {"type": "string"},
+                    "categories": {"type": "array", "items": {"type": "string"}},
                     "group": {"type": "string"},
                     "type": {"type": "string"},
+                    "is_instance": {"type": "boolean"},
+                    "visible": {"type": "boolean"},
                 },
-                "required": ["name", "category"],
+                "required": ["name", "categories"],
             },
         ),
         ProviderTool(

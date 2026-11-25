@@ -136,7 +136,7 @@ def test_every_command_the_provider_sends_is_in_the_contract(tmp_path) -> None:
 # removes its name from this list.
 KNOWN_BUILDER_MISMATCH_FULL_ARGS = {
     "revit_batch_create_sheets_from_csv", "revit_batch_set_parameters", "revit_create_floor_plan_view",
-    "revit_create_project_parameter", "revit_create_shared_parameter", "revit_create_sheet",
+    "revit_create_sheet",
     "revit_duplicate_sheet", "revit_export_dwg", "revit_renumber_sheets", "revit_set_type_parameter",
 }
 KNOWN_BUILDER_MISMATCH_REQUIRED_ONLY = KNOWN_BUILDER_MISMATCH_FULL_ARGS | {

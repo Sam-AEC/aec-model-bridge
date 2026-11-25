@@ -240,12 +240,12 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_create_material` | Create a new material with a colour, transparency, shininess and smoothness. | Yes | sync |
 | `revit_create_new_document` | Create a new Revit project, optionally from a template file inside the allowed workspace. | Yes | sync |
 | `revit_create_pipe` | Create a pipe between two points at an elevation on a level, with a piping system type and pipe type. | Yes | sync |
-| `revit_create_project_parameter` | Create a new project parameter and bind it to a category in the active Revit document. | Yes | sync |
+| `revit_create_project_parameter` | Create a project parameter and bind it to categories in the active Revit document. | Yes | sync |
 | `revit_create_roof` | Create a roof on a level from a closed footprint of points, with an optional slope, in the active Revit document. | Yes | sync |
 | `revit_create_room` | Create a room at an x/y point on a level, with a name and number, in the active Revit document. | Yes | sync |
 | `revit_create_schedule` | Create a schedule view for a category with the given name. | Yes | sync |
 | `revit_create_section_view` | Create a section view between two points with the given height in the active Revit document. | Yes | sync |
-| `revit_create_shared_parameter` | Create a new shared parameter with a name, parameter group and data type in the active Revit document. | Yes | sync |
+| `revit_create_shared_parameter` | Create a shared parameter in the shared parameter file set in Revit, or reuse one with the same name and type, and bind it to categories in the active Revit document. | Yes | sync |
 | `revit_create_sheet` | Create a new sheet with a name, number and title block in the active Revit document. | Yes | sync |
 | `revit_create_tag` | Tag one element at an x/y position in a view. | Yes | sync |
 | `revit_create_text_note` | Create a text note at an x/y position in a view of the active Revit document. | Yes | sync |

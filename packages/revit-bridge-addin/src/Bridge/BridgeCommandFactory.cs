@@ -1597,19 +1597,116 @@ public static partial class BridgeCommandFactory
         var doc = app.ActiveUIDocument?.Document;
         if (doc == null)
             throw new InvalidOperationException("No active document");
+        if (doc.IsFamilyDocument)
+            throw new InvalidOperationException(
+                "The active document is a family. Shared parameters are bound to categories in a project; open a project document and try again.");
 
-        var parameterName = payload.GetProperty("name").GetString();
-        var parameterType = payload.GetProperty("parameter_type").GetString();
-        var groupName = payload.GetProperty("group_name").GetString();
-        var categoryNames = payload.GetProperty("categories").EnumerateArray()
-            .Select(e => e.GetString())
-            .ToList();
+        // Check every input before the shared parameter file or the model is touched.
+        var parameterName = RequireParameterName(payload);
+        var spec = ResolveParameterSpec(PayloadJson.OptionalString(payload, "parameter_type"), out var specLabel);
+        var groupTypeId = ResolveParameterGroup(PayloadJson.OptionalString(payload, "group_name"), out var groupLabel);
+        var isInstance = PayloadJson.OptionalBool(payload, "is_instance") ?? true;
+        var visible = PayloadJson.OptionalBool(payload, "visible") ?? true;
+        var fileGroupName = PayloadJson.OptionalString(payload, "definition_group")?.Trim() ?? DefaultDefinitionGroup;
+        var categories = ResolveBindableCategories(doc, ReadCategoryNames(payload));
 
-        // Note: Creating shared parameters requires a shared parameter file
-        // This is a simplified implementation
-        throw new NotImplementedException(
-            "Creating shared parameters requires a shared parameter file to be configured. " +
-            "Use Revit UI to set up shared parameter file first, or provide file path in payload.");
+        // Use the shared parameter file the user set in Revit. Never create or switch it here.
+        var application = app.Application;
+        var sharedFilePath = application.SharedParametersFilename;
+        if (string.IsNullOrWhiteSpace(sharedFilePath))
+            throw new InvalidOperationException(
+                "No shared parameter file is set in Revit (the SharedParametersFilename setting under Manage > Shared Parameters). " +
+                "Set one there and try again. The add-in does not create or switch the shared parameter file.");
+        if (!File.Exists(sharedFilePath))
+            throw new InvalidOperationException(
+                $"The shared parameter file set in Revit was not found: '{Path.GetFileName(sharedFilePath)}'. " +
+                "Fix the SharedParametersFilename setting under Manage > Shared Parameters and try again.");
+        var definitionFile = application.OpenSharedParameterFile();
+        if (definitionFile == null)
+            throw new InvalidOperationException(
+                $"Revit could not open the shared parameter file '{Path.GetFileName(sharedFilePath)}'. " +
+                "Check the file under Manage > Shared Parameters and try again.");
+
+        var warnings = new List<string>();
+        var existing = FindExternalDefinition(definitionFile, parameterName, out var existingGroupName, warnings);
+        if (existing != null && !SameSpec(existing.GetDataType(), spec))
+            throw new InvalidOperationException(
+                $"The shared parameter file already has '{parameterName}' with type '{SpecLabel(existing.GetDataType())}', not '{specLabel}'. " +
+                "Use the same parameter_type or another name.");
+
+        var bound = FindBoundDefinition(doc, parameterName, out var boundBinding, out var boundGuid);
+        if (bound != null && (existing == null || boundGuid != existing.GUID))
+            throw new InvalidOperationException(
+                $"The project already has a parameter named '{parameterName}' that is not this shared parameter. Rename one of them first.");
+        if (boundBinding != null && (boundBinding is InstanceBinding) != isInstance)
+            throw new InvalidOperationException(
+                $"'{parameterName}' is already bound as a {(boundBinding is InstanceBinding ? "instance" : "type")} parameter. " +
+                "Set is_instance to match, or change the binding in Revit.");
+
+        ExternalDefinition definition;
+        var createdDefinition = false;
+        var rebound = boundBinding != null;
+        var boundNames = new List<string>();
+        using (var trans = CreateTransaction(doc, "Create Shared Parameter"))
+        {
+            trans.Start();
+
+            if (existing != null)
+            {
+                definition = existing;
+                if (!string.Equals(existingGroupName, fileGroupName, StringComparison.Ordinal))
+                    warnings.Add($"Reused the existing definition '{parameterName}' from group '{existingGroupName}' of the shared parameter file.");
+            }
+            else
+            {
+                var fileGroup = definitionFile.Groups.Cast<DefinitionGroup>()
+                    .FirstOrDefault(g => string.Equals(g.Name, fileGroupName, StringComparison.Ordinal));
+                if (fileGroup == null)
+                    fileGroup = definitionFile.Groups.Create(fileGroupName);
+                var options = new ExternalDefinitionCreationOptions(parameterName, spec) { Visible = visible };
+                definition = fileGroup.Definitions.Create(options) as ExternalDefinition
+                    ?? throw new InvalidOperationException($"Revit did not create the definition '{parameterName}' in the shared parameter file.");
+                createdDefinition = true;
+                warnings.Add($"Added '{parameterName}' to group '{fileGroupName}' of the shared parameter file. Undo in Revit does not remove it from the file.");
+            }
+
+            var categorySet = application.Create.NewCategorySet();
+            foreach (var category in categories)
+                categorySet.Insert(category);
+            if (boundBinding != null)
+            {
+                foreach (Category category in boundBinding.Categories)
+                    categorySet.Insert(category);
+            }
+            Binding binding = isInstance
+                ? (Binding)application.Create.NewInstanceBinding(categorySet)
+                : (Binding)application.Create.NewTypeBinding(categorySet);
+
+            var ok = rebound
+                ? doc.ParameterBindings.ReInsert(definition, binding, groupTypeId)
+                : doc.ParameterBindings.Insert(definition, binding, groupTypeId);
+            if (!ok)
+                throw new InvalidOperationException(
+                    $"Revit refused to bind '{parameterName}' to the requested categories. Some categories may not take {(isInstance ? "instance" : "type")} parameters.");
+
+            trans.CommitChecked();
+            foreach (Category category in categorySet)
+                boundNames.Add(category.Name);
+        }
+
+        return new
+        {
+            name = parameterName,
+            guid = definition.GUID.ToString(),
+            parameter_type = specLabel,
+            group = groupLabel,
+            definition_group = existing != null ? existingGroupName : fileGroupName,
+            is_instance = isInstance,
+            created_definition = createdDefinition,
+            rebound,
+            bound_categories = boundNames,
+            warnings
+        };
     }
 
     [BridgeCommand("revit.list_project_parameters", IsMutating = false)]
@@ -1637,22 +1734,361 @@ public static partial class BridgeCommandFactory
         };
     }
 
+    // The Revit API (2024 to 2027) has no call that creates a project parameter directly. The usual
+    // approach, used here: point Revit at a temporary shared parameter file, create the definition
+    // there, bind it, then restore the user's SharedParametersFilename and delete the temporary file.
+    // Revit stores the result as a shared parameter whose GUID is in no shared parameter file.
     [BridgeCommand("revit.create_project_parameter", IsMutating = true)]
     private static object ExecuteCreateProjectParameter(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
         if (doc == null)
             throw new InvalidOperationException("No active document");
+        if (doc.IsFamilyDocument)
+            throw new InvalidOperationException(
+                "The active document is a family. Project parameters are bound to categories in a project; open a project document and try again.");
 
-        var parameterName = payload.GetProperty("name").GetString();
-        var parameterType = payload.GetProperty("parameter_type").GetString();
-        var groupName = payload.GetProperty("group").GetString();
-        var isInstance = payload.GetProperty("is_instance").GetBoolean();
+        // Check every input before the shared parameter setting or the model is touched.
+        var parameterName = RequireParameterName(payload);
+        var spec = ResolveParameterSpec(PayloadJson.OptionalString(payload, "parameter_type"), out var specLabel);
+        var groupTypeId = ResolveParameterGroup(PayloadJson.OptionalString(payload, "group"), out var groupLabel);
+        var isInstance = PayloadJson.OptionalBool(payload, "is_instance") ?? true;
+        var visible = PayloadJson.OptionalBool(payload, "visible") ?? true;
+        var categories = ResolveBindableCategories(doc, ReadCategoryNames(payload));
+        if (FindBoundDefinition(doc, parameterName, out _, out _) != null)
+            throw new InvalidOperationException(
+                $"The project already has a parameter named '{parameterName}'. Pick another name, or check it with revit_list_project_parameters.");
 
-        // Note: Creating project parameters is complex and requires category binding
-        throw new NotImplementedException(
-            "Creating project parameters requires category binding setup. " +
-            "This functionality is planned for a future release.");
+        var application = app.Application;
+        var warnings = new List<string>();
+        var boundNames = new List<string>();
+        Guid guid;
+        var originalSharedParametersFilename = application.SharedParametersFilename;
+        var tempPath = Path.Combine(Path.GetTempPath(), "amb-project-parameter-" + Guid.NewGuid().ToString("N") + ".txt");
+
+        using (var trans = CreateTransaction(doc, "Create Project Parameter"))
+        {
+            trans.Start();
+            try
+            {
+                File.WriteAllText(tempPath, string.Empty);
+                application.SharedParametersFilename = tempPath;
+                var tempFile = application.OpenSharedParameterFile()
+                    ?? throw new InvalidOperationException("Revit could not open the temporary parameter file. The project parameter was not created.");
+                var tempGroup = tempFile.Groups.Create(DefaultDefinitionGroup);
+                var options = new ExternalDefinitionCreationOptions(parameterName, spec) { Visible = visible };
+                var definition = tempGroup.Definitions.Create(options) as ExternalDefinition
+                    ?? throw new InvalidOperationException($"Revit did not create the definition '{parameterName}'.");
+                guid = definition.GUID;
+
+                var categorySet = application.Create.NewCategorySet();
+                foreach (var category in categories)
+                    categorySet.Insert(category);
+                Binding binding = isInstance
+                    ? (Binding)application.Create.NewInstanceBinding(categorySet)
+                    : (Binding)application.Create.NewTypeBinding(categorySet);
+                if (!doc.ParameterBindings.Insert(definition, binding, groupTypeId))
+                    throw new InvalidOperationException(
+                        $"Revit refused to bind '{parameterName}' to the requested categories. Some categories may not take {(isInstance ? "instance" : "type")} parameters.");
+                foreach (Category category in categorySet)
+                    boundNames.Add(category.Name);
+            }
+            finally
+            {
+                // Always give the user back their own shared parameter file setting.
+                try
+                {
+                    application.SharedParametersFilename = originalSharedParametersFilename ?? string.Empty;
+                }
+                catch (Exception ex)
+                {
+                    warnings.Add("Could not restore the shared parameter file setting; check it under Manage > Shared Parameters. " + ex.Message);
+                }
+                try
+                {
+                    if (File.Exists(tempPath))
+                        File.Delete(tempPath);
+                }
+                catch (Exception ex)
+                {
+                    warnings.Add($"Could not delete the temporary file '{Path.GetFileName(tempPath)}' in the temp folder. " + ex.Message);
+                }
+            }
+
+            trans.CommitChecked();
+        }
+
+        warnings.Add("The Revit API has no direct call for project parameters, so Revit stores this one as a shared parameter whose GUID is in no shared parameter file.");
+        return new
+        {
+            name = parameterName,
+            guid = guid.ToString(),
+            parameter_type = specLabel,
+            group = groupLabel,
+            is_instance = isInstance,
+            bound_categories = boundNames,
+            warnings
+        };
+    }
+
+    // ---- Parameter creation helpers (shared and project parameters) ----
+
+    private const string DefaultDefinitionGroup = "AEC Model Bridge";
+
+    private static string RequireParameterName(JsonElement payload)
+    {
+        var name = PayloadJson.OptionalString(payload, "name");
+        if (name == null)
+            throw new ArgumentException("name is required: the name of the parameter to create.");
+        return name.Trim();
+    }
+
+    private static string NormalizeParameterKey(string text)
+    {
+        var sb = new StringBuilder();
+        foreach (var ch in text)
+        {
+            if (char.IsLetterOrDigit(ch))
+                sb.Append(char.ToLowerInvariant(ch));
+        }
+        return sb.ToString();
+    }
+
+    private const string SupportedParameterTypes = "Text, Integer, Number, Length, Area, Volume, Angle, Currency, YesNo, URL, Material";
+
+    // Revit 2022+ ForgeTypeId specs; the same members exist in Revit 2024 to 2027.
+    private static ForgeTypeId ResolveParameterSpec(string? typeName, out string label)
+    {
+        switch (NormalizeParameterKey(typeName ?? "Text"))
+        {
+            case "":
+            case "text":
+            case "string":
+                label = "Text"; return SpecTypeId.String.Text;
+            case "integer":
+            case "int":
+                label = "Integer"; return SpecTypeId.Int.Integer;
+            case "number":
+            case "double":
+                label = "Number"; return SpecTypeId.Number;
+            case "length":
+                label = "Length"; return SpecTypeId.Length;
+            case "area":
+                label = "Area"; return SpecTypeId.Area;
+            case "volume":
+                label = "Volume"; return SpecTypeId.Volume;
+            case "angle":
+                label = "Angle"; return SpecTypeId.Angle;
+            case "currency":
+                label = "Currency"; return SpecTypeId.Currency;
+            case "yesno":
+            case "boolean":
+            case "bool":
+                label = "YesNo"; return SpecTypeId.Boolean.YesNo;
+            case "url":
+                label = "URL"; return SpecTypeId.String.Url;
+            case "material":
+                label = "Material"; return SpecTypeId.Reference.Material;
+            default:
+                throw new ArgumentException($"Unknown parameter_type '{typeName}'. Supported: {SupportedParameterTypes}.");
+        }
+    }
+
+    private const string SupportedParameterGroups = "Data, IdentityData, Text, Constraints, Dimensions, General (Other), Graphics, Materials, Construction, Phasing";
+
+    // Revit 2024+ groups parameters with GroupTypeId (BuiltInParameterGroup is gone in 2025).
+    private static ForgeTypeId ResolveParameterGroup(string? groupName, out string label)
+    {
+        switch (NormalizeParameterKey(groupName ?? "Data"))
+        {
+            case "":
+            case "data":
+                label = "Data"; return GroupTypeId.Data;
+            case "identitydata":
+            case "identity":
+                label = "IdentityData"; return GroupTypeId.IdentityData;
+            case "text":
+                label = "Text"; return GroupTypeId.Text;
+            case "constraints":
+                label = "Constraints"; return GroupTypeId.Constraints;
+            case "dimensions":
+            case "geometry":
+                label = "Dimensions"; return GroupTypeId.Geometry;
+            case "general":
+            case "other":
+                label = "General"; return GroupTypeId.General;
+            case "graphics":
+                label = "Graphics"; return GroupTypeId.Graphics;
+            case "materials":
+            case "materialsandfinishes":
+                label = "Materials"; return GroupTypeId.Materials;
+            case "construction":
+                label = "Construction"; return GroupTypeId.Construction;
+            case "phasing":
+                label = "Phasing"; return GroupTypeId.Phasing;
+            default:
+                throw new ArgumentException($"Unknown parameter group '{groupName}'. Supported: {SupportedParameterGroups}.");
+        }
+    }
+
+    private static string StripForgeVersion(string? typeId)
+    {
+        if (string.IsNullOrEmpty(typeId))
+            return string.Empty;
+        var text = typeId!;
+        var dash = text.LastIndexOf('-');
+        return dash > 0 ? text.Substring(0, dash) : text;
+    }
+
+    // Compare specs without the schema version suffix ("autodesk.spec.aec:length-2.0.0").
+    private static bool SameSpec(ForgeTypeId? a, ForgeTypeId? b)
+    {
+        if (a is null || b is null)
+            return false;
+        return string.Equals(StripForgeVersion(a.TypeId), StripForgeVersion(b.TypeId), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string SpecLabel(ForgeTypeId? spec)
+    {
+        if (spec is null)
+            return "unknown";
+        try
+        {
+            var label = LabelUtils.GetLabelForSpec(spec);
+            if (!string.IsNullOrEmpty(label))
+                return label;
+        }
+        catch
+        {
+        }
+        return spec.TypeId;
+    }
+
+    private static List<string> ReadCategoryNames(JsonElement payload)
+    {
+        var names = new List<string>();
+        if (!payload.TryGetProperty("categories", out var value) || value.ValueKind == JsonValueKind.Null)
+            return names;
+        if (value.ValueKind == JsonValueKind.String)
+        {
+            var single = value.GetString();
+            if (!string.IsNullOrWhiteSpace(single))
+                names.Add(single!.Trim());
+            return names;
+        }
+        if (value.ValueKind != JsonValueKind.Array)
+            throw new ArgumentException("categories must be a list of category names, for example [\"Walls\", \"Doors\"].");
+        foreach (var item in value.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.String)
+                continue;
+            var text = item.GetString();
+            if (!string.IsNullOrWhiteSpace(text))
+                names.Add(text!.Trim());
+        }
+        return names;
+    }
+
+    // Accepts the Revit category name ("Walls"), a BuiltInCategory name ("OST_Walls") or a snake_case key ("generic_models").
+    private static Category? FindCategoryForBinding(Document doc, string name)
+    {
+        var byName = doc.Settings.Categories.Cast<Category>()
+            .FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
+        if (byName != null)
+            return byName;
+
+        var bicName = name.StartsWith("OST_", StringComparison.OrdinalIgnoreCase) ? name : "OST_" + name.Replace(" ", string.Empty);
+        if (Enum.TryParse(bicName, true, out BuiltInCategory bic) && Enum.IsDefined(typeof(BuiltInCategory), bic))
+        {
+            var category = Category.GetCategory(doc, bic);
+            if (category != null)
+                return category;
+        }
+
+        try
+        {
+            return Category.GetCategory(doc, GetBuiltInCategoryByName(name));
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private static List<Category> ResolveBindableCategories(Document doc, List<string> names)
+    {
+        var found = new List<Category>();
+        var unknown = new List<string>();
+        var notBindable = new List<string>();
+        foreach (var name in names)
+        {
+            var category = FindCategoryForBinding(doc, name);
+            if (category == null)
+            {
+                unknown.Add(name);
+                continue;
+            }
+            if (!category.AllowsBoundParameters)
+            {
+                notBindable.Add(category.Name);
+                continue;
+            }
+            if (!found.Any(c => c.Id == category.Id))
+                found.Add(category);
+        }
+
+        if (unknown.Count > 0)
+            throw new ArgumentException(
+                $"Unknown categories: {string.Join(", ", unknown)}. Use Revit category names such as 'Walls' or 'Doors', or BuiltInCategory names such as 'OST_Walls'.");
+        if (notBindable.Count > 0)
+            throw new ArgumentException(
+                $"These categories do not take bound parameters: {string.Join(", ", notBindable)}.");
+        if (found.Count == 0)
+            throw new ArgumentException("categories is empty. Name at least one category to bind the parameter to.");
+        return found;
+    }
+
+    private static ExternalDefinition? FindExternalDefinition(DefinitionFile file, string name, out string? groupName, List<string> warnings)
+    {
+        groupName = null;
+        ExternalDefinition? found = null;
+        foreach (DefinitionGroup group in file.Groups)
+        {
+            foreach (Definition definition in group.Definitions)
+            {
+                if (!(definition is ExternalDefinition external) || !string.Equals(external.Name, name, StringComparison.Ordinal))
+                    continue;
+                if (found == null)
+                {
+                    found = external;
+                    groupName = group.Name;
+                }
+                else
+                {
+                    warnings.Add($"The shared parameter file has more than one '{name}'; used the one in group '{groupName}'.");
+                }
+            }
+        }
+        return found;
+    }
+
+    // The parameter bound in the document under this name, its binding and, for a shared parameter, its GUID.
+    private static InternalDefinition? FindBoundDefinition(Document doc, string name, out ElementBinding? binding, out Guid? sharedGuid)
+    {
+        binding = null;
+        sharedGuid = null;
+        var iterator = doc.ParameterBindings.ForwardIterator();
+        iterator.Reset();
+        while (iterator.MoveNext())
+        {
+            if (!(iterator.Key is InternalDefinition definition) || !string.Equals(definition.Name, name, StringComparison.OrdinalIgnoreCase))
+                continue;
+            binding = iterator.Current as ElementBinding;
+            if (doc.GetElement(definition.Id) is SharedParameterElement shared)
+                sharedGuid = shared.GuidValue;
+            return definition;
+        }
+        return null;
     }
 
     [BridgeCommand("revit.batch_set_parameters", IsMutating = true)]
