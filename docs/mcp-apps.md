@@ -46,6 +46,10 @@ The table shows what a client that gets `_meta.ui` sees. Clients without MCP App
 
 For each plan: plan id with a "Copy plan id" button, state, approval mode, plan hash, action and element counts, risk, the review summary, a table of changes (tool, element id, UniqueId, parameter, old value, new value) and warnings. Warnings come from `review.warnings`, `review.conflicts`, actions that name no element, high risk, skipped items and expiry. A fixed note says the view cannot approve and gives the panel and command-line steps.
 
+### 3D outlines
+
+The per-plan resource (`ui://aec-model-bridge/plan-review/{id}`) adds an "Affected elements in 3D" section when the plan's snapshot holds a bounding box (`bbox.min`, `bbox.max`) for an element the plan names. Elements are matched by element id or unique id. The section is a wireframe of those boxes on a canvas, turned by dragging, plus a table of element, category, name and size. It shows where the elements are, not a before and after of their shape: the plan actions change values, and the snapshot holds one state. Boxes are drawn in the units the snapshot holds, with no conversion. The section lists up to 200 boxes, counts the rest, and says how many named elements have no box. A plan with no readable snapshot or no valid box shows no 3D section, and nothing is guessed. The boxes are computed when the page is read, are not stored on the plan, and do not change the plan hash. Plan tool results (`plan_actions`, `list_pending_plans`) do not carry them. The section adds no control and no message to the host. Drawing in each MCP Apps client is UNVERIFIED.
+
 In Dev mode `plan_actions` drafts no plan; the view shows the `not_needed` message.
 
 ## Why the view cannot approve
