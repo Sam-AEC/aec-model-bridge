@@ -302,7 +302,7 @@ def _route(registry, switch):
     provider = registry.get_provider("revit")
     if provider is None or not hasattr(provider, "routed_to"):
         return contextlib.nullcontext()
-    return provider.routed_to(switch.endpoint, switch.session_token)
+    return provider.routed_to(switch.endpoint, switch.session_token, switch)
 
 
 def _run_tool_sync(registry, approval_provider, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
