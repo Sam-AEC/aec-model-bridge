@@ -366,14 +366,37 @@ def test_workspace_accepts_inside_and_refuses_outside_and_reserved(tmp_path):
     assert is_reserved_path(work / "plans", work) and not is_reserved_path(work / "plans2", work)
 
 
-@pytest.mark.skipif(os.name != "nt", reason="Windows paths ignore case")
-def test_workspace_ignores_case_on_windows(tmp_path):
+def test_workspace_ignores_case_when_casefold_is_on(tmp_path):
+    """Runs on every OS: the flag forces the Windows rule."""
     work = tmp_path / "Work"
     work.mkdir()
-    monitor = WorkspaceMonitor([work])
+    monitor = WorkspaceMonitor([work], casefold=True)
     monitor.assert_in_workspace(Path(str(work).upper()) / "a.txt")
     with pytest.raises(WorkspaceViolation, match="reserved"):
         monitor.assert_in_workspace(Path(str(work).upper()) / "PLANS" / "a.json")
+    assert is_reserved_path(Path(str(work).upper()) / "Proofs", work, casefold=True)
+
+
+def test_workspace_is_case_sensitive_when_casefold_is_off(tmp_path):
+    work = tmp_path / "Work"
+    work.mkdir()
+    monitor = WorkspaceMonitor([work], casefold=False)
+    with pytest.raises(WorkspaceViolation, match="outside the allowed workspace"):
+        monitor.assert_in_workspace(Path(str(work).upper()) / "a.txt")
+    monitor.assert_in_workspace(work / "PLANS" / "a.json")  # a different folder name, not reserved
+    assert not is_reserved_path(work / "PLANS", work, casefold=False)
+
+
+def test_default_casefold_follows_the_os(tmp_path):
+    work = tmp_path / "Work"
+    work.mkdir()
+    monitor = WorkspaceMonitor([work])
+    other_case = Path(str(work).upper()) / "a.txt"
+    if os.name == "nt":
+        monitor.assert_in_workspace(other_case)
+    else:
+        with pytest.raises(WorkspaceViolation, match="outside the allowed workspace"):
+            monitor.assert_in_workspace(other_case)
 
 
 def test_safe_child_tells_the_caller_why_it_refused(tmp_path):

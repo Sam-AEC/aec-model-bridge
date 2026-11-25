@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Fix (#340): the panel hub now sends FIN after the 503 on a refused connection and drains the request for at most 0.25 s and 1 MB before closing, so the client reads the 503 and Retry-After instead of a reset. UNVERIFIED on Windows (WinError 10053 not reproduced here).
+- Tests (#240): the workspace case-folding rule is covered on every OS through an optional `casefold` argument on `WorkspaceMonitor` (default unchanged: follows the OS), the unwritable-workspace doctor test no longer needs a non-root user, and the offline proxy provider has a contract test.
 - Tests (#237): `tests/test_fail_closed_security_paths.py` covers the refusal paths in `panel_token.py` (non-ASCII, non-regular, foreign-owned, unreadable and ACL-failure cases), `dev_mode.py`, `audit.py` and `dispatch.py`, using monkeypatch so it runs as root. `panel_token.py` and `dev_mode.py` are now above 95%.
 - Docs (#152): `docs/security.md`, ADR 0017 and the release checklist now describe the shipped plan binding follow-ups (Revit pid and start time in the binding, one probe per `execute_plan`, binding in the proof bundle, a refusal before the first action leaves the plan `approved`); they said the pid was not recorded. The two-Revits live check stays open and UNVERIFIED.
 - Docs: ADR 0023 (MCP spec 2026-07-28 and Python SDK 2.x plan, #271) no longer lists Elicitation, Tasks or MCP Apps as unused features.

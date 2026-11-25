@@ -243,3 +243,12 @@ def test_redaction_contract():
     assert "C:\\Users\\jdoe\\private.txt" not in redacted["nested"]["message"]
     assert "/Users/jdoe/private.key" not in redacted["nested"]["message"]
     assert "<redacted-path>" in redacted["nested"]["message"]
+
+
+@pytest.mark.anyio
+async def test_offline_proxy_provider_lists_no_tools_and_reports_disconnected():
+    """The proxy is always offline in CI, so assert its offline answer instead of skipping."""
+    assert McpProxyProvider is not None
+    proxy = McpProxyProvider(target_url="http://localhost:9876/sse")
+    assert proxy.get_capabilities() == []
+    assert (await proxy.check_health()) == {"status": "disconnected"}
