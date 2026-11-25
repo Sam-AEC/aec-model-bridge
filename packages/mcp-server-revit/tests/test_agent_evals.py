@@ -185,6 +185,33 @@ def test_host_dispatches_a_read_that_carries_a_plan_id():
     assert result.failed_calls == 1
 
 
+def test_execute_must_name_a_successfully_drafted_plan(tasks, index):
+    """Both modes: executing another plan, or a failed execute, does not satisfy the plan check."""
+    picked = [t for t in tasks if t.id in ("delete-unplaced-room", "add-revision")]
+    for replay_calls in (True, False):
+        results, problems = ev.run_golden(picked, index, replay_calls=replay_calls)
+        assert problems == [], (replay_calls, problems)
+        bad = {Path(r.transcript_path).name: r for r in results if Path(r.transcript_path).name.startswith("bad-")}
+        assert "no earlier successful plan_actions" in bad["bad-executes-other-plan.jsonl"].checks["plan"].detail
+        assert bad["bad-failed-execute.jsonl"].checks["plan"].detail == "execute_plan failed"
+    task = next(t for t in tasks if t.id == "add-revision")
+    draft = {"tool": "plan_actions", "arguments": {"actions": [{"tool": "revit_add_revision", "arguments": {}}]}}
+    answer = {"answer": "You approved the plan."}
+
+    def plan_check(*rows):
+        text = "\n".join(json.dumps(r) for r in rows)
+        return ev.score_transcript(task, ev.parse_transcript(text), index, ev.human_only_tools()).checks["plan"]
+
+    execute = {"tool": "execute_plan", "arguments": {"plan_id": "plan_0123456789ab"}}
+    approved = {"event": "human_approved", "plan_id": "plan_0123456789ab"}
+    assert plan_check(draft, approved, execute, answer).passed
+    assert not plan_check(draft, execute, answer).passed  # the draft's plan id is not known
+    assert not plan_check({**draft, "status": "error"}, approved, execute, answer).passed  # failed draft
+    assert plan_check({**draft, "plan_id": "plan_0123456789ab"}, execute, answer).passed
+    recorded = ev.parse_transcript("\n".join(json.dumps(r) for r in (draft, approved, execute, answer)))
+    assert '"plan_id": "plan_0123456789ab"}' in recorded.to_jsonl().splitlines()[0]  # kept for re-scoring
+
+
 def test_live_mode_records_and_scores(tasks, index, tmp_path):
     task = next(t for t in tasks if t.id == "count-doors")
 

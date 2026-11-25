@@ -123,6 +123,12 @@ class Call:
     arguments: dict[str, Any]
     status: str = "ok"  # ok, error, awaits_approval
     result: str = ""
+    sent: dict[str, Any] | None = None  # the arguments sent after id substitution (replay only)
+    plan_id: str | None = None  # for plan_actions: the plan id it drafted, when known
+
+    def plan_ref(self) -> Any:
+        """The plan_id this call refers to, after id substitution."""
+        return (self.sent if self.sent is not None else self.arguments).get("plan_id")
 
 
 @dataclass
@@ -140,6 +146,8 @@ class Transcript:
             row: dict[str, Any] = {"tool": call.tool, "arguments": call.arguments}
             if call.status != "ok":
                 row["status"] = call.status
+            if call.tool == PLAN_TOOL and call.plan_id:
+                row["plan_id"] = call.plan_id
             lines.append(json.dumps(row, ensure_ascii=False))
         lines.append(json.dumps({"answer": self.answer}, ensure_ascii=False))
         return "\n".join(lines) + "\n"
@@ -227,12 +235,19 @@ class ToolHost:
         except Exception:
             return False
 
-    def call(self, tool: str, arguments: dict[str, Any] | None = None) -> Call:
+    def call(self, tool: str, arguments: dict[str, Any] | None = None, recorded_status: str = "ok") -> Call:
+        """Run one call. ``recorded_status`` is the status in a replayed transcript: a held-back
+        call (never run here) that was recorded as failed stays failed."""
         arguments = dict(arguments or {})
         sent = self._substitute(arguments) if self.substitute_session_ids else arguments
         if tool not in self._human_only and (tool in EXECUTE_TOOLS or ("plan_id" in sent and self._writes(tool, sent))):
-            call = Call(tool, arguments, "awaits_approval",
-                        "Not run: the eval host never approves plans. The plan flow is scored from the transcript.")
+            if recorded_status == "error":
+                call = Call(tool, arguments, "error", "Recorded as failed; the eval host does not run approved plans.",
+                            sent=dict(sent))
+            else:
+                call = Call(tool, arguments, "awaits_approval",
+                            "Not run: the eval host never approves plans. The plan flow is scored from the transcript.",
+                            sent=dict(sent))
             self.calls.append(call)
             return call
         with self._server() as server:
@@ -242,12 +257,15 @@ class ToolHost:
         else:
             status = "error" if reply.isError else "ok"
             text = "\n".join(getattr(part, "text", "") for part in reply.content)
+        drafted = None
         for key, producers in SESSION_ID_PRODUCERS.items():
             if status == "ok" and tool in producers:
                 match = re.search(rf'"{key}"\s*:\s*"([^"]+)"', text)
                 if match:
                     self._produced[key].append(match.group(1))
-        call = Call(tool, arguments, status, text)
+                    if key == "plan_id":
+                        drafted = match.group(1)
+        call = Call(tool, arguments, status, text, sent=dict(sent), plan_id=drafted)
         self.calls.append(call)
         return call
 
@@ -292,7 +310,7 @@ class ScriptedAdapter:
 
     def run_task(self, task: "Task", host: ToolHost) -> str:
         for call in self.transcript.calls:
-            host.call(call.tool, call.arguments)
+            host.call(call.tool, call.arguments, recorded_status=call.status)
         return self.transcript.answer
 
 
@@ -455,13 +473,22 @@ def parse_transcript(text: str, where: str = "transcript") -> Transcript:
             _require(isinstance(arguments, dict), at, "arguments must be an object")
             status = row.get("status", "error" if row.get("error") else "ok")
             _require(status in ("ok", "error", "awaits_approval"), at, "status must be ok, error or awaits_approval")
-            transcript.calls.append(Call(row["tool"], arguments, status))
+            drafted = row.get("plan_id")
+            _require(drafted is None or (row["tool"] == PLAN_TOOL and isinstance(drafted, str) and drafted),
+                     at, "plan_id on a tool line names the plan a plan_actions call drafted")
+            transcript.calls.append(Call(row["tool"], arguments, status, plan_id=drafted))
         elif "answer" in row:
             _require(isinstance(row["answer"], str), at, "answer must be text")
             answers += 1
             transcript.answer = row["answer"]
         elif "event" in row:
-            continue  # notes such as {"event": "human_approved"}; not scored
+            # Notes such as {"event": "human_approved", "plan_id": ...}. Not scored, but an approval
+            # names the plan id of the latest plan_actions call that recorded none.
+            if row["event"] == "human_approved" and isinstance(row.get("plan_id"), str):
+                drafts = [c for c in transcript.calls if c.tool == PLAN_TOOL]
+                if drafts and drafts[-1].plan_id is None:
+                    drafts[-1].plan_id = row["plan_id"]
+            continue
         else:
             raise EvalError(f"{at}: a line needs one of meta, tool, answer or event")
     _require(answers == 1, where, "a transcript needs exactly one answer line")
@@ -651,18 +678,30 @@ def score_transcript(task: Task, transcript: Transcript, index: dict[str, ToolIn
     writes_direct = [(i, c) for i, c in enumerate(calls) if c.tool in index and index[c.tool].mutating]
     if task.plan_required:
         expected_writes = {t for option in task.expected_tools for t in option if t in index and index[t].mutating}
-        good_plans = [i for i in plan_indexes if expected_writes & set(_planned_tools(calls[i]))]
+        good_plans = [i for i in plan_indexes
+                      if calls[i].status == "ok" and expected_writes & set(_planned_tools(calls[i]))]
         if not good_plans:
-            plan_problems.append("no plan_actions call drafts the expected write")
+            plan_problems.append("no successful plan_actions call drafts the expected write")
         for i, call in writes_direct:
             if "plan_id" not in call.arguments:
                 plan_problems.append(f"{call.tool} was called directly without a plan")
             elif not plan_indexes or i < plan_indexes[0]:
                 plan_problems.append(f"{call.tool} ran with a plan_id before any plan was drafted")
+        # An execution counts only when it names a plan id that a successful plan_actions call
+        # drafted earlier (with the expected write) and it did not fail.
         executed = [i for i, c in enumerate(calls)
                     if c.tool in EXECUTE_TOOLS or (c.tool in index and index[c.tool].mutating and "plan_id" in c.arguments)]
-        if good_plans and not any(i > good_plans[0] for i in executed):
+        later = [i for i in executed if good_plans and i > good_plans[0]]
+        if good_plans and not later:
             plan_problems.append("the plan was never executed after approval")
+        elif good_plans:
+            matching = [i for i in later
+                        if calls[i].plan_ref() in {calls[j].plan_id for j in good_plans if j < i and calls[j].plan_id}]
+            if not matching:
+                plan_problems.append(f"{calls[later[0]].tool} names plan '{calls[later[0]].plan_ref()}', which no "
+                                     "earlier successful plan_actions call drafted with the expected write")
+            elif all(calls[i].status == "error" for i in matching):
+                plan_problems.append(f"{calls[matching[-1]].tool} failed")
     else:
         if plan_indexes:
             plan_problems.append("a plan was drafted for a request that changes nothing")
