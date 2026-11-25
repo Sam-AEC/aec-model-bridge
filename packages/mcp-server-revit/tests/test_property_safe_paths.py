@@ -99,7 +99,8 @@ def test_safe_child_never_leaves_the_root(tree: dict, name: str, kind: str, suff
         assert kind == "anything" and "\x00" in name, e
         return
     _assert_child(result, root, subdir)
-    assert subdir != "dirlink", "a linked subfolder was followed out of the root"
+    # "dirlink" is only a link when the account may create links; otherwise it is a plain folder.
+    assert subdir != "dirlink" or not tree["links"], "a linked subfolder was followed out of the root"
 
 
 # Names that resolve to a direct child of root (the second goes out through the link and back in).
