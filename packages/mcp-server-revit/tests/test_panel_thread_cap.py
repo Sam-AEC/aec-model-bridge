@@ -211,3 +211,26 @@ def test_build_server_reads_the_cap_from_env(tmp_path, monkeypatch):
         assert server.daemon_threads is True
     finally:
         server.server_close()
+
+
+def test_incomplete_headers_cannot_hold_a_reserved_slot(capped, monkeypatch):
+    """#336 review: a client that never finishes its headers on a reserved slot is dropped after a short
+    timeout, so a later /execute still gets the slot."""
+    monkeypatch.setattr(panel_server, "RESERVED_HEADER_TIMEOUT_SECONDS", 0.3)
+    server, release, entered = capped
+    port = server.server_address[1]
+    held = [_send(port, "GET", "/a"), _send(port, "GET", "/b")]
+    _wait_for(lambda: len(entered) == 2)
+
+    slow = socket.create_connection(("127.0.0.1", port), timeout=5)
+    slow.sendall(b"GET /health HTTP/1.0\r\nHost: 127.0.0.1\r\n")  # never ends its headers
+    _wait_for(lambda: server.active_threads == 3)
+    _wait_for(lambda: server.active_threads == 2, timeout=5.0)  # dropped after the short timeout
+    slow.close()
+
+    execute = _send(port, "POST", "/execute")
+    _wait_for(lambda: "/execute" in entered)
+    release.set()
+    assert _status_headers_body(_read_all(execute))[0] == 200
+    for sock in held:
+        _read_all(sock)

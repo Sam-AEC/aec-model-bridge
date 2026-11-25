@@ -118,6 +118,10 @@ def _busy_response_bytes() -> bytes:
     return head + body
 
 
+# Request line and headers must arrive this fast on a reserved /execute slot.
+RESERVED_HEADER_TIMEOUT_SECONDS = 2.0
+
+
 class BoundedThreadingHTTPServer(ThreadingHTTPServer):
     """ThreadingHTTPServer with a cap on request threads.
 
@@ -463,11 +467,25 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
         logger.debug("panel_server: " + format, *args)
 
+    def _on_reserved_slot(self) -> bool:
+        current_slot = getattr(self.server, "current_slot", None)
+        return callable(current_slot) and current_slot() == "execute"
+
+    def setup(self) -> None:
+        super().setup()
+        if self._on_reserved_slot():
+            # A reserved /execute slot must not be held by a client that sends its request line or
+            # headers slowly (#336 review): the route is unknown until they arrive, so they get a
+            # short read timeout. The normal timeout is restored once the route is /execute.
+            self.connection.settimeout(RESERVED_HEADER_TIMEOUT_SECONDS)
+
     def parse_request(self) -> bool:
         if not super().parse_request():
             return False
-        current_slot = getattr(self.server, "current_slot", None)
-        if callable(current_slot) and current_slot() == "execute" and self.path.split("?", 1)[0] != "/execute":
+        reserved = self._on_reserved_slot()
+        if reserved and self.path.split("?", 1)[0] == "/execute":
+            self.connection.settimeout(self.timeout)
+        if reserved and self.path.split("?", 1)[0] != "/execute":
             # A reserved slot serves only /execute; other routes wait for a general slot.
             self.close_connection = True
             self._send_json(503, {"ok": False, "kind": "hub_busy", "error": BUSY_ERROR},
