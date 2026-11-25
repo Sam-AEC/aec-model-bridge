@@ -115,6 +115,10 @@ With the Claude API tool search tool, deferred definitions are not in the prompt
 
 Reproduce: `python scripts/measure_mcp_tokens.py --always-loaded --output always-loaded.json`, and `--profile full|daily|core` for the other rows. `--only-tools a,b,c` measures any other subset.
 
+## Follow-up: MCP Apps `_meta.ui`
+
+With `MCP_REVIT_MCP_APPS` on (default), `plan_actions` and `list_pending_plans` carry `_meta.ui.resourceUri` and every tool that is not read-only carries `_meta.ui.visibility: ["model"]` ([MCP Apps plan review view](mcp-apps.md)). Same method (mock mode, chars / 4 over `list_tools`, `full` profile, 314 listed tools): 343,087 characters without, 350,067 with, about 1,745 tokens more; 173 tools carry `_meta.ui`. Whether a client puts `_meta` in the model prompt depends on the client; UNVERIFIED. `MCP_REVIT_MCP_APPS=false` removes it.
+
 ## What dominates?
 
 *Dated: 2026-11-05. The `module_list_commands` size below is from before the 2026-11-16 trims; see the follow-up sections above.*

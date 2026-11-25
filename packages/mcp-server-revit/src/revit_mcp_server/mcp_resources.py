@@ -15,6 +15,8 @@ from typing import Any
 
 from mcp.types import Resource, ResourceTemplate
 
+from . import mcp_apps
+
 from .security.approval import ApprovalGate, validate_plan_id
 from .security.audit import redact_data
 from .security.proof import read_proof
@@ -43,11 +45,13 @@ class ResourceError(ValueError):
 
 
 def list_resources() -> list[Resource]:
-    return [Resource(uri=u, name=n, description=d, mimeType=MIME) for u, n, d in STATIC_RESOURCES]
+    listed = [Resource(uri=u, name=n, description=d, mimeType=MIME) for u, n, d in STATIC_RESOURCES]
+    return listed + mcp_apps.list_resources()
 
 
 def list_resource_templates() -> list[ResourceTemplate]:
-    return [ResourceTemplate(uriTemplate=u, name=n, description=d, mimeType=MIME) for u, n, d in TEMPLATES]
+    listed = [ResourceTemplate(uriTemplate=u, name=n, description=d, mimeType=MIME) for u, n, d in TEMPLATES]
+    return listed + mcp_apps.list_resource_templates()
 
 
 def _dump(value: Any) -> str:

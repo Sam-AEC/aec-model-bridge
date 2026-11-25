@@ -83,9 +83,11 @@ def test_prompts_reference_real_tools_and_never_approve(tmp_path):
 
 def test_resource_lists():
     assert {str(r.uri) for r in mcp_resources.list_resources()} == {
-        "aec://workspace/snapshots", "aec://plans/pending", "aec://qa/latest"}
+        "aec://workspace/snapshots", "aec://plans/pending", "aec://qa/latest",
+        "ui://aec-model-bridge/plan-review"}
     assert {t.uriTemplate for t in mcp_resources.list_resource_templates()} == {
-        "aec://snapshot/{id}/summary", "aec://plan/{id}", "aec://proof/{id}", "aec://result/{id}"}
+        "aec://snapshot/{id}/summary", "aec://plan/{id}", "aec://proof/{id}", "aec://result/{id}",
+        "ui://aec-model-bridge/plan-review/{id}"}
 
 
 def test_snapshot_list_and_summary_omit_elements(tmp_path, gate):

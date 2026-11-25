@@ -1088,6 +1088,8 @@ Resources (JSON, redacted like tool results, ids validated, nothing writable):
 | `aec://proof/{id}` | The proof bundle of an executed plan. |
 | `aec://qa/latest` | Issue counts by severity and status for the latest QA/QC run. |
 
+Clients that support MCP Apps can show `plan_actions` and `list_pending_plans` results in the read-only view `ui://aec-model-bridge/plan-review`. It cannot approve. See [MCP Apps plan review view](mcp-apps.md).
+
 ## Cline (VS Code)
 
 *MCP Servers, Installed, Configure MCP Servers* opens `cline_mcp_settings.json`. Leave Cline's auto-approve off for tools that change the model. When Cline installs the server for the person, it should check `uv --version`, ask whether to use `mock` (sample data) or `bridge` (open Revit, needs the add-in from [install](install.md)), keep existing servers in the file, not set `MCP_REVIT_APPROVAL_MODE`, and never approve a plan itself. Explicit panel Dev mode and timed Auto also skip per-change approvals; switch them off for this workflow.
@@ -1326,6 +1328,7 @@ The server has three modes. Set the mode with `MCP_REVIT_MODE`.
 | `MCP_REVIT_APPROVAL_TTL` | No | `28800` (8 hours) | Seconds an approved plan stays usable. After that the plan moves to `expired` and a person must approve a new plan; it is never renewed silently. `0` turns the limit off. A negative, fractional or non-numeric value falls back to the default (it never turns the limit off) and logs a warning. Checked when a call runs, not by a timer. See [ADR 0017](adr/0017-approval-document-binding-and-expiry.md). |
 | `MCP_REVIT_PENDING_TTL` | No | `1209600` (14 days) | Seconds a drafted, not yet approved plan can still be approved. Older pending plans are left out of `list` and `list_pending_plans` (counted as `expired_hidden`; `list --all` or `include_expired` shows them), cannot be approved, and are never deleted. `0` turns the limit off. Same fallback rule as above. |
 | `MCP_REVIT_POLICY_FILE` | No | unset | Path of a policy file (YAML or JSON) that adds refusals to `plan_actions` and `execute_plan`. Unset: `policy.yaml`, `policy.yml` or `policy.json` in the workspace folder, if present. A file that is named but missing or invalid refuses every write. See [Policy file](#policy-file). |
+| `MCP_REVIT_MCP_APPS` | No | `true` | Offers the read-only plan review view `ui://aec-model-bridge/plan-review` (MCP Apps) and the `_meta.ui` keys on tools. The view cannot approve. `false` removes both. Read at startup. See [MCP Apps plan review view](mcp-apps.md). |
 | `MCP_REVIT_VALIDATE_BRIDGE_PAYLOADS` | No | on | Checks each Revit add-in command payload against `contracts/bridge-commands.json` before sending. A payload that does not fit is refused and nothing is sent. `0`, `false`, `off` or `no` turns the check off; any other value keeps it on. Read on each call. See [Add-in command contract](bridge-command-contract.md). |
 | `MCP_REVIT_ENABLE_USER_MODULES` | No | `false` | Set to `true` to load modules from `%LOCALAPPDATA%\AECModelBridge\modules`. See [Module authoring](module-authoring.md). |
 | `MCP_REVIT_ALLOW_PYTHON_HOST` | No | `false` | Set to `true` to allow tools that run raw Python on the host, such as `revit_execute_python`. Leave it off unless you need it. |
@@ -1679,7 +1682,7 @@ A tool failure reaches an MCP client in one of two shapes:
 Refusals never change the model. A refused write needs a new plan that a person approves.
 For logs and connection problems see [troubleshooting](troubleshooting.md).
 
-Entries: 141.
+Entries: 142.
 
 ## Tool error kinds
 
@@ -2411,13 +2414,19 @@ Set by module tools as `kind` in an `ok: false` result, next to `message`, `elem
 
 ## Exception classes
 
-Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 21.
+Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 22.
 
 ### `ApprovalExpired`
 
 - When: An approval or a drafted plan is older than approval_ttl.
 - What to do: Create a new plan and ask the person to approve it. Nothing renews an old approval.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/security/approval.py`
+
+### `AppsResourceError`
+
+- When: A ui:// MCP Apps URI is unknown, names a plan that is not allowed or not found, or MCP_REVIT_MCP_APPS is false.
+- What to do: Use ui://aec-model-bridge/plan-review or a plan id from list_pending_plans; check MCP_REVIT_MCP_APPS.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_apps.py`
 
 ### `BcfError`
 
@@ -3600,6 +3609,10 @@ Same method as above (mock mode, chars / 4 over `list_tools`), with 312 tools, a
 With the Claude API tool search tool, deferred definitions are not in the prompt until a search returns them, so the startup cost is the always-loaded row plus the search tool itself. Claude Code lists the names of deferred tools at session start; the last row estimates that from names-only JSON (7,772 characters for all 312 names) and is not a measurement of Claude Code's own prompt. Neither row was measured in a live client. Server instructions (about 345 tokens) are sent in every setup.
 
 Reproduce: `python scripts/measure_mcp_tokens.py --always-loaded --output always-loaded.json`, and `--profile full|daily|core` for the other rows. `--only-tools a,b,c` measures any other subset.
+
+## Follow-up: MCP Apps `_meta.ui`
+
+With `MCP_REVIT_MCP_APPS` on (default), `plan_actions` and `list_pending_plans` carry `_meta.ui.resourceUri` and every tool that is not read-only carries `_meta.ui.visibility: ["model"]` ([MCP Apps plan review view](mcp-apps.md)). Same method (mock mode, chars / 4 over `list_tools`, `full` profile, 314 listed tools): 343,087 characters without, 350,067 with, about 1,745 tokens more; 173 tools carry `_meta.ui`. Whether a client puts `_meta` in the model prompt depends on the client; UNVERIFIED. `MCP_REVIT_MCP_APPS=false` removes it.
 
 ## What dominates?
 

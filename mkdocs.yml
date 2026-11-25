@@ -88,6 +88,7 @@ nav:
           - Scripting with execute_python: prompts/scripting-execute-python.md
       - snapshot_compute: snapshot-compute.md
       - Read result cursors: read-cursors.md
+      - MCP Apps plan review view: mcp-apps.md
       - Preview in model: preview-in-model.md
       - Clash triage: clash-triage.md
       - BCF issue exchange: bcf-exchange.md
