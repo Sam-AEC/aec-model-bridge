@@ -38,6 +38,10 @@ Live work always needs the Revit add-in. The server talks to a running copy of R
 | Power BI | In progress | The tool exists but is not registered in the hub. |
 | Excel and SQLite | Available as export | The report tools write `.xlsx` and `.db` files. |
 
+## Beside Autodesk's Revit MCP server
+
+Using both servers in one client is UNVERIFIED. [run-beside-autodesk-revit-mcp.md](run-beside-autodesk-revit-mcp.md) lists this server's tool name prefixes and a configuration with two distinct server names.
+
 ## Where the server is listed
 
 Registry files for the official MCP Registry (`server.json`), Smithery (`smithery.yaml`, mock mode) and Glama (`glama.json`) are in the repository root. See [release-checklist.md](release-checklist.md#7-registries-and-stores) for the state of each listing.

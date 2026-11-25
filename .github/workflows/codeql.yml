@@ -1,13 +1,15 @@
 name: CodeQL
 
-# Static security analysis of the Python server and of the workflow files themselves
-# (script injection, unpinned actions, excessive permissions). Results appear under
+# Static security analysis of the Python server, the panel and extension JavaScript and TypeScript,
+# the C# add-in (source only, no build) and the workflow files themselves
+# (script injection, unpinned actions, excessive permissions), with the security-extended queries. Results appear under
 # Security -> Code scanning. If "default setup" for CodeQL is enabled in the repo
 # settings, disable it first: the two cannot be active at the same time.
 on:
   push:
     branches:
       - main
+      - dev
   pull_request:
   schedule:
     - cron: "23 4 * * 1" # Mondays 04:23 UTC
@@ -35,6 +37,8 @@ jobs:
         language:
           - python
           - actions
+          - javascript-typescript
+          - csharp
 
     steps:
       - name: Checkout repository
@@ -47,6 +51,8 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: none
+          queries: security-extended
+          config-file: ./.github/codeql/codeql-config.yml
 
       - name: Analyze
         uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
