@@ -12,7 +12,7 @@ A tool failure reaches an MCP client in one of two shapes:
 Refusals never change the model. A refused write needs a new plan that a person approves.
 For logs and connection problems see [troubleshooting](troubleshooting.md).
 
-Entries: 138.
+Entries: 141.
 
 ## Tool error kinds
 
@@ -744,7 +744,7 @@ Set by module tools as `kind` in an `ok: false` result, next to `message`, `elem
 
 ## Exception classes
 
-Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 18.
+Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 21.
 
 ### `ApprovalExpired`
 
@@ -758,11 +758,23 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 - What to do: Use a BCF file inside the workspace. Do not open archives from untrusted sources.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/modules/bcf_exchange/module.py`
 
+### `BridgeContractError`
+
+- When: The payload for an add-in command does not match contracts/bridge-commands.json. Nothing was sent to Revit.
+- What to do: Fix the parameter the message names and call again. MCP_REVIT_VALIDATE_BRIDGE_PAYLOADS=off turns the check off.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/errors.py`
+
 ### `BridgeError`
 
 - When: Communication with the Revit bridge failed, or a tool reported a failure. Returned to clients as kind bridge_error.
 - What to do: Run revit_health and check that Revit is running with the add-in.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/errors.py`
+
+### `CassetteError`
+
+- When: Replay mode cannot open, read or match a cassette, or MCP_REVIT_RECORD is not a plain cassette name. A kind of BridgeError, returned as bridge_error.
+- What to do: Set MCP_REVIT_CASSETTE to a readable cassette file, record the session again for an unmatched request, or use a plain name (letters, digits, _ or -) for MCP_REVIT_RECORD. See docs/record-replay.md.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/bridge/cassette.py`
 
 ### `CategoryMismatch`
 
@@ -787,6 +799,12 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 - When: A system belongs to a different domain than the tool's kind.
 - What to do: Pick a system of the tool's kind, for example pipe systems for pipes.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/modules/revit_mep/module.py`
+
+### `IncrementalMergeError`
+
+- When: An incremental snapshot capture does not fit its base snapshot (another document, a cut-short capture, or an element missing from both).
+- What to do: Nothing to do. snapshot_take catches it, takes a full snapshot and gives the reason in counts.incremental_reason.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/semantic/engine.py`
 
 ### `InstanceRoutingError`
 

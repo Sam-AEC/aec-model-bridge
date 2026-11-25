@@ -31,7 +31,14 @@ LEGACY_DIR = SERVER_SRC / "legacy"
 KNOWN_DANGLING = {
     # pyrevit_bridge refuses to run until an add-in runner exists (docs/pyrevit-bridge.md).
     "revit.run_pyrevit_script",
+    # Not command names: a docstring example and a prefix test for export commands.
+    "revit.x",
+    "revit.export_",
 }
+
+# Generated catalogue of every add-in command (scripts/gen_bridge_contract.py); naming a command
+# there does not make the server call it.
+GENERATED = {"bridge/contract_generated.py"}
 
 # Add-in commands that no Python source names. They stay reachable through revit_raw_command.
 KNOWN_UNUSED = {
@@ -63,6 +70,8 @@ def python_references(include_legacy: bool = False) -> dict[str, set[str]]:
         if path.suffix not in (".py", ".json") or not path.is_file():
             continue
         if not include_legacy and LEGACY_DIR in path.parents:
+            continue
+        if path.relative_to(SERVER_SRC).as_posix() in GENERATED:
             continue
         for name in _LITERAL.findall(path.read_text(encoding="utf-8")):
             found.setdefault(name, set()).add(path.relative_to(SERVER_SRC).as_posix())

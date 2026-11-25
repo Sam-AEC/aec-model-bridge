@@ -179,6 +179,37 @@
         ]
       }
     },
+    "revit.batch": {
+      "is_mutating": false,
+      "params": {
+        "type": "object",
+        "properties": {
+          "commands": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 25,
+            "items": {
+              "type": "object",
+              "properties": {
+                "tool": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "payload": {
+                  "type": "object"
+                }
+              },
+              "required": [
+                "tool"
+              ]
+            }
+          }
+        },
+        "required": [
+          "commands"
+        ]
+      }
+    },
     "revit.batch_create_sheets_from_csv": {
       "is_mutating": true,
       "params": {

@@ -25,10 +25,12 @@ Files in this document:
 - docs/mcp-token-budget.md
 - docs/performance.md
 - docs/deferred-tool-loading.md
+- docs/python-automation.md
 - docs/snapshot-compute.md
 - docs/read-cursors.md
 - packages/claude-plugin/skills/aec-model-bridge/SKILL.md
 - docs/dev-workflow.md
+- docs/record-replay.md
 - docs/release-checklist.md
 - docs/versioning.md
 - LICENSING.md
@@ -81,10 +83,12 @@ Not copied (read them from the repository):
 - [MCP token budget](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/mcp-token-budget.md): tool profiles and context size.
 - [Performance](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/performance.md): server cold start, bridge client compression and routing, `revit_perf_report`.
 - [Deferred tool loading](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/deferred-tool-loading.md): Claude Code and Claude API config that defers the server behind tool search and keeps eight tools loaded.
+- [Python automation](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/python-automation.md): fast revit_execute_python patterns and the opt-in `amb` helper library (`helpers: true`).
 - [snapshot_compute](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/snapshot-compute.md): one-call read-only query pipelines over a saved snapshot.
 - [Read result cursors](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/read-cursors.md): size cap, cursors and saved results for large read answers.
 - [Operator skill](https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/claude-plugin/skills/aec-model-bridge/SKILL.md): Agent Skills file that teaches clients to use few calls and small results.
 - [Dev workflow](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/dev-workflow.md): build, test and release commands.
+- [Record and replay](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/record-replay.md): record bridge traffic to a cassette and replay it without Revit as a regression test.
 - [Agent instructions](https://github.com/Sam-AEC/aec-model-bridge/blob/main/AGENTS.md): repository layout, commands and rules for coding agents.
 
 ## Project
@@ -855,6 +859,14 @@ $RevitVersion = Read-Host "Choose one of the listed Revit years"
 
 If there is no prebuilt package for your year, use the source install above.
 
+Check that the download was built by this repository's release workflow (needs the GitHub CLI):
+
+```bash
+gh attestation verify aec-model-bridge-revit-2026-1.6.0.zip --repo Sam-AEC/aec-model-bridge
+```
+
+Use the name of the file you downloaded. The same check works for the installer, the `.mcpb` bundle and the PyPI wheel and sdist. See [Supply chain](supply-chain.md).
+
 ## Run the server with uvx
 
 [uv](https://docs.astral.sh/uv/getting-started/installation/) can fetch and start
@@ -1285,16 +1297,19 @@ This page lists the environment variables, package files and runtime modes of th
 
 ## Runtime modes
 
-The server has two modes. Set the mode with `MCP_REVIT_MODE`.
+The server has three modes. Set the mode with `MCP_REVIT_MODE`.
 
 - `mock`: uses built-in sample data. Use it for tests, development and trying the tools without Revit. This is the default.
 - `bridge`: connects to a running Revit add-in. The server finds the add-in through its local registry entry, or through an explicit bridge URL.
+- `replay`: serves Revit responses from a recorded cassette (`MCP_REVIT_CASSETTE`) and never contacts Revit. See [Record and replay](record-replay.md).
 
 ## Environment variables
 
 | Variable | Required | Default | Description |
 |---|---:|---|---|
-| `MCP_REVIT_MODE` | No | `mock` | Selects `mock` or `bridge`. Set `bridge` for live Revit. |
+| `MCP_REVIT_MODE` | No | `mock` | Selects `mock`, `bridge` or `replay`. Set `bridge` for live Revit. |
+| `MCP_REVIT_RECORD` | No | unset | Bridge mode only. Records each bridge request and response to `<workspace>/cassettes/<name>.jsonl` with secrets, paths and user names masked. A plain name (letters, digits, `_`, `-`); `1`, `true`, `on` or `yes` pick a timestamped name. A path is refused and every Revit call then reports why. A cassette can still hold model data; review it before sharing. See [Record and replay](record-replay.md). |
+| `MCP_REVIT_CASSETTE` | With `replay` | unset | Cassette file that `MCP_REVIT_MODE=replay` serves. A request with no recorded match fails with a plain error. |
 | `MCP_REVIT_BRIDGE_URL` | No | auto-discovered | Explicit URL of the Revit bridge. Overrides registry discovery. |
 | `MCP_REVIT_HOST_VERSION` | No | newest live Revit | Revit year to pick from the local registry, such as `2024` or `2026`. |
 | `MCP_REVIT_BRIDGE_TRANSPORT` | No | `http` | `http` or `pipe`. With `pipe` the server sends requests over the named pipe that the selected Revit publishes as `pipe_name` in its registry entry. If the entry has no pipe, it logs a warning and uses HTTP. Off Windows, `pipe` is refused. Unset: the value of `AEC_BRIDGE_TRANSPORT`, then `http`. Any other value makes the bridge unavailable. UNVERIFIED in live Revit. See [ADR 0021](adr/0021-named-pipe-transport.md). |
@@ -1311,6 +1326,7 @@ The server has two modes. Set the mode with `MCP_REVIT_MODE`.
 | `MCP_REVIT_APPROVAL_TTL` | No | `28800` (8 hours) | Seconds an approved plan stays usable. After that the plan moves to `expired` and a person must approve a new plan; it is never renewed silently. `0` turns the limit off. A negative, fractional or non-numeric value falls back to the default (it never turns the limit off) and logs a warning. Checked when a call runs, not by a timer. See [ADR 0017](adr/0017-approval-document-binding-and-expiry.md). |
 | `MCP_REVIT_PENDING_TTL` | No | `1209600` (14 days) | Seconds a drafted, not yet approved plan can still be approved. Older pending plans are left out of `list` and `list_pending_plans` (counted as `expired_hidden`; `list --all` or `include_expired` shows them), cannot be approved, and are never deleted. `0` turns the limit off. Same fallback rule as above. |
 | `MCP_REVIT_POLICY_FILE` | No | unset | Path of a policy file (YAML or JSON) that adds refusals to `plan_actions` and `execute_plan`. Unset: `policy.yaml`, `policy.yml` or `policy.json` in the workspace folder, if present. A file that is named but missing or invalid refuses every write. See [Policy file](#policy-file). |
+| `MCP_REVIT_VALIDATE_BRIDGE_PAYLOADS` | No | on | Checks each Revit add-in command payload against `contracts/bridge-commands.json` before sending. A payload that does not fit is refused and nothing is sent. `0`, `false`, `off` or `no` turns the check off; any other value keeps it on. Read on each call. See [Add-in command contract](bridge-command-contract.md). |
 | `MCP_REVIT_ENABLE_USER_MODULES` | No | `false` | Set to `true` to load modules from `%LOCALAPPDATA%\AECModelBridge\modules`. See [Module authoring](module-authoring.md). |
 | `MCP_REVIT_ALLOW_PYTHON_HOST` | No | `false` | Set to `true` to allow tools that run raw Python on the host, such as `revit_execute_python`. Leave it off unless you need it. |
 | `MCP_REVIT_ANTHROPIC_API_KEY` | No | unset | Anthropic API key for the panel's built-in Claude chat (`agent_native.py`, ADR 0012). If you do not set it, the Claude chat falls back to the `claude` command-line tool when that is on your PATH. If neither is available, no AI provider is available. You can also put the key in a `.env` file. The hub reads it only at startup, so restart Revit after you set or change it. The panel's Settings view cannot set it. |
@@ -1663,7 +1679,7 @@ A tool failure reaches an MCP client in one of two shapes:
 Refusals never change the model. A refused write needs a new plan that a person approves.
 For logs and connection problems see [troubleshooting](troubleshooting.md).
 
-Entries: 138.
+Entries: 141.
 
 ## Tool error kinds
 
@@ -2395,7 +2411,7 @@ Set by module tools as `kind` in an `ok: false` result, next to `message`, `elem
 
 ## Exception classes
 
-Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 18.
+Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 21.
 
 ### `ApprovalExpired`
 
@@ -2409,11 +2425,23 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 - What to do: Use a BCF file inside the workspace. Do not open archives from untrusted sources.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/modules/bcf_exchange/module.py`
 
+### `BridgeContractError`
+
+- When: The payload for an add-in command does not match contracts/bridge-commands.json. Nothing was sent to Revit.
+- What to do: Fix the parameter the message names and call again. MCP_REVIT_VALIDATE_BRIDGE_PAYLOADS=off turns the check off.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/errors.py`
+
 ### `BridgeError`
 
 - When: Communication with the Revit bridge failed, or a tool reported a failure. Returned to clients as kind bridge_error.
 - What to do: Run revit_health and check that Revit is running with the add-in.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/errors.py`
+
+### `CassetteError`
+
+- When: Replay mode cannot open, read or match a cassette, or MCP_REVIT_RECORD is not a plain cassette name. A kind of BridgeError, returned as bridge_error.
+- What to do: Set MCP_REVIT_CASSETTE to a readable cassette file, record the session again for an unmatched request, or use a plain name (letters, digits, _ or -) for MCP_REVIT_RECORD. See docs/record-replay.md.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/bridge/cassette.py`
 
 ### `CategoryMismatch`
 
@@ -2438,6 +2466,12 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 - When: A system belongs to a different domain than the tool's kind.
 - What to do: Pick a system of the tool's kind, for example pipe systems for pipes.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/modules/revit_mep/module.py`
+
+### `IncrementalMergeError`
+
+- When: An incremental snapshot capture does not fit its base snapshot (another document, a cut-short capture, or an element missing from both).
+- What to do: Nothing to do. snapshot_take catches it, takes a full snapshot and gives the reason in counts.incremental_reason.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/semantic/engine.py`
 
 ### `InstanceRoutingError`
 
@@ -3917,6 +3951,171 @@ The client's tool search finds deferred tools that the profile lists. The server
 
 Codex, Cursor and other MCP clients: UNVERIFIED. Where a client has no deferral, use `MCP_REVIT_TOOL_PROFILE=core`.
 
+=== FILE: docs/python-automation.md ===
+
+# Python automation in Revit
+
+How to write fast `revit_execute_python` scripts, and the `amb` helper library that the server can put before a script. The approval rules do not change: `mode='read'` needs no approval and cannot open transactions; `mode='write'` (the default) needs an approved plan.
+
+Status: the helpers and the patterns below have not run in a live Revit session (UNVERIFIED). Server-side behaviour (when the prelude is added, read-mode checks) is covered by `tests/test_python_helpers.py`.
+
+## Engines and syntax
+
+The add-in runs IronPython 2.7 on Revit 2024 (net48) and IronPython 3.4 on Revit 2025 and later (net8, net10). A script that must run on both uses the shared subset:
+
+- No f-strings. Use `"%d walls" % n` or `"{0} walls".format(n)`.
+- `print(x)` with one argument only. `print(a, b)` prints a tuple on 2.7.
+- No annotations, keyword-only arguments, `nonlocal`, `yield from` or `a, *b = ...`.
+- No `long`, `basestring`, `unicode` or `xrange` (missing on 3.4); no `json` module on some 2.7 builds.
+- Use `//` for whole-number division.
+
+Check any API member you have not used before with `revit_api_lookup`.
+
+## Turning the helpers on
+
+```json
+{"script": "print(amb.count(amb.instances('Walls')))", "mode": "read", "helpers": true}
+```
+
+- `helpers: true` puts the helper text before the script. Without it nothing is added.
+- Read mode gets the read part only (`python_helpers/amb_read.ipy`). The server checks the caller's script, then checks the combined text again. The add-in repeats its own text check and keeps its roll-back guard. A read-mode script that names `Transaction` is refused with or without helpers.
+- Write mode also gets the write part (`python_helpers/amb_write.ipy`): batched transactions, sub-transactions and transaction groups.
+- Error line numbers count the helper lines. The helpers end with a marker line `# ---- end of AEC Model Bridge helpers (amb) ...`; the caller's script starts on the next line.
+- A script with `from __future__ import ...` is refused when `helpers` is true, because that import must be the first statement.
+- `revit_run_job` takes the same `helpers` flag for scripts.
+- Saved recipes (`revit_recipe_run`) always get the read part; a recipe that runs as write also gets the write part.
+
+## Read helpers
+
+All helpers are static methods of `amb`. Lengths are Revit internal units (feet) unless a unit is named.
+
+| Helper | What it does |
+|---|---|
+| `amb.instances(cats, view=None)` | Placed elements of one or more categories: `OfCategory` or `ElementMulticategoryFilter`, then `WhereElementIsNotElementType` |
+| `amb.types(cats)` | Element types of one or more categories |
+| `amb.of_class(cls, view=None)` | `OfClass` collector |
+| `amb.collector(view=None, ids=None)` | Plain collector over the document, one view, or a set of ids |
+| `amb.ids(col)` / `amb.count(col)` / `amb.first(col)` / `amb.take(col, n)` | Results without loading every element |
+| `amb.where(col, param, op, value)` | One `ElementParameterFilter` rule |
+| `amb.rule(...)` / `amb.where_all(col, rules)` | Several rules that must all match |
+| `amb.in_box(col, lo, hi, inside=False)` | `BoundingBoxIntersectsFilter` or `BoundingBoxIsInsideFilter` |
+| `amb.near_point(col, pt)` | `BoundingBoxContainsPointFilter` |
+| `amb.intersecting_solid(col, solid)` / `amb.intersecting_element(col, e)` | `ElementIntersectsSolidFilter` / `ElementIntersectsElementFilter` |
+| `amb.solids(e)` / `amb.box_solid(lo, hi)` | Solids of an element; a transient box solid |
+| `amb.to_internal(v, unit)` / `amb.from_internal(v, unit)` | `UnitUtils` with `UnitTypeId` (`mm`, `cm`, `m`, `ft`, `in`, `m2`, `ft2`, `m3`, `ft3`, `deg`, `rad`) |
+| `amb.dependents(e, element_filter=None)` | `Element.GetDependentElements` as integer ids |
+| `amb.value(e, param, unit=None)` / `amb.parameter(e, param)` | Parameter value by storage type |
+| `amb.eid(x)` / `amb.element_id(x)` / `amb.id_list(ids)` | Ids across Revit versions (`ElementId.Value` on 2024+) |
+| `amb.bic(name)` | `'Walls'`, `'OST_Walls'` or `'Structural Framing'` to `BuiltInCategory` |
+
+`param` is a `BuiltInParameter`, its name (`'ALL_MODEL_INSTANCE_COMMENTS'`), an `ElementId`, or a project or shared parameter name. `op` is one of `==`, `!=`, `>`, `>=`, `<`, `<=`, `contains`, `not_contains`, `begins`, `not_begins`, `ends`, `not_ends`, `has_value`, `no_value`. A float value compares with `epsilon` (default `1e-6`, internal units). Pass a float for a length, area or angle parameter (`3.0`, not `3`): an int value builds an integer rule, which does not match a double parameter. Text rules use the two-argument factory methods of Revit 2023 and later (not case sensitive) and fall back to the older overload.
+
+## Write helpers (write mode only)
+
+| Helper | What it does |
+|---|---|
+| `amb.run(name, fn, *args)` | `fn` in one transaction; commit on return, roll back and re-raise on error |
+| `amb.batch(name, items, fn, max_failures=None)` | All items in one transaction, each in its own `SubTransaction`; returns `(done, failed)` |
+| `amb.try_sub(fn, *args)` | `fn` in a `SubTransaction` inside an open transaction; returns `(True, result)` or `(False, message)` |
+| `amb.group(name, [(step, fn), ...])` | Each step in its own transaction inside a `TransactionGroup` that is assimilated into one undo entry |
+| `amb.set(e, param, value, unit=None)` | Set a parameter by storage type, converting a unit first |
+| `amb.regenerate()` | `doc.Regenerate()` once after a batch |
+
+Transactions come from `amb_transaction(doc, name)`, which the add-in defines in write mode: warnings are dismissed without a dialog and returned in the result's `warnings`, and errors roll the transaction back. If it is missing, the helpers use a plain `Transaction` with their own `IFailuresPreprocessor` set through `FailureHandlingOptions`.
+
+## Patterns and why they are faster
+
+### Quick filters first, then slow filters
+
+Revit checks quick filters (category, class, element type flag, bounding box) against element records without loading the element. Slow filters (parameter rules, solid intersection) load each element. Apply quick filters first so the slow filter sees fewer elements.
+
+```python
+col = amb.instances(["Walls", "Floors"])             # quick
+col = amb.in_box(col, (0, 0, 0), (50, 50, 12))       # quick
+col = amb.where(col, "ALL_MODEL_INSTANCE_COMMENTS", "begins", "AMB_")  # slow, now on fewer elements
+print(amb.count(col))
+```
+
+### Ids, not elements
+
+`ToElements()` and iterating a collector build one Python wrapper per element. `ToElementIds()`, `GetElementCount()` and `FirstElement()` do not. Fetch elements only for the ids you print or change.
+
+```python
+ids = amb.ids(amb.instances("Doors"))
+print(len(ids))
+for e in amb.elements(ids[:20]):
+    print(e.Name)
+```
+
+### Filter parameters inside Revit
+
+A Python loop that reads a parameter on every element crosses the .NET boundary twice per element. An `ElementParameterFilter` runs the comparison in native code.
+
+```python
+# Walls taller than 3 m
+tall = amb.where(amb.instances("Walls"), "WALL_USER_HEIGHT_PARAM", ">", amb.to_internal(3.0, "m"))
+```
+
+The same rule without the helpers:
+
+```python
+from Autodesk.Revit.DB import *
+provider = ParameterValueProvider(ElementId(BuiltInParameter.WALL_USER_HEIGHT_PARAM))
+rule = FilterDoubleRule(provider, FilterNumericGreater(), 3.0 / 0.3048, 1e-6)
+walls = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Walls) \
+    .WhereElementIsNotElementType().WherePasses(ElementParameterFilter(rule))
+```
+
+### Spatial filters
+
+`BoundingBoxIntersectsFilter` and `BoundingBoxIsInsideFilter` are quick filters. `ElementIntersectsSolidFilter` tests real geometry and is slow, so narrow with a box first.
+
+```python
+lo, hi = (0, 0, 0), (30, 30, 10)
+near = amb.in_box(amb.instances(["Ducts", "Pipes"]), lo, hi)
+hits = amb.intersecting_solid(near, amb.box_solid(lo, hi))
+```
+
+### One transaction for many changes
+
+Each transaction regenerates the model and adds an undo entry. One transaction for a batch regenerates once. A `SubTransaction` per item lets one bad item roll back alone.
+
+```python
+ids = amb.ids(amb.where(amb.instances("Doors"), "ALL_MODEL_INSTANCE_COMMENTS", "no_value"))
+done, failed = amb.batch("Tag doors", amb.elements(ids),
+                         lambda e: amb.set(e, "ALL_MODEL_INSTANCE_COMMENTS", "AMB_CHECKED"))
+print("%d set, %d failed" % (len(done), len(failed)))
+```
+
+Use `amb.group` when steps must be separate transactions (for example a regenerate between them) but should undo as one.
+
+### Units
+
+`UnitUtils.ConvertToInternalUnits(value, UnitTypeId.Millimeters)` replaces hand-written factors and covers areas, volumes and angles. `amb.mm(v)` divides by 304.8 without a Revit call for tight loops.
+
+### Dependent elements
+
+`Element.GetDependentElements(filter)` returns hosted and owned elements (doors in a wall, tags, sketch lines) in one call. Use it before deleting or moving an element to see what goes with it.
+
+```python
+wall = amb.first(amb.instances("Walls"))
+print(amb.dependents(wall, amb.category_filter(["Doors", "Windows"])))
+```
+
+## Keep scripts short
+
+A script runs on Revit's user-interface thread and cannot be cancelled. Keep each call well under 20 seconds, work from ids, and split long work over several calls or `revit_run_job`.
+
+## Recipes that use the helpers
+
+Two read-only starter recipes use `amb`: `elements_by_parameter` (one category plus one parameter rule) and `elements_in_box` (categories plus a box in metres). See [recipes-library.md](recipes-library.md).
+
+## Related
+
+- [ADR 0019](adr/0019-optional-cpython-engine.md): optional CPython 3 engine for numpy and pandas (proposal).
+- [Recipe library](recipes-library.md): saved scripts with checked parameters.
+- [Security model](security.md): what read mode does and does not protect.
+
 === FILE: docs/snapshot-compute.md ===
 
 # snapshot_compute: one-call model queries
@@ -4069,12 +4268,33 @@ Call: `{"snapshot_id": "01J...", "query": "doors_by_mark", "params": {"marks": [
 
 A QA/QC rule can be a pipeline: the rule field `pipeline` holds steps, and each row of the last step is an issue. See [rule-packs.md](rule-packs.md).
 
+## Taking smaller or faster snapshots
+
+`snapshot_take` options that reduce what the add-in reads (issues #289, #290):
+
+| Option | Effect |
+|---|---|
+| `categories` | Read only these categories, for example `["Doors", "Rooms"]`. |
+| `params` | Read only these parameters (up to 100 names such as `"Mark"`, or built-in ids such as `ALL_MODEL_MARK`). The snapshot records `counts.params`, and QA modules treat it as partial for checks that read other parameters. |
+| `slice_size` | 10 to 5000. Read about this many elements per Revit turn and assemble the slices into one snapshot. If the model changes between slices, the reply has `changed_during_capture: true`. |
+| `base_snapshot_id` | Incremental capture. The add-in re-reads only elements changed since that snapshot (and instances of changed types), lists every element in scope, and the server merges the result with the base into a new full snapshot. |
+
+An incremental capture falls back to a full capture, and says why in `incremental_reason`, when:
+
+- the base is partial (truncated, dirty-only) or was taken with other `categories` or `params`;
+- the base has no change-journal position (mock mode or an older add-in);
+- the add-in's change journal does not cover the base: another document, a reopen, reload, sync with central, save as, a Revit restart, or a journal that grew past its entry limit;
+- the add-in does not return an incremental capture (older add-in);
+- the delta cannot be merged (another document, cut short, or an element missing from both).
+
+Whether slices and incremental captures are faster than a full capture on a real model is UNVERIFIED in a live Revit. Whether the change journal sees every change (for example from links, worksharing or undo) is also UNVERIFIED.
+
 ## Limits and safety
 
 - Read-only. It reads snapshot and query files in the workspace and never calls Revit.
 - No expressions, code or regular expressions are evaluated. Unknown keys, ops, joins, spatial tests and aggregates are refused with a message that names the step.
 - At most 12 steps, 50 clauses per `all` or `any`, 6 nesting levels, 50 items per list aggregate, list join or spatial match list, 500 characters per text value, 4 linked snapshots, 250,000 spatial comparisons per step.
-- `partial_snapshot: true` means the snapshot hit its size limit and does not cover the whole model.
+- `partial_snapshot: true` means the snapshot hit its size limit or was taken with `params`, so it does not cover the whole model or every parameter.
 - Element-to-room joins read `room_uids`, which the add-in extractor does not fill for every element (UNVERIFIED in a live Revit).
 
 === FILE: docs/read-cursors.md ===
@@ -4314,6 +4534,106 @@ Nothing is published until the owner confirms a release.
 - No new tool, module or screen without a test that fails without it.
 - No claim in the docs that has not been checked. Unchecked things are marked UNVERIFIED.
 - No second pull request for the same change.
+
+=== FILE: docs/record-replay.md ===
+
+# Record and replay bridge sessions
+
+The server can record the traffic between itself and the Revit add-in to a cassette file, and later serve those recorded responses without Revit. Use it to turn a live session into a regression test, or to reproduce a report without the original model.
+
+## Record a session
+
+Recording is off by default. It works only in bridge mode (`MCP_REVIT_MODE=bridge`). In mock mode the setting is ignored and a warning is logged.
+
+```powershell
+$env:MCP_REVIT_MODE = "bridge"
+$env:MCP_REVIT_RECORD = "walls-check"
+python -m revit_mcp_server
+```
+
+- `MCP_REVIT_RECORD` is a plain cassette name: letters, digits, `_` or `-`, at most 64 characters. The values `1`, `true`, `on` and `yes` pick a timestamped name such as `session-20261124-101500`.
+- The cassette is written to `<workspace>/cassettes/<name>.jsonl`. The path is built with `safe_child`, so a name that is a path (`../x`, `C:\x`, `a/b`, `x.jsonl`) is refused. A refused name fails closed: every Revit call reports why, and nothing is sent to Revit unrecorded.
+- Each bridge call is appended as one JSON line. Lines are added to an existing cassette of the same name.
+- Calls routed by the panel hub to another Revit instance are recorded too.
+- A failure to write the cassette (for example a full disk) is logged and does not fail the Revit call.
+
+### What is masked
+
+Before a line is written:
+
+- Secrets and tokens are replaced with `<redacted>`: values under keys such as `token`, `session_token`, `password`, `api_key`, `authorization`, `secret` and `code`, `token=...` text, and secret values registered by the process (such as the panel token).
+- Local file paths (Windows drive paths, UNC shares, rooted and POSIX paths) are replaced with `<redacted-path>`.
+- The local OS user name and email addresses are replaced with `<redacted-user>`, and so are the values of person fields such as `user`, `author`, `owner`, `created_by` and `last_saved_by`.
+
+The live caller still gets the real, unmasked response. Only the cassette is masked.
+
+### Review before sharing
+
+A cassette from a real model can still contain model data: project and element names, parameter values, element ids, view and sheet names, family names and free text that the masking rules do not recognise. Masking is pattern-based and can miss a value. Open the file and review it before you share it, attach it to an issue or commit it.
+
+## Cassette format
+
+One JSON object per line:
+
+| Key | Meaning |
+|---|---|
+| `seq` | Line number in recording order, starting at 1. |
+| `v` | Cassette format version. This server reads version `1`. |
+| `tool` | The MCP tool call that made this bridge request, when known. |
+| `arguments` | The masked MCP tool arguments. |
+| `arguments_redacted` | `true` when masking changed the arguments, so they may not replay at tool level. |
+| `command` | The bridge command, such as `revit.list_levels`. `__get_result__` is a `revit_get_result` lookup. |
+| `params` | The masked bridge parameters, without `request_id` and `wait_ms`. |
+| `ok` | `true` for a response, `false` for an error. |
+| `response` | The masked result, as the provider received it after unwrapping. |
+| `error` | `{type, message, payload}` with `type` `CommandFailed` (Revit ran the command and it failed) or `BridgeError`. |
+
+## Replay a cassette
+
+```powershell
+$env:MCP_REVIT_MODE = "replay"
+$env:MCP_REVIT_CASSETTE = "C:\revit-workspace\cassettes\walls-check.jsonl"
+python -m revit_mcp_server
+```
+
+- Replay never contacts Revit.
+- A request matches a line on its command and its normalised parameters: masked the same way as when recording, `request_id` and `wait_ms` removed, key order ignored.
+- Equal requests are served in recorded order. When they run out, the last one repeats.
+- A request with no recorded match fails with: `Replay: cassette '<name>' has no recorded response for command '<command>' with these parameters.` Record the session again or add the line by hand.
+- A recorded error is raised again: `CommandFailed` for a failed command, `BridgeError` otherwise.
+- Without `MCP_REVIT_CASSETTE`, or with a file that cannot be read or parsed, every call fails with a plain error that names the problem.
+- `revit_get_context` reports mock-style context in replay mode, because no Revit session exists. `revit_list_commands` is not available.
+- Write tools still go through `plan_actions`, approval and `execute_plan`. A write in replay only returns the recorded response; nothing changes in any model.
+
+## Use a cassette as a regression test
+
+The test suite has a `cassette_replay` fixture (`packages/mcp-server-revit/tests/conftest.py`, helper in `tests/cassette_replay.py`):
+
+```python
+from pathlib import Path
+
+CASSETTE = Path(__file__).parent / "fixtures" / "cassettes" / "walls-check.jsonl"
+
+
+def test_walls_check_still_replays(cassette_replay):
+    cassette_replay(CASSETTE)
+```
+
+For each line with a `tool`, the helper calls that tool through the Revit provider in replay mode. The provider builds the bridge request again from the recorded arguments, so a changed payload builder fails with "no recorded response". The tool output must equal the recorded response; pass `compare=False` for tools that change the add-in result (for example paged reads). Lines without a tool, or with `arguments_redacted`, are replayed at bridge level only. Recorded errors must be raised again. Every line must be used.
+
+`tests/fixtures/cassettes/sample_session.jsonl` is a small hand-written example.
+
+## Limits
+
+- Recording sees what the provider sends through the bridge client. `/health` probes are not recorded.
+- Masking happens before matching, so two requests that differ only in a masked value (two different paths) match the same line.
+- Live-Revit recording is UNVERIFIED: the recorder is tested with a stand-in bridge client, not against a running Revit.
+
+## Related
+
+- [Configuration reference](configuration-reference.md)
+- [Logging and audit](logging-and-audit.md)
+- [Privacy](privacy.md)
 
 === FILE: docs/release-checklist.md ===
 

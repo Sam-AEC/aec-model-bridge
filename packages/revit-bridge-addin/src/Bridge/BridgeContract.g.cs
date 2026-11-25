@@ -12,6 +12,7 @@ public static class BridgeContract
     public const int ContractVersion = 1;
 
     public const string RevitApplyViewTemplate           = "revit.apply_view_template";
+    public const string RevitBatch                       = "revit.batch";
     public const string RevitBatchCreateSheetsFromCsv    = "revit.batch_create_sheets_from_csv";
     public const string RevitBatchSetParameters          = "revit.batch_set_parameters";
     public const string RevitBatchSetParametersByFilter  = "revit.batch_set_parameters_by_filter";
@@ -132,6 +133,7 @@ public static class BridgeContract
     public static readonly Dictionary<string, bool> IsMutating = new Dictionary<string, bool>(StringComparer.Ordinal)
     {
         { RevitApplyViewTemplate,           true },
+        { RevitBatch,                       false },
         { RevitBatchCreateSheetsFromCsv,    true },
         { RevitBatchSetParameters,          true },
         { RevitBatchSetParametersByFilter,  true },

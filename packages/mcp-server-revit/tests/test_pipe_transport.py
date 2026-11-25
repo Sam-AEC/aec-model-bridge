@@ -167,12 +167,12 @@ def test_call_tool_goes_over_the_pipe_with_the_same_json_and_token():
     addin = FakeAddin(authorized(handler))
     client = pipe_client(addin)
     assert client.transport == "pipe"
-    result = client.call_tool("revit.create_wall", {"length": 3})
+    result = client.call_tool("revit.get_element_parameters", {"element_id": 3})
     assert result == {"wall_id": 7, "element_id": 7}
     (request,) = addin.requests
     assert request["method"] == "POST" and request["path"] == "/execute"
     assert request["headers"] == {"Authorization": f"Bearer {TOKEN}"}
-    assert request["body"]["tool"] == "revit.create_wall" and request["body"]["payload"] == {"length": 3}
+    assert request["body"]["tool"] == "revit.get_element_parameters" and request["body"]["payload"] == {"element_id": 3}
     assert set(request["body"]) == {"tool", "payload", "request_id", "wait_ms"}
 
 
