@@ -73,6 +73,11 @@ class SemanticProvider(AECProvider):
                             "maxItems": engine.SNAPSHOT_MAX_PARAMS,
                             "description": "Read only these parameters (names such as \"Mark\", or built-in ids such as ALL_MODEL_MARK). The snapshot is then partial for checks that read other parameters.",
                         },
+                        "include": {
+                            "type": "array",
+                            "items": {"type": "string", "enum": list(engine.SNAPSHOT_INCLUDE_BLOCKS)},
+                            "description": "Optional blocks, off by default (each adds capture time): types (type list with instance counts, for model_bloat_audit), cad (imported and linked CAD records), rooms (door From Room and To Room keys, room level and location, for schedule_consistency).",
+                        },
                         "slice_size": {
                             "type": "integer",
                             "minimum": engine.SLICE_SIZE_MIN,
@@ -204,7 +209,7 @@ class SemanticProvider(AECProvider):
             
         options = {
             k: arguments[k]
-            for k in ("categories", "max_elements", "params", "slice_size", "base_snapshot_id")
+            for k in ("categories", "max_elements", "params", "include", "slice_size", "base_snapshot_id")
             if arguments.get(k) is not None
         }
         snapshot = await engine.snapshot_take(self.workspace, revit_prov, options)

@@ -1464,6 +1464,18 @@
                 "null"
               ]
             }
+          },
+          "include": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
           }
         }
       }

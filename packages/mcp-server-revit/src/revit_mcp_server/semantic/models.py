@@ -61,6 +61,7 @@ class TypeRecord(BaseModel):
     type_name: str
     params: Dict[str, ParamVal] = Field(default_factory=dict)
     family_source: str = "loadable"  # system | loadable | inplace
+    instance_count: Optional[int] = None  # only in snapshots taken with include=["types"]
 
 class SourceMetadata(BaseModel):
     app: str = "revit"

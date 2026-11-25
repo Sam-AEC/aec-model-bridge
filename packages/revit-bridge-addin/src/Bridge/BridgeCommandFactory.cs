@@ -5431,6 +5431,189 @@ public static partial class BridgeCommandFactory
         }
     }
 
+    // --- Optional snapshot blocks (issue 146): "include" = types, cad, rooms ------------------------------
+
+    /// <summary>The optional "include" list. Absent or null means no optional blocks (the default snapshot).</summary>
+    private static SnapshotExtraRecords.Selection ReadSnapshotInclude(JsonElement payload)
+    {
+        if (payload.ValueKind != JsonValueKind.Object || !payload.TryGetProperty("include", out var arr)
+            || arr.ValueKind == JsonValueKind.Null)
+        {
+            return SnapshotExtraRecords.Parse(null);
+        }
+        if (arr.ValueKind != JsonValueKind.Array)
+            throw new ArgumentException("include must be a list of block names (types, cad, rooms)");
+
+        var names = new List<string?>();
+        foreach (var item in arr.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.String)
+                throw new ArgumentException("include must contain only block names (strings)");
+            names.Add(item.GetString());
+        }
+        return SnapshotExtraRecords.Parse(names);
+    }
+
+    /// <summary>Top-level keys the optional blocks add to a snapshot, and the counts that describe them.</summary>
+    private sealed class SnapshotExtras
+    {
+        public readonly Dictionary<string, object?> Blocks = new Dictionary<string, object?>();
+        public bool TypesTruncated;
+    }
+
+    private static void AddSnapshotExtrasCounts(
+        Dictionary<string, object> counts, SnapshotExtraRecords.Selection include, SnapshotExtras extras)
+    {
+        if (!include.Any) return;
+        // What was asked for; a later incremental capture only builds on a base with the same blocks.
+        counts["include"] = include.Names();
+        if (extras.TypesTruncated) counts["types_truncated"] = true;
+    }
+
+    /// <summary>
+    /// Reads the blocks "include" asks for. Every record is read in its own try/catch. Types stop at the
+    /// time budget (its own clock) and then write no "types" key at all, so the audit says "not enough
+    /// data" instead of rating from a partial list. "cad_scanned" is written only after the scan finished.
+    /// </summary>
+    private static SnapshotExtras CaptureSnapshotExtras(Document doc, SnapshotExtraRecords.Selection include, long budgetMs)
+    {
+        var extras = new SnapshotExtras();
+        if (!include.Types && !include.Cad) return extras;
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+
+        if (include.Types)
+        {
+            // One pass over every placed element counts instances per type; the type list is read separately.
+            var counts = new Dictionary<long, int>();
+            var timedOut = false;
+            var seen = 0;
+            foreach (var elem in new FilteredElementCollector(doc).WhereElementIsNotElementType())
+            {
+                if ((++seen & 1023) == 0 && clock.ElapsedMilliseconds > budgetMs) { timedOut = true; break; }
+                try
+                {
+                    var typeId = elem.GetTypeId();
+                    if (typeId == null || typeId == ElementId.InvalidElementId) continue;
+                    counts.TryGetValue(typeId.Value, out var n);
+                    counts[typeId.Value] = n + 1;
+                }
+                catch { }
+            }
+
+            var typeRecords = new List<object?>();
+            if (!timedOut)
+            {
+                foreach (var type in new FilteredElementCollector(doc).WhereElementIsElementType())
+                {
+                    if (clock.ElapsedMilliseconds > budgetMs) { timedOut = true; break; }
+                    try
+                    {
+                        string source;
+                        if (type is FamilySymbol symbol)
+                            source = symbol.Family != null && symbol.Family.IsInPlace ? "inplace" : "loadable";
+                        else if (type is HostObjAttributes) source = "system";
+                        else continue; // view, text, dimension and other annotation types are not bloat candidates
+
+                        var family = type.get_Parameter(BuiltInParameter.ALL_MODEL_FAMILY_NAME)?.AsString() ?? type.Name;
+                        counts.TryGetValue(type.Id.Value, out var instances);
+                        typeRecords.Add(SnapshotExtraRecords.BuildType(
+                            type.Id.Value.ToString(),
+                            type.Category?.BuiltInCategory.ToString() ?? type.Category?.Name,
+                            family, type.Name, source, instances));
+                    }
+                    catch { }
+                }
+            }
+
+            if (timedOut) extras.TypesTruncated = true;
+            else extras.Blocks["types"] = typeRecords;
+        }
+
+        if (include.Cad)
+        {
+            var cadRecords = new List<object?>();
+            var linkTypesWithInstance = new HashSet<long>();
+            var failed = false;
+            try
+            {
+                foreach (var inst in new FilteredElementCollector(doc).OfClass(typeof(ImportInstance)).Cast<ImportInstance>())
+                {
+                    try
+                    {
+                        var linkType = doc.GetElement(inst.GetTypeId()) as CADLinkType;
+                        if (inst.IsLinked && linkType != null) linkTypesWithInstance.Add(linkType.Id.Value);
+                        var name = inst.IsLinked && linkType != null ? linkType.Name : inst.Category?.Name ?? inst.Name;
+                        cadRecords.Add(SnapshotExtraRecords.BuildCad(inst.Id.Value, name, inst.IsLinked, inst.ViewSpecific));
+                    }
+                    catch { }
+                }
+                // A link with no placed instance still weighs on the model.
+                foreach (var linkType in new FilteredElementCollector(doc).OfClass(typeof(CADLinkType)).Cast<CADLinkType>())
+                {
+                    try
+                    {
+                        if (linkTypesWithInstance.Contains(linkType.Id.Value)) continue;
+                        cadRecords.Add(SnapshotExtraRecords.BuildCad(linkType.Id.Value, linkType.Name, true, false));
+                    }
+                    catch { }
+                }
+            }
+            catch { failed = true; }
+
+            // A scan that threw is not a scan: write no cad_scanned, so "no CAD found" is never trusted.
+            if (!failed)
+            {
+                extras.Blocks["cad_scanned"] = true;
+                extras.Blocks["cad"] = cadRecords;
+            }
+        }
+        return extras;
+    }
+
+    /// <summary>
+    /// include=rooms: a door gets "From Room" and "To Room" parameters (the room's UniqueId, empty when there is
+    /// none), and a room gets a level and a point location even when the generic read left them out.
+    /// </summary>
+    private static void AddSnapshotRoomData(
+        Element elem, Dictionary<string, object> paramsDict, ref string? levelUid, ref object? location)
+    {
+        try
+        {
+            if (elem is FamilyInstance door && elem.Category?.BuiltInCategory == BuiltInCategory.OST_Doors)
+            {
+                string? from = null, to = null;
+                try { from = door.FromRoom?.UniqueId; } catch { }
+                try { to = door.ToRoom?.UniqueId; } catch { }
+                paramsDict["From Room"] = SnapshotExtraRecords.BuildRoomRefParam(from);
+                paramsDict["To Room"] = SnapshotExtraRecords.BuildRoomRefParam(to);
+            }
+            else if (elem is Autodesk.Revit.DB.Architecture.Room room)
+            {
+                if (levelUid == null)
+                {
+                    var level = room.Level;
+                    if (level != null) levelUid = level.Id.Value.ToString();
+                }
+                if (location == null && room.Location is LocationPoint point)
+                {
+                    // Rooms have a reference point and no rotation; 0 is the honest value for a room.
+                    location = new
+                    {
+                        kind = "point",
+                        xyz = new[]
+                        {
+                            UnitUtils.ConvertFromInternalUnits(point.Point.X, UnitTypeId.Meters),
+                            UnitUtils.ConvertFromInternalUnits(point.Point.Y, UnitTypeId.Meters),
+                            UnitUtils.ConvertFromInternalUnits(point.Point.Z, UnitTypeId.Meters)
+                        },
+                        rotation = 0.0
+                    };
+                }
+            }
+        }
+        catch { }
+    }
+
     private static object? GetSnapshotPointLocation(Element elem)
     {
         try
@@ -5605,6 +5788,7 @@ public static partial class BridgeCommandFactory
         var paramRequests = ReadSnapshotParams(payload);
         var unknownCategories = new List<string>();
         var categories = ReadSnapshotCategories(payload, unknownCategories);
+        var include = ReadSnapshotInclude(payload);
         string snapshotId = Guid.NewGuid().ToString("N");
 
         var workspaceDir = WorkspaceDirectory.Resolve();
@@ -5667,6 +5851,11 @@ public static partial class BridgeCommandFactory
         {
             incrementalReason = "dirty_only and an incremental base cannot be combined; a dirty-only capture was taken.";
         }
+        else if (incrementalRequested && include.Rooms)
+        {
+            incrementalReason = "Door room keys depend on rooms and walls, not only on the door, so an include of rooms " +
+                                "is always a full capture; a full snapshot was taken.";
+        }
         else if (incrementalRequested)
         {
             var changed = DocumentDirtyTracker.GetChangedSince(doc, baseEpoch!, ReadSnapshotLong(payload, "base_seq", -1));
@@ -5709,6 +5898,7 @@ public static partial class BridgeCommandFactory
                 DirtyOnly = dirtyOnly,
                 Categories = categories.Select(c => c.ToString()).ToList(),
                 Params = paramRequests,
+                Include = include,
                 TrackerEpoch = trackerEpoch,
                 TrackerSeq = trackerSeq,
                 LastUsedUtc = DateTime.UtcNow,
@@ -5723,6 +5913,9 @@ public static partial class BridgeCommandFactory
         if (captureViews)
             CaptureSnapshotViewsAndSheets(doc, clock, budgetMs, viewRecords, sheetRecords, out viewsTruncated, out sheetsTruncated);
 
+        // Optional blocks (issue 146): only when "include" asks for them; own time budget.
+        var extras = CaptureSnapshotExtras(doc, include, budgetMs);
+
         var totalCandidates = idsToExtract.Count;
         var truncated = false;
         var skippedHeavy = 0;
@@ -5736,7 +5929,7 @@ public static partial class BridgeCommandFactory
                 break;
             }
 
-            var record = BuildSnapshotElementRecord(doc, id, paramRequests, typeCache, ref skippedHeavy);
+            var record = BuildSnapshotElementRecord(doc, id, paramRequests, typeCache, ref skippedHeavy, include.Rooms);
             if (record != null) elementRecords.Add(record);
         }
 
@@ -5763,6 +5956,7 @@ public static partial class BridgeCommandFactory
             ["sheets_truncated"] = sheetsTruncated,
         };
         AddSnapshotScopeCounts(counts, paramRequests, trackerEpoch, trackerSeq);
+        AddSnapshotExtrasCounts(counts, include, extras);
         if (incrementalRequested)
         {
             counts["incremental"] = incremental;
@@ -5777,42 +5971,26 @@ public static partial class BridgeCommandFactory
         // views / sheets are null (JSON null) when they were not captured; the audit treats a non-list
         // "views" as "views not captured: result not rated".
         var source = SnapshotSource(app, doc);
-        string json;
+        var snapshotDoc = new Dictionary<string, object?>
+        {
+            ["schema"] = "amb.snapshot/1",
+            ["snapshot_id"] = snapshotId,
+            ["taken_at"] = DateTime.UtcNow.ToString("o"),
+            ["source"] = source,
+            ["elements"] = elementRecords,
+            ["views"] = captureViews ? viewRecords : null,
+            ["sheets"] = captureViews ? sheetRecords : null,
+            ["dirty_only"] = dirtyOnly,
+            ["counts"] = counts,
+            ["deleted"] = deletedIdsList,
+        };
         if (incremental)
         {
-            json = JsonSerializer.Serialize(new
-            {
-                schema = "amb.snapshot/1",
-                snapshot_id = snapshotId,
-                taken_at = DateTime.UtcNow.ToString("o"),
-                source,
-                elements = elementRecords,
-                views = captureViews ? viewRecords : null,
-                sheets = captureViews ? sheetRecords : null,
-                dirty_only = dirtyOnly,
-                counts,
-                deleted = deletedIdsList,
-                incremental = true,
-                current_uids = currentUids
-            }, new JsonSerializerOptions { WriteIndented = false });
+            snapshotDoc["incremental"] = true;
+            snapshotDoc["current_uids"] = currentUids;
         }
-        else
-        {
-            var snapshot = new
-            {
-                schema = "amb.snapshot/1",
-                snapshot_id = snapshotId,
-                taken_at = DateTime.UtcNow.ToString("o"),
-                source,
-                elements = elementRecords,
-                views = captureViews ? viewRecords : null,
-                sheets = captureViews ? sheetRecords : null,
-                dirty_only = dirtyOnly,
-                counts,
-                deleted = deletedIdsList
-            };
-            json = JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = false });
-        }
+        foreach (var block in extras.Blocks) snapshotDoc[block.Key] = block.Value;
+        var json = JsonSerializer.Serialize(snapshotDoc, new JsonSerializerOptions { WriteIndented = false });
         File.WriteAllText(snapshotPath, json);
 
         return new
@@ -5875,6 +6053,7 @@ public static partial class BridgeCommandFactory
         public bool DirtyOnly;
         public List<string> Categories = new List<string>();
         public List<SnapshotParamRequest>? Params;
+        public SnapshotExtraRecords.Selection Include = SnapshotExtraRecords.Parse(null);
         public string TrackerEpoch = string.Empty;
         public long TrackerSeq;
         public int SkippedHeavy;
@@ -5964,7 +6143,7 @@ public static partial class BridgeCommandFactory
     /// <summary>One element record of the snapshot, or null when the element is gone or has no UniqueId.</summary>
     private static object? BuildSnapshotElementRecord(
         Document doc, ElementId id, List<SnapshotParamRequest>? paramRequests,
-        Dictionary<long, SnapshotTypeInfo> typeCache, ref int skippedHeavy)
+        Dictionary<long, SnapshotTypeInfo> typeCache, ref int skippedHeavy, bool includeRooms = false)
     {
         var elem = doc.GetElement(id);
         if (elem == null || string.IsNullOrEmpty(elem.UniqueId)) return null;
@@ -6024,6 +6203,10 @@ public static partial class BridgeCommandFactory
 
         string catName = elem.Category?.BuiltInCategory.ToString() ?? elem.Category?.Name ?? "None";
 
+        var levelUid = elem.LevelId != ElementId.InvalidElementId ? elem.LevelId.Value.ToString() : null;
+        var location = GetSnapshotPointLocation(elem);
+        if (includeRooms) AddSnapshotRoomData(elem, paramsDict, ref levelUid, ref location);
+
         return new
         {
             uid = elem.UniqueId,
@@ -6036,8 +6219,8 @@ public static partial class BridgeCommandFactory
             type_uid = typeId.Value.ToString(),
             family = typeInfo.Family,
             type_name = typeInfo.TypeName,
-            level_uid = elem.LevelId != ElementId.InvalidElementId ? elem.LevelId.Value.ToString() : null,
-            location = GetSnapshotPointLocation(elem),
+            level_uid = levelUid,
+            location,
             // The QA rules (door_no_host, window_no_host) test host_uid. Without it every hosted door
             // was reported as unhosted (1,006 false errors on a real model).
             host_uid = (elem as FamilyInstance)?.Host?.UniqueId,
@@ -6144,21 +6327,24 @@ public static partial class BridgeCommandFactory
 
         var counts = SnapshotSliceCounts(session, captureViews: true, viewRecords.Count, sheetRecords.Count,
             viewsTruncated, sheetsTruncated, incrementalReason);
+        var extras = CaptureSnapshotExtras(doc, session.Include, SnapshotDefaultBudgetMs);
+        AddSnapshotExtrasCounts(counts, session.Include, extras);
         var partPath = Path.Combine(session.SnapshotDir, $"{session.SnapshotId}.part-start.json");
-        var part = new
+        var part = new Dictionary<string, object?>
         {
-            schema = "amb.snapshot/1",
-            snapshot_id = session.SnapshotId,
-            taken_at = DateTime.UtcNow.ToString("o"),
-            source = SnapshotSource(app, doc),
-            elements = new List<object>(),
-            views = viewRecords,
-            sheets = sheetRecords,
-            dirty_only = session.DirtyOnly,
-            counts,
-            deleted = new List<string>(),
-            part = new { offset = 0, next_offset = 0, first = true }
+            ["schema"] = "amb.snapshot/1",
+            ["snapshot_id"] = session.SnapshotId,
+            ["taken_at"] = DateTime.UtcNow.ToString("o"),
+            ["source"] = SnapshotSource(app, doc),
+            ["elements"] = new List<object>(),
+            ["views"] = viewRecords,
+            ["sheets"] = sheetRecords,
+            ["dirty_only"] = session.DirtyOnly,
+            ["counts"] = counts,
+            ["deleted"] = new List<string>(),
+            ["part"] = new { offset = 0, next_offset = 0, first = true },
         };
+        foreach (var block in extras.Blocks) part[block.Key] = block.Value;
         File.WriteAllText(partPath, JsonSerializer.Serialize(part, new JsonSerializerOptions { WriteIndented = false }));
 
         return SnapshotSliceResult(doc, session, partPath, 0, 0, 0, clock, unknownCategories, incrementalReason);
@@ -6204,7 +6390,7 @@ public static partial class BridgeCommandFactory
             // At least one element per slice, so every slice makes progress.
             if (index > offset && (index - offset >= session.SliceSize || clock.ElapsedMilliseconds > session.BudgetMs))
                 break;
-            var record = BuildSnapshotElementRecord(doc, session.Ids[index], session.Params, session.TypeCache, ref skipped);
+            var record = BuildSnapshotElementRecord(doc, session.Ids[index], session.Params, session.TypeCache, ref skipped, session.Include.Rooms);
             if (record != null) records.Add(record);
             index++;
         }
@@ -6214,21 +6400,25 @@ public static partial class BridgeCommandFactory
             ? dirtyIds.Where(id => id.StartsWith("deleted:")).Select(id => id.Substring(8)).ToList()
             : new List<string>();
         var counts = SnapshotSliceCounts(session, captureViews: false, 0, 0, false, false, incrementalReason);
+        // The optional blocks go in the first part only (assemble_slices keeps the first part's keys).
+        var extras = first ? CaptureSnapshotExtras(doc, session.Include, session.BudgetMs) : new SnapshotExtras();
+        if (first) AddSnapshotExtrasCounts(counts, session.Include, extras);
         var partPath = Path.Combine(session.SnapshotDir, $"{session.SnapshotId}.part-{offset:D7}.json");
-        var part = new
+        var part = new Dictionary<string, object?>
         {
-            schema = "amb.snapshot/1",
-            snapshot_id = session.SnapshotId,
-            taken_at = DateTime.UtcNow.ToString("o"),
-            source = SnapshotSource(app, doc),
-            elements = records,
-            views = (List<object?>?)null,
-            sheets = (List<object?>?)null,
-            dirty_only = session.DirtyOnly,
-            counts,
-            deleted,
-            part = new { offset, next_offset = index, first }
+            ["schema"] = "amb.snapshot/1",
+            ["snapshot_id"] = session.SnapshotId,
+            ["taken_at"] = DateTime.UtcNow.ToString("o"),
+            ["source"] = SnapshotSource(app, doc),
+            ["elements"] = records,
+            ["views"] = (List<object?>?)null,
+            ["sheets"] = (List<object?>?)null,
+            ["dirty_only"] = session.DirtyOnly,
+            ["counts"] = counts,
+            ["deleted"] = deleted,
+            ["part"] = new { offset, next_offset = index, first },
         };
+        foreach (var block in extras.Blocks) part[block.Key] = block.Value;
         File.WriteAllText(partPath, JsonSerializer.Serialize(part, new JsonSerializerOptions { WriteIndented = false }));
 
         return SnapshotSliceResult(doc, session, partPath, offset, index, records.Count, clock, unknownCategories, incrementalReason);

@@ -40,6 +40,7 @@
     <Compile Include="..\revit-bridge-addin\src\Bridge\WorkspaceMonitor.cs" Link="Linked\WorkspaceMonitor.cs" />
     <Compile Include="..\revit-bridge-addin\src\Bridge\WorkspaceDirectory.cs" Link="Linked\WorkspaceDirectory.cs" />
     <Compile Include="..\revit-bridge-addin\src\Bridge\SnapshotViewRecords.cs" Link="Linked\SnapshotViewRecords.cs" />
+    <Compile Include="..\revit-bridge-addin\src\Bridge\SnapshotExtraRecords.cs" Link="Linked\SnapshotExtraRecords.cs" />
     <Compile Include="..\revit-bridge-addin\src\Bridge\ToolTimings.cs" Link="Linked\ToolTimings.cs" />
     <Compile Include="..\revit-bridge-addin\src\Bridge\ExecutorTurnPolicy.cs" Link="Linked\ExecutorTurnPolicy.cs" />
     <Compile Include="..\revit-bridge-addin\src\Bridge\PythonEngineReusePolicy.cs" Link="Linked\PythonEngineReusePolicy.cs" />
