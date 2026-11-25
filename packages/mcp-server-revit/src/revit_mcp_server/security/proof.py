@@ -79,6 +79,7 @@ STATE_PLAN_KEYS = frozenset({
     "expired", "expired_at", "expired_reason",
     "is_reversible", "reversible_strategy",
     "policy_hash",  # bookkeeping: hash of the policy file in force when the plan was drafted
+    "approval_sig",  # HMAC over the approval record (security/approval_signing.py)
 })
 
 

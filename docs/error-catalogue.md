@@ -12,7 +12,7 @@ A tool failure reaches an MCP client in one of two shapes:
 Refusals never change the model. A refused write needs a new plan that a person approves.
 For logs and connection problems see [troubleshooting](troubleshooting.md).
 
-Entries: 136.
+Entries: 137.
 
 ## Tool error kinds
 
@@ -738,13 +738,19 @@ Set by module tools as `kind` in an `ok: false` result, next to `message`, `elem
 
 ## Exception classes
 
-Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 17.
+Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 18.
 
 ### `ApprovalExpired`
 
 - When: An approval or a drafted plan is older than approval_ttl.
 - What to do: Create a new plan and ask the person to approve it. Nothing renews an old approval.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/security/approval.py`
+
+### `ApprovalKeyError`
+
+- When: The workspace approval signing key (plans/.keys/approval-signing.key) is a symlink, owned by another user, readable by others, or malformed. The approval was not recorded.
+- What to do: Ask the person to delete the key file and approve the plan again. Plans approved under the old key must be approved again.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/security/approval_signing.py`
 
 ### `BcfError`
 

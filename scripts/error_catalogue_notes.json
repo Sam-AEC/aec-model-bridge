@@ -3,6 +3,10 @@
     "when": "An approval or a drafted plan is older than approval_ttl.",
     "do": "Create a new plan and ask the person to approve it. Nothing renews an old approval."
   },
+  "class/ApprovalKeyError": {
+    "when": "The workspace approval signing key (plans/.keys/approval-signing.key) is a symlink, owned by another user, readable by others, or malformed. The approval was not recorded.",
+    "do": "Ask the person to delete the key file and approve the plan again. Plans approved under the old key must be approved again."
+  },
   "class/BcfError": {
     "when": "A BCF file or its path is unsafe or invalid: no workspace, path outside the workspace, bad zip entry or an oversized entry.",
     "do": "Use a BCF file inside the workspace. Do not open archives from untrusted sources."
