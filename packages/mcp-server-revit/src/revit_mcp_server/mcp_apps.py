@@ -39,7 +39,7 @@ from .config import config
 from .security.approval import ApprovalGate, validate_plan_id
 from .security.audit import redact_data
 from .security.response_redaction import redact_response
-from .security.plan_review import with_review_aids
+from .security.plan_review import affected_boxes, with_review_aids
 
 EXTENSION_ID = "io.modelcontextprotocol/ui"
 MIME = "text/html;profile=mcp-app"
@@ -221,6 +221,9 @@ def read_resource(uri: Any, gate: ApprovalGate) -> tuple[str, dict[str, Any]]:
     if plan is None:
         raise AppsResourceError(f"Plan '{plan_id}' was not found.")
     shown = with_review_aids(plan, gate.workspace_dir)
+    geometry = affected_boxes(plan, gate.workspace_dir)
+    if geometry:
+        shown = {**shown, "geometry": geometry}
     expired = gate.expiry_reason(plan)
     if expired:
         # The stored state is still pending or approved until the gate next writes the plan;
@@ -259,6 +262,7 @@ th{color:var(--muted);font-weight:600}
 .how{background:var(--note);border-radius:6px;padding:8px 10px;margin-top:10px}
 button{font:inherit;padding:2px 8px;margin-left:8px;cursor:pointer}
 .muted{color:var(--muted)}
+canvas.view3d{display:block;max-width:100%;border:1px solid var(--line);border-radius:6px;touch-action:none;cursor:grab}
 """
 
 # Plain DOM only: no innerHTML, no eval, no inline handlers, no network, no tools/call.
@@ -312,6 +316,114 @@ _SCRIPT = r"""
                   parameter: args.parameter_name, before: "(not captured)", after: args });
     });
     return rows;
+  }
+
+  function num3(v) {
+    if (!Array.isArray(v) || v.length !== 3) { return null; }
+    for (var i = 0; i < 3; i++) { if (typeof v[i] !== "number" || !isFinite(v[i])) { return null; } }
+    return v;
+  }
+  function validBoxes(geometry) {
+    var out = [];
+    (Array.isArray(geometry.boxes) ? geometry.boxes : []).forEach(function (b) {
+      var lo = b && num3(b.min), hi = b && num3(b.max);
+      if (lo && hi && lo[0] <= hi[0] && lo[1] <= hi[1] && lo[2] <= hi[2]) {
+        out.push({ b: b, lo: lo, hi: hi });
+      }
+    });
+    return out;
+  }
+  // Orthographic wireframe: turn about the vertical (Z) axis, then tilt. Pure arithmetic, no input to the host.
+  function project(p, c, yaw, pitch) {
+    var x = p[0] - c[0], y = p[1] - c[1], z = p[2] - c[2];
+    var cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+    var rx = x * cy - y * sy, ry = x * sy + y * cy;
+    return [rx, -(z * cp + ry * sp)];
+  }
+  var EDGES = [[0,1],[2,3],[4,5],[6,7],[0,2],[1,3],[4,6],[5,7],[0,4],[1,5],[2,6],[3,7]];
+  function corners(lo, hi) {
+    var out = [];
+    for (var i = 0; i < 8; i++) { out.push([i & 1 ? hi[0] : lo[0], i & 2 ? hi[1] : lo[1], i & 4 ? hi[2] : lo[2]]); }
+    return out;
+  }
+  function drawBoxes(canvas, boxes, yaw, pitch) {
+    var ctx = canvas.getContext && canvas.getContext("2d");
+    if (!ctx) { return; }
+    var lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+    boxes.forEach(function (x) {
+      for (var i = 0; i < 3; i++) { lo[i] = Math.min(lo[i], x.lo[i]); hi[i] = Math.max(hi[i], x.hi[i]); }
+    });
+    var c = [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2];
+    var segments = [], extent = 0;
+    boxes.forEach(function (x) {
+      var pts = corners(x.lo, x.hi).map(function (q) { return project(q, c, yaw, pitch); });
+      pts.forEach(function (q) { extent = Math.max(extent, Math.abs(q[0]), Math.abs(q[1])); });
+      EDGES.forEach(function (e) { segments.push([pts[e[0]], pts[e[1]]]); });
+    });
+    var w = canvas.width, h = canvas.height, k = extent > 0 ? 0.45 * Math.min(w, h) / extent : 1;
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = "#d9822b";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    segments.forEach(function (sg) {
+      ctx.moveTo(w / 2 + sg[0][0] * k, h / 2 + sg[0][1] * k);
+      ctx.lineTo(w / 2 + sg[1][0] * k, h / 2 + sg[1][1] * k);
+    });
+    ctx.stroke();
+  }
+
+  function renderGeometry(plan, card) {
+    var geometry = plan.geometry;
+    if (!geometry || typeof geometry !== "object") { return; }
+    var boxes = validBoxes(geometry);
+    if (!boxes.length) { return; }
+    card.appendChild(el("h2", null, "Affected elements in 3D"));
+    card.appendChild(el("p", "muted", "Outlines of the elements this plan names, from " + txt(geometry.source) +
+      ". Units: " + txt(geometry.unit) + ". This shows where they are, not a before and after of their shape. " +
+      "Drag to turn."));
+    var canvas = el("canvas", "view3d");
+    canvas.width = 360;
+    canvas.height = 240;
+    canvas.setAttribute("role", "img");
+    canvas.setAttribute("aria-label", boxes.length + " element outline(s); the table below lists them.");
+    var yaw = 0.6, pitch = 0.5, last = null;
+    function redraw() { drawBoxes(canvas, boxes, yaw, pitch); }
+    canvas.addEventListener("pointerdown", function (e) { last = [e.clientX, e.clientY]; });
+    canvas.addEventListener("pointermove", function (e) {
+      if (!last) { return; }
+      yaw += (e.clientX - last[0]) * 0.01;
+      pitch = Math.max(-1.5, Math.min(1.5, pitch + (e.clientY - last[1]) * 0.01));
+      last = [e.clientX, e.clientY];
+      redraw();
+    });
+    ["pointerup", "pointerleave", "pointercancel"].forEach(function (name) {
+      canvas.addEventListener(name, function () { last = null; });
+    });
+    card.appendChild(canvas);
+    redraw();
+
+    var wrap = el("div", "scroll");
+    var table = el("table");
+    var headRow = el("tr");
+    ["Element", "Category", "Name", "Size (x, y, z)"].forEach(function (h) { headRow.appendChild(el("th", null, h)); });
+    var thead = el("thead");
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+    var body = el("tbody");
+    boxes.slice(0, 20).forEach(function (x) {
+      var tr = el("tr");
+      var size = [0, 1, 2].map(function (i) { return Math.round((x.hi[i] - x.lo[i]) * 1000) / 1000; }).join(" x ");
+      [x.b.element_id, x.b.category, x.b.name, size].forEach(function (v) { tr.appendChild(el("td", null, txt(v))); });
+      body.appendChild(tr);
+    });
+    table.appendChild(body);
+    wrap.appendChild(table);
+    card.appendChild(wrap);
+    var hidden = boxes.length - Math.min(boxes.length, 20) + (Number(geometry.boxes_omitted) || 0);
+    if (hidden > 0) { card.appendChild(el("p", "muted", hidden + " more outline(s) not listed.")); }
+    if (Number(geometry.without_box) > 0) {
+      card.appendChild(el("p", "muted", geometry.without_box + " named element(s) have no outline in the snapshot."));
+    }
   }
 
   function warningsOf(plan) {
@@ -389,6 +501,8 @@ _SCRIPT = r"""
     if (plan.preview && plan.preview.rows_omitted) {
       card.appendChild(el("p", "muted", plan.preview.rows_omitted + " more row(s) not shown."));
     }
+
+    renderGeometry(plan, card);
 
     var warnings = warningsOf(plan);
     if (warnings.length) {

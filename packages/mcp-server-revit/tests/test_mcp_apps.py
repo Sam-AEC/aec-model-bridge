@@ -20,6 +20,7 @@ from mcp.shared import memory
 from revit_mcp_server import mcp_apps, mcp_resources, mcp_server
 from revit_mcp_server.config import config
 from revit_mcp_server.registry_factory import build_registry
+from revit_mcp_server.security import plan_review as pr
 from revit_mcp_server.security.approval import ApprovalGate, HUMAN_ONLY_TOOLS
 from revit_mcp_server.security.workspace import WorkspaceMonitor
 from revit_mcp_server.tool_metadata import ALWAYS_LOAD_META_KEY
@@ -335,7 +336,12 @@ function node(tag) {
     appendChild(c) { this.children.push(c); return c; },
     removeChild(c) { this.children = this.children.filter((x) => x !== c); },
     get firstChild() { return this.children[0] || null; },
-    addEventListener() {},
+    addEventListener() {}, setAttribute() {},
+    getContext() {
+      const self = this; let n = 0;
+      return { clearRect() {}, beginPath() {}, lineTo() {}, moveTo() { n += 1; },
+               stroke() { self._t = 'drew ' + n + ' segments'; } };
+    },
     set textContent(v) { this._t = String(v); }, get textContent() { return this._t; } };
 }
 const root = node('main');
@@ -478,3 +484,123 @@ def test_client_declared(caps, expected):
     session = SimpleNamespace(client_params=SimpleNamespace(capabilities=types.ClientCapabilities(**caps)))
     assert mcp_apps.client_declared(session) is expected
     assert mcp_apps.client_declared(None) is False
+
+
+# ---- 3D view of affected elements (snapshot bounding boxes) ----------------
+
+def _box(lo, hi):
+    return {"min": lo, "max": hi}
+
+
+def _geometry_plan(tmp_path, elements, actions=None):
+    """A gate whose workspace holds snapshot ``snap1`` with ``elements``, and a plan that names ids 7, 8, 9."""
+    ws = tmp_path / "ws"
+    (ws / "snapshots").mkdir(parents=True)
+    (ws / "snapshots" / "snap1.json").write_text(json.dumps({"elements": elements}), encoding="utf-8")
+    gate = ApprovalGate(workspace_dir=ws, approval_mode="ask_first", pending_ttl=3600)
+    actions = actions or [
+        {"tool": "revit_set_parameter_value", "arguments": {"element_id": i, "parameter_name": "Mark", "value": "B"}}
+        for i in (7, 8, 9)]
+    plan = gate.create_plan(actions, [{str(a["arguments"].get("element_id", a["arguments"].get("element_uid"))): {"Mark": "A"}}
+                             for a in actions],
+                            snapshot_id="snap1", review={"summary": "Mark walls"})
+    return gate, plan
+
+
+SNAP_ELEMENTS = [
+    {"uid": "u7", "element_id": 7, "category": "Walls", "name": "W1", "bbox": _box([0, 0, 0], [10, 0.2, 4])},
+    {"uid": "u8", "element_id": 8, "category": "Walls", "name": "W2", "bbox": _box([10, 0, 0], [10.2, 5, 4])},
+    {"uid": "u9", "element_id": 9, "category": "Walls", "name": "W3"},
+    {"uid": "u10", "element_id": 10, "category": "Walls", "name": "Other", "bbox": _box([50, 50, 0], [51, 51, 3])},
+]
+
+
+def test_affected_boxes_hold_only_named_elements_with_a_valid_box(tmp_path):
+    gate, plan = _geometry_plan(tmp_path, SNAP_ELEMENTS)
+    geometry = pr.affected_boxes(gate.load_plan(plan["plan_id"]), gate.workspace_dir)
+    assert [b["element_id"] for b in geometry["boxes"]] == [7, 8]
+    assert geometry["boxes"][0] == {"element_id": 7, "uid": "u7", "category": "Walls", "name": "W1",
+                                    "min": [0.0, 0.0, 0.0], "max": [10.0, 0.2, 4.0]}
+    assert geometry["without_box"] == 1 and geometry["boxes_omitted"] == 0
+    assert "not converted" in geometry["unit"] and geometry["source"] == "snapshot snap1"
+
+
+@pytest.mark.parametrize("bad", [
+    _box([0, 0, 0], [1, 1]), _box([2, 0, 0], [1, 1, 1]), _box([0, 0, "x"], [1, 1, 1]),
+    _box([0, 0, float("inf")], [1, 1, 1]), _box([0, 0, True], [1, 1, 1]), "box", None, {"min": [0, 0, 0]},
+])
+def test_malformed_boxes_are_dropped(tmp_path, bad):
+    elements = [{"uid": "u7", "element_id": 7, "category": "Walls", "bbox": bad}]
+    gate, plan = _geometry_plan(tmp_path, elements)
+    assert pr.affected_boxes(gate.load_plan(plan["plan_id"]), gate.workspace_dir) is None
+
+
+def test_no_geometry_without_a_readable_snapshot(tmp_path):
+    gate = ApprovalGate(workspace_dir=tmp_path / "ws", approval_mode="ask_first")
+    plan = _mail_plan(gate)
+    assert pr.affected_boxes(gate.load_plan(plan["plan_id"]), gate.workspace_dir) is None
+    gate, plan = _geometry_plan(tmp_path / "x", SNAP_ELEMENTS)
+    (gate.workspace_dir / "snapshots" / "snap1.json").write_text("not json", encoding="utf-8")
+    assert pr.affected_boxes(gate.load_plan(plan["plan_id"]), gate.workspace_dir) is None
+    assert pr.affected_boxes({"snapshot_id": "../evil", "actions": []}, gate.workspace_dir) is None
+
+
+def test_boxes_are_matched_by_uid_too(tmp_path):
+    actions = [{"tool": "revit_set_parameter_value",
+                "arguments": {"element_uid": "u8", "parameter_name": "Mark", "value": "B"}}]
+    gate, plan = _geometry_plan(tmp_path, SNAP_ELEMENTS, actions)
+    geometry = pr.affected_boxes(gate.load_plan(plan["plan_id"]), gate.workspace_dir)
+    assert [b["element_id"] for b in geometry["boxes"]] == [8]
+
+
+def test_box_count_is_capped(tmp_path, monkeypatch):
+    monkeypatch.setattr(pr, "GEOMETRY_MAX_BOXES", 1)
+    gate, plan = _geometry_plan(tmp_path, SNAP_ELEMENTS)
+    geometry = pr.affected_boxes(gate.load_plan(plan["plan_id"]), gate.workspace_dir)
+    assert len(geometry["boxes"]) == 1 and geometry["boxes_omitted"] == 1
+
+
+def test_per_plan_view_embeds_geometry_and_stays_read_only(apps_on, tmp_path):
+    gate, plan = _geometry_plan(tmp_path, SNAP_ELEMENTS)
+    before = gate.load_plan(plan["plan_id"])
+    html, data = _embedded(gate, plan["plan_id"])
+    geometry = data["plans"][0]["geometry"]
+    assert [b["element_id"] for b in geometry["boxes"]] == [7, 8]
+    assert gate.load_plan(plan["plan_id"]) == before  # reading the view changes nothing
+    assert "geometry" not in before  # not stored on the plan, so the plan hash is unchanged
+    assert " src=" not in html and "<canvas" not in html  # the canvas is built by the script, not shipped as markup
+
+
+def test_geometry_is_left_out_when_no_box_is_known(apps_on, gate):
+    plan = _mail_plan(gate)
+    _, data = _embedded(gate, plan["plan_id"])
+    assert "geometry" not in data["plans"][0]
+
+
+def test_plan_tool_results_do_not_carry_geometry(tmp_path):
+    gate, plan = _geometry_plan(tmp_path, SNAP_ELEMENTS)
+    assert "geometry" not in pr.with_review_aids(gate.load_plan(plan["plan_id"]), gate.workspace_dir)
+
+
+def test_geometry_view_adds_no_control_or_host_message():
+    code = mcp_apps._SCRIPT
+    assert "renderGeometry" in code
+    assert re.findall(r'el\("button", null, "([^"]+)"\)', code) == ["Copy plan id"]
+    sent = set(re.findall(r'(?:request|notify)\("([^"]+)"', code))
+    assert sent == {"ui/initialize", "ui/notifications/initialized", "ui/notifications/size-changed"}
+
+
+def test_geometry_view_draws_twelve_edges_per_box(apps_on, tmp_path):
+    gate, plan = _geometry_plan(tmp_path, SNAP_ELEMENTS)
+    html, _ = _embedded(gate, plan["plan_id"])
+    assert "drew 24 segments" in _page_text(html, tmp_path)
+
+
+def test_geometry_view_text_fallback(apps_on, tmp_path):
+    gate, plan = _geometry_plan(tmp_path, SNAP_ELEMENTS)
+    html, _ = _embedded(gate, plan["plan_id"])
+    text = _page_text(html, tmp_path)  # the outline table is plain text beside the canvas
+    assert "Affected elements in 3D" in text and "snapshot snap1" in text
+    assert "W1" in text and "10 x 0.2 x 4" in text and "W2" in text and "W3" not in text
+    assert "1 named element(s) have no outline in the snapshot." in text
+    assert "Approve in the Revit panel" in text

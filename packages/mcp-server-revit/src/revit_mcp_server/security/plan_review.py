@@ -8,6 +8,7 @@ that is not known is reported as "unknown"; it is never guessed.
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -22,6 +23,7 @@ NOT_CAPTURED_TEXT = "(not captured)"
 PREVIEW_MAX_ROWS = 100        # rows kept in the structured preview
 MARKDOWN_MAX_ROWS = 25        # rows shown in preview_markdown
 CELL_MAX_CHARS = 60
+GEOMETRY_MAX_BOXES = 200      # bounding boxes kept for the inline 3D view
 
 # Risk thresholds. A plan takes the highest level any rule gives it.
 #   low:    at most 10 elements and at most 5 actions
@@ -119,6 +121,82 @@ def snapshot_index(workspace_dir: Optional[Path], snapshot_id: Optional[str]) ->
         return index
     except Exception:  # noqa: BLE001 - a missing snapshot only means more "unknown"
         return {}
+
+
+def _box_of(el: Dict[str, Any]) -> Optional[Dict[str, List[float]]]:
+    """The element's snapshot ``bbox`` as {min, max} of three finite numbers each, else None."""
+    box = el.get("bbox")
+    if not isinstance(box, dict):
+        return None
+    lo, hi = box.get("min"), box.get("max")
+    if not (isinstance(lo, list) and isinstance(hi, list) and len(lo) == 3 and len(hi) == 3):
+        return None
+    out = []
+    for side in (lo, hi):
+        if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) for v in side):
+            return None
+        out.append([float(v) for v in side])
+    if any(a > b for a, b in zip(out[0], out[1])):
+        return None
+    return {"min": out[0], "max": out[1]}
+
+
+def affected_boxes(plan: Dict[str, Any], workspace_dir: Optional[Path] = None) -> Optional[Dict[str, Any]]:
+    """Bounding boxes of the elements the plan names, read from the plan's snapshot.
+
+    Feeds the read-only 3D view. Returns None when there is no readable snapshot or no named element
+    has a valid box; nothing is guessed. Boxes are in the units the snapshot holds; the view does not
+    convert them. ``without_box`` counts named elements that have no usable box. Never raises."""
+    try:
+        snapshot_id = plan.get("snapshot_id")
+        if not workspace_dir or not snapshot_id:
+            return None
+        with open(proof_mod.snapshot_file(Path(workspace_dir) / "snapshots", snapshot_id), "r", encoding="utf-8") as f:
+            snap = json.load(f)
+        ids: Dict[str, None] = {}
+        uids: Dict[str, None] = {}
+        for action in plan.get("actions", []) or []:
+            if isinstance(action, dict):
+                args = action_args(action)
+                ids.update(dict.fromkeys(element_ids_of(args)))
+                uids.update(dict.fromkeys(_uids(args)))
+        by_id: Dict[str, Dict[str, Any]] = {}
+        by_uid: Dict[str, Dict[str, Any]] = {}
+        for el in snap.get("elements", []):
+            if not isinstance(el, dict):
+                continue
+            if el.get("element_id") is not None:
+                by_id[str(el["element_id"])] = el
+            if el.get("uid"):
+                by_uid[str(el["uid"])] = el
+        chosen: Dict[int, Dict[str, Any]] = {}
+        unresolved = 0
+        for key, table in ((ids, by_id), (uids, by_uid)):
+            for name in key:
+                el = table.get(name)
+                if el is None:
+                    unresolved += 1
+                else:
+                    chosen.setdefault(id(el), el)
+        boxes = []
+        for el in chosen.values():
+            box = _box_of(el)
+            if box is not None:
+                boxes.append({
+                    "element_id": el.get("element_id"), "uid": el.get("uid"),
+                    "category": el.get("category"), "name": el.get("name"), **box,
+                })
+        if not boxes:
+            return None
+        return {
+            "source": f"snapshot {snapshot_id}",
+            "unit": "snapshot units (not converted)",
+            "boxes": boxes[:GEOMETRY_MAX_BOXES],
+            "boxes_omitted": max(0, len(boxes) - GEOMETRY_MAX_BOXES),
+            "without_box": unresolved + len(chosen) - len(boxes),
+        }
+    except Exception:  # noqa: BLE001 - the 3D view is optional
+        return None
 
 
 def _cell(value: Any) -> str:
