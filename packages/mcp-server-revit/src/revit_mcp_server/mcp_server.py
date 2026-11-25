@@ -12,9 +12,11 @@ from typing import Any
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.server.lowlevel.helper_types import ReadResourceContents
-from mcp.types import CallToolResult, GetPromptResult, Prompt, Resource, ResourceTemplate, Tool, TextContent
+from mcp.types import (
+    CallToolResult, CreateTaskResult, GetPromptResult, Prompt, Resource, ResourceTemplate, Tool, TextContent,
+)
 
-from . import mcp_prompts, mcp_resources
+from . import mcp_prompts, mcp_resources, mcp_tasks
 
 from .errors import BridgeError, CommandFailed
 from .registry_factory import build_registry
@@ -22,6 +24,7 @@ from .security.approval import HUMAN_ONLY_TOOLS
 from .security.dispatch import (
     gate_after, gate_after_result, gate_before, result_failed, settle_in_flight,
 )
+from .security.gating import requires_approval
 from .security.audit import redact_data as _redact_secrets
 from .security.response_redaction import redact_response
 from .security.module_execution import authorized_module_execution
@@ -84,12 +87,18 @@ approval_provider = None
 job_manager = None
 workspace_monitor = None
 
+# MCP Tasks (see mcp_tasks.py and docs/mcp-tasks.md): task-augmented tools/call for
+# long tools, backed by job_manager. Clients that send no `task` field are unaffected.
+task_bridge = mcp_tasks.TaskBridge(lambda: job_manager)
+TASKS_ENABLED = mcp_tasks.register_task_handlers(app, task_bridge)
+
 
 @app.list_tools()
 async def list_tools() -> list[Tool]:
     """List all available AEC tools from registered providers."""
     # enrich_tool adds parameter docs and behaviour annotations (readOnlyHint,
     # destructiveHint, idempotentHint, openWorldHint) without changing behaviour.
+    # For MCP Tasks it also sets execution.taskSupport on mcp_tasks.TASK_TOOLS.
     return [
         enrich_tool(provider.get_identity(), t)
         for provider, t in registry.get_tools_with_providers()
@@ -126,7 +135,7 @@ async def read_resource(uri: Any) -> list[ReadResourceContents]:
 
 
 @app.call_tool()
-async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolResult:
+async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolResult | CreateTaskResult:
     """Execute a registered AEC tool."""
     if name in HUMAN_ONLY_TOOLS:
         return _tool_error("human_only", (
@@ -151,6 +160,15 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
     except ValueError as exc:
         return _tool_error("invalid_response_options", str(exc))
 
+    # A task-augmented call (the client sent a `task` field) is refused before any
+    # approved action is claimed when the tool cannot run as a task.
+    task_metadata = mcp_tasks.request_task_metadata(app) if TASKS_ENABLED else None
+    if task_metadata is not None and name not in mcp_tasks.TASK_TOOLS:
+        return _tool_error("task_not_supported", (
+            f"'{name}' cannot run as a task. Call it without the task field. Only tools listed with "
+            "execution.taskSupport 'optional' accept task-augmented calls."
+        ))
+
     # Approval gate: a mutating call consumes its approved action here, before it
     # runs, so it can run at most once even if it fails or is called concurrently.
     gate = approval_provider.gate
@@ -160,6 +178,9 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
         return _tool_error("tool_profile_blocked", str(e))
     except Exception as e:
         return _tool_error("approval_blocked", f"Approval Gate Blocked: {str(e)}")
+
+    if task_metadata is not None:
+        return await _start_task(name, provider, arguments, claim, gate, response_options, read_only, task_metadata)
 
     try:
         # Check if deferred execution is requested.
@@ -197,7 +218,22 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
             response_text = f"✓ Job {job_ref.job_id} queued successfully\n\n"
             response_text += f"Result:\n{json.dumps(job_ref.to_dict(), indent=2)}"
             return [TextContent(type="text", text=response_text)]
+    except CommandFailed as e:
+        return _tool_error("bridge_error", f"Revit Bridge Error: {str(e)}", result=e.payload)
+    except ToolProfileBlocked as e:
+        return _tool_error("tool_profile_blocked", str(e))
+    except BridgeError as e:
+        return _tool_error("bridge_error", f"Revit Bridge Error: {str(e)}")
+    except Exception as e:
+        return _tool_error("execution_error", f"Error: {str(e)}")
 
+    return await _execute_and_present(name, provider, arguments, claim, gate, response_options, read_only)
+
+
+async def _execute_and_present(name, provider, arguments, claim, gate, response_options, read_only,
+                               follow_job: bool = False) -> list[TextContent] | CallToolResult:
+    """Run the tool, book the approval outcome and format the reply (direct calls and tasks)."""
+    try:
         # Execute the tool on the provider
         try:
             with authorized_module_execution(name):
@@ -206,6 +242,12 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
             gate_after(gate, claim, ok=False, error=str(e) or type(e).__name__)
             settle_in_flight(gate, name, arguments, error=e)
             raise
+        if follow_job and name == mcp_tasks.RUN_JOB_TOOL:
+            # A revit_run_job task waits for the Revit job's real outcome. If the task is
+            # cancelled meanwhile, the action is booked as still running, never as failed.
+            result = await mcp_tasks.follow_revit_job(
+                provider, result, lambda last: gate_after_result(gate, claim, name, last),
+            )
         if claim is None:
             settle_in_flight(gate, name, arguments, result=result)
         outcome = gate_after_result(gate, claim, name, result)
@@ -244,6 +286,40 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
 
     except Exception as e:
         return _tool_error("execution_error", f"Error: {str(e)}")
+
+
+def _call_writes(name: str, arguments: Any) -> bool:
+    """True unless this call provably cannot change the model (fails closed)."""
+    try:
+        return requires_approval(registry, name, registry.lookup_tool(name), arguments)
+    except Exception:
+        return True
+
+
+async def _start_task(name, provider, arguments, claim, gate, response_options, read_only, task_metadata):
+    """Queue an already-gated call as an MCP task and return its CreateTaskResult."""
+    async def work() -> CallToolResult:
+        reply = await _execute_and_present(
+            name, provider, arguments, claim, gate, response_options, read_only, follow_job=True,
+        )
+        return reply if isinstance(reply, CallToolResult) else CallToolResult(content=list(reply), isError=False)
+
+    def cancelled_before_start() -> None:
+        gate_after(gate, claim, ok=False, error="Task cancelled before it started; nothing ran.")
+
+    try:
+        return await task_bridge.start(
+            tool=name,
+            writes=_call_writes(name, arguments),
+            metadata=task_metadata,
+            scope=mcp_tasks.session_scope(app),
+            work=work,
+            on_cancel_before_start=cancelled_before_start,
+        )
+    except Exception as e:
+        # Nothing was queued, so nothing ran; the claimed action is booked as failed.
+        gate_after(gate, claim, ok=False, error=str(e) or type(e).__name__)
+        return _tool_error("execution_error", f"Error: the task could not be started: {str(e)}")
 
 
 _result_failed = result_failed

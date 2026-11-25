@@ -535,6 +535,10 @@
     "when": "The response_options argument is not an object, names an unsupported key, or has a value of the wrong type.",
     "do": "Remove response_options or fix it as the message says, then call again."
   },
+  "mcp/task_not_supported": {
+    "when": "A tools/call carried a task field (MCP Tasks) for a tool that does not accept task-augmented calls. Nothing ran and no approved action was used.",
+    "do": "Call the tool without the task field, or use a tool whose execution.taskSupport is optional (docs/mcp-tasks.md)."
+  },
   "mcp/tool_profile_blocked": {
     "when": "The tool is registered but this server's static MCP tool profile hides it.",
     "do": "Use a tool the profile lists. To use this one, the person must change the tool profile and restart the server (docs/mcp-token-budget.md)."
