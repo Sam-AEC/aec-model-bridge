@@ -42,9 +42,6 @@ renderers, and each copy site carries the comment:
 // keep in sync with docs/design/tokens.md
 ```
 
-Companion file: `docs/design/review.html` — open it in a browser to see every
-token on this page rendered at real size.
-
 ---
 
 ## 1. What is being replaced
