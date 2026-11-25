@@ -134,6 +134,7 @@ nav:
       - adr/0014-multi-revit-routing.md
       - adr/0017-approval-document-binding-and-expiry.md
       - adr/0018-explicit-development-mode.md
+      - adr/0023-mcp-spec-2026-07.md
   - Legal:
       - Trademarks: legal/TRADEMARKS.md
       - CLA draft: legal/CLA-DRAFT.md
