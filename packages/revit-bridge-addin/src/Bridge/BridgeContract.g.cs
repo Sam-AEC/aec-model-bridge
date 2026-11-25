@@ -112,6 +112,7 @@ public static class BridgeContract
     public const string RevitPlaceWindow                 = "revit.place_window";
     public const string RevitPopulateTitleblock          = "revit.populate_titleblock";
     public const string RevitPreviewElements             = "revit.preview_elements";
+    public const string RevitPreviewPlanBatch            = "revit.preview_plan_batch";
     public const string RevitReflectGet                  = "revit.reflect_get";
     public const string RevitReflectSet                  = "revit.reflect_set";
     public const string RevitRelinquishAll               = "revit.relinquish_all";
@@ -234,6 +235,7 @@ public static class BridgeContract
         { RevitPlaceWindow,                 true },
         { RevitPopulateTitleblock,          true },
         { RevitPreviewElements,             false },
+        { RevitPreviewPlanBatch,            true },
         { RevitReflectGet,                  true },
         { RevitReflectSet,                  true },
         { RevitRelinquishAll,               true },

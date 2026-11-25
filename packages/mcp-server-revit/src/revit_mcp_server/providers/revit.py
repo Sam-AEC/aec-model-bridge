@@ -664,13 +664,23 @@ class RevitProvider(AECProvider):
         None unless: a live add-in lists revit.execute_plan_batch, there are 1 to 50 actions, every
         tool is in PLAN_BATCH_TOOLS, and every payload builds and fits the command contract. No I/O
         and nothing is claimed here, so a None answer changes nothing."""
+        return self._batch_members(plan_id, actions, "supports_plan_batch", "call_plan_batch")
+
+    def plan_preview_members(self, actions: List[Any]) -> List[Dict[str, Any]] | None:
+        """The add-in members for a rolled-back preview of these draft actions (#293), or None when no
+        preview can be taken. Same rules as plan_batch_members, but the add-in must list
+        revit.preview_plan_batch. Each action needs an ``action_id`` (any id of letters, digits, _ and -)."""
+        return self._batch_members("preview", actions, "supports_plan_preview", "call_plan_preview")
+
+    def _batch_members(self, plan_id: Any, actions: List[Any], supports_name: str,
+                       call_name: str) -> List[Dict[str, Any]] | None:
         if self.mode != BridgeMode.bridge:
             return None
         if not isinstance(plan_id, str) or not _PLAN_BATCH_ID_RE.fullmatch(plan_id):
             return None
         bridge = self._active_bridge()
-        supports = getattr(bridge, "supports_plan_batch", None)
-        if not (callable(supports) and callable(getattr(bridge, "call_plan_batch", None))):
+        supports = getattr(bridge, supports_name, None)
+        if not (callable(supports) and callable(getattr(bridge, call_name, None))):
             return None
         try:
             if supports() is not True:
@@ -702,6 +712,12 @@ class RevitProvider(AECProvider):
                 return None
             members.append({"action_id": action_id, "tool": bridge_tool, "payload": payload})
         return members
+
+    async def preview_plan_batch(self, title: str, members: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Send prepared members (plan_preview_members) as one revit.preview_plan_batch request. The add-in
+        rolls the group back whatever happens. Nothing is claimed and no plan state changes."""
+        bridge = self._active_bridge()
+        return await asyncio.to_thread(bridge.call_plan_preview, title, members)
 
     async def execute_plan_batch(self, plan_id: str, title: str, members: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Send prepared members (plan_batch_members) as one revit.execute_plan_batch request. The

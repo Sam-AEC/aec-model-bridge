@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from ..security import binding as binding_mod
 from ..security import proof as proof_mod
+from ..security import rollback_preview
 from ..security.approval import write_rule
 from ..security.plan_review import with_review_aids
 from ..security.policy import check_actions, load_policy
@@ -147,6 +148,44 @@ class ApprovalProvider(AECProvider):
             logger.warning("Could not read the live document for the plan binding: %s", e)
             return None
 
+    async def _draft_preview(self, actions: List[Dict[str, Any]],
+                             before_states: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """Run the draft actions in a group the add-in always rolls back (#293) and return the record that
+        is stored, hashed, on the plan. None when the add-in cannot preview this plan (mock mode, an older
+        add-in, an action that is not a plain model write): the plan is then drafted as before.
+
+        This is not an approval and not an execution: no action is claimed, no proof is written and no
+        plan state changes. An error or a slow Revit gives an 'unavailable' record that says why; it never
+        blocks the draft and never guesses a result."""
+        if self.gate.approval_mode == "look_only" or not actions or self.registry is None:
+            return None
+        provider = None
+        for action in actions:
+            found = self.registry.lookup_tool_provider(action.get("tool"))
+            if found is None or (provider is not None and found is not provider):
+                return None
+            provider = found
+        prepare = getattr(provider, "plan_preview_members", None)
+        if not callable(prepare) or not callable(getattr(provider, "preview_plan_batch", None)):
+            return None
+        try:
+            members = prepare([{**a, "action_id": f"prev_{i}"} for i, a in enumerate(actions)])
+        except Exception:  # noqa: BLE001 - no preview, plan drafted as before
+            logger.exception("Could not prepare a rolled-back preview")
+            return None
+        if not isinstance(members, list) or len(members) != len(actions):
+            return None
+        try:
+            reply = await provider.preview_plan_batch("Preview (rolled back)", members)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Rolled-back preview failed: %s", e)
+            return rollback_preview.unavailable(f"The preview could not be taken ({type(e).__name__}). "
+                                                "Nothing was changed in the model.")
+        if isinstance(reply, dict) and reply.get("status") in ("running", "queued"):
+            return rollback_preview.unavailable("Revit did not finish the preview in time. The add-in rolls it "
+                                                "back; nothing was kept in the model.")
+        return rollback_preview.build(reply, actions, before_states)
+
     async def execute_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         if name == "plan_actions":
             actions = arguments.get("actions", [])
@@ -201,6 +240,7 @@ class ApprovalProvider(AECProvider):
                 review=arguments.get("review"),
                 binding=await self._draft_binding(actions),
                 policy_hash=policy.hash,
+                rollback_preview=await self._draft_preview(actions, before_states),
             )
             plan = with_review_aids(plan, self.gate.workspace_dir)
             return plan

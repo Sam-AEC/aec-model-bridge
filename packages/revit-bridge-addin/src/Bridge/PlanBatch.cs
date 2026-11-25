@@ -79,19 +79,20 @@ internal static class PlanBatch
     /// Reads {"plan_id": "...", "title": "...", "actions": [{"action_id": "...", "tool": "...", "payload": {...}}]}.
     /// Throws ArgumentException with a plain message when the shape is wrong, there are no actions or more
     /// than <see cref="MaxActions"/>, or a member is not on the allowlist. <paramref name="isRegistered"/>
-    /// must say whether the add-in has a handler for a command.
+    /// must say whether the add-in has a handler for a command. <paramref name="commandName"/> only words the
+    /// error messages: revit.preview_plan_batch (#293) takes the same request.
     /// </summary>
-    public static PlanBatchRequest Parse(JsonElement payload, Func<string, bool> isRegistered)
+    public static PlanBatchRequest Parse(JsonElement payload, Func<string, bool> isRegistered, string commandName = CommandName)
     {
         if (isRegistered == null) throw new ArgumentNullException(nameof(isRegistered));
         if (payload.ValueKind != JsonValueKind.Object)
-            throw new ArgumentException("revit.execute_plan_batch needs an object with plan_id, title and actions.");
+            throw new ArgumentException($"{commandName} needs an object with plan_id, title and actions.");
 
         if (!payload.TryGetProperty("plan_id", out var planProp)
             || planProp.ValueKind != JsonValueKind.String
             || !PlanIdPattern.IsMatch(planProp.GetString() ?? ""))
         {
-            throw new ArgumentException("revit.execute_plan_batch needs a 'plan_id' of letters, digits, '_' or '-'.");
+            throw new ArgumentException($"{commandName} needs a 'plan_id' of letters, digits, '_' or '-'.");
         }
         var planId = planProp.GetString()!;
 
@@ -99,18 +100,18 @@ internal static class PlanBatch
         if (payload.TryGetProperty("title", out var titleProp) && titleProp.ValueKind != JsonValueKind.Null)
         {
             if (titleProp.ValueKind != JsonValueKind.String)
-                throw new ArgumentException("revit.execute_plan_batch 'title' must be text.");
+                throw new ArgumentException($"{commandName} 'title' must be text.");
             title = titleProp.GetString() ?? "";
         }
 
         if (!payload.TryGetProperty("actions", out var actions) || actions.ValueKind != JsonValueKind.Array)
-            throw new ArgumentException("revit.execute_plan_batch needs an 'actions' array of {\"action_id\", \"tool\", \"payload\"} objects.");
+            throw new ArgumentException($"{commandName} needs an 'actions' array of {{\"action_id\", \"tool\", \"payload\"}} objects.");
 
         var count = actions.GetArrayLength();
         if (count == 0)
-            throw new ArgumentException("revit.execute_plan_batch needs at least one action.");
+            throw new ArgumentException($"{commandName} needs at least one action.");
         if (count > MaxActions)
-            throw new ArgumentException($"revit.execute_plan_batch takes at most {MaxActions} actions; this plan has {count}.");
+            throw new ArgumentException($"{commandName} takes at most {MaxActions} actions; this plan has {count}.");
 
         var list = new List<PlanBatchAction>(count);
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -118,32 +119,32 @@ internal static class PlanBatch
         foreach (var item in actions.EnumerateArray())
         {
             if (item.ValueKind != JsonValueKind.Object)
-                throw new ArgumentException($"revit.execute_plan_batch action {index} is not an object.");
+                throw new ArgumentException($"{commandName} action {index} is not an object.");
 
             if (!item.TryGetProperty("action_id", out var idProp)
                 || idProp.ValueKind != JsonValueKind.String
                 || !ActionIdPattern.IsMatch(idProp.GetString() ?? ""))
             {
-                throw new ArgumentException($"revit.execute_plan_batch action {index} needs an 'action_id' of letters, digits, '_' or '-'.");
+                throw new ArgumentException($"{commandName} action {index} needs an 'action_id' of letters, digits, '_' or '-'.");
             }
             var actionId = idProp.GetString()!;
             if (!seen.Add(actionId))
-                throw new ArgumentException($"revit.execute_plan_batch action {index} repeats action_id '{actionId}'.");
+                throw new ArgumentException($"{commandName} action {index} repeats action_id '{actionId}'.");
 
             if (!item.TryGetProperty("tool", out var toolProp)
                 || toolProp.ValueKind != JsonValueKind.String
                 || string.IsNullOrWhiteSpace(toolProp.GetString()))
             {
-                throw new ArgumentException($"revit.execute_plan_batch action {index} needs a 'tool' name.");
+                throw new ArgumentException($"{commandName} action {index} needs a 'tool' name.");
             }
             var tool = toolProp.GetString()!;
             if (!IsBatchable(tool))
-                throw new ArgumentException($"revit.execute_plan_batch action {index} ({tool}) is not a plain model write that can run in a plan batch. Run this plan one action at a time.");
+                throw new ArgumentException($"{commandName} action {index} ({tool}) is not a plain model write that can run in a plan batch. Run this plan one action at a time.");
             if (!isRegistered(tool))
-                throw new ArgumentException($"revit.execute_plan_batch action {index} ({tool}) is not a command this add-in has.");
+                throw new ArgumentException($"{commandName} action {index} ({tool}) is not a command this add-in has.");
 
             if (!item.TryGetProperty("payload", out var memberPayload) || memberPayload.ValueKind != JsonValueKind.Object)
-                throw new ArgumentException($"revit.execute_plan_batch action {index} ({tool}) needs a 'payload' object.");
+                throw new ArgumentException($"{commandName} action {index} ({tool}) needs a 'payload' object.");
 
             list.Add(new PlanBatchAction(index, actionId, tool, memberPayload));
             index++;

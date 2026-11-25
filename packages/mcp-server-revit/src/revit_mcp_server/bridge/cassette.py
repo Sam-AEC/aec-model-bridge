@@ -191,6 +191,9 @@ class RecordingBridge:
     def supports_plan_batch(self) -> bool:
         return False
 
+    def supports_plan_preview(self) -> bool:
+        return False
+
     def call_batch(self, *args: Any, **kwargs: Any) -> Any:
         raise CassetteError("Read batches are not sent while recording; send each command on its own.")
 

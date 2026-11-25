@@ -23,6 +23,8 @@ _BATCH_EXTRA_WAITS = 3
 PLAN_BATCH_COMMAND = "revit.execute_plan_batch"
 MAX_PLAN_BATCH_ACTIONS = 50
 _PLAN_BATCH_EXTRA_WAITS = 4
+# revit.preview_plan_batch (#293): the same members run in a TransactionGroup that is always rolled back.
+PLAN_PREVIEW_COMMAND = "revit.preview_plan_batch"
 
 
 def _soft_wait_from_env() -> float:
@@ -256,6 +258,29 @@ class BridgeClient:
             for entry in result.get("results") or []:
                 if isinstance(entry, dict) and isinstance(entry.get("result"), dict):
                     self._normalize_element_ids(entry["result"])
+        return result
+
+    def supports_plan_preview(self) -> bool:
+        """True when the add-in's command list names revit.preview_plan_batch (#293). Unknown catalog: False."""
+        return bool(self._tool_catalog) and PLAN_PREVIEW_COMMAND in self._tool_catalog
+
+    def call_plan_preview(self, title: str, actions: list[dict[str, Any]]) -> dict[str, Any]:
+        """Run a plan's write actions inside a group the add-in always rolls back, and return what they
+        would have changed ({"rolled_back", "changed_element_ids", "results": [...]}).
+
+        This is not an execution: nothing is claimed and nothing is kept in the model. ``actions`` is
+        [{"action_id", "tool", "payload"}, ...], the same members call_plan_batch takes. Returns the
+        {"status": "running", "request_id"} envelope when Revit has not answered after a few extra waits.
+        """
+        if not actions:
+            raise ValueError("A plan preview needs at least one action.")
+        if len(actions) > MAX_PLAN_BATCH_ACTIONS:
+            raise ValueError(f"A plan preview takes at most {MAX_PLAN_BATCH_ACTIONS} actions; got {len(actions)}.")
+        result = self.call_tool(PLAN_PREVIEW_COMMAND, {"plan_id": "preview", "title": title, "actions": actions})
+        for _ in range(_PLAN_BATCH_EXTRA_WAITS):
+            if not self._is_running(result):
+                break
+            result = self.get_result(str(result.get("request_id")))
         return result
 
     def get_result(self, request_id: str, wait_s: float | None = None) -> dict[str, Any]:

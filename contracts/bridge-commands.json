@@ -2136,6 +2136,55 @@
         }
       }
     },
+    "revit.preview_plan_batch": {
+      "is_mutating": true,
+      "params": {
+        "type": "object",
+        "properties": {
+          "plan_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,64}$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "actions": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {
+              "type": "object",
+              "properties": {
+                "action_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,64}$"
+                },
+                "tool": {
+                  "type": "string",
+                  "enum": [
+                    "revit.move_element",
+                    "revit.rotate_element",
+                    "revit.set_parameter_value"
+                  ]
+                },
+                "payload": {
+                  "type": "object"
+                }
+              },
+              "required": [
+                "action_id",
+                "tool",
+                "payload"
+              ]
+            }
+          }
+        },
+        "required": [
+          "plan_id",
+          "actions"
+        ]
+      }
+    },
     "revit.reflect_get": {
       "is_mutating": true,
       "params": {

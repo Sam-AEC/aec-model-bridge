@@ -527,6 +527,43 @@
     expect(window.__pwned === undefined, "script ran");
   });
 
+  const ROLLED = (over) => Object.assign({ version: 1, status: "ok", rolled_back: true, changed_element_ids: [11, 12],
+    actions: [{ index: 0, tool: "revit_set_parameter_value", ok: true, element_id: 11, parameter: "Mark", before: "A", after: "B" }],
+    warnings: [{ action_index: 0, severity: "Warning", message: "Elements have duplicate Mark values.", element_ids: [11] }] }, over || {});
+  const NO_REVIEW = { review_view: { status: "none", hash_version: 1, reverts_plan_id: null, review: null, error: "" }, hash_version: undefined };
+
+  test("rollback preview: shows changed ids, before and after and the warnings, and leaves Approve alone", () => {
+    fresh();
+    plans([V2("rp1", null, Object.assign({ rollback_preview: ROLLED() }, NO_REVIEW))]);
+    const card = cardOf("rp1");
+    const block = card.querySelector(".plan-rollback-preview");
+    expect(!!block, "rolled-back preview block missing");
+    expect(/nothing was kept in the model/.test(block.textContent) && /Changed element ids: 11, 12/.test(block.textContent), "head " + block.textContent);
+    const cells = Array.from(block.querySelectorAll("tr")).map((tr) => Array.from(tr.children).map((c) => c.textContent));
+    expect(cells[1][5] === "A" && cells[1][6] === "B", "before/after " + JSON.stringify(cells));
+    expect(/Elements have duplicate Mark values/.test(block.textContent), "warning missing");
+    expect(!!approveBtn(card) && !approveBtn(card).disabled, "a preview must not change Approve state");
+  });
+
+  test("rollback preview: an unavailable preview says so, and a preview that was not rolled back is flagged", () => {
+    fresh();
+    plans([V2("rp2", null, Object.assign({ rollback_preview: ROLLED({ status: "unavailable", reason: "Revit was busy.", actions: [], changed_element_ids: [], warnings: [] }) }, NO_REVIEW)),
+           V2("rp3", null, Object.assign({ rollback_preview: ROLLED({ rolled_back: false }) }, NO_REVIEW))]);
+    expect(/not available\. Revit was busy\./.test(cardOf("rp2").querySelector(".plan-rollback-preview").textContent), "unavailable text");
+    expect(/NOT rolled back/.test(cardOf("rp3").querySelector(".plan-rollback-preview").textContent), "not-rolled-back alert");
+  });
+
+  test("rollback preview: hostile text stays inert", () => {
+    fresh();
+    plans([V2("rp4", null, Object.assign({ rollback_preview: ROLLED({ warnings: [{ action_index: 0, severity: "Warning", message: XSS, element_ids: [] }],
+      actions: [{ index: 0, tool: XSS, ok: false, error: XSS, before: "x‮y" }] }) }, NO_REVIEW))]);
+    const card = cardOf("rp4");
+    expect(card.querySelectorAll(FORBIDDEN).length === 0, "active element in card");
+    expect(card.querySelector(".plan-rollback-preview").textContent.includes("<script>window.__pwned=1</script>"), "markup should be literal text");
+    expect(!card.querySelector(".plan-rollback-preview").textContent.includes("‮"), "bidi override shown raw");
+    expect(window.__pwned === undefined, "script ran");
+  });
+
   test("preview: a plan without preview data still renders", () => {
     fresh();
     plans([PLAN("pv4", [SET([1], true)])]);
