@@ -395,11 +395,11 @@ def test_symlinked_user_pack_escaping_workspace_is_refused(module, workspace, tm
     assert "link" not in {p["name"] for p in module.list_rule_packs(workspace=workspace)["packs"]}
 
 
-def test_heijmans_derived_pack_is_valid():
+def test_example_derived_pack_is_valid():
     import yaml
 
 
-    pack = REPO_ROOT / "docs" / "examples" / "rule_packs" / "heijmans-derived.yaml"
+    pack = REPO_ROOT / "docs" / "examples" / "rule_packs" / "example-derived.yaml"
     result = _qaqc._validate_pack_data(yaml.safe_load(pack.read_text(encoding="utf-8")))
     assert result["errors"] == [] and result["rules_count"] == 5
 
