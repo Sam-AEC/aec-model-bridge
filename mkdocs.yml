@@ -113,6 +113,7 @@ nav:
       - Deferred tool loading: deferred-tool-loading.md
       - Learned profile and usage counts: learned-profile.md
       - Performance: performance.md
+      - MCP Tasks: mcp-tasks.md
       - Target frameworks and dependencies: target-frameworks-and-dependencies.md
   - Develop:
       - Module authoring: module-authoring.md

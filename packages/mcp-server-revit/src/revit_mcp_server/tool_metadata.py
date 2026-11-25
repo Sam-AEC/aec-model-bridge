@@ -18,8 +18,9 @@ import copy
 import re
 from typing import Any
 
-from mcp.types import Tool, ToolAnnotations
+from mcp.types import Tool, ToolAnnotations, ToolExecution
 
+from .mcp_tasks import TASK_TOOLS
 from .output_schemas import output_schema_for
 from .providers.base import ProviderTool
 from .result_presentation import APPROVAL_TOOLS, add_response_schema
@@ -837,6 +838,9 @@ def enrich_tool(provider_id: str, tool: ProviderTool) -> Tool:
         # Claude Code loads a tool marked this way up front when tool search defers the rest.
         # Passed by alias: the SDK keeps a `meta=` keyword as an unrelated extra field.
         extra["_meta"] = {ALWAYS_LOAD_META_KEY: True}
+    if tool.name in TASK_TOOLS:
+        # MCP Tasks (docs/mcp-tasks.md): the tool accepts a task-augmented tools/call.
+        extra["execution"] = ToolExecution(taskSupport="optional")
     return Tool(
         name=tool.name,
         title=humanize(tool.name),

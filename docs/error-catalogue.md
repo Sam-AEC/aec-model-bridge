@@ -12,11 +12,11 @@ A tool failure reaches an MCP client in one of two shapes:
 Refusals never change the model. A refused write needs a new plan that a person approves.
 For logs and connection problems see [troubleshooting](troubleshooting.md).
 
-Entries: 141.
+Entries: 143.
 
 ## Tool error kinds
 
-Set by the MCP layer as `structuredContent.error.kind` when a call fails with `isError`. Entries: 8.
+Set by the MCP layer as `structuredContent.error.kind` when a call fails with `isError`. Entries: 9.
 
 ### `approval_blocked`
 
@@ -52,6 +52,12 @@ Set by the MCP layer as `structuredContent.error.kind` when a call fails with `i
 
 - When: The response_options argument is not an object, names an unsupported key, or has a value of the wrong type.
 - What to do: Remove response_options or fix it as the message says, then call again.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
+
+### `task_not_supported`
+
+- When: A tools/call carried a task field (MCP Tasks) for a tool that does not accept task-augmented calls. Nothing ran and no approved action was used.
+- What to do: Call the tool without the task field, or use a tool whose execution.taskSupport is optional (docs/mcp-tasks.md).
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
 
 ### `tool_profile_blocked`
@@ -744,13 +750,19 @@ Set by module tools as `kind` in an `ok: false` result, next to `message`, `elem
 
 ## Exception classes
 
-Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 21.
+Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 22.
 
 ### `ApprovalExpired`
 
 - When: An approval or a drafted plan is older than approval_ttl.
 - What to do: Create a new plan and ask the person to approve it. Nothing renews an old approval.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/security/approval.py`
+
+### `ApprovalKeyError`
+
+- When: The workspace approval signing key (plans/.keys/approval-signing.key) is a symlink, owned by another user, readable by others, or malformed. The approval was not recorded.
+- What to do: Ask the person to delete the key file and approve the plan again. Plans approved under the old key must be approved again.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/security/approval_signing.py`
 
 ### `BcfError`
 
