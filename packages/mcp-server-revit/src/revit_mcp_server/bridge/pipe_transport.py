@@ -120,6 +120,30 @@ def exchange(stream: BinaryIO, request: dict[str, Any]) -> tuple[int, Any]:
     return parse_response(read_frame(stream, MAX_RESPONSE_FRAME_BYTES))
 
 
+def _windows_open(path: str) -> BinaryIO:  # pragma: no cover - Windows only
+    """Open a pipe client handle with CreateFileW so a failure keeps its Win32 code.
+
+    The built-in open() goes through _wopen and builds its OSError from errno, which loses
+    ERROR_PIPE_BUSY (231); the busy-pipe retry in _connect needs ``winerror`` (#281 review)."""
+    import ctypes
+    import msvcrt
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    create = kernel32.CreateFileW
+    create.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID,
+                       wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+    create.restype = wintypes.HANDLE
+    generic_read_write = 0x80000000 | 0x40000000
+    open_existing = 3
+    handle = create(path, generic_read_write, 0, None, open_existing, 0, None)
+    if handle is None or handle == ctypes.c_void_p(-1).value:
+        # WinError(2) is a FileNotFoundError; WinError(231) keeps winerror == 231.
+        raise ctypes.WinError(ctypes.get_last_error())
+    fd = msvcrt.open_osfhandle(handle, os.O_RDWR | getattr(os, "O_BINARY", 0))
+    return os.fdopen(fd, "r+b", buffering=0)
+
+
 def _windows_server_pid(stream: Any) -> int | None:
     """Process id of the pipe server, or None if it cannot be read."""
     try:
@@ -158,7 +182,7 @@ class PipeTransport:
         self.path = "\\\\.\\pipe\\" + pipe_name
         self.expected_pid = expected_pid
         self.timeout = float(timeout)
-        self._opener = opener or (lambda p: open(p, "r+b", buffering=0))
+        self._opener = opener or _windows_open
         self._server_pid = server_pid or _windows_server_pid
         self._sleep = time.sleep
         self._clock = time.monotonic

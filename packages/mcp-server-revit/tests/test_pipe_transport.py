@@ -409,3 +409,16 @@ def test_frame_limits_match_on_both_sides():
     assert "MaxResponseFrameBytes = 64 * 1024 * 1024" in framing and MAX_RESPONSE_FRAME_BYTES == 64 * 1024 * 1024
     assert "throw new InvalidDataException" in framing
     assert "header[0] | (header[1] << 8) | (header[2] << 16) | (header[3] << 24)" in framing
+
+
+def test_default_opener_keeps_the_win32_error_code():
+    """#281 review: open() builds its OSError from errno and loses ERROR_PIPE_BUSY, so the busy
+    retry never ran. The default opener uses CreateFileW and ctypes.WinError, which keeps winerror."""
+    import inspect
+
+    from revit_mcp_server.bridge import pipe_transport
+
+    transport = pipe_transport.PipeTransport(PIPE, 4242, platform="nt")
+    assert transport._opener is pipe_transport._windows_open
+    source = inspect.getsource(pipe_transport._windows_open)
+    assert "CreateFileW" in source and "ctypes.WinError(ctypes.get_last_error())" in source
