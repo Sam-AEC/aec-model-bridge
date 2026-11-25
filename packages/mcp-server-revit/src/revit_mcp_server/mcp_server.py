@@ -591,7 +591,10 @@ async def _start_task(name, provider, arguments, claim, gate, response_options, 
     writes = _call_writes(name, arguments)
     canceller = None
     run_arguments = arguments
-    if name == mcp_tasks.RUN_JOB_TOOL and not writes and claim is None:
+    reuses_job = isinstance(arguments, dict) and bool(arguments.get("idempotency_key"))
+    # An idempotency_key can hand back an existing job (JobManager dedups by key alone), which may be a
+    # queued write: then the task never cancels the inner job (#335 review).
+    if name == mcp_tasks.RUN_JOB_TOOL and not writes and claim is None and not reuses_job:
         # Read-only revit_run_job: tasks/cancel may cancel the inner Revit job, so its id is needed at
         # once. wait_s=0 returns the job id straight away; the task follows the job either way.
         canceller = mcp_tasks.RevitJobCanceller(provider)

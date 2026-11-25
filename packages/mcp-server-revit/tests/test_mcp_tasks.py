@@ -662,3 +662,13 @@ def test_revit_job_canceller_reports_finished_job_and_odd_reply():
     odd.note("j1")
     with pytest.raises(ValueError):
         asyncio.run(odd.cancel())
+
+
+def test_read_job_task_with_idempotency_key_never_cancels_the_inner_job(monkeypatch):
+    """#335 review: a key can return an existing (possibly write) job, so no inner cancel is attempted."""
+    provider = JobProvider()
+    _install_jobs(monkeypatch, provider)
+    cancelled, _final = _cancel_job_task(
+        monkeypatch, provider, {"script": "print(1)", "mode": "read", "idempotency_key": "k1"})
+    assert not any(name == "revit_job_cancel" for name, _ in provider.calls)
+    assert "wait_s" not in provider.calls[0][1]
