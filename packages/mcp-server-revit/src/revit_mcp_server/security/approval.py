@@ -16,11 +16,13 @@ from ..config import APPROVAL_MODES, config, normalize_approval_mode  # noqa: F4
 from ..errors import BridgeError
 from . import approval_signing as signing_mod
 from . import binding as binding_mod
+from . import file_binding
 from . import proof as proof_mod
 from .approval_override import active_override
 from .dev_mode import active_dev, audit_dev_event
 from .recipe_store import RecipeStore, standing_authorizes
 from .safe_paths import PLAN_ID_RE, safe_child
+from .workspace import WorkspaceMonitor
 
 logger = logging.getLogger(__name__)
 
@@ -241,6 +243,9 @@ class ApprovalGate:
         self.binding_probe: Optional[Callable[[], Any]] = None
         self.override_token: Optional[str] = None  # tests; normally read from the panel token file
         self.approval_mode = approval_mode
+        # Workspace check for files whose content is bound to a plan (file_binding.py). The
+        # provider wiring sets the server's monitor; the default allows only the plan workspace.
+        self.workspace_monitor: WorkspaceMonitor = WorkspaceMonitor([workspace_dir])
         self.plans_dir = workspace_dir / "plans"
         self.plans_dir.mkdir(parents=True, exist_ok=True)
 
@@ -366,6 +371,8 @@ class ApprovalGate:
         older, unbound format. ``extra`` is metadata only: it is NOT
         hashed and must not be presented as approved content (see proof.unhashed_metadata_keys)."""
         self.validate_actions(actions)
+        # A file a tool reads at run time is bound by its sha256 in the hashed arguments.
+        actions = file_binding.bind_actions(actions, self.workspace_monitor)
         if proof_mod.has_nonfinite_float(actions) or proof_mod.has_nonfinite_float(review):
             raise BridgeError("A plan cannot hold NaN or Infinity.")
         reserved = sorted(k for k in (extra or {}) if k in _RESERVED_EXTRA_KEYS)
@@ -679,6 +686,12 @@ class ApprovalGate:
                 "or draft a new plan for this one; a person must approve it again."
             )
 
+    def verify_bound_files(self, plan: Dict[str, Any]) -> None:
+        """Refuse when a file bound to an open action of ``plan`` no longer matches its approved digest."""
+        for action in plan.get("actions", []):
+            if action.get("state") in OPEN_ACTION_STATES:
+                file_binding.verify_action(action.get("tool"), action.get("arguments"), self.workspace_monitor)
+
     def check_tool_execution(self, tool_name: str, arguments: Dict[str, Any]) -> None:
         """Read-only check that a call is covered by an approved, unchanged plan.
 
@@ -810,6 +823,8 @@ class ApprovalGate:
                     raise self._no_action_error(plan_id, tool_name)
                 action_id = action.get("action_id")
                 tried.add(action_id)
+                # Before consuming: a changed bound file refuses the call and leaves the action open.
+                file_binding.verify_action(tool_name, action.get("arguments"), self.workspace_monitor)
                 marker = self._claim_marker(plan_id, action_id)
                 marker.parent.mkdir(parents=True, exist_ok=True)
                 try:

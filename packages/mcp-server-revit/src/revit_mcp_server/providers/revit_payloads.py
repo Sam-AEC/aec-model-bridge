@@ -292,7 +292,18 @@ def sheets_from_csv(path: Path, titleblock_name: Any = None) -> Args:
         raise ValueError(f"{tool}: no CSV file at {path}.")
     if path.stat().st_size > CSV_MAX_BYTES:
         raise ValueError(f"{tool}: the CSV is larger than {CSV_MAX_BYTES} bytes.")
-    text = path.read_bytes().decode("utf-8-sig")
+    return sheets_from_csv_bytes(path.read_bytes(), titleblock_name)
+
+
+def sheets_from_csv_bytes(data: bytes, titleblock_name: Any = None) -> Args:
+    """Parse CSV content already read (and, for a planned call, checked against its approved digest)."""
+    tool = "revit_batch_create_sheets_from_csv"
+    if len(data) > CSV_MAX_BYTES:
+        raise ValueError(f"{tool}: the CSV is larger than {CSV_MAX_BYTES} bytes.")
+    try:
+        text = data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise ValueError(f"{tool}: the CSV is not UTF-8 text.") from None
     reader = csv.DictReader(io.StringIO(text))
     headers = {(h or "").strip().lower().replace(" ", "_"): h for h in (reader.fieldnames or [])}
     number_col = _csv_column(headers, _CSV_NUMBER_HEADERS, tool, True)

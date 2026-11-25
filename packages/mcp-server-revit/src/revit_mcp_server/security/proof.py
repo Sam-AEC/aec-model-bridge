@@ -85,7 +85,7 @@ STATE_PLAN_KEYS = frozenset({
 
 # Keys the server computes when it shows a plan (plan_review.review_aids). They are never stored on a
 # plan and are overwritten on display, so they are neither approved content nor unhashed metadata.
-DERIVED_PLAN_KEYS = frozenset({"preview", "preview_markdown", "blast_radius"})
+DERIVED_PLAN_KEYS = frozenset({"preview", "preview_markdown", "blast_radius", "bound_files"})
 
 
 def unhashed_metadata_keys(plan: Dict[str, Any]) -> List[str]:

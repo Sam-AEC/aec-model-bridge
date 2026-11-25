@@ -32,7 +32,7 @@ from .security.gating import requires_approval
 from .security.audit import redact_data as _redact_secrets
 from .security.response_redaction import redact_response
 from .security.module_execution import authorized_module_execution
-from .output_schemas import output_schema_for, structured_for
+from .output_schemas import fallback_structured, output_schema_for, structured_for
 from .tool_metadata import enrich_tool, is_read_only_tool
 from .read_cursor import Context as CursorContext, CursorError, binding as cursor_binding
 from .result_presentation import next_page, result_json, split_response_options
@@ -271,7 +271,8 @@ async def _call_tool_once(name: str, arguments: Any) -> list[TextContent] | Call
             page = next_page(response_options, cursor_ctx)
         except CursorError as exc:
             return _tool_error("invalid_cursor", str(exc))
-        return _text_only(name, f"✓ {name} next part (from cursor, not run again)\n\nResult:\n{page}")
+        return _text_only(name, f"✓ {name} next part (from cursor, not run again)\n\nResult:\n{page}",
+                          _json_object(page), "This reply is a cursor page of an earlier result, not the full result.")
 
     if task_metadata is not None:
         return await _start_task(name, provider, arguments, claim, gate, response_options, read_only, task_metadata)
@@ -311,7 +312,7 @@ async def _call_tool_once(name: str, arguments: Any) -> list[TextContent] | Call
             )
             response_text = f"✓ Job {job_ref.job_id} queued successfully\n\n"
             response_text += f"Result:\n{json.dumps(job_ref.to_dict(), indent=2)}"
-            return _text_only(name, response_text)
+            return _text_only(name, response_text, None, "The call was queued as a job; it has no result yet.")
     except CommandFailed as e:
         return _tool_error("bridge_error", f"Revit Bridge Error: {str(e)}", result=e.payload)
     except ToolProfileBlocked as e:
@@ -359,7 +360,7 @@ async def _execute_and_present(name, provider, arguments, claim, gate, response_
                 f"Resume with {outcome.resume}. Do not repeat the call.\n\n"
                 f"Result:\n{result_json(redacted_result, response_options, project=False)}"
             )
-            return _text_only(name, text)
+            return _text_only(name, text, None, "The call is still running; it has no final result yet.")
 
         # Format the response
         body = result_json(
@@ -441,14 +442,15 @@ def _cursor_context(name: str, arguments: Any, options: dict) -> CursorContext:
     return CursorContext(name, cursor_binding(name, arguments, options.get("fields")), workspace)
 
 
-def _text_only(name: str, text: str) -> list[TextContent] | CallToolResult:
-    """A text answer with no structured output (queued job, still running).
+def _text_only(name: str, text: str, value: Any = None, reason: str = "") -> list[TextContent] | CallToolResult:
+    """A successful answer that is not the tool's result (queued job, still running, cursor page).
 
-    For a tool with an outputSchema it is returned as a CallToolResult, which the SDK passes
-    through as is; a bare content list would fail the SDK's output check."""
+    For a tool with an outputSchema it is a CallToolResult whose structuredContent is a fallback
+    object that validates (output_schemas.fallback_structured): SDK clients that validate reject a
+    reply from such a tool without structuredContent."""
     content = [TextContent(type="text", text=text)]
     if output_schema_for(name) is not None:
-        return CallToolResult(content=content)
+        return CallToolResult(content=content, structuredContent=fallback_structured(name, value, reason))
     return content
 
 

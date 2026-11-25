@@ -437,6 +437,8 @@ PARAM_DESCRIPTIONS: dict[str, str] = {
     "output_path": "Destination file path; must be inside the allowed workspace directories.",
     "output_filename": "File name for the output, written into the workspace.",
     "csv_path": "Path of a CSV file inside the allowed workspace.",
+    "csv_sha256": "Set by the server in plan_actions: sha256 of the CSV content. Copy it from the plan; a changed CSV is refused.",
+    "csv_row_count": "Set by the server in plan_actions: number of sheet rows in the CSV, shown for review.",
     "csv_filename": "Name of a CSV file in the workspace.",
     "xlsx_filename": "Name of an Excel .xlsx workbook in the workspace root, such as doors.xlsx.",
     "path": "File path; must be inside the allowed workspace directories.",
