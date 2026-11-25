@@ -147,6 +147,7 @@ nav:
       - adr/0019-optional-cpython-engine.md
       - adr/0020-single-command-contract.md
       - adr/0022-shared-command-contract.md
+      - adr/0023-mcp-spec-2026-07.md
   - Legal:
       - Trademarks: legal/TRADEMARKS.md
       - CLA draft: legal/CLA-DRAFT.md
