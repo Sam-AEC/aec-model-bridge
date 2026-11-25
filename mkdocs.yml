@@ -99,6 +99,7 @@ nav:
       - Python automation helpers: python-automation.md
       - pyRevit bridge: pyrevit-bridge.md
       - Error catalogue: error-catalogue.md
+      - Elicitation: elicitation.md
   - Security:
       - Security model: security.md
       - Approval flow: adr/0008-approval-gate-lifecycle.md

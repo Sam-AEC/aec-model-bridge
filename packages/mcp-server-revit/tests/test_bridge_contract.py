@@ -16,6 +16,7 @@ from pathlib import Path
 import httpx
 import pytest
 
+from revit_mcp_server.elicitation import EXPORT_PATH_TOOLS
 from revit_mcp_server.bridge import contract_generated as contract
 from revit_mcp_server.bridge.client import VALIDATE_ENV, BridgeClient
 from revit_mcp_server.bridge.contract_validate import payload_problems
@@ -183,7 +184,13 @@ def test_provider_payload_builders_against_the_contract(tmp_path, required_only)
             continue
         schema = schemas.get(tool, {})
         props = schema.get("properties", {})
-        payload = builder({k: _sample(props[k], k, tmp_path) for k in _sample_keys(schema, required_only)})
+        keys = _sample_keys(schema, required_only)
+        path_key = EXPORT_PATH_TOOLS.get(tool, (None,))[0]
+        if path_key and path_key in props and path_key not in keys:
+            # Not in the schema's required list so the MCP layer can ask for it (elicitation), but a
+            # call always reaches the builder with it set.
+            keys.append(path_key)
+        payload = builder({k: _sample(props[k], k, tmp_path) for k in keys})
         if payload_problems(contract.COMMANDS[bridge]["params"], payload, contract.DEFS):
             mismatched.add(tool)
     expected = KNOWN_BUILDER_MISMATCH_REQUIRED_ONLY if required_only else KNOWN_BUILDER_MISMATCH_FULL_ARGS

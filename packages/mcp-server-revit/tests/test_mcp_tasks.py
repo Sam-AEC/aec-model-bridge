@@ -191,13 +191,13 @@ def test_write_task_claims_approval_once_and_books_outcome(monkeypatch):
     gate, provider = _install(monkeypatch)
 
     async def scenario(client):
-        created = await client.experimental.call_tool_as_task(EXPORT, {"plan_id": "plan-1"})
+        created = await client.experimental.call_tool_as_task(EXPORT, {"plan_id": "plan-1", "output_path": "model.ifc"})
         await _wait_status(client, created.task.taskId, {"completed", "failed"})
         return await client.experimental.get_task_result(created.task.taskId, CallToolResult)
 
     final = _run(monkeypatch, scenario)
     assert not final.isError
-    assert gate.claims == [(EXPORT, {"plan_id": "plan-1"})]
+    assert gate.claims == [(EXPORT, {"plan_id": "plan-1", "output_path": "model.ifc"})]
     assert gate.finished == [("action-0", True, None)]
 
 
@@ -206,7 +206,7 @@ def test_started_write_task_cannot_be_cancelled(monkeypatch):
     provider.block = True
 
     async def scenario(client):
-        created = await client.experimental.call_tool_as_task(EXPORT, {"plan_id": "plan-1"})
+        created = await client.experimental.call_tool_as_task(EXPORT, {"plan_id": "plan-1", "output_path": "model.ifc"})
         task_id = created.task.taskId
         while not provider.calls:
             await asyncio.sleep(0.01)
@@ -268,7 +268,7 @@ def test_failed_tool_marks_task_failed(monkeypatch):
     provider.fail = True
 
     async def scenario(client):
-        created = await client.experimental.call_tool_as_task(EXPORT, {"plan_id": "plan-1"})
+        created = await client.experimental.call_tool_as_task(EXPORT, {"plan_id": "plan-1", "output_path": "model.ifc"})
         done = await _wait_status(client, created.task.taskId, {"completed", "failed"})
         final = await client.experimental.get_task_result(created.task.taskId, CallToolResult)
         return done, final

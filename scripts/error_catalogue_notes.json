@@ -43,6 +43,14 @@
     "when": "An incremental snapshot capture does not fit its base snapshot (another document, a cut-short capture, or an element missing from both).",
     "do": "Nothing to do. snapshot_take catches it, takes a full snapshot and gives the reason in counts.incremental_reason."
   },
+  "class/ElicitationForbidden": {
+    "when": "Server code tried to ask the person a question for an approval tool, from the approval code, or for something that looks like a secret.",
+    "do": "Nothing for the client. Plan approval comes only from a person in the panel or the CLI; this is a server bug if it is ever seen."
+  },
+  "class/InputNeeded": {
+    "when": "A tool needs one more input from the person. The MCP layer asks through elicitation when the client supports it; otherwise it returns kind input_needed.",
+    "do": "Call again with the input the message names."
+  },
   "class/InstanceRoutingError": {
     "when": "A panel request cannot be routed to exactly one running Revit.",
     "do": "Pass instance with the integer pid of the Revit process, or leave only one Revit open."
@@ -554,6 +562,10 @@
   "mcp/invalid_cursor": {
     "when": "response_options.cursor was refused: it expired (default 600 seconds), the server restarted, it came from another call, or the tool takes no cursor.",
     "do": "Call the tool again without a cursor and page from the new answer."
+  },
+  "mcp/input_needed": {
+    "when": "A tool needs one more input: an export without its output file, a level name that matches several levels, or a parameter name that does not exist but has close names. The client did not support elicitation, or the person declined, cancelled or did not answer in time.",
+    "do": "Read the message: it names the missing input and the choices. Call again with that input set. Do not guess a choice for the person."
   },
   "mcp/invalid_response_options": {
     "when": "The response_options argument is not an object, names an unsupported key, or has a value of the wrong type.",
