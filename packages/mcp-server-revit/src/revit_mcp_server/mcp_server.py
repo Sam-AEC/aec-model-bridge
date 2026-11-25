@@ -17,7 +17,7 @@ from mcp.types import (
     TextContent,
 )
 
-from . import mcp_prompts, mcp_resources, mcp_tasks
+from . import mcp_apps, mcp_prompts, mcp_resources, mcp_tasks
 
 from .elicitation import (
     MAX_ROUNDS, ElicitationForbidden, InputNeeded, elicit_choice, elicitation_allowed, missing_export_path,
@@ -33,7 +33,7 @@ from .security.audit import redact_data as _redact_secrets
 from .security.response_redaction import redact_response
 from .security.module_execution import authorized_module_execution
 from .output_schemas import fallback_structured, output_schema_for, structured_for
-from .tool_metadata import enrich_tool, is_read_only_tool
+from .tool_metadata import is_read_only_tool
 from .read_cursor import Context as CursorContext, CursorError, binding as cursor_binding
 from .result_presentation import next_page, result_json, split_response_options
 from .tool_profiles import ToolProfileBlocked, load_tool_profile
@@ -103,11 +103,13 @@ TASKS_ENABLED = mcp_tasks.register_task_handlers(app, task_bridge)
 @app.list_tools()
 async def list_tools() -> list[Tool]:
     """List all available AEC tools from registered providers."""
-    # enrich_tool adds parameter docs and behaviour annotations (readOnlyHint,
+    # listed_tool runs enrich_tool, which adds parameter docs and behaviour annotations (readOnlyHint,
     # destructiveHint, idempotentHint, openWorldHint) without changing behaviour.
     # For MCP Tasks it also sets execution.taskSupport on mcp_tasks.TASK_TOOLS.
+    # With MCP Apps on, plan tools name the read-only plan review view and every tool that is
+    # not read-only is marked callable by the model only, never by an app (mcp_apps.py).
     return [
-        enrich_tool(provider.get_identity(), t)
+        mcp_apps.listed_tool(provider.get_identity(), t)
         for provider, t in registry.get_tools_with_providers()
         if t.name not in HUMAN_ONLY_TOOLS
     ]
@@ -135,6 +137,9 @@ async def list_resource_templates() -> list[ResourceTemplate]:
 @app.read_resource()
 async def read_resource(uri: Any) -> list[ReadResourceContents]:
     """Read-only workspace resources. Ids are validated and results redacted in mcp_resources."""
+    if str(uri).startswith("ui://"):
+        html, meta = mcp_apps.read_resource(uri, approval_provider.gate)
+        return [ReadResourceContents(content=html, mime_type=mcp_apps.MIME, meta=meta)]
     text = mcp_resources.read_resource(
         uri, workspace_monitor.allowed_directories[0], approval_provider.gate,
     )
@@ -387,9 +392,14 @@ async def _execute_and_present(name, provider, arguments, claim, gate, response_
                 type="resource_link", uri=cursor_ctx.resource_uri, name=f"{name} full result",
                 mimeType=mcp_resources.MIME,
             ))
+        # Plan tools: the approval mode goes in _meta for the MCP Apps view; the plan JSON is unchanged.
+        view_meta = mcp_apps.result_meta(name, gate)
         if output_schema_for(name) is not None:
             # Structured output is the same JSON the text shows, checked against the tool's schema.
-            return CallToolResult(content=content, structuredContent=structured_for(name, _json_object(body)))
+            return CallToolResult(
+                content=content, structuredContent=structured_for(name, _json_object(body)), **view_meta)
+        if view_meta:
+            return CallToolResult(content=content, **view_meta)
         return content
 
     except InputNeeded:

@@ -12,6 +12,12 @@ from revit_mcp_server.result_presentation import result_json, split_response_opt
 from revit_mcp_server.tool_metadata import enrich_tool
 
 
+def _text(answer):
+    """First text block of a call_tool answer: a content list, or a CallToolResult (plan tools carry _meta)."""
+    content = answer.content if hasattr(answer, "content") else answer
+    return content[0].text
+
+
 def test_default_json_is_identical_and_compact_preserves_all_data():
     result = {"modules": [{"id": "revit", "commands": [{"id": "x", "schema": {"x": 1}}]}]}
     assert result_json(result, {}) == json.dumps(result, indent=2)
@@ -116,7 +122,7 @@ def test_compact_plan_keeps_stored_review_and_action_arguments(tmp_path, monkeyp
     answer = asyncio.run(mcp_server.call_tool("plan_actions", {
         "actions": [action], "response_options": {"compact": True},
     }))
-    plan = json.loads(answer[0].text.split("Result:\n")[1])
+    plan = json.loads(_text(answer).split("Result:\n")[1])
     stored = approval.gate.load_plan(plan["plan_id"])
     assert {k: v for k, v in plan.items() if k not in ("preview", "preview_markdown", "blast_radius")} == stored
     assert plan["blast_radius"]["action_count"] == 1 and "preview_markdown" in plan
@@ -168,7 +174,7 @@ def test_plan_summary_leaves_full_arguments_hash_review_and_gate_intact(tmp_path
         "actions": [{"tool": "revit_execute_python", "arguments": arguments}], "review": review,
         "response_options": {"compact": compact, "omit_action_arguments": True},
     }))
-    summary = json.loads(answer[0].text.split("Result:\n")[1])
+    summary = json.loads(_text(answer).split("Result:\n")[1])
     stored = approval.gate.load_plan(summary["plan_id"])
     assert stored["plan_hash"] == summary["plan_hash"] == plan_hash(stored)
     assert summary["review"] == stored["review"]
@@ -182,7 +188,7 @@ def test_plan_summary_leaves_full_arguments_hash_review_and_gate_intact(tmp_path
     assert summary["actions"][0]["diff"]["after_omitted"] is True
     assert "arguments" not in summary["actions"][0]
     assert "after" not in summary["actions"][0]["diff"]
-    assert arguments["script"] not in answer[0].text
+    assert arguments["script"] not in _text(answer)
     blocked = asyncio.run(mcp_server.call_tool("revit_execute_python", {**arguments, "plan_id": stored["plan_id"]}))
     assert blocked.isError and blocked.structuredContent["error"]["kind"] == "approval_blocked"
     assert approval.gate.load_plan(stored["plan_id"]) == stored

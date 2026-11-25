@@ -31,6 +31,8 @@ Resources (JSON, redacted like tool results, ids validated, nothing writable):
 | `aec://proof/{id}` | The proof bundle of an executed plan. |
 | `aec://qa/latest` | Issue counts by severity and status for the latest QA/QC run. |
 
+Clients that support MCP Apps can show `plan_actions` and `list_pending_plans` results in the read-only view `ui://aec-model-bridge/plan-review`. It cannot approve. See [MCP Apps plan review view](mcp-apps.md).
+
 ## Cline (VS Code)
 
 *MCP Servers, Installed, Configure MCP Servers* opens `cline_mcp_settings.json`. Leave Cline's auto-approve off for tools that change the model. When Cline installs the server for the person, it should check `uv --version`, ask whether to use `mock` (sample data) or `bridge` (open Revit, needs the add-in from [install](install.md)), keep existing servers in the file, not set `MCP_REVIT_APPROVAL_MODE`, and never approve a plan itself. Explicit panel Dev mode and timed Auto also skip per-change approvals; switch them off for this workflow.

@@ -117,6 +117,8 @@ class Config(BaseSettings):
     allow_python_host: bool = Field(default=False)
     module_permission_mode: str = Field(default="enforce")  # "enforce" or "warn" for files.write (issue #157)
     anthropic_api_key: str | None = Field(default=None)
+    # MCP Apps plan review view (ui://aec-model-bridge/plan-review) and its tool _meta; read-only.
+    mcp_apps: bool = Field(default=True)
 
     _auto_dirs: List[Path] = PrivateAttr(default_factory=list)
 

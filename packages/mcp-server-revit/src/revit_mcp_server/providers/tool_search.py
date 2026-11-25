@@ -162,8 +162,8 @@ class ToolSearchProvider(AECProvider):
 
 
     def context_report(self) -> Dict[str, Any]:
+        from ..mcp_apps import listed_tool
         from ..security.approval import HUMAN_ONLY_TOOLS
-        from ..tool_metadata import enrich_tool
         from ..tool_profiles import ALWAYS_LOADED_TOOLS
 
         active = getattr(self.registry, "_tool_profile", None)
@@ -174,7 +174,7 @@ class ToolSearchProvider(AECProvider):
         for provider, tool in self.registry.get_tools_with_providers():
             if tool.name in HUMAN_ONLY_TOOLS:
                 continue
-            chars = len(_dump(enrich_tool(provider.get_identity(), tool)))
+            chars = len(_dump(listed_tool(provider.get_identity(), tool)))
             total_chars += chars
             if tool.name in ALWAYS_LOADED_TOOLS:
                 always_chars += chars
