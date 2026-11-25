@@ -118,6 +118,28 @@ def test_unknown_categories_are_refused_with_their_names():
     assert "categories is empty" in body
 
 
+def test_shared_parameter_skips_rebind_when_every_category_is_already_bound():
+    text = _shared()
+    skip = text.index("categories.All(c => boundIds.Contains(c.Id.Value))")
+    early_return = text.index("return new", skip)
+    result = text[early_return : text.index("};", early_return)]
+    assert "rebound = false" in result and "created_definition = false" in result
+    assert "The binding was not changed." in text[skip:early_return]
+    assert skip < text.index("CreateTransaction(doc,"), "the no-change case must return before any write"
+    assert skip < text.index("ReInsert(")
+
+
+def test_shared_parameter_refuses_rebind_of_a_parameter_that_varies_across_groups():
+    text = _shared()
+    guard = text.index("if (bound.VariesAcrossGroups)")
+    assert guard < text.index("CreateTransaction(doc,"), "refuse before the transaction"
+    assert guard < text.index("ReInsert(")
+    assert guard < text.index("definitionFile.Groups"), "refuse before the shared parameter file is changed"
+    message = text[guard : guard + 600]
+    assert "lose the values" in message and "Manage > Project Parameters" in message
+    assert "Nothing was changed." in message
+
+
 # ---------------------------------------------------------------- provider payloads
 
 

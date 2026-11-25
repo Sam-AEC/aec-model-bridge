@@ -1643,6 +1643,42 @@ public static partial class BridgeCommandFactory
                 $"'{parameterName}' is already bound as a {(boundBinding is InstanceBinding ? "instance" : "type")} parameter. " +
                 "Set is_instance to match, or change the binding in Revit.");
 
+        if (bound != null && boundBinding != null && existing != null)
+        {
+            var boundIds = new HashSet<long>();
+            foreach (Category category in boundBinding.Categories)
+                boundIds.Add(category.Id.Value);
+            var alreadyBound = new List<string>();
+            foreach (Category category in boundBinding.Categories)
+                alreadyBound.Add(category.Name);
+
+            // Nothing to change: do not call ReInsert, which can reset VariesAcrossGroups and its values.
+            if (categories.All(c => boundIds.Contains(c.Id.Value)))
+            {
+                warnings.Add($"'{parameterName}' is already bound to every requested category. The binding was not changed.");
+                return new
+                {
+                    name = parameterName,
+                    guid = existing.GUID.ToString(),
+                    parameter_type = specLabel,
+                    group = groupLabel,
+                    definition_group = existingGroupName,
+                    is_instance = isInstance,
+                    created_definition = false,
+                    rebound = false,
+                    bound_categories = alreadyBound,
+                    warnings
+                };
+            }
+
+            // A rebind (ReInsert) can reset VariesAcrossGroups and collapse values that differ between group instances.
+            if (bound.VariesAcrossGroups)
+                throw new InvalidOperationException(
+                    $"'{parameterName}' is set to vary between group instances. Changing its binding through the API can reset that setting " +
+                    "and lose the values that differ between model group instances, so the add-in will not change it. " +
+                    "Add the categories in Revit under Manage > Project Parameters instead. Nothing was changed.");
+        }
+
         ExternalDefinition definition;
         var createdDefinition = false;
         var rebound = boundBinding != null;
