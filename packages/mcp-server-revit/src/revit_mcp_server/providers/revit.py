@@ -843,7 +843,10 @@ class RevitProvider(AECProvider):
                 "revit.create_new_document",
                 lambda args: {"template_path": args.get("template_path")},
             ),
-            "revit_export_dwg": ("revit.export_dwg_by_view", revit_payloads.export_dwg),
+            "revit_export_dwg": (
+                "revit.export_dwg_by_view",
+                lambda args: revit_payloads.export_dwg(args, resolve=self.workspace.assert_in_workspace),
+            ),
             "revit_export_ifc": (
                 "revit.export_ifc_with_settings",
                 lambda args: {"output_path": args.get("output_path")},

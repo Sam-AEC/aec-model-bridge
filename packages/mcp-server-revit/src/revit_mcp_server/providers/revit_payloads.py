@@ -10,7 +10,7 @@ from __future__ import annotations
 import csv
 import io
 from pathlib import Path
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 Args = Dict[str, Any]
 
@@ -128,7 +128,9 @@ def floor_plan_view(args: Args) -> Args:
     return payload
 
 
-def export_dwg(args: Args) -> Args:
+def export_dwg(args: Args, resolve: Optional[Callable[[Path], Path]] = None) -> Args:
+    """``resolve`` is the provider's workspace check; its absolute result is what the add-in gets,
+    so a relative folder never reaches Revit (whose working folder differs from the server's)."""
     tool = "revit_export_dwg"
     view_id = _int(_need(args.get("view_id"), f"{tool} needs view_id."), "view_id", tool)
     directory = args.get("output_directory")
@@ -143,6 +145,10 @@ def export_dwg(args: Args) -> Args:
             raise ValueError(f"{tool}: output_directory and output_path name the same input; give one of them.")
         directory = directory if directory is not None else old
     directory = _need(directory, f"{tool} needs output_directory, a folder inside the workspace.")
+    if not isinstance(directory, str):
+        raise ValueError(f"{tool}: output_directory must be a folder path (text).")
+    if resolve is not None:
+        directory = str(resolve(Path(directory)))
     payload: Args = {"view_ids": [view_id], "output_directory": directory}
     version = args.get("dwg_version")
     if version is not None:

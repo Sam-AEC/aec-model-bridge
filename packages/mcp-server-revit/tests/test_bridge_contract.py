@@ -9,6 +9,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import math
+import os
 import re
 import sys
 from pathlib import Path
@@ -295,13 +296,25 @@ def test_renumber_sheets_refusals(build, args, needle) -> None:
 
 
 def test_export_dwg_payload(build, tmp_path) -> None:
-    folder = str(tmp_path / "dwg")
+    folder = os.path.realpath(tmp_path / "dwg")
     assert build("revit_export_dwg", {"view_id": 12, "output_directory": folder}) == {
         "view_ids": [12], "output_directory": folder}
     assert build("revit_export_dwg", {"view_id": 12, "output_path": folder, "dwg_version": "AutoCAD2013"}) == {
         "view_ids": [12], "output_directory": folder, "dwg_version": "AutoCAD2013"}
     with pytest.raises(ValueError, match="needs a folder, not a file name"):
         build("revit_export_dwg", {"view_id": 12, "output_path": str(tmp_path / "A101.dwg")})
+
+
+def test_export_dwg_sends_the_resolved_absolute_folder(build, tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    expected = os.path.join(os.path.realpath(tmp_path), "exports", "dwg")
+    for key in ("output_directory", "output_path"):
+        payload = build("revit_export_dwg", {"view_id": 12, key: "exports/../exports/dwg"})
+        assert payload["output_directory"] == expected and os.path.isabs(payload["output_directory"])
+    with pytest.raises(WorkspaceViolation):
+        build("revit_export_dwg", {"view_id": 12, "output_directory": "../elsewhere"})
+    with pytest.raises(ValueError, match="must be a folder path"):
+        build("revit_export_dwg", {"view_id": 12, "output_directory": 5})
 
 
 @pytest.mark.anyio
