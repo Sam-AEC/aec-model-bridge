@@ -22,6 +22,7 @@ import json
 import logging
 import os
 import shutil
+import socket
 import socketserver
 import threading
 import time
@@ -118,6 +119,10 @@ def _busy_response_bytes() -> bytes:
     return head + body
 
 
+# A refused client's request is drained for at most this long and this many bytes.
+REFUSAL_DRAIN_SECONDS = 0.25
+REFUSAL_DRAIN_MAX_BYTES = 1024 * 1024
+
 # Request line and headers must arrive this fast on a reserved /execute slot.
 RESERVED_HEADER_TIMEOUT_SECONDS = 2.0
 
@@ -169,13 +174,23 @@ class BoundedThreadingHTTPServer(ThreadingHTTPServer):
         try:
             request.settimeout(1.0)
             request.sendall(_busy_response_bytes())
-            # Read what the client already sent, so closing does not reset the connection
-            # before the client reads the 503.
-            request.setblocking(False)
+            # Send FIN after the 503, then read what the client already sent (bounded in bytes and
+            # time), so closing with unread data does not reset the connection before the client
+            # reads the 503. Windows resets (WinError 10053) otherwise.
             with contextlib.suppress(OSError):
-                for _ in range(16):
-                    if not request.recv(65536):
+                request.shutdown(socket.SHUT_WR)
+            deadline = time.monotonic() + REFUSAL_DRAIN_SECONDS
+            remaining_bytes = REFUSAL_DRAIN_MAX_BYTES
+            with contextlib.suppress(OSError):
+                while remaining_bytes > 0:
+                    left = deadline - time.monotonic()
+                    if left <= 0:
                         break
+                    request.settimeout(left)
+                    data = request.recv(min(65536, remaining_bytes))
+                    if not data:
+                        break
+                    remaining_bytes -= len(data)
         except OSError:
             pass
         finally:
