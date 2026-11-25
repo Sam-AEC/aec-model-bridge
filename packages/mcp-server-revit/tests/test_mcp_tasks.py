@@ -509,3 +509,156 @@ def test_every_task_tool_exists_in_mock_registry():
     registry = build_registry()[0]
     names = {t.name for _p, t in registry.get_tools_with_providers()}
     assert mcp_tasks.TASK_TOOLS <= names, sorted(mcp_tasks.TASK_TOOLS - names)
+
+
+# -- tasks/cancel on a revit_run_job task cancels the inner Revit job (read-only only) --
+
+
+RUN_JOB = "revit_run_job"
+
+
+class JobProvider:
+    """Fake RevitJobProvider: one inner job j1 that stays running until the test says otherwise."""
+
+    def __init__(self, cancel_reply=None, cancel_error=None):
+        self.calls = []
+        self.cancel_reply = cancel_reply or {"job_id": "j1", "state": "cancelled", "cancelled": True}
+        self.cancel_error = cancel_error
+
+    def get_identity(self):
+        return "revit_jobs"
+
+    def call_is_read_only(self, name, arguments):
+        return name == RUN_JOB and arguments.get("mode") == "read"
+
+    async def execute_tool(self, name, arguments):
+        self.calls.append((name, dict(arguments)))
+        if name == RUN_JOB:
+            return {"job_id": "j1", "state": "queued"}
+        if name == "revit_job_status":
+            return {"job_id": "j1", "state": "running"}
+        if name == "revit_job_cancel":
+            if self.cancel_error is not None:
+                raise self.cancel_error
+            return dict(self.cancel_reply)
+        raise AssertionError(name)
+
+
+def _install_jobs(monkeypatch, provider):
+    gate = Gate()
+    tool = ProviderTool(name=RUN_JOB, description="Run a job.", inputSchema={"type": "object"}, is_mutating=True)
+    registry = SimpleNamespace(
+        lookup_tool_provider=lambda name: provider if name == RUN_JOB else None,
+        lookup_tool=lambda name: tool if name == RUN_JOB else None,
+        get_tools_with_providers=lambda: [(provider, tool)],
+    )
+    monkeypatch.setattr(mcp_server, "registry", registry)
+    monkeypatch.setattr(mcp_server, "approval_provider", SimpleNamespace(gate=gate))
+    monkeypatch.setattr(mcp_server.task_bridge, "_entries", {})
+    monkeypatch.setattr(mcp_tasks, "_FOLLOW_STEP_S", 0.01)
+    return gate
+
+
+def _cancel_job_task(monkeypatch, provider, arguments):
+    async def scenario(client):
+        created = await client.experimental.call_tool_as_task(RUN_JOB, arguments)
+        task_id = created.task.taskId
+        while not any(name == "revit_job_status" for name, _ in provider.calls):
+            await asyncio.sleep(0.01)
+        try:
+            cancelled = await client.experimental.cancel_task(task_id)
+        except McpError as refused:
+            return refused, None
+        final = await client.experimental.get_task_result(task_id, CallToolResult)
+        return cancelled, final
+
+    return _run(monkeypatch, scenario)
+
+
+def test_cancelling_read_job_task_cancels_the_revit_job(monkeypatch):
+    provider = JobProvider()
+    _install_jobs(monkeypatch, provider)
+    cancelled, final = _cancel_job_task(monkeypatch, provider, {"script": "print(1)", "mode": "read"})
+    assert cancelled.status == "cancelled"
+    assert "Revit job j1 was cancelled before Revit started it" in cancelled.statusMessage
+    assert ("revit_job_cancel", {"job_id": "j1"}) in provider.calls
+    # The task asks for the job id at once, so a cancel can reach the inner job.
+    assert provider.calls[0] == (RUN_JOB, {"script": "print(1)", "mode": "read", "wait_s": 0})
+    assert final.isError and "cancelled before Revit started it" in final.content[0].text
+
+
+def test_cancelling_read_job_task_reports_job_still_running(monkeypatch):
+    provider = JobProvider(cancel_reply={
+        "job_id": "j1", "state": "running", "cancelled": False,
+        "message": "The job is already running in Revit; only queued jobs can be cancelled.",
+    })
+    _install_jobs(monkeypatch, provider)
+    cancelled, _final = _cancel_job_task(monkeypatch, provider, {"command": "revit_list_levels", "mode": "read"})
+    assert cancelled.status == "cancelled"
+    assert "Cancel requested; Revit reports job j1 still running" in cancelled.statusMessage
+    assert "cannot change the model" in cancelled.statusMessage
+
+
+def test_cancelling_write_job_task_never_cancels_the_revit_job(monkeypatch):
+    provider = JobProvider()
+    gate = _install_jobs(monkeypatch, provider)
+    refused, _ = _cancel_job_task(monkeypatch, provider, {"script": "x = 1", "mode": "write", "plan_id": "plan-1"})
+    assert isinstance(refused, McpError)
+    assert "half-applied" in str(refused)
+    assert not any(name == "revit_job_cancel" for name, _ in provider.calls)
+    assert "wait_s" not in provider.calls[0][1]
+    assert len(gate.claims) == 1
+
+
+def test_failing_revit_job_cancel_is_reported_plainly(monkeypatch):
+    provider = JobProvider(cancel_error=RuntimeError("lost contact with Revit"))
+    _install_jobs(monkeypatch, provider)
+    cancelled, final = _cancel_job_task(monkeypatch, provider, {"script": "print(1)", "mode": "read"})
+    assert cancelled.status == "cancelled"
+    assert "cancelling the Revit job failed: lost contact with Revit" in cancelled.statusMessage
+    assert "may still be running in Revit" in cancelled.statusMessage
+    assert "cancelling the Revit job failed" in final.content[0].text
+
+
+def test_cancel_inner_is_ignored_for_a_write_task():
+    async def main():
+        manager = JobManager()
+        bridge = mcp_tasks.TaskBridge(lambda: manager)
+        inner = []
+
+        async def cancel_inner():
+            inner.append(True)
+            return "cancelled inner"
+
+        async def work():
+            return CallToolResult(content=[], isError=False)
+
+        created = await bridge.start(
+            tool=RUN_JOB, writes=True, metadata=TaskMetadata(), scope="s1",
+            work=work, on_cancel_before_start=lambda: None, cancel_inner=cancel_inner,
+        )
+        cancelled = await bridge.cancel(created.task.taskId, "s1")
+        await manager.shutdown()
+        return cancelled, inner
+
+    cancelled, inner = asyncio.run(main())
+    assert cancelled.status == "cancelled"
+    assert inner == []
+
+
+def test_revit_job_canceller_without_job_id_cancels_nothing():
+    provider = JobProvider()
+    message = asyncio.run(mcp_tasks.RevitJobCanceller(provider).cancel())
+    assert "no Revit job was cancelled" in message
+    assert provider.calls == []
+
+
+def test_revit_job_canceller_reports_finished_job_and_odd_reply():
+    finished = JobProvider(cancel_reply={"job_id": "j1", "state": "completed", "cancelled": False})
+    canceller = mcp_tasks.RevitJobCanceller(finished)
+    canceller.note("j1")
+    assert "had already finished (completed)" in asyncio.run(canceller.cancel())
+    odd = mcp_tasks.RevitJobCanceller(JobProvider(cancel_reply={"state": "weird"}))
+    odd.note("j1")
+    with pytest.raises(ValueError):
+        asyncio.run(odd.cancel())

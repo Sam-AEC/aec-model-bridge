@@ -65,6 +65,13 @@ Task ids are scoped to the MCP session that created them. Another session gets `
 ## Cancellation
 
 - Read-only call: `tasks/cancel` stops the task while it is queued or running. The server stops waiting; a request already sent to Revit may still finish there, with no effect on the model.
+- Read-only `revit_run_job` (a read-only command, or a script with `mode="read"`, by the same rule the approval gate uses): `tasks/cancel` also calls `revit_job_cancel` for the inner Revit job. The task runs the job with `wait_s=0` so the job id is known at once. The task status message gives the outcome:
+  - `Cancelled. Revit job <id> was cancelled before Revit started it.` The job was still queued.
+  - `Cancel requested; Revit reports job <id> still running.` Revit had already started the job. It runs to the end; `revit_job_status` shows its outcome.
+  - `Cancelled. Revit job <id> had already finished (<state>).`
+  - `Cancel requested. The server stopped waiting, but cancelling the Revit job failed: <reason>.` The job may still be running in Revit.
+- A `revit_run_job` task that is not provably read-only never cancels the inner Revit job. It follows the write rules below.
+- Known gap: the add-in has no command to stop a command it has started. `revit_job_cancel` only cancels a queued job, so a read job that Revit has started runs to the end. Live behaviour of the cancel path in Revit is UNVERIFIED; the tests use fakes.
 - Call that can change the model: `tasks/cancel` succeeds only while the task is still queued. The check and the cancel are one step in the job manager, so a write that has started is never stopped part way. A started write is refused with a message that the task keeps running; poll `tasks/get` for the outcome. In practice a write task starts almost at once, so most cancel requests for writes are refused.
 - A write cancelled before it started did not change the model. Its approved action is booked as failed and cannot be reused; make a new plan to retry.
 - A finished task cannot be cancelled; the request is refused.
