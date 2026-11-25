@@ -91,6 +91,33 @@ Optional pre-commit hooks (`.pre-commit-config.yaml`) run `ruff check`, `python 
 
 The full run takes about half a minute. A few tests are skipped on purpose: the end-to-end test needs a live Revit, and the proxy tests need a bridge. `test_wheel_contents.py` builds the wheel, so it needs an up-to-date `build` and `setuptools`. If it fails with a licence-metadata error on an old setuptools, upgrade setuptools before you report it.
 
+### Property and mutation tests
+
+`tests/test_property_*.py` use [Hypothesis](https://hypothesis.readthedocs.io/):
+
+- `test_property_gate.py`: a state machine drives the approval gate through random sequences of plan, approve, reject, execute, direct calls, mode switches (look only, ask first, Auto, timed Auto, Dev), expiry, document changes and edits of plan files. A model predicts every approval and every write; any difference fails the test.
+- `test_property_safe_paths.py`: generated hostile names and paths (`..`, absolute, drive letters, UNC, NUL, look-alike Unicode, links in the folder) never leave the root.
+- `test_property_input_fuzz.py`: random JSON for `plan_actions`, `execute_plan`, direct calls and the validators raises only `BridgeError` or `ValueError`.
+
+The default profile runs a few examples with a fixed seed, so the suite stays fast and repeatable. For a deeper run:
+
+```bash
+AEC_HYPOTHESIS_PROFILE=slow uv run pytest -q -p no:cacheprovider tests/test_property_*.py
+```
+
+The `slow` profile takes a few minutes. Hypothesis prints a `@reproduce_failure` line for any failure; add a regular test for it before you fix the code.
+
+Mutation testing of `security/` uses mutmut (configured under `[tool.mutmut]` in `packages/mcp-server-revit/pyproject.toml`). It is not a dependency and not run in CI. It needs Linux or macOS:
+
+```bash
+cd packages/mcp-server-revit
+uv run --with mutmut mutmut run                                       # all of security/ (long)
+uv run --with mutmut mutmut run "revit_mcp_server.security.safe_paths*" # one module
+uv run --with mutmut mutmut results                                   # surviving mutants
+```
+
+A surviving mutant is a change to the code that no test noticed. Add a test that kills it, or note why it is equivalent. A sample run over `security/safe_paths.py` killed 55 of 58 mutants; the 3 survivors are the `startswith` check, which the stricter parent-folder check covers (2 mutants), and the text of one error message.
+
 ### Starter tasks
 
 Pick one, say so in an issue, and keep the pull request small.

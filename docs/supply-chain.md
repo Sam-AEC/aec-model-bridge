@@ -11,7 +11,9 @@ Each release also carries:
 - `SHA256SUMS.txt`: a SHA-256 checksum for every other release file, including the SBOM.
 - `aec-model-bridge-<version>.cdx.json`: a CycloneDX software bill of materials (SBOM) for the Python distributions actually installed in the shipped bundle, including installation tools such as pip.
 
-The PyPI package is built from the stable tag by `.github/workflows/publish-pypi.yml` and uploaded with Trusted Publishing, so no PyPI token is stored in the repository. `pypa/gh-action-pypi-publish` uploads digital attestations (PEP 740) by default with Trusted Publishing; this is UNVERIFIED until the first upload. `.github/workflows/scorecard.yml` runs the OpenSSF Scorecard weekly and publishes the result shown by the README badge.
+The release files attested this way include the `.mcpb` bundle, the per-year add-in zips (`aec-model-bridge-revit-<year>-<version>.zip`), the installer, the SBOM and `SHA256SUMS.txt`.
+
+The PyPI package is built from the stable tag by `.github/workflows/publish-pypi.yml` and uploaded with Trusted Publishing, so no PyPI token is stored in the repository. The `build` job of that workflow also runs `actions/attest-build-provenance` over the wheel and sdist before they are uploaded. The attestation permissions (`id-token: write`, `attestations: write`) are set on the job that attests, not on the whole workflow. Both workflows pin the action by full commit SHA. `pypa/gh-action-pypi-publish` uploads digital attestations (PEP 740) by default with Trusted Publishing; this is UNVERIFIED until the first upload. `.github/workflows/scorecard.yml` runs the OpenSSF Scorecard weekly and publishes the result shown by the README badge.
 
 ## What is not signed
 
@@ -42,6 +44,17 @@ Check the build provenance with the GitHub CLI:
 ```bash
 gh attestation verify AECModelBridge-Setup-1.4.0.exe --repo Sam-AEC/aec-model-bridge
 ```
+
+The same command works for the `.mcpb` bundle, the add-in zips and the wheel or sdist downloaded from PyPI:
+
+```bash
+gh attestation verify aec-model-bridge-1.6.0.mcpb --repo Sam-AEC/aec-model-bridge
+gh attestation verify aec-model-bridge-revit-2026-1.6.0.zip --repo Sam-AEC/aec-model-bridge
+pip download aec-model-bridge==1.6.0 --no-deps -d dl
+gh attestation verify dl/aec_model_bridge-1.6.0-py3-none-any.whl --repo Sam-AEC/aec-model-bridge
+```
+
+Attestations for the wheel and sdist exist only for releases built after this step was added. A release made before then reports no attestation; that is expected and does not mean the file was changed.
 
 A checksum only proves the file matches the release page. The attestation is the stronger check, because it proves the file was built by this repository's workflow.
 

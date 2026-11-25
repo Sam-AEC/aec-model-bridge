@@ -87,6 +87,7 @@ nav:
           - Dynamo: prompts/dynamo.md
           - Scripting with execute_python: prompts/scripting-execute-python.md
       - snapshot_compute: snapshot-compute.md
+      - Read result cursors: read-cursors.md
       - Preview in model: preview-in-model.md
       - Clash triage: clash-triage.md
       - BCF issue exchange: bcf-exchange.md
@@ -95,6 +96,7 @@ nav:
       - QA handover report: qa-handover-report.md
       - Rule packs: rule-packs.md
       - Recipe library: recipes-library.md
+      - Python automation helpers: python-automation.md
       - pyRevit bridge: pyrevit-bridge.md
       - Error catalogue: error-catalogue.md
   - Security:
@@ -106,6 +108,7 @@ nav:
       - Supply chain: supply-chain.md
   - Configuration:
       - Configuration reference: configuration-reference.md
+      - Record and replay: record-replay.md
       - MCP token budget: mcp-token-budget.md
       - Deferred tool loading: deferred-tool-loading.md
       - Performance: performance.md
@@ -117,6 +120,7 @@ nav:
       - Ribbon icons: RIBBON_ICONS.md
       - Issue guide: issue-guide.md
       - Project board: project-board.md
+      - Add-in command contract: bridge-command-contract.md
   - Releases:
       - Versioning and releases: versioning.md
       - Deprecation policy: deprecation-policy.md
@@ -135,6 +139,10 @@ nav:
       - adr/0014-multi-revit-routing.md
       - adr/0017-approval-document-binding-and-expiry.md
       - adr/0018-explicit-development-mode.md
+      - adr/0021-named-pipe-transport.md
+      - adr/0019-optional-cpython-engine.md
+      - adr/0020-single-command-contract.md
+      - adr/0022-shared-command-contract.md
   - Legal:
       - Trademarks: legal/TRADEMARKS.md
       - CLA draft: legal/CLA-DRAFT.md

@@ -20,6 +20,7 @@ from typing import Any
 
 from mcp.types import Tool, ToolAnnotations
 
+from .output_schemas import output_schema_for
 from .providers.base import ProviderTool
 from .result_presentation import APPROVAL_TOOLS, add_response_schema
 from .tool_profiles import ALWAYS_LOADED_TOOLS
@@ -637,47 +638,70 @@ NOT_READ_ONLY: dict[str, tuple[bool, bool]] = {
     "execute_plan": (True, False),
     "revit_extract_snapshot": (False, False),
     "snapshot_take": (False, False),
-    "revit_export_dwg": (False, True),
-    "revit_export_ifc": (False, True),
-    "revit_export_navisworks": (False, True),
-    "revit_export_image": (False, True),
-    "revit_render_3d": (False, True),
+    # Exports write to output_path; nothing refuses an existing file there, so they may replace it.
+    "revit_export_dwg": (True, True),
+    "revit_export_ifc": (True, True),
+    "revit_export_navisworks": (True, True),
+    "revit_export_image": (True, True),
+    "revit_render_3d": (True, True),
     "revit_select_by_unique_ids": (False, True),
     "revit_preview_elements": (False, True),
     "revit_clear_preview": (False, True),
     "navisworks_append_file": (False, False),
     "navisworks_refresh": (False, True),
     "navisworks_activate_viewpoint": (False, True),
-    "exporter_to_sqlite": (False, False),
-    "exporter_graph_to_sqlite": (False, False),
-    "parameter_manager_export_params_csv": (False, True),
-    "parameter_manager_export_params_xlsx": (False, True),
-    "report_generator_export_excel": (False, True),
-    "report_generator_build_review_pack": (False, True),
-    "report_generator_export_sqlite_summary": (False, True),
-    "model_inspector_save_query": (False, True),
-    "selection_tools_save_selection": (False, True),
-    "bcf_exchange_export_bcf": (False, True),
+    # The SQLite exporters empty the tables of an existing database before writing.
+    "exporter_to_sqlite": (True, True),
+    "exporter_graph_to_sqlite": (True, True),
+    # Named output files and saved entries replace an existing file or entry of the same name.
+    "parameter_manager_export_params_csv": (True, True),
+    "parameter_manager_export_params_xlsx": (True, True),
+    "report_generator_export_excel": (True, True),
+    "report_generator_build_review_pack": (True, True),
+    "report_generator_export_sqlite_summary": (True, True),
+    "model_inspector_save_query": (True, True),
+    "selection_tools_save_selection": (True, True),
+    "bcf_exchange_export_bcf": (True, True),
     "qaqc_checker_run_check": (False, False),
     "clash_triage_match_clashes": (False, True),
     "qaqc_checker_resolve_issue": (False, True),
-    "qaqc_checker_import_rule_pack": (False, False),
-    "qaqc_checker_export_rule_pack": (False, False),
+    "qaqc_checker_import_rule_pack": (True, False),  # overwrite=true replaces a rule pack
+    "qaqc_checker_export_rule_pack": (True, False),  # overwrite=true replaces the destination file
     "recipe_runner_run_recipe": (True, False),
-    "aec_register_mapping": (False, True),
-    "graph_compile": (False, False),
+    "aec_register_mapping": (True, True),  # replaces the mapping already held for the same id
+    "graph_compile": (True, False),  # replace=true drops the existing graph
     "graph_add_relation": (False, True),
     "speckle_oauth_start": (False, False),
     "speckle_oauth_exchange_code": (False, False),
     "speckle_oauth_refresh": (False, True),
     "speckle_checkout_version": (False, True),
+    # Same OAuth and checkout handlers as the Speckle tools above (providers/cloud.py).
+    "autodesk_data_oauth_start": (False, False),
+    "autodesk_data_oauth_exchange_code": (False, False),
+    "autodesk_data_oauth_refresh": (False, True),
+    "autodesk_data_checkout_version": (False, True),
     "job_cancel": (True, True),
     "revit_job_cancel": (True, True),
     "rhino_generate_diagrid_tower": (False, False),
     # Write files under the workspace only (no model change, so no approval plan); saving over an
     # existing recipe or spec file replaces it.
-    "revit_recipe_save": (False, True),
-    "revit_sparing_export_spec": (False, True),
+    "revit_recipe_save": (True, True),
+    "revit_sparing_export_spec": (True, True),
+}
+
+# Tools that read the model or a snapshot and can also write a report or baseline file in the
+# workspace. They are not read-only, but their results are still presented like reads (compact
+# and size-capped, see is_read_only_tool). value = (destructiveHint, idempotentHint).
+REPORT_FILE_WRITERS: dict[str, tuple[bool, bool]] = {
+    # Optional named output files; an existing file of the same name is replaced.
+    "param_completeness_heatmap": (True, True),
+    "model_health_score": (True, True),
+    "ids_validator_validate_ifc": (True, True),
+    "sheet_set_qa_check": (True, True),
+    "qa_handover_build_report": (True, True),
+    "revit_render_check": (True, True),
+    # Without baseline_id it saves a new warnings baseline file under a fresh id.
+    "revit_warnings_delta": (False, False),
 }
 
 # Mutating tools that only add things (or only change UI/plan state): they cannot
@@ -686,7 +710,6 @@ NOT_READ_ONLY: dict[str, tuple[bool, bool]] = {
 ADDITIVE_NAME_PARTS = frozenset({"create", "place", "copy", "duplicate", "tag", "pin", "unpin"})
 ADDITIVE_NAMES = frozenset(
     {
-        "revit_save_document",
         "revit_set_selection",
         "selection_tools_set_selection",
         "selection_tools_restore_selection",
@@ -718,6 +741,8 @@ def annotations_for(provider_id: str, tool: ProviderTool) -> ToolAnnotations:
 
     if tool.name in NOT_READ_ONLY:
         read_only, (destructive, idempotent) = False, NOT_READ_ONLY[tool.name]
+    elif tool.name in REPORT_FILE_WRITERS and not tool.is_mutating:
+        read_only, (destructive, idempotent) = False, REPORT_FILE_WRITERS[tool.name]
     elif tool.is_mutating:
         read_only = False
         if tool.destructive:
@@ -740,8 +765,26 @@ def annotations_for(provider_id: str, tool: ProviderTool) -> ToolAnnotations:
     )
 
 
+def add_cursor_option(name: str, tool: Any, schema: dict) -> None:
+    """A read-only tool whose input schema forbids extra keys still has to accept the cursor its cut
+    answers hand out; the SDK validates input before response_options is split off (#274 review).
+    Only the cursor is listed, to keep the schema small."""
+    properties = schema.get("properties")
+    if schema.get("additionalProperties") is not False or not isinstance(properties, dict):
+        return
+    if "response_options" in properties or not is_read_only_tool(name, tool):
+        return
+    properties["response_options"] = {
+        "type": "object", "additionalProperties": False,
+        "properties": {"cursor": {"type": "string", "maxLength": 64}},
+        "description": "cursor: from a truncated answer, for the next part. Repeat the same arguments.",
+    }
+
+
 def is_read_only_tool(name: str, tool: Any) -> bool:
-    """True when the tool is read-only (same rule as readOnlyHint) and not an approval or job tool.
+    """True when the tool's result is presented as a read (compact, size-capped): it does not change
+    the model and is not an approval or job tool. Same rule as readOnlyHint, except that the report
+    tools in REPORT_FILE_WRITERS, which may also write a file, still count as reads here.
     Fails closed: an unknown tool is not read-only."""
     if tool is None or name in NOT_READ_ONLY or name in APPROVAL_TOOLS:
         return False
@@ -789,6 +832,8 @@ def enrich_tool(provider_id: str, tool: ProviderTool) -> Tool:
         if text:
             prop["description"] = text
     add_response_schema(tool.name, schema)
+    add_cursor_option(tool.name, tool, schema)
+    output_schema = output_schema_for(tool.name)
     extra: dict[str, Any] = {}
     if tool.name in ALWAYS_LOADED_TOOLS:
         # Claude Code loads a tool marked this way up front when tool search defers the rest.
@@ -799,6 +844,7 @@ def enrich_tool(provider_id: str, tool: ProviderTool) -> Tool:
         title=humanize(tool.name),
         description=description,
         inputSchema=schema,
+        outputSchema=copy.deepcopy(output_schema) if output_schema else None,
         annotations=annotations_for(provider_id, tool),
         **extra,
     )

@@ -376,6 +376,42 @@ def test_workspace_ignores_case_on_windows(tmp_path):
         monitor.assert_in_workspace(Path(str(work).upper()) / "PLANS" / "a.json")
 
 
+def test_safe_child_tells_the_caller_why_it_refused(tmp_path):
+    """The reason picks the message (approval._refuse_plan_id says 'outside the plans folder')."""
+    root = tmp_path / "root"
+    root.mkdir()
+    (tmp_path / "secret.json").write_text("{}")
+    _link(tmp_path / "secret.json", root / "out.json")
+    (root / "sub").mkdir()
+    (root / "sub" / "inner.json").write_text("{}")
+    _link(root / "sub" / "inner.json", root / "deep.json")  # under the root, but not a direct child
+    reasons = []
+
+    def refuse(reason):
+        reasons.append(reason)
+        return RuntimeError(reason)
+
+    for name in ("../x", "out", "deep"):
+        with pytest.raises(RuntimeError):
+            safe_child(root, name, ".json", SNAPSHOT_ID_RE, refuse)
+    assert reasons == ["name", "outside", "outside"]
+
+
+@pytest.mark.parametrize("bad", ["\x00", "a\x00b.txt", "plans\x00", "..\x00/x"])
+def test_workspace_refuses_a_nul_path_with_workspace_violation(tmp_path, bad):
+    """Regression (#296, found by the property tests): a NUL raised a bare ValueError from the OS layer,
+    so callers that catch WorkspaceViolation reported an execution error instead of a sandbox refusal."""
+    work = tmp_path / "work"
+    work.mkdir()
+    monitor = WorkspaceMonitor([work])
+    with pytest.raises(WorkspaceViolation, match="NUL"):
+        monitor.assert_in_workspace(work / bad)
+    with pytest.raises(WorkspaceViolation, match="NUL"):
+        monitor.assert_in_workspace(Path(bad))
+    with pytest.raises(WorkspaceViolation, match="NUL"):
+        is_reserved_path(work / bad, work)
+
+
 def test_workspace_refuses_a_link_that_leaves_the_workspace(tmp_path):
     work = tmp_path / "work"
     work.mkdir()

@@ -129,6 +129,14 @@ $RevitVersion = Read-Host "Choose one of the listed Revit years"
 
 If there is no prebuilt package for your year, use the source install above.
 
+Check that the download was built by this repository's release workflow (needs the GitHub CLI):
+
+```bash
+gh attestation verify aec-model-bridge-revit-2026-1.6.0.zip --repo Sam-AEC/aec-model-bridge
+```
+
+Use the name of the file you downloaded. The same check works for the installer, the `.mcpb` bundle and the PyPI wheel and sdist. See [Supply chain](supply-chain.md).
+
 ## Run the server with uvx
 
 [uv](https://docs.astral.sh/uv/getting-started/installation/) can fetch and start

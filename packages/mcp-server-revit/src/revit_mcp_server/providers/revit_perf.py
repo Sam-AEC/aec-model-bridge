@@ -44,7 +44,7 @@ MOCK_HEALTH: dict[str, Any] = {
     "status": "healthy",
     "queue_depth": 0,
     "timings": {
-        "revit.list_elements": {"count": 42, "p50_ms": 180, "p95_ms": 950, "max_ms": 2400, "avg_bytes": 48000},
+        "revit.list_elements_by_category": {"count": 42, "p50_ms": 180, "p95_ms": 950, "max_ms": 2400, "avg_bytes": 48000},
         "revit.get_element_parameters": {"count": 120, "p50_ms": 35, "p95_ms": 140, "max_ms": 410, "avg_bytes": 3100},
         "revit.execute_python": {"count": 9, "p50_ms": 600, "p95_ms": 4100, "max_ms": 7300, "avg_bytes": 1500},
         "revit.get_document_info": {"count": 15, "p50_ms": 12, "p95_ms": 30, "max_ms": 55, "avg_bytes": 700},

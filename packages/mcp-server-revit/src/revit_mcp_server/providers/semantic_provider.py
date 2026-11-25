@@ -57,6 +57,22 @@ class SemanticProvider(AECProvider):
                     "properties": {
                         "categories": {"type": "array", "items": {"type": "string"}},
                         "max_elements": {"type": "integer", "minimum": 1},
+                        "params": {
+                            "type": "array",
+                            "items": {"type": "string", "minLength": 1, "maxLength": engine.SNAPSHOT_MAX_PARAM_NAME},
+                            "maxItems": engine.SNAPSHOT_MAX_PARAMS,
+                            "description": "Read only these parameters (names such as \"Mark\", or built-in ids such as ALL_MODEL_MARK). The snapshot is then partial for checks that read other parameters.",
+                        },
+                        "slice_size": {
+                            "type": "integer",
+                            "minimum": engine.SLICE_SIZE_MIN,
+                            "maximum": engine.SLICE_SIZE_MAX,
+                            "description": "Extract in slices of about this many elements per Revit turn, so Revit stays responsive; the slices are assembled into one snapshot.",
+                        },
+                        "base_snapshot_id": {
+                            "type": "string",
+                            "description": "Incremental capture: re-read only elements changed since this snapshot and merge into a new full snapshot. Falls back to a full capture and says why.",
+                        },
                     },
                     "required": [],
                 }
@@ -171,7 +187,11 @@ class SemanticProvider(AECProvider):
         if self.registry:
             revit_prov = self.registry.get_provider("revit")
             
-        options = {k: arguments[k] for k in ("categories", "max_elements") if arguments.get(k) is not None}
+        options = {
+            k: arguments[k]
+            for k in ("categories", "max_elements", "params", "slice_size", "base_snapshot_id")
+            if arguments.get(k) is not None
+        }
         snapshot = await engine.snapshot_take(self.workspace, revit_prov, options)
         
         # Identity mapper integration: register mappings in memory
@@ -198,19 +218,37 @@ class SemanticProvider(AECProvider):
                 if mappings:
                     mapper._register_mapping({"mappings": mappings})
                     
-        return {
+        counts = snapshot.counts
+        result: Dict[str, Any] = {
             "status": "success",
             "snapshot_id": snapshot.snapshot_id,
             "taken_at": snapshot.taken_at.isoformat(),
             "elements_count": len(snapshot.elements),
-            "truncated": bool(snapshot.counts.get("truncated")),
-            "candidates": snapshot.counts.get("candidates"),
+            "truncated": bool(counts.get("truncated")),
+            "candidates": counts.get("candidates"),
             "note": (
                 "Partial snapshot: the model is larger than one capture allows. Re-run snapshot_take with "
                 "categories (for example [\"Doors\", \"Rooms\"]) for the elements a check needs, and do not "
                 "read results from this snapshot as covering the whole model."
-            ) if snapshot.counts.get("truncated") else None,
+            ) if counts.get("truncated") else None,
         }
+        if counts.get("params"):
+            result["params"] = counts["params"]
+        if counts.get("sliced"):
+            result["slices"] = counts.get("slices")
+            if counts.get("changed_during_capture"):
+                result["changed_during_capture"] = True
+                result["note"] = ((result["note"] + " ") if result["note"] else "") + (
+                    "The model changed while the slices were read, so the snapshot mixes states from before "
+                    "and after that change. Take it again before comparing or auditing.")
+        if arguments.get("base_snapshot_id") is not None:
+            result["incremental"] = bool(counts.get("incremental"))
+            result["base_snapshot_id"] = arguments["base_snapshot_id"]
+            if counts.get("incremental"):
+                result["incremental_changes"] = counts.get("incremental_changes")
+            else:
+                result["incremental_reason"] = counts.get("incremental_reason")
+        return result
 
     async def _snapshot_query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         snapshot_id = arguments["snapshot_id"]

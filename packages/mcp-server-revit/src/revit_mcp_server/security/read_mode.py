@@ -21,6 +21,8 @@ from __future__ import annotations
 import re
 from typing import Any, Mapping
 
+from revit_mcp_server.python_helpers import normalize_helpers, with_helpers
+
 MODE_READ = "read"
 MODE_WRITE = "write"
 VALID_MODES = (MODE_READ, MODE_WRITE)
@@ -91,9 +93,18 @@ def is_read_mode_call(arguments: Mapping[str, Any] | None) -> bool:
 
 
 def execute_python_payload(arguments: Mapping[str, Any]) -> dict[str, Any]:
-    """Bridge payload for revit.execute_python; enforces the read-mode rules before anything is sent."""
+    """Bridge payload for revit.execute_python; enforces the read-mode rules before anything is sent.
+
+    ``helpers: true`` puts the helper library (revit_mcp_server/python_helpers) before the script. In read mode the
+    caller's script is checked first, on its own, and the combined text is checked again before it is sent.
+    """
     mode = normalize_mode(arguments.get("mode"))
     script = arguments.get("script")
+    helpers = normalize_helpers(arguments.get("helpers"))
     if mode == MODE_READ:
         validate_read_script(script)
+    if helpers:
+        script = with_helpers(script, mode)
+        if mode == MODE_READ:
+            validate_read_script(script)
     return {"script": script, "mode": mode}

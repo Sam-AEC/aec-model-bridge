@@ -1,0 +1,98 @@
+{
+  "approval": "per_run",
+  "created_at": "2026-11-24T00:00:00Z",
+  "description": "Lists the elements of one category whose parameter matches a rule (equals, contains, greater than, has a value, ...). The rule runs inside Revit as an ElementParameterFilter.",
+  "id": "elements_by_parameter",
+  "mode": "read",
+  "params": [
+    {
+      "default": "Walls",
+      "description": "Category name, for example Walls or OST_Doors.",
+      "name": "category",
+      "required": false,
+      "type": "string"
+    },
+    {
+      "description": "BuiltInParameter name (ALL_MODEL_INSTANCE_COMMENTS) or a project or shared parameter name.",
+      "name": "parameter",
+      "required": true,
+      "type": "string"
+    },
+    {
+      "default": "==",
+      "description": "Comparison.",
+      "enum": [
+        "==",
+        "!=",
+        ">",
+        ">=",
+        "<",
+        "<=",
+        "contains",
+        "not_contains",
+        "begins",
+        "not_begins",
+        "ends",
+        "not_ends",
+        "has_value",
+        "no_value"
+      ],
+      "name": "op",
+      "required": false,
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Value to compare with, as text.",
+      "name": "value",
+      "required": false,
+      "type": "string"
+    },
+    {
+      "default": "text",
+      "description": "How to read value: text, number (a length, area or other double) or integer.",
+      "enum": [
+        "text",
+        "number",
+        "integer"
+      ],
+      "name": "value_type",
+      "required": false,
+      "type": "string"
+    },
+    {
+      "default": "internal",
+      "description": "Unit of a number value: internal (feet, square feet, ...), mm, cm, m, ft, in, m2, ft2, m3, ft3, deg or rad.",
+      "enum": [
+        "internal",
+        "mm",
+        "cm",
+        "m",
+        "ft",
+        "in",
+        "m2",
+        "ft2",
+        "m3",
+        "ft3",
+        "deg",
+        "rad"
+      ],
+      "name": "unit",
+      "required": false,
+      "type": "string"
+    },
+    {
+      "default": 200,
+      "description": "Elements to list.",
+      "max": 500,
+      "min": 1,
+      "name": "limit",
+      "required": false,
+      "type": "integer"
+    }
+  ],
+  "sha256": "ec9245bd2abf408ba63f3038fdc577146736ab3e9492fecdc20ef46423648e6d",
+  "title": "Elements by parameter rule",
+  "updated_at": "2026-11-24T00:00:00Z",
+  "version": 1
+}

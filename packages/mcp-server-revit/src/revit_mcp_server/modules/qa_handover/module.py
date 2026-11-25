@@ -81,7 +81,7 @@ def _doc_guid(data: Dict[str, Any]) -> str:
 def _is_partial(data: Dict[str, Any]) -> bool:
     coverage = data.get("counts") or {}
     return bool(data.get("dirty_only") or coverage.get("dirty_only")
-                or coverage.get("truncated") or coverage.get("categories"))
+                or coverage.get("truncated") or coverage.get("categories") or coverage.get("params"))
 
 
 def _run_rules(data: Dict[str, Any], rule_pack: str, workspace: Any, label: str, not_verified: List[str]):

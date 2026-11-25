@@ -12,11 +12,11 @@ A tool failure reaches an MCP client in one of two shapes:
 Refusals never change the model. A refused write needs a new plan that a person approves.
 For logs and connection problems see [troubleshooting](troubleshooting.md).
 
-Entries: 136.
+Entries: 141.
 
 ## Tool error kinds
 
-Set by the MCP layer as `structuredContent.error.kind` when a call fails with `isError`. Entries: 7.
+Set by the MCP layer as `structuredContent.error.kind` when a call fails with `isError`. Entries: 8.
 
 ### `approval_blocked`
 
@@ -40,6 +40,12 @@ Set by the MCP layer as `structuredContent.error.kind` when a call fails with `i
 
 - When: An AI client called approve_plan, reject_plan or rollback_plan.
 - What to do: Stop. Ask the person to approve, reject or roll back the plan in the Revit panel or with the aec-model-bridge-approve command.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
+
+### `invalid_cursor`
+
+- When: response_options.cursor was refused: it expired (default 600 seconds), the server restarted, it came from another call, or the tool takes no cursor.
+- What to do: Call the tool again without a cursor and page from the new answer.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
 
 ### `invalid_response_options`
@@ -738,7 +744,7 @@ Set by module tools as `kind` in an `ok: false` result, next to `message`, `elem
 
 ## Exception classes
 
-Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 17.
+Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 21.
 
 ### `ApprovalExpired`
 
@@ -752,11 +758,23 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 - What to do: Use a BCF file inside the workspace. Do not open archives from untrusted sources.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/modules/bcf_exchange/module.py`
 
+### `BridgeContractError`
+
+- When: The payload for an add-in command does not match contracts/bridge-commands.json. Nothing was sent to Revit.
+- What to do: Fix the parameter the message names and call again. MCP_REVIT_VALIDATE_BRIDGE_PAYLOADS=off turns the check off.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/errors.py`
+
 ### `BridgeError`
 
 - When: Communication with the Revit bridge failed, or a tool reported a failure. Returned to clients as kind bridge_error.
 - What to do: Run revit_health and check that Revit is running with the add-in.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/errors.py`
+
+### `CassetteError`
+
+- When: Replay mode cannot open, read or match a cassette, or MCP_REVIT_RECORD is not a plain cassette name. A kind of BridgeError, returned as bridge_error.
+- What to do: Set MCP_REVIT_CASSETTE to a readable cassette file, record the session again for an unmatched request, or use a plain name (letters, digits, _ or -) for MCP_REVIT_RECORD. See docs/record-replay.md.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/bridge/cassette.py`
 
 ### `CategoryMismatch`
 
@@ -770,11 +788,23 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 - What to do: Read the attached result. Plan a corrected action; the old approval is used up.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/errors.py`
 
+### `CursorError`
+
+- When: A read cursor is malformed, unknown, expired, past the end or belongs to another call. Returned to clients as kind invalid_cursor.
+- What to do: Call the tool again without a cursor, or repeat the first call's tool, arguments and fields exactly with the cursor.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/read_cursor.py`
+
 ### `DomainMismatch`
 
 - When: A system belongs to a different domain than the tool's kind.
 - What to do: Pick a system of the tool's kind, for example pipe systems for pipes.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/modules/revit_mep/module.py`
+
+### `IncrementalMergeError`
+
+- When: An incremental snapshot capture does not fit its base snapshot (another document, a cut-short capture, or an element missing from both).
+- What to do: Nothing to do. snapshot_take catches it, takes a full snapshot and gives the reason in counts.incremental_reason.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/semantic/engine.py`
 
 ### `InstanceRoutingError`
 

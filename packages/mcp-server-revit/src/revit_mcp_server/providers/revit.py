@@ -5,12 +5,14 @@ import contextlib
 import contextvars
 import logging
 import math
+import os
 from pathlib import Path
 from typing import Any, Dict, List
 
 import httpx
 
-from ..bridge.client import BridgeClient
+from ..bridge import cassette
+from ..bridge.client import MAX_BATCH_COMMANDS, BridgeClient
 from ..bridge.routing import RoutedBridgeCache
 from ..bridge.mock import MockBridge
 from ..check_contract import PageSpec, paginate
@@ -24,6 +26,19 @@ from .element_inspection import INSPECTION_SCHEMA, inspect_elements, validate_in
 from . import revit_context, revit_perf
 
 logger = logging.getLogger(__name__)
+
+
+# Options the add-in's revit.extract_snapshot reads (issues 289, 290). Values pass through
+# unchanged; the add-in validates and clamps them and refuses a malformed params list.
+_SNAPSHOT_PAYLOAD_KEYS = (
+    "categories", "max_elements", "time_budget_ms", "params", "slice_size", "cursor", "base_epoch", "base_seq",
+)
+
+
+def _snapshot_payload(args: Dict[str, Any]) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {"dirty_only": args.get("dirty_only", False)}
+    payload.update({k: args[k] for k in _SNAPSHOT_PAYLOAD_KEYS if args.get(k) is not None})
+    return payload
 
 
 def _optional(args: Dict[str, Any], *names: str) -> Dict[str, Any]:
@@ -100,6 +115,26 @@ _BRIDGE_OVERRIDE: contextvars.ContextVar = contextvars.ContextVar("revit_bridge_
 
 _RAW_COMMAND_RE = re.compile(r"revit\.[a-z][a-z0-9_]{1,63}")
 
+# Tools that never run inside a read batch (#277), whatever their flags say: they forward a
+# caller-chosen command or code, or the hub answers them itself instead of one add-in command.
+BATCH_EXCLUDED = frozenset({
+    "revit_raw_command", "revit_execute_python", "revit_inspect_elements",
+    "revit_get_context", "revit_get_result", "revit_list_commands",
+})
+
+# Add-in commands declared read-only that still write files, open a transaction, change the
+# selection or view, or reset the dirty tracker. The add-in refuses them in a batch
+# (BridgeBatch.HasSideEffects); the server refuses them before sending. Also every revit.export_*.
+BATCH_SIDE_EFFECT_COMMANDS = frozenset({
+    "revit.extract_snapshot", "revit.get_snapshot_delta", "revit.select_by_unique_ids",
+    "revit.preview_elements", "revit.clear_preview",
+})
+
+
+def _command_has_side_effects(command: str) -> bool:
+    return command.startswith("revit.export_") or command in BATCH_SIDE_EFFECT_COMMANDS
+
+
 class UnavailableBridge:
     def __init__(self, message: str) -> None:
         self.message = message
@@ -122,11 +157,13 @@ class RevitProvider(AECProvider):
         bridge_url: str | None = config.bridge_url,
         host_version: str | None = config.host_version,
         bridge_factory=None,
+        bridge_transport: str | None = config.bridge_transport,
     ) -> None:
         self.workspace = workspace
         self.mode = mode
         self.bridge_url = bridge_url
         self.host_version = host_version
+        self.bridge_transport = bridge_transport
         self._bridge_factory = bridge_factory
         # Set by build_registry to ApprovalGate.approval_state, so revit_get_context reports the
         # live mode (with any temporary Auto window), not only the configured one.
@@ -189,6 +226,20 @@ class RevitProvider(AECProvider):
     def get_identity(self) -> str:
         return "revit"
 
+    @property
+    def _uses_bridge(self) -> bool:
+        """Calls go to a bridge object: the live add-in, or a recorded cassette in replay mode."""
+        return self.mode in (BridgeMode.bridge, BridgeMode.replay)
+
+    def _maybe_record(self, bridge):
+        """Wrap a live bridge in the opt-in cassette recorder (MCP_REVIT_RECORD). An invalid
+        recording name fails closed: every call then reports why, nothing is sent unrecorded."""
+        try:
+            return cassette.wrap_for_recording(bridge, config.workspace_dir)
+        except cassette.CassetteError as exc:
+            logger.error("%s", exc)
+            return UnavailableBridge(str(exc))
+
     def _active_bridge(self):
         return _BRIDGE_OVERRIDE.get() or self._bridge
 
@@ -214,7 +265,11 @@ class RevitProvider(AECProvider):
         live = self._live_route_keys()
         if live is not None:
             self._routed_bridges.evict_missing(live, keep=key)
-        factory = self._bridge_factory or (lambda u, t=None: BridgeClient(u, token=t))
+        base_factory = self._bridge_factory or (lambda u, t=None: BridgeClient(u, token=t))
+
+        def factory(u, t=None):
+            return self._maybe_record(base_factory(u, t))
+
         bridge = self._routed_bridges.get(key, factory)
         reset = _BRIDGE_OVERRIDE.set(bridge)
         try:
@@ -250,8 +305,19 @@ class RevitProvider(AECProvider):
         return name == "revit_execute_python" and is_read_mode_call(arguments)
 
     def _build_bridge(self, factory=None):
+        if self.mode == BridgeMode.replay:
+            return cassette.replay_bridge_from_env()
         if self.mode == BridgeMode.bridge:
             from ..bridge.discovery import available_host_versions, select_switch
+            from ..bridge.pipe_transport import require_windows, resolve_transport
+
+            try:
+                transport = resolve_transport(self.bridge_transport)
+                if transport == "pipe":
+                    require_windows()
+            except BridgeError as e:
+                logger.warning(str(e))
+                return UnavailableBridge(str(e))
 
             url = self.bridge_url
             token = None
@@ -298,12 +364,30 @@ class RevitProvider(AECProvider):
             bridge = bridge_factory(url, token)
             if switch is not None and hasattr(bridge, "bind_registry_session"):
                 bridge.bind_registry_session(switch)
+            if transport == "pipe":
+                pipe_name = getattr(switch, "pipe_name", None) if switch is not None else None
+                if pipe_name and hasattr(bridge, "use_pipe"):
+                    try:
+                        bridge.use_pipe(pipe_name, switch.pid)
+                    except BridgeError as e:
+                        logger.warning(str(e))
+                        return UnavailableBridge(str(e))
+                    logger.info("Using the named-pipe transport to Revit %s.", switch.host_version)
+                else:
+                    logger.warning(
+                        "MCP_REVIT_BRIDGE_TRANSPORT=pipe, but the selected Revit bridge publishes no pipe "
+                        "(older add-in, explicit bridge URL, or AEC_BRIDGE_TRANSPORT=pipe not set for Revit). "
+                        "Falling back to HTTP on %s.",
+                        url,
+                    )
             if hasattr(bridge, "initialize"):
                 try:
                     bridge.initialize()
                 except Exception as e:
                     logger.error(f"Failed to initialize Revit Bridge client: {e}")
-            return bridge
+            return self._maybe_record(bridge)
+        if (os.environ.get(cassette.RECORD_ENV) or "").strip():
+            logger.warning("%s is ignored in mock mode; only live bridge traffic is recorded.", cassette.RECORD_ENV)
         return MockBridge()
 
     def get_capabilities(self) -> List[ProviderTool]:
@@ -311,6 +395,8 @@ class RevitProvider(AECProvider):
         return self._capabilities
 
     async def check_health(self) -> Dict[str, Any]:
+        if self.mode == BridgeMode.replay:
+            return {"status": "healthy", "mode": "replay"}
         if self.mode == BridgeMode.bridge:
             try:
                 # Direct check
@@ -323,7 +409,7 @@ class RevitProvider(AECProvider):
         return {"status": "healthy", "mode": "mock"}
 
     def _list_commands(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        if self.mode != BridgeMode.bridge:
+        if not self._uses_bridge:
             raise ValueError("revit_list_commands asks the live Revit add-in; it is not available in mock mode.")
         listed = self._active_bridge().list_commands()
         needle = str(arguments.get("contains") or "").lower()
@@ -346,9 +432,9 @@ class RevitProvider(AECProvider):
 
         if name == "revit_inspect_elements":
             validate_inspection(arguments)
-            if self.mode != BridgeMode.bridge:
+            if not self._uses_bridge:
                 raise ValueError("revit_inspect_elements requires a live Revit connection; it is not available in mock mode.")
-            return await inspect_elements(self.execute_tool, arguments)
+            return await inspect_elements(self.execute_tool, arguments, execute_batch=self.execute_read_batch)
 
         if name == "revit_get_context":
             return await asyncio.to_thread(self.live_context)
@@ -357,7 +443,7 @@ class RevitProvider(AECProvider):
                 revit_perf.perf_report, self._active_bridge(), arguments, live=self.mode == BridgeMode.bridge
             )
         if name == "revit_get_result":
-            if self.mode != BridgeMode.bridge:
+            if not self._uses_bridge:
                 raise ValueError("revit_get_result needs a live Revit connection; it is not available in mock mode.")
             return await asyncio.to_thread(revit_context.get_result, self._active_bridge(), arguments)
 
@@ -367,50 +453,16 @@ class RevitProvider(AECProvider):
         if name == "revit_list_commands":
             return self._list_commands(arguments)
 
-        if "." in name:
-            # Legacy dot notation (e.g. "revit.health")
-            bridge_tool = name
-            payload = arguments
-        else:
-            # MCP underscore notation (e.g. "revit_health")
-            normalized_name = name
-            if normalized_name not in self._tool_mapping:
-                raise ValueError(f"Unknown Revit tool '{name}'")
-            bridge_tool, payload_builder = self._tool_mapping[normalized_name]
-            if normalized_name == "revit_raw_command":
-                bridge_tool = str(arguments.get("command") or "")
-                if not _RAW_COMMAND_RE.fullmatch(bridge_tool):
-                    raise ValueError("revit_raw_command needs a command like 'revit.create_wall'.")
-                if self.mode != BridgeMode.bridge:
-                    raise ValueError("revit_raw_command talks to a live Revit add-in; it is not available in mock mode.")
-            payload = payload_builder(arguments)
-            if "request_id" in arguments and "request_id" not in payload:
-                payload["request_id"] = arguments["request_id"]
+        bridge_tool, payload = self._bridge_call_for(name, arguments)
 
-        if self.mode == BridgeMode.bridge:
-            # Under bridge mode, run the legacy handler for validation/prep only — its
-            # return value is discarded, the bridge call below is the real result.
-            legacy_dot_name = bridge_tool
-            handler = TOOL_HANDLERS.get(legacy_dot_name)
-            if handler:
-                try:
-                    handler({"request_id": "mcp-bridge", **payload}, self.workspace)
-                except WorkspaceViolation:
-                    # A workspace-sandbox escape must always block the call — swallowing
-                    # this as a warning would let a path-outside-workspace request reach
-                    # the live bridge anyway, silently defeating the sandbox for every
-                    # tool that happens to have a legacy handler.
-                    raise
-                except Exception as e:
-                    # Other legacy-schema validation failures are advisory only: these
-                    # Pydantic input models predate the current provider architecture
-                    # and can drift out of sync with what the bridge actually accepts.
-                    logger.warning(f"Revit legacy handler validation warning: {e}")
+        if self._uses_bridge:
+            self._check_with_legacy_handler(bridge_tool, payload)
 
             # Send to bridge client. send_tool blocks (HTTP plus polling for up to the soft
             # wait), so run it off the event loop; the loop keeps serving other calls (B-16).
             bridge = self._active_bridge()
-            return await asyncio.to_thread(bridge.send_tool, bridge_tool, payload)
+            with cassette.tool_call(name, arguments):
+                return await asyncio.to_thread(bridge.send_tool, bridge_tool, payload)
         else:
             # Mock mode
             legacy_dot_name = bridge_tool
@@ -425,6 +477,124 @@ class RevitProvider(AECProvider):
             # Fallback to general mock response
             bridge = self._active_bridge()
             return await asyncio.to_thread(bridge.send_tool, bridge_tool, payload)
+
+    def _bridge_call_for(self, name: str, arguments: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:
+        """The add-in command and payload for one tool call (no I/O)."""
+        if "." in name:
+            # Legacy dot notation (e.g. "revit.health")
+            return name, arguments
+        # MCP underscore notation (e.g. "revit_health")
+        if name not in self._tool_mapping:
+            raise ValueError(f"Unknown Revit tool '{name}'")
+        bridge_tool, payload_builder = self._tool_mapping[name]
+        if name == "revit_raw_command":
+            bridge_tool = str(arguments.get("command") or "")
+            if not _RAW_COMMAND_RE.fullmatch(bridge_tool):
+                raise ValueError("revit_raw_command needs a command like 'revit.create_wall'.")
+            if not self._uses_bridge:
+                raise ValueError("revit_raw_command talks to a live Revit add-in; it is not available in mock mode.")
+        payload = payload_builder(arguments)
+        if "request_id" in arguments and "request_id" not in payload:
+            payload["request_id"] = arguments["request_id"]
+        return bridge_tool, payload
+
+    def _check_with_legacy_handler(self, bridge_tool: str, payload: Dict[str, Any]) -> None:
+        """Under bridge mode, run the legacy handler for validation/prep only. Its return value is
+        discarded; the bridge call is the real result."""
+        handler = TOOL_HANDLERS.get(bridge_tool)
+        if not handler:
+            return
+        try:
+            handler({"request_id": "mcp-bridge", **payload}, self.workspace)
+        except WorkspaceViolation:
+            # A workspace-sandbox escape must always block the call — swallowing
+            # this as a warning would let a path-outside-workspace request reach
+            # the live bridge anyway, silently defeating the sandbox for every
+            # tool that happens to have a legacy handler.
+            raise
+        except Exception as e:
+            # Other legacy-schema validation failures are advisory only: these
+            # Pydantic input models predate the current provider architecture
+            # and can drift out of sync with what the bridge actually accepts.
+            logger.warning(f"Revit legacy handler validation warning: {e}")
+
+    def batch_refusal(self, name: Any, arguments: Any) -> str | None:
+        """Why ``name`` may not be a member of a read batch, or None when it may (#277).
+
+        Only a read-only tool (tool_metadata.is_read_only_tool) that forwards one fixed add-in
+        command qualifies, so a batch can never carry a write past the approval gate. Fails closed."""
+        from ..tool_metadata import is_read_only_tool  # lazy: tool_metadata imports the providers package
+
+        if not isinstance(name, str) or "." in name:
+            return f"{name!r} is not a Revit tool name"
+        if name in BATCH_EXCLUDED or name not in self._tool_mapping:
+            return f"{name} cannot run inside a read batch"
+        if _command_has_side_effects(self._tool_mapping[name][0]):
+            return f"{name} writes files or changes the selection or view, so it cannot run inside a read batch"
+        tool = next((t for t in self._capabilities if t.name == name), None)
+        if not is_read_only_tool(name, tool):
+            return f"{name} is not a read-only tool; model changes go through a plan and approval"
+        if not isinstance(arguments, dict):
+            return f"{name} arguments must be an object"
+        if name in PAGED_READS and any(k in arguments for k in _PAGE_ARGS):
+            return f"{name} paging arguments are not supported inside a read batch"
+        return None
+
+    async def execute_read_batch(self, calls: List[Any]) -> List[Any]:
+        """Run read-only tool calls in order. Returns one entry per call: the result dict, or the
+        exception that call raised.
+
+        Every member is checked before anything is sent; one write or unknown tool refuses the
+        whole batch with ValueError. With a live add-in that lists revit.batch, members go up to 25
+        at a time, each group in one Revit turn (#277). Otherwise they run one by one through
+        execute_tool, exactly as separate calls would."""
+        calls = list(calls)
+        for index, call in enumerate(calls):
+            if not (isinstance(call, (tuple, list)) and len(call) == 2):
+                raise ValueError(f"Read batch entry {index} must be (tool name, arguments).")
+            reason = self.batch_refusal(call[0], call[1])
+            if reason:
+                raise ValueError(f"Read batch refused (entry {index}): {reason}.")
+
+        results: List[Any] = [None] * len(calls)
+        bridge = self._active_bridge()
+        supports = getattr(bridge, "supports_batch", None)
+        batched = (
+            self.mode == BridgeMode.bridge
+            and callable(getattr(bridge, "call_batch", None))
+            and callable(supports)
+            and supports() is True
+        )
+        if not batched:
+            for index, (name, arguments) in enumerate(calls):
+                try:
+                    results[index] = await self.execute_tool(name, arguments)
+                except Exception as exc:  # reported per call, like separate tool calls
+                    results[index] = exc
+            return results
+
+        pending: List[tuple[int, Dict[str, Any]]] = []
+        for index, (name, arguments) in enumerate(calls):
+            try:
+                self._assert_paths_in_workspace(arguments)
+                bridge_tool, payload = self._bridge_call_for(name, arguments)
+                self._check_with_legacy_handler(bridge_tool, payload)
+            except Exception as exc:  # this member is not sent
+                results[index] = exc
+                continue
+            pending.append((index, {"tool": bridge_tool, "payload": payload}))
+
+        for start in range(0, len(pending), MAX_BATCH_COMMANDS):
+            chunk = pending[start:start + MAX_BATCH_COMMANDS]
+            try:
+                answers = await asyncio.to_thread(bridge.call_batch, [command for _, command in chunk])
+            except Exception as exc:
+                answers = [exc] * len(chunk)
+            if not isinstance(answers, list) or len(answers) != len(chunk):
+                answers = [BridgeError("The add-in returned a batch result that does not match the request.")] * len(chunk)
+            for (index, _), answer in zip(chunk, answers):
+                results[index] = answer
+        return results
 
     def _assert_paths_in_workspace(self, arguments: Dict[str, Any]) -> None:
         path_keys = ["path", "csv_path", "output_path", "file_path", "template_path"]
@@ -1004,7 +1174,7 @@ class RevitProvider(AECProvider):
             ),
             "revit_extract_snapshot": (
                 "revit.extract_snapshot",
-                lambda args: {"dirty_only": args.get("dirty_only", False)},
+                _snapshot_payload,
             ),
             "revit_get_snapshot_delta": ("revit.get_snapshot_delta", lambda args: {}),
         }
@@ -2193,7 +2363,9 @@ class RevitProvider(AECProvider):
                 "The script runs on Revit's user-interface thread and cannot be cancelled, so keep it short "
                 "(well under 20 seconds) and work from element ids rather than whole-model geometry. "
                 "Use revit_list_commands first: a dedicated command is safer when one exists. "
-                "Check unfamiliar API members with revit_api_lookup first: it confirms the name and signature from the Revit docs."
+                "Check unfamiliar API members with revit_api_lookup first: it confirms the name and signature from the Revit docs. "
+                "helpers=true puts the amb helper library before the script (fast collectors, parameter and bounding-box "
+                "filters, unit conversion; in write mode also batched transactions); see docs/python-automation.md."
             ),
             inputSchema={
                 "type": "object",
@@ -2208,6 +2380,15 @@ class RevitProvider(AECProvider):
                             "'read' needs no approval; the script is refused if it mentions Transaction, "
                             "SubTransaction or TransactionGroup, and the add-in blocks them at run time. "
                             "A safety rail against mistakes, not a security boundary."
+                        ),
+                    },
+                    "helpers": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": (
+                            "true puts the amb helper library before the script. Read mode gets only the read "
+                            "helpers and the combined text must still pass read mode. Error line numbers then "
+                            "include the helper lines. No 'from __future__' import with helpers."
                         ),
                     },
                 },

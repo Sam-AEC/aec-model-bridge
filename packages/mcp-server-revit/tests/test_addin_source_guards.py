@@ -44,12 +44,36 @@ def test_add_in_constructs_transactions_somewhere():
 
 # --- Revit must never be held by one long request (the 2026-10-13 freeze) -------------------------
 
-def test_executor_runs_one_request_per_revit_turn_and_skips_abandoned_ones():
+def test_executor_runs_writes_alone_and_bounds_each_revit_turn():
+    """#287: reads may share a turn up to a budget; a write or unknown command always runs alone."""
     source = (ADDIN_SRC / "Bridge" / "ExternalEventHandler.cs").read_text(encoding="utf-8")
     execute = _method_body(source, r"public void Execute\(UIApplication app\)")
     assert "IsWanted(" in execute, "abandoned requests must be dropped before they start"
-    assert re.search(r"RunOne\(app, request\);\s*break;", execute), "only one request may run per Execute"
+    assert "ExecutorTurnPolicy.MayTakeAnother(ran, lastShared, turn.ElapsedMilliseconds, _turnBudgetMs)" in execute
+    assert "_queue.TryDequeueIf(next => MayShareTurn(next), out request)" in execute, \
+        "after the first request only requests that may share a turn are taken"
     assert "Event?.Raise()" in execute, "remaining requests need another Revit turn, not the same one"
+    policy = (ADDIN_SRC / "Bridge" / "ExecutorTurnPolicy.cs").read_text(encoding="utf-8")
+    assert "AEC_BRIDGE_TURN_BUDGET_MS" in policy and "DefaultBudgetMs = 40" in policy and "MaxBudgetMs = 200" in policy
+    may_take = _method_body(policy, r"public static bool MayTakeAnother\(")
+    assert "lastSharedTurn && budgetMs > 0 && elapsedMs < budgetMs" in may_take
+    share = _method_body(policy, r"public static bool MayShareTurn\(")
+    assert "if (!isReadOnly(name)) return false;" in share
+    factory = FACTORY.read_text(encoding="utf-8")
+    assert "if (!attr.IsMutating && !attr.ConfirmationRequired)" in factory and "_readOnlyCommands.Add(attr.Name);" in factory
+
+
+def test_fast_wake_is_opt_in_and_attached_only_while_work_is_queued():
+    """#288: SetRaiseWithoutDelay keeps the CPU busy, so the Idling handler must be scoped to queued work."""
+    source = (ADDIN_SRC / "Bridge" / "ExternalEventHandler.cs").read_text(encoding="utf-8")
+    policy = (ADDIN_SRC / "Bridge" / "ExecutorTurnPolicy.cs").read_text(encoding="utf-8")
+    assert "AEC_BRIDGE_FAST_WAKE" in policy
+    assert source.count("app.Idling += OnIdling") == 1
+    assert "app.Idling -= OnIdling" in source
+    idling = _method_body(source, r"private void OnIdling\(")
+    assert idling.index("_queue.Count > 0") < idling.index("SetRaiseWithoutDelay()")
+    assert "ShouldDetach(0)" in idling
+    assert "CPU" in source
 
 
 def test_queue_does_not_enqueue_a_retried_request_id_twice():
@@ -58,17 +82,24 @@ def test_queue_does_not_enqueue_a_retried_request_id_twice():
     assert "_inflight.TryAdd" in enqueue and "return;" in enqueue
 
 
+def _snapshot_record_body() -> str:
+    return _method_body(FACTORY.read_text(encoding="utf-8"), r"private static object\? BuildSnapshotElementRecord\(")
+
+
 def test_snapshot_is_bounded_by_count_and_time_and_skips_geometry_computed_values():
     body = _method_body(FACTORY.read_text(encoding="utf-8"), r"private static object ExecuteExtractSnapshot\(")
     assert "ElapsedMilliseconds > budgetMs" in body and "maxElements" in body
     assert "truncated" in body
-    assert "IsHeavySnapshotParameter" in body
+    assert "BuildSnapshotElementRecord(" in body
+    record = _snapshot_record_body()
+    # Both the full read and the params projection skip geometry-computed values.
+    assert record.count("IsHeavySnapshotParameter") == 2
     assert "ToElementIds()" in body, "collect ids first; do not materialise every element up front"
 
 
 def test_snapshot_records_carry_host_uid_for_the_hosting_rules():
     """door_no_host / window_no_host test host_uid; leaving it out flagged every hosted door."""
-    body = _method_body(FACTORY.read_text(encoding="utf-8"), r"private static object ExecuteExtractSnapshot\(")
+    body = _snapshot_record_body()
     assert re.search(r"host_uid\s*=\s*\(elem as FamilyInstance\)\?\.Host\?\.UniqueId", body)
 
 
@@ -142,3 +173,103 @@ def test_check_clashes_has_a_budget_and_does_not_look_names_up_in_the_pair_loop(
     assert "get_BoundingBox" not in loop, "bounding boxes must be cached outside the pair loop"
     assert ".Name" not in loop.replace("d1.Name", "").replace("d2.Name", ""), "Name lookups must go through the cache"
     assert "WhereElementIsNotElementType" in source[source.index("CollectClashCandidates(Document"):]
+
+
+# --- sliced and incremental snapshots (issues 289, 290) -------------------------------------------
+
+def test_snapshot_reads_each_type_once_and_supports_a_params_projection():
+    record = _snapshot_record_body()
+    assert "GetSnapshotTypeInfo(doc, typeId, typeCache)" in record
+    assert "doc.GetElement(elem.GetTypeId())" not in record, "type element must come from the per-extraction cache"
+    assert "LookupParameter(request.Name)" in record and "get_Parameter(request.BuiltIn.Value)" in record
+
+
+def test_snapshot_slices_always_progress_and_stay_bounded():
+    source = FACTORY.read_text(encoding="utf-8")
+    run = _method_body(source, r"private static object RunSnapshotSlice\(")
+    assert "index > offset &&" in run, "a slice must read at least one element"
+    assert "session.SliceSize" in run and "session.BudgetMs" in run
+    cont = _method_body(source, r"private static object ContinueSnapshotSlices\(")
+    assert "session.DocKey" in cont, "a cursor must not continue on another document"
+
+
+def test_change_journal_resets_on_events_that_bypass_document_changed():
+    app = (ADDIN_SRC / "Bridge" / "App.cs").read_text(encoding="utf-8")
+    for event in ("DocumentOpened", "DocumentClosing", "DocumentSynchronizedWithCentral",
+                  "DocumentReloadedLatest", "DocumentSavedAs"):
+        assert re.search(event + r" \+= \(sender, args\) => DocumentDirtyTracker\.ResetDocument\(args\.Document\)", app), event
+    tracker = (ADDIN_SRC / "Bridge" / "DocumentDirtyTracker.cs").read_text(encoding="utf-8")
+    changed_since = _method_body(tracker, r"public static HashSet<string>\? GetChangedSince\(")
+    assert "journal.Epoch, epoch" in changed_since and "return null;" in changed_since
+
+
+def test_change_journal_is_bounded_and_overflow_starts_a_new_epoch():
+    tracker = (ADDIN_SRC / "Bridge" / "DocumentDirtyTracker.cs").read_text(encoding="utf-8")
+    handler = _method_body(tracker, r"public static void HandleDocumentChanged\(")
+    assert "ChangedAt.Count > JournalMaxEntries" in handler
+    assert "_journals[key] = new Journal();" in handler, "an overflowing journal must get a new epoch"
+# --- Batch reads, dispatch table, UniqueId cache, gzip (#277, #291, #292) ----------------------------
+# UNVERIFIED in live Revit. The Revit-free parts have C# unit tests in packages/revit-bridge-addin-tests.
+
+def test_batch_command_is_read_only_and_checks_every_member_before_running():
+    source = _factory_text()
+    assert re.search(r'\[BridgeCommand\("revit\.batch", IsMutating = false\)\]', source)
+    body = _method_body(source, r"private static object ExecuteBatch\(UIApplication app, JsonElement payload\)")
+    assert body.index("BridgeBatch.Parse(payload, IsReadOnlyCommand)") < body.index("Execute(app, member.Tool")
+    assert "TimeBudgetMs" in body, "a batch must not hold Revit without a bound"
+    batch = (ADDIN_SRC / "Bridge" / "BridgeBatch.cs").read_text(encoding="utf-8")
+    assert "MaxCommands = 25" in batch
+    assert "cannot be nested" in batch and "not a read-only command" in batch
+    ctor = _method_body(source, r"static BridgeCommandFactory\(\)")
+    assert "if (!attr.IsMutating && !attr.ConfirmationRequired)" in ctor
+
+
+def test_batch_members_cannot_open_a_transaction_or_run_side_effect_commands():
+    source = _factory_text()
+    create = _method_body(source, r"public static BridgeTransaction CreateTransaction\(Document doc, string name\)")
+    assert create.index("if (InReadBatch)") < create.index("new BridgeTransaction(")
+    body = _method_body(source, r"private static object ExecuteBatch\(UIApplication app, JsonElement payload\)")
+    assert body.index("_readBatchDepth++;") < body.index("Execute(app, member.Tool")
+    assert "finally" in body and "_readBatchDepth--;" in body
+    batch = (ADDIN_SRC / "Bridge" / "BridgeBatch.cs").read_text(encoding="utf-8")
+    parse = batch[batch.index("public static List<BridgeBatchMember> Parse("):]
+    assert parse.index("HasSideEffects(tool)") < parse.index("members.Add(")
+
+
+def test_execute_restores_outer_state_so_batch_members_do_not_clear_it():
+    body = _method_body(_factory_text(), r"public static object Execute\(UIApplication app, string tool, JsonElement payload\)")
+    assert "CurrentActionId = outerActionId;" in body
+    assert "_currentTransactionMessages = outerMessages;" in body
+
+
+def test_dispatch_table_is_built_once_and_refuses_duplicate_names():
+    source = _factory_text()
+    ctor = _method_body(source, r"static BridgeCommandFactory\(\)")
+    assert "_handlers = BridgeDispatchTable.Build(entries);" in ctor
+    assert "_handlers[" not in source, "handlers must not be added one by one (a duplicate would overwrite)"
+    table = (ADDIN_SRC / "Bridge" / "BridgeDispatchTable.cs").read_text(encoding="utf-8")
+    assert "#if NET8_0_OR_GREATER" in table and "ToFrozenDictionary" in table
+    assert "declared more than once" in table
+    app = (ADDIN_SRC / "Bridge" / "App.cs").read_text(encoding="utf-8")
+    assert "BridgeCommandFactory.GetToolCatalog()" in app, "the table must be built at startup"
+
+
+def test_unique_id_lookups_go_through_the_checked_cache():
+    source = _factory_text()
+    for name in ("ExecuteSelectByUniqueIds", "ExecutePreviewElements"):
+        assert "ElementLookup.ByUniqueId(doc," in _method_body(source, rf"private static object {name}\(")
+    lookup = (ADDIN_SRC / "Bridge" / "ElementLookup.cs").read_text(encoding="utf-8")
+    body = _method_body(lookup, r"internal static Element\? ByUniqueId\(Document doc, string\? uniqueId\)")
+    assert "hit.UniqueId" in body, "a cached id must be checked against the UniqueId before use"
+    app = (ADDIN_SRC / "Bridge" / "App.cs").read_text(encoding="utf-8")
+    for hook in ("ElementLookup.OnDocumentChanged(args)", "ElementLookup.OnDocumentClosing(args)", "ElementLookup.OnViewActivated(args)"):
+        assert hook in app, hook
+
+
+def test_large_responses_are_gzipped_only_when_the_client_asks():
+    server = (ADDIN_SRC / "Bridge" / "BridgeServer.cs").read_text(encoding="utf-8")
+    body = _method_body(server, r"private void RespondRaw\(HttpListenerContext context, int statusCode, string json\)")
+    assert 'ResponseCompression.ShouldGzip(context.Request.Headers["Accept-Encoding"], buffer.Length)' in body
+    assert '"Content-Encoding", "gzip"' in body
+    compression = (ADDIN_SRC / "Bridge" / "ResponseCompression.cs").read_text(encoding="utf-8")
+    assert "MinBytes = 64 * 1024" in compression
