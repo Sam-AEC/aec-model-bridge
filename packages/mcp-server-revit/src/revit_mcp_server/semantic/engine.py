@@ -208,6 +208,8 @@ def _store_snapshot_file(workspace: Any, snapshot_id: str, source_path: Any) -> 
 
 SNAPSHOT_MAX_PARAMS = 100
 SNAPSHOT_MAX_PARAM_NAME = 200
+# Optional snapshot blocks (issue 146): types with instance counts, CAD records, door room keys.
+SNAPSHOT_INCLUDE_BLOCKS = ("types", "cad", "rooms")
 SLICE_SIZE_MIN = 10
 SLICE_SIZE_MAX = 5000
 # A sliced capture stops after this much wall time or this many slices and is then marked truncated.
@@ -245,6 +247,22 @@ def validate_snapshot_params(value: Any) -> Optional[List[str]]:
     return names
 
 
+def validate_snapshot_include(value: Any) -> Optional[List[str]]:
+    """The optional ``include`` list: extra snapshot blocks. None when absent or empty; ValueError when malformed."""
+    if value is None:
+        return None
+    if not isinstance(value, list) or not all(isinstance(i, str) for i in value):
+        raise ValueError(f"include must be a list of block names. Known blocks: {', '.join(SNAPSHOT_INCLUDE_BLOCKS)}.")
+    names: List[str] = []
+    for item in value:
+        name = item.strip().lower()
+        if name not in SNAPSHOT_INCLUDE_BLOCKS:
+            raise ValueError(f"include has an unknown block '{item}'. Known blocks: {', '.join(SNAPSHOT_INCLUDE_BLOCKS)}.")
+        if name not in names:
+            names.append(name)
+    return names or None
+
+
 def validate_slice_size(value: Any) -> Optional[int]:
     if value is None:
         return None
@@ -267,6 +285,9 @@ def _snapshot_payload(options: Dict[str, Any]) -> Dict[str, Any]:
     slice_size = validate_slice_size(options.get("slice_size"))
     if slice_size is not None:
         payload["slice_size"] = slice_size
+    include = validate_snapshot_include(options.get("include"))
+    if include is not None:
+        payload["include"] = include
     return payload
 
 
@@ -294,6 +315,11 @@ def incremental_base_problem(base: Dict[str, Any], payload: Dict[str, Any]) -> O
         return "The base snapshot covers different categories."
     if set(counts.get("params") or []) != set(payload.get("params") or []):
         return "The base snapshot read a different params list."
+    want_include = set(payload.get("include") or [])
+    if set(counts.get("include") or []) != want_include:
+        return "The base snapshot has different optional blocks (include)."
+    if "rooms" in want_include:
+        return "Door room keys depend on rooms and walls, not only on the door, so an include of rooms is always a full capture."
     return None
 
 
@@ -519,7 +545,8 @@ def _finish_live(workspace: Any, kind: str, data: Dict[str, Any], res: Dict[str,
 async def snapshot_take(workspace: Any, bridge_client_or_provider: Any = None, options: Any = None) -> Snapshot:
     """Capture a snapshot of the active model and save it in the workspace.
 
-    Options: categories, max_elements, params (read only these parameters), slice_size (extract over
+    Options: categories, max_elements, params (read only these parameters), include (optional blocks:
+    types, cad, rooms), slice_size (extract over
     several Revit turns and assemble one snapshot), base_snapshot_id (incremental: re-read only what
     changed since that snapshot and merge; falls back to a full capture and says why in
     counts.incremental_reason).

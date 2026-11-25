@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 # Options the add-in's revit.extract_snapshot reads (issues 289, 290). Values pass through
 # unchanged; the add-in validates and clamps them and refuses a malformed params list.
 _SNAPSHOT_PAYLOAD_KEYS = (
-    "categories", "max_elements", "time_budget_ms", "params", "slice_size", "cursor", "base_epoch", "base_seq",
+    "categories", "max_elements", "time_budget_ms", "params", "include", "slice_size", "cursor", "base_epoch", "base_seq",
 )
 
 
