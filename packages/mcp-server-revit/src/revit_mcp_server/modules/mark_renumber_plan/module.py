@@ -66,6 +66,10 @@ UNVERIFIED = ("UNVERIFIED against live Revit: the parameter writes in this draft
               "checked in a running Revit.")
 
 
+MAX_SEQUENCE_SLACK = 1000  # sequence values beyond group size + this are out of range
+MAX_GAPS_LISTED = 50  # gap marks listed per group; missing_count gives the full number
+
+
 def _letters(index: int) -> str:
     """1 -> A, 26 -> Z, 27 -> AA."""
     s = ""
@@ -151,7 +155,7 @@ class MarkRenumberPlanModule:
     def analyze(self, snapshot_id: str = "", categories: Optional[List[str]] = None,
                 workspace: Any = None, **_) -> Dict[str, Any]:
         cats = self._cats(categories)
-        elements = self._get_data(snapshot_id, workspace)
+        elements, partial = self._get_data(snapshot_id, workspace)
         rules = _load_rules(workspace)
         built = self._build(elements, cats, rules, None)
         findings = [f for c in cats for f in built[c]["findings"]]
@@ -167,6 +171,8 @@ class MarkRenumberPlanModule:
             "findings": findings,
             "proposed_mapping": changes,
             "not_numbered": unnumbered,
+            **({"warning": f"{partial} Findings may be incomplete and draft_plan refuses until a full snapshot is taken."}
+               if partial else {}),
             "summary": (f"{len(findings)} finding(s), {len(changes)} proposed change(s), "
                         f"{len(unnumbered)} element(s) not numbered. Nothing was changed; "
                         "call draft_plan to get a plan for approval."),
@@ -176,7 +182,11 @@ class MarkRenumberPlanModule:
                    only_unique_ids: Optional[List[str]] = None, workspace: Any = None,
                    **_) -> Dict[str, Any]:
         cats = self._cats(categories)
-        elements = self._get_data(snapshot_id, workspace)
+        elements, partial = self._get_data(snapshot_id, workspace)
+        if partial:
+            raise ValueError(
+                f"Plan refused: {partial} Marks outside the capture cannot be checked for duplicates, "
+                "so nothing was drafted. Take a full snapshot and ask again.")
         rules = _load_rules(workspace)
         only = set(only_unique_ids) if only_unique_ids else None
         built = self._build(elements, cats, rules, only)
@@ -239,7 +249,13 @@ class MarkRenumberPlanModule:
 
     def _build(self, elements: List[Dict[str, Any]], cats: List[str],
                rules: Dict[str, Dict[str, Any]], only: Optional[set]) -> Dict[str, Dict[str, Any]]:
-        levels = {e.get("uid"): e for e in elements if e.get("category") == "OST_Levels"}
+        # The add-in writes level_uid as the level's element id; mock snapshots use the UniqueId.
+        levels: Dict[Any, Dict[str, Any]] = {}
+        for e in elements:
+            if e.get("category") == "OST_Levels":
+                levels[e.get("uid")] = e
+                if e.get("element_id") is not None:
+                    levels[str(e.get("element_id"))] = e
         all_rooms = sorted((e for e in elements if e.get("category") == "OST_Rooms"),
                            key=lambda e: e.get("element_id") or 0)
         out: Dict[str, Dict[str, Any]] = {}
@@ -298,6 +314,8 @@ class MarkRenumberPlanModule:
         by_level: Dict[str, List[Dict[str, Any]]] = {}
         for el in els:
             lv = levels.get(el.get("level_uid"))
+            if lv is None and el.get("level_uid") is not None:
+                lv = levels.get(str(el.get("level_uid")))
             prefix = _level_prefix(lv, rule)
             if prefix is None:
                 reason = ("no level" if lv is None else
@@ -306,10 +324,11 @@ class MarkRenumberPlanModule:
             elif rule["sort"] == "location" and not _has_location(el):
                 unnumbered.append(self._skip(el, "no location, so it cannot be sorted"))
             else:
-                by_level.setdefault(str(el.get("level_uid")), []).append(el)
+                by_level.setdefault(str(lv.get("uid") or lv.get("element_id")), []).append(el)
+        level_by_key = {str(v.get("uid") or v.get("element_id")): v for v in levels.values()}
         for uid, members in by_level.items():
             members.sort(key=_location_key if rule["sort"] == "location" else (lambda e: e.get("element_id") or 0))
-            lv = levels[uid]
+            lv = level_by_key[uid]
             groups[str(lv.get("type_name") or lv.get("name") or uid)] = (_level_prefix(lv, rule), members)
         return groups, unnumbered
 
@@ -389,14 +408,23 @@ class MarkRenumberPlanModule:
                     v = int(rest)
                     if v >= start and (v - start) % step == 0:
                         seqs.append((e, (v - start) // step + 1))
-            have = {s for _, s in seqs}
+            # A mark far beyond the group size (for example 101ENTRY read as letters) is reported,
+            # not used for gaps, so one odd mark cannot make the gap list huge.
+            limit = len(members) + MAX_SEQUENCE_SLACK
+            far = [(e, q) for e, q in seqs if q > limit]
+            if far:
+                add("out_of_range", f"Marks in {gkey} are far outside the sequence for {len(members)} element(s).",
+                    [e for e, _ in far], group=gkey)
+            seqs = [(e, q) for e, q in seqs if q <= limit]
+            have = {q for _, q in seqs}
             if have:
-                missing = [s for s in range(1, max(have) + 1) if s not in have]
+                missing = [q for q in range(1, max(have) + 1) if q not in have]
                 if missing:
                     findings.append({
                         "category": cat, "check_id": "gap", "group": gkey,
                         "message": f"Sequence in {gkey} skips {len(missing)} value(s).",
-                        "missing": [self._mark_for(cat, rule, prefix, s - 1) for s in missing],
+                        "missing": [self._mark_for(cat, rule, prefix, q - 1) for q in missing[:MAX_GAPS_LISTED]],
+                        "missing_count": len(missing),
                         "unique_ids": []})
             order = [s for _, s in seqs]
             if order != sorted(order):
@@ -404,19 +432,25 @@ class MarkRenumberPlanModule:
                     [e for e, _ in seqs], group=gkey)
         return findings
 
-    def _get_data(self, snapshot_id: str, workspace: Any) -> List[Dict[str, Any]]:
+    def _get_data(self, snapshot_id: str, workspace: Any) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+        """Elements and, for a partial capture, a sentence saying so (else None)."""
         if not snapshot_id:
             from revit_mcp_server.semantic.engine import generate_mock_snapshot, require_snapshot_or_mock
             require_snapshot_or_mock(snapshot_id, "mark_renumber_plan")
             snap = generate_mock_snapshot()
-            return [el.model_dump(by_alias=True) for el in snap.elements]
+            return [el.model_dump(by_alias=True) for el in snap.elements], None
         from revit_mcp_server.security.safe_paths import snapshot_file
 
         path = snapshot_file(workspace.allowed_directories[0] / "snapshots", snapshot_id)
         if not path.exists():
             raise ValueError(f"Snapshot '{snapshot_id}' not found.")
         with open(path, encoding="utf-8") as f:
-            return json.load(f).get("elements", [])
+            data = json.load(f)
+        counts = data.get("counts") or {}
+        partial = None
+        if isinstance(counts, dict) and (counts.get("truncated") or counts.get("params")):
+            partial = f"Snapshot '{snapshot_id}' is a partial capture (truncated)."
+        return data.get("elements", []), partial
 
 
 def _order_changes(changes: List[Dict[str, Any]], reserved: set) -> List[Tuple[str, List[Dict[str, Any]]]]:

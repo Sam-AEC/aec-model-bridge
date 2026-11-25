@@ -155,3 +155,31 @@ def test_mock_mode_runs(monkeypatch):
     with pytest.raises(ValueError, match="duplicates"):
         Mod().draft_plan()
     assert Mod().draft_plan(categories=["doors"])["requires_approval"] is True
+
+
+def test_addin_level_reference_is_the_level_element_id(tmp_path):
+    """The add-in writes level_uid as the level's element id, not its UniqueId (Codex review on #368)."""
+    lv = {"uid": "a1b2-level-uniqueid", "element_id": 311, "category": "OST_Levels", "type_name": "Level 1", "params": {}}
+    rooms = [room(1, "105", x=0.0, lv="311"), room(2, "101", x=5.0, lv="311")]
+    res = run(tmp_path, [lv] + rooms, categories=["rooms"])
+    assert res["not_numbered"] == []
+    assert {m["unique_id"]: m["new_mark"] for m in res["proposed_mapping"]} == {"r1": "101", "r2": "102"}
+
+
+def test_partial_snapshot_warns_and_refuses_to_draft(tmp_path):
+    snaps = tmp_path / "snapshots"
+    snaps.mkdir()
+    els = BASE + [door(1, "X", None, "r1")]
+    (snaps / "s.json").write_text(json.dumps({"elements": els, "counts": {"truncated": True}}), encoding="utf-8")
+    res = Mod().analyze(snapshot_id="s", workspace=WS(tmp_path), categories=["doors"])
+    assert "partial capture" in res["warning"]
+    with pytest.raises(ValueError, match="Plan refused: Snapshot 's' is a partial capture"):
+        Mod().draft_plan(snapshot_id="s", workspace=WS(tmp_path), categories=["doors"])
+
+
+def test_far_out_mark_is_reported_not_enumerated(tmp_path):
+    els = BASE + [door(1, "101A", None, "r1"), door(2, "101ENTRY", None, "r1")]
+    res = run(tmp_path, els, categories=["doors"])
+    assert ("doors", "out_of_range") in kinds(res)
+    gaps = [f for f in res["findings"] if f["check_id"] == "gap"]
+    assert all(len(f["missing"]) <= 50 for f in gaps)
