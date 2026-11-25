@@ -2,9 +2,12 @@
 
 Timeouts apply to direct MCP tool calls (not run_async jobs or MCP tasks, which are meant
 to run long). A read that runs out of time is cancelled and refused with kind
-``tool_timeout``. A write is never cancelled and never booked as failed: it may still be
+``tool_timeout``. Only a provably read-only call counts as a read. Anything else (a write,
+an orchestrator such as plan_revert or revit_run_job, or a call that cannot be classified)
+is treated as a write. A write is never cancelled and never booked as failed: it may still be
 running in Revit, so its approved action stays used and is recorded as in flight (see
-security/dispatch.py), exactly like a call that came back ``running``.
+security/dispatch.py), exactly like a call that came back ``running``. ``execute_plan`` has no
+outer timeout: it runs approved actions itself and books each one.
 
 Rate limits are token buckets: one per client session (all tools), one per tool, and one
 per panel hub route. A refused call did not run and did not use an approved action; the
@@ -44,6 +47,8 @@ RATE_LIMITS_ENV = "MCP_REVIT_RATE_LIMITS"
 
 DEFAULT_TIMEOUT_SECONDS = 300.0
 MAX_SESSIONS = 1024
+# Tools that never get an outer timeout, whatever the configuration says.
+NO_TIMEOUT_TOOLS = frozenset({"execute_plan"})
 
 
 @dataclass(frozen=True)

@@ -358,6 +358,154 @@ def test_unplanned_write_timeout_in_auto_mode_is_not_an_error(tmp_path, monkeypa
     assert revit.cancelled == []
 
 
+class SlowPlanRunner:
+    """execute_plan (and other orchestrators): waits for `release`, then runs and books each
+    approved action through the gate itself, like ApprovalProvider."""
+
+    def __init__(self, gate):
+        self.gate = gate
+        self.release = None
+        self.cancelled = []
+        self.calls = []
+
+    async def execute_tool(self, name, arguments):
+        self.calls.append(name)
+        try:
+            await self.release.wait()
+        except asyncio.CancelledError:
+            self.cancelled.append(name)
+            raise
+        if name == "revit_get_result":
+            return {"success": True}
+        if name != "execute_plan":
+            return {"success": True}
+        plan = self.gate.load_plan(arguments["plan_id"])
+        for action in plan["actions"]:
+            claim = self.gate.claim_action(action["tool"], {**action["arguments"], "plan_id": plan["plan_id"]})
+            self.gate.finish_action(claim, ok=True)
+        return {"success": True, "executed": len(plan["actions"])}
+
+
+def _wire_runner(monkeypatch, gate, runner, mutating=frozenset()):
+    registry = SimpleNamespace(
+        lookup_tool_provider=lambda name: runner,
+        lookup_tool=lambda name: SimpleNamespace(is_mutating=name in mutating),
+    )
+    monkeypatch.setattr(mcp_server, "registry", registry)
+    monkeypatch.setattr(mcp_server, "approval_provider", SimpleNamespace(gate=gate))
+
+
+def test_slow_execute_plan_has_no_timeout_and_books_its_actions(tmp_path, monkeypatch):
+    gate, pid = _approved(tmp_path)
+    runner = SlowPlanRunner(gate)
+    _wire_runner(monkeypatch, gate, runner)
+    # Even an explicit override does not give execute_plan an outer timeout.
+    monkeypatch.setattr(mcp_server, "tool_timeouts", Timeouts(0.01, {"execute_plan": 0.01}))
+
+    async def scenario():
+        runner.release = asyncio.Event()
+        call = asyncio.ensure_future(mcp_server.call_tool("execute_plan", {"plan_id": pid}))
+        await asyncio.sleep(0.1)
+        assert not call.done(), "execute_plan is never stopped by a timeout"
+        runner.release.set()
+        return await call
+
+    reply = asyncio.run(scenario())
+    assert not isinstance(reply, CallToolResult)
+    assert "executed successfully" in reply[0].text
+    assert "nothing in the model changed" not in reply[0].text
+    assert runner.cancelled == []
+    assert _action(gate, pid)["state"] == "executed"
+    assert gate.load_plan(pid)["state"] == "executed"
+
+
+@pytest.mark.parametrize("name", ["plan_revert", "revit_run_job", "recipe_runner_run_recipe", "get_proof_bundle"])
+def test_orchestrator_not_provably_read_only_is_not_cancelled(tmp_path, monkeypatch, name):
+    # Their capability says is_mutating=False, as for the ApprovalProvider tools: still a write here.
+    gate = ApprovalGate(tmp_path, "ask_first")
+    runner = SlowPlanRunner(gate)
+    _wire_runner(monkeypatch, gate, runner)
+    monkeypatch.setattr(mcp_server, "tool_timeouts", Timeouts(0.05, {}))
+
+    async def scenario():
+        runner.release = asyncio.Event()
+        reply = await mcp_server.call_tool(name, {"plan_id": "x"})
+        runner.release.set()
+        await asyncio.sleep(0.02)
+        return reply
+
+    reply = asyncio.run(scenario())
+    assert not isinstance(reply, CallToolResult), "not reported as a failure"
+    text = reply[0].text
+    assert "may still be running in Revit" in text
+    assert "nothing in the model changed" not in text
+    assert runner.cancelled == []
+
+
+def test_tool_of_the_approval_provider_is_not_cancelled(tmp_path, monkeypatch):
+    # A tool the approval provider owns runs gated actions inside, whatever its name or capability.
+    gate = ApprovalGate(tmp_path, "ask_first")
+    runner = SlowPlanRunner(gate)
+    _wire_runner(monkeypatch, gate, runner)
+    runner.gate = gate
+    monkeypatch.setattr(mcp_server, "approval_provider", runner)
+    monkeypatch.setattr(mcp_server, "tool_timeouts", Timeouts(0.05, {}))
+
+    async def scenario():
+        runner.release = asyncio.Event()
+        reply = await mcp_server.call_tool("approval_orchestrate", {})
+        runner.release.set()
+        await asyncio.sleep(0.02)
+        return reply
+
+    reply = asyncio.run(scenario())
+    assert "may still be running in Revit" in reply[0].text
+    assert runner.cancelled == []
+
+
+def test_execute_python_in_read_mode_is_not_cancelled(tmp_path, monkeypatch):
+    # A mutating tool is not provably read-only on its capability alone: fail closed.
+    gate = ApprovalGate(tmp_path, "auto")
+    runner = SlowPlanRunner(gate)
+    _wire_runner(monkeypatch, gate, runner, mutating=frozenset({"revit_execute_python"}))
+    monkeypatch.setattr(mcp_server, "tool_timeouts", Timeouts(0.05, {}))
+
+    async def scenario():
+        runner.release = asyncio.Event()
+        reply = await mcp_server.call_tool("revit_execute_python", {"script": "x", "mode": "read"})
+        runner.release.set()
+        await asyncio.sleep(0.02)
+        return reply
+
+    reply = asyncio.run(scenario())
+    assert "may still be running in Revit" in reply[0].text
+    assert runner.cancelled == []
+
+
+def test_timed_out_get_result_still_books_the_in_flight_action(tmp_path, monkeypatch):
+    gate, pid = _approved(tmp_path)
+    claim = gate.claim_action(SET, {**_args(), "plan_id": pid})
+    gate.mark_in_flight(claim, RID, SET)
+    runner = SlowPlanRunner(gate)
+    _wire_runner(monkeypatch, gate, runner)
+    monkeypatch.setattr(mcp_server, "tool_timeouts", Timeouts(0.05, {}))
+
+    async def scenario():
+        runner.release = asyncio.Event()
+        reply = await mcp_server.call_tool("revit_get_result", {"request_id": RID})
+        assert _action(gate, pid)["state"] == "running"
+        runner.release.set()
+        for _ in range(10):
+            await asyncio.sleep(0.01)
+        return reply
+
+    reply = asyncio.run(scenario())
+    assert "may still be running in Revit" in reply[0].text
+    assert runner.cancelled == []
+    assert gate.in_flight(RID) is None
+    assert _action(gate, pid)["state"] == "executed"
+
+
 # -- panel hub routes --------------------------------------------------------------------
 
 @pytest.fixture

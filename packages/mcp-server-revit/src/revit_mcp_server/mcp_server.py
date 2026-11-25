@@ -36,7 +36,7 @@ from .security.module_execution import authorized_module_execution
 from .output_schemas import fallback_structured, output_schema_for, structured_for
 from .tool_metadata import is_read_only_tool
 from .read_cursor import Context as CursorContext, CursorError, binding as cursor_binding
-from .result_presentation import next_page, result_json, split_response_options
+from .result_presentation import APPROVAL_TOOLS, next_page, result_json, split_response_options
 from .tool_profiles import ToolProfileBlocked, load_tool_profile
 
 logger = logging.getLogger(__name__)
@@ -367,8 +367,12 @@ async def _execute_and_present(name, provider, arguments, claim, gate, response_
     """Run the tool, book the approval outcome and format the reply (direct calls and tasks)."""
     cursor_ctx = _cursor_context(name, arguments, response_options) if read_only else None
     # Direct calls have a timeout; a task follows the real outcome and has none.
-    timeout = None if follow_job else _timeouts().for_tool(name)
-    writes = claim is not None or (timeout is not None and _call_writes(name, arguments))
+    # execute_plan runs approved actions itself and books each one; it has no outer timeout.
+    timeout = None if follow_job or name in call_limits.NO_TIMEOUT_TOOLS else _timeouts().for_tool(name)
+    # Only a provably read-only call may be cancelled on timeout. Anything else (a claimed action,
+    # a mutating tool, an orchestration tool whose capability says is_mutating=False but runs gated
+    # actions inside, or a call whose classification fails) keeps running: fail closed.
+    writes = timeout is not None and not _provably_read_only(name, arguments, claim, read_only)
 
     async def run() -> Any:
         # The authorization scope lives as long as the provider call, also when a timed-out
@@ -479,10 +483,16 @@ def _timed_out(name, arguments, claim, gate, timed_out: call_limits.ToolTimedOut
         if task.cancelled():
             return  # outcome unknown: the action stays running for a person to recover
         error = task.exception()
-        settle_late_result(gate, key, name, result=None if error else task.result(), error=error)
+        result = None if error else task.result()
+        if key is not None:
+            settle_late_result(gate, key, name, result=result, error=error)
+        else:
+            # No claim of its own (revit_get_result, revit_job_status, an orchestrator): book
+            # the outcome it carries for an in-flight action, as a call that finished in time does.
+            settle_in_flight(gate, name, arguments, result=result, error=error)
 
+    timed_out.task.add_done_callback(finished)
     if key is not None:
-        timed_out.task.add_done_callback(finished)
         kept = (
             f" The approved action stays used and cannot be run again. It is recorded as running under {key}; "
             "if the call finishes while this server runs, the action is closed with its real result. If it never "
@@ -504,6 +514,26 @@ async def _fetch_revit_result(request_id: str) -> Any:
     if provider is None:
         raise BridgeError(f"{GET_RESULT_TOOL} is not available to follow request {request_id}.")
     return await provider.execute_tool(GET_RESULT_TOOL, {"request_id": request_id})
+
+
+def _provably_read_only(name: str, arguments: Any, claim: Any, read_only: bool) -> bool:
+    """True only when a timed-out call may be cancelled: it cannot change the model.
+
+    False for a claimed action, an approval or plan tool (execute_plan, plan_revert, revit_run_job,
+    revit_get_result: they run or book gated actions although some say is_mutating=False), any
+    other ApprovalProvider tool, a mutating tool (also revit_execute_python in read mode), and
+    when the check itself fails. Fails closed."""
+    if claim is not None or not read_only or name in APPROVAL_TOOLS:
+        return False
+    try:
+        provider = registry.lookup_tool_provider(name)
+        if approval_provider is not None and provider is approval_provider:
+            return False
+        if not is_read_only_tool(name, registry.lookup_tool(name)):
+            return False
+        return not _call_writes(name, arguments)
+    except Exception:
+        return False
 
 
 def _call_writes(name: str, arguments: Any) -> bool:
