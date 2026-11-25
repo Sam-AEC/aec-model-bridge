@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Proxy approval check reads annotation hints under both camelCase and snake_case (and from dicts), so an SDK 2.x upgrade cannot let a destructive `get_*` proxied tool skip the gate (ADR 0023).
 - Learned tool profile (#273): the server counts calls per tool name in `<workspace>/usage/tool-usage.json` (names, calls per day and last-used day only; atomic, rate-limited writes; off by default, `MCP_REVIT_USAGE_COUNTS=on` turns it on; nothing leaves the machine). `MCP_REVIT_TOOL_PROFILE=learned` lists `core`, the always-loaded tools and the `MCP_REVIT_LEARNED_TOP_N` (default 25) most used tools of the last 30 days, and falls back to `daily` below 50 calls. `context_report` shows the top tools and suggests `learned`; `search_tools` breaks score ties by usage; `aec-model-bridge-usage show|reset` reads or deletes the counts. See `docs/learned-profile.md`.
 - New read-only tool `revit_perf_report`: per-command timings from the add-in's `/health` (`count`, `p50_ms`, `p95_ms`, `max_ms`, `avg_bytes`) as a table sorted by p95, plus `queue_depth`. An add-in without `timings` is reported as older; mock mode returns sample numbers marked `mock: true`. Revit area: 111 tools.
 - Faster cold start in mock mode: spawn to `tools/list` reply 825 ms to 575 ms. `openpyxl`/`numpy` and `yaml` load on first use, the Speckle and Autodesk Data providers build their HTTP clients on first request, and the module registry reads the package version once. Numbers in `docs/performance.md`.
