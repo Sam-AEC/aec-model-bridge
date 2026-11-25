@@ -9,7 +9,7 @@ AEC Model Bridge is software that runs on your own computer. This page says what
 - The project runs no servers and collects no data about you. It has no telemetry, no analytics and no crash reporting.
 - Your Revit model is read by software on your computer. Whatever the assistant reads from your model is sent to the AI provider you connected, because that is how the assistant can answer. That provider's privacy policy applies to it.
 - Logs, plans and proof files stay in folders on your computer. You can delete them.
-- The server counts how often each tool is called, in a small file in your workspace, to build the optional `learned` tool profile. The file holds tool names, counts and dates only. It never leaves your computer. `MCP_REVIT_USAGE_COUNTS=off` turns it off.
+- If you turn it on (`MCP_REVIT_USAGE_COUNTS=on`), the server counts how often each tool is called, in a small file in your workspace, to build the optional `learned` tool profile. The file holds tool names, counts and dates only. It never leaves your computer. `MCP_REVIT_USAGE_COUNTS=off` turns it off.
 
 ## What runs on your computer
 

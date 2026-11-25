@@ -41,12 +41,12 @@ KEEP_DAYS = 90  # per-day counts older than this are dropped on write
 MAX_TOOLS = 2000  # a file never grows past this many tool names
 # Tool names only: letters, digits, underscore, dot, hyphen. Anything else is not counted.
 TOOL_NAME_RE = re.compile(r"[A-Za-z0-9_.-]{1,128}")
-_OFF = {"0", "off", "false", "no", "disabled"}
-_ON = {"", "1", "on", "true", "yes", "enabled"}
+_OFF = {"", "0", "off", "false", "no", "disabled"}
+_ON = {"1", "on", "true", "yes", "enabled"}
 
 
 def counts_enabled(environ: Optional[Mapping[str, str]] = None) -> bool:
-    """True unless MCP_REVIT_USAGE_COUNTS is off. An unknown value is refused."""
+    """True only when MCP_REVIT_USAGE_COUNTS is on (off by default, #273). An unknown value is refused."""
     env = os.environ if environ is None else environ
     value = env.get(ENV_VAR, "").strip().lower()
     if value in _OFF:

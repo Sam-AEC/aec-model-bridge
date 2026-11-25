@@ -11,7 +11,7 @@ The `learned` tool profile lists the tools one person actually uses. It is built
 - Writes are atomic: a temp file next to it, then one replace. A failed write leaves the old file unchanged and never fails a tool call.
 - Writes are rate limited: counts are kept in memory and merged into the file at most once a minute and when the server stops. Each write re-reads the file and adds to it, so two servers on one workspace keep both counts.
 - Day counts older than 90 days are dropped on write.
-- Turn counting off with `MCP_REVIT_USAGE_COUNTS=off` (also `0`, `false`, `no`). No file is written then. Any value other than on or off stops the server at startup.
+- Counting is off by default. Turn it on with `MCP_REVIT_USAGE_COUNTS=on` (also `1`, `true`, `yes`); `off`, `0`, `false` or `no` keep it off and no file is written. Any other value stops the server at startup.
 
 Code: `packages/mcp-server-revit/src/revit_mcp_server/usage_counts.py`.
 

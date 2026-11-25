@@ -151,8 +151,8 @@ def test_opt_out_writes_nothing(tmp_path, value):
     assert not (tmp_path / "usage").exists()
 
 
-def test_counting_is_on_by_default_and_unknown_values_are_refused():
-    assert usage_counts.counts_enabled({}) is True
+def test_counting_is_off_by_default_and_unknown_values_are_refused():
+    assert usage_counts.counts_enabled({}) is False
     assert usage_counts.counts_enabled({usage_counts.ENV_VAR: "on"}) is True
     with pytest.raises(ValueError, match="on or off"):
         usage_counts.counts_enabled({usage_counts.ENV_VAR: "maybe"})
@@ -211,7 +211,7 @@ def test_learned_reads_workspace_file_and_respects_opt_out(tmp_path):
     path = usage_file(tmp_path)
     path.parent.mkdir(parents=True)
     path.write_text(json.dumps(data(revit_list_walls=80)), encoding="utf-8")
-    env = {"MCP_REVIT_TOOL_PROFILE": "learned", "MCP_REVIT_WORKSPACE_DIR": str(tmp_path)}
+    env = {"MCP_REVIT_TOOL_PROFILE": "learned", "MCP_REVIT_WORKSPACE_DIR": str(tmp_path), usage_counts.ENV_VAR: "on"}
     assert load_tool_profile(env, today=TODAY).name == "learned"
     off = load_tool_profile({**env, usage_counts.ENV_VAR: "off"}, today=TODAY)
     assert off.name == "daily" and "usage counts are off" in off.detail
