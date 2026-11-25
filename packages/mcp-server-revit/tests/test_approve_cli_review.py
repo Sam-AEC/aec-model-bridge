@@ -43,7 +43,7 @@ def test_single_parameter_write_shows_old_and_new_value(gate, capsys):
     pid = gate.create_plan([_set(77, "FireRating", "60")], [{"77": {"FireRating": "30"}}])["plan_id"]
     out = _show(gate, pid, capsys=capsys)
     row = next(line for line in out.splitlines() if line.strip().startswith("77"))
-    assert "FireRating" in row and "30" in row and "-> 60" in row
+    assert "FireRating" in row and '"30"' in row and '-> "60"' in row
     full = plan_hash(gate.load_plan(pid))
     assert f"Plan hash: {full[:19]} (short" in out and f"Plan hash: {full}" in out
     assert "Approval mode: ask_first" in out
@@ -121,7 +121,7 @@ def test_very_long_strings_are_wrapped_and_cut_unless_all(gate):
     pid = gate.create_plan([_set(4, "Comments", text)], [{"4": {"Comments": "short"}}])["plan_id"]
     _, out = _review(gate, pid, width=80)
     assert all(display_width(ln) <= 80 for ln in out.splitlines())
-    assert f"(+{len(text) - approve_review.VALUE_MAX_CHARS} chars, use --all)" in out
+    assert f"(+{len(text) + 2 - approve_review.VALUE_MAX_CHARS} chars, use --all)" in out  # +2: the quotes
     assert "end-marker" not in out
     _, out_all = _review(gate, pid, width=80, show_all=True)
     assert all(display_width(ln) <= 80 for ln in out_all.splitlines())
@@ -137,7 +137,7 @@ def test_model_text_in_values_and_names_is_escaped(gate, capsys):
     out = _show(gate, pid, capsys=capsys)
     for raw in ("\x1b", "\r", "\x07", "‮"):
         assert raw not in out
-    assert "\\x1b[2K" in out and "\\x0d" in out
+    assert "\\x1b[2K" in out and "\\r\\u001b[1Afake line\\u202e" in out
 
 
 def test_show_never_changes_the_plan_or_the_store(gate, capsys):
@@ -229,7 +229,7 @@ def test_approve_still_needs_the_typed_plan_id(gate, monkeypatch, capsys):
     assert approve_cli.main(ws + ["approve", pid, "--all"]) == 2
     assert gate.load_plan(pid)["state"] == "pending"
     out = capsys.readouterr().out
-    assert "-> 60" in out and "Type the plan id" in out
+    assert '-> "60"' in out and "Type the plan id" in out
     _tty(monkeypatch, pid)
     assert approve_cli.main(ws + ["approve", pid]) == 0
     assert gate.load_plan(pid)["state"] == "approved"
@@ -351,3 +351,42 @@ def test_id_keys_not_in_the_element_column_are_other_arguments(gate):
     plain = gate.create_plan([_set(5, "Mark", "v")], [{}])["plan_id"]
     review, out = _review(gate, plain)
     assert review["actions"][0]["other_arguments"] == {} and "Other arguments" not in out
+
+
+# ---- string values are unambiguous -----------------------------------------------------------
+
+
+def test_spaces_in_text_values_are_kept_and_visible(gate):
+    one = gate.create_plan([_set(1, "Comments", "A B")], [{"1": {"Comments": "A B"}}])["plan_id"]
+    two = gate.create_plan([_set(1, "Comments", "A  B")], [{"1": {"Comments": "A B"}}])["plan_id"]
+    _, out_one = _review(gate, one)
+    _, out_two = _review(gate, two)
+    assert '-> "A B"' in out_one and '-> "A  B"' in out_two
+    row = lambda out: next(ln for ln in out.splitlines() if ln.strip().startswith("1 "))  # noqa: E731
+    assert row(out_one) != row(out_two)
+
+
+@pytest.mark.parametrize("value, shown", [
+    (" ", '" "'), ("   ", '"   "'), ("", '""'), (" lead", '" lead"'), ("trail ", '"trail "'),
+    ("a\tb", '"a\\tb"'), ("a\u00a0b", '"a\\u00a0b"'), ("a\u3000b", '"a\\u3000b"'), ("60", '"60"'),
+])
+def test_whitespace_only_and_odd_space_values_are_not_blank(value, shown):
+    assert approve_review.format_value(value) == shown
+    assert approve_review.format_value(60) == "60" and approve_review.format_value(None) == "(empty)"
+
+
+def test_wrapping_keeps_runs_of_spaces():
+    assert wrap_cell("A B", 1) == ["A", "B"]
+    assert wrap_cell("A  B", 1) == ["A", " ", " ", "B"]
+    assert wrap_cell("A  B", 3) == ["A", "  B"]
+    assert wrap_cell("aaa bbb  ccc", 7) == ["aaa bbb", "  ccc"]
+    assert wrap_cell("x  y", 10) == ["x  y"]
+    assert wrap_cell("   ", 10) == ["   "]
+
+
+def test_a_wrapped_value_with_double_spaces_is_not_shown_as_single_spaces(gate):
+    text = ("word  " * 40).strip()
+    pid = gate.create_plan([_set(2, "Comments", text)], [{}])["plan_id"]
+    _, out = _review(gate, pid, width=60)
+    assert all(display_width(ln) <= 60 for ln in out.splitlines())
+    assert "word  word" in out

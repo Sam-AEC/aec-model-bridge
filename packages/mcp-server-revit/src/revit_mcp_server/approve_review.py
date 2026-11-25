@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import unicodedata
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -338,6 +339,12 @@ def _char_width(ch: str) -> int:
     return 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
 
 
+_TOKENS = re.compile(r"\s+|\S+")
+# Characters a printed JSON string shows as \uXXXX: controls, format marks, surrogates,
+# private-use and unassigned code points, and every space or separator other than U+0020.
+_INVISIBLE = ("Cc", "Cf", "Zl", "Zp", "Zs", "Cs", "Co", "Cn")
+
+
 def display_width(text: str) -> int:
     return sum(_char_width(ch) for ch in text)
 
@@ -353,22 +360,42 @@ def _split_width(word: str, width: int) -> Tuple[str, str]:
 
 
 def wrap_cell(text: str, width: int) -> List[str]:
-    """Wrap one cell to ``width`` display columns (wide characters count as two)."""
+    """Wrap one cell to ``width`` display columns (wide characters count as two).
+
+    Whitespace is kept: a line breaks only at whitespace, a single space at a break is dropped,
+    and a longer run of whitespace starts the next line, so ``A B`` and ``A  B`` stay distinct."""
     width = max(1, width)
     lines: List[str] = []
     cur = ""
-    for word in text.split():
-        candidate = f"{cur} {word}" if cur else word
+    gap = ""
+    for token in _TOKENS.findall(text):
+        if token.isspace():
+            gap += token
+            continue
+        candidate = cur + gap + token
         if display_width(candidate) <= width:
-            cur = candidate
+            cur, gap = candidate, ""
             continue
         if cur:
             lines.append(cur)
-            cur = ""
-        while display_width(word) > width:
-            head, word = _split_width(word, width)
+            token = ("" if gap == " " else gap) + token
+        else:
+            token = gap + token
+        cur, gap = "", ""
+        while display_width(token) > width:
+            head, token = _split_width(token, width)
             lines.append(head)
-        cur = word
+        cur = token
+    if gap:
+        if display_width(cur + gap) <= width:
+            cur += gap
+        else:
+            if cur:
+                lines.append(cur)
+            cur = gap
+            while display_width(cur) > width:
+                head, cur = _split_width(cur, width)
+                lines.append(head)
     if cur or not lines:
         lines.append(cur)
     return lines
@@ -378,16 +405,28 @@ def _pad(text: str, width: int) -> str:
     return text + " " * max(0, width - display_width(text))
 
 
+def _json_text(value: Any) -> str:
+    """Compact JSON with every invisible or ambiguous character escaped as \\uXXXX."""
+    text = json.dumps(value, sort_keys=True, ensure_ascii=False, default=str, separators=(", ", ": "))
+    out = []
+    for ch in text:
+        if ch != " " and unicodedata.category(ch) in _INVISIBLE:
+            code = ord(ch)
+            if code > 0xFFFF:  # as a JSON surrogate pair
+                code -= 0x10000
+                out.append(f"\\u{0xD800 + (code >> 10):04x}\\u{0xDC00 + (code & 0x3FF):04x}")
+            else:
+                out.append(f"\\u{code:04x}")
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
 def format_value(value: Any, show_all: bool = False) -> str:
-    """One value as printable text: strings as given, numbers, booleans, lists and objects as
-    compact JSON. Cut to VALUE_MAX_CHARS unless ``show_all``."""
-    if value is None or value == "":
-        text = EMPTY
-    elif isinstance(value, str):
-        text = value
-    else:
-        text = json.dumps(value, sort_keys=True, ensure_ascii=False, default=str, separators=(", ", ": "))
-    text = safe_text(text)
+    """One value as printable text: a JSON string in double quotes for text (so spaces, empty
+    and whitespace-only text are unambiguous), compact JSON for numbers, booleans, lists and
+    objects, and "(empty)" for a missing value. Cut to VALUE_MAX_CHARS unless ``show_all``."""
+    text = EMPTY if value is None else _json_text(value)
     if not show_all and len(text) > VALUE_MAX_CHARS:
         text = text[:VALUE_MAX_CHARS] + f" ... (+{len(text) - VALUE_MAX_CHARS} chars, use --all)"
     return text
