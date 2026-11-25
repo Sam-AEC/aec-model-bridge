@@ -111,6 +111,7 @@ nav:
       - Record and replay: record-replay.md
       - MCP token budget: mcp-token-budget.md
       - Deferred tool loading: deferred-tool-loading.md
+      - Learned profile and usage counts: learned-profile.md
       - Performance: performance.md
       - Target frameworks and dependencies: target-frameworks-and-dependencies.md
   - Develop:

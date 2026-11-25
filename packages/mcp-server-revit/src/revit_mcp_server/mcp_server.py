@@ -145,6 +145,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
         return _tool_error("tool_profile_blocked", str(exc))
     if not provider:
         return _tool_error("unknown_tool", f"Error: Unknown tool '{name}'")
+    _count_call(name)
 
     try:
         read_only = is_read_only_tool(name, registry.lookup_tool(name))
@@ -302,6 +303,17 @@ def _json_object(text: str) -> Any:
         return None
 
 
+def _count_call(name: str) -> None:
+    """Count one call of a listed tool by name only (usage_counts.py). Never fails the call."""
+    counter = getattr(registry, "usage_counter", None)
+    if counter is None:
+        return
+    try:
+        counter.record(name)
+    except Exception as exc:
+        logger.debug("Tool usage count skipped: %s", exc)
+
+
 def redact_data(value):
     """Secrets and paths always; personal data when MCP_REVIT_REDACT_RESPONSES is set."""
     return redact_response(_redact_secrets(value))
@@ -324,8 +336,14 @@ async def main():
     """Run the MCP server."""
     global registry, approval_provider, job_manager, workspace_monitor
     profile = load_tool_profile()  # fail invalid settings before provider construction
+    if profile.detail:
+        logger.info(profile.detail)
+    from .config import config
+    from .usage_counts import start_counter
+    counter = start_counter(config.workspace_dir)  # local file only; MCP_REVIT_USAGE_COUNTS=off disables
     registry, approval_provider, job_manager, _module_registry, workspace_monitor = build_registry()
     try:
+        registry.usage_counter = counter
         registry.freeze_tool_profile(profile)
         async with stdio_server() as (read_stream, write_stream):
             await app.run(
@@ -334,6 +352,7 @@ async def main():
                 app.create_initialization_options()
             )
     finally:
+        counter.flush()
         await job_manager.shutdown(cancel_running=True)
 
 def run_mcp_server():
