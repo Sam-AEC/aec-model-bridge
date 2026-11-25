@@ -62,6 +62,8 @@ KNOWN_UNMAPPED_MUTATING = {
     ("revit", "revit.create_cable_tray"),
     ("revit", "revit.create_revision_cloud"),
     ("revit", "revit.create_text_type"),
+    # Not a tool: execute_plan sends it for an approved plan of batchable actions (#294).
+    ("revit", "revit.execute_plan_batch"),
 }
 
 # Rhino has no attribute catalog: commands are ``case "name":`` labels in one switch,

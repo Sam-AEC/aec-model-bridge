@@ -250,7 +250,9 @@ In plain words:
   `aec-model-bridge-approve` command.
 - **Nothing applies on its own.** A change runs only if it matches an approved
   action of an approved plan, once.
-- **Undo is per action.** Revit's Ctrl+Z undoes one action per press.
+- **Undo.** A plan of parameter writes, moves and rotations is one Ctrl+Z step
+  when the add-in supports plan batches (UNVERIFIED in live Revit). Other plans
+  undo one action per press.
 
 The hub stops any tool call that changes the model unless it carries an
 approved plan. The AI proposes a plan, you review it, and the add-in runs it on
@@ -283,9 +285,13 @@ cover them.
 
 <sub>Diagram source: [approval-flow.mmd](docs/diagrams/approval-flow.mmd). Regenerate the images with `python scripts/render_diagrams.py`.</sub>
 
-If a plan turns out wrong, undo it with Revit's Ctrl+Z. Each parameter write is
-its own named transaction, so one plan can take several presses. A one-step undo
-for a whole plan is planned, not built. A second route is a revert plan: the
+If a plan turns out wrong, undo it with Revit's Ctrl+Z. When every action of a
+plan is a parameter write, move or rotation and the add-in lists
+`revit.execute_plan_batch`, the plan runs in one Revit transaction group named
+"AEC Model Bridge: <plan title> (<short id>)", so one press undoes the whole plan.
+If one action fails, the whole group is rolled back. This is UNVERIFIED in a live
+Revit session. Other plans run one named transaction per action, so they can take
+several presses. A second route is a revert plan: the
 assistant drafts one with `plan_revert` from the proof of an executed plan, and
 you approve it like any other plan. `rollback_plan` also writes the recorded
 before-values back in reverse order and can skip an action when no before-value
