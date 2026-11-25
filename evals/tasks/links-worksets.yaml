@@ -1,0 +1,10 @@
+id: links-worksets
+prompt: Are all the links loaded and on the right worksets?
+kind: read
+profile: core
+expected_tools:
+- [links_worksets_audit_audit]
+max_calls: 2
+plan_required: false
+forbidden_tools: [revit_execute_python, revit_raw_command]
+checker: {type: none, reason: Mock data has no links or worksets.}

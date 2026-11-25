@@ -118,6 +118,15 @@ def human_approve(gate, plan_id, via="cli", approver=None):
                                   expected_hash=plan_hash(gate.load_plan(plan_id)))
 
 
+def resign_approval(gate, plan):
+    """Re-sign a plan's approval record in place after a test edits a signed field such as
+    ``approved_at`` (simulates a genuine approval made at that time). Caller saves the plan."""
+    from revit_mcp_server.security import approval_signing
+
+    approval_signing.sign_plan(gate.plans_dir, plan)
+    return plan
+
+
 async def panel_decide(approval, tool, plan_id, **extra):
     """Run approve_plan / reject_plan / rollback_plan through the panel's human route."""
     args = {"plan_id": plan_id, **extra}

@@ -57,7 +57,7 @@ The validator itself is `revit_mcp_server/bridge/contract_validate.py`.
 - the generated files are current;
 - the contract lists exactly the commands registered with `[BridgeCommand]` in the add-in, with the same `IsMutating` flags;
 - every command the Revit provider sends is in the contract;
-- each provider payload builder fits the contract, except the tools listed in `KNOWN_BUILDER_MISMATCH_*`.
+- each provider payload builder fits the contract, with all arguments and with only the required ones. The `KNOWN_BUILDER_MISMATCH_*` lists are empty and must stay empty.
 
 ## Adding or changing an add-in command
 

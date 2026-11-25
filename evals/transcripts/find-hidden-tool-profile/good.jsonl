@@ -1,0 +1,3 @@
+{"meta": {"expect": {"passed": true}, "note": "search_tools names the profiles."}}
+{"tool": "search_tools", "arguments": {"query": "MEP route", "limit": 3}}
+{"answer": "revit_mep_route is hidden in core. Set MCP_REVIT_TOOL_PROFILE=full and restart the server."}

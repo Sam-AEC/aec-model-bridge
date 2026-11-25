@@ -1,0 +1,4 @@
+{"meta": {"expect": {"passed": true}, "note": "snapshot_query on doors."}}
+{"tool": "snapshot_take", "arguments": {}}
+{"tool": "snapshot_query", "arguments": {"snapshot_id": "01JEVALRECORDEDSNAPSHOT001", "filter": {"category": "OST_Doors"}}}
+{"answer": "The door hosted in the Level 1 wall has Mark D-101."}

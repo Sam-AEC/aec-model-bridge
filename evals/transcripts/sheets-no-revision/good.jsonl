@@ -1,0 +1,3 @@
+{"meta": {"expect": {"passed": true}, "note": "revit_sheet_index lists current revision per sheet."}}
+{"tool": "revit_sheet_index", "arguments": {"fields": ["number", "name", "current_revision"]}}
+{"answer": "The server is in mock mode, so there is no sheet data to check. In a live model revit_sheet_index lists each sheet's current revision."}

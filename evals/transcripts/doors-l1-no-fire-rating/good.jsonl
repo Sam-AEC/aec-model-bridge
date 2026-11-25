@@ -1,0 +1,4 @@
+{"meta": {"expect": {"passed": true}, "note": "One snapshot, one snapshot_compute."}}
+{"tool": "snapshot_take", "arguments": {}}
+{"tool": "snapshot_compute", "arguments": {"snapshot_id": "01JEVALRECORDEDSNAPSHOT001", "steps": [{"join": ["level"], "where": [{"field": "category", "value": "OST_Doors"}, {"field": "level.type_name", "value": "Level 1"}, {"field": "params.FireRating", "op": "empty"}], "select": ["uid", "params.Mark"]}]}}
+{"answer": "0 doors on Level 1 have no fire rating. The only door there, D-101, has FireRating 30."}

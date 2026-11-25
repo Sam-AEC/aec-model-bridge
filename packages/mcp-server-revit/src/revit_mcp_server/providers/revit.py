@@ -17,13 +17,14 @@ from ..bridge.routing import RoutedBridgeCache
 from ..bridge.mock import MockBridge
 from ..check_contract import PageSpec, paginate
 from ..config import BridgeMode, config
+from ..elicitation import missing_export_path
 from ..errors import BridgeError, CommandFailed, WorkspaceViolation
 from ..legacy.tools import TOOL_HANDLERS
 from ..security.read_mode import execute_python_payload, is_read_mode_call
 from ..security.workspace import WorkspaceMonitor
 from .base import AECProvider, ProviderTool, enrich_mutation_metadata
 from .element_inspection import INSPECTION_SCHEMA, inspect_elements, validate_inspection
-from . import revit_context, revit_perf
+from . import revit_context, revit_payloads, revit_perf
 
 logger = logging.getLogger(__name__)
 
@@ -447,6 +448,11 @@ class RevitProvider(AECProvider):
                 raise ValueError("revit_get_result needs a live Revit connection; it is not available in mock mode.")
             return await asyncio.to_thread(revit_context.get_result, self._active_bridge(), arguments)
 
+        # An export without its output file is refused here too (other paths than MCP call this).
+        need = missing_export_path(name, arguments, None)
+        if need is not None:
+            raise need
+
         # Check path parameters for workspace compliance
         self._assert_paths_in_workspace(arguments)
 
@@ -597,7 +603,7 @@ class RevitProvider(AECProvider):
         return results
 
     def _assert_paths_in_workspace(self, arguments: Dict[str, Any]) -> None:
-        path_keys = ["path", "csv_path", "output_path", "file_path", "template_path"]
+        path_keys = ["path", "csv_path", "output_path", "output_directory", "file_path", "template_path"]
         for key in path_keys:
             if key in arguments and isinstance(arguments[key], str):
                 try:
@@ -610,23 +616,13 @@ class RevitProvider(AECProvider):
                         f"{exc}. Dev mode does not change this. Use a path inside the workspace folder: {folders}"
                     ) from exc
 
-    @staticmethod
-    def _placement_location(args: Dict[str, Any]) -> Dict[str, Any]:
-        location = args.get("location")
-        if location is not None:
-            if not isinstance(location, dict):
-                raise ValueError("location must be an object with x, y, and optional z coordinates")
-            return {
-                "x": location.get("x"),
-                "y": location.get("y"),
-                "z": location.get("z", 0),
-            }
-
-        return {
-            "x": args.get("x"),
-            "y": args.get("y"),
-            "z": args.get("z", 0),
-        }
+    def _sheets_from_csv_payload(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """The add-in reads a sheets list, not a file: read the CSV here, after the workspace check."""
+        csv_path = args.get("csv_path")
+        if not isinstance(csv_path, str) or not csv_path:
+            raise ValueError("revit_batch_create_sheets_from_csv needs csv_path, a CSV file inside the workspace.")
+        resolved = self.workspace.assert_in_workspace(Path(csv_path))
+        return revit_payloads.sheets_from_csv(resolved, args.get("titleblock_name"))
 
     def _init_tool_mapping(self):
         self._tool_mapping = {
@@ -709,33 +705,10 @@ class RevitProvider(AECProvider):
                     "location": {"x": args.get("x"), "y": args.get("y"), "z": args.get("z", 0)},
                 },
             ),
-            "revit_place_door": (
-                "revit.place_door",
-                lambda args: {
-                    "wall_id": args.get("wall_id"),
-                    "family_name": args.get("family_name"),
-                    "type_name": args.get("type_name"),
-                    "location": self._placement_location(args),
-                    "hand_flipped": args.get("hand_flipped"),
-                    "facing_flipped": args.get("facing_flipped"),
-                },
-            ),
-            "revit_place_window": (
-                "revit.place_window",
-                lambda args: {
-                    "wall_id": args.get("wall_id"),
-                    "family_name": args.get("family_name"),
-                    "type_name": args.get("type_name"),
-                    "location": self._placement_location(args),
-                    "hand_flipped": args.get("hand_flipped"),
-                    "facing_flipped": args.get("facing_flipped"),
-                },
-            ),
+            "revit_place_door": ("revit.place_door", revit_payloads.hosted_opening("revit_place_door")),
+            "revit_place_window": ("revit.place_window", revit_payloads.hosted_opening("revit_place_window")),
             "revit_list_families": ("revit.list_families", lambda args: {}),
-            "revit_create_floor_plan_view": (
-                "revit.create_floor_plan_view",
-                lambda args: {"level_name": args.get("level_name"), "view_name": args.get("view_name")},
-            ),
+            "revit_create_floor_plan_view": ("revit.create_floor_plan_view", revit_payloads.floor_plan_view),
             "revit_create_3d_view": ("revit.create_3d_view", lambda args: {"view_name": args.get("view_name")}),
             "revit_create_section_view": (
                 "revit.create_section_view",
@@ -763,55 +736,17 @@ class RevitProvider(AECProvider):
                 lambda args: {"element_id": args.get("element_id"), "parameter_name": args.get("parameter_name")},
             ),
             "revit_list_shared_parameters": ("revit.list_shared_parameters", lambda args: {}),
-            "revit_create_shared_parameter": (
-                "revit.create_shared_parameter",
-                lambda args: {
-                    "name": args.get("name"),
-                    "group": args.get("group", "General"),
-                    "type": args.get("type", "Text"),
-                    "visible": args.get("visible", True),
-                },
-            ),
+            "revit_create_shared_parameter": ("revit.create_shared_parameter", revit_payloads.shared_parameter),
             "revit_list_project_parameters": ("revit.list_project_parameters", lambda args: {}),
-            "revit_create_project_parameter": (
-                "revit.create_project_parameter",
-                lambda args: {
-                    "name": args.get("name"),
-                    "group": args.get("group", "General"),
-                    "type": args.get("type", "Text"),
-                    "category": args.get("category"),
-                    "visible": args.get("visible", True),
-                },
-            ),
-            "revit_batch_set_parameters": (
-                "revit.batch_set_parameters",
-                lambda args: {
-                    "element_ids": args.get("element_ids"),
-                    "parameter_name": args.get("parameter_name"),
-                    "value": args.get("value"),
-                },
-            ),
+            "revit_create_project_parameter": ("revit.create_project_parameter", revit_payloads.project_parameter),
+            "revit_batch_set_parameters": ("revit.batch_set_parameters", revit_payloads.batch_set_parameters),
             "revit_get_type_parameters": (
                 "revit.get_type_parameters",
                 lambda args: {"element_id": args.get("element_id")},
             ),
-            "revit_set_type_parameter": (
-                "revit.set_type_parameter",
-                lambda args: {
-                    "element_id": args.get("element_id"),
-                    "parameter_name": args.get("parameter_name"),
-                    "value": args.get("value"),
-                },
-            ),
+            "revit_set_type_parameter": ("revit.set_type_parameter", revit_payloads.set_type_parameter),
             "revit_list_sheets": ("revit.list_sheets", lambda args: {}),
-            "revit_create_sheet": (
-                "revit.create_sheet",
-                lambda args: {
-                    "name": args.get("name"),
-                    "number": args.get("number"),
-                    "titleblock_id": args.get("titleblock_id"),
-                },
-            ),
+            "revit_create_sheet": ("revit.create_sheet", revit_payloads.create_sheet),
             "revit_delete_sheet": ("revit.delete_sheet", lambda args: {"sheet_id": args.get("sheet_id")}),
             "revit_place_viewport_on_sheet": (
                 "revit.place_viewport_on_sheet",
@@ -821,28 +756,15 @@ class RevitProvider(AECProvider):
                     "location": {"x": args.get("x"), "y": args.get("y"), "z": 0},
                 },
             ),
-            "revit_batch_create_sheets_from_csv": (
-                "revit.batch_create_sheets_from_csv",
-                lambda args: {"csv_path": args.get("csv_path"), "titleblock_name": args.get("titleblock_name")},
-            ),
+            "revit_batch_create_sheets_from_csv": ("revit.batch_create_sheets_from_csv", self._sheets_from_csv_payload),
             "revit_populate_titleblock": (
                 "revit.populate_titleblock",
                 lambda args: {"sheet_id": args.get("sheet_id"), "parameters": args.get("parameters")},
             ),
             "revit_list_titleblocks": ("revit.list_titleblocks", lambda args: {}),
             "revit_get_sheet_info": ("revit.get_sheet_info", lambda args: {"sheet_id": args.get("sheet_id")}),
-            "revit_duplicate_sheet": (
-                "revit.duplicate_sheet",
-                lambda args: {
-                    "sheet_id": args.get("sheet_id"),
-                    "with_views": args.get("with_views", False),
-                    "duplicate_option": args.get("duplicate_option", "Duplicate"),
-                },
-            ),
-            "revit_renumber_sheets": (
-                "revit.renumber_sheets",
-                lambda args: {"prefix": args.get("prefix"), "start_number": args.get("start_number")},
-            ),
+            "revit_duplicate_sheet": ("revit.duplicate_sheet", revit_payloads.duplicate_sheet),
+            "revit_renumber_sheets": ("revit.renumber_sheets", revit_payloads.renumber_sheets),
             "revit_get_selection": ("revit.get_selection", lambda args: {}),
             "revit_set_selection": ("revit.set_selection", lambda args: {"element_ids": args.get("element_ids")}),
             "revit_select_by_unique_ids": (
@@ -858,22 +780,8 @@ class RevitProvider(AECProvider):
                 },
             ),
             "revit_clear_preview": ("revit.clear_preview", lambda args: {}),
-            "revit_create_text_note": (
-                "revit.create_text_note",
-                lambda args: {
-                    "text": args.get("text"),
-                    "location": {"x": args.get("x"), "y": args.get("y"), "z": 0},
-                    "view_id": args.get("view_id"),
-                },
-            ),
-            "revit_create_tag": (
-                "revit.create_tag",
-                lambda args: {
-                    "element_id": args.get("element_id"),
-                    "location": {"x": args.get("x"), "y": args.get("y"), "z": 0},
-                    "view_id": args.get("view_id"),
-                },
-            ),
+            "revit_create_text_note": ("revit.create_text_note", revit_payloads.text_note),
+            "revit_create_tag": ("revit.create_tag", revit_payloads.tag),
             "revit_create_column": (
                 "revit.create_column",
                 lambda args: {
@@ -935,10 +843,7 @@ class RevitProvider(AECProvider):
                 "revit.create_new_document",
                 lambda args: {"template_path": args.get("template_path")},
             ),
-            "revit_export_dwg": (
-                "revit.export_dwg_by_view",
-                lambda args: {"view_id": args.get("view_id"), "output_path": args.get("output_path")},
-            ),
+            "revit_export_dwg": ("revit.export_dwg_by_view", revit_payloads.export_dwg),
             "revit_export_ifc": (
                 "revit.export_ifc_with_settings",
                 lambda args: {"output_path": args.get("output_path")},
@@ -1066,26 +971,12 @@ class RevitProvider(AECProvider):
                     "smoothness": args.get("smoothness", 50),
                 },
             ),
-            "revit_set_element_material": (
-                "revit.set_element_material",
-                lambda args: {
-                    "element_id": args.get("element_id"),
-                    "material_name": args.get("material_name"),
-                    "face_index": args.get("face_index"),
-                },
-            ),
+            "revit_set_element_material": ("revit.set_element_material", revit_payloads.element_material),
             "revit_convert_to_group": (
                 "revit.convert_to_group",
                 lambda args: {"element_ids": args.get("element_ids"), "name": args.get("name")},
             ),
-            "revit_edit_family": (
-                "revit.edit_family",
-                lambda args: {
-                    "family_name": args.get("family_name"),
-                    "family_symbol_id": args.get("family_symbol_id"),
-                    "family_instance_id": args.get("family_instance_id"),
-                },
-            ),
+            "revit_edit_family": ("revit.edit_family", revit_payloads.edit_family),
             "revit_create_dimension": (
                 "revit.create_dimension",
                 lambda args: {
@@ -1562,7 +1453,11 @@ class RevitProvider(AECProvider):
                     "name": {"type": "string"},
                     "group": {"type": "string"},
                     "type": {"type": "string"},
-                    "visible": {"type": "boolean"},
+                    "categories": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Category names to bind the parameter to. Omit for none.",
+                    },
                 },
                 "required": ["name"],
             },
@@ -1579,11 +1474,15 @@ class RevitProvider(AECProvider):
                 "type": "object",
                 "properties": {
                     "name": {"type": "string"},
-                    "category": {"type": "string"},
+                    "category": {"type": "string", "description": "Revit category name. The add-in does not read it yet."},
                     "group": {"type": "string"},
                     "type": {"type": "string"},
+                    "is_instance": {
+                        "type": "boolean",
+                        "description": "true for an instance parameter, false for a type parameter. Default true.",
+                    },
                 },
-                "required": ["name", "category"],
+                "required": ["name"],
             },
         ),
         ProviderTool(
@@ -1614,11 +1513,19 @@ class RevitProvider(AECProvider):
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "element_id": {"type": "integer"},
+                    "type_id": {
+                        "type": "integer",
+                        "description": "ElementId of the type itself. revit_get_type_parameters returns it as type_id.",
+                    },
+                    "element_id": {
+                        "type": "integer",
+                        "description": "Older name for type_id. It must be the type's id; an instance id is refused.",
+                    },
                     "parameter_name": {"type": "string"},
                     "value": {"type": ["string", "number"]},
                 },
-                "required": ["element_id", "parameter_name", "value"],
+                "required": ["parameter_name", "value"],
+                "oneOf": [{"required": ["type_id"]}, {"required": ["element_id"]}],
             },
         ),
         ProviderTool(
@@ -1632,7 +1539,10 @@ class RevitProvider(AECProvider):
                 "properties": {
                     "name": {"type": "string"},
                     "number": {"type": "string"},
-                    "titleblock_id": {"type": "integer"},
+                    "titleblock_name": {
+                        "type": "string",
+                        "description": "Title block family name. Omit for a placeholder sheet.",
+                    },
                 },
                 "required": ["name", "number"],
             },
@@ -1691,19 +1601,37 @@ class RevitProvider(AECProvider):
                 "type": "object",
                 "properties": {
                     "sheet_id": {"type": "integer"},
-                    "with_views": {"type": "boolean"},
-                    "duplicate_option": {"type": "string"},
+                    "new_sheet_number": {"type": "string", "description": "Number for the new sheet."},
+                    "new_sheet_name": {"type": "string", "description": "Name for the new sheet."},
+                    "with_views": {"type": "boolean", "description": "Also copy the viewports. Default false."},
                 },
-                "required": ["sheet_id"],
+                "required": ["sheet_id", "new_sheet_number", "new_sheet_name"],
             },
         ),
         ProviderTool(
             name="revit_renumber_sheets",
-            description="Batch renumber sheets",
+            description="Renumber the listed sheets in one transaction",
             inputSchema={
                 "type": "object",
-                "properties": {"prefix": {"type": "string"}, "start_number": {"type": "integer"}},
-                "required": ["start_number"],
+                "properties": {
+                    "sheet_ids": {
+                        "type": "array",
+                        "items": {"type": "integer"},
+                        "description": "Sheets to renumber, in the new order. Numbered prefix + start_number upward.",
+                    },
+                    "start_number": {"type": "integer", "description": "Number for the first sheet in sheet_ids."},
+                    "prefix": {"type": "string", "description": "Text before each number, for example 'A-'."},
+                    "sheets": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {"sheet_id": {"type": "integer"}, "new_sheet_number": {"type": "string"}},
+                            "required": ["sheet_id", "new_sheet_number"],
+                        },
+                        "description": "Explicit numbers instead of sheet_ids: [{sheet_id, new_sheet_number}].",
+                    },
+                },
+                "oneOf": [{"required": ["sheet_ids", "start_number"]}, {"required": ["sheets"]}],
             },
         ),
         ProviderTool(
@@ -1892,11 +1820,27 @@ class RevitProvider(AECProvider):
         ),
         ProviderTool(
             name="revit_export_dwg",
-            description="Export view to DWG",
+            description="Export one view to DWG files in a workspace folder",
             inputSchema={
                 "type": "object",
-                "properties": {"view_id": {"type": "integer"}, "output_path": {"type": "string"}},
-                "required": ["view_id", "output_path"],
+                "properties": {
+                    "view_id": {"type": "integer"},
+                    "output_directory": {
+                        "type": "string",
+                        "description": "Folder inside the workspace. The add-in names the file after the view.",
+                    },
+                    "output_path": {
+                        "type": "string",
+                        "description": "Older name for output_directory. A file name such as A101.dwg is refused.",
+                    },
+                    "dwg_version": {
+                        "type": "string",
+                        "enum": ["AutoCAD2018", "AutoCAD2013", "AutoCAD2010"],
+                        "description": "DWG file version. Omit for AutoCAD2018.",
+                    },
+                },
+                "required": ["view_id"],
+                "oneOf": [{"required": ["output_directory"]}, {"required": ["output_path"]}],
             },
         ),
         ProviderTool(
@@ -1905,7 +1849,7 @@ class RevitProvider(AECProvider):
             inputSchema={
                 "type": "object",
                 "properties": {"output_path": {"type": "string"}},
-                "required": ["output_path"],
+                "required": [],
             },
         ),
         ProviderTool(
@@ -1914,7 +1858,7 @@ class RevitProvider(AECProvider):
             inputSchema={
                 "type": "object",
                 "properties": {"output_path": {"type": "string"}},
-                "required": ["output_path"],
+                "required": [],
             },
         ),
         ProviderTool(
@@ -1928,7 +1872,7 @@ class RevitProvider(AECProvider):
                     "width": {"type": "integer"},
                     "height": {"type": "integer"},
                 },
-                "required": ["view_id", "output_path"],
+                "required": ["view_id"],
             },
         ),
         ProviderTool(
@@ -2209,6 +2153,11 @@ class RevitProvider(AECProvider):
                     "family_instance_id": {"type": "integer"},
                 },
                 "required": [],
+                "anyOf": [
+                    {"required": ["family_name"]},
+                    {"required": ["family_symbol_id"]},
+                    {"required": ["family_instance_id"]},
+                ],
             },
         ),
         ProviderTool(

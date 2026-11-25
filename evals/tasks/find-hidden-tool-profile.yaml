@@ -1,0 +1,13 @@
+id: find-hidden-tool-profile
+prompt: I'm on the core profile. Which profile do I need for MEP routing?
+kind: discovery
+profile: core
+expected_tools:
+- [search_tools]
+max_calls: 2
+plan_required: false
+forbidden_tools: [revit_execute_python, revit_raw_command]
+checker:
+  type: contains_any
+  values: [full]
+notes: revit_mep_route is hidden in core and daily; search_tools names the profiles that show it.

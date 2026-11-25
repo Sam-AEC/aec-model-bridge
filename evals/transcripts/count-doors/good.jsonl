@@ -1,0 +1,3 @@
+{"meta": {"expect": {"passed": true}, "note": "One summary call."}}
+{"tool": "model_inspector_summarize_model", "arguments": {}}
+{"answer": "There is 1 door in the model (Mock_Project.rvt)."}

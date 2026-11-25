@@ -1,0 +1,4 @@
+{"meta": {"expect": {"passed": false, "failed_checks": ["plan"]}, "note": "Drafts a plan for a question that changes nothing."}}
+{"tool": "model_inspector_summarize_model", "arguments": {}}
+{"tool": "plan_actions", "arguments": {"actions": [{"tool": "revit_set_selection", "arguments": {"element_ids": [300]}}]}}
+{"answer": "There is 1 door. I drafted a plan to select it."}

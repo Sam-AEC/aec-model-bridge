@@ -12,11 +12,11 @@ A tool failure reaches an MCP client in one of two shapes:
 Refusals never change the model. A refused write needs a new plan that a person approves.
 For logs and connection problems see [troubleshooting](troubleshooting.md).
 
-Entries: 141.
+Entries: 146.
 
 ## Tool error kinds
 
-Set by the MCP layer as `structuredContent.error.kind` when a call fails with `isError`. Entries: 8.
+Set by the MCP layer as `structuredContent.error.kind` when a call fails with `isError`. Entries: 10.
 
 ### `approval_blocked`
 
@@ -42,6 +42,12 @@ Set by the MCP layer as `structuredContent.error.kind` when a call fails with `i
 - What to do: Stop. Ask the person to approve, reject or roll back the plan in the Revit panel or with the aec-model-bridge-approve command.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
 
+### `input_needed`
+
+- When: A tool needs one more input: an export without its output file, a level name that matches several levels, or a parameter name that does not exist but has close names. The client did not support elicitation, or the person declined, cancelled or did not answer in time.
+- What to do: Read the message: it names the missing input and the choices. Call again with that input set. Do not guess a choice for the person.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
+
 ### `invalid_cursor`
 
 - When: response_options.cursor was refused: it expired (default 600 seconds), the server restarted, it came from another call, or the tool takes no cursor.
@@ -52,6 +58,12 @@ Set by the MCP layer as `structuredContent.error.kind` when a call fails with `i
 
 - When: The response_options argument is not an object, names an unsupported key, or has a value of the wrong type.
 - What to do: Remove response_options or fix it as the message says, then call again.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
+
+### `task_not_supported`
+
+- When: A tools/call carried a task field (MCP Tasks) for a tool that does not accept task-augmented calls. Nothing ran and no approved action was used.
+- What to do: Call the tool without the task field, or use a tool whose execution.taskSupport is optional (docs/mcp-tasks.md).
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
 
 ### `tool_profile_blocked`
@@ -744,13 +756,19 @@ Set by module tools as `kind` in an `ok: false` result, next to `message`, `elem
 
 ## Exception classes
 
-Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 21.
+Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 24.
 
 ### `ApprovalExpired`
 
 - When: An approval or a drafted plan is older than approval_ttl.
 - What to do: Create a new plan and ask the person to approve it. Nothing renews an old approval.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/security/approval.py`
+
+### `ApprovalKeyError`
+
+- When: The workspace approval signing key (plans/.keys/approval-signing.key) is a symlink, owned by another user, readable by others, or malformed. The approval was not recorded.
+- What to do: Ask the person to delete the key file and approve the plan again. Plans approved under the old key must be approved again.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/security/approval_signing.py`
 
 ### `BcfError`
 
@@ -800,11 +818,23 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 - What to do: Pick a system of the tool's kind, for example pipe systems for pipes.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/modules/revit_mep/module.py`
 
+### `ElicitationForbidden`
+
+- When: Server code tried to ask the person a question for an approval tool, from the approval code, or for something that looks like a secret.
+- What to do: Nothing for the client. Plan approval comes only from a person in the panel or the CLI; this is a server bug if it is ever seen.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/elicitation.py`
+
 ### `IncrementalMergeError`
 
 - When: An incremental snapshot capture does not fit its base snapshot (another document, a cut-short capture, or an element missing from both).
 - What to do: Nothing to do. snapshot_take catches it, takes a full snapshot and gives the reason in counts.incremental_reason.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/semantic/engine.py`
+
+### `InputNeeded`
+
+- When: A tool needs one more input from the person. The MCP layer asks through elicitation when the client supports it; otherwise it returns kind input_needed.
+- What to do: Call again with the input the message names.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/elicitation.py`
 
 ### `InstanceRoutingError`
 

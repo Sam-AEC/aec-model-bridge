@@ -1,0 +1,14 @@
+id: wall-types
+prompt: Which wall types are used, and how many walls of each?
+kind: read
+profile: core
+expected_tools:
+- [snapshot_take, snapshot_compute]
+max_calls: 2
+plan_required: false
+forbidden_tools: [revit_execute_python, revit_raw_command]
+checker:
+- type: contains_all
+  values: [Generic - 200mm]
+- type: number
+  mock_count: {category: OST_Walls}
