@@ -46,7 +46,7 @@ def shared_provider_registry():
 def shared_job_manager():
     return JobManager()
 
-@pytest.fixture(params=[
+PROVIDER_NAMES = [
     "revit",
     "ifc",
     "mapper",
@@ -59,9 +59,12 @@ def shared_job_manager():
     "rhino",
     "navisworks",
     "proxy"
-])
-def provider_instance(request, shared_workspace_monitor, shared_provider_registry, shared_job_manager):
-    name = request.param
+]
+# The proxy provider lists tools only after it connects to a remote server, so it has none offline.
+PROVIDER_NAMES_WITH_TOOLS = [n for n in PROVIDER_NAMES if n != "proxy"]
+
+
+def _build_provider(name, shared_workspace_monitor, shared_provider_registry, shared_job_manager):
     try:
         if name == "revit":
             return RevitProvider(workspace=shared_workspace_monitor, mode=BridgeMode.mock)
@@ -92,6 +95,20 @@ def provider_instance(request, shared_workspace_monitor, shared_provider_registr
     except Exception as e:
         pytest.skip(f"Provider {name} skipped because initialization failed: {e}")
 
+
+@pytest.fixture(params=PROVIDER_NAMES)
+def provider_instance(request, shared_workspace_monitor, shared_provider_registry, shared_job_manager):
+    return _build_provider(
+        request.param, shared_workspace_monitor, shared_provider_registry, shared_job_manager
+    )
+
+
+@pytest.fixture(params=PROVIDER_NAMES_WITH_TOOLS)
+def provider_with_tools(request, shared_workspace_monitor, shared_provider_registry, shared_job_manager):
+    return _build_provider(
+        request.param, shared_workspace_monitor, shared_provider_registry, shared_job_manager
+    )
+
 @pytest.mark.anyio
 async def test_provider_identity(provider_instance):
     identity = provider_instance.get_identity()
@@ -105,17 +122,10 @@ async def test_provider_identity(provider_instance):
     _all_provider_identities.add(identity)
 
 @pytest.mark.anyio
-async def test_provider_capabilities_and_tools(provider_instance):
-    identity = provider_instance.get_identity()
-    
-    if identity == "proxy":
-        # McpProxyProvider will have an empty tool list if offline.
-        # Skip gracefully rather than failing the contract.
-        health = await provider_instance.check_health()
-        if health.get("status") == "disconnected":
-            pytest.skip("Proxy provider is disconnected offline, skipping capabilities check.")
-            
-    tools = provider_instance.get_capabilities()
+async def test_provider_capabilities_and_tools(provider_with_tools):
+    identity = provider_with_tools.get_identity()
+
+    tools = provider_with_tools.get_capabilities()
     assert isinstance(tools, list)
     assert len(tools) > 0, f"Provider {identity} returned empty tool list"
     
@@ -186,14 +196,10 @@ _MUTATION_GATE_EXEMPT = {
 
 
 @pytest.mark.anyio
-async def test_verb_matched_tools_are_flagged_mutating(provider_instance):
-    identity = provider_instance.get_identity()
-    if identity == "proxy":
-        health = await provider_instance.check_health()
-        if health.get("status") == "disconnected":
-            pytest.skip("Proxy provider is disconnected offline, skipping capabilities check.")
+async def test_verb_matched_tools_are_flagged_mutating(provider_with_tools):
+    identity = provider_with_tools.get_identity()
 
-    for tool in provider_instance.get_capabilities():
+    for tool in provider_with_tools.get_capabilities():
         if tool.name in _MUTATION_GATE_EXEMPT:
             continue
         name_parts = tool.name.split("_")

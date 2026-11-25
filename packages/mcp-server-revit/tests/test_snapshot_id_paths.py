@@ -35,7 +35,7 @@ SRC = Path(__file__).parent.parent / "src" / "revit_mcp_server"
 
 # '' is listed too: it is refused by every loader; a public command may instead take its
 # documented no-snapshot path (mock data or "needs a snapshot_id"), which opens no file.
-BAD_IDS = ["../x", "a/b", "a\\b", "ABS", ""]
+BAD_IDS = ["../x", "a/b", "a\\b", "..\\secret", "C:secret", "ABS", ""]
 BAD_IDS_NONEMPTY = [b for b in BAD_IDS if b]
 
 CONVENTION = {"pattern": "{a}-{b}", "fields": {"a": {"allowed": ["A"]}, "b": {"regex": "[0-9]+"}}}
@@ -89,6 +89,7 @@ def _commands(ws):
     sc = schedule_consistency.ScheduleConsistencyModule()
     st = selection_tools.SelectionToolsModule()
     sv = sheet_view_audit.SheetViewAuditModule()
+    ct = clash_triage.ClashTriageModule()
     cmds = {
         "familytype_mapper.audit_families": lambda sid: fm.audit_families(snapshot_id=sid, workspace=ws),
         "familytype_mapper.list_type_mappings": lambda sid: fm.list_type_mappings(snapshot_id=sid, workspace=ws),
@@ -99,6 +100,7 @@ def _commands(ws):
         "selection_tools.group_rename": lambda sid: st.group_rename(group_uid="g", new_name="n", snapshot_id=sid, workspace=ws),
         "selection_tools.group_ungroup": lambda sid: st.group_ungroup(group_uid="g", snapshot_id=sid, workspace=ws),
         "selection_tools.group_convert_to_detail": lambda sid: st.group_convert_to_detail(group_uid="g", snapshot_id=sid, workspace=ws),
+        "clash_triage.match_clashes": lambda sid: ct.match_clashes(clash_results=[], snapshot_id=sid, record_issues=False, workspace=ws),
         "sheet_view_audit.run_audit": lambda sid: sv.run_audit(snapshot_id=sid, workspace=ws),
         "sheet_set_qa.check": lambda sid: sheet_set_qa.SheetSetQaModule().check(snapshot_id=sid, workspace=ws),
     }

@@ -35,8 +35,9 @@ def _ico_sizes(path: Path) -> set[tuple[int, int]]:
     return {(data[6 + 16 * i] or 256, data[7 + 16 * i] or 256) for i in range(count)}
 
 
-@pytest.mark.parametrize("readme", READMES, ids=lambda p: p.name)
-def test_readme_images_exist(readme: Path) -> None:
+# Translated READMEs get the same check from test_i18n_readmes.test_relative_links_resolve.
+def test_readme_images_exist() -> None:
+    readme = ROOT / "README.md"
     text = readme.read_text(encoding="utf-8")
     refs = re.findall(r'<img[^>]+src="([^"]+)"', text) + re.findall(
         r"!\[[^\]]*\]\(([^)\s]+)", text
