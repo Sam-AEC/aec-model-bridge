@@ -17,7 +17,7 @@ from mcp.types import (
     TextContent,
 )
 
-from . import mcp_apps, mcp_prompts, mcp_resources, mcp_tasks
+from . import call_limits, mcp_apps, mcp_prompts, mcp_resources, mcp_tasks
 
 from .elicitation import (
     MAX_ROUNDS, VIEW_SHEET_REFS, ElicitationForbidden, InputNeeded, check_view_sheet_names, elicit_choice,
@@ -27,7 +27,8 @@ from .errors import BridgeError, CommandFailed
 from .registry_factory import build_registry
 from .security.approval import HUMAN_ONLY_TOOLS
 from .security.dispatch import (
-    GET_RESULT_TOOL, gate_after, gate_after_result, gate_before, result_failed, settle_in_flight,
+    GET_RESULT_TOOL, gate_after, gate_after_result, gate_before, mark_timed_out, result_failed,
+    settle_in_flight, settle_late_result,
 )
 from .security.gating import requires_approval
 from .security.audit import redact_data as _redact_secrets
@@ -36,7 +37,7 @@ from .security.module_execution import authorized_module_execution
 from .output_schemas import fallback_structured, output_schema_for, structured_for
 from .tool_metadata import is_read_only_tool
 from .read_cursor import Context as CursorContext, CursorError, binding as cursor_binding
-from .result_presentation import next_page, result_json, split_response_options
+from .result_presentation import APPROVAL_TOOLS, next_page, result_json, split_response_options
 from .tool_profiles import ToolProfileBlocked, load_tool_profile
 
 logger = logging.getLogger(__name__)
@@ -99,6 +100,30 @@ workspace_monitor = None
 # long tools, backed by job_manager. Clients that send no `task` field are unaffected.
 task_bridge = mcp_tasks.TaskBridge(lambda: job_manager)
 TASKS_ENABLED = mcp_tasks.register_task_handlers(app, task_bridge)
+
+# Per-tool timeouts and rate limits (call_limits.py). Read from the environment on first use;
+# tests replace them with fakes.
+call_limiter: call_limits.RateLimiter | None = None
+tool_timeouts: call_limits.Timeouts | None = None
+
+
+def _limiter() -> call_limits.RateLimiter:
+    global call_limiter
+    if call_limiter is None:
+        call_limiter = call_limits.RateLimiter()
+    return call_limiter
+
+
+def _timeouts() -> call_limits.Timeouts:
+    global tool_timeouts
+    if tool_timeouts is None:
+        tool_timeouts = call_limits.Timeouts.from_env()
+    return tool_timeouts
+
+
+def _session_key() -> str:
+    session = _client_session()
+    return "direct" if session is None else f"session-{id(session)}"
 
 
 @app.list_tools()
@@ -266,6 +291,13 @@ async def _call_tool_once(name: str, arguments: Any) -> list[TextContent] | Call
         return _tool_error("tool_profile_blocked", str(exc))
     if not provider:
         return _tool_error("unknown_tool", f"Error: Unknown tool '{name}'")
+
+    # Rate limits run before the approval gate, so a refused call never uses an approved action.
+    # Approval tools never get here: they are human-only and refused above.
+    refusal = _limiter().check_tool(_session_key(), name, _call_writes(name, arguments))
+    if refusal is not None:
+        return _tool_error("rate_limited", refusal.message(),
+                           details={"retry_after_seconds": refusal.retry_after_seconds})
     _count_call(name)
 
     try:
@@ -376,11 +408,26 @@ async def _execute_and_present(name, provider, arguments, claim, gate, response_
                                follow_job: bool = False) -> list[TextContent] | CallToolResult:
     """Run the tool, book the approval outcome and format the reply (direct calls and tasks)."""
     cursor_ctx = _cursor_context(name, arguments, response_options) if read_only else None
+    # Direct calls have a timeout; a task follows the real outcome and has none.
+    # execute_plan runs approved actions itself and books each one; it has no outer timeout.
+    timeout = None if follow_job or name in call_limits.NO_TIMEOUT_TOOLS else _timeouts().for_tool(name)
+    # Only a provably read-only call may be cancelled on timeout. Anything else (a claimed action,
+    # a mutating tool, an orchestration tool whose capability says is_mutating=False but runs gated
+    # actions inside, or a call whose classification fails) keeps running: fail closed.
+    writes = timeout is not None and not _provably_read_only(name, arguments, claim, read_only)
+
+    async def run() -> Any:
+        # The authorization scope lives as long as the provider call, also when a timed-out
+        # write keeps running in the background.
+        with authorized_module_execution(name):
+            return await provider.execute_tool(name, arguments)
+
     try:
         # Execute the tool on the provider
         try:
-            with authorized_module_execution(name):
-                result = await provider.execute_tool(name, arguments)
+            result = await call_limits.run_with_timeout(run(), timeout, keep_running=writes)
+        except call_limits.ToolTimedOut as timed_out:
+            return _timed_out(name, arguments, claim, gate, timed_out)
         except BaseException as e:
             gate_after(gate, claim, ok=False, error=str(e) or type(e).__name__)
             settle_in_flight(gate, name, arguments, error=e)
@@ -457,12 +504,78 @@ async def _execute_and_present(name, provider, arguments, claim, gate, response_
         return _tool_error("execution_error", f"Error: {str(e)}")
 
 
+def _timed_out(name, arguments, claim, gate, timed_out: call_limits.ToolTimedOut):
+    """Reply for a call that outlived its timeout.
+
+    A read was cancelled and is refused with kind tool_timeout. A write was not cancelled and is
+    not reported as failed: it may still be running in Revit. Its approved action stays used and is
+    recorded as in flight, like a 'running' result, so it is never replayed; if the call finishes
+    while this server runs, the action is closed with the real result."""
+    seconds = f"{timed_out.seconds:g}"
+    if not timed_out.kept_running:
+        return _tool_error("tool_timeout", (
+            f"{name} did not finish within {seconds} s and was stopped. It is a read, so nothing in the model "
+            f"changed. Try a smaller request, or ask the person to raise the timeout "
+            f"({call_limits.TIMEOUTS_ENV}, for example {{\"{name}\": 900}})."
+        ), details={"timeout_seconds": timed_out.seconds})
+
+    key = mark_timed_out(gate, claim, name)
+
+    def finished(task) -> None:
+        if task.cancelled():
+            return  # outcome unknown: the action stays running for a person to recover
+        error = task.exception()
+        result = None if error else task.result()
+        if key is not None:
+            settle_late_result(gate, key, name, result=result, error=error)
+        else:
+            # No claim of its own (revit_get_result, revit_job_status, an orchestrator): book
+            # the outcome it carries for an in-flight action, as a call that finished in time does.
+            settle_in_flight(gate, name, arguments, result=result, error=error)
+
+    timed_out.task.add_done_callback(finished)
+    if key is not None:
+        kept = (
+            f" The approved action stays used and cannot be run again. It is recorded as running under {key}; "
+            "if the call finishes while this server runs, the action is closed with its real result. If it never "
+            f"does, a person can run `aec-model-bridge-approve recover {claim.get('plan_id')} --reason ...`."
+        )
+    else:
+        kept = ""
+    text = (
+        f"{name} did not finish within {seconds} s. It may still be running in Revit: it has not finished "
+        f"and it has not been reported as failed.{kept} Do not repeat the call. Check the model with a read "
+        "tool before doing anything else."
+    )
+    return _text_only(name, text, None, "The call timed out and may still be running; it has no result yet.")
+
+
 async def _fetch_revit_result(request_id: str) -> Any:
     """revit_get_result for a task that follows a running request (read-only, never re-runs)."""
     provider = registry.lookup_tool_provider(GET_RESULT_TOOL)
     if provider is None:
         raise BridgeError(f"{GET_RESULT_TOOL} is not available to follow request {request_id}.")
     return await provider.execute_tool(GET_RESULT_TOOL, {"request_id": request_id})
+
+
+def _provably_read_only(name: str, arguments: Any, claim: Any, read_only: bool) -> bool:
+    """True only when a timed-out call may be cancelled: it cannot change the model.
+
+    False for a claimed action, an approval or plan tool (execute_plan, plan_revert, revit_run_job,
+    revit_get_result: they run or book gated actions although some say is_mutating=False), any
+    other ApprovalProvider tool, a mutating tool (also revit_execute_python in read mode), and
+    when the check itself fails. Fails closed."""
+    if claim is not None or not read_only or name in APPROVAL_TOOLS:
+        return False
+    try:
+        provider = registry.lookup_tool_provider(name)
+        if approval_provider is not None and provider is approval_provider:
+            return False
+        if not is_read_only_tool(name, registry.lookup_tool(name)):
+            return False
+        return not _call_writes(name, arguments)
+    except Exception:
+        return False
 
 
 def _call_writes(name: str, arguments: Any) -> bool:
@@ -545,10 +658,13 @@ def redact_data(value):
     return redact_response(_redact_secrets(value))
 
 
-def _tool_error(kind: str, message: str, result: dict | None = None) -> CallToolResult:
-    """Preserve readable diagnostics while telling MCP clients the call failed."""
+def _tool_error(kind: str, message: str, result: dict | None = None,
+                details: dict | None = None) -> CallToolResult:
+    """Preserve readable diagnostics while telling MCP clients the call failed.
+
+    ``details`` adds fixed, non-secret fields to the error object (for example retry_after_seconds)."""
     message = redact_data(message)
-    structured = {"ok": False, "error": {"kind": kind, "message": message}}
+    structured = {"ok": False, "error": {"kind": kind, "message": message, **(details or {})}}
     if result is not None:
         structured["result"] = redact_data(result)
         message += "\n\nResult:\n" + json.dumps(structured["result"], indent=2)

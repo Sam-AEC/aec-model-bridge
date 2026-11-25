@@ -208,7 +208,7 @@ Known gaps in the panel hub token and routing work, not fixed yet:
 
 - **Plans must record the Revit that created them.** Store the originating pid, process start time and Revit version inside the hashed plan, and refuse `execute_plan`, `rollback_plan` and revert on a different instance (and refuse an unrouted plan when more than one Revit is live). Until then a plan drafted in Revit A can run against Revit B. Waiting on the proof-bundle change to land first.
 - **The client sends the raw token to whatever listens on 127.0.0.1:8787.** On a shared machine another user could bind the port first. Use a challenge-response (the client sends an HMAC of a nonce and the path, and checks an HMAC from the hub) or check the socket owner before sending.
-- **No socket timeout or thread cap on the hub handler**, so a slow unauthenticated body can hold a thread.
+- **No thread cap on the hub handler.** Each connection has a 30 s socket timeout, so a stalled body is dropped after 30 s, but many slow clients can still hold many threads. `/execute` and `/agent/chat` have per-route rate limits for authenticated requests ([Configuration reference](configuration-reference.md#timeouts-and-rate-limits)).
 - **Routed-bridge cache hygiene:** the routed-bridge lock is held during a network initialise, and cached clients for dead Revits are not evicted.
 - **Build and multi-instance acceptance.** The Revit 2024 add-in was built, installed and exercised with bounded read-only checks. Other target-runtime builds and two simultaneous live Revits still need acceptance; the single-instance smoke checks do not establish multi-instance routing.
 

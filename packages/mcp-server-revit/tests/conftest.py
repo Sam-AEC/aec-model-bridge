@@ -35,6 +35,17 @@ def _isolated_panel_token_file(tmp_path, monkeypatch):
     monkeypatch.delenv("MCP_REVIT_RECORD", raising=False)
 
 
+@pytest.fixture(autouse=True)
+def _fresh_call_limits(monkeypatch):
+    """Each test starts with full rate-limit buckets and timeouts read from its own environment."""
+    from revit_mcp_server import mcp_server
+
+    for name in ("MCP_REVIT_TOOL_TIMEOUT", "MCP_REVIT_TOOL_TIMEOUTS", "MCP_REVIT_RATE_LIMITS"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(mcp_server, "call_limiter", None)
+    monkeypatch.setattr(mcp_server, "tool_timeouts", None)
+
+
 @pytest.fixture
 def cassette_replay(tmp_path, monkeypatch):
     """Run a recorded cassette as a regression test: ``cassette_replay(path)``. See cassette_replay.py."""
