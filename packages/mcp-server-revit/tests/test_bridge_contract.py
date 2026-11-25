@@ -177,7 +177,7 @@ def _sample_keys(schema: dict, required_only: bool) -> list[str]:
 
 @pytest.mark.parametrize("required_only", [False, True], ids=["all-args", "required-args"])
 def test_provider_payload_builders_against_the_contract(tmp_path, required_only) -> None:
-    (tmp_path / "out.dat").write_text(SAMPLE_CSV, encoding="utf-8")  # read by the CSV sheet builder
+    (tmp_path / "out.dat").write_text(SAMPLE_CSV, encoding="utf-8", newline="")  # read by the CSV sheet builder
     provider = RevitProvider(workspace=WorkspaceMonitor([tmp_path]), mode=BridgeMode.mock)
     schemas = {t.name: t.input_schema for t in provider.get_capabilities()}
     mismatched = set()
@@ -330,13 +330,13 @@ async def test_export_dwg_output_directory_is_workspace_checked(tmp_path) -> Non
 
 def test_batch_create_sheets_from_csv_payload(build, tmp_path) -> None:
     path = tmp_path / "sheets.csv"
-    path.write_text("Sheet Number,Sheet Name,Titleblock Name\nA101,Plan,\nA102,Section,A0\n\n", encoding="utf-8-sig")
+    path.write_text("Sheet Number,Sheet Name,Titleblock Name\nA101,Plan,\nA102,Section,A0\n\n", encoding="utf-8-sig", newline="")
     payload = build("revit_batch_create_sheets_from_csv", {"csv_path": str(path), "titleblock_name": "A1"})
     assert payload == {"sheets": [
         {"sheet_number": "A101", "sheet_name": "Plan", "titleblock_name": "A1"},
         {"sheet_number": "A102", "sheet_name": "Section", "titleblock_name": "A0"},
     ]}
-    path.write_text("number,name\nA101,Plan\n", encoding="utf-8")
+    path.write_text("number,name\nA101,Plan\n", encoding="utf-8", newline="")
     assert build("revit_batch_create_sheets_from_csv", {"csv_path": str(path)}) == {
         "sheets": [{"sheet_number": "A101", "sheet_name": "Plan"}]}
 
@@ -349,7 +349,7 @@ def test_batch_create_sheets_from_csv_payload(build, tmp_path) -> None:
 ])
 def test_batch_create_sheets_from_csv_refusals(build, tmp_path, text, needle) -> None:
     path = tmp_path / "sheets.csv"
-    path.write_text(text, encoding="utf-8")
+    path.write_text(text, encoding="utf-8", newline="")
     with pytest.raises(ValueError, match=needle):
         build("revit_batch_create_sheets_from_csv", {"csv_path": str(path)})
 
@@ -364,7 +364,7 @@ def test_batch_create_sheets_from_csv_needs_an_existing_workspace_file(build, tm
 @pytest.mark.anyio
 async def test_batch_create_sheets_from_csv_mock_counts_rows(tmp_path) -> None:
     path = tmp_path / "sheets.csv"
-    path.write_text(SAMPLE_CSV, encoding="utf-8")
+    path.write_text(SAMPLE_CSV, encoding="utf-8", newline="")
     provider = RevitProvider(workspace=WorkspaceMonitor([tmp_path]), mode=BridgeMode.mock)
     result = await provider.execute_tool("revit_batch_create_sheets_from_csv", {"csv_path": str(path)})
     assert result == {"sheets_created": 2}

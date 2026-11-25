@@ -42,7 +42,7 @@ def setup(tmp_path):
     revit._tool_mapping[TOOL] = (bridge, recording)
     registry.register(revit)
     path = tmp_path / "sheets.csv"
-    path.write_text(CSV, encoding="utf-8")
+    path.write_text(CSV, encoding="utf-8", newline="")
     return approval, path, sent
 
 
@@ -92,7 +92,7 @@ async def test_unchanged_csv_runs_and_sends_its_rows(setup):
 async def test_changed_csv_is_refused_before_anything_is_sent(setup):
     approval, path, sent = setup
     plan = await _approved_plan(approval, path)
-    path.write_text(CSV + "A103,Hidden extra\n", encoding="utf-8")
+    path.write_text(CSV + "A103,Hidden extra\n", encoding="utf-8", newline="")
     with pytest.raises(BridgeError, match="changed after the plan was approved; draft a new plan"):
         await approval.execute_tool("execute_plan", {"plan_id": plan["plan_id"]})
     assert sent == []
@@ -115,7 +115,7 @@ async def test_direct_call_with_plan_id_is_refused_when_csv_changed(setup):
     approval, path, sent = setup
     plan = await _approved_plan(approval, path)
     args = dict(plan["actions"][0]["arguments"], plan_id=plan["plan_id"])
-    path.write_text("sheet_number,sheet_name\nX1,Other\n", encoding="utf-8")
+    path.write_text("sheet_number,sheet_name\nX1,Other\n", encoding="utf-8", newline="")
     with pytest.raises(BridgeError, match="changed after the plan was approved"):
         approval.gate.claim_action(TOOL, args)
     assert sent == []
@@ -141,7 +141,7 @@ async def test_plan_refuses_missing_bad_or_forged_csv(setup, tmp_path):
         await approval.execute_tool("plan_actions", {
             "actions": [{"tool": TOOL, "arguments": {"csv_path": str(path), "csv_sha256": "sha256:" + "0" * 64}}]})
     bad = tmp_path / "bad.csv"
-    bad.write_text("number_only\n1\n", encoding="utf-8")
+    bad.write_text("number_only\n1\n", encoding="utf-8", newline="")
     with pytest.raises(BridgeError, match="needs a column"):
         await approval.execute_tool("plan_actions", {"actions": [{"tool": TOOL, "arguments": {"csv_path": str(bad)}}]})
     with pytest.raises(BridgeError, match="outside the allowed workspace"):
