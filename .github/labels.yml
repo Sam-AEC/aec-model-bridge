@@ -144,6 +144,9 @@
   description: "Checked on a live Revit; result recorded in the issue with Revit version and commit"
 
 # ---- contributor labels (GitHub surfaces these names, so they keep no prefix) ----
+- name: "status: stale"
+  color: "cfd3d7"
+  description: "Pull request with no activity for 45 days; closes after 14 more"
 - name: "status: maintainer-only"
   color: "5319e7"
   description: "Needs admin access or a licensed Revit on the maintainer machine; not for outside contributors"

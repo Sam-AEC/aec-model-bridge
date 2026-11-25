@@ -1,0 +1,15 @@
+# Categories for GitHub's generated release notes.
+changelog:
+  exclude:
+    labels: ["dependencies"]
+  categories:
+    - title: Security
+      labels: ["area: security"]
+    - title: Features
+      labels: ["type: feature"]
+    - title: Fixes
+      labels: ["type: bug"]
+    - title: Documentation
+      labels: ["type: docs", "area: docs"]
+    - title: Other changes
+      labels: ["*"]

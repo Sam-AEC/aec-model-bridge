@@ -1,0 +1,31 @@
+# Area labels from changed paths (actions/labeler). Labels match .github/labels.yml.
+"area: addin":
+  - changed-files:
+      - any-glob-to-any-file: ["packages/revit-bridge-addin/**", "packages/revit-bridge-addin-tests/**"]
+"area: panel":
+  - changed-files:
+      - any-glob-to-any-file: ["panel/**"]
+"area: approval":
+  - changed-files:
+      - any-glob-to-any-file: ["packages/mcp-server-revit/src/revit_mcp_server/security/approval*.py", "packages/mcp-server-revit/src/revit_mcp_server/providers/approval_provider.py"]
+"area: security":
+  - changed-files:
+      - any-glob-to-any-file: ["packages/mcp-server-revit/src/revit_mcp_server/security/**", "SECURITY.md"]
+"area: mcp":
+  - changed-files:
+      - any-glob-to-any-file: ["packages/mcp-server-revit/src/revit_mcp_server/mcp_*.py", "server.json", "glama.json"]
+"area: modules":
+  - changed-files:
+      - any-glob-to-any-file: ["packages/mcp-server-revit/src/revit_mcp_server/modules/**", "rule_packs/**"]
+"area: server":
+  - changed-files:
+      - any-glob-to-any-file: ["packages/mcp-server-revit/src/**"]
+"area: install":
+  - changed-files:
+      - any-glob-to-any-file: ["scripts/**", "Dockerfile", "plugin/**"]
+"area: ci":
+  - changed-files:
+      - any-glob-to-any-file: [".github/**"]
+"area: docs":
+  - changed-files:
+      - any-glob-to-any-file: ["docs/**", "*.md", "llms*.txt", "mkdocs.yml"]
