@@ -78,9 +78,9 @@ def test_execute_runs_a_real_readonly_tool(running_server):
     assert "plans" in body["result"]
 
 
-def test_execute_unknown_tool_returns_500_with_message(running_server):
+def test_execute_unknown_tool_returns_400_with_message(running_server):
     status, body = _post(running_server, "/execute", {"tool": "not_a_real_tool", "arguments": {}})
-    assert status == 500
+    assert status == 400
     assert body["ok"] is False
     assert "not_a_real_tool" in body["error"]
 

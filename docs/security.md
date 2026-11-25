@@ -68,6 +68,7 @@ The panel hub (`aec-model-bridge-panel-server`, default port 8787) listens on `1
 - `POST` requires `Content-Type: application/json` (a `charset` parameter is accepted), otherwise 415.
 - `OPTIONS` is not handled and no CORS headers are sent.
 - `GET /health` returns only `{"status": "healthy"}` and needs no token. Every other route, including `/execute`, `/agent/chat`, `/diagnostics`, `/reports`, `/agent/providers` and unknown paths, needs the per-install token (next section).
+- A `POST` body must be a UTF-8 JSON object of at most 1 MiB, nested at most 64 levels, with no `NaN` or `Infinity`. Otherwise the answer is 400 (413 when too large). On `/execute`, `arguments` must be an object; an unknown tool gets 400. A 5xx means a fault inside the hub. `tests/test_property_panel_execute.py` fuzzes these rules.
 
 #### Panel hub token
 

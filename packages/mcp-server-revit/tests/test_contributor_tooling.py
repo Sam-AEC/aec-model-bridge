@@ -1,5 +1,5 @@
 """Contributor tooling stays in step with what it describes: the README coverage badge,
-the dev container and the pre-commit hooks."""
+the dev container, the pre-commit hooks and the nightly fuzz workflow."""
 
 from __future__ import annotations
 
@@ -52,3 +52,20 @@ def test_pre_commit_hooks_run_what_ci_runs():
     # ruff format is reported, not enforced, in CI; a hook must not be stricter.
     enforced = "ruff format --check" in ci and "not enforced" not in ci
     assert ("ruff format" in text.split("repos:", 1)[1]) == enforced
+
+
+def test_nightly_fuzz_workflow_is_pinned_read_only_and_secret_free():
+    workflows = ROOT / ".github" / "workflows"
+    text = (workflows / "fuzz-nightly.yml").read_text(encoding="utf-8")
+    ci = (workflows / "ci.yml").read_text(encoding="utf-8")
+    assert "schedule:" in text and "cron:" in text
+    assert "AEC_HYPOTHESIS_PROFILE: slow" in text
+    assert "tests/test_property_*.py" in text
+    assert "timeout-minutes: 30" in text and "ubuntu-latest" in text
+    assert "secrets." not in text and "write" not in text
+    assert re.search(r"^permissions:\n  contents: read$", text, re.M)
+    uses = re.findall(r"uses:\s*(\S+)", text)
+    assert uses, "the workflow runs no actions"
+    for ref in uses:
+        assert re.fullmatch(r"[\w.-]+/[\w.-]+@[0-9a-f]{40}", ref), f"{ref} is not pinned by full commit SHA"
+        assert ref in ci, f"{ref} must use the same pin as ci.yml"
