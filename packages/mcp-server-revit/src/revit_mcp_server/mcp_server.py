@@ -405,7 +405,7 @@ async def _call_tool_once(name: str, arguments: Any) -> list[TextContent] | Call
 
 
 async def _execute_and_present(name, provider, arguments, claim, gate, response_options, read_only,
-                               follow_job: bool = False) -> list[TextContent] | CallToolResult:
+                               follow_job: bool = False, on_job=None) -> list[TextContent] | CallToolResult:
     """Run the tool, book the approval outcome and format the reply (direct calls and tasks)."""
     cursor_ctx = _cursor_context(name, arguments, response_options) if read_only else None
     # Direct calls have a timeout; a task follows the real outcome and has none.
@@ -441,7 +441,7 @@ async def _execute_and_present(name, provider, arguments, claim, gate, response_
 
             try:
                 if name == mcp_tasks.RUN_JOB_TOOL:
-                    result = await mcp_tasks.follow_revit_job(provider, result, book_running)
+                    result = await mcp_tasks.follow_revit_job(provider, result, book_running, on_job)
                 result = await mcp_tasks.follow_revit_result(_fetch_revit_result, name, result, book_running)
             except CommandFailed as e:
                 gate_after(gate, claim, ok=False, error=str(e) or type(e).__name__)
@@ -588,9 +588,19 @@ def _call_writes(name: str, arguments: Any) -> bool:
 
 async def _start_task(name, provider, arguments, claim, gate, response_options, read_only, task_metadata):
     """Queue an already-gated call as an MCP task and return its CreateTaskResult."""
+    writes = _call_writes(name, arguments)
+    canceller = None
+    run_arguments = arguments
+    if name == mcp_tasks.RUN_JOB_TOOL and not writes and claim is None:
+        # Read-only revit_run_job: tasks/cancel may cancel the inner Revit job, so its id is needed at
+        # once. wait_s=0 returns the job id straight away; the task follows the job either way.
+        canceller = mcp_tasks.RevitJobCanceller(provider)
+        run_arguments = {**arguments, "wait_s": 0}
+
     async def work() -> CallToolResult:
         reply = await _execute_and_present(
-            name, provider, arguments, claim, gate, response_options, read_only, follow_job=True,
+            name, provider, run_arguments, claim, gate, response_options, read_only, follow_job=True,
+            on_job=canceller.note if canceller else None,
         )
         return reply if isinstance(reply, CallToolResult) else CallToolResult(content=list(reply), isError=False)
 
@@ -600,11 +610,12 @@ async def _start_task(name, provider, arguments, claim, gate, response_options, 
     try:
         return await task_bridge.start(
             tool=name,
-            writes=_call_writes(name, arguments),
+            writes=writes,
             metadata=task_metadata,
             scope=mcp_tasks.session_scope(app),
             work=work,
             on_cancel_before_start=cancelled_before_start,
+            cancel_inner=canceller.cancel if canceller else None,
         )
     except Exception as e:
         # Nothing was queued, so nothing ran; the claimed action is booked as failed.
