@@ -55,8 +55,8 @@ def call(name, args=None):
 
 
 # ---- machine file -----------------------------------------------------------------------
-def test_missing_machine_file_is_no_policy(tmp_path, monkeypatch):
-    monkeypatch.setenv(pol.MACHINE_POLICY_ENV, str(tmp_path / "absent.yaml"))
+def test_missing_file_at_default_location_is_no_policy(tmp_path, monkeypatch):
+    monkeypatch.setattr(pol, "_platform_default", lambda: str(tmp_path / "absent.yaml"))
     assert pol.load_policy(tmp_path).active is False
 
 
@@ -67,11 +67,19 @@ def test_platform_default_paths():
 
 
 def test_default_location_is_used_without_env(monkeypatch, tmp_path):
-    monkeypatch.delenv(pol.MACHINE_POLICY_ENV)
-    monkeypatch.setattr(pol, "default_machine_path", lambda windows, pd: str(tmp_path / "p.yaml"))
+    monkeypatch.delenv(pol.MACHINE_POLICY_ENV, raising=False)
+    monkeypatch.setattr(pol, "_platform_default", lambda: str(tmp_path / "p.yaml"))
     assert pol.machine_policy_path() is None
     (tmp_path / "p.yaml").write_text("blocked_tools: [x]")
     assert pol.machine_policy_path() == tmp_path / "p.yaml"
+
+
+def test_missing_file_named_by_env_fails_closed(tmp_path, monkeypatch):
+    """A typo or a deleted file must not switch the machine policy off."""
+    monkeypatch.setenv(pol.MACHINE_POLICY_ENV, str(tmp_path / "typo-policy.yaml"))
+    assert pol.machine_policy_path() == tmp_path / "typo-policy.yaml"
+    with pytest.raises(pol.PolicyError, match="Invalid policy file"):
+        pol.load_policy(tmp_path)
 
 
 @pytest.mark.parametrize("text", ["blocked_tools: [a", "nonsense: 1", "allowed_tiers: [admin]", "- a\n- b"])

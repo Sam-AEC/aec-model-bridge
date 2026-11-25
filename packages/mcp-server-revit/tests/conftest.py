@@ -38,7 +38,10 @@ def _isolated_panel_token_file(tmp_path, monkeypatch):
 @pytest.fixture(autouse=True)
 def _no_machine_policy(tmp_path, monkeypatch):
     """A test never reads the real machine policy file of the computer it runs on."""
-    monkeypatch.setenv("MCP_REVIT_MACHINE_POLICY_FILE", str(tmp_path / "no-machine-policy.yaml"))
+    from revit_mcp_server.security import policy
+
+    monkeypatch.delenv("MCP_REVIT_MACHINE_POLICY_FILE", raising=False)
+    monkeypatch.setattr(policy, "_platform_default", lambda: str(tmp_path / "no-machine-policy.yaml"))
 
 
 @pytest.fixture(autouse=True)

@@ -121,16 +121,23 @@ def default_machine_path(windows: bool, programdata: Optional[str]) -> Optional[
     return "/etc/aec-model-bridge/policy.yaml"
 
 
+def _platform_default() -> Optional[str]:
+    return default_machine_path(os.name == "nt", os.environ.get("PROGRAMDATA"))
+
+
 def machine_policy_path() -> Optional[Path]:
-    """The machine policy file: the env override, else the platform default. None when it is absent."""
+    """The machine policy file: the env override, else the platform default.
+
+    A path named by the env override is returned even when the file is missing, so reading it
+    refuses every write (fail closed: a typo or a deleted file must not switch the policy off).
+    A missing file at the platform default means no machine policy."""
     env = os.environ.get(MACHINE_POLICY_ENV)
     if env is not None and env.strip():
-        path = Path(env.strip())
-    else:
-        default = default_machine_path(os.name == "nt", os.environ.get("PROGRAMDATA"))
-        if default is None:
-            return None
-        path = Path(default)
+        return Path(env.strip())
+    default = _platform_default()
+    if default is None:
+        return None
+    path = Path(default)
     try:
         return path if path.exists() else None
     except OSError:
