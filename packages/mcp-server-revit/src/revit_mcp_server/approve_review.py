@@ -1,8 +1,8 @@
 """The review that ``aec-model-bridge-approve`` prints before a person approves a plan.
 
 ``build_review`` turns a stored plan into a plain dictionary: per action, one row per element
-with the parameter and its old and new value, plus counts, warnings, the plan hash, the
-approval mode, expiry and the document binding. ``render_review`` prints it as plain text
+with the parameter and its old and new value, and every other argument of the action; plus
+counts, warnings, the plan hash, the approval mode, expiry and the document binding. ``render_review`` prints it as plain text
 (ASCII borders, wrapped cells, no ANSI unless asked for and supported). ``--json`` prints the
 dictionary itself.
 
@@ -21,7 +21,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from .security import proof as proof_mod
 from .security.approval import running_actions
-from .security.plan_review import element_ids_of, review_aids
+from .security.plan_review import ID_KEYS, ID_LIST_KEYS, element_ids_of, review_aids
 from .security.proof import normalize_review
 
 REVIEW_SCHEMA = "aec-model-bridge/plan-review"
@@ -133,19 +133,40 @@ def _approval_mode(gate: Any) -> Dict[str, Any]:
             "auto_expires_at": state.get("auto_expires_at")}
 
 
+def _id_keys_shown(args: Dict[str, Any]) -> set:
+    """The id keys whose whole value the Element column shows: the keys ``element_ids_of`` reads
+    (first list key with a list, first single key with a non-blank scalar), and only when every
+    item of that value is shown. Any other id-like key is an argument like the rest."""
+    keys = set()
+    for key in ID_LIST_KEYS:
+        value = args.get(key)
+        if isinstance(value, list):
+            if all(_scalar(v) for v in value):
+                keys.add(key)
+            break
+    for key in ID_KEYS:
+        value = args.get(key)
+        if _scalar(value) and str(value).strip() != "":
+            keys.add(key)
+            break
+    return keys
+
+
 def _action_entry(index: int, action: Any, labels: Dict[str, Dict[str, str]]) -> Dict[str, Any]:
     if not isinstance(action, dict):
         return {"index": index, "action_id": None, "tool": None, "state": None, "malformed": True,
-                "raw": action, "changes": [], "arguments": None}
+                "raw": action, "changes": [], "arguments": None, "other_arguments": {}}
     args = action.get("arguments", {})
     entry: Dict[str, Any] = {"index": index, "action_id": action.get("action_id"), "tool": action.get("tool"),
-                             "state": action.get("state"), "malformed": not isinstance(args, dict), "changes": []}
+                             "state": action.get("state"), "malformed": not isinstance(args, dict), "changes": [],
+                             "other_arguments": {}}
     if not isinstance(args, dict):
         entry["raw"] = args
         entry["arguments"] = None
         return entry
     shown = {k: v for k, v in args.items() if k not in _ARG_SKIP}
     entry["arguments"] = shown
+    in_element_column = _id_keys_shown(shown)
     diff = action.get("diff") if isinstance(action.get("diff"), dict) else {}
     before = diff.get("before") if isinstance(diff.get("before"), dict) else {}
     param = args.get("parameter_name") if _scalar(args.get("parameter_name")) else None
@@ -153,9 +174,12 @@ def _action_entry(index: int, action: Any, labels: Dict[str, Dict[str, str]]) ->
     if param is not None:
         new_value: Any = args.get("value")
         new_is_args = False
+        # Every argument that decides what runs (a filter, a type, a mode) and is not in the
+        # Element, Parameter or New column is shown on its own line.
+        entry["other_arguments"] = {k: v for k, v in shown.items()
+                                    if k not in in_element_column and k not in ("parameter_name", "value")}
     else:
-        id_keys = {"element_id", "elementId", "element_ids", "elementIds", "ids"}
-        new_value = {k: v for k, v in shown.items() if k not in id_keys}
+        new_value = {k: v for k, v in shown.items() if k not in in_element_column}
         new_is_args = True
     for eid in ids:
         label = labels.get(str(eid), {}) if eid is not None else {}
@@ -434,6 +458,7 @@ def is_cut(review: Dict[str, Any], max_rows: int = DEFAULT_MAX_ROWS) -> bool:
     if sum(max(1, len(a["changes"])) for a in review["actions"]) > max_rows:
         return True
     values = [a.get("raw") for a in review["actions"] if a["malformed"]]
+    values += [a["other_arguments"] for a in review["actions"] if a.get("other_arguments")]
     values += [v for a in review["actions"] for c in a["changes"] for v in (c["old"], c["new"])]
     return any(len(format_value(v, show_all=True)) > VALUE_MAX_CHARS for v in values)
 
@@ -533,6 +558,8 @@ def render_review(review: Dict[str, Any], show_all: bool = False, width: Optiona
             old, new = old_cell, new_cell
             rows.append((_element_label(c), safe_text(c["parameter"]) if c["parameter"] is not None else "-", old, new))
         lines.extend(_table(rows, width))
+        if action.get("other_arguments"):
+            lines.extend(_wrapped("    Other arguments: ", format_value(action["other_arguments"], show_all), width))
         shown += len(rows)
         left = len(action["changes"]) - len(rows)
         if left > 0:

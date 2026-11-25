@@ -307,3 +307,47 @@ def test_color_is_off_by_default_and_off_when_not_a_terminal(gate, capsys):
     review, plain = _review(gate, pid)
     assert "\x1b" not in plain and "\x1b[" in render_review(review, color=True)
     assert "\x1b" not in _show(gate, pid, "--color", capsys=capsys)  # captured stdout is not a terminal
+
+
+# ---- every execution-relevant argument is shown ---------------------------------------------
+
+BY_FILTER = "revit_batch_set_parameters_by_filter"
+
+
+def _by_filter(flt):
+    return {"tool": BY_FILTER, "arguments": {"filter": flt, "parameter_name": "Comments", "value": "checked"}}
+
+
+def test_filter_of_a_parameter_write_is_shown_and_changes_the_review(gate):
+    walls = gate.create_plan([_by_filter({"category": "Walls", "level": "L1"})], [{}])["plan_id"]
+    doors = gate.create_plan([_by_filter({"category": "Doors", "level": "L1"})], [{}])["plan_id"]
+    review_w, out_w = _review(gate, walls)
+    review_d, out_d = _review(gate, doors)
+    assert 'Other arguments: {"filter": {"category": "Walls", "level": "L1"}}' in out_w
+    assert '"Doors"' in out_d and '"Doors"' not in out_w
+    strip = lambda out: [ln for ln in out.splitlines() if not ln.startswith(("Plan ", "Created", "Expiry"))]  # noqa: E731
+    assert strip(out_w) != strip(out_d)
+    assert review_w["actions"][0]["other_arguments"] == {"filter": {"category": "Walls", "level": "L1"}}
+    assert approve_review.is_cut(review_w) is False
+
+
+def test_a_long_other_argument_is_cut_and_needs_all(gate):
+    flt = {"category": "Walls", "parameter_filter": {"name": "Comments", "value": "x" * 400 + " tail-marker"}}
+    pid = gate.create_plan([_by_filter(flt)], [{}])["plan_id"]
+    review, out = _review(gate, pid)
+    assert "tail-marker" not in out and "use --all" in out
+    assert approve_review.is_cut(review) is True
+    _, out_all = _review(gate, pid, show_all=True)
+    assert "tail-marker" in out_all
+
+
+def test_id_keys_not_in_the_element_column_are_other_arguments(gate):
+    # element_ids is the list the Element column shows; the second list key is not shown there.
+    action = {"tool": SET, "arguments": {"element_ids": [1], "ids": [2, 3], "parameter_name": "Mark", "value": "v"}}
+    pid = gate.create_plan([action], [{}])["plan_id"]
+    review, out = _review(gate, pid)
+    assert review["actions"][0]["other_arguments"] == {"ids": [2, 3]}
+    assert 'Other arguments: {"ids": [2, 3]}' in out
+    plain = gate.create_plan([_set(5, "Mark", "v")], [{}])["plan_id"]
+    review, out = _review(gate, plain)
+    assert review["actions"][0]["other_arguments"] == {} and "Other arguments" not in out
