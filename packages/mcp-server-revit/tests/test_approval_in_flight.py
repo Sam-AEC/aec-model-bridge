@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 from mcp.types import CallToolResult
 
-from helpers import human_approve
+from helpers import human_approve, resign_approval
 from revit_mcp_server import mcp_server
 from revit_mcp_server.errors import BridgeError, CommandFailed
 from revit_mcp_server.security.approval import ApprovalGate
@@ -138,6 +138,7 @@ def test_expiry_blocks_new_calls_and_preserves_delayed_completion(
     _call(SET, {**_args(), "plan_id": pid})
     plan = gate.load_plan(pid)
     plan["approved_at"] = (datetime.now(timezone.utc) - timedelta(seconds=gate.approval_ttl + 1)).isoformat()
+    resign_approval(gate, plan)
     gate.save_plan(plan)
 
     blocked = _call(SET, {**_args(action_count), "plan_id": pid})
@@ -171,6 +172,7 @@ def test_expired_plan_waits_for_every_running_action(tmp_path, monkeypatch):
     _call(SET, {**_args(2), "plan_id": pid})
     plan = gate.load_plan(pid)
     plan["approved_at"] = (datetime.now(timezone.utc) - timedelta(seconds=gate.approval_ttl + 1)).isoformat()
+    resign_approval(gate, plan)
     gate.save_plan(plan)
     _call(SET, {**_args(), "plan_id": pid})
     _call("revit_get_result", {"request_id": RID})
@@ -187,6 +189,7 @@ def test_expired_running_action_can_be_recovered_with_a_proof(tmp_path):
     gate.mark_in_flight(claim, RID, SET)
     plan = gate.load_plan(pid)
     plan["approved_at"] = (datetime.now(timezone.utc) - timedelta(seconds=gate.approval_ttl + 1)).isoformat()
+    resign_approval(gate, plan)
     gate.save_plan(plan)
     gate.expire_plan(pid)
     recovered = gate.recover_running_actions(pid, "Revit closed", force=True)

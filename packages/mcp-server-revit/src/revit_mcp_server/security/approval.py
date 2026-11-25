@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Callable, Dict, Any, Iterator, List, Optional, Tuple
 from ..config import APPROVAL_MODES, config, normalize_approval_mode  # noqa: F401 (re-exported)
 from ..errors import BridgeError
+from . import approval_signing as signing_mod
 from . import binding as binding_mod
 from . import proof as proof_mod
 from .approval_override import active_override
@@ -565,6 +566,11 @@ class ApprovalGate:
                 plan["approved_hash"] = now_hash
                 plan["approved_via"] = via
                 plan["approved_by"] = str(approver) if approver else local_user()
+                # Every channel approves through here, so every approval is signed (issue #313).
+                try:
+                    signing_mod.sign_plan(self.plans_dir, plan)
+                except signing_mod.ApprovalKeyError as e:
+                    raise ValueError(f"{e} The plan was not approved.") from None
             elif state == "rejected":
                 plan["rejected_at"] = now
                 if current == "approved":
@@ -611,9 +617,9 @@ class ApprovalGate:
         if expired:
             raise ApprovalExpired(expired)
 
-    @staticmethod
-    def _verify_unchanged_since_approval(plan: Dict[str, Any]) -> None:
-        """Refuse unless the plan still hashes to what a person approved (any state)."""
+    def _verify_unchanged_since_approval(self, plan: Dict[str, Any]) -> None:
+        """Refuse unless the plan still hashes to what a person approved (any state) and its
+        approval record carries a signature that verifies (issue #313; unsigned fails closed)."""
         plan_id = plan.get("plan_id")
         approved = plan.get("approved_hash")
         try:
@@ -625,6 +631,7 @@ class ApprovalGate:
                 f"Plan '{plan_id}' changed after it was approved (or has no approval record). Execution blocked; "
                 "draft a new plan and ask the person to approve it."
             )
+        signing_mod.require_signed(self.plans_dir, plan)
 
     @contextlib.contextmanager
     def reuse_binding_probe(self, max_age_s: float = BINDING_PROBE_REUSE_S):
@@ -769,10 +776,12 @@ class ApprovalGate:
                 # Dev permits unplanned calls; a supplied plan must still be
                 # approved, unchanged and consumed at most once.
                 return self._claim(plan_id, tool_name, arguments)
-            try:  # gate off: keep the plan bookkeeping when we can, never block
+            try:  # gate off: keep the plan bookkeeping when we can
                 return self._claim(plan_id, tool_name, arguments)
             except BridgeError:
-                return None
+                # The approval checks do not block in Auto, but the claim markers still do:
+                # an action of this plan runs at most once in every mode (issue #314).
+                return self._auto_claim(plan_id, tool_name, arguments)
         if not plan_id:
             raise BridgeError(f"Approval mode is enabled. Mutating tool '{tool_name}' requires a valid 'plan_id' parameter.")
         return self._claim(plan_id, tool_name, arguments)
@@ -814,6 +823,48 @@ class ApprovalGate:
             action["claimed_at"] = datetime.now(timezone.utc).isoformat()
             self.save_plan(plan)
         return {"plan_id": plan_id, "action_id": action_id}
+
+    def _auto_claim(self, plan_id: Any, tool_name: str, arguments: Any) -> Optional[Dict[str, str]]:
+        """Auto mode (timed or configured, not Dev) for a call that carries a plan_id the full
+        claim refused. The approval checks are off, but the claim markers are not: a matching
+        action is claimed with the same O_EXCL marker, and a call whose every matching action was
+        already consumed is refused, whatever the action state on disk says. Returns None when the
+        plan does not exist or holds no action for this call (an unplanned call, allowed in Auto)."""
+        try:
+            validate_plan_id(plan_id)
+        except BridgeError:
+            return None
+        wanted = canonical_arguments(arguments)
+        with self._plan_lock(plan_id):
+            try:
+                plan = self.load_plan(plan_id)
+            except BridgeError:
+                plan = None
+            actions = plan.get("actions") if isinstance(plan, dict) else None
+            matching = [a for a in actions if isinstance(a, dict) and a.get("tool") == tool_name
+                        and canonical_arguments(a.get("arguments", {})) == wanted] if isinstance(actions, list) else []
+            if not matching:
+                return None
+            for action in matching:
+                if action.get("state") not in OPEN_ACTION_STATES:
+                    continue
+                action_id = action.get("action_id")
+                marker = self._claim_marker(plan_id, action_id)
+                marker.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    fd = os.open(str(marker), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+                except FileExistsError:
+                    continue  # consumed earlier; its recorded state is not trusted
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    f.write(datetime.now(timezone.utc).isoformat())
+                action["state"] = "running"
+                action["claimed_at"] = datetime.now(timezone.utc).isoformat()
+                self.save_plan(plan)
+                return {"plan_id": plan_id, "action_id": action_id}
+        raise BridgeError(
+            f"Plan '{plan_id}' already ran this '{tool_name}' action. An action runs at most once, in every "
+            "approval mode. Nothing ran. Draft a new plan for this change."
+        )
 
     def finish_action(self, claim: Optional[Dict[str, str]], ok: bool, error: Optional[str] = None,
                       only_if_running: bool = False) -> Optional[Dict[str, Any]]:
