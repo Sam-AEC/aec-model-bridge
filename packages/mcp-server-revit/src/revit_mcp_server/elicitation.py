@@ -414,6 +414,10 @@ async def check_view_sheet_names(tool: str, arguments: Any, list_rows: RowLister
                 continue
             rows, total = listed
             more = max(0, total - len(rows))
+            if more and not any(str(r.get(_exact_key(kind)) or "") == wanted for r in rows):
+                # The list was cut short, so an exact match may sit beyond it: do not ask or refuse;
+                # the tool resolves the name itself, as before (#331 review).
+                continue
             if not rows:
                 # No name contains it: look for a name inside it or a close spelling in the full list.
                 listed = await list_rows(kind, "")

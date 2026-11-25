@@ -528,3 +528,29 @@ def test_every_view_sheet_tool_takes_the_listed_path(server):
                 if part.endswith("[]"):
                     node = node["items"]
             assert node.get("type") == "string", (tool, path)
+
+
+def test_view_sheet_check_skips_a_truncated_list_without_an_exact_match():
+    """#331 review: with more rows than the list returned and no exact match among them, the exact
+    reference may exist beyond the page, so the check neither asks nor refuses."""
+    import asyncio
+
+    from revit_mcp_server.elicitation import VIEW_SHEET_REFS, check_view_sheet_names
+
+    tool, (path, kind) = next((t, refs[0]) for t, refs in VIEW_SHEET_REFS.items() if refs[0][1] == "sheet")
+    calls = []
+
+    async def lister(k, needle):
+        calls.append(needle)
+        rows = [{"id": i, "number": f"A101.{i}", "name": f"S{i}", "kind": "sheet"} for i in range(500)]
+        return rows, 900
+
+    args = {}
+    container = args
+    parts = path.replace("[]", "").split(".")
+    for part in parts[:-1]:
+        container[part] = [{}] if path.split(part, 1)[1].startswith("[]") else {}
+        container = container[part][0] if isinstance(container[part], list) else container[part]
+    container[parts[-1]] = "A101"
+    assert asyncio.run(check_view_sheet_names(tool, args, lister)) is None
+    assert calls == ["A101"], "no fallback listing either"
