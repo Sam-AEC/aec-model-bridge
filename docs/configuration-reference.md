@@ -34,6 +34,9 @@ The server has three modes. Set the mode with `MCP_REVIT_MODE`.
 | `MCP_REVIT_USAGE_COUNTS` | No | `off` | `on` turns on local tool usage counts in `<workspace>/usage/tool-usage.json`: tool names, calls per day and last-used day only. `off` (or `0`, `false`, `no`) counts nothing and writes no file; `learned` then falls back to `daily`. Any other value stops the server at startup. Nothing is sent anywhere. See [Learned profile](learned-profile.md). |
 | `MCP_REVIT_APPROVAL_TTL` | No | `28800` (8 hours) | Seconds an approved plan stays usable. After that the plan moves to `expired` and a person must approve a new plan; it is never renewed silently. `0` turns the limit off. A negative, fractional or non-numeric value falls back to the default (it never turns the limit off) and logs a warning. Checked when a call runs, not by a timer. See [ADR 0017](adr/0017-approval-document-binding-and-expiry.md). |
 | `MCP_REVIT_PENDING_TTL` | No | `1209600` (14 days) | Seconds a drafted, not yet approved plan can still be approved. Older pending plans are left out of `list` and `list_pending_plans` (counted as `expired_hidden`; `list --all` or `include_expired` shows them), cannot be approved, and are never deleted. `0` turns the limit off. Same fallback rule as above. |
+| `MCP_REVIT_TOOL_TIMEOUT` | No | `300` | Seconds a direct MCP tool call may run. `0` turns the default off. A negative or non-numeric value falls back to `300` and logs a warning. Not applied to `run_async` jobs, MCP tasks or panel hub calls. A read that runs out of time is stopped and refused with kind `tool_timeout`. A write is not stopped and not reported as failed, because it may still be running in Revit: its approved action stays used and is recorded as running (`timeout_<id>`), like a call that came back `running`, so it is never run again. If the write finishes while the server runs, the action is closed with its real result; otherwise a person runs `aec-model-bridge-approve recover`. Read once at startup. See [Timeouts and rate limits](#timeouts-and-rate-limits). |
+| `MCP_REVIT_TOOL_TIMEOUTS` | No | unset | JSON object of per-tool timeouts in seconds, for example `{"revit_export_ifc": 1800}`. `0` means no timeout for that tool. An invalid entry is ignored with a warning. Read once at startup. |
+| `MCP_REVIT_RATE_LIMITS` | No | see [Timeouts and rate limits](#timeouts-and-rate-limits) | `off`, or a JSON object that changes the token buckets. A refused call did not run and did not use an approved action; it returns kind `rate_limited` with `retry_after_seconds`. An invalid value keeps the defaults and logs a warning; it never turns a limit off. Read once at startup by the MCP server and by the panel hub. |
 | `MCP_REVIT_POLICY_FILE` | No | unset | Path of a policy file (YAML or JSON) that adds refusals to `plan_actions` and `execute_plan`. Unset: `policy.yaml`, `policy.yml` or `policy.json` in the workspace folder, if present. A file that is named but missing or invalid refuses every write. See [Policy file](#policy-file). |
 | `MCP_REVIT_MCP_APPS` | No | `true` | Offers the read-only plan review view `ui://aec-model-bridge/plan-review` (MCP Apps) and the `_meta.ui` keys on tools. The view cannot approve. `false` removes both. Read at startup. See [MCP Apps plan review view](mcp-apps.md). |
 | `MCP_REVIT_VALIDATE_BRIDGE_PAYLOADS` | No | on | Checks each Revit add-in command payload against `contracts/bridge-commands.json` before sending. A payload that does not fit is refused and nothing is sent. `0`, `false`, `off` or `no` turns the check off; any other value keeps it on. Read on each call. See [Add-in command contract](bridge-command-contract.md). |
@@ -82,6 +85,31 @@ The package name is `aec-model-bridge`. The official repository is https://githu
   }
 }
 ```
+
+## Timeouts and rate limits
+
+Code: `src/revit_mcp_server/call_limits.py`. Tested with fakes and a fake clock; behaviour against a live Revit is UNVERIFIED.
+
+Rate limits are token buckets. A bucket holds up to `burst` calls and refills at `per_minute`. A call needs one token from every bucket that applies to it, or it is refused and takes none.
+
+| Key in `MCP_REVIT_RATE_LIMITS` | Default | Applies to |
+| --- | --- | --- |
+| `session` | 600 per minute, burst 300 | every MCP tool call of one client session |
+| `write_tool` | 120 per minute, burst 60 | each tool that can change the model, counted per tool |
+| `read_tool` | 300 per minute, burst 150 | each other tool, counted per tool |
+| `tools` | none | per-tool buckets that replace `write_tool` or `read_tool` for the named tools |
+| `panel_execute` | 600 per minute, burst 300 | the panel hub `/execute` route |
+| `panel_chat` | 30 per minute, burst 10 | the panel hub `/agent/chat` route |
+
+Each value is `{"per_minute": N, "burst": M}`. `per_minute` 0 turns that bucket off. Missing keys keep their defaults. Example:
+
+```json
+{"session": {"per_minute": 300, "burst": 100}, "tools": {"revit_export_ifc": {"per_minute": 2, "burst": 1}}}
+```
+
+- Approval tools (`approve_plan`, `reject_plan`, `rollback_plan`) are human-only. They are refused on MCP before any count, and the person's approve, reject and rollback calls on `/execute` are never limited.
+- The MCP refusal is kind `rate_limited` with `error.retry_after_seconds`. The hub answers HTTP 429 with a `Retry-After` header and `{"ok": false, "kind": "rate_limited", "retry_after_seconds": N}`.
+- The hub sets a 30 s socket timeout on each connection, so a stalled request body cannot hold a handler thread forever. It does not limit how long a tool call runs.
 
 ## Policy file
 

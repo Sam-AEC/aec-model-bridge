@@ -31,6 +31,7 @@ from typing import Any, Dict, Optional
 
 from . import agent_bridge
 from . import agent_native
+from . import call_limits
 from .config import config
 from .errors import CommandFailed, RevitMCPError
 from .registry_factory import build_registry
@@ -66,6 +67,9 @@ MAX_BODY_BYTES = 1_048_576
 MAX_TOKEN_HEADER_CHARS = 256
 FAILURE_LIMIT = 20
 FAILURE_WINDOW_SECONDS = 60.0
+# Seconds a blocking read or write on one connection may wait. Bounds a slow or stalled request
+# body; it does not limit how long a tool call runs.
+SOCKET_TIMEOUT_SECONDS = 30
 
 
 class InstanceRoutingError(Exception):
@@ -273,12 +277,14 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
     workspace = None
     token: str | None = None
     failures: FailureLimiter | None = None
+    limiter: call_limits.RateLimiter | None = None
+    timeout = SOCKET_TIMEOUT_SECONDS
     _stale_logged = False
 
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
         logger.debug("panel_server: " + format, *args)
 
-    def _send_json(self, status: int, payload: Dict[str, Any]) -> None:
+    def _send_json(self, status: int, payload: Dict[str, Any], headers: Dict[str, str] | None = None) -> None:
         try:
             body = json.dumps(payload, allow_nan=False).encode("utf-8")
         except ValueError:
@@ -287,8 +293,22 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
+        for key, value in (headers or {}).items():
+            self.send_header(key, value)
         self.end_headers()
         self.wfile.write(body)
+
+    def _rate_limited(self, route: str) -> bool:
+        """Answer 429 with Retry-After and return True when ``route`` is over its limit."""
+        limiter = self.limiter
+        refusal = limiter.check_route(route) if limiter is not None else None
+        if refusal is None:
+            return False
+        self._send_json(429, {
+            "ok": False, "kind": "rate_limited", "error": refusal.message(),
+            "retry_after_seconds": refusal.retry_after_seconds,
+        }, headers={"Retry-After": str(refusal.retry_after_seconds)})
+        return True
 
     def _reject(self, status: int, error: str) -> bool:
         """Send an error and return False. Reads (a bounded amount of) the request
@@ -509,6 +529,9 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
         if not tool or not isinstance(tool, str):
             self._send_json(400, {"ok": False, "error": "Request body must include a string 'tool' field"})
             return
+        # The person's approve, reject and rollback clicks are never rate limited.
+        if tool not in HUMAN_ONLY_TOOLS and self._rate_limited("panel_execute"):
+            return
 
         try:
             switch = resolve_instance(body.get("instance"), tool)
@@ -540,6 +563,9 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
     def _handle_agent_chat(self) -> None:
         raw = self._read_body()
         if raw is None:
+            return
+        # Checked after the body is read: closing a socket with unread data can reset it on Windows.
+        if self._rate_limited("panel_chat"):
             return
         try:
             body = json.loads(raw or b"{}")
@@ -639,6 +665,7 @@ def build_server(
         "workspace": resolved_workspace,
         "token": resolved_token,
         "failures": FailureLimiter(),
+        "limiter": call_limits.RateLimiter(),
         "_stale_logged": False,
     })
 
