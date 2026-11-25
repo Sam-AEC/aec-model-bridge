@@ -104,6 +104,10 @@ With the Claude API tool search tool, deferred definitions are not in the prompt
 
 Reproduce: `python scripts/measure_mcp_tokens.py --always-loaded --output always-loaded.json`, and `--profile full|daily|core` for the other rows. `--only-tools a,b,c` measures any other subset.
 
+## Follow-up: the `learned` profile
+
+`MCP_REVIT_TOOL_PROFILE=learned` lists `core`, the always-loaded set and the 25 most used tools of the last 30 days from local usage counts, so a list fits what one person actually calls. It falls back to `daily` with fewer than 50 counted calls. `context_report` shows the most used tools and suggests `learned` when it would list at most 75% of the current list. Details and privacy: [learned profile](learned-profile.md).
+
 ## What dominates?
 
 *Dated: 2026-11-05. The `module_list_commands` size below is from before the 2026-11-16 trims; see the follow-up sections above.*

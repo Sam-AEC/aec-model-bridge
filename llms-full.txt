@@ -1299,8 +1299,10 @@ The server has two modes. Set the mode with `MCP_REVIT_MODE`.
 | `MCP_REVIT_LOG_LEVEL` | No | `INFO` | Log level of the server. |
 | `MCP_REVIT_REDACT_RESPONSES` | No | `off` | Masks personal data in tool responses and tool errors. `off` changes nothing extra. `basic` masks email addresses and the local OS user name. `strict` also masks person fields such as `author`, `owner`, `created_by` and `user`. Any other value fails closed to `strict`. Paths and secrets are always masked, at every level. Read on each call. It does not change what Revit or the audit log hold. |
 | `MCP_REVIT_APPROVAL_MODE` | No | `ask_first` | One of `look_only`, `ask_first` (alias `required`) or `auto`; trimmed and case-insensitive. `look_only` refuses every tool that changes the model and lets reads through. `ask_first` needs a `plan_id` for an approved plan before a model change runs. `auto` turns the approval check off. Any other value fails closed to `ask_first` and logs a warning. The mode cannot be changed over MCP. Live-Revit behaviour is UNVERIFIED. See [Security](security.md). Leave it at `ask_first` unless you have a reason. |
-| `MCP_REVIT_TOOL_PROFILE` | No | `full` | Which tools the MCP server lists: `full` (all, about 80k tokens), `daily` (hides Rhino, Speckle, Navisworks, IFC, MEP and a few more, about 62k), `core` (54 tools for the coordinator loop, about 14k) or `custom` (needs the file below). Tools outside the profile are not listed and calls to them are refused. Read once at startup; restart the MCP server to change it. Approval tools are always visible. See [MCP token budget](mcp-token-budget.md). |
-| `MCP_REVIT_TOOL_PROFILE_FILE` | No | unset | JSON file with `include` / `exclude` provider or module ID globs. Required for `custom`; narrows `full`, `daily` or `core`. |
+| `MCP_REVIT_TOOL_PROFILE` | No | `full` | Which tools the MCP server lists: `full` (all, about 80k tokens), `daily` (hides Rhino, Speckle, Navisworks, IFC, MEP and a few more, about 62k), `core` (54 tools for the coordinator loop, about 14k), `learned` (`core`, the always-loaded tools and your most used tools from the local usage counts; falls back to `daily` with too little data, see [Learned profile](learned-profile.md)) or `custom` (needs the file below). Tools outside the profile are not listed and calls to them are refused. Read once at startup; restart the MCP server to change it. Approval tools are always visible. See [MCP token budget](mcp-token-budget.md). |
+| `MCP_REVIT_TOOL_PROFILE_FILE` | No | unset | JSON file with `include` / `exclude` provider or module ID globs. Required for `custom`; narrows `full`, `daily`, `core` or `learned`. |
+| `MCP_REVIT_LEARNED_TOP_N` | No | `25` | How many of the most used tools of the last 30 days `learned` adds to `core` and the always-loaded tools. Whole number from 1 to 200; any other value stops the server at startup. |
+| `MCP_REVIT_USAGE_COUNTS` | No | `on` | Local tool usage counts in `<workspace>/usage/tool-usage.json`: tool names, calls per day and last-used day only. `off` (or `0`, `false`, `no`) counts nothing and writes no file; `learned` then falls back to `daily`. Any other value stops the server at startup. Nothing is sent anywhere. See [Learned profile](learned-profile.md). |
 | `MCP_REVIT_APPROVAL_TTL` | No | `28800` (8 hours) | Seconds an approved plan stays usable. After that the plan moves to `expired` and a person must approve a new plan; it is never renewed silently. `0` turns the limit off. A negative, fractional or non-numeric value falls back to the default (it never turns the limit off) and logs a warning. Checked when a call runs, not by a timer. See [ADR 0017](adr/0017-approval-document-binding-and-expiry.md). |
 | `MCP_REVIT_PENDING_TTL` | No | `1209600` (14 days) | Seconds a drafted, not yet approved plan can still be approved. Older pending plans are left out of `list` and `list_pending_plans` (counted as `expired_hidden`; `list --all` or `include_expired` shows them), cannot be approved, and are never deleted. `0` turns the limit off. Same fallback rule as above. |
 | `MCP_REVIT_POLICY_FILE` | No | unset | Path of a policy file (YAML or JSON) that adds refusals to `plan_actions` and `execute_plan`. Unset: `policy.yaml`, `policy.yml` or `policy.json` in the workspace folder, if present. A file that is named but missing or invalid refuses every write. See [Policy file](#policy-file). |
@@ -3048,6 +3050,7 @@ AEC Model Bridge is software that runs on your own computer. This page says what
 - The project runs no servers and collects no data about you. It has no telemetry, no analytics and no crash reporting.
 - Your Revit model is read by software on your computer. Whatever the assistant reads from your model is sent to the AI provider you connected, because that is how the assistant can answer. That provider's privacy policy applies to it.
 - Logs, plans and proof files stay in folders on your computer. You can delete them.
+- The server counts how often each tool is called, in a small file in your workspace, to build the optional `learned` tool profile. The file holds tool names, counts and dates only. It never leaves your computer. `MCP_REVIT_USAGE_COUNTS=off` turns it off.
 
 ## What runs on your computer
 
@@ -3079,6 +3082,7 @@ File arguments handled by the workspace guard are limited to the folders you all
 | What | Where |
 |---|---|
 | Workspace: approval plans (`plans`), proof bundles (`proofs`), model snapshots (`snapshots`) and files the tools write | `Documents\AEC Model Bridge` by default, or the folder in `MCP_REVIT_WORKSPACE_DIR` |
+| Tool usage counts (tool names, calls per day, last-used day; no arguments, results, model data or user names) | `<workspace>\usage\tool-usage.json`. Used only by the `learned` tool profile. Turn off with `MCP_REVIT_USAGE_COUNTS=off`; show or delete with `aec-model-bridge-usage show` or `reset`. See [learned-profile.md](learned-profile.md). |
 | Audit log of tool calls (if enabled) | The file in `MCP_REVIT_AUDIT_LOG`. Secrets, tokens and file paths are redacted before writing. See [logging-and-audit.md](logging-and-audit.md). |
 | Add-in log and panel log | `%APPDATA%\AECModelBridge\Logs` (`bridge.jsonl`, `panel-hub.log`) |
 | Bridge endpoint files (which port Revit uses) | `%LOCALAPPDATA%\AECModelBridge\registry` |
@@ -3529,6 +3533,10 @@ Same method as above (mock mode, chars / 4 over `list_tools`), with 312 tools, a
 With the Claude API tool search tool, deferred definitions are not in the prompt until a search returns them, so the startup cost is the always-loaded row plus the search tool itself. Claude Code lists the names of deferred tools at session start; the last row estimates that from names-only JSON (7,772 characters for all 312 names) and is not a measurement of Claude Code's own prompt. Neither row was measured in a live client. Server instructions (about 345 tokens) are sent in every setup.
 
 Reproduce: `python scripts/measure_mcp_tokens.py --always-loaded --output always-loaded.json`, and `--profile full|daily|core` for the other rows. `--only-tools a,b,c` measures any other subset.
+
+## Follow-up: the `learned` profile
+
+`MCP_REVIT_TOOL_PROFILE=learned` lists `core`, the always-loaded set and the 25 most used tools of the last 30 days from local usage counts, so a list fits what one person actually calls. It falls back to `daily` with fewer than 50 counted calls. `context_report` shows the most used tools and suggests `learned` when it would list at most 75% of the current list. Details and privacy: [learned profile](learned-profile.md).
 
 ## What dominates?
 
