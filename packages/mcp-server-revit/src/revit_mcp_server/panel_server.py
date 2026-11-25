@@ -21,6 +21,7 @@ import hmac
 import json
 import logging
 import os
+import queue
 import shutil
 import socket
 import socketserver
@@ -122,6 +123,9 @@ def _busy_response_bytes() -> bytes:
 # A refused client's request is drained for at most this long and this many bytes.
 REFUSAL_DRAIN_SECONDS = 0.25
 REFUSAL_DRAIN_MAX_BYTES = 1024 * 1024
+# Refused sockets wait for one closer thread in a queue of this size. When it is full, a refused
+# socket is closed at once after a non-blocking read, so the accept thread never waits on a client.
+REFUSAL_CLOSER_QUEUE = 32
 
 # Request line and headers must arrive this fast on a reserved /execute slot.
 RESERVED_HEADER_TIMEOUT_SECONDS = 2.0
@@ -133,8 +137,8 @@ class BoundedThreadingHTTPServer(ThreadingHTTPServer):
     A slot is taken on the accept thread before a request thread starts. General slots go first;
     when they are all in use, a connection gets one of the ``reserved_execute`` slots, and its
     thread answers 503 unless the request path is ``/execute``. When every slot is in use, the
-    connection is answered 503 with ``Retry-After`` on the accept thread and closed; no thread
-    starts. A slot is released when its thread ends, also after an exception.
+    connection is answered 503 with ``Retry-After`` on the accept thread and handed to one shared
+    closer thread that drains and closes it; no thread starts per refused connection. A slot is released when its thread ends, also after an exception.
     """
 
     def __init__(self, server_address, handler_class, max_threads: int = DEFAULT_MAX_THREADS,
@@ -149,6 +153,8 @@ class BoundedThreadingHTTPServer(ThreadingHTTPServer):
         self._count_lock = threading.Lock()
         self.active_threads = 0
         self.refused_busy = 0
+        self._refusal_queue: queue.Queue = queue.Queue(maxsize=REFUSAL_CLOSER_QUEUE)
+        self._refusal_closer: threading.Thread | None = None
         super().__init__(server_address, handler_class, bind_and_activate)
 
     def current_slot(self) -> str:
@@ -169,32 +175,75 @@ class BoundedThreadingHTTPServer(ThreadingHTTPServer):
             self._execute_slots.release()
 
     def _refuse_busy(self, request) -> None:
+        """Answer 503 on the accept thread, then hand the socket to the closer thread.
+
+        The closer sends FIN, reads what the client sent (bounded in bytes and time) and closes, so
+        closing with unread data does not reset the connection before the client reads the 503.
+        Windows resets (WinError 10053) otherwise. The accept thread does not wait for the drain.
+        """
         with self._count_lock:
             self.refused_busy += 1
         try:
             request.settimeout(1.0)
             request.sendall(_busy_response_bytes())
-            # Send FIN after the 503, then read what the client already sent (bounded in bytes and
-            # time), so closing with unread data does not reset the connection before the client
-            # reads the 503. Windows resets (WinError 10053) otherwise.
             with contextlib.suppress(OSError):
                 request.shutdown(socket.SHUT_WR)
-            deadline = time.monotonic() + REFUSAL_DRAIN_SECONDS
-            remaining_bytes = REFUSAL_DRAIN_MAX_BYTES
-            with contextlib.suppress(OSError):
-                while remaining_bytes > 0:
-                    left = deadline - time.monotonic()
-                    if left <= 0:
-                        break
-                    request.settimeout(left)
-                    data = request.recv(min(65536, remaining_bytes))
-                    if not data:
-                        break
-                    remaining_bytes -= len(data)
         except OSError:
-            pass
-        finally:
             self.shutdown_request(request)
+            return
+        try:
+            self._refusal_queue.put_nowait(request)
+        except queue.Full:
+            self._drain_nonblocking(request)
+            self.shutdown_request(request)
+            return
+        self._ensure_refusal_closer()
+
+    def _ensure_refusal_closer(self) -> None:
+        with self._count_lock:
+            if self._refusal_closer is not None and self._refusal_closer.is_alive():
+                return
+            t = threading.Thread(target=self._run_refusal_closer, name="panel-refusal-closer", daemon=True)
+            self._refusal_closer = t
+        t.start()
+
+    def _run_refusal_closer(self) -> None:
+        while True:
+            try:
+                request = self._refusal_queue.get(timeout=5.0)
+            except queue.Empty:
+                with self._count_lock:
+                    if self._refusal_queue.empty():
+                        self._refusal_closer = None
+                        return
+                continue
+            try:
+                self._drain_bounded(request)
+            finally:
+                self.shutdown_request(request)
+
+    @staticmethod
+    def _drain_nonblocking(request) -> None:
+        with contextlib.suppress(OSError):
+            request.setblocking(False)
+            for _ in range(16):
+                if not request.recv(65536):
+                    break
+
+    @staticmethod
+    def _drain_bounded(request) -> None:
+        deadline = time.monotonic() + REFUSAL_DRAIN_SECONDS
+        remaining_bytes = REFUSAL_DRAIN_MAX_BYTES
+        with contextlib.suppress(OSError):
+            while remaining_bytes > 0:
+                left = deadline - time.monotonic()
+                if left <= 0:
+                    break
+                request.settimeout(left)
+                data = request.recv(min(65536, remaining_bytes))
+                if not data:
+                    break
+                remaining_bytes -= len(data)
 
     def process_request(self, request, client_address) -> None:
         kind = self._take_slot()
