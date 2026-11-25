@@ -26,7 +26,7 @@ from .errors import BridgeError, CommandFailed
 from .registry_factory import build_registry
 from .security.approval import HUMAN_ONLY_TOOLS
 from .security.dispatch import (
-    gate_after, gate_after_result, gate_before, result_failed, settle_in_flight,
+    GET_RESULT_TOOL, gate_after, gate_after_result, gate_before, result_failed, settle_in_flight,
 )
 from .security.gating import requires_approval
 from .security.audit import redact_data as _redact_secrets
@@ -337,12 +337,20 @@ async def _execute_and_present(name, provider, arguments, claim, gate, response_
             gate_after(gate, claim, ok=False, error=str(e) or type(e).__name__)
             settle_in_flight(gate, name, arguments, error=e)
             raise
-        if follow_job and name == mcp_tasks.RUN_JOB_TOOL:
-            # A revit_run_job task waits for the Revit job's real outcome. If the task is
-            # cancelled meanwhile, the action is booked as still running, never as failed.
-            result = await mcp_tasks.follow_revit_job(
-                provider, result, lambda last: gate_after_result(gate, claim, name, last),
-            )
+        if follow_job:
+            # A task waits for the real outcome: a revit_run_job for its Revit job, and any task
+            # tool for a request the bridge answered as still running (revit_get_result). If the
+            # task is cancelled meanwhile, the action is booked as still running, never as failed.
+            def book_running(last: Any) -> None:
+                gate_after_result(gate, claim, name, last)
+
+            try:
+                if name == mcp_tasks.RUN_JOB_TOOL:
+                    result = await mcp_tasks.follow_revit_job(provider, result, book_running)
+                result = await mcp_tasks.follow_revit_result(_fetch_revit_result, name, result, book_running)
+            except CommandFailed as e:
+                gate_after(gate, claim, ok=False, error=str(e) or type(e).__name__)
+                raise
         if claim is None:
             settle_in_flight(gate, name, arguments, result=result)
         outcome = gate_after_result(gate, claim, name, result)
@@ -394,6 +402,14 @@ async def _execute_and_present(name, provider, arguments, claim, gate, response_
 
     except Exception as e:
         return _tool_error("execution_error", f"Error: {str(e)}")
+
+
+async def _fetch_revit_result(request_id: str) -> Any:
+    """revit_get_result for a task that follows a running request (read-only, never re-runs)."""
+    provider = registry.lookup_tool_provider(GET_RESULT_TOOL)
+    if provider is None:
+        raise BridgeError(f"{GET_RESULT_TOOL} is not available to follow request {request_id}.")
+    return await provider.execute_tool(GET_RESULT_TOOL, {"request_id": request_id})
 
 
 def _call_writes(name: str, arguments: Any) -> bool:

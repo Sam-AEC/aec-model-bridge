@@ -406,6 +406,99 @@ def test_follow_revit_job_books_running_when_cancelled():
     assert booked == [{"job_id": "j1", "state": "running"}]
 
 
+def _install_running_export(monkeypatch, answers):
+    """EXPORT answers 'running' with a request id; revit_get_result gives ``answers`` in turn."""
+    monkeypatch.setattr(mcp_tasks, "_FOLLOW_STEP_S", 0)
+    gate, provider = _install(monkeypatch)
+    fetched = []
+
+    class ResultProvider:
+        async def execute_tool(self, name, arguments):
+            fetched.append((name, arguments))
+            answer = answers.pop(0)
+            if isinstance(answer, Exception):
+                raise answer
+            return answer
+
+    async def export(name, arguments):
+        provider.calls.append(name)
+        return {"status": "running", "request_id": "req-1", "message": "still exporting"}
+
+    provider.execute_tool = export
+    registry = mcp_server.registry
+    tools = {name: registry.lookup_tool(name) for name in (EXPORT, SNAPSHOT, PLAIN)}
+    monkeypatch.setattr(mcp_server, "registry", SimpleNamespace(
+        lookup_tool_provider=lambda name: ResultProvider() if name == "revit_get_result" else (
+            provider if name in tools else None),
+        lookup_tool=lambda name: tools.get(name),
+        get_tools_with_providers=lambda: [(provider, t) for t in tools.values()],
+    ))
+    return gate, fetched
+
+
+def _run_export_task(monkeypatch):
+    async def scenario(client):
+        created = await client.experimental.call_tool_as_task(EXPORT, {"plan_id": "plan-1", "output_path": "model.ifc"})
+        status = await _wait_status(client, created.task.taskId, {"completed", "failed"})
+        return status, await client.experimental.get_task_result(created.task.taskId, CallToolResult)
+
+    return _run(monkeypatch, scenario)
+
+
+def test_task_follows_running_request_until_final(monkeypatch):
+    answers = [{"status": "running", "request_id": "req-1"}, {"success": True, "path": "model.ifc"}]
+    gate, fetched = _install_running_export(monkeypatch, answers)
+    status, final = _run_export_task(monkeypatch)
+    assert status.status == "completed" and not final.isError
+    assert "model.ifc" in final.content[0].text and "still running" not in final.content[0].text
+    assert fetched == [("revit_get_result", {"request_id": "req-1"})] * 2
+    assert gate.finished == [("action-0", True, None)]  # booked once, as done; never left in flight
+
+
+def test_task_books_failure_once_when_followed_request_fails(monkeypatch):
+    from revit_mcp_server.errors import CommandFailed
+
+    gate, fetched = _install_running_export(monkeypatch, [CommandFailed("Bridge error: export failed")])
+    status, final = _run_export_task(monkeypatch)
+    assert final.isError and "export failed" in final.content[0].text
+    assert gate.finished == [("action-0", False, "Bridge error: export failed")]
+
+
+def test_task_keeps_action_in_flight_when_request_cannot_be_collected(monkeypatch):
+    from revit_mcp_server.errors import BridgeError
+
+    gate, fetched = _install_running_export(monkeypatch, [BridgeError("lost contact")])
+    status, final = _run_export_task(monkeypatch)
+    assert "still running" in final.content[0].text
+    assert gate.finished == [("action-0", "in_flight", "req-1")]
+
+
+def test_follow_revit_result_books_running_when_cancelled():
+    booked = []
+
+    async def slow_fetch(request_id):
+        await asyncio.sleep(10)
+
+    async def main():
+        first = {"status": "running", "request_id": "req-1"}
+        task = asyncio.ensure_future(mcp_tasks.follow_revit_result(slow_fetch, EXPORT, first, booked.append))
+        await asyncio.sleep(0.6)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    asyncio.run(main())
+    assert booked == [{"status": "running", "request_id": "req-1"}]
+
+
+def test_follow_revit_result_leaves_final_results_alone():
+    async def never(request_id):
+        raise AssertionError("not called")
+
+    for result in ({"success": True}, {"status": "running"}, {"job_id": "j", "state": "queued"}, ["x"]):
+        assert asyncio.run(mcp_tasks.follow_revit_result(never, EXPORT, result, lambda last: None)) == result
+
+
 def test_register_returns_false_without_sdk_tasks_api():
     assert mcp_tasks.register_task_handlers(SimpleNamespace(), mcp_tasks.TaskBridge(lambda: None)) is False
 

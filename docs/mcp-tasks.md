@@ -41,6 +41,8 @@ A `tools/call` with `params.task` for any other tool is refused with error kind 
 
 For `revit_run_job`, the task ends when the Revit job ends. The server keeps polling `revit_job_status` after the `wait_s` window, so the task result is the job's final state.
 
+For any task tool, a call that outlives the bridge wait answers `status: "running"` with a `request_id`. The task does not end there: the server calls `revit_get_result` with that id until Revit gives the final result, and the approval outcome is booked once, from that result. A failure from Revit fails the task. If the result cannot be collected (lost contact, expired id, no live Revit), the task ends with the last `running` answer and the approved action stays in flight, as for a direct call.
+
 ## How a task runs
 
 1. The server checks the tool profile and the approval gate, exactly as for a direct call. A write claims its approved action here, before the task exists. A refused call returns an error result, not a task.

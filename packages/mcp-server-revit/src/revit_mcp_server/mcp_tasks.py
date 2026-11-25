@@ -150,6 +150,41 @@ async def follow_revit_job(
     return current
 
 
+async def follow_revit_result(
+    fetch: Callable[[str], Awaitable[Any]], tool: str, result: Any, on_cancel: Callable[[Any], Any],
+) -> Any:
+    """For any task: follow a pending Revit request through revit_get_result until it is final.
+
+    A bridge call can outlive its soft wait and answer {"status": "running", "request_id": ...}
+    while Revit keeps working (a revit_run_job can end the same way, as a StillRunning failure).
+    A task should end with the real outcome, so ``fetch(request_id)`` (revit_get_result) is
+    called until the answer is final. A CommandFailed from it is Revit's verdict and is raised
+    to the caller. If the task is cancelled, the last answer is booked as still running by
+    on_cancel; if any other lookup error occurs, the last answer is kept and returned.
+    """
+    from .errors import CommandFailed
+    from .security.dispatch import GET_RESULT_TOOL, classify_outcome
+
+    current = result
+    while True:
+        outcome = classify_outcome(tool, current) if isinstance(current, dict) else None
+        if (outcome is None or outcome.state != "running" or not outcome.key
+                or not (outcome.resume or "").startswith(GET_RESULT_TOOL)):
+            return current
+        try:
+            await asyncio.sleep(_FOLLOW_STEP_S)
+            current = await fetch(outcome.key)
+        except asyncio.CancelledError:
+            on_cancel(current)
+            raise
+        except CommandFailed:
+            raise
+        except Exception:  # noqa: BLE001 - keep the last known state; the caller reports it as running
+            logger.exception("Could not collect a running Revit request for a task")
+            return current
+        tool = GET_RESULT_TOOL
+
+
 @dataclass
 class _TaskEntry:
     task_id: str
