@@ -215,7 +215,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
 | `revit_apply_view_template` | Apply a view template to a view in the active Revit document. | Yes | sync |
-| `revit_batch_create_sheets_from_csv` | Create many sheets from a CSV file inside the allowed workspace, using the named title block. | Yes | sync |
+| `revit_batch_create_sheets_from_csv` | Create many sheets from a CSV file inside the allowed workspace. | Yes | sync |
 | `revit_batch_set_parameters` | Set the same parameter to the same value on many elements, given by ElementId, in one Revit transaction. | Yes | sync |
 | `revit_batch_set_parameters_by_filter` | Set a parameter value on all elements matching a filter (category, type, level, or parameter value). | Yes | sync |
 | `revit_calculate_material_quantities` | Calculate material volumes and areas for all elements of a category. | No | sync |
@@ -240,7 +240,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_create_material` | Create a new material with a colour, transparency, shininess and smoothness. | Yes | sync |
 | `revit_create_new_document` | Create a new Revit project, optionally from a template file inside the allowed workspace. | Yes | sync |
 | `revit_create_pipe` | Create a pipe between two points at an elevation on a level, with a piping system type and pipe type. | Yes | sync |
-| `revit_create_project_parameter` | Create a new project parameter and bind it to a category in the active Revit document. | Yes | sync |
+| `revit_create_project_parameter` | Create a new project parameter with a name, group, data type and instance or type binding. | Yes | sync |
 | `revit_create_roof` | Create a roof on a level from a closed footprint of points, with an optional slope, in the active Revit document. | Yes | sync |
 | `revit_create_room` | Create a room at an x/y point on a level, with a name and number, in the active Revit document. | Yes | sync |
 | `revit_create_schedule` | Create a schedule view for a category with the given name. | Yes | sync |
@@ -252,10 +252,10 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_create_wall` | Create a straight wall between two points on a level in the active Revit document. | Yes | sync |
 | `revit_delete_element` | Delete one element by its Revit ElementId from the active document. | Yes | sync |
 | `revit_delete_sheet` | Delete a sheet by ElementId. | Yes | sync |
-| `revit_duplicate_sheet` | Duplicate a sheet, optionally with its views, using one of Revit's duplicate options. | Yes | sync |
+| `revit_duplicate_sheet` | Duplicate a sheet under a new number and name, optionally copying its viewports. | Yes | sync |
 | `revit_edit_family` | Open a family for editing in the Revit family editor. | Yes | sync |
 | `revit_execute_python` | Advanced: run IronPython 2. | Yes | sync |
-| `revit_export_dwg` | Export a view to a DWG file at a path inside the allowed workspace. | No | sync |
+| `revit_export_dwg` | Export a view to a DWG file in a folder inside the allowed workspace; the file is named after the view. | No | sync |
 | `revit_export_ifc` | Export the model to an IFC file at a path inside the allowed workspace. | No | sync |
 | `revit_export_image` | Export a view to an image file of the given pixel size at a path inside the allowed workspace. | No | sync |
 | `revit_export_navisworks` | Export the model to a Navisworks NWC file at a path inside the allowed workspace. | No | sync |
@@ -312,7 +312,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_reflect_set` | Advanced escape hatch: set any writable Revit API property of an object identified by target_id, through reflection. | Yes | sync |
 | `revit_relinquish_all` | Relinquish every element and workset the current user owns in a workshared model. | Yes | sync |
 | `revit_render_3d` | Render a 3D view to an image file at a chosen quality level. | Yes | sync |
-| `revit_renumber_sheets` | Renumber all sheets in one batch using a prefix and a starting number. | Yes | sync |
+| `revit_renumber_sheets` | Renumber the listed sheets in one transaction: sheet_ids with a prefix and start number, or explicit numbers. | Yes | sync |
 | `revit_replace_family_type` | Replace all instances of one family/type combination with another, identified by name. | Yes | sync |
 | `revit_rotate_element` | Rotate one element about a vertical axis through a centre point by an angle in radians. | Yes | sync |
 | `revit_save_document` | Save the active Revit document, optionally to a path inside the allowed workspace directories. | Yes | sync |
@@ -320,7 +320,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_set_element_material` | Assign a material, by name, to an element or to one of its faces. | Yes | sync |
 | `revit_set_parameter_value` | Set one instance parameter on one element to a new value in the active Revit document. | Yes | sync |
 | `revit_set_selection` | Replace the current Revit UI selection with the given ElementIds. | Yes | sync |
-| `revit_set_type_parameter` | Set one type parameter on the family type of an element. | Yes | sync |
+| `revit_set_type_parameter` | Set one type parameter on a family type, given by type_id. | Yes | sync |
 | `revit_sync_to_central` | Synchronise a workshared model with the central model with a comment, optionally relinquishing ownership. | Yes | sync |
 | `revit_tag_all_in_view` | Tag every element of a category in the active view. | Yes | sync |
 | `revit_ungroup` | Dissolve a model group into its member elements. | Yes | sync |
