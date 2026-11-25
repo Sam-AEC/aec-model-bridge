@@ -220,7 +220,9 @@ def test_authenticated_bodies_get_only_documented_answers(
     (b'{"tool": "list_pending_plans", "arguments": {"a": NaN}}', "valid JSON"),
     (b'{"tool": "list_pending_plans", "arguments": {"a": 1e999}}', "valid JSON"),
     (b"[]", "JSON object"),
-])
+], ids=["invalid-utf8", "long-int", "deep-array", "deep-arguments", "nan", "overflow-float", "not-object"])
+# Short ids: pytest puts the test id in PYTEST_CURRENT_TEST, and Windows caps an environment
+# variable at 32767 characters, so a 200 KB input as its own id breaks the run there.
 def test_unparseable_bodies_are_400(hub: SimpleNamespace, raw: bytes, error: str) -> None:
     for path in ("/execute", "/approval-mode", "/agent/chat"):
         status, payload = _drive(hub.cls, _request("POST", path, _headers(raw), raw))
