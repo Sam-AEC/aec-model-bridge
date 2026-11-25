@@ -26,6 +26,6 @@ The Python server reaches the Revit add-in over HTTP on a loopback port. Any loc
 ## Consequences
 
 - While HTTP stays on, the pipe does not close the loopback port. The security gain applies once HTTP can be turned off; that is a later change, after the pipe is verified in live Revit.
-- The panel hub's instance routing (`routed_to`) still uses HTTP.
+- The panel hub's instance routing (`routed_to`) follows the same setting: with `MCP_REVIT_BRIDGE_TRANSPORT=pipe`, a routed client uses the `pipe_name` of the registry entry it routes to, or warns and uses HTTP if there is none. The add-in's own calls to the hub (`HubClient`) still use HTTP.
 - The framing is covered by Python tests with a fake framing server over a socket pair and by C# tests in `packages/revit-bridge-addin-tests` (`PipeFramingTests`). Source guards check the ACL, the opt-in switch, the token check and the queue path in `PipeBridgeServer.cs`.
 - To verify in a live Windows session: the pipe exists only with `AEC_BRIDGE_TRANSPORT=pipe`, its DACL lists only the current user, a process of another user gets access denied, and tool calls work over the pipe in Revit 2024 (net48) and Revit 2025 or later (net8 and net10). When verified, remove the related known limit from `docs/security.md`.
