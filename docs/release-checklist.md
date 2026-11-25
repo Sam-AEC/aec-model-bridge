@@ -20,7 +20,7 @@ Run on a Windows machine with Revit, starting with the write test in section 5. 
 
 1. First real write (for example `revit_set_parameter_value` through an approved plan). A crash here is the most important finding.
 2. Undo behaviour. A plan of only parameter writes, moves and rotations runs as one `revit.execute_plan_batch` and should be one Ctrl+Z step named "AEC Model Bridge: <plan title> (<short id>)" (UNVERIFIED). Check it with a plan of two or more actions, check that a plan whose second action fails leaves the model unchanged, and check that other plans still take one Ctrl+Z per action. Check `rollback_plan`, which can skip actions that have no recorded before-value.
-3. Two Revits open at once: requests reach the Revit the person means ([ADR 0014](adr/0014-multi-revit-routing.md), the "Several Revits" section of security.md).
+3. Two Revits open at once: requests reach the Revit the person means ([ADR 0014](adr/0014-multi-revit-routing.md), the "Several Revits" section of security.md). Also draft a plan in Revit A and run it in Revit B with the same file open: it must be refused as a different Revit process (issue #152, UNVERIFIED). Record the Revit version and commit.
 4. The WebView2 panel loads, lists pending plans and approves one. Run `aec-model-bridge-approve show <plan_id>` for the same plan and compare it with what the panel showed.
 5. Windows ACL on `%LOCALAPPDATA%\AECModelBridge\panel-hub.token`: only the current user has access. Windows does not re-verify the ACL on read.
 6. The Revit 2024 Release build and authenticated panel backend passed on 14 October 2026. Build and run the net8 and net10 targets as well, and repeat the release checks on each supported year.
