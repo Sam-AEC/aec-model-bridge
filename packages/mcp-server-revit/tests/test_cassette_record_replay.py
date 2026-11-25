@@ -166,3 +166,11 @@ def test_params_match_regardless_of_key_order():
 
 def test_sample_cassette_runs_as_a_regression_test(cassette_replay):
     assert cassette_replay(SAMPLE) == {"tool_level": 4, "bridge_level": 1}
+
+
+def test_last_saved_by_of_another_person_is_masked():
+    """#308 review: a name that is not the local user is masked by key, not only by text match."""
+    from revit_mcp_server.security.response_redaction import redact_response
+
+    out = redact_response({"last_saved_by": "OtherPerson", "saved_by": "Someone"}, level="strict")
+    assert out["last_saved_by"] == "<redacted-user>" and out["saved_by"] == "<redacted-user>"
