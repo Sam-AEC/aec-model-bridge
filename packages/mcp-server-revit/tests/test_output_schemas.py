@@ -194,6 +194,10 @@ def test_sdk_client_accepts_a_result_that_does_not_match_the_schema(server, monk
         return await real(name, arguments)
 
     monkeypatch.setattr(provider, "execute_tool", odd)
+    # A JobManager binds to the first event loop that uses it; this test runs its own loop.
+    from revit_mcp_server.jobs import JobManager
+
+    monkeypatch.setattr(mcp_server, "job_manager", JobManager())
 
     async def run():
         async with create_connected_server_and_client_session(mcp_server.app) as client:
