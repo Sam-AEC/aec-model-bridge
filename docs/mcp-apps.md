@@ -15,7 +15,7 @@ MCP Apps is the MCP extension `io.modelcontextprotocol/ui`, stable spec version 
 | Item | Value |
 | --- | --- |
 | Resource | `ui://aec-model-bridge/plan-review`, MIME type `text/html;profile=mcp-app`. An empty view that the client fills from the tool result. |
-| Resource template | `ui://aec-model-bridge/plan-review/{id}`: the same view with one plan embedded, for clients that read resources directly. |
+| Resource template | `ui://aec-model-bridge/plan-review/{id}`: the same view with one plan embedded, for clients that read resources directly. A pending or approved plan past its expiry is shown with state `expired` and the expiry reason, and without approval instructions. |
 | Resource `_meta.ui` | `csp.connectDomains: []`, `csp.resourceDomains: []` (no network, no external files), `permissions.clipboardWrite: {}` (for "Copy plan id"), `prefersBorder: true`. |
 | `plan_actions`, `list_pending_plans` | `_meta.ui = {"resourceUri": "ui://aec-model-bridge/plan-review", "visibility": ["model"]}`. |
 | Every other tool that is not read-only | `_meta.ui = {"visibility": ["model"]}`. |

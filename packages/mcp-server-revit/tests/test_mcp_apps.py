@@ -6,6 +6,9 @@ import base64
 import hashlib
 import json
 import re
+import shutil
+import subprocess
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -275,3 +278,67 @@ def test_per_plan_view_keeps_personal_data_when_redaction_is_off(apps_on, gate, 
     plan = _mail_plan(gate)
     _, data = _embedded(gate, plan["plan_id"])
     assert data["plans"][0]["review"]["summary"] == "Requested by jane.doe@example.com"
+
+
+# Runs the view script against a minimal DOM in node and prints the page text, one node per line.
+_VIEW_HARNESS = r"""
+const fs = require('fs');
+const code = fs.readFileSync(process.argv[2], 'utf8');
+const data = fs.readFileSync(process.argv[3], 'utf8');
+function node(tag) {
+  return { tag, children: [], className: '', _t: '', type: '',
+    appendChild(c) { this.children.push(c); return c; },
+    removeChild(c) { this.children = this.children.filter((x) => x !== c); },
+    get firstChild() { return this.children[0] || null; },
+    addEventListener() {},
+    set textContent(v) { this._t = String(v); }, get textContent() { return this._t; } };
+}
+const root = node('main');
+const embedded = node('script'); embedded.textContent = data;
+global.document = { getElementById: (id) => (id === 'root' ? root : id === 'plan-data' ? embedded : null),
+                    createElement: node, documentElement: {}, body: {} };
+global.window = { addEventListener() {} }; window.parent = window;
+global.navigator = {};
+eval(code);
+const out = [];
+(function walk(n) { if (n._t) out.push(n._t); n.children.forEach(walk); })(root);
+process.stdout.write(out.join('\n'));
+"""
+
+
+def _page_text(html, tmp_path):
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node not available")
+    data = json.loads(_scripts(html)[0][1])
+    files = {"code.js": mcp_apps._SCRIPT, "data.json": json.dumps(data), "harness.js": _VIEW_HARNESS}
+    for name, text in files.items():
+        (tmp_path / name).write_text(text, encoding="utf-8")
+    run = subprocess.run([node, str(tmp_path / "harness.js"), str(tmp_path / "code.js"), str(tmp_path / "data.json")],
+                         capture_output=True, text=True, timeout=30, check=True)
+    return run.stdout
+
+
+def test_expired_pending_plan_shows_expired_without_approval_instructions(apps_on, tmp_path):
+    gate = ApprovalGate(workspace_dir=tmp_path / "ws", approval_mode="ask_first", pending_ttl=3600)
+    plan = _mail_plan(gate)
+    stored = gate.load_plan(plan["plan_id"])
+    stored["created_at"] = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+    gate.save_plan(stored)
+    html, data = _embedded(gate, plan["plan_id"])
+    shown = data["plans"][0]
+    assert shown["state"] == "expired" and shown["expired"] is True
+    assert shown["expiry_reason"] == gate.expiry_reason(gate.load_plan(plan["plan_id"]))
+    assert gate.load_plan(plan["plan_id"])["state"] == "pending"  # reading the view changes nothing
+    text = _page_text(html, tmp_path)
+    assert "expired" in text and "cannot be approved" in text
+    assert "aec-model-bridge-approve approve" not in text and "Approve in the Revit panel" not in text
+
+
+def test_live_pending_plan_keeps_approval_instructions(apps_on, tmp_path):
+    gate = ApprovalGate(workspace_dir=tmp_path / "ws", approval_mode="ask_first", pending_ttl=3600)
+    plan = _mail_plan(gate)
+    html, data = _embedded(gate, plan["plan_id"])
+    assert data["plans"][0]["state"] == "pending" and "expired" not in data["plans"][0]
+    text = _page_text(html, tmp_path)
+    assert f"aec-model-bridge-approve approve {plan['plan_id']}" in text and "expired" not in text

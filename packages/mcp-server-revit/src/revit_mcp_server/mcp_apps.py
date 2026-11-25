@@ -155,7 +155,13 @@ def read_resource(uri: Any, gate: ApprovalGate) -> tuple[str, dict[str, Any]]:
         raise AppsResourceError(str(exc)) from None
     if plan is None:
         raise AppsResourceError(f"Plan '{plan_id}' was not found.")
-    data = {"approval_mode": gate.approval_mode, "plans": [with_review_aids(plan, gate.workspace_dir)]}
+    shown = with_review_aids(plan, gate.workspace_dir)
+    expired = gate.expiry_reason(plan)
+    if expired:
+        # The stored state is still pending or approved until the gate next writes the plan;
+        # the page shows what an approval or execute would find now.
+        shown = {**shown, "state": "expired", "expired": True, "expiry_reason": expired}
+    data = {"approval_mode": gate.approval_mode, "plans": [shown]}
     return render_html(data), resource_meta()
 
 
@@ -259,7 +265,7 @@ _SCRIPT = r"""
     if (Array.isArray(plan.skipped) && plan.skipped.length) {
       out.push(plan.skipped.length + " item(s) were skipped when the plan was drafted.");
     }
-    if (plan.expired) { out.push("This plan has expired and cannot be approved."); }
+    if (plan.expired) { out.push(plan.expiry_reason ? txt(plan.expiry_reason) : "This plan has expired and cannot be approved."); }
     return out;
   }
 
@@ -329,9 +335,13 @@ _SCRIPT = r"""
 
     var how = el("div", "how");
     how.appendChild(el("p", null, "This view cannot approve, reject or run a plan."));
-    var line = el("p", null, "Approve in the Revit panel (Plans view) or run: ");
-    line.appendChild(el("code", null, "aec-model-bridge-approve approve " + id));
-    how.appendChild(line);
+    if (plan.expired || plan.state === "expired") {
+      how.appendChild(el("p", null, "This plan has expired and cannot be approved. Ask for a new plan."));
+    } else if (!plan.state || plan.state === "pending") {
+      var line = el("p", null, "Approve in the Revit panel (Plans view) or run: ");
+      line.appendChild(el("code", null, "aec-model-bridge-approve approve " + id));
+      how.appendChild(line);
+    }
     card.appendChild(how);
     return card;
   }
