@@ -7,6 +7,10 @@ on:
       - "scripts/version.py"
       - ".github/workflows/vscode-extension.yml"
   push:
+    # Pushes to PR branches are covered by the pull_request run above.
+    branches:
+      - main
+      - dev
     paths:
       - "packages/vscode-extension/**"
       - "scripts/version.py"

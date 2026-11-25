@@ -2,8 +2,22 @@ name: Dependency review
 
 # Blocks a pull request that introduces a dependency with a known high or critical
 # vulnerability. Needs the dependency graph enabled (Settings -> Code security).
+# Runs only when a manifest, lockfile or workflow file changes: those are the files
+# the dependency graph reads. Not a required check, so a skipped run blocks nothing.
 on:
   pull_request:
+    paths:
+      - "**/pyproject.toml"
+      - "**/uv.lock"
+      - "**/requirements*.txt"
+      - "**/package.json"
+      - "**/package-lock.json"
+      - "**/*.csproj"
+      - "**/*.props"
+      - "**/packages.lock.json"
+      - "**/global.json"
+      - ".github/workflows/**"
+      - ".github/actions/**"
 
 permissions:
   contents: read

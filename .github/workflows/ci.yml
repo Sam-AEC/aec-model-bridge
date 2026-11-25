@@ -6,6 +6,12 @@ on:
       - main
       - dev
   pull_request:
+    # ready_for_review: a draft pull request skips the jobs below (see ci-success).
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
   workflow_dispatch:
   # Nightly full matrix on the default branch, so a dependency release that breaks
   # an untested Python version shows up within a day.
@@ -26,10 +32,12 @@ env:
 # Third-party and first-party actions are pinned by full commit SHA with a version
 # comment; Dependabot (github-actions ecosystem) keeps them current.
 jobs:
-  # Decides which jobs this run needs. Pull requests get a lean matrix and skip the
-  # C# builds when no C# files changed; pushes to main/dev, the nightly run and
-  # manual runs get everything. Uses the API file list, so no history checkout.
+  # Decides which jobs this run needs. Pull requests and pushes to dev get a lean
+  # matrix and skip the C# builds when no C# files changed; pushes to main, the
+  # nightly run and manual runs get everything. Uses the API file list, so no
+  # history checkout. A draft pull request runs none of the jobs.
   changes:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -46,24 +54,37 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
           PR: ${{ github.event.pull_request.number }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
           REPO: ${{ github.repository }}
         run: |
           full='[{"os":"windows-latest","python-version":"3.11","primary":true},{"os":"windows-latest","python-version":"3.12"},{"os":"windows-latest","python-version":"3.13"},{"os":"ubuntu-latest","python-version":"3.12"},{"os":"ubuntu-latest","python-version":"3.13"}]'
           lean='[{"os":"windows-latest","python-version":"3.11","primary":true},{"os":"ubuntu-latest","python-version":"3.13"}]'
-          if [ "$EVENT" != "pull_request" ]; then
+          everything() {
             { echo "python=true"; echo "addin=true"; echo "rhino=true"; echo "matrix=$full"; } >> "$GITHUB_OUTPUT"
             exit 0
-          fi
+          }
           files="$RUNNER_TEMP/files.txt"
-          page=1
           : > "$files"
-          while :; do
-            batch="$(gh api "repos/$REPO/pulls/$PR/files?per_page=100&page=$page" --jq '.[].filename')"
-            [ -z "$batch" ] && break
-            printf '%s\n' "$batch" >> "$files"
-            page=$((page + 1))
-          done
+          if [ "$EVENT" = "pull_request" ]; then
+            page=1
+            while :; do
+              batch="$(gh api "repos/$REPO/pulls/$PR/files?per_page=100&page=$page" --jq '.[].filename')"
+              [ -z "$batch" ] && break
+              printf '%s\n' "$batch" >> "$files"
+              page=$((page + 1))
+            done
+          elif [ "$EVENT" = "push" ] && [ "$REF" = "refs/heads/dev" ] && [ -n "$BEFORE" ] && [ "${BEFORE//0/}" != "" ]; then
+            # Merge into dev: the pull request already ran, so the lean matrix is
+            # enough. The compare API lists at most 300 files and fails on a
+            # rewritten history; in both cases run everything.
+            gh api "repos/$REPO/compare/$BEFORE...$AFTER" --jq '.files[].filename' > "$files" || everything
+            [ "$(wc -l < "$files")" -ge 300 ] && everything
+          else
+            everything
+          fi
           echo "Changed files: $(wc -l < "$files")"
           ci='^\.github/workflows/ci\.yml$'
           addin_re="^packages/revit-bridge-addin|^scripts/build-addin\.ps1$|^Directory\.|^global\.json$|$ci"
@@ -155,11 +176,15 @@ jobs:
           echo "ruff format would change ${count} files (not enforced)." | tee -a "$GITHUB_STEP_SUMMARY"
 
       # Run from the package directory: [tool.coverage.run] source is a relative path.
+      # The two wheel-build tests (about 57 s each, marked slow) run on the primary
+      # leg only; every other leg still builds and smoke-tests the wheel below.
       - name: Run Python tests with coverage
         working-directory: packages/mcp-server-revit
+        env:
+          PYTEST_MARKS: ${{ !matrix.primary && 'not slow' || '' }}
         run: |
           mkdir -p "$REPORTS_DIR"
-          uv run --no-sync pytest tests -n auto \
+          uv run --no-sync pytest tests -n auto -m "$PYTEST_MARKS" \
             --junitxml="$REPORTS_DIR/junit.xml" \
             --cov --cov-config=pyproject.toml \
             --cov-report=term \
@@ -314,6 +339,7 @@ jobs:
 
   # Fails fast on workflow typos, bad expressions and shell mistakes.
   workflow-lint:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -343,6 +369,7 @@ jobs:
   # CycloneDX SBOM of the Python package's locked runtime dependencies (uv.lock).
   # This lock inventory is distinct from the release SBOM of the shipped bundle.
   sbom:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -406,7 +433,14 @@ jobs:
       - name: Require every needed job to have succeeded
         env:
           NEEDS_JSON: ${{ toJson(needs) }}
+          DRAFT: ${{ github.event.pull_request.draft }}
         run: |
+          # A draft pull request runs no jobs. GitHub cannot merge a draft, and
+          # marking it ready for review starts a full run that replaces this result.
+          if [ "$DRAFT" = "true" ]; then
+            echo "::notice::Draft pull request: checks are skipped until it is ready for review."
+            exit 0
+          fi
           echo "$NEEDS_JSON" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
           # "skipped" is fine: the changes job skips jobs a pull request does not
           # touch. It must itself succeed, or everything would skip silently.
