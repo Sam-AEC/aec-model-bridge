@@ -12,6 +12,11 @@ call ends. A task that can change the model is cancelled only while it is still
 queued. Once it has started, ``tasks/cancel`` refuses, because stopping it part
 way could leave a change half-applied.
 
+Cancelling a read-only ``revit_run_job`` task also calls ``revit_job_cancel`` for
+the inner Revit job. That cancels the job while it is queued; a job Revit has
+already started keeps running, and the task status says so. A ``revit_run_job``
+task that is not provably read-only never touches the inner job.
+
 The installed MCP SDK (1.x, pinned below 2) ships the Tasks types and request
 handlers as an experimental, deprecated API; mcp 2.0 is expected to move Tasks
 to an extension. If the server object has no experimental handler registry,
@@ -75,6 +80,7 @@ TASK_TOOLS = frozenset({
 
 RUN_JOB_TOOL = "revit_run_job"
 JOB_STATUS_TOOL = "revit_job_status"
+JOB_CANCEL_TOOL = "revit_job_cancel"
 RELATED_TASK_KEY = "io.modelcontextprotocol/related-task"
 POLL_INTERVAL_MS = 1000
 DEFAULT_TTL_MS = 3_600_000  # JobManager keeps finished jobs for an hour by default
@@ -124,6 +130,7 @@ def session_scope(server: Any) -> Optional[str]:
 
 async def follow_revit_job(
     provider: Any, result: Any, on_cancel: Callable[[Any], Any],
+    on_job: Optional[Callable[[str], Any]] = None,
 ) -> Any:
     """For a revit_run_job task: poll revit_job_status until the Revit job has finished.
 
@@ -131,8 +138,11 @@ async def follow_revit_job(
     end with the job's real outcome, so the task keeps polling. If the task is
     cancelled or a status call fails, the last answer is kept; on_cancel books it
     as still running, never as failed, because Revit may still be working.
+    on_job, when given, receives the inner job id as soon as it is known.
     """
     current = result
+    if on_job is not None and isinstance(current, dict) and current.get("job_id"):
+        on_job(str(current["job_id"]))
     while (
         isinstance(current, dict)
         and current.get("state") in ("queued", "running")
@@ -185,6 +195,45 @@ async def follow_revit_result(
         tool = GET_RESULT_TOOL
 
 
+class RevitJobCanceller:
+    """Cancels the inner Revit job of a read-only revit_run_job task through revit_job_cancel.
+
+    Use it only for a call the approval gate would skip (read-only). It returns the
+    plain status message for the cancelled task. A failure of revit_job_cancel is
+    raised; TaskBridge.cancel turns it into the status message.
+    """
+
+    def __init__(self, provider: Any) -> None:
+        self.provider = provider
+        self.job_id: Optional[str] = None
+
+    def note(self, job_id: str) -> None:
+        self.job_id = job_id
+
+    async def cancel(self) -> str:
+        if not self.job_id:
+            return (
+                "Cancelled. The server stopped waiting before the Revit job id was known, so no Revit job "
+                "was cancelled. If the job was created, it is read-only and cannot change the model."
+            )
+        job_id = self.job_id
+        reply = await self.provider.execute_tool(JOB_CANCEL_TOOL, {"job_id": job_id})
+        if not isinstance(reply, dict):
+            raise ValueError(f"{JOB_CANCEL_TOOL} gave an unexpected reply")
+        state = reply.get("state")
+        if reply.get("cancelled") is True:
+            return f"Cancelled. Revit job {job_id} was cancelled before Revit started it."
+        if state == "running":
+            return (
+                f"Cancel requested; Revit reports job {job_id} still running. The add-in cannot stop a "
+                "job it has started, so it runs to the end. It is read-only and cannot change the model. "
+                f"Call revit_job_status with job_id {job_id} for its outcome."
+            )
+        if state in _JOB_TERMINAL:
+            return f"Cancelled. Revit job {job_id} had already finished ({state})."
+        raise ValueError(f"{JOB_CANCEL_TOOL} did not cancel job {job_id} (state {state!r})")
+
+
 @dataclass
 class _TaskEntry:
     task_id: str
@@ -195,6 +244,9 @@ class _TaskEntry:
     ttl_ms: int
     on_cancel_before_start: Callable[[], Any]
     result: Optional[CallToolResult] = None
+    # Read-only revit_run_job tasks only: cancels the inner Revit job and returns the status message.
+    cancel_inner: Optional[Callable[[], Awaitable[str]]] = None
+    cancel_note: Optional[str] = None
 
 
 class TaskBridge:
@@ -220,8 +272,12 @@ class TaskBridge:
         scope: Optional[str],
         work: Callable[[], Awaitable[CallToolResult]],
         on_cancel_before_start: Callable[[], Any],
+        cancel_inner: Optional[Callable[[], Awaitable[str]]] = None,
     ) -> CreateTaskResult:
-        """Queue `work` as a job and return the new task at once."""
+        """Queue `work` as a job and return the new task at once.
+
+        cancel_inner is ignored for a task that can change the model (fail closed).
+        """
         await self._prune()
         if len(self._entries) >= MAX_TASKS:
             raise RuntimeError("Too many tasks are being kept. Wait for running tasks to finish and try again.")
@@ -230,6 +286,7 @@ class TaskBridge:
         entry = _TaskEntry(
             task_id=task_id, job_id="", tool=tool, writes=writes, scope=scope,
             ttl_ms=ttl_ms, on_cancel_before_start=on_cancel_before_start,
+            cancel_inner=None if writes else cancel_inner,
         )
 
         async def job() -> dict[str, Any]:
@@ -300,9 +357,25 @@ class TaskBridge:
             ref = await self.manager.cancel(entry.job_id)
             if ref is None:
                 raise _not_found(task_id)
+            if entry.cancel_inner is not None and not entry.writes:
+                entry.cancel_note = await self._cancel_inner(entry)
         return CancelTaskResult(**self._task(entry, ref).model_dump())
 
     # -- helpers -----------------------------------------------------------
+
+    @staticmethod
+    async def _cancel_inner(entry: _TaskEntry) -> str:
+        try:
+            return await entry.cancel_inner()
+        except Exception as exc:  # noqa: BLE001 - the task is cancelled; report why the Revit job may not be
+            from .security.audit import redact_data
+
+            logger.exception("Could not cancel the Revit job of task %s", entry.task_id)
+            reason = redact_data(str(exc)) or type(exc).__name__
+            return (
+                f"Cancel requested. The server stopped waiting, but cancelling the Revit job failed: {reason}. "
+                "The job may still be running in Revit. It is read-only and cannot change the model."
+            )
 
     async def _lookup(self, task_id: str, scope: Optional[str]) -> tuple[_TaskEntry, Any]:
         entry = self._entries.get(task_id)
@@ -351,7 +424,7 @@ class TaskBridge:
                     "The approved action is used up; plan again to retry."
                 )
             else:
-                message = "Cancelled."
+                message = entry.cancel_note or "Cancelled."
         elif entry.result is not None:
             message = f"{entry.tool} returned a failure. Call tasks/result for the details."
         else:

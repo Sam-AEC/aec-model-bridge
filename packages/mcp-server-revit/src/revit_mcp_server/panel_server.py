@@ -22,6 +22,7 @@ import json
 import logging
 import os
 import shutil
+import socketserver
 import threading
 import time
 from logging.handlers import RotatingFileHandler
@@ -31,6 +32,7 @@ from typing import Any, Dict, Optional
 
 from . import agent_bridge
 from . import agent_native
+from . import call_limits
 from .config import config
 from .errors import CommandFailed, RevitMCPError
 from .registry_factory import build_registry
@@ -63,9 +65,152 @@ NON_REPORT_FILENAMES = {"qaqc_issues.db", "clash_triage.db"}
 HUB_LOCAL_TOOLS = frozenset({"list_pending_plans", "approve_plan", "reject_plan", "get_proof_bundle"})
 
 MAX_BODY_BYTES = 1_048_576
+# Deepest JSON nesting a request body may have. Real panel requests are a few levels deep; a
+# deeper body is refused before any tool sees it, so no recursive walk can overflow the stack.
+MAX_JSON_DEPTH = 64
 MAX_TOKEN_HEADER_CHARS = 256
 FAILURE_LIMIT = 20
 FAILURE_WINDOW_SECONDS = 60.0
+# Seconds a blocking read or write on one connection may wait. Bounds a slow or stalled request
+# body; it does not limit how long a tool call runs.
+SOCKET_TIMEOUT_SECONDS = 30
+# Most request threads the hub runs at once (AEC_PANEL_MAX_THREADS). RESERVED_EXECUTE_SLOTS of
+# them serve only requests whose path is /execute, so the panel's approve and execute calls still
+# get a thread while other routes fill the rest. The tool name is in the body, so the reservation
+# covers /execute as a whole, not only approval tools.
+DEFAULT_MAX_THREADS = 32
+MIN_MAX_THREADS = 4
+MAX_MAX_THREADS = 256
+RESERVED_EXECUTE_SLOTS = 2
+BUSY_RETRY_AFTER_SECONDS = 1
+BUSY_ERROR = "The panel hub is busy. Try again in a moment."
+
+
+def max_threads_from_env(environ: Any = None) -> int:
+    """``AEC_PANEL_MAX_THREADS`` as an int in 4-256. Unset gives 32; a bad or out-of-range value
+    gives 32 and logs a warning."""
+    env = os.environ if environ is None else environ
+    raw = env.get("AEC_PANEL_MAX_THREADS")
+    if raw is None or not str(raw).strip():
+        return DEFAULT_MAX_THREADS
+    try:
+        value: int | None = int(str(raw).strip())
+    except ValueError:
+        value = None
+    if value is None or not MIN_MAX_THREADS <= value <= MAX_MAX_THREADS:
+        logger.warning(
+            "AEC_PANEL_MAX_THREADS=%r is not a whole number from %d to %d; using %d.",
+            raw, MIN_MAX_THREADS, MAX_MAX_THREADS, DEFAULT_MAX_THREADS,
+        )
+        return DEFAULT_MAX_THREADS
+    return value
+
+
+def _busy_response_bytes() -> bytes:
+    body = json.dumps({"ok": False, "kind": "hub_busy", "error": BUSY_ERROR}).encode("utf-8")
+    head = (
+        "HTTP/1.0 503 Service Unavailable\r\n"
+        "Content-Type: application/json\r\n"
+        f"Content-Length: {len(body)}\r\n"
+        f"Retry-After: {BUSY_RETRY_AFTER_SECONDS}\r\n"
+        "Connection: close\r\n\r\n"
+    ).encode("ascii")
+    return head + body
+
+
+# Request line and headers must arrive this fast on a reserved /execute slot.
+RESERVED_HEADER_TIMEOUT_SECONDS = 2.0
+
+
+class BoundedThreadingHTTPServer(ThreadingHTTPServer):
+    """ThreadingHTTPServer with a cap on request threads.
+
+    A slot is taken on the accept thread before a request thread starts. General slots go first;
+    when they are all in use, a connection gets one of the ``reserved_execute`` slots, and its
+    thread answers 503 unless the request path is ``/execute``. When every slot is in use, the
+    connection is answered 503 with ``Retry-After`` on the accept thread and closed; no thread
+    starts. A slot is released when its thread ends, also after an exception.
+    """
+
+    def __init__(self, server_address, handler_class, max_threads: int = DEFAULT_MAX_THREADS,
+                 reserved_execute: int = RESERVED_EXECUTE_SLOTS, bind_and_activate: bool = True) -> None:
+        if reserved_execute < 0 or max_threads <= reserved_execute:
+            raise ValueError("max_threads must be larger than reserved_execute")
+        self.max_threads = max_threads
+        self.reserved_execute = reserved_execute
+        self._general_slots = threading.BoundedSemaphore(max_threads - reserved_execute)
+        self._execute_slots = threading.BoundedSemaphore(reserved_execute) if reserved_execute else None
+        self._slot_state = threading.local()
+        self._count_lock = threading.Lock()
+        self.active_threads = 0
+        self.refused_busy = 0
+        super().__init__(server_address, handler_class, bind_and_activate)
+
+    def current_slot(self) -> str:
+        """``general`` or ``execute`` for the calling request thread (``general`` elsewhere)."""
+        return getattr(self._slot_state, "kind", "general")
+
+    def _take_slot(self) -> str | None:
+        if self._general_slots.acquire(blocking=False):
+            return "general"
+        if self._execute_slots is not None and self._execute_slots.acquire(blocking=False):
+            return "execute"
+        return None
+
+    def _release_slot(self, kind: str) -> None:
+        if kind == "general":
+            self._general_slots.release()
+        elif self._execute_slots is not None:
+            self._execute_slots.release()
+
+    def _refuse_busy(self, request) -> None:
+        with self._count_lock:
+            self.refused_busy += 1
+        try:
+            request.settimeout(1.0)
+            request.sendall(_busy_response_bytes())
+            # Read what the client already sent, so closing does not reset the connection
+            # before the client reads the 503.
+            request.setblocking(False)
+            with contextlib.suppress(OSError):
+                for _ in range(16):
+                    if not request.recv(65536):
+                        break
+        except OSError:
+            pass
+        finally:
+            self.shutdown_request(request)
+
+    def process_request(self, request, client_address) -> None:
+        kind = self._take_slot()
+        if kind is None:
+            self._refuse_busy(request)
+            return
+        if self.block_on_close:
+            vars(self).setdefault("_threads", socketserver._Threads())  # as ThreadingMixIn does
+        t = threading.Thread(target=self._process_request_in_slot, args=(request, client_address, kind))
+        t.daemon = self.daemon_threads
+        with self._count_lock:
+            self.active_threads += 1
+        try:
+            t.start()
+        except RuntimeError:
+            with self._count_lock:
+                self.active_threads -= 1
+            self._release_slot(kind)
+            self._refuse_busy(request)
+            return
+        self._threads.append(t)
+
+    def _process_request_in_slot(self, request, client_address, kind: str) -> None:
+        self._slot_state.kind = kind
+        try:
+            self.process_request_thread(request, client_address)
+        finally:
+            self._slot_state.kind = "general"
+            with self._count_lock:
+                self.active_threads -= 1
+            self._release_slot(kind)
 
 
 class InstanceRoutingError(Exception):
@@ -267,18 +412,88 @@ def collect_diagnostics(workspace_dir: Path, approval_mode: Any = None, auto_win
     }
 
 
+def _reject_constant(name: str) -> Any:
+    raise ValueError(f"{name} is not valid JSON")
+
+
+def _finite_float(text: str) -> float:
+    value = float(text)
+    if value != value or value in (float("inf"), float("-inf")):
+        raise ValueError("number out of range")
+    return value
+
+
+def _json_depth_exceeds(value: Any, limit: int) -> bool:
+    """True when ``value`` nests lists or objects deeper than ``limit``. Iterative, so it
+    cannot overflow the stack itself."""
+    stack = [(value, 1)]
+    while stack:
+        item, depth = stack.pop()
+        if isinstance(item, (dict, list)):
+            if depth > limit:
+                return True
+            children = item.values() if isinstance(item, dict) else item
+            stack.extend((child, depth + 1) for child in children)
+    return False
+
+
+def parse_json_object(raw: bytes) -> Dict[str, Any]:
+    """Parse a panel request body. Raises ValueError (with a plain message) for anything that is
+    not a strict UTF-8 JSON object of bounded depth: invalid UTF-8, NaN or Infinity, numbers
+    too long or too large, nesting deeper than MAX_JSON_DEPTH, or a non-object top level."""
+    try:
+        body = json.loads(raw or b"{}", parse_constant=_reject_constant, parse_float=_finite_float)
+    except RecursionError:
+        raise ValueError("Request body is nested too deeply") from None
+    except ValueError:  # JSONDecodeError, UnicodeDecodeError, int digit limit, NaN/Infinity
+        raise ValueError("Request body must be valid JSON") from None
+    if not isinstance(body, dict):
+        raise ValueError("Request body must be a JSON object")
+    if _json_depth_exceeds(body, MAX_JSON_DEPTH):
+        raise ValueError("Request body is nested too deeply")
+    return body
+
+
 class PanelRequestHandler(BaseHTTPRequestHandler):
     registry = None
     approval_provider = None
     workspace = None
     token: str | None = None
     failures: FailureLimiter | None = None
+    limiter: call_limits.RateLimiter | None = None
+    timeout = SOCKET_TIMEOUT_SECONDS
     _stale_logged = False
 
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
         logger.debug("panel_server: " + format, *args)
 
-    def _send_json(self, status: int, payload: Dict[str, Any]) -> None:
+    def _on_reserved_slot(self) -> bool:
+        current_slot = getattr(self.server, "current_slot", None)
+        return callable(current_slot) and current_slot() == "execute"
+
+    def setup(self) -> None:
+        super().setup()
+        if self._on_reserved_slot():
+            # A reserved /execute slot must not be held by a client that sends its request line or
+            # headers slowly (#336 review): the route is unknown until they arrive, so they get a
+            # short read timeout. The normal timeout is restored once the route is /execute.
+            self.connection.settimeout(RESERVED_HEADER_TIMEOUT_SECONDS)
+
+    def parse_request(self) -> bool:
+        if not super().parse_request():
+            return False
+        reserved = self._on_reserved_slot()
+        if reserved and self.path.split("?", 1)[0] == "/execute":
+            self.connection.settimeout(self.timeout)
+        if reserved and self.path.split("?", 1)[0] != "/execute":
+            # A reserved slot serves only /execute; other routes wait for a general slot.
+            self.close_connection = True
+            self._send_json(503, {"ok": False, "kind": "hub_busy", "error": BUSY_ERROR},
+                            headers={"Retry-After": str(BUSY_RETRY_AFTER_SECONDS), "Connection": "close"})
+            return False
+        return True
+
+    def _send_json(self, status: int, payload: Dict[str, Any], headers: Dict[str, str] | None = None) -> None:
         try:
             body = json.dumps(payload, allow_nan=False).encode("utf-8")
         except ValueError:
@@ -287,8 +502,22 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
+        for key, value in (headers or {}).items():
+            self.send_header(key, value)
         self.end_headers()
         self.wfile.write(body)
+
+    def _rate_limited(self, route: str) -> bool:
+        """Answer 429 with Retry-After and return True when ``route`` is over its limit."""
+        limiter = self.limiter
+        refusal = limiter.check_route(route) if limiter is not None else None
+        if refusal is None:
+            return False
+        self._send_json(429, {
+            "ok": False, "kind": "rate_limited", "error": refusal.message(),
+            "retry_after_seconds": refusal.retry_after_seconds,
+        }, headers={"Retry-After": str(refusal.retry_after_seconds)})
+        return True
 
     def _reject(self, status: int, error: str) -> bool:
         """Send an error and return False. Reads (a bounded amount of) the request
@@ -375,6 +604,18 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
             return None
         return self.rfile.read(length) if length else b"{}"
 
+    def _read_json_object(self) -> Dict[str, Any] | None:
+        """Read and parse the body (see parse_json_object). Sends 400/413 and returns None when
+        it is unusable."""
+        raw = self._read_body()
+        if raw is None:
+            return None
+        try:
+            return parse_json_object(raw)
+        except ValueError as e:
+            self._send_json(400, {"ok": False, "error": str(e)})
+            return None
+
     def do_GET(self) -> None:  # noqa: N802
         if not self._authorize(is_post=False):
             return
@@ -405,15 +646,8 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
     def _handle_set_approval_mode(self) -> None:
         """Authenticated panel switch for timed Auto, persistent Dev, or Ask first.
         Enabling either override requires confirm:true; look_only is never relaxed."""
-        raw = self._read_body()
-        if raw is None:
-            return
-        try:
-            body = json.loads(raw or b"{}")
-        except json.JSONDecodeError:
-            body = None
-        if not isinstance(body, dict):
-            self._send_json(400, {"ok": False, "error": "Request body must be a JSON object"})
+        body = self._read_json_object()
+        if body is None:
             return
 
         gate = self.approval_provider.gate
@@ -492,22 +726,25 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
             self._send_json(404, {"ok": False, "error": f"Unknown path '{self.path}'"})
             return
 
-        raw = self._read_body()
-        if raw is None:
-            return
-        try:
-            body = json.loads(raw or b"{}")
-        except json.JSONDecodeError:
-            self._send_json(400, {"ok": False, "error": "Request body must be valid JSON"})
-            return
-        if not isinstance(body, dict):
-            self._send_json(400, {"ok": False, "error": "Request body must be a JSON object"})
+        body = self._read_json_object()
+        if body is None:
             return
 
         tool = body.get("tool")
         arguments = body.get("arguments", {})
         if not tool or not isinstance(tool, str):
             self._send_json(400, {"ok": False, "error": "Request body must include a string 'tool' field"})
+            return
+        # The person's approve, reject and rollback clicks are never rate limited.
+        if tool not in HUMAN_ONLY_TOOLS and self._rate_limited("panel_execute"):
+            return
+        if not isinstance(arguments, dict):
+            self._send_json(400, {"ok": False, "error": "'arguments' must be a JSON object"})
+            return
+
+        if tool not in HUMAN_ONLY_TOOLS and self.registry.lookup_tool_provider(tool) is None:
+            # The caller's input, not a hub fault. A ValueError from inside a provider stays 500.
+            self._send_json(400, {"ok": False, "error": f"Unknown tool '{tool}'"})
             return
 
         try:
@@ -538,16 +775,11 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
             self._send_json(500, {"ok": False, "error": redact_data(str(e))})
 
     def _handle_agent_chat(self) -> None:
-        raw = self._read_body()
-        if raw is None:
+        body = self._read_json_object()
+        if body is None:
             return
-        try:
-            body = json.loads(raw or b"{}")
-        except json.JSONDecodeError:
-            self._send_json(400, {"ok": False, "error": "Request body must be valid JSON"})
-            return
-        if not isinstance(body, dict):
-            self._send_json(400, {"ok": False, "error": "Request body must be a JSON object"})
+        # Checked after the body is read: closing a socket with unread data can reset it on Windows.
+        if self._rate_limited("panel_chat"):
             return
 
         message = body.get("message")
@@ -620,31 +852,37 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
         return result
 
 
+def build_handler(workspace: WorkspaceMonitor | None, token: str) -> type:
+    """The request handler class bound to a fresh registry, approval gate and token. Opens no
+    socket: build_server serves it, and tests drive it in memory."""
+    registry, approval_provider, _job_manager, _module_registry, resolved_workspace = build_registry(workspace=workspace)
+    return type("BoundPanelRequestHandler", (PanelRequestHandler,), {
+        "registry": registry,
+        "approval_provider": approval_provider,
+        "workspace": resolved_workspace,
+        "token": token,
+        "failures": FailureLimiter(),
+        "limiter": call_limits.RateLimiter(),
+        "_stale_logged": False,
+    })
+
+
 def build_server(
     port: int | None = None,
     workspace: WorkspaceMonitor | None = None,
     token: str | None = None,
-) -> ThreadingHTTPServer:
+    max_threads: int | None = None,
+) -> BoundedThreadingHTTPServer:
     """Build the hub. ``token`` defaults to the per-user token file (created if this is the first
     hub to start); raises PanelTokenError if that file is unsafe. A hub never runs without a token."""
     resolved_token = token if token is not None else load_or_create_token()
     if not resolved_token:
         raise PanelTokenError("The panel hub needs an access token.")
     register_secret_value(resolved_token)
-    registry, approval_provider, _job_manager, _module_registry, resolved_workspace = build_registry(workspace=workspace)
-
-    handler = type("BoundPanelRequestHandler", (PanelRequestHandler,), {
-        "registry": registry,
-        "approval_provider": approval_provider,
-        "workspace": resolved_workspace,
-        "token": resolved_token,
-        "failures": FailureLimiter(),
-        "_stale_logged": False,
-    })
-
+    handler = build_handler(workspace=workspace, token=resolved_token)
     resolved_port = port if port is not None else int(os.getenv("MCP_PANEL_HTTP_PORT", str(DEFAULT_PORT)))
-    server = ThreadingHTTPServer(("127.0.0.1", resolved_port), handler)
-    return server
+    resolved_max = max_threads if max_threads is not None else max_threads_from_env()
+    return BoundedThreadingHTTPServer(("127.0.0.1", resolved_port), handler, max_threads=resolved_max)
 
 
 def default_log_path() -> Path:

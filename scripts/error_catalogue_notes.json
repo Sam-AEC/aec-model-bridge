@@ -76,7 +76,7 @@
     "do": "Look up the kind in this file."
   },
   "class/AppsResourceError": {
-    "when": "A ui:// MCP Apps URI is unknown, names a plan that is not allowed or not found, or MCP_REVIT_MCP_APPS is false.",
+    "when": "A ui:// MCP Apps URI is unknown, names a plan that is not allowed or not found, or MCP_REVIT_MCP_APPS is off.",
     "do": "Use ui://aec-model-bridge/plan-review or a plan id from list_pending_plans; check MCP_REVIT_MCP_APPS."
   },
   "class/ResourceError": {
@@ -574,6 +574,18 @@
   "mcp/invalid_response_options": {
     "when": "The response_options argument is not an object, names an unsupported key, or has a value of the wrong type.",
     "do": "Remove response_options or fix it as the message says, then call again."
+  },
+  "mcp/rate_limited": {
+    "when": "Too many calls in a short time: the client session (default 600 per minute) or one tool (default 120 per minute for a write tool, 300 for a read tool) is over its limit. Nothing ran and no approved action was used. Approval tools are never counted.",
+    "do": "Wait the number of seconds in error.retry_after_seconds, then call again. Do not loop on the call. The person can change the limits with MCP_REVIT_RATE_LIMITS (docs/configuration-reference.md)."
+  },
+  "mcp/tool_timeout": {
+    "when": "A read tool did not finish within its timeout (default 300 s) and was stopped. Nothing in the model changed. A write that runs out of time is not refused this way: it is reported as possibly still running and its approved action stays used.",
+    "do": "Ask for less (a narrower filter, fewer elements, a smaller view). The person can raise the timeout with MCP_REVIT_TOOL_TIMEOUT or MCP_REVIT_TOOL_TIMEOUTS (docs/configuration-reference.md)."
+  },
+  "class/ToolTimedOut": {
+    "when": "Internal: a direct tool call outlived its timeout (call_limits.py). Never returned as is: a read becomes kind tool_timeout, a write becomes a reply that it may still be running.",
+    "do": "See mcp/tool_timeout. For a write, do not repeat the call; check the model with a read tool."
   },
   "mcp/task_not_supported": {
     "when": "A tools/call carried a task field (MCP Tasks) for a tool that does not accept task-augmented calls. Nothing ran and no approved action was used.",

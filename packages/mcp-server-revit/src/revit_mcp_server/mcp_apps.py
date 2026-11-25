@@ -11,6 +11,12 @@ notifications. Every tool that is not read-only carries ``_meta.ui.visibility: [
 which tells the host to refuse a ``tools/call`` for it from any app. Approve, reject and
 roll back are human-only tools: they are never listed and are refused on every MCP call.
 
+``_meta.ui`` goes on tools and plan results only for a client that declared the extension in
+``capabilities.extensions`` at initialize (spec: servers SHOULD check this). ``MCP_REVIT_MCP_APPS``
+picks the mode: ``auto`` (default) checks the client, ``always`` sends it to every client and
+``off`` turns the view and ``_meta.ui`` off. The answer is worked out per request from the
+session's initialize params, so one client's ``tools/list`` never reaches another client.
+
 Model text reaches the page only as data: the per-plan resource embeds it as JSON with
 ``<``, ``>`` and ``&`` escaped, and the script renders it with ``textContent``, never as HTML.
 That JSON is redacted like a tool result: secrets and paths always, personal data per
@@ -48,18 +54,77 @@ MODEL_ONLY = ["model"]
 APPROVAL_MODE_META_KEY = "aec-model-bridge/approval_mode"
 
 
+MODES = ("auto", "always", "off")
+
+
 class AppsResourceError(ValueError):
     """The ui:// URI is unknown or names a plan that is not allowed or not found."""
 
 
+def mode() -> str:
+    """MCP_REVIT_MCP_APPS as one of MODES. Unknown values count as off (fail closed)."""
+    value = getattr(config, "mcp_apps", "auto")
+    if value is True:
+        return "auto"
+    if value is False or value is None:
+        return "off"
+    text = str(value).strip().lower()
+    return text if text in MODES else "off"
+
+
 def enabled() -> bool:
-    """MCP_REVIT_MCP_APPS (default on). Off: no ui:// resources and no ``_meta.ui`` on tools."""
-    return bool(getattr(config, "mcp_apps", True))
+    """False with MCP_REVIT_MCP_APPS=off: no ui:// resources and no ``_meta.ui`` anywhere."""
+    return mode() != "off"
+
+
+def client_declared(session: Any) -> bool:
+    """True when the client listed ``io.modelcontextprotocol/ui`` in ``capabilities.extensions``.
+
+    A ``mimeTypes`` list, when given, must contain the view's MIME type. Anything malformed is False."""
+    try:
+        caps = session.client_params.capabilities
+    except AttributeError:
+        return False
+    extensions = getattr(caps, "extensions", None)
+    if extensions is None:
+        extensions = (getattr(caps, "model_extra", None) or {}).get("extensions")
+    if not isinstance(extensions, dict) or EXTENSION_ID not in extensions:
+        return False
+    settings = extensions[EXTENSION_ID]
+    if settings is True:
+        return True
+    if not isinstance(settings, dict):
+        return False
+    mime_types = settings.get("mimeTypes")
+    if mime_types is None:
+        return True
+    return isinstance(mime_types, list) and MIME in mime_types
+
+
+def _current_session() -> Any:
+    """The MCP session of the request being handled, or None outside a request."""
+    from mcp.server.lowlevel.server import request_ctx
+
+    try:
+        return request_ctx.get().session
+    except LookupError:
+        return None
+
+
+def ui_active(session: Any = None) -> bool:
+    """Whether ``_meta.ui`` goes to this client: always, never, or (auto) when it declared the extension.
+
+    Without ``session`` the session of the current request is used; outside a request (direct calls)
+    auto means no ``_meta.ui``."""
+    current = mode()
+    if current != "auto":
+        return current == "always"
+    return client_declared(session if session is not None else _current_session())
 
 
 def tool_meta(name: str, read_only: bool) -> dict[str, Any] | None:
     """The ``_meta.ui`` block for one listed tool, or None (read-only tools keep the default)."""
-    if not enabled():
+    if not ui_active():
         return None
     if name in PLAN_VIEW_TOOLS:
         return {"resourceUri": PLAN_REVIEW_URI, "visibility": list(MODEL_ONLY)}
@@ -89,7 +154,7 @@ def result_meta(name: str, gate: ApprovalGate | None) -> dict[str, Any]:
     """Keyword arguments that put the approval mode in a plan tool result's ``_meta``.
 
     ``_meta`` is not model context; the view reads it. The plan JSON itself is unchanged."""
-    if not enabled() or name not in PLAN_VIEW_TOOLS or gate is None:
+    if name not in PLAN_VIEW_TOOLS or gate is None or not ui_active():
         return {}
     try:
         mode = gate.approval_mode
@@ -141,7 +206,7 @@ _URI = re.compile(r"ui://aec-model-bridge/plan-review(?:/(?P<plan_id>[^/]+))?")
 def read_resource(uri: Any, gate: ApprovalGate) -> tuple[str, dict[str, Any]]:
     """Return (html, _meta) for a ui:// URI, or raise AppsResourceError."""
     if not enabled():
-        raise AppsResourceError("MCP Apps views are turned off (MCP_REVIT_MCP_APPS=false).")
+        raise AppsResourceError("MCP Apps views are turned off (MCP_REVIT_MCP_APPS=off).")
     match = _URI.fullmatch(str(uri))
     if not match:
         raise AppsResourceError("Unknown resource URI.")

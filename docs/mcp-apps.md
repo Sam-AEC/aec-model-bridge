@@ -10,6 +10,24 @@ MCP Apps is the MCP extension `io.modelcontextprotocol/ui`, stable spec version 
 - Repository and SDK (`@modelcontextprotocol/ext-apps`): [github.com/modelcontextprotocol/ext-apps](https://github.com/modelcontextprotocol/ext-apps)
 - Client list: [modelcontextprotocol.io/extensions/client-matrix](https://modelcontextprotocol.io/extensions/client-matrix)
 
+## When the server sends `_meta.ui`
+
+The spec says a server should add `_meta.ui` only for a client that declared the extension. A client declares it at initialize:
+
+```json
+{"capabilities": {"extensions": {"io.modelcontextprotocol/ui": {"mimeTypes": ["text/html;profile=mcp-app"]}}}}
+```
+
+`MCP_REVIT_MCP_APPS` sets the mode:
+
+| Value | `_meta.ui` on tools and plan results | `ui://` resources |
+| --- | --- | --- |
+| `auto` (default) | Only for a client that declared `io.modelcontextprotocol/ui` in `capabilities.extensions`. A `mimeTypes` list, when sent, must contain `text/html;profile=mcp-app`. | Listed and readable. |
+| `always` | For every client. | Listed and readable. |
+| `off` | Never. | Not listed; reads are refused. |
+
+The server reads the declaration from the session's initialize params on each `tools/list` and `tools/call`, so each client gets its own answer. Nothing is cached across sessions. A declaration under `capabilities.experimental` does not count. `true` and `false` from older configs still work and mean `auto` and `off`. Any other value stops the server at startup with a plain error.
+
 ## What the server sends
 
 | Item | Value |
@@ -22,7 +40,7 @@ MCP Apps is the MCP extension `io.modelcontextprotocol/ui`, stable spec version 
 | Read-only tools | No `_meta.ui`; the spec default applies. |
 | Plan results | A successful `plan_actions` or `list_pending_plans` result carries `_meta["aec-model-bridge/approval_mode"]`, the mode in force. The spec says result `_meta` is not meant for model context. The plan JSON is unchanged. |
 
-Clients without MCP Apps ignore `_meta` and show the normal text result. That text holds the full plan JSON and `preview_markdown`, a before and after table. `tools/list` grows by about 1,745 tokens of `_meta` ([MCP token budget](mcp-token-budget.md)).
+The table shows what a client that gets `_meta.ui` sees. Clients without MCP Apps get no `_meta.ui` in `auto` mode, and ignore it in `always` mode, and show the normal text result. That text holds the full plan JSON and `preview_markdown`, a before and after table. For a client that gets `_meta.ui`, `tools/list` grows by about 1,745 tokens ([MCP token budget](mcp-token-budget.md)).
 
 ## What the view shows
 
@@ -49,7 +67,7 @@ The AI client controls the view, so it must not become an approval channel.
 
 ## Configuration
 
-`MCP_REVIT_MCP_APPS` (default `true`). Set `false` to stop listing the `ui://` resources, refuse reads of them and leave `_meta.ui` off every tool. Read at startup.
+`MCP_REVIT_MCP_APPS`: `auto` (default), `always` or `off`, as in the table above. Read at startup.
 
 ## Client support
 
@@ -61,4 +79,4 @@ The AI client controls the view, so it must not become an approval channel.
 | Goose | UNVERIFIED |
 | Claude Code, Codex, Cursor, Cline | UNVERIFIED; text result only expected |
 
-The ext-apps README lists Claude, ChatGPT, VS Code, Goose, Postman and MCPJam as MCP Apps clients. None of them has been tested with this server. The view was rendered in headless Chrome with a test page that plays the client side of the handshake (`ui/initialize`, then `ui/notifications/tool-result`). The CSP meta tag may conflict with a client that injects its own script into the view; UNVERIFIED.
+The ext-apps README lists Claude, ChatGPT, VS Code, Goose, Postman and MCPJam as MCP Apps clients. None of them has been tested with this server. Which of them send the `capabilities.extensions` declaration that `auto` mode needs is also UNVERIFIED; with a client that does not send it, set `MCP_REVIT_MCP_APPS=always`. The tests use the MCP Python SDK in-memory client (`mcp` 1.30) with and without the declaration. The view was rendered in headless Chrome with a test page that plays the client side of the handshake (`ui/initialize`, then `ui/notifications/tool-result`). The CSP meta tag may conflict with a client that injects its own script into the view; UNVERIFIED.

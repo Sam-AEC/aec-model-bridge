@@ -12,11 +12,11 @@ A tool failure reaches an MCP client in one of two shapes:
 Refusals never change the model. A refused write needs a new plan that a person approves.
 For logs and connection problems see [troubleshooting](troubleshooting.md).
 
-Entries: 148.
+Entries: 151.
 
 ## Tool error kinds
 
-Set by the MCP layer as `structuredContent.error.kind` when a call fails with `isError`. Entries: 10.
+Set by the MCP layer as `structuredContent.error.kind` when a call fails with `isError`. Entries: 12.
 
 ### `approval_blocked`
 
@@ -60,6 +60,12 @@ Set by the MCP layer as `structuredContent.error.kind` when a call fails with `i
 - What to do: Remove response_options or fix it as the message says, then call again.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
 
+### `rate_limited`
+
+- When: Too many calls in a short time: the client session (default 600 per minute) or one tool (default 120 per minute for a write tool, 300 for a read tool) is over its limit. Nothing ran and no approved action was used. Approval tools are never counted.
+- What to do: Wait the number of seconds in error.retry_after_seconds, then call again. Do not loop on the call. The person can change the limits with MCP_REVIT_RATE_LIMITS (docs/configuration-reference.md).
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
+
 ### `task_not_supported`
 
 - When: A tools/call carried a task field (MCP Tasks) for a tool that does not accept task-augmented calls. Nothing ran and no approved action was used.
@@ -70,6 +76,12 @@ Set by the MCP layer as `structuredContent.error.kind` when a call fails with `i
 
 - When: The tool is registered but this server's static MCP tool profile hides it.
 - What to do: Use a tool the profile lists. To use this one, the person must change the tool profile and restart the server (docs/mcp-token-budget.md).
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
+
+### `tool_timeout`
+
+- When: A read tool did not finish within its timeout (default 300 s) and was stopped. Nothing in the model changed. A write that runs out of time is not refused this way: it is reported as possibly still running and its approved action stays used.
+- What to do: Ask for less (a narrower filter, fewer elements, a smaller view). The person can raise the timeout with MCP_REVIT_TOOL_TIMEOUT or MCP_REVIT_TOOL_TIMEOUTS (docs/configuration-reference.md).
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
 
 ### `unknown_tool`
@@ -756,7 +768,7 @@ Set by module tools as `kind` in an `ok: false` result, next to `message`, `elem
 
 ## Exception classes
 
-Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 26.
+Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 27.
 
 ### `ApprovalExpired`
 
@@ -772,7 +784,7 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 
 ### `AppsResourceError`
 
-- When: A ui:// MCP Apps URI is unknown, names a plan that is not allowed or not found, or MCP_REVIT_MCP_APPS is false.
+- When: A ui:// MCP Apps URI is unknown, names a plan that is not allowed or not found, or MCP_REVIT_MCP_APPS is off.
 - What to do: Use ui://aec-model-bridge/plan-review or a plan id from list_pending_plans; check MCP_REVIT_MCP_APPS.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_apps.py`
 
@@ -901,6 +913,12 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 - When: A registered tool is hidden by the static MCP tool profile. Returned as kind tool_profile_blocked.
 - What to do: Use a listed tool, or ask the person to change the profile.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/tool_profiles.py`
+
+### `ToolTimedOut`
+
+- When: Internal: a direct tool call outlived its timeout (call_limits.py). Never returned as is: a read becomes kind tool_timeout, a write becomes a reply that it may still be running.
+- What to do: See mcp/tool_timeout. For a write, do not repeat the call; check the model with a read tool.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/call_limits.py`
 
 ### `UsageLockTimeout`
 

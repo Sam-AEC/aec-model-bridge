@@ -68,6 +68,7 @@ The panel hub (`aec-model-bridge-panel-server`, default port 8787) listens on `1
 - `POST` requires `Content-Type: application/json` (a `charset` parameter is accepted), otherwise 415.
 - `OPTIONS` is not handled and no CORS headers are sent.
 - `GET /health` returns only `{"status": "healthy"}` and needs no token. Every other route, including `/execute`, `/agent/chat`, `/diagnostics`, `/reports`, `/agent/providers` and unknown paths, needs the per-install token (next section).
+- A `POST` body must be a UTF-8 JSON object of at most 1 MiB, nested at most 64 levels, with no `NaN` or `Infinity`. Otherwise the answer is 400 (413 when too large). On `/execute`, `arguments` must be an object; an unknown tool gets 400. A 5xx means a fault inside the hub. `tests/test_property_panel_execute.py` fuzzes these rules.
 
 #### Panel hub token
 
@@ -208,7 +209,7 @@ Known gaps in the panel hub token and routing work, not fixed yet:
 
 - **Plans must record the Revit that created them.** Store the originating pid, process start time and Revit version inside the hashed plan, and refuse `execute_plan`, `rollback_plan` and revert on a different instance (and refuse an unrouted plan when more than one Revit is live). Until then a plan drafted in Revit A can run against Revit B. Waiting on the proof-bundle change to land first.
 - **The client sends the raw token to whatever listens on 127.0.0.1:8787.** On a shared machine another user could bind the port first. Use a challenge-response (the client sends an HMAC of a nonce and the path, and checks an HMAC from the hub) or check the socket owner before sending.
-- **No socket timeout or thread cap on the hub handler**, so a slow unauthenticated body can hold a thread.
+- **Hub thread cap.** The hub runs at most `AEC_PANEL_MAX_THREADS` request threads (default 32, range 4-256). Two of them serve only requests whose path is `/execute`; the tool name is in the body, so the reservation covers every `/execute` call, not only approve and reject. When every slot is in use, a new connection is answered 503 with `Retry-After: 1` and `{"ok": false, "kind": "hub_busy", ...}` before any thread starts. Each connection also has a 30 s socket timeout, so slow clients can hold a slot for up to 30 s per blocking read; enough of them can still delay the panel. `/execute` and `/agent/chat` have per-route rate limits for authenticated requests ([Configuration reference](configuration-reference.md#timeouts-and-rate-limits)). Tested with local sockets; UNVERIFIED with the live panel in Revit.
 - **Routed-bridge cache hygiene:** the routed-bridge lock is held during a network initialise, and cached clients for dead Revits are not evicted.
 - **Build and multi-instance acceptance.** The Revit 2024 add-in was built, installed and exercised with bounded read-only checks. Other target-runtime builds and two simultaneous live Revits still need acceptance; the single-instance smoke checks do not establish multi-instance routing.
 
