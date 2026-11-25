@@ -64,6 +64,9 @@ NON_REPORT_FILENAMES = {"qaqc_issues.db", "clash_triage.db"}
 HUB_LOCAL_TOOLS = frozenset({"list_pending_plans", "approve_plan", "reject_plan", "get_proof_bundle"})
 
 MAX_BODY_BYTES = 1_048_576
+# Deepest JSON nesting a request body may have. Real panel requests are a few levels deep; a
+# deeper body is refused before any tool sees it, so no recursive walk can overflow the stack.
+MAX_JSON_DEPTH = 64
 MAX_TOKEN_HEADER_CHARS = 256
 FAILURE_LIMIT = 20
 FAILURE_WINDOW_SECONDS = 60.0
@@ -271,6 +274,48 @@ def collect_diagnostics(workspace_dir: Path, approval_mode: Any = None, auto_win
     }
 
 
+def _reject_constant(name: str) -> Any:
+    raise ValueError(f"{name} is not valid JSON")
+
+
+def _finite_float(text: str) -> float:
+    value = float(text)
+    if value != value or value in (float("inf"), float("-inf")):
+        raise ValueError("number out of range")
+    return value
+
+
+def _json_depth_exceeds(value: Any, limit: int) -> bool:
+    """True when ``value`` nests lists or objects deeper than ``limit``. Iterative, so it
+    cannot overflow the stack itself."""
+    stack = [(value, 1)]
+    while stack:
+        item, depth = stack.pop()
+        if isinstance(item, (dict, list)):
+            if depth > limit:
+                return True
+            children = item.values() if isinstance(item, dict) else item
+            stack.extend((child, depth + 1) for child in children)
+    return False
+
+
+def parse_json_object(raw: bytes) -> Dict[str, Any]:
+    """Parse a panel request body. Raises ValueError (with a plain message) for anything that is
+    not a strict UTF-8 JSON object of bounded depth: invalid UTF-8, NaN or Infinity, numbers
+    too long or too large, nesting deeper than MAX_JSON_DEPTH, or a non-object top level."""
+    try:
+        body = json.loads(raw or b"{}", parse_constant=_reject_constant, parse_float=_finite_float)
+    except RecursionError:
+        raise ValueError("Request body is nested too deeply") from None
+    except ValueError:  # JSONDecodeError, UnicodeDecodeError, int digit limit, NaN/Infinity
+        raise ValueError("Request body must be valid JSON") from None
+    if not isinstance(body, dict):
+        raise ValueError("Request body must be a JSON object")
+    if _json_depth_exceeds(body, MAX_JSON_DEPTH):
+        raise ValueError("Request body is nested too deeply")
+    return body
+
+
 class PanelRequestHandler(BaseHTTPRequestHandler):
     registry = None
     approval_provider = None
@@ -395,6 +440,18 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
             return None
         return self.rfile.read(length) if length else b"{}"
 
+    def _read_json_object(self) -> Dict[str, Any] | None:
+        """Read and parse the body (see parse_json_object). Sends 400/413 and returns None when
+        it is unusable."""
+        raw = self._read_body()
+        if raw is None:
+            return None
+        try:
+            return parse_json_object(raw)
+        except ValueError as e:
+            self._send_json(400, {"ok": False, "error": str(e)})
+            return None
+
     def do_GET(self) -> None:  # noqa: N802
         if not self._authorize(is_post=False):
             return
@@ -425,15 +482,8 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
     def _handle_set_approval_mode(self) -> None:
         """Authenticated panel switch for timed Auto, persistent Dev, or Ask first.
         Enabling either override requires confirm:true; look_only is never relaxed."""
-        raw = self._read_body()
-        if raw is None:
-            return
-        try:
-            body = json.loads(raw or b"{}")
-        except json.JSONDecodeError:
-            body = None
-        if not isinstance(body, dict):
-            self._send_json(400, {"ok": False, "error": "Request body must be a JSON object"})
+        body = self._read_json_object()
+        if body is None:
             return
 
         gate = self.approval_provider.gate
@@ -512,16 +562,8 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
             self._send_json(404, {"ok": False, "error": f"Unknown path '{self.path}'"})
             return
 
-        raw = self._read_body()
-        if raw is None:
-            return
-        try:
-            body = json.loads(raw or b"{}")
-        except json.JSONDecodeError:
-            self._send_json(400, {"ok": False, "error": "Request body must be valid JSON"})
-            return
-        if not isinstance(body, dict):
-            self._send_json(400, {"ok": False, "error": "Request body must be a JSON object"})
+        body = self._read_json_object()
+        if body is None:
             return
 
         tool = body.get("tool")
@@ -531,6 +573,14 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
             return
         # The person's approve, reject and rollback clicks are never rate limited.
         if tool not in HUMAN_ONLY_TOOLS and self._rate_limited("panel_execute"):
+            return
+        if not isinstance(arguments, dict):
+            self._send_json(400, {"ok": False, "error": "'arguments' must be a JSON object"})
+            return
+
+        if tool not in HUMAN_ONLY_TOOLS and self.registry.lookup_tool_provider(tool) is None:
+            # The caller's input, not a hub fault. A ValueError from inside a provider stays 500.
+            self._send_json(400, {"ok": False, "error": f"Unknown tool '{tool}'"})
             return
 
         try:
@@ -561,19 +611,11 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
             self._send_json(500, {"ok": False, "error": redact_data(str(e))})
 
     def _handle_agent_chat(self) -> None:
-        raw = self._read_body()
-        if raw is None:
+        body = self._read_json_object()
+        if body is None:
             return
         # Checked after the body is read: closing a socket with unread data can reset it on Windows.
         if self._rate_limited("panel_chat"):
-            return
-        try:
-            body = json.loads(raw or b"{}")
-        except json.JSONDecodeError:
-            self._send_json(400, {"ok": False, "error": "Request body must be valid JSON"})
-            return
-        if not isinstance(body, dict):
-            self._send_json(400, {"ok": False, "error": "Request body must be a JSON object"})
             return
 
         message = body.get("message")
@@ -646,6 +688,21 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
         return result
 
 
+def build_handler(workspace: WorkspaceMonitor | None, token: str) -> type:
+    """The request handler class bound to a fresh registry, approval gate and token. Opens no
+    socket: build_server serves it, and tests drive it in memory."""
+    registry, approval_provider, _job_manager, _module_registry, resolved_workspace = build_registry(workspace=workspace)
+    return type("BoundPanelRequestHandler", (PanelRequestHandler,), {
+        "registry": registry,
+        "approval_provider": approval_provider,
+        "workspace": resolved_workspace,
+        "token": token,
+        "failures": FailureLimiter(),
+        "limiter": call_limits.RateLimiter(),
+        "_stale_logged": False,
+    })
+
+
 def build_server(
     port: int | None = None,
     workspace: WorkspaceMonitor | None = None,
@@ -657,18 +714,7 @@ def build_server(
     if not resolved_token:
         raise PanelTokenError("The panel hub needs an access token.")
     register_secret_value(resolved_token)
-    registry, approval_provider, _job_manager, _module_registry, resolved_workspace = build_registry(workspace=workspace)
-
-    handler = type("BoundPanelRequestHandler", (PanelRequestHandler,), {
-        "registry": registry,
-        "approval_provider": approval_provider,
-        "workspace": resolved_workspace,
-        "token": resolved_token,
-        "failures": FailureLimiter(),
-        "limiter": call_limits.RateLimiter(),
-        "_stale_logged": False,
-    })
-
+    handler = build_handler(workspace=workspace, token=resolved_token)
     resolved_port = port if port is not None else int(os.getenv("MCP_PANEL_HTTP_PORT", str(DEFAULT_PORT)))
     server = ThreadingHTTPServer(("127.0.0.1", resolved_port), handler)
     return server

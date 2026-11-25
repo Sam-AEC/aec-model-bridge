@@ -680,7 +680,12 @@ class RevitProvider(AECProvider):
     def _assert_paths_in_workspace(self, arguments: Dict[str, Any]) -> None:
         path_keys = ["path", "csv_path", "output_path", "output_directory", "file_path", "template_path"]
         for key in path_keys:
-            if key in arguments and isinstance(arguments[key], str):
+            value = arguments.get(key)
+            if value is not None and not isinstance(value, str):
+                # Every schema types these as strings. A list or object would skip the check
+                # below and reach Revit unchecked, so refuse it (fail closed).
+                raise WorkspaceViolation(f"'{key}' must be a text path inside the workspace folder.")
+            if isinstance(value, str):
                 try:
                     self.workspace.assert_in_workspace(Path(arguments[key]))
                 except WorkspaceViolation as exc:

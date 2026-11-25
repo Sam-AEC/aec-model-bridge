@@ -99,6 +99,9 @@ The full run takes about half a minute. A few tests are skipped on purpose: the 
 - `test_property_gate.py`: a state machine drives the approval gate through random sequences of plan, approve, reject, execute, direct calls, mode switches (look only, ask first, Auto, timed Auto, Dev), expiry, document changes and edits of plan files. A model predicts every approval and every write; any difference fails the test.
 - `test_property_safe_paths.py`: generated hostile names and paths (`..`, absolute, drive letters, UNC, NUL, look-alike Unicode, links in the folder) never leave the root.
 - `test_property_input_fuzz.py`: random JSON for `plan_actions`, `execute_plan`, direct calls and the validators raises only `BridgeError` or `ValueError`.
+- `test_property_panel_execute.py`: random request bytes through the panel hub's request handler, in memory with no socket (`build_handler`). A request with a bad Host, an Origin, a wrong Content-Type or a missing or wrong token gets 401, 403, 415 or 429 and never reaches a tool or approves a plan. An authenticated body (malformed, huge, deeply nested, invalid UTF-8, `NaN`, wrong types) gets a 2xx or a 4xx with a plain JSON error, never a 5xx or an unhandled exception. Random path values through `RevitProvider._assert_paths_in_workspace` never pass when they point outside the workspace or into `plans/` or `proofs/`.
+
+The scheduled workflow `.github/workflows/fuzz-nightly.yml` runs these files every night with `AEC_HYPOTHESIS_PROFILE=slow` (30-minute limit, read-only token, no secrets). Start it by hand from the Actions tab with "Run workflow".
 
 The default profile runs a few examples with a fixed seed, so the suite stays fast and repeatable. For a deeper run:
 
