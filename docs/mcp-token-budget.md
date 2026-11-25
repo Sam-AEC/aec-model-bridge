@@ -121,6 +121,9 @@ Reproduce: `python scripts/measure_mcp_tokens.py --always-loaded --output always
 ## Follow-up: the `learned` profile
 
 `MCP_REVIT_TOOL_PROFILE=learned` lists `core`, the always-loaded set and the 25 most used tools of the last 30 days from local usage counts, so a list fits what one person actually calls. It falls back to `daily` with fewer than 50 counted calls. `context_report` shows the most used tools and suggests `learned` when it would list at most 75% of the current list. Details and privacy: [learned profile](learned-profile.md).
+## Follow-up: MCP Apps `_meta.ui`
+
+With `MCP_REVIT_MCP_APPS` on (default), `plan_actions` and `list_pending_plans` carry `_meta.ui.resourceUri` and every tool that is not read-only carries `_meta.ui.visibility: ["model"]` ([MCP Apps plan review view](mcp-apps.md)). Same method (mock mode, chars / 4 over `list_tools`, `full` profile, 314 listed tools): 343,087 characters without, 350,067 with, about 1,745 tokens more; 173 tools carry `_meta.ui`. Whether a client puts `_meta` in the model prompt depends on the client; UNVERIFIED. `MCP_REVIT_MCP_APPS=false` removes it.
 
 ## What dominates?
 

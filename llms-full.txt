@@ -399,7 +399,9 @@ In plain words:
   `aec-model-bridge-approve` command.
 - **Nothing applies on its own.** A change runs only if it matches an approved
   action of an approved plan, once.
-- **Undo is per action.** Revit's Ctrl+Z undoes one action per press.
+- **Undo.** A plan of parameter writes, moves and rotations is one Ctrl+Z step
+  when the add-in supports plan batches (UNVERIFIED in live Revit). Other plans
+  undo one action per press.
 
 The hub stops any tool call that changes the model unless it carries an
 approved plan. The AI proposes a plan, you review it, and the add-in runs it on
@@ -432,9 +434,13 @@ cover them.
 
 <sub>Diagram source: [approval-flow.mmd](docs/diagrams/approval-flow.mmd). Regenerate the images with `python scripts/render_diagrams.py`.</sub>
 
-If a plan turns out wrong, undo it with Revit's Ctrl+Z. Each parameter write is
-its own named transaction, so one plan can take several presses. A one-step undo
-for a whole plan is planned, not built. A second route is a revert plan: the
+If a plan turns out wrong, undo it with Revit's Ctrl+Z. When every action of a
+plan is a parameter write, move or rotation and the add-in lists
+`revit.execute_plan_batch`, the plan runs in one Revit transaction group named
+"AEC Model Bridge: <plan title> (<short id>)", so one press undoes the whole plan.
+If one action fails, the whole group is rolled back. This is UNVERIFIED in a live
+Revit session. Other plans run one named transaction per action, so they can take
+several presses. A second route is a revert plan: the
 assistant drafts one with `plan_revert` from the proof of an executed plan, and
 you approve it like any other plan. `rollback_plan` also writes the recorded
 before-values back in reverse order and can skip an action when no before-value
@@ -1088,6 +1094,8 @@ Resources (JSON, redacted like tool results, ids validated, nothing writable):
 | `aec://proof/{id}` | The proof bundle of an executed plan. |
 | `aec://qa/latest` | Issue counts by severity and status for the latest QA/QC run. |
 
+Clients that support MCP Apps can show `plan_actions` and `list_pending_plans` results in the read-only view `ui://aec-model-bridge/plan-review`. It cannot approve. See [MCP Apps plan review view](mcp-apps.md).
+
 ## Cline (VS Code)
 
 *MCP Servers, Installed, Configure MCP Servers* opens `cline_mcp_settings.json`. Leave Cline's auto-approve off for tools that change the model. When Cline installs the server for the person, it should check `uv --version`, ask whether to use `mock` (sample data) or `bridge` (open Revit, needs the add-in from [install](install.md)), keep existing servers in the file, not set `MCP_REVIT_APPROVAL_MODE`, and never approve a plan itself. Explicit panel Dev mode and timed Auto also skip per-change approvals; switch them off for this workflow.
@@ -1328,6 +1336,7 @@ The server has three modes. Set the mode with `MCP_REVIT_MODE`.
 | `MCP_REVIT_APPROVAL_TTL` | No | `28800` (8 hours) | Seconds an approved plan stays usable. After that the plan moves to `expired` and a person must approve a new plan; it is never renewed silently. `0` turns the limit off. A negative, fractional or non-numeric value falls back to the default (it never turns the limit off) and logs a warning. Checked when a call runs, not by a timer. See [ADR 0017](adr/0017-approval-document-binding-and-expiry.md). |
 | `MCP_REVIT_PENDING_TTL` | No | `1209600` (14 days) | Seconds a drafted, not yet approved plan can still be approved. Older pending plans are left out of `list` and `list_pending_plans` (counted as `expired_hidden`; `list --all` or `include_expired` shows them), cannot be approved, and are never deleted. `0` turns the limit off. Same fallback rule as above. |
 | `MCP_REVIT_POLICY_FILE` | No | unset | Path of a policy file (YAML or JSON) that adds refusals to `plan_actions` and `execute_plan`. Unset: `policy.yaml`, `policy.yml` or `policy.json` in the workspace folder, if present. A file that is named but missing or invalid refuses every write. See [Policy file](#policy-file). |
+| `MCP_REVIT_MCP_APPS` | No | `true` | Offers the read-only plan review view `ui://aec-model-bridge/plan-review` (MCP Apps) and the `_meta.ui` keys on tools. The view cannot approve. `false` removes both. Read at startup. See [MCP Apps plan review view](mcp-apps.md). |
 | `MCP_REVIT_VALIDATE_BRIDGE_PAYLOADS` | No | on | Checks each Revit add-in command payload against `contracts/bridge-commands.json` before sending. A payload that does not fit is refused and nothing is sent. `0`, `false`, `off` or `no` turns the check off; any other value keeps it on. Read on each call. See [Add-in command contract](bridge-command-contract.md). |
 | `MCP_REVIT_ENABLE_USER_MODULES` | No | `false` | Set to `true` to load modules from `%LOCALAPPDATA%\AECModelBridge\modules`. See [Module authoring](module-authoring.md). |
 | `MCP_REVIT_ALLOW_PYTHON_HOST` | No | `false` | Set to `true` to allow tools that run raw Python on the host, such as `revit_execute_python`. Leave it off unless you need it. |
@@ -1393,6 +1402,30 @@ Element, category, level and workset values come from the action arguments and, 
 ## Plan preview and risk
 
 `plan_actions`, `list_pending_plans` and `aec-model-bridge-approve show` add `preview` (rows of element id, UniqueId, parameter, before, after, tool), `preview_markdown` (the same table, at most 25 rows and an "N more" line) and `blast_radius` (`element_count`, `action_count`, `categories`, `levels`, `worksets`, `risk`). They are computed when a plan is shown, are not stored and are not part of the plan hash. Risk is `low` up to 10 elements and 5 actions, `medium` up to 100 elements and 25 actions, `high` above that. A plan is at least `medium` when an action names no element or a tool name says delete, purge or remove. These are estimates from the arguments, not a check of the live model.
+
+## Command-line review (`aec-model-bridge-approve`)
+
+`aec-model-bridge-approve show <plan_id>`, `--show <plan_id>` and `approve <plan_id>` print the same review before anything else happens:
+
+- one table per action: element (id, plus name and Mark when the plan's snapshot can be read), parameter, old value -> new value. An action that sets no parameter shows its other arguments as the new value. An old value that was not recorded shows `(not captured)`.
+- counts (actions, elements, parameters, changes, old values captured), tools and the risk estimate above.
+- warnings: review warnings (hashed), unhashed legacy warnings, preview notes (actions that name no element, old values not captured, high risk), expiry and malformed actions.
+- the short plan hash, the approval mode in force, the expiry time (`pending_ttl` or `approval_ttl`) and the document binding. The full hash is printed at the end; the approval is bound to it.
+
+Old values and arguments come from the hashed plan. Element names and marks come from the snapshot and are not part of the hash.
+
+Output is plain ASCII layout with no ANSI codes, so it works in Windows cmd and PowerShell. `--color` adds color only when stdout is a terminal that supports it (on Windows: Windows Terminal, ConEmu, ANSICON, VS Code or a set `TERM`) and `NO_COLOR` is unset or empty. Long values wrap to the terminal width (60 to 200 columns) without collapsing spaces. Text values print as JSON strings in double quotes, so `"A B"`, `"A  B"` and `" "` look different. Model text is escaped. Without `--all`, at most 30 change rows and 300 characters per value are printed, followed by a `+N more ..., use --all` line. Arguments of a parameter write that are not in the Element, Parameter or New column (for example the `filter` of `revit_batch_set_parameters_by_filter`) are printed on an `Other arguments:` line under the action's table, cut by the same rule. When anything is cut, `approve` says so above the confirmation prompt.
+
+| Option | Commands | Effect |
+| --- | --- | --- |
+| `--show PLAN_ID` | none (top level) | Print the review and exit. Never approves. Same as `show PLAN_ID`. |
+| `--all` | `--show`, `show`, `approve`, `reject`, `recover` | Print every row and full values. |
+| `--json` | `--show`, `show` | Print the review as JSON and exit. Not accepted by `approve`. |
+| `--color` | `--show`, `show`, `approve`, `reject`, `recover` | Color the review when supported (see above). |
+
+The JSON review has `schema: "aec-model-bridge/plan-review"`, `schema_version: 1`, `plan_id`, `state`, `created_at`, `plan_hash`, `plan_hash_short`, `approval_mode` (`mode`, `configured_mode`, `auto_expires_at`), `expiry` (`applies`, `expired`, `reason`, `rule`, `ttl_seconds`, `expires_at`), `binding` (`recorded`, `bound`, and when bound `doc_title`, `revit_version`, `active_view_id`), `counts`, `tools`, `risk`, `warnings` (`source`, `text`), `approvable`, `not_approvable_reasons`, `actions` (each with `changes`: `element_id` as a string or null, `element_name`, `mark`, `unique_id`, `parameter`, `old`, `old_captured`, `new`, `new_is_arguments`; and `other_arguments`, the arguments no change column shows), `review`, `not_hashed_keys`, `snapshot_id` and `reverts_plan_id`. Values are not cut. `approvable` only reflects the plan's state, expiry and shape; it does not approve anything.
+
+Approval is unchanged: the person types the plan id after the review. Without a terminal the command refuses unless `--yes` is given. The review never changes the plan file.
 
 ## Notes
 
@@ -1681,7 +1714,7 @@ A tool failure reaches an MCP client in one of two shapes:
 Refusals never change the model. A refused write needs a new plan that a person approves.
 For logs and connection problems see [troubleshooting](troubleshooting.md).
 
-Entries: 147.
+Entries: 148.
 
 ## Tool error kinds
 
@@ -2425,7 +2458,7 @@ Set by module tools as `kind` in an `ok: false` result, next to `message`, `elem
 
 ## Exception classes
 
-Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 25.
+Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 26.
 
 ### `ApprovalExpired`
 
@@ -2438,6 +2471,12 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 - When: The workspace approval signing key (plans/.keys/approval-signing.key) is a symlink, owned by another user, readable by others, or malformed. The approval was not recorded.
 - What to do: Ask the person to delete the key file and approve the plan again. Plans approved under the old key must be approved again.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/security/approval_signing.py`
+
+### `AppsResourceError`
+
+- When: A ui:// MCP Apps URI is unknown, names a plan that is not allowed or not found, or MCP_REVIT_MCP_APPS is false.
+- What to do: Use ui://aec-model-bridge/plan-review or a plan id from list_pending_plans; check MCP_REVIT_MCP_APPS.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_apps.py`
 
 ### `BcfError`
 
@@ -2707,7 +2746,7 @@ The ActionPlan represents a batch of modifications:
 - **Auto-Approval**: For headless CI/CD pipelines, `approval_mode=auto` can be set via environment variable (`MCP_REVIT_APPROVAL_MODE=auto`).
 
 ### 4. Rollback Strategies
-- **Revit Undo (`undo`)**: Design target, not built. The intent is one named transaction per plan (`"AMB: Plan <plan_id>"`), so that a single Ctrl+Z reverts the whole plan. Today the add-in names one transaction per action (for example one per parameter write), so undoing a plan takes one Ctrl+Z per action. A one-step undo for a whole plan is planned. Live-Revit behaviour is UNVERIFIED.
+- **Revit Undo (`undo`)**: Built for batchable plans (#294). When every action is a plain model write on the plan-batch list (parameter writes, moves, rotations) and the add-in lists `revit.execute_plan_batch`, `execute_plan` sends the whole plan in one request. The add-in runs it in one ExternalEvent turn inside one `TransactionGroup` named `"AEC Model Bridge: <plan title> (<short id>)"`, each action in its own transaction, and assimilates the group into one undo step. It stops at the first failure and rolls the group back. Every action is still claimed before the request and its outcome is recorded from the per-action results. Other plans run one transaction per action, so undoing them takes one Ctrl+Z per action. Live-Revit behaviour is UNVERIFIED.
 - **Inverse Counter-Plan (`inverse`)**: For persistent history rollbacks, the hub records the before-state (e.g., parameter values) and `rollback_plan` writes those values back in reverse order. An action with no recorded before-value (including an empty one) is skipped and reported as a warning, so a rollback can be partial. `plan_revert` drafts the same reversal as a new plan that needs approval. Live-Revit behaviour is UNVERIFIED.
 - **Irreversible (`none`)**: High-risk operations (e.g., deleting models, file outputs) cannot be rolled back. A separate second confirmation for them is planned, not built: today they go through the same single approval as any other plan.
 
@@ -2876,7 +2915,7 @@ In Ask first mode, an AI assistant that wants to change the Revit model must dra
 - **Elicitation is never approval.** The server may ask the person a question through the AI client for a missing or ambiguous input (see `docs/elicitation.md`), but never for plan approval and never for secrets: the approval tools and the approval code cannot call the helper, and an answer only changes the arguments of a call that then goes through the gate as usual.
 - **The route records the channel and the account.** `approved_via` is set by the code path and `approved_by` is the operating-system account that runs the panel hub or the command-line tool. Values a caller puts in the tool arguments (`approver`, `approved_via`) are ignored.
 - **Plan ids are checked.** A `plan_id` must have the exact shape `plan_` plus 12 hex characters, and must resolve to a file directly inside `<workspace>/plans`. A plan file whose `plan_id` field differs from its file name is refused. A path, `../`, or any other shape is refused with a plain error.
-- **An approval covers a hashed plan, and the command-line tool shows all of it.** When a plan is drafted, the server stores a content hash (`plan_hash`) of its id, creation time, snapshot id, skipped list, actions (tools, arguments, before values) and, when the plan carries one, its `review` block (summary, reasoning, citations, assumptions, elements left out, warnings) and `reverts_plan_id`. Plans with a review carry `hash_version: 2`; plans without one are hashed with the original rule and still verify. A plan that mixes the two (a review without version 2, or version 2 without a review) cannot be approved or executed. The review block is strictly validated (unknown keys, wrong types and over-long text are refused; total size is capped at 64 KB), stored as given and escaped when shown by `aec-model-bridge-approve show`. Anything else on a plan file is metadata that is **not hashed and not shown as approved content**: any extra key passed to `create_plan(extra=...)` (for example `reasoning` or a note), plus the lifecycle fields (`state`, `plan_hash`, `approved_*`, `rejected_*`, `executed_at`, `results`, `is_reversible`, `reversible_strategy`). `show` lists such keys under "Not part of the approval". `plan_revert` puts its conflicts, notes and warnings into the review block, so they are hashed and shown. The panel renders the review next to the actions when it can show it unchanged (see "Plan review in the panel"); it refuses Approve when output redaction, a size cap or a legacy format would make what it shows differ from what the hash covers. The command-line tool prints the plan and its hash, and the panel sends back the `plan_hash` of the list it rendered. The approval is refused if the plan on disk no longer has that hash when the person confirms, or if it no longer matches the hash stored when it was drafted. On approval the hash is stored as `approved_hash`.
+- **An approval covers a hashed plan, and the command-line tool shows all of it.** When a plan is drafted, the server stores a content hash (`plan_hash`) of its id, creation time, snapshot id, skipped list, actions (tools, arguments, before values) and, when the plan carries one, its `review` block (summary, reasoning, citations, assumptions, elements left out, warnings) and `reverts_plan_id`. Plans with a review carry `hash_version: 2`; plans without one are hashed with the original rule and still verify. A plan that mixes the two (a review without version 2, or version 2 without a review) cannot be approved or executed. The review block is strictly validated (unknown keys, wrong types and over-long text are refused; total size is capped at 64 KB), stored as given and escaped when shown by `aec-model-bridge-approve show`. For large plans `show` and `approve` print the first 30 change rows and the first 300 characters of each value; `--all` prints everything, and `approve` refuses a plan whose review was cut short until it is run with `--all`, so a person approves only what they were shown. Anything else on a plan file is metadata that is **not hashed and not shown as approved content**: any extra key passed to `create_plan(extra=...)` (for example `reasoning` or a note), plus the lifecycle fields (`state`, `plan_hash`, `approved_*`, `rejected_*`, `executed_at`, `results`, `is_reversible`, `reversible_strategy`). `show` lists such keys under "Not part of the approval". `plan_revert` puts its conflicts, notes and warnings into the review block, so they are hashed and shown. The panel renders the review next to the actions when it can show it unchanged (see "Plan review in the panel"); it refuses Approve when output redaction, a size cap or a legacy format would make what it shows differ from what the hash covers. The command-line tool prints the plan and its hash, and the panel sends back the `plan_hash` of the list it rendered. The approval is refused if the plan on disk no longer has that hash when the person confirms, or if it no longer matches the hash stored when it was drafted. On approval the hash is stored as `approved_hash`.
 - **An approved plan that is edited is refused.** Before an approved action runs (direct call or `execute_plan`), the server recomputes the hash and refuses if it differs from `approved_hash`.
 - **A file a planned tool reads is bound by its content.** `revit_batch_create_sheets_from_csv` reads its CSV when the plan runs, so the path alone would let the file change after approval. For a tool listed in `CONTENT_BOUND_FILES` (`security/file_binding.py`, tool name to path argument), `plan_actions` reads the file through the workspace check and the size cap (1,000,000 bytes for the CSV) and writes its sha256 (`csv_sha256`) and row count (`csv_row_count`) into the action arguments, which the plan hash covers. A caller-supplied digest that differs is refused, and a file that is missing, outside the workspace or not a valid sheet CSV is refused at drafting. The plan listing shows `bound_files` (path, sha256, rows) and a line in `preview_markdown`. `execute_plan` checks every open bound action up front, a claim checks its action before consuming it, and the payload builder parses the same bytes it checked, so nothing is sent to Revit when the content differs: "the CSV changed after the plan was approved; draft a new plan" A missing file is refused the same way. A plan drafted before this change has no digest and is refused; draft it again. Other file-reading write tools opt in by adding an entry.
 - **The approval record is signed.** Every approval, from the panel or `aec-model-bridge-approve`, goes through `ApprovalGate.update_plan_state`, which stores `approval_sig`: an HMAC-SHA256 over a canonical JSON encoding of `plan_id`, `approved_hash`, the approval state, `approved_via`, `approved_by`, `approved_at` and the plan's `binding` when it has one (`security/approval_signing.py`). The key is 32 random bytes made once per workspace on the first approval, at `plans/.keys/approval-signing.key`, inside the folder the workspace sandbox reserves from tools. It is created with mode 0600 and never overwritten. On POSIX a key file that is a symlink, owned by another user or readable by group or others is refused. On Windows file modes do not apply; the key relies on the workspace being in the user's profile (the default is `~/Documents/AEC Model Bridge`), which other standard users cannot read (UNVERIFIED on a live Windows install). The key is never logged and no tool returns it. `execute_plan`, a direct call that carries a `plan_id`, `rollback_plan` and `run_pyrevit_script` refuse a plan whose signature is missing or does not verify with "This plan's approval record does not verify; approve it again." This includes plans approved before the upgrade (fail closed): approve them again. Deleting the key file rotates it; every approved plan that has not run must then be approved again.
@@ -3651,6 +3690,9 @@ Reproduce: `python scripts/measure_mcp_tokens.py --always-loaded --output always
 ## Follow-up: the `learned` profile
 
 `MCP_REVIT_TOOL_PROFILE=learned` lists `core`, the always-loaded set and the 25 most used tools of the last 30 days from local usage counts, so a list fits what one person actually calls. It falls back to `daily` with fewer than 50 counted calls. `context_report` shows the most used tools and suggests `learned` when it would list at most 75% of the current list. Details and privacy: [learned profile](learned-profile.md).
+## Follow-up: MCP Apps `_meta.ui`
+
+With `MCP_REVIT_MCP_APPS` on (default), `plan_actions` and `list_pending_plans` carry `_meta.ui.resourceUri` and every tool that is not read-only carries `_meta.ui.visibility: ["model"]` ([MCP Apps plan review view](mcp-apps.md)). Same method (mock mode, chars / 4 over `list_tools`, `full` profile, 314 listed tools): 343,087 characters without, 350,067 with, about 1,745 tokens more; 173 tools carry `_meta.ui`. Whether a client puts `_meta` in the model prompt depends on the client; UNVERIFIED. `MCP_REVIT_MCP_APPS=false` removes it.
 
 ## What dominates?
 
@@ -4607,6 +4649,7 @@ python -m revit_mcp_server
 - Each bridge call is appended as one JSON line. Lines are added to an existing cassette of the same name.
 - Calls routed by the panel hub to another Revit instance are recorded too.
 - A failure to write the cassette (for example a full disk) is logged and does not fail the Revit call.
+- Batches are off while recording. An approved plan runs one action at a time (no `revit.execute_plan_batch`, so no single undo step), and element reads are sent one command at a time (no `revit.batch`). Every write and read is then a line in the cassette, and replay serves it the same way.
 
 ### What is masked
 
@@ -4709,7 +4752,7 @@ CI does not start Revit. Tests that touch Revit use mock providers.
 Run on a Windows machine with Revit, starting with the write test in section 5. Mark each PASS or FAIL.
 
 1. First real write (for example `revit_set_parameter_value` through an approved plan). A crash here is the most important finding.
-2. Undo behaviour. The add-in names one transaction per action, so undoing a plan takes one Ctrl+Z per action. Check this, and check `rollback_plan`, which can skip actions that have no recorded before-value.
+2. Undo behaviour. A plan of only parameter writes, moves and rotations runs as one `revit.execute_plan_batch` and should be one Ctrl+Z step named "AEC Model Bridge: <plan title> (<short id>)" (UNVERIFIED). Check it with a plan of two or more actions, check that a plan whose second action fails leaves the model unchanged, and check that other plans still take one Ctrl+Z per action. Check `rollback_plan`, which can skip actions that have no recorded before-value.
 3. Two Revits open at once: requests reach the Revit the person means ([ADR 0014](adr/0014-multi-revit-routing.md), the "Several Revits" section of security.md).
 4. The WebView2 panel loads, lists pending plans and approves one. Run `aec-model-bridge-approve show <plan_id>` for the same plan and compare it with what the panel showed.
 5. Windows ACL on `%LOCALAPPDATA%\AECModelBridge\panel-hub.token`: only the current user has access. Windows does not re-verify the ACL on read.
@@ -4724,7 +4767,7 @@ Run on a Windows machine with Revit, starting with the write test in section 5. 
 - Routed bridge clients: the routing lock no longer covers network calls, and a cached client is dropped when its Revit registry entry is gone or its `/health` fails three times in a row after failed calls. Tested with fakes only; UNVERIFIED with two live Revits.
 - The dev panel displays validated plan reviews and blocks approval when a review is malformed, unsupported or too large. These browser checks passed; live plan approval acceptance remains pending. Compare the card with `aec-model-bridge-approve show <plan_id>` before approving.
 - The panel Plans view lists pending plans only. `aec-model-bridge-approve show <plan_id>` works for a plan in any state; `proofs/` bundles exist only for plans that were executed or attempted.
-- There is no one-step undo for a whole plan. Undo is Ctrl+Z once per action, or a revert plan (`plan_revert`) that is approved like any other plan. `rollback_plan` is for people only and has no panel button or command-line command yet.
+- One-step undo covers only plans made of parameter writes, moves and rotations, run through `revit.execute_plan_batch` (UNVERIFIED in live Revit). Other plans undo with Ctrl+Z once per action. A revert plan (`plan_revert`) is approved like any other plan. `rollback_plan` is for people only and has no panel button or command-line command yet.
 - Executing a plan costs O(n^2) in its action count; keep plans to a few hundred actions.
 - Environment Auto, timed panel Auto and explicit panel Dev skip per-change approval. Dev has no expiry until switched off and applies across sessions sharing the workspace; it does not relax filesystem scope or read-mode guards. An explicitly supplied plan must still be valid and approved.
 - The panel's `/execute` endpoint and the approval command line authenticate a local process, not a person. Do not give an AI client a shell on the same account if you rely on the gate.
@@ -4756,7 +4799,7 @@ The first real write against Revit since the `CreateTransaction` fix (#95). Buil
 4. In the Revit panel, check the arguments match what you asked for, then Approve. (Or `aec-model-bridge-approve`.)
 5. Ask the assistant to run `execute_plan`.
 6. Read the parameter in the Properties palette. Pass: value is `dev-test-1` and Revit did not hang or crash. Fail: freeze, close, a panel error, or an unchanged value.
-7. Press Ctrl+Z once and read it again. Pass: the original value is back. If it took more steps, note how many. Undo is per action, so one step for a whole plan is not built.
+7. Press Ctrl+Z once and read it again. Pass: the original value is back. If it took more steps, note how many. A one-action plan is one step either way; repeat with a two-action plan to check the one-step plan undo.
 8. Record pass or fail for the write and for undo, any message text, and the lines in `%APPDATA%\AECModelBridge\Logs\bridge.jsonl` around that time.
 
 Stop and report if step 5 or 6 fails.

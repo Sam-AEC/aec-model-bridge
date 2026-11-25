@@ -75,6 +75,10 @@
     "when": "A recipe request is refused. It carries a machine kind; those are listed under result kinds.",
     "do": "Look up the kind in this file."
   },
+  "class/AppsResourceError": {
+    "when": "A ui:// MCP Apps URI is unknown, names a plan that is not allowed or not found, or MCP_REVIT_MCP_APPS is false.",
+    "do": "Use ui://aec-model-bridge/plan-review or a plan id from list_pending_plans; check MCP_REVIT_MCP_APPS."
+  },
   "class/ResourceError": {
     "when": "An MCP resource URI is unknown, malformed or names an id that is not allowed.",
     "do": "List resources and use an exact URI."

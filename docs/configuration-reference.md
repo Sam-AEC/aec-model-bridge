@@ -35,6 +35,7 @@ The server has three modes. Set the mode with `MCP_REVIT_MODE`.
 | `MCP_REVIT_APPROVAL_TTL` | No | `28800` (8 hours) | Seconds an approved plan stays usable. After that the plan moves to `expired` and a person must approve a new plan; it is never renewed silently. `0` turns the limit off. A negative, fractional or non-numeric value falls back to the default (it never turns the limit off) and logs a warning. Checked when a call runs, not by a timer. See [ADR 0017](adr/0017-approval-document-binding-and-expiry.md). |
 | `MCP_REVIT_PENDING_TTL` | No | `1209600` (14 days) | Seconds a drafted, not yet approved plan can still be approved. Older pending plans are left out of `list` and `list_pending_plans` (counted as `expired_hidden`; `list --all` or `include_expired` shows them), cannot be approved, and are never deleted. `0` turns the limit off. Same fallback rule as above. |
 | `MCP_REVIT_POLICY_FILE` | No | unset | Path of a policy file (YAML or JSON) that adds refusals to `plan_actions` and `execute_plan`. Unset: `policy.yaml`, `policy.yml` or `policy.json` in the workspace folder, if present. A file that is named but missing or invalid refuses every write. See [Policy file](#policy-file). |
+| `MCP_REVIT_MCP_APPS` | No | `true` | Offers the read-only plan review view `ui://aec-model-bridge/plan-review` (MCP Apps) and the `_meta.ui` keys on tools. The view cannot approve. `false` removes both. Read at startup. See [MCP Apps plan review view](mcp-apps.md). |
 | `MCP_REVIT_VALIDATE_BRIDGE_PAYLOADS` | No | on | Checks each Revit add-in command payload against `contracts/bridge-commands.json` before sending. A payload that does not fit is refused and nothing is sent. `0`, `false`, `off` or `no` turns the check off; any other value keeps it on. Read on each call. See [Add-in command contract](bridge-command-contract.md). |
 | `MCP_REVIT_ENABLE_USER_MODULES` | No | `false` | Set to `true` to load modules from `%LOCALAPPDATA%\AECModelBridge\modules`. See [Module authoring](module-authoring.md). |
 | `MCP_REVIT_ALLOW_PYTHON_HOST` | No | `false` | Set to `true` to allow tools that run raw Python on the host, such as `revit_execute_python`. Leave it off unless you need it. |
@@ -100,6 +101,30 @@ Element, category, level and workset values come from the action arguments and, 
 ## Plan preview and risk
 
 `plan_actions`, `list_pending_plans` and `aec-model-bridge-approve show` add `preview` (rows of element id, UniqueId, parameter, before, after, tool), `preview_markdown` (the same table, at most 25 rows and an "N more" line) and `blast_radius` (`element_count`, `action_count`, `categories`, `levels`, `worksets`, `risk`). They are computed when a plan is shown, are not stored and are not part of the plan hash. Risk is `low` up to 10 elements and 5 actions, `medium` up to 100 elements and 25 actions, `high` above that. A plan is at least `medium` when an action names no element or a tool name says delete, purge or remove. These are estimates from the arguments, not a check of the live model.
+
+## Command-line review (`aec-model-bridge-approve`)
+
+`aec-model-bridge-approve show <plan_id>`, `--show <plan_id>` and `approve <plan_id>` print the same review before anything else happens:
+
+- one table per action: element (id, plus name and Mark when the plan's snapshot can be read), parameter, old value -> new value. An action that sets no parameter shows its other arguments as the new value. An old value that was not recorded shows `(not captured)`.
+- counts (actions, elements, parameters, changes, old values captured), tools and the risk estimate above.
+- warnings: review warnings (hashed), unhashed legacy warnings, preview notes (actions that name no element, old values not captured, high risk), expiry and malformed actions.
+- the short plan hash, the approval mode in force, the expiry time (`pending_ttl` or `approval_ttl`) and the document binding. The full hash is printed at the end; the approval is bound to it.
+
+Old values and arguments come from the hashed plan. Element names and marks come from the snapshot and are not part of the hash.
+
+Output is plain ASCII layout with no ANSI codes, so it works in Windows cmd and PowerShell. `--color` adds color only when stdout is a terminal that supports it (on Windows: Windows Terminal, ConEmu, ANSICON, VS Code or a set `TERM`) and `NO_COLOR` is unset or empty. Long values wrap to the terminal width (60 to 200 columns) without collapsing spaces. Text values print as JSON strings in double quotes, so `"A B"`, `"A  B"` and `" "` look different. Model text is escaped. Without `--all`, at most 30 change rows and 300 characters per value are printed, followed by a `+N more ..., use --all` line. Arguments of a parameter write that are not in the Element, Parameter or New column (for example the `filter` of `revit_batch_set_parameters_by_filter`) are printed on an `Other arguments:` line under the action's table, cut by the same rule. When anything is cut, `approve` says so above the confirmation prompt.
+
+| Option | Commands | Effect |
+| --- | --- | --- |
+| `--show PLAN_ID` | none (top level) | Print the review and exit. Never approves. Same as `show PLAN_ID`. |
+| `--all` | `--show`, `show`, `approve`, `reject`, `recover` | Print every row and full values. |
+| `--json` | `--show`, `show` | Print the review as JSON and exit. Not accepted by `approve`. |
+| `--color` | `--show`, `show`, `approve`, `reject`, `recover` | Color the review when supported (see above). |
+
+The JSON review has `schema: "aec-model-bridge/plan-review"`, `schema_version: 1`, `plan_id`, `state`, `created_at`, `plan_hash`, `plan_hash_short`, `approval_mode` (`mode`, `configured_mode`, `auto_expires_at`), `expiry` (`applies`, `expired`, `reason`, `rule`, `ttl_seconds`, `expires_at`), `binding` (`recorded`, `bound`, and when bound `doc_title`, `revit_version`, `active_view_id`), `counts`, `tools`, `risk`, `warnings` (`source`, `text`), `approvable`, `not_approvable_reasons`, `actions` (each with `changes`: `element_id` as a string or null, `element_name`, `mark`, `unique_id`, `parameter`, `old`, `old_captured`, `new`, `new_is_arguments`; and `other_arguments`, the arguments no change column shows), `review`, `not_hashed_keys`, `snapshot_id` and `reverts_plan_id`. Values are not cut. `approvable` only reflects the plan's state, expiry and shape; it does not approve anything.
+
+Approval is unchanged: the person types the plan id after the review. Without a terminal the command refuses unless `--yes` is given. The review never changes the plan file.
 
 ## Notes
 

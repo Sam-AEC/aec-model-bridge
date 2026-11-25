@@ -55,6 +55,7 @@ public static class BridgeContract
     public const string RevitDeleteSheet                 = "revit.delete_sheet";
     public const string RevitDuplicateSheet              = "revit.duplicate_sheet";
     public const string RevitEditFamily                  = "revit.edit_family";
+    public const string RevitExecutePlanBatch            = "revit.execute_plan_batch";
     public const string RevitExecutePython               = "revit.execute_python";
     public const string RevitExportDwgByView             = "revit.export_dwg_by_view";
     public const string RevitExportIfcWithSettings       = "revit.export_ifc_with_settings";
@@ -176,6 +177,7 @@ public static class BridgeContract
         { RevitDeleteSheet,                 true },
         { RevitDuplicateSheet,              true },
         { RevitEditFamily,                  true },
+        { RevitExecutePlanBatch,            true },
         { RevitExecutePython,               true },
         { RevitExportDwgByView,             false },
         { RevitExportIfcWithSettings,       false },

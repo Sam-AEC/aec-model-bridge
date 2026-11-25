@@ -324,6 +324,10 @@ class ApprovalProvider(AECProvider):
         # True once any action of this plan has been claimed (now or in an earlier run).
         started = had_failure or bool(pending_results) or any(
             a.get("state") not in ("pending", None) for a in plan["actions"])
+        if not started:
+            batch = self._plan_batch(plan_id, plan)
+            if batch is not None:
+                return await self._execute_plan_batch(plan_id, plan, *batch)
         for action in plan["actions"]:
             if action.get("state") not in ("pending", None):
                 continue  # already consumed (e.g. a direct call earlier): never run an approved action twice
@@ -366,6 +370,12 @@ class ApprovalProvider(AECProvider):
                 pending_results.append({"action_id": action["action_id"], "key": verdict.key, "resume": verdict.resume})
             results.append(entry)
 
+        return self._finish_plan_run(plan_id, plan, results, had_failure, pending_results)
+
+    def _finish_plan_run(self, plan_id: str, plan: Dict[str, Any], results: List[Dict[str, Any]],
+                         had_failure: bool, pending_results: List[Dict[str, Any]],
+                         extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Settle the plan state and proof after its actions ran (one by one or as one batch)."""
         plan = self.gate.load_plan(plan_id) or plan
         if plan.get("state") == "approved" and had_failure:
             # Some action could not even be claimed; the plan is not fully applied.
@@ -389,9 +399,141 @@ class ApprovalProvider(AECProvider):
             except Exception:
                 logger.exception("Failed to write proof bundle for plan %s", plan_id)
         reply = {"plan_id": plan_id, "state": plan["state"], "results": results, "ok": not had_failure}
+        if extra:
+            reply.update(extra)
         if pending_results:
             reply["pending_results"] = pending_results
         return reply
+
+    def _plan_batch(self, plan_id: str, plan: Dict[str, Any]) -> Optional[Tuple[Any, List[Dict[str, Any]]]]:
+        """(provider, add-in members) when every action of this not-yet-started plan can run as one
+        revit.execute_plan_batch (one Revit turn, one undo step, #294); None for today's path."""
+        actions = plan.get("actions") or []
+        if not actions or any(a.get("state") not in ("pending", None) for a in actions):
+            return None
+        provider = None
+        for action in actions:
+            found = self.registry.lookup_tool_provider(action.get("tool")) if self.registry is not None else None
+            if found is None or (provider is not None and found is not provider):
+                return None
+            provider = found
+        prepare = getattr(provider, "plan_batch_members", None)
+        if not callable(prepare) or not callable(getattr(provider, "execute_plan_batch", None)):
+            return None
+        try:
+            members = prepare(plan_id, actions)
+        except Exception:  # noqa: BLE001 - fall back to one action at a time
+            logger.exception("Could not prepare plan %s as one batch", plan_id)
+            return None
+        if not isinstance(members, list) or len(members) != len(actions):
+            return None
+        return provider, members
+
+    @staticmethod
+    def _plan_title(plan: Dict[str, Any]) -> str:
+        review = plan.get("review")
+        summary = review.get("summary") if isinstance(review, dict) else None
+        if isinstance(summary, str) and summary.strip():
+            return _clip(" ".join(summary.split()), 80)
+        n = len(plan.get("actions") or [])
+        return f"{n} action{'s' if n != 1 else ''}"
+
+    async def _execute_plan_batch(self, plan_id: str, plan: Dict[str, Any], provider: Any,
+                                  members: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Run the plan as one add-in batch: one Revit turn, one TransactionGroup, one undo step.
+
+        Approval bookkeeping is the same as the one-by-one path: every action is claimed before
+        anything runs (a claim that fails after the first is reported as that action's error, as
+        today), and each claimed action's outcome is recorded from the add-in's per-action result.
+        The add-in stops at the first failure and rolls the whole group back, so a failed batch
+        records every claimed action as failed: the one that failed, the ones rolled back with it,
+        and the ones not run. When Revit has not answered after the extra waits, the claimed actions
+        stay 'running' (consumed, never replayed) for a person to check and recover."""
+        n = len(plan["actions"])
+        entries: List[Optional[Dict[str, Any]]] = [None] * n
+        claimed: List[Tuple[int, Dict[str, Any], Any, Dict[str, Any]]] = []
+        had_failure = False
+        started = False
+        for index, (action, member) in enumerate(zip(plan["actions"], members)):
+            tool = action["tool"]
+            args = dict(action["arguments"]) if isinstance(action.get("arguments"), dict) else {}
+            args["plan_id"] = plan_id
+            try:
+                claim = self.gate.claim_action(tool, args)
+            except Exception as e:
+                if not started:
+                    raise  # refused before anything ran: the plan stays approved
+                had_failure = True
+                entries[index] = {"action_id": action.get("action_id"), "tool": tool, "error": str(e)}
+                continue
+            started = True
+            claimed.append((index, action, claim, member))
+
+        pending_results: List[Dict[str, Any]] = []
+        extra: Dict[str, Any] = {"batched": True}
+
+        def fail_all(error: str) -> None:
+            for index, action, claim, _member in claimed:
+                self.gate.finish_action(claim, ok=False, error=error)
+                entries[index] = {"action_id": action["action_id"], "tool": action["tool"], "error": error}
+
+        reply: Any = None
+        if claimed:
+            try:
+                reply = await provider.execute_plan_batch(
+                    plan_id, self._plan_title(plan), [member for _i, _a, _c, member in claimed])
+            except Exception as e:
+                had_failure = True
+                fail_all(str(e) or type(e).__name__)
+                claimed = []
+
+        if claimed and isinstance(reply, dict) and reply.get("status") in ("running", "queued") \
+                and isinstance(reply.get("request_id"), str) and reply["request_id"]:
+            request_id = reply["request_id"]
+            for index, action, _claim, _member in claimed:
+                pending_results.append({
+                    "action_id": action["action_id"], "key": None,
+                    "resume": (f'Inspect the model. revit_get_result(request_id="{request_id}") shows the plan '
+                               "batch outcome; a person then closes these actions with the approval CLI."),
+                })
+                entries[index] = {"action_id": action["action_id"], "tool": action["tool"],
+                                  "result": {"status": "running", "request_id": request_id}}
+            extra["batch_request_id"] = request_id
+        elif claimed:
+            results_in = reply.get("results") if isinstance(reply, dict) else None
+            ids = [member["action_id"] for _i, _a, _c, member in claimed]
+            if not isinstance(results_in, list) or len(results_in) != len(claimed) or any(
+                    not isinstance(r, dict) or r.get("action_id") != i for r, i in zip(results_in, ids)):
+                had_failure = True
+                fail_all("The add-in returned a plan batch result that does not match the request. "
+                         "Check the model before drafting a new plan.")
+            else:
+                committed = reply.get("committed") is True
+                extra["undo"] = {"one_step": committed, "group_name": reply.get("group_name")}
+                for (index, action, claim, _member), answer in zip(claimed, results_in):
+                    tool = action["tool"]
+                    entry: Dict[str, Any] = {"action_id": action["action_id"], "tool": tool}
+                    if answer.get("ok") is True and committed:
+                        result = answer.get("result")
+                        entry["result"] = result
+                        verdict = gate_after_result(self.gate, claim, tool, result)
+                        if verdict.state == "failed":
+                            had_failure = True
+                            entry["error"] = verdict.error
+                    else:
+                        had_failure = True
+                        error = str(answer.get("error") or "The plan batch did not apply this action.")
+                        self.gate.finish_action(claim, ok=False, error=error)
+                        entry["error"] = error
+                        for flag in ("rolled_back", "not_run", "group_not_committed"):
+                            if answer.get(flag) is True:
+                                entry[flag] = True
+                        if isinstance(answer.get("result"), dict):
+                            entry["result"] = answer["result"]
+                    entries[index] = entry
+
+        results = [e for e in entries if e is not None]
+        return self._finish_plan_run(plan_id, plan, results, had_failure, pending_results, extra)
 
     async def _plan_revert(self, plan_id: str, allow_conflicts: bool) -> Dict[str, Any]:
         """Draft (never execute) a plan that restores the recorded before values.

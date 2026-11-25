@@ -34,8 +34,8 @@ RISK_MEDIUM_MAX_ELEMENTS = 100
 RISK_MEDIUM_MAX_ACTIONS = 25
 DESTRUCTIVE_WORDS = ("delete", "purge", "remove")
 
-_ID_KEYS = ("element_id", "elementId")
-_ID_LIST_KEYS = ("element_ids", "elementIds", "ids")
+_ID_KEYS = ID_KEYS = ("element_id", "elementId")
+_ID_LIST_KEYS = ID_LIST_KEYS = ("element_ids", "elementIds", "ids")
 _UID_KEYS = ("element_uid", "unique_id", "uniqueId", "uid")
 _UID_LIST_KEYS = ("element_uids", "unique_ids", "uids")
 _FIELD_KEYS = {

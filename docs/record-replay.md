@@ -17,6 +17,7 @@ python -m revit_mcp_server
 - Each bridge call is appended as one JSON line. Lines are added to an existing cassette of the same name.
 - Calls routed by the panel hub to another Revit instance are recorded too.
 - A failure to write the cassette (for example a full disk) is logged and does not fail the Revit call.
+- Batches are off while recording. An approved plan runs one action at a time (no `revit.execute_plan_batch`, so no single undo step), and element reads are sent one command at a time (no `revit.batch`). Every write and read is then a line in the cassette, and replay serves it the same way.
 
 ### What is masked
 

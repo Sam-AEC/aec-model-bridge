@@ -182,35 +182,6 @@ def set_type_parameter(args: Args) -> Args:
     }
 
 
-def shared_parameter(args: Args) -> Args:
-    categories = args.get("categories")
-    if categories is None:
-        categories = []
-    if not isinstance(categories, list) or not all(isinstance(c, str) for c in categories):
-        raise ValueError("revit_create_shared_parameter: categories must be a list of category names.")
-    return {
-        "name": args.get("name"),
-        "parameter_type": args.get("type") or "Text",
-        "group_name": args.get("group") or "General",
-        "categories": categories,
-    }
-
-
-def project_parameter(args: Args) -> Args:
-    is_instance = args.get("is_instance", True)
-    if not isinstance(is_instance, bool):
-        raise ValueError("revit_create_project_parameter: is_instance must be true or false.")
-    return {
-        "name": args.get("name"),
-        "parameter_type": args.get("type") or "Text",
-        "group": args.get("group") or "General",
-        "is_instance": is_instance,
-    }
-
-
-# ---------------------------------------------------------------- sheets
-
-
 def create_sheet(args: Args) -> Args:
     tool = "revit_create_sheet"
     if args.get("titleblock_id") is not None:
