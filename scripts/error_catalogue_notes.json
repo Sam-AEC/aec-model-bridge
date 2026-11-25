@@ -582,5 +582,9 @@
   "mcp/unknown_tool": {
     "when": "The tool name is not registered in this server.",
     "do": "Call tools/list and use an exact name. A module tool is missing when its module is off or failed to load."
+  },
+  "class/UsageLockTimeout": {
+    "when": "Another server process held the tool usage counts lock (usage/.tool-usage.json.lock) for longer than the 2 s wait. Logged as a warning; it never fails a tool call.",
+    "do": "Nothing. The counts stay in memory and are written at the next flush. A lock file older than 30 s is removed as stale."
   }
 }

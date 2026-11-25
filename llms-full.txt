@@ -1681,7 +1681,7 @@ A tool failure reaches an MCP client in one of two shapes:
 Refusals never change the model. A refused write needs a new plan that a person approves.
 For logs and connection problems see [troubleshooting](troubleshooting.md).
 
-Entries: 146.
+Entries: 147.
 
 ## Tool error kinds
 
@@ -2425,7 +2425,7 @@ Set by module tools as `kind` in an `ok: false` result, next to `message`, `elem
 
 ## Exception classes
 
-Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 24.
+Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 25.
 
 ### `ApprovalExpired`
 
@@ -2564,6 +2564,12 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 - When: A registered tool is hidden by the static MCP tool profile. Returned as kind tool_profile_blocked.
 - What to do: Use a listed tool, or ask the person to change the profile.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/tool_profiles.py`
+
+### `UsageLockTimeout`
+
+- When: Another server process held the tool usage counts lock (usage/.tool-usage.json.lock) for longer than the 2 s wait. Logged as a warning; it never fails a tool call.
+- What to do: Nothing. The counts stay in memory and are written at the next flush. A lock file older than 30 s is removed as stale.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/usage_counts.py`
 
 ### `WorkspaceViolation`
 

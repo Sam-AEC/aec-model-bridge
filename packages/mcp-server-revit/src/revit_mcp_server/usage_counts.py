@@ -7,8 +7,11 @@ sent anywhere. ``MCP_REVIT_USAGE_COUNTS=off`` turns counting off.
 
 Writes are atomic (temp file, then one replace) and rate limited: calls are counted in
 memory and merged into the file at most once per ``FLUSH_INTERVAL_SECONDS`` and when the
-server stops. Each flush re-reads the file and adds to it, so two server processes on
-one workspace do not overwrite each other's counts.
+server stops. Each flush takes a lock file (``.tool-usage.json.lock``, created with
+O_CREAT|O_EXCL, waited on for at most ``LOCK_TIMEOUT_SECONDS``, removed when older than
+``STALE_LOCK_SECONDS``), re-reads the file and adds to it, so two server processes on one
+workspace do not overwrite each other's counts. When the lock cannot be taken or the
+write fails, the counts stay in memory for the next flush.
 """
 from __future__ import annotations
 
@@ -38,6 +41,8 @@ FORMAT_VERSION = 1
 FLUSH_INTERVAL_SECONDS = 60.0
 WINDOW_DAYS = 30
 KEEP_DAYS = 90  # per-day counts older than this are dropped on write
+LOCK_TIMEOUT_SECONDS = 2.0  # longest wait for another process's flush
+STALE_LOCK_SECONDS = 30.0  # a lock file older than this is left over from a crash
 MAX_TOOLS = 2000  # a file never grows past this many tool names
 # Tool names only: letters, digits, underscore, dot, hyphen. Anything else is not counted.
 TOOL_NAME_RE = re.compile(r"[A-Za-z0-9_.-]{1,128}")
@@ -150,6 +155,57 @@ def write_atomic(path: Path, data: Dict[str, Any]) -> None:
             tmp.unlink()
 
 
+class UsageLockTimeout(Exception):
+    """Another process held the counts lock for longer than the wait allows."""
+
+
+class _FileLock:
+    """Interprocess lock: a lock file created with O_CREAT|O_EXCL next to the counts file."""
+
+    def __init__(self, path: Path, timeout: float = LOCK_TIMEOUT_SECONDS,
+                 stale_after: float = STALE_LOCK_SECONDS, poll: float = 0.02) -> None:
+        self.path = path.with_name(f".{path.name}.lock")
+        self.timeout = timeout
+        self.stale_after = stale_after
+        self.poll = poll
+
+    def __enter__(self) -> "_FileLock":
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        deadline = time.monotonic() + self.timeout
+        while True:
+            try:
+                fd = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            except FileExistsError:
+                self._remove_if_stale()
+                if time.monotonic() >= deadline:
+                    raise UsageLockTimeout(f"{self.path.name} is held by another process") from None
+                time.sleep(self.poll)
+                continue
+            try:
+                os.write(fd, str(os.getpid()).encode("ascii"))
+            finally:
+                os.close(fd)
+            return self
+
+    def _remove_if_stale(self) -> None:
+        try:
+            age = time.time() - self.path.stat().st_mtime
+        except OSError:
+            return  # released meanwhile
+        if age > self.stale_after:
+            try:
+                self.path.unlink()
+                logger.warning("Removed a stale tool usage lock file (%.0f s old).", age)
+            except OSError:
+                pass
+
+    def __exit__(self, *exc: Any) -> None:
+        try:
+            self.path.unlink()
+        except OSError:
+            pass
+
+
 def top_tools(data: Mapping[str, Any], today: Optional[date] = None, days: int = WINDOW_DAYS,
               limit: Optional[int] = None) -> List[Dict[str, Any]]:
     """Tools by calls in the last ``days`` days (today included), most used first, then by name."""
@@ -170,8 +226,10 @@ class UsageCounter:
     def __init__(self, path: Optional[Path], enabled: bool = True,
                  flush_interval: float = FLUSH_INTERVAL_SECONDS,
                  clock: Callable[[], float] = time.monotonic,
-                 today: Callable[[], date] = _today) -> None:
+                 today: Callable[[], date] = _today,
+                 lock_timeout: float = LOCK_TIMEOUT_SECONDS) -> None:
         self.path = path
+        self.lock_timeout = lock_timeout
         self.enabled = bool(enabled and path is not None)
         self.flush_interval = flush_interval
         self._clock = clock
@@ -202,9 +260,18 @@ class UsageCounter:
             if not pending:
                 return
             try:
-                write_atomic(self.path, merge(load(self.path), pending, self._today()))
+                with _FileLock(self.path, timeout=self.lock_timeout):
+                    write_atomic(self.path, merge(load(self.path), pending, self._today()))
             except Exception as exc:  # counting must never break a tool call
-                logger.warning("Could not write tool usage counts: %s", exc)
+                logger.warning("Could not write tool usage counts; kept for the next flush: %s", exc)
+                self._restore(pending)
+
+    def _restore(self, pending: Mapping[str, Mapping[str, int]]) -> None:
+        """Put unwritten counts back into the in-memory buffer (caller holds self._lock)."""
+        for name, days in pending.items():
+            kept = self._pending.setdefault(name, {})
+            for day, count in days.items():
+                kept[day] = kept.get(day, 0) + count
 
     def snapshot(self) -> Dict[str, Any]:
         """File counts plus counts not yet flushed."""

@@ -8,8 +8,8 @@ The `learned` tool profile lists the tools one person actually uses. It is built
 - It stores, per tool, the number of calls per UTC day and the last day the tool was used. It stores no arguments, no results, no model data and no user or machine names.
 - Calls to unknown tools, hidden tools and human-only approval tools are not counted.
 - File: `<workspace>/usage/tool-usage.json` (workspace: `MCP_REVIT_WORKSPACE_DIR`). The path is built with `safe_child` and cannot leave the workspace.
-- Writes are atomic: a temp file next to it, then one replace. A failed write leaves the old file unchanged and never fails a tool call.
-- Writes are rate limited: counts are kept in memory and merged into the file at most once a minute and when the server stops. Each write re-reads the file and adds to it, so two servers on one workspace keep both counts.
+- Writes are atomic: a temp file next to it, then one replace. A failed write leaves the old file unchanged, keeps the counts in memory for the next write and never fails a tool call.
+- Writes are rate limited: counts are kept in memory and merged into the file at most once a minute and when the server stops. Each write takes a lock file (`usage/.tool-usage.json.lock`, waited on for at most 2 s, removed when older than 30 s), re-reads the file and adds to it, so two servers on one workspace keep both counts. If the lock is not free in time, the counts wait for the next write.
 - Day counts older than 90 days are dropped on write.
 - Counting is off by default. Turn it on with `MCP_REVIT_USAGE_COUNTS=on` (also `1`, `true`, `yes`); `off`, `0`, `false` or `no` keep it off and no file is written. Any other value stops the server at startup.
 

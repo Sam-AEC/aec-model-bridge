@@ -177,6 +177,71 @@ def test_failed_replace_keeps_old_file_and_leaves_no_temp(tmp_path, monkeypatch)
     assert [p.name for p in path.parent.iterdir()] == ["tool-usage.json"]
 
 
+def test_failed_flush_keeps_counts_for_the_next_flush(tmp_path, monkeypatch):
+    c = counter(tmp_path)
+    c.record("a_tool")
+    c.record("a_tool")
+    real = usage_counts.write_atomic
+    monkeypatch.setattr(usage_counts, "write_atomic", lambda path, data: (_ for _ in ()).throw(OSError("locked")))
+    c.flush()  # logged, not raised
+    assert not usage_file(tmp_path).exists()
+    c.record("a_tool")
+    monkeypatch.setattr(usage_counts, "write_atomic", real)
+    c.flush()
+    assert usage_counts.load(usage_file(tmp_path))["tools"]["a_tool"]["days"]["2026-11-24"] == 3
+    assert not (usage_file(tmp_path).parent / ".tool-usage.json.lock").exists()
+
+
+def test_flush_waits_for_lock_and_keeps_counts_on_timeout(tmp_path):
+    c = UsageCounter(usage_file(tmp_path), flush_interval=60, clock=Clock(), today=lambda: TODAY,
+                     lock_timeout=0.05)
+    lock = usage_file(tmp_path).parent / ".tool-usage.json.lock"
+    lock.parent.mkdir(parents=True)
+    lock.write_text("1", encoding="utf-8")  # another process is flushing
+    c.record("a_tool")
+    c.flush()
+    assert not usage_file(tmp_path).exists() and lock.exists()  # not written, lock left alone
+    lock.unlink()
+    c.flush()
+    assert usage_counts.load(usage_file(tmp_path))["tools"]["a_tool"]["days"]["2026-11-24"] == 1
+    assert not lock.exists()
+
+
+def test_stale_lock_is_removed(tmp_path):
+    import os
+    import time as _time
+    lock = usage_file(tmp_path).parent / ".tool-usage.json.lock"
+    lock.parent.mkdir(parents=True)
+    lock.write_text("1", encoding="utf-8")
+    old = _time.time() - usage_counts.STALE_LOCK_SECONDS - 5
+    os.utime(lock, (old, old))
+    c = counter(tmp_path)
+    c.record("a_tool")
+    c.flush()
+    assert usage_counts.load(usage_file(tmp_path))["tools"]["a_tool"]["days"]["2026-11-24"] == 1
+    assert not lock.exists()
+
+
+def test_concurrent_flushes_keep_all_counts(tmp_path):
+    import threading
+    counters = [counter(tmp_path) for _ in range(6)]
+    for c in counters:
+        for _ in range(5):
+            c.record("a_tool")
+    barrier = threading.Barrier(len(counters))
+
+    def run(c):
+        barrier.wait()
+        c.flush()
+
+    threads = [threading.Thread(target=run, args=(c,)) for c in counters]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert usage_counts.load(usage_file(tmp_path))["tools"]["a_tool"]["days"]["2026-11-24"] == 30
+
+
 # ---- learned profile ------------------------------------------------------ #
 
 def test_learned_profile_lists_core_always_loaded_and_top_tools():
