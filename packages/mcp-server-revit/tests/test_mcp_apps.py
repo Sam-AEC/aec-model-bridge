@@ -247,3 +247,31 @@ def test_flag_defaults_on(monkeypatch):
     assert Config().mcp_apps is True
     monkeypatch.setenv("MCP_REVIT_MCP_APPS", "false")
     assert Config().mcp_apps is False
+
+
+# ---- per-plan resource: redaction and expiry -------------------------------
+
+def _embedded(gate, plan_id):
+    html, _ = mcp_apps.read_resource(f"ui://aec-model-bridge/plan-review/{plan_id}", gate)
+    return html, json.loads(_scripts(html)[0][1])
+
+
+def _mail_plan(gate):
+    return gate.create_plan(
+        [{"tool": "revit_set_parameter_value", "arguments": {"element_id": 7, "parameter_name": "Mark", "value": "B"}}],
+        [{"7": {"Mark": "A"}}], review={"summary": "Requested by jane.doe@example.com"})
+
+
+def test_per_plan_view_masks_personal_data_when_redaction_is_on(apps_on, gate, monkeypatch):
+    monkeypatch.setenv("MCP_REVIT_REDACT_RESPONSES", "basic")
+    plan = _mail_plan(gate)
+    html, data = _embedded(gate, plan["plan_id"])
+    assert "jane.doe@example.com" not in html and "example.com" not in html
+    assert data["plans"][0]["review"]["summary"] == "Requested by <redacted-user>"
+
+
+def test_per_plan_view_keeps_personal_data_when_redaction_is_off(apps_on, gate, monkeypatch):
+    monkeypatch.setenv("MCP_REVIT_REDACT_RESPONSES", "off")
+    plan = _mail_plan(gate)
+    _, data = _embedded(gate, plan["plan_id"])
+    assert data["plans"][0]["review"]["summary"] == "Requested by jane.doe@example.com"

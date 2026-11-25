@@ -45,7 +45,7 @@ The AI client controls the view, so it must not become an approval channel.
 - Self-contained: inline style and script only, no fonts, images, links, frames or network calls.
 - A `Content-Security-Policy` meta tag allows only the page's own inline style and script by SHA-256 hash. `default-src`, `connect-src`, `frame-src`, `object-src`, `base-uri` and `form-action` are `'none'`. No `unsafe-inline` or `unsafe-eval`.
 - Model text is data. The per-plan resource embeds the plan as JSON with `<`, `>` and `&` escaped as `<`, `>` and `&`. The script writes all text with `textContent`, never as HTML.
-- Embedded data passes through the same redaction as tool results (paths, secrets).
+- Embedded data passes through the same redaction as tool results: paths and secrets always, personal data such as email addresses at the level set by `MCP_REVIT_REDACT_RESPONSES`.
 
 ## Configuration
 

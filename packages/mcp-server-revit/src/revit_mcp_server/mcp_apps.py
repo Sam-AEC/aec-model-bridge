@@ -13,6 +13,8 @@ roll back are human-only tools: they are never listed and are refused on every M
 
 Model text reaches the page only as data: the per-plan resource embeds it as JSON with
 ``<``, ``>`` and ``&`` escaped, and the script renders it with ``textContent``, never as HTML.
+That JSON is redacted like a tool result: secrets and paths always, personal data per
+``MCP_REVIT_REDACT_RESPONSES``.
 The page loads nothing from the network.
 
 Spec: https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx
@@ -30,6 +32,7 @@ from mcp.types import Resource, ResourceTemplate
 from .config import config
 from .security.approval import ApprovalGate, validate_plan_id
 from .security.audit import redact_data
+from .security.response_redaction import redact_response
 from .security.plan_review import with_review_aids
 
 EXTENSION_ID = "io.modelcontextprotocol/ui"
@@ -157,8 +160,11 @@ def read_resource(uri: Any, gate: ApprovalGate) -> tuple[str, dict[str, Any]]:
 
 
 def embed_json(value: Any) -> str:
-    """JSON safe inside a <script type="application/json"> element: no raw <, > or &."""
-    text = json.dumps(redact_data(value), default=str, ensure_ascii=True)
+    """JSON safe inside a <script type="application/json"> element: no raw <, > or &.
+
+    Redacted like every tool result: secrets and paths always, personal data at the level set by
+    MCP_REVIT_REDACT_RESPONSES (the same path as mcp_server.redact_data)."""
+    text = json.dumps(redact_response(redact_data(value)), default=str, ensure_ascii=True)
     return text.replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e")
 
 
