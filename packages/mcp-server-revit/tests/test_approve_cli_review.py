@@ -235,12 +235,14 @@ def test_approve_still_needs_the_typed_plan_id(gate, monkeypatch, capsys):
     assert gate.load_plan(pid)["state"] == "approved"
 
 
-def test_approve_says_when_part_of_the_plan_was_not_printed(gate, monkeypatch, capsys):
+def test_a_cut_down_review_cannot_be_approved(gate, monkeypatch, capsys):
     ids = list(range(1, 41))
     pid = gate.create_plan([_set(ids, "C", "v")], [{}])["plan_id"]
-    _tty(monkeypatch, "no")
-    assert approve_cli.main(["approve", pid]) == 2
-    assert f"show {pid} --all` to see every row before approving" in capsys.readouterr().out
+    _tty(monkeypatch, pid)
+    # A cut-down review cannot be approved, even with the right plan id typed.
+    assert approve_cli.main(["approve", pid]) == 1
+    assert f"approve {pid} --all` to see every row and approve" in capsys.readouterr().err
+    assert gate.load_plan(pid)["state"] == "pending"
     _tty(monkeypatch, "no")
     assert approve_cli.main(["approve", pid, "--all"]) == 2
     assert "was not printed above" not in capsys.readouterr().out

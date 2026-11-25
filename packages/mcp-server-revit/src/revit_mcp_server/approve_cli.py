@@ -472,8 +472,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     verb = args.command
     print()
     if verb == "approve" and not args.review_all and is_cut(review):
-        print("Part of this plan was not printed above (rows left out or values cut). "
-              f"Run `aec-model-bridge-approve show {args.plan_id} --all` to see every row before approving.")
+        # A person approves only what they were shown: a cut-down review cannot be approved.
+        print("Part of this plan was not printed above (rows left out or values cut), so it cannot be "
+              f"approved from this view. Run `aec-model-bridge-approve approve {args.plan_id} --all` to see "
+              "every row and approve.", file=sys.stderr)
+        return 1
     if not _confirm(args.plan_id, verb, args.yes):
         print("Cancelled; plan unchanged.", file=sys.stderr)
         return 2
