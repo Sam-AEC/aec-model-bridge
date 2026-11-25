@@ -90,6 +90,7 @@
 - `smithery.yaml` config descriptions say mock mode runs without Revit and live use needs Windows, Revit 2024 to 2027 and the add-in.
 - Installer and client setup text is plainer: the welcome page says what is installed and that changes wait for approval, the finish page says to restart Claude Desktop or VS Code, and the WebView2 and client setup messages say what they do. Installer logic is unchanged.
 - `docs/mcp-token-budget.md` no longer links to measurement JSON files that were removed from the repository.
+- Self-hosted nightly live test (#295): `.github/workflows/live-nightly.yml` runs only on schedule or manual dispatch, from `dev` or `main`, on a runner labelled `self-hosted`, `windows` and `revit-live`, with read-only permissions and no secrets. `scripts/revit/nightly/run.py` opens a scratch copy of the canonical model (`prepare-scratch.ps1`), merges the add-in benchmark, makes one write through the plan gate (an unapproved plan must be refused), reverts it with `plan_revert` and compares snapshots, then uploads a JSON report with timings and PASS, FAIL or NOT_RUN per check. Setup is in `docs/release-checklist.md`, section 8. The runner approves its own test plans through the panel route, on a scratch model only. Tested with a fake client and workflow checks; the run itself is UNVERIFIED in live Revit.
 
 ## 1.5.1 - 2026-11-24
 
