@@ -4990,6 +4990,32 @@ Release steps: attach the `.mcpb` and installer to the GitHub release (`scripts/
 
 GitHub releases and tags v0.1.0 to v1.1.0 were deleted on 2026-10-09. The code stays in git history, and the MCP Registry still lists 1.0.1, 1.0.2 and 1.1.0 with dead download links. Releases v1.2.1 to v1.3.3 carry GPL-3.0 licence files in tag, wheel and `.mcpb`.
 
+## 8. Self-hosted nightly live test
+
+`.github/workflows/live-nightly.yml` is optional. It needs a Windows machine with Revit and a self-hosted runner. Nothing in CI starts Revit, so this is the only automated live check. It has no PASS or FAIL recorded yet; the first runs are UNVERIFIED.
+
+What a run does:
+
+1. Copies the canonical model to a scratch file with `-scratch-` in its name and opens it in a fresh Revit (`scripts/revit/nightly/prepare-scratch.ps1`). It refuses to start when a Revit is already open.
+2. Runs the read-only add-in benchmark (`scripts/bench-addin.ps1`).
+3. Checks the live context: the scratch title and GUID match, approval mode is Ask me first, Dev is off.
+4. Takes a snapshot, drafts one `revit_set_parameter_value` plan, checks that `execute_plan` refuses it while pending, approves it bound to its hash, executes it, and compares a second snapshot (one modified element).
+5. Drafts the revert with `plan_revert`, approves and executes it, then checks the original value and an empty snapshot comparison.
+6. Writes `artifacts/revit-nightly/<run id>.json` with PASS, FAIL or NOT_RUN per check, timings in ms and the benchmark, and uploads it as the `live-nightly-report` artifact. Then it closes Revit and deletes the scratch copy.
+
+The runner approves its own plans through the panel route, because nobody is present at night. This tests the gate and the write path on a scratch model. It does not replace the human approval check in section 5. The run fails if the gate lets an unapproved plan execute.
+
+Setup, once, by the maintainer:
+
+1. Install the runner on the machine under the Windows account that runs Revit. Add the labels `self-hosted`, `windows` and `revit-live`. Run it as a normal user process, not as a service on another account, because Revit and the panel token are per user.
+2. Install uv and Python 3.11 or newer. Install the add-in and check that the panel hub answers on `127.0.0.1:8787`.
+3. Generate the canonical model ([canonical model README](../packages/mcp-server-revit/tests/fixtures/canonical-model/README.md)) and save it outside the repository. Note its `CreationGUID` and the id of an element with an editable `Comments` parameter.
+4. Set these repository variables (they hold no secrets): `AEC_NIGHTLY_MODEL_PATH`, `AEC_NIGHTLY_REVIT_EXE`, `AEC_NIGHTLY_MODEL_GUID`, `AEC_NIGHTLY_ELEMENT_ID`.
+5. Use the runner for this repository only, and never for pull requests. The workflow has no `pull_request` trigger and runs only from `dev` or `main`. Do not enable "Run workflows from fork pull requests" for self-hosted runners.
+6. Run the workflow by hand once and read the report. Disable the workflow to stop the nightly runs.
+
+Details and limits: `scripts/revit/nightly/README.md`.
+
 === FILE: docs/versioning.md ===
 
 # Versioning and releases
