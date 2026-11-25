@@ -765,15 +765,6 @@ def test_a_workspace_recipe_replaces_a_starter_with_the_same_id(tmp_path, monkey
     assert w.store.load("level_list").source == "starter"
 
 
-def test_module_files_have_no_conflict_markers():
-    import re
-
-    for path in sorted(recipes.MODULE_DIR.rglob("*")):
-        if path.is_file() and path.suffix in {".py", ".json", ".ipy"}:
-            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-                assert not re.match(r"^(<{7}|={7}|>{7})( |$)", line), f"{path.name}:{number}"
-
-
 # --------------------------------------------------------------------------- #
 # The command-line tool (humans only)
 # --------------------------------------------------------------------------- #

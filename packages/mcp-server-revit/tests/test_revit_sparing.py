@@ -8,7 +8,6 @@ from __future__ import annotations
 import ast
 import asyncio
 import json
-import re
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -182,15 +181,6 @@ def test_tool_metadata_marks_place_gated_and_find_read_only(tmp_path, monkeypatc
             assert enriched.annotations.readOnlyHint is False and "plan_id" in enriched.inputSchema["properties"]
         else:
             assert enriched.annotations.readOnlyHint is True and "plan_id" not in enriched.inputSchema["properties"]
-
-
-def test_module_files_have_no_conflict_markers():
-    paths = list(sp.MODULE_DIR.rglob("*")) + [Path(__file__), Path(__file__).with_name("test_revit_sparing_scripts.py"),
-                                                Path(__file__).with_name("revit_sparing_stub.py")]
-    for path in sorted(paths):
-        if path.is_file() and path.suffix in {".py", ".json", ".ipy"}:
-            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-                assert not re.match(r"^(<{7}|={7}|>{7})( |$)", line), f"{path.name}:{number}"
 
 
 def test_scripts_are_python27_safe_and_find_stays_read_only():

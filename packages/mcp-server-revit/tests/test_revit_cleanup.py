@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import re
 from types import SimpleNamespace
 from typing import Any, Dict, List
 
@@ -92,13 +91,6 @@ def test_the_manifest_declares_one_read_only_tool_and_documents_every_parameter(
     props = cmd["input_schema"]["properties"]
     assert set(props["checks"]["items"]["enum"]) == set(cleanup.CHECKS)
     assert set(props) == {"scope", "checks", "max_ids", "max_purge_ids", "time_budget_s", "max_elements", "tolerance_mm", "overlap_ratio", "detail_line_warn"}
-
-
-def test_module_files_have_no_conflict_markers():
-    for path in sorted(cleanup.MODULE_DIR.rglob("*")):
-        if path.is_file() and path.suffix in {".py", ".json", ".ipy"}:
-            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-                assert not re.match(r"^(<{7}|={7}|>{7})( |$)", line), f"{path.name}:{number}"
 
 
 def wire(tmp_path, monkeypatch, revit=None, mode="ask_first"):

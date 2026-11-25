@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Tests: removed duplicate tests (translated-README image check, five copied conflict-marker scans now one walk of `modules/`, per-module snapshot path-traversal copies now covered by `tests/test_snapshot_id_paths.py` with two more hostile ids and `clash_triage.match_clashes`, offline proxy skip cases in the provider contract). No source change.
 - MCP conformance test (#188): `tests/test_mcp_stdio_conformance.py` starts the server in mock mode over stdio and checks, with the MCP SDK client, initialize and capabilities, ping, unique tool names, JSON Schema validity of every `inputSchema`, tool annotations, prompts and resources listing, one read-only call and the error replies for an unknown prompt, resource and tool. It runs in the existing CI test job on every pull request and needs no Revit, network or secrets.
 - `revit_execute_python` scripts are linted for nine known Revit API and IronPython traps (`script_lint.py`). The warnings are advisory: they come back as `lint_warnings` in the tool result and as `script_lint` in the plan preview, never block or change a script, and leave read mode and the approval gate unchanged. Tested on fixture scripts in mock mode; UNVERIFIED in live Revit.
 - Docs: `docs/run-beside-autodesk-revit-mcp.md` lists the tool name prefixes and a two-server client configuration for running beside Autodesk's Revit MCP server (UNVERIFIED in a live client); `tests/test_tool_name_prefixes.py` fails if a tool name has no documented prefix. An optional prefix for unprefixed names such as `plan_actions` is not built.
