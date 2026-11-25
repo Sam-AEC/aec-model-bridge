@@ -15,9 +15,12 @@ from typing import Any
 
 from mcp.types import Resource, ResourceTemplate
 
+from . import mcp_apps
+
 from .security.approval import ApprovalGate, validate_plan_id
 from .security.audit import redact_data
 from .security.proof import read_proof
+from .read_cursor import result_file
 from .security.safe_paths import SNAPSHOT_ID_RE, snapshot_file
 
 MIME = "application/json"
@@ -33,6 +36,7 @@ TEMPLATES = (
     ("aec://snapshot/{id}/summary", "Snapshot summary", "Counts, source and coverage of one snapshot. Not the element list."),
     ("aec://plan/{id}", "Plan", "One plan with its actions and state."),
     ("aec://proof/{id}", "Proof bundle", "The proof bundle recorded for an executed plan."),
+    ("aec://result/{id}", "Saved read result", "A read result too large for one answer, saved by the server."),
 )
 
 
@@ -41,11 +45,13 @@ class ResourceError(ValueError):
 
 
 def list_resources() -> list[Resource]:
-    return [Resource(uri=u, name=n, description=d, mimeType=MIME) for u, n, d in STATIC_RESOURCES]
+    listed = [Resource(uri=u, name=n, description=d, mimeType=MIME) for u, n, d in STATIC_RESOURCES]
+    return listed + mcp_apps.list_resources()
 
 
 def list_resource_templates() -> list[ResourceTemplate]:
-    return [ResourceTemplate(uriTemplate=u, name=n, description=d, mimeType=MIME) for u, n, d in TEMPLATES]
+    listed = [ResourceTemplate(uriTemplate=u, name=n, description=d, mimeType=MIME) for u, n, d in TEMPLATES]
+    return listed + mcp_apps.list_resource_templates()
 
 
 def _dump(value: Any) -> str:
@@ -193,6 +199,20 @@ def _qa_latest(workspace_dir: Path) -> dict:
     }
 
 
+def _saved_result(workspace_dir: Path, result_id: str) -> Any:
+    try:
+        path = result_file(Path(workspace_dir), result_id)
+    except ValueError as exc:
+        raise ResourceError(str(exc)) from None
+    if not path.is_file() or path.is_symlink():
+        raise ResourceError(f"Saved result '{result_id}' was not found; saved results are kept for the latest 20 only.")
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        raise ResourceError(f"Saved result '{result_id}' could not be read.") from None
+
+
 _URI = re.compile(r"aec://(?P<rest>[A-Za-z0-9_\-/]+)")
 
 
@@ -215,4 +235,6 @@ def read_resource(uri: Any, workspace_dir: Path, gate: ApprovalGate) -> str:
         return _dump(_plan(gate, parts[1]))
     if len(parts) == 2 and parts[0] == "proof":
         return _dump(_proof(workspace_dir, parts[1]))
+    if len(parts) == 2 and parts[0] == "result":
+        return _dump(_saved_result(workspace_dir, parts[1]))
     raise ResourceError("Unknown resource URI.")

@@ -18,10 +18,16 @@ import copy
 import re
 from typing import Any
 
-from mcp.types import Tool, ToolAnnotations
+from mcp.types import Tool, ToolAnnotations, ToolExecution
 
+from .mcp_tasks import TASK_TOOLS
+from .output_schemas import output_schema_for
 from .providers.base import ProviderTool
 from .result_presentation import APPROVAL_TOOLS, add_response_schema
+from .tool_profiles import ALWAYS_LOADED_TOOLS
+
+# MCP tool `_meta` key that asks Claude Code to load a tool up front under tool search.
+ALWAYS_LOAD_META_KEY = "anthropic/alwaysLoad"
 
 PLAN_ID_DESCRIPTION = "Approved plan ID; see the server approval instructions."
 
@@ -159,22 +165,22 @@ DESCRIPTIONS: dict[str, str] = {
     "revit_set_parameter_value": "Set one instance parameter on one element to a new value in the active Revit document.",
     "revit_get_parameter_value": "Read the value of one named parameter on one element.",
     "revit_list_shared_parameters": "List the shared parameters defined in the active Revit document.",
-    "revit_create_shared_parameter": "Create a new shared parameter with a name, parameter group and data type in the active Revit document.",
+    "revit_create_shared_parameter": "Create a shared parameter in the shared parameter file set in Revit, or reuse one with the same name and type, and bind it to categories in the active Revit document. Refuses when no shared parameter file is set; it never creates or switches that file.",
     "revit_list_project_parameters": "List the project parameters defined in the active Revit document with the categories they are bound to.",
-    "revit_create_project_parameter": "Create a new project parameter and bind it to a category in the active Revit document.",
+    "revit_create_project_parameter": "Create a project parameter and bind it to categories in the active Revit document. Uses a temporary shared parameter file and restores the user's shared parameter file setting afterwards, so Revit stores it as a shared parameter with a new GUID.",
     "revit_batch_set_parameters": "Set the same parameter to the same value on many elements, given by ElementId, in one Revit transaction.",
     "revit_get_type_parameters": "Return the type parameters of the family type that an element belongs to.",
-    "revit_set_type_parameter": "Set one type parameter on the family type of an element. This changes every instance of that type.",
+    "revit_set_type_parameter": "Set one type parameter on a family type, given by type_id. This changes every instance of that type.",
     "revit_list_sheets": "List all sheets in the active Revit project with their numbers, names and ids.",
     "revit_create_sheet": "Create a new sheet with a name, number and title block in the active Revit document.",
     "revit_delete_sheet": "Delete a sheet by ElementId. Views placed on it are not deleted, only their viewports.",
     "revit_place_viewport_on_sheet": "Place a view on a sheet at an x/y position (feet on the sheet).",
-    "revit_batch_create_sheets_from_csv": "Create many sheets from a CSV file inside the allowed workspace, using the named title block.",
+    "revit_batch_create_sheets_from_csv": "Create many sheets from a CSV file inside the allowed workspace. Columns: sheet_number, sheet_name, optional titleblock_name; titleblock_name is the default title block.",
     "revit_populate_titleblock": "Write a set of parameter values into the title block of a sheet.",
     "revit_list_titleblocks": "List the title block family types available in the active Revit document.",
     "revit_get_sheet_info": "Return detailed information about one sheet, such as its number, name, title block and placed views.",
-    "revit_duplicate_sheet": "Duplicate a sheet, optionally with its views, using one of Revit's duplicate options.",
-    "revit_renumber_sheets": "Renumber all sheets in one batch using a prefix and a starting number.",
+    "revit_duplicate_sheet": "Duplicate a sheet under a new number and name, optionally copying its viewports.",
+    "revit_renumber_sheets": "Renumber the listed sheets in one transaction: sheet_ids with a prefix and start number, or explicit numbers.",
     "revit_get_selection": "Return the ElementIds of the elements currently selected in the Revit UI.",
     "revit_set_selection": "Replace the current Revit UI selection with the given ElementIds. Does not modify the model.",
     "revit_preview_elements": "Preview which elements a proposed change affects: select and zoom to them in the active view and temporarily isolate them. Nothing is saved to the model.",
@@ -191,7 +197,7 @@ DESCRIPTIONS: dict[str, str] = {
     "revit_get_element_type": "Find element types by category name and family name in the active document.",
     "revit_close_document": "Close the active Revit document, optionally saving changes first.",
     "revit_create_new_document": "Create a new Revit project, optionally from a template file inside the allowed workspace.",
-    "revit_export_dwg": "Export a view to a DWG file at a path inside the allowed workspace. Writes a file; does not change the model.",
+    "revit_export_dwg": "Export a view to a DWG file in a folder inside the allowed workspace; the file is named after the view. Writes a file; does not change the model.",
     "revit_export_ifc": "Export the model to an IFC file at a path inside the allowed workspace. Writes a file; does not change the model.",
     "revit_export_navisworks": "Export the model to a Navisworks NWC file at a path inside the allowed workspace. Writes a file; does not change the model.",
     "revit_export_image": "Export a view to an image file of the given pixel size at a path inside the allowed workspace. Writes a file; does not change the model.",
@@ -241,7 +247,7 @@ DESCRIPTIONS: dict[str, str] = {
     "plan_actions": (
         "Create a draft ActionPlan describing the model changes you want to make, capturing the before-state of each. "
         "Nothing is changed in the model; the plan must be approved before any write tool will run. "
-        "If revit_get_context shows server.dev_mode true, skip this and call the write tool directly with no plan_id."
+        "Use it only when revit_get_context shows server.plans_required true; otherwise call the write tool directly with no plan_id."
     ),
     "list_pending_plans": "List all ActionPlans that are waiting for review. Read-only.",
     "approve_plan": "Approve a pending ActionPlan so that its actions may be executed. This is the human approval step.",
@@ -431,6 +437,8 @@ PARAM_DESCRIPTIONS: dict[str, str] = {
     "output_path": "Destination file path; must be inside the allowed workspace directories.",
     "output_filename": "File name for the output, written into the workspace.",
     "csv_path": "Path of a CSV file inside the allowed workspace.",
+    "csv_sha256": "Set by the server in plan_actions: sha256 of the CSV content. Copy it from the plan; a changed CSV is refused.",
+    "csv_row_count": "Set by the server in plan_actions: number of sheet rows in the CSV, shown for review.",
     "csv_filename": "Name of a CSV file in the workspace.",
     "xlsx_filename": "Name of an Excel .xlsx workbook in the workspace root, such as doors.xlsx.",
     "path": "File path; must be inside the allowed workspace directories.",
@@ -553,16 +561,21 @@ TOOL_PARAM_DESCRIPTIONS: dict[tuple[str, str], str] = {
     ("revit_convert_to_group", "name"): "Name of the new group.",
     ("revit_create_shared_parameter", "name"): "Name of the new shared parameter.",
     ("revit_create_project_parameter", "name"): "Name of the new project parameter.",
-    ("revit_create_project_parameter", "category"): "Revit category the parameter is bound to.",
-    ("revit_create_shared_parameter", "type"): "Parameter data type, for example 'Text', 'Number' or 'Length'.",
-    ("revit_create_project_parameter", "type"): "Parameter data type, for example 'Text', 'Number' or 'Length'.",
+    ("revit_create_project_parameter", "categories"): "Revit categories to bind the parameter to, for example [\"Walls\", \"Doors\"] (names or OST_ names).",
+    ("revit_create_shared_parameter", "categories"): "Revit categories to bind the parameter to, for example [\"Walls\", \"Doors\"] (names or OST_ names).",
+    ("revit_create_shared_parameter", "group"): "Parameter group shown in Revit: Data (default), IdentityData, Text, Constraints, Dimensions, General, Graphics, Materials, Construction or Phasing.",
+    ("revit_create_project_parameter", "group"): "Parameter group shown in Revit: Data (default), IdentityData, Text, Constraints, Dimensions, General, Graphics, Materials, Construction or Phasing.",
+    ("revit_create_shared_parameter", "is_instance"): "True (default) for an instance parameter, false for a type parameter.",
+    ("revit_create_project_parameter", "is_instance"): "True (default) for an instance parameter, false for a type parameter.",
+    ("revit_create_shared_parameter", "definition_group"): "Group in the shared parameter file for a new definition. Default 'AEC Model Bridge'.",
+    ("revit_create_shared_parameter", "type"): "Parameter data type: Text (default), Integer, Number, Length, Area, Volume, Angle, Currency, YesNo, URL or Material.",
+    ("revit_create_project_parameter", "type"): "Parameter data type: Text (default), Integer, Number, Length, Area, Volume, Angle, Currency, YesNo, URL or Material.",
     ("revit_preview_elements", "element_uids"): "UniqueIds of the elements to preview.",
     ("revit_preview_elements", "element_ids"): "ElementIds (integers) of the elements to preview; combined with element_uids.",
     ("revit_preview_elements", "isolate"): "Temporarily isolate the elements in the active view (default true); false only selects and zooms.",
     ("revit_render_3d", "view_id"): "ElementId (integer) of the 3D view to render.",
     ("revit_create_floor_plan_view", "view_name"): "Name for the new floor plan view.",
     ("revit_check_clashes", "tolerance"): "Clash tolerance in feet (the add-in defaults to 0.01 ft).",
-    ("revit_set_type_parameter", "element_id"): "ElementId (integer) of any element of the type to change.",
     ("revit_get_type_parameters", "element_id"): "ElementId (integer) of any element of the type to read.",
     ("revit_set_element_material", "face_index"): "Optional index of a single face; omit to apply to the whole element.",
     ("revit_save_document", "path"): "Optional path to save to; must be inside the allowed workspace directories. Omit to save in place.",
@@ -633,47 +646,70 @@ NOT_READ_ONLY: dict[str, tuple[bool, bool]] = {
     "execute_plan": (True, False),
     "revit_extract_snapshot": (False, False),
     "snapshot_take": (False, False),
-    "revit_export_dwg": (False, True),
-    "revit_export_ifc": (False, True),
-    "revit_export_navisworks": (False, True),
-    "revit_export_image": (False, True),
-    "revit_render_3d": (False, True),
+    # Exports write to output_path; nothing refuses an existing file there, so they may replace it.
+    "revit_export_dwg": (True, True),
+    "revit_export_ifc": (True, True),
+    "revit_export_navisworks": (True, True),
+    "revit_export_image": (True, True),
+    "revit_render_3d": (True, True),
     "revit_select_by_unique_ids": (False, True),
     "revit_preview_elements": (False, True),
     "revit_clear_preview": (False, True),
     "navisworks_append_file": (False, False),
     "navisworks_refresh": (False, True),
     "navisworks_activate_viewpoint": (False, True),
-    "exporter_to_sqlite": (False, False),
-    "exporter_graph_to_sqlite": (False, False),
-    "parameter_manager_export_params_csv": (False, True),
-    "parameter_manager_export_params_xlsx": (False, True),
-    "report_generator_export_excel": (False, True),
-    "report_generator_build_review_pack": (False, True),
-    "report_generator_export_sqlite_summary": (False, True),
-    "model_inspector_save_query": (False, True),
-    "selection_tools_save_selection": (False, True),
-    "bcf_exchange_export_bcf": (False, True),
+    # The SQLite exporters empty the tables of an existing database before writing.
+    "exporter_to_sqlite": (True, True),
+    "exporter_graph_to_sqlite": (True, True),
+    # Named output files and saved entries replace an existing file or entry of the same name.
+    "parameter_manager_export_params_csv": (True, True),
+    "parameter_manager_export_params_xlsx": (True, True),
+    "report_generator_export_excel": (True, True),
+    "report_generator_build_review_pack": (True, True),
+    "report_generator_export_sqlite_summary": (True, True),
+    "model_inspector_save_query": (True, True),
+    "selection_tools_save_selection": (True, True),
+    "bcf_exchange_export_bcf": (True, True),
     "qaqc_checker_run_check": (False, False),
     "clash_triage_match_clashes": (False, True),
     "qaqc_checker_resolve_issue": (False, True),
-    "qaqc_checker_import_rule_pack": (False, False),
-    "qaqc_checker_export_rule_pack": (False, False),
+    "qaqc_checker_import_rule_pack": (True, False),  # overwrite=true replaces a rule pack
+    "qaqc_checker_export_rule_pack": (True, False),  # overwrite=true replaces the destination file
     "recipe_runner_run_recipe": (True, False),
-    "aec_register_mapping": (False, True),
-    "graph_compile": (False, False),
+    "aec_register_mapping": (True, True),  # replaces the mapping already held for the same id
+    "graph_compile": (True, False),  # replace=true drops the existing graph
     "graph_add_relation": (False, True),
     "speckle_oauth_start": (False, False),
     "speckle_oauth_exchange_code": (False, False),
     "speckle_oauth_refresh": (False, True),
     "speckle_checkout_version": (False, True),
+    # Same OAuth and checkout handlers as the Speckle tools above (providers/cloud.py).
+    "autodesk_data_oauth_start": (False, False),
+    "autodesk_data_oauth_exchange_code": (False, False),
+    "autodesk_data_oauth_refresh": (False, True),
+    "autodesk_data_checkout_version": (False, True),
     "job_cancel": (True, True),
     "revit_job_cancel": (True, True),
     "rhino_generate_diagrid_tower": (False, False),
     # Write files under the workspace only (no model change, so no approval plan); saving over an
     # existing recipe or spec file replaces it.
-    "revit_recipe_save": (False, True),
-    "revit_sparing_export_spec": (False, True),
+    "revit_recipe_save": (True, True),
+    "revit_sparing_export_spec": (True, True),
+}
+
+# Tools that read the model or a snapshot and can also write a report or baseline file in the
+# workspace. They are not read-only, but their results are still presented like reads (compact
+# and size-capped, see is_read_only_tool). value = (destructiveHint, idempotentHint).
+REPORT_FILE_WRITERS: dict[str, tuple[bool, bool]] = {
+    # Optional named output files; an existing file of the same name is replaced.
+    "param_completeness_heatmap": (True, True),
+    "model_health_score": (True, True),
+    "ids_validator_validate_ifc": (True, True),
+    "sheet_set_qa_check": (True, True),
+    "qa_handover_build_report": (True, True),
+    "revit_render_check": (True, True),
+    # Without baseline_id it saves a new warnings baseline file under a fresh id.
+    "revit_warnings_delta": (False, False),
 }
 
 # Mutating tools that only add things (or only change UI/plan state): they cannot
@@ -682,7 +718,6 @@ NOT_READ_ONLY: dict[str, tuple[bool, bool]] = {
 ADDITIVE_NAME_PARTS = frozenset({"create", "place", "copy", "duplicate", "tag", "pin", "unpin"})
 ADDITIVE_NAMES = frozenset(
     {
-        "revit_save_document",
         "revit_set_selection",
         "selection_tools_set_selection",
         "selection_tools_restore_selection",
@@ -714,6 +749,8 @@ def annotations_for(provider_id: str, tool: ProviderTool) -> ToolAnnotations:
 
     if tool.name in NOT_READ_ONLY:
         read_only, (destructive, idempotent) = False, NOT_READ_ONLY[tool.name]
+    elif tool.name in REPORT_FILE_WRITERS and not tool.is_mutating:
+        read_only, (destructive, idempotent) = False, REPORT_FILE_WRITERS[tool.name]
     elif tool.is_mutating:
         read_only = False
         if tool.destructive:
@@ -736,8 +773,26 @@ def annotations_for(provider_id: str, tool: ProviderTool) -> ToolAnnotations:
     )
 
 
+def add_cursor_option(name: str, tool: Any, schema: dict) -> None:
+    """A read-only tool whose input schema forbids extra keys still has to accept the cursor its cut
+    answers hand out; the SDK validates input before response_options is split off (#274 review).
+    Only the cursor is listed, to keep the schema small."""
+    properties = schema.get("properties")
+    if schema.get("additionalProperties") is not False or not isinstance(properties, dict):
+        return
+    if "response_options" in properties or not is_read_only_tool(name, tool):
+        return
+    properties["response_options"] = {
+        "type": "object", "additionalProperties": False,
+        "properties": {"cursor": {"type": "string", "maxLength": 64}},
+        "description": "cursor: from a truncated answer, for the next part. Repeat the same arguments.",
+    }
+
+
 def is_read_only_tool(name: str, tool: Any) -> bool:
-    """True when the tool is read-only (same rule as readOnlyHint) and not an approval or job tool.
+    """True when the tool's result is presented as a read (compact, size-capped): it does not change
+    the model and is not an approval or job tool. Same rule as readOnlyHint, except that the report
+    tools in REPORT_FILE_WRITERS, which may also write a file, still count as reads here.
     Fails closed: an unknown tool is not read-only."""
     if tool is None or name in NOT_READ_ONLY or name in APPROVAL_TOOLS:
         return False
@@ -785,10 +840,22 @@ def enrich_tool(provider_id: str, tool: ProviderTool) -> Tool:
         if text:
             prop["description"] = text
     add_response_schema(tool.name, schema)
+    add_cursor_option(tool.name, tool, schema)
+    output_schema = output_schema_for(tool.name)
+    extra: dict[str, Any] = {}
+    if tool.name in ALWAYS_LOADED_TOOLS:
+        # Claude Code loads a tool marked this way up front when tool search defers the rest.
+        # Passed by alias: the SDK keeps a `meta=` keyword as an unrelated extra field.
+        extra["_meta"] = {ALWAYS_LOAD_META_KEY: True}
+    if tool.name in TASK_TOOLS:
+        # MCP Tasks (docs/mcp-tasks.md): the tool accepts a task-augmented tools/call.
+        extra["execution"] = ToolExecution(taskSupport="optional")
     return Tool(
         name=tool.name,
         title=humanize(tool.name),
         description=description,
         inputSchema=schema,
+        outputSchema=copy.deepcopy(output_schema) if output_schema else None,
         annotations=annotations_for(provider_id, tool),
+        **extra,
     )

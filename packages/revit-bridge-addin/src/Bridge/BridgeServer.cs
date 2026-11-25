@@ -24,6 +24,7 @@ public class BridgeServer
     private SemaphoreSlim _concurrencySemaphore = new(10, 10);
     private const long MaxRequestSizeBytes = 5 * 1024 * 1024; // 5 MB
     private readonly WorkspaceMonitor _workspaceMonitor = new();
+    private PipeBridgeServer? _pipe; // opt-in named pipe, AEC_BRIDGE_TRANSPORT=pipe (ADR 0021)
     // How long /execute holds the HTTP call before answering "running" (a client can ask for less or more
     // with wait_ms). The command is not cancelled when this passes.
     private static readonly int SoftWaitMs = EnvMs("AEC_BRIDGE_SOFT_WAIT_MS", 25000);
@@ -90,6 +91,13 @@ public class BridgeServer
             IsListening = true;
             Log.Information("BridgeServer started on {Prefixes}", string.Join(", ", _listener.Prefixes));
 
+            if (PipeBridgeServer.IsRequested())
+            {
+                try { _pipe ??= new PipeBridgeServer(this, _externalEvent); }
+                catch (Exception ex) { Log.Error(ex, "Named-pipe bridge unavailable; HTTP only"); }
+                if (_pipe != null && !_pipe.Start()) _pipe = null;
+            }
+
             WriteRegistryFile(prefix);
         }
         catch (Exception ex)
@@ -107,6 +115,7 @@ public class BridgeServer
         {
             _cts.Cancel();
             _listener.Stop();
+            _pipe?.Stop();
             // _listenerTask?.Wait(5000); // Avoid blocking UI thread
             IsListening = false;
             Log.Information("BridgeServer stopped");
@@ -261,8 +270,10 @@ public class BridgeServer
 
         if (snapshot != null && snapshot.IsFinished && snapshot.ResponseJson != null)
         {
-            Log.Information("Request completed: {RequestId} {Tool} {State} {DurationMs}ms",
-                requestId, tool, snapshot.State, (DateTime.UtcNow - startTime).TotalMilliseconds);
+            var timings = snapshot.Timings;
+            Log.Information("Request completed: {RequestId} {Tool} {State} {DurationMs}ms queued_ms={QueuedMs} run_ms={RunMs} serialize_ms={SerializeMs} bytes={ResponseBytes}",
+                requestId, tool, snapshot.State, (DateTime.UtcNow - startTime).TotalMilliseconds,
+                timings?.QueuedMs, timings?.RunMs, timings?.SerializeMs, timings?.ResponseBytes);
             RespondRaw(context, 200, snapshot.ResponseJson);
             return;
         }
@@ -321,7 +332,9 @@ public class BridgeServer
             retained_results = _queue.FinishedCount,
             running = running == null
                 ? null
-                : new { request_id = running.RequestId, tool = running.Tool, age_ms = running.ElapsedMs }
+                : new { request_id = running.RequestId, tool = running.Tool, age_ms = running.ElapsedMs },
+            // Rolling run time (ms on the Revit thread) and response size per tool, last 200 runs each.
+            timings = _queue.Timings.ToHealth()
         };
         Respond(context, 200, health);
         return Task.CompletedTask;
@@ -362,7 +375,8 @@ public class BridgeServer
                 protocol_version = 2,
                 capability_digest = "dynamic",
                 session_token = SessionToken,
-                started_at = _startTime.ToString("o")
+                started_at = _startTime.ToString("o"),
+                pipe_name = _pipe != null && _pipe.IsListening ? _pipe.PipeName : null
             };
 
             var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
@@ -406,6 +420,15 @@ public class BridgeServer
         context.Response.StatusCode = statusCode;
         context.Response.ContentType = "application/json";
         var buffer = Encoding.UTF8.GetBytes(json);
+        // Large results (snapshots, element lists) are gzipped when the client asks for it; small
+        // responses stay plain. httpx sends Accept-Encoding: gzip and decodes it on its own.
+        if (ResponseCompression.ShouldGzip(context.Request.Headers["Accept-Encoding"], buffer.Length))
+        {
+            buffer = ResponseCompression.Gzip(buffer);
+            context.Response.AddHeader("Content-Encoding", "gzip");
+            context.Response.AddHeader("Vary", "Accept-Encoding");
+        }
+        context.Response.ContentLength64 = buffer.Length;
         context.Response.OutputStream.Write(buffer, 0, buffer.Length);
         context.Response.Close();
     }

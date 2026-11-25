@@ -314,10 +314,9 @@ def test_revit_opening_tools_forward_swing_flips(tmp_path):
         payload = build_payload({"wall_id": 7, "x": 1, "y": 2, "hand_flipped": True, "facing_flipped": False})
         assert payload["hand_flipped"] is True
         assert payload["facing_flipped"] is False
-        # Omitted flips stay None so the add-in leaves the family default alone.
+        # Omitted flips and names are left out of the payload so the add-in keeps the family default.
         bare = build_payload({"wall_id": 7, "x": 1, "y": 2})
-        assert bare["hand_flipped"] is None and bare["facing_flipped"] is None
-        assert bare["family_name"] is None and bare["type_name"] is None
+        assert not {"hand_flipped", "facing_flipped", "family_name", "type_name"} & set(bare)
 
 
 def test_revit_opening_and_clash_schemas_describe_new_inputs(tmp_path):

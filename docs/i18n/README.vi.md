@@ -116,16 +116,16 @@ Dùng VS Code? [Mã nguồn tiện ích mở rộng và các bước cài đặt
 
 | Lĩnh vực | Công cụ | Chức năng |
 | --- | --- | --- |
-| Revit | 110 | Đọc mô hình, tạo và chỉnh sửa phần tử, tham số, view, sheet, bảng thống kê (schedule), xuất dữ liệu, làm việc chung (worksharing) |
+| Revit | 111 | Đọc mô hình, tạo và chỉnh sửa phần tử, tham số, view, sheet, bảng thống kê (schedule), xuất dữ liệu, làm việc chung (worksharing) |
 | Phê duyệt | 6 | Lập kế hoạch, xem xét, phê duyệt, thực thi và hoàn tác các thay đổi mô hình |
 | Mô-đun | 114 | Kiểm tra snapshot, lưới tham số, kiểm tra QA/QC, recipe, báo cáo, vùng chọn |
 | Rhino và Grasshopper | 19 | Hình học, layer, vật liệu, phép toán boolean |
 | Speckle | 17 | Dự án, mô hình, phiên bản, gửi và nhận |
 | Navisworks | 15 | Cây mô hình, viewpoint, kiểm tra va chạm (đang phát triển) |
 | IFC | 7 | Đọc tệp IFC mà không cần Revit: cấu trúc, thuộc tính, xác thực |
-| Đồ thị, snapshot, xuất dữ liệu, tác vụ | 23 | Kiểm toán đồ thị ngữ nghĩa, so sánh snapshot, xuất SQLite, tác vụ nền |
+| Đồ thị, snapshot, xuất dữ liệu, tác vụ | 24 | Kiểm toán đồ thị ngữ nghĩa, so sánh snapshot, xuất SQLite, tác vụ nền |
 
-Cấu hình mặc định liệt kê 311 công cụ (đếm từ máy chủ hiện tại ở chế độ mock). Các công cụ Autodesk Data xuất hiện khi đã cấu hình thông tin xác thực APS. [Tài liệu tham khảo công cụ](../tools-generated.md) liệt kê từng công cụ. Mỗi công cụ đều có chú thích MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) để ứng dụng khách phân biệt thao tác đọc với ghi.
+Cấu hình mặc định liệt kê 313 công cụ (đếm từ máy chủ hiện tại ở chế độ mock). Các công cụ Autodesk Data xuất hiện khi đã cấu hình thông tin xác thực APS. [Tài liệu tham khảo công cụ](../tools-generated.md) liệt kê từng công cụ. Mỗi công cụ đều có chú thích MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) để ứng dụng khách phân biệt thao tác đọc với ghi.
 
 ### Tự động hóa Revit nâng cao
 
@@ -170,7 +170,7 @@ Bảng điều khiển hiển thị nội dung xem xét kế hoạch qua "Show t
 
 <sub>Nguồn sơ đồ: [approval-flow.mmd](../diagrams/approval-flow.mmd). Tạo lại hình ảnh bằng `python scripts/render_diagrams.py`.</sub>
 
-Nếu một kế hoạch hóa ra sai, hãy hoàn tác bằng Ctrl+Z trong Revit. Mỗi lần ghi tham số là một giao dịch có tên riêng, nên một kế hoạch có thể cần nhấn nhiều lần. Hoàn tác cả kế hoạch chỉ trong một bước đã được lên kế hoạch nhưng chưa được xây dựng. Cách thứ hai là kế hoạch hoàn nguyên: trợ lý soạn một kế hoạch bằng `plan_revert` từ bằng chứng của một kế hoạch đã thực thi, và bạn phê duyệt nó như mọi kế hoạch khác. `rollback_plan` chỉ dành cho con người và không phải là nút hay lệnh, vì vậy đừng trông cậy vào nó. Chưa cách nào trong số này được xác minh trong một phiên Revit thực tế (UNVERIFIED). Các thao tác không thể đảo ngược, chẳng hạn xuất tệp, không thể hoàn tác bằng cách nào trong số đó và hiện chưa yêu cầu xác nhận lần hai (đã lên kế hoạch). Danh sách Plans của bảng điều khiển chỉ hiển thị các kế hoạch đang chờ; `aec-model-bridge-approve show <plan_id>` dùng được cho kế hoạch ở bất kỳ trạng thái nào, còn các gói `proofs/` chỉ tồn tại cho những kế hoạch đã được thực thi (hoặc đã thử thực thi). Vòng đời được mô tả trong [ADR 0008](../adr/0008-approval-gate-lifecycle.md).
+Nếu một kế hoạch hóa ra sai, hãy hoàn tác bằng Ctrl+Z trong Revit. Mỗi lần ghi tham số là một giao dịch có tên riêng, nên một kế hoạch có thể cần nhấn nhiều lần. Kế hoạch chỉ ghi tham số, di chuyển hoặc xoay phần tử sẽ chạy thành một lô khi add-in hỗ trợ, và khi đó một lần Ctrl+Z hoàn tác cả kế hoạch (UNVERIFIED trên Revit thật). Cách thứ hai là kế hoạch hoàn nguyên: trợ lý soạn một kế hoạch bằng `plan_revert` từ bằng chứng của một kế hoạch đã thực thi, và bạn phê duyệt nó như mọi kế hoạch khác. `rollback_plan` chỉ dành cho con người và không phải là nút hay lệnh, vì vậy đừng trông cậy vào nó. Chưa cách nào trong số này được xác minh trong một phiên Revit thực tế (UNVERIFIED). Các thao tác không thể đảo ngược, chẳng hạn xuất tệp, không thể hoàn tác bằng cách nào trong số đó và hiện chưa yêu cầu xác nhận lần hai (đã lên kế hoạch). Danh sách Plans của bảng điều khiển chỉ hiển thị các kế hoạch đang chờ; `aec-model-bridge-approve show <plan_id>` dùng được cho kế hoạch ở bất kỳ trạng thái nào, còn các gói `proofs/` chỉ tồn tại cho những kế hoạch đã được thực thi (hoặc đã thử thực thi). Vòng đời được mô tả trong [ADR 0008](../adr/0008-approval-gate-lifecycle.md).
 
 Với các pipeline chạy tự động, bạn có thể đặt `MCP_REVIT_APPROVAL_MODE=auto`. Thiết lập này tắt bước kiểm tra của con người, vì vậy chỉ dùng trong môi trường được kiểm soát.
 

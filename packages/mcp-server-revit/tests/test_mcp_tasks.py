@@ -1,0 +1,674 @@
+"""MCP Tasks: task-augmented tools/call backed by the JobManager (issue #279).
+
+The protocol tests drive the real `mcp_server.app` through the MCP SDK's
+in-memory client, with a fake registry, provider and approval gate.
+"""
+from __future__ import annotations
+
+import asyncio
+from types import SimpleNamespace
+
+import pytest
+from mcp.shared.exceptions import McpError
+from mcp.shared.memory import create_connected_server_and_client_session
+from mcp.types import CallToolResult, CreateTaskResult, TaskMetadata
+
+from revit_mcp_server import mcp_server, mcp_tasks
+from revit_mcp_server.jobs import JobManager
+from revit_mcp_server.providers.base import ProviderTool
+
+pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")
+
+EXPORT = "revit_export_ifc"          # in TASK_TOOLS, mutating in this fake
+SNAPSHOT = "snapshot_take"           # in TASK_TOOLS, read-only in this fake
+PLAIN = "revit_list_levels"          # not in TASK_TOOLS
+
+
+class Gate:
+    def __init__(self):
+        self.claims = []
+        self.finished = []
+
+    def claim_action(self, name, arguments):
+        claim = {"plan_id": "plan-1", "action_id": f"action-{len(self.claims)}"}
+        self.claims.append((name, arguments))
+        return claim
+
+    def finish_action(self, claim, ok, error=None):
+        self.finished.append((claim["action_id"], ok, error))
+
+    def audit_dev_call(self, name, arguments, mutating):
+        pass
+
+    def mark_in_flight(self, claim, key, tool):
+        self.finished.append((claim["action_id"], "in_flight", key))
+
+
+class Provider:
+    def __init__(self):
+        self.release = asyncio.Event()
+        self.block = False
+        self.calls = []
+        self.fail = False
+
+    def get_identity(self):
+        return "fake"
+
+    async def execute_tool(self, name, arguments):
+        self.calls.append(name)
+        if self.block:
+            await self.release.wait()
+        if self.fail:
+            return {"success": False, "error": "export failed"}
+        if name == SNAPSHOT:
+            # snapshot_take declares an outputSchema; the SDK client rejects a reply without it.
+            return {"success": True, "tool": name, "status": "ok", "snapshot_id": "snap-1"}
+        return {"success": True, "tool": name, "path": "model.ifc"}
+
+
+def _install(monkeypatch):
+    gate = Gate()
+    provider = Provider()
+    tools = {
+        EXPORT: ProviderTool(name=EXPORT, description="Export IFC.", inputSchema={"type": "object"}, is_mutating=True),
+        SNAPSHOT: ProviderTool(name=SNAPSHOT, description="Take a snapshot.", inputSchema={"type": "object"}),
+        PLAIN: ProviderTool(name=PLAIN, description="List levels.", inputSchema={"type": "object"}),
+    }
+    registry = SimpleNamespace(
+        lookup_tool_provider=lambda name: provider if name in tools else None,
+        lookup_tool=lambda name: tools.get(name),
+        get_tools_with_providers=lambda: [(provider, t) for t in tools.values()],
+    )
+    monkeypatch.setattr(mcp_server, "registry", registry)
+    monkeypatch.setattr(mcp_server, "approval_provider", SimpleNamespace(gate=gate))
+    # The registered handlers hold mcp_server.task_bridge; start each test with no tasks.
+    monkeypatch.setattr(mcp_server.task_bridge, "_entries", {})
+    return gate, provider
+
+
+def _run(monkeypatch, scenario):
+    async def main():
+        manager = JobManager()
+        monkeypatch.setattr(mcp_server, "job_manager", manager)
+        try:
+            async with create_connected_server_and_client_session(mcp_server.app) as client:
+                return await scenario(client)
+        finally:
+            await manager.shutdown(cancel_running=True)
+
+    return asyncio.run(main())
+
+
+async def _wait_status(client, task_id, wanted, timeout=5.0):
+    deadline = asyncio.get_running_loop().time() + timeout
+    while True:
+        status = await client.experimental.get_task(task_id)
+        if status.status in wanted:
+            return status
+        assert asyncio.get_running_loop().time() < deadline, status
+        await asyncio.sleep(0.02)
+
+
+def test_tasks_enabled_with_installed_sdk():
+    assert mcp_server.TASKS_ENABLED is True
+
+
+def test_server_advertises_tasks_and_lists_task_support(monkeypatch):
+    _install(monkeypatch)
+
+    async def scenario(client):
+        caps = client.get_server_capabilities()
+        listed = await client.list_tools()
+        return caps, {t.name: t for t in listed.tools}
+
+    caps, tools = _run(monkeypatch, scenario)
+    assert caps.tasks is not None
+    assert caps.tasks.requests.tools.call is not None
+    assert caps.tasks.cancel is not None and caps.tasks.list is not None
+    assert tools[EXPORT].execution.taskSupport == "optional"
+    assert tools[SNAPSHOT].execution.taskSupport == "optional"
+    assert tools[PLAIN].execution is None
+
+
+def test_call_without_task_field_is_unchanged(monkeypatch):
+    gate, provider = _install(monkeypatch)
+
+    async def scenario(client):
+        return await client.call_tool(SNAPSHOT, {})
+
+    result = _run(monkeypatch, scenario)
+    assert isinstance(result, CallToolResult)
+    assert not result.isError
+    assert f"{SNAPSHOT} executed successfully" in result.content[0].text
+    assert provider.calls == [SNAPSHOT]
+
+
+def test_read_task_returns_task_then_result(monkeypatch):
+    gate, provider = _install(monkeypatch)
+
+    async def scenario(client):
+        created = await client.experimental.call_tool_as_task(SNAPSHOT, {"name": "a"})
+        task_id = created.task.taskId
+        done = await _wait_status(client, task_id, {"completed", "failed"})
+        listed = await client.experimental.list_tasks()
+        final = await client.experimental.get_task_result(task_id, CallToolResult)
+        return created, done, listed, final
+
+    created, done, listed, final = _run(monkeypatch, scenario)
+    assert isinstance(created, CreateTaskResult)
+    assert created.task.status == "working"
+    assert created.task.pollInterval == mcp_tasks.POLL_INTERVAL_MS
+    assert created.task.ttl == 60000  # the client asked for 60 s; below the server's limit
+    assert done.status == "completed"
+    assert [t.taskId for t in listed.tasks] == [created.task.taskId]
+    assert not final.isError
+    assert f"{SNAPSHOT} executed successfully" in final.content[0].text
+    assert final.meta[mcp_tasks.RELATED_TASK_KEY] == {"taskId": created.task.taskId}
+    assert gate.claims == []  # read-only: no approval needed, as for a direct call
+
+
+def test_task_on_tool_without_task_support_is_refused_before_claim(monkeypatch):
+    gate, provider = _install(monkeypatch)
+
+    async def scenario(client):
+        from mcp import types
+
+        return await client.send_request(
+            types.ClientRequest(types.CallToolRequest(params=types.CallToolRequestParams(
+                name=PLAIN, arguments={}, task=TaskMetadata(ttl=1000),
+            ))),
+            CallToolResult,
+        )
+
+    result = _run(monkeypatch, scenario)
+    assert result.isError
+    assert result.structuredContent["error"]["kind"] == "task_not_supported"
+    assert provider.calls == []
+    assert gate.claims == []
+
+
+def test_write_task_claims_approval_once_and_books_outcome(monkeypatch):
+    gate, provider = _install(monkeypatch)
+
+    async def scenario(client):
+        created = await client.experimental.call_tool_as_task(EXPORT, {"plan_id": "plan-1", "output_path": "model.ifc"})
+        await _wait_status(client, created.task.taskId, {"completed", "failed"})
+        return await client.experimental.get_task_result(created.task.taskId, CallToolResult)
+
+    final = _run(monkeypatch, scenario)
+    assert not final.isError
+    assert gate.claims == [(EXPORT, {"plan_id": "plan-1", "output_path": "model.ifc"})]
+    assert gate.finished == [("action-0", True, None)]
+
+
+def test_started_write_task_cannot_be_cancelled(monkeypatch):
+    gate, provider = _install(monkeypatch)
+    provider.block = True
+
+    async def scenario(client):
+        created = await client.experimental.call_tool_as_task(EXPORT, {"plan_id": "plan-1", "output_path": "model.ifc"})
+        task_id = created.task.taskId
+        while not provider.calls:
+            await asyncio.sleep(0.01)
+        status = await client.experimental.get_task(task_id)
+        with pytest.raises(McpError) as refused:
+            await client.experimental.cancel_task(task_id)
+        provider.release.set()
+        done = await _wait_status(client, task_id, {"completed", "failed", "cancelled"})
+        return status, refused.value, done
+
+    status, refused, done = _run(monkeypatch, scenario)
+    assert status.status == "working"
+    assert "only before it starts" in status.statusMessage
+    assert "half-applied" in str(refused)
+    assert done.status == "completed"
+    assert gate.finished == [("action-0", True, None)]
+
+
+def test_running_read_task_can_be_cancelled(monkeypatch):
+    gate, provider = _install(monkeypatch)
+    provider.block = True
+
+    async def scenario(client):
+        created = await client.experimental.call_tool_as_task(SNAPSHOT, {})
+        task_id = created.task.taskId
+        while not provider.calls:
+            await asyncio.sleep(0.01)
+        cancelled = await client.experimental.cancel_task(task_id)
+        final = await client.experimental.get_task_result(task_id, CallToolResult)
+        with pytest.raises(McpError):
+            await client.experimental.cancel_task(task_id)  # already finished
+        return cancelled, final
+
+    cancelled, final = _run(monkeypatch, scenario)
+    assert cancelled.status == "cancelled"
+    assert final.isError
+    assert final.structuredContent["error"]["kind"] == "task_cancelled"
+
+
+def test_job_cancelled_outside_tasks_shows_as_cancelled(monkeypatch):
+    gate, provider = _install(monkeypatch)
+    provider.block = True
+
+    async def scenario(client):
+        created = await client.experimental.call_tool_as_task(SNAPSHOT, {})
+        task_id = created.task.taskId
+        while not provider.calls:
+            await asyncio.sleep(0.01)
+        entry = mcp_server.task_bridge._entries[task_id]
+        await mcp_server.job_manager.cancel(entry.job_id)  # e.g. the job_cancel tool
+        return await client.experimental.get_task(task_id)
+
+    status = _run(monkeypatch, scenario)
+    assert status.status == "cancelled"
+
+
+def test_failed_tool_marks_task_failed(monkeypatch):
+    gate, provider = _install(monkeypatch)
+    provider.fail = True
+
+    async def scenario(client):
+        created = await client.experimental.call_tool_as_task(EXPORT, {"plan_id": "plan-1", "output_path": "model.ifc"})
+        done = await _wait_status(client, created.task.taskId, {"completed", "failed"})
+        final = await client.experimental.get_task_result(created.task.taskId, CallToolResult)
+        return done, final
+
+    done, final = _run(monkeypatch, scenario)
+    assert done.status == "failed"
+    assert final.isError
+    assert "returned a failure" in final.content[0].text
+    assert gate.finished == [("action-0", False, "export failed")]
+
+
+def test_unknown_task_id_is_refused(monkeypatch):
+    _install(monkeypatch)
+
+    async def scenario(client):
+        with pytest.raises(McpError) as missing:
+            await client.experimental.get_task("no-such-task")
+        return missing.value
+
+    assert "Task not found" in str(_run(monkeypatch, scenario))
+
+
+# -- TaskBridge and JobManager units -------------------------------------------
+
+
+def test_write_task_cancelled_before_start_never_runs():
+    async def main():
+        manager = JobManager()
+        bridge = mcp_tasks.TaskBridge(lambda: manager)
+        ran, booked = [], []
+
+        async def work():
+            ran.append(True)
+            return CallToolResult(content=[], isError=False)
+
+        created = await bridge.start(
+            tool=EXPORT, writes=True, metadata=TaskMetadata(), scope="s1",
+            work=work, on_cancel_before_start=lambda: booked.append(True),
+        )
+        cancelled = await bridge.cancel(created.task.taskId, "s1")
+        await asyncio.sleep(0.05)
+        await manager.shutdown()
+        return cancelled, ran, booked
+
+    cancelled, ran, booked = asyncio.run(main())
+    assert cancelled.status == "cancelled"
+    assert "The model was not changed" in cancelled.statusMessage
+    assert ran == []
+    assert booked == [True]
+
+
+def test_cancel_if_queued_refuses_started_job():
+    async def main():
+        manager = JobManager()
+        started = asyncio.Event()
+        release = asyncio.Event()
+
+        async def job():
+            started.set()
+            await release.wait()
+            return "done"
+
+        ref = await manager.submit(job)
+        await started.wait()
+        snapshot, cancelled = await manager.cancel_if_queued(ref.job_id)
+        release.set()
+        await manager.shutdown()
+        final = await manager.get(ref.job_id)
+        missing = await manager.cancel_if_queued("missing")
+        return snapshot, cancelled, final, missing
+
+    snapshot, cancelled, final, missing = asyncio.run(main())
+    assert cancelled is False and snapshot.status == "running"
+    assert final.status == "completed"
+    assert missing == (None, False)
+
+
+def test_tasks_are_scoped_to_their_session():
+    async def main():
+        manager = JobManager()
+        bridge = mcp_tasks.TaskBridge(lambda: manager)
+
+        async def work():
+            return CallToolResult(content=[], isError=False)
+
+        created = await bridge.start(
+            tool=SNAPSHOT, writes=False, metadata=TaskMetadata(ttl=10**9), scope="a",
+            work=work, on_cancel_before_start=lambda: None,
+        )
+        with pytest.raises(McpError):
+            await bridge.get(created.task.taskId, "b")
+        other = await bridge.list("b")
+        own = await bridge.list("a")
+        await manager.shutdown()
+        return created, other, own
+
+    created, other, own = asyncio.run(main())
+    assert created.task.ttl == mcp_tasks.DEFAULT_TTL_MS  # capped at the job retention time
+    assert other.tasks == []
+    assert len(own.tasks) == 1
+
+
+def test_follow_revit_job_polls_until_finished(monkeypatch):
+    monkeypatch.setattr(mcp_tasks, "_FOLLOW_STEP_S", 0)
+
+    class JobProvider:
+        def __init__(self):
+            self.states = ["running", "completed"]
+
+        async def execute_tool(self, name, arguments):
+            assert name == "revit_job_status" and arguments == {"job_id": "j1"}
+            return {"job_id": "j1", "state": self.states.pop(0)}
+
+    first = {"job_id": "j1", "state": "queued"}
+    final = asyncio.run(mcp_tasks.follow_revit_job(JobProvider(), first, lambda last: None))
+    assert final == {"job_id": "j1", "state": "completed"}
+
+
+def test_follow_revit_job_books_running_when_cancelled():
+    booked = []
+
+    class SlowProvider:
+        async def execute_tool(self, name, arguments):
+            await asyncio.sleep(10)
+
+    async def main():
+        first = {"job_id": "j1", "state": "running"}
+        task = asyncio.ensure_future(mcp_tasks.follow_revit_job(SlowProvider(), first, booked.append))
+        await asyncio.sleep(0.6)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    asyncio.run(main())
+    assert booked == [{"job_id": "j1", "state": "running"}]
+
+
+def _install_running_export(monkeypatch, answers):
+    """EXPORT answers 'running' with a request id; revit_get_result gives ``answers`` in turn."""
+    monkeypatch.setattr(mcp_tasks, "_FOLLOW_STEP_S", 0)
+    gate, provider = _install(monkeypatch)
+    fetched = []
+
+    class ResultProvider:
+        async def execute_tool(self, name, arguments):
+            fetched.append((name, arguments))
+            answer = answers.pop(0)
+            if isinstance(answer, Exception):
+                raise answer
+            return answer
+
+    async def export(name, arguments):
+        provider.calls.append(name)
+        return {"status": "running", "request_id": "req-1", "message": "still exporting"}
+
+    provider.execute_tool = export
+    registry = mcp_server.registry
+    tools = {name: registry.lookup_tool(name) for name in (EXPORT, SNAPSHOT, PLAIN)}
+    monkeypatch.setattr(mcp_server, "registry", SimpleNamespace(
+        lookup_tool_provider=lambda name: ResultProvider() if name == "revit_get_result" else (
+            provider if name in tools else None),
+        lookup_tool=lambda name: tools.get(name),
+        get_tools_with_providers=lambda: [(provider, t) for t in tools.values()],
+    ))
+    return gate, fetched
+
+
+def _run_export_task(monkeypatch):
+    async def scenario(client):
+        created = await client.experimental.call_tool_as_task(EXPORT, {"plan_id": "plan-1", "output_path": "model.ifc"})
+        status = await _wait_status(client, created.task.taskId, {"completed", "failed"})
+        return status, await client.experimental.get_task_result(created.task.taskId, CallToolResult)
+
+    return _run(monkeypatch, scenario)
+
+
+def test_task_follows_running_request_until_final(monkeypatch):
+    answers = [{"status": "running", "request_id": "req-1"}, {"success": True, "path": "model.ifc"}]
+    gate, fetched = _install_running_export(monkeypatch, answers)
+    status, final = _run_export_task(monkeypatch)
+    assert status.status == "completed" and not final.isError
+    assert "model.ifc" in final.content[0].text and "still running" not in final.content[0].text
+    assert fetched == [("revit_get_result", {"request_id": "req-1"})] * 2
+    assert gate.finished == [("action-0", True, None)]  # booked once, as done; never left in flight
+
+
+def test_task_books_failure_once_when_followed_request_fails(monkeypatch):
+    from revit_mcp_server.errors import CommandFailed
+
+    gate, fetched = _install_running_export(monkeypatch, [CommandFailed("Bridge error: export failed")])
+    status, final = _run_export_task(monkeypatch)
+    assert final.isError and "export failed" in final.content[0].text
+    assert gate.finished == [("action-0", False, "Bridge error: export failed")]
+
+
+def test_task_keeps_action_in_flight_when_request_cannot_be_collected(monkeypatch):
+    from revit_mcp_server.errors import BridgeError
+
+    gate, fetched = _install_running_export(monkeypatch, [BridgeError("lost contact")])
+    status, final = _run_export_task(monkeypatch)
+    assert "still running" in final.content[0].text
+    assert gate.finished == [("action-0", "in_flight", "req-1")]
+
+
+def test_follow_revit_result_books_running_when_cancelled():
+    booked = []
+
+    async def slow_fetch(request_id):
+        await asyncio.sleep(10)
+
+    async def main():
+        first = {"status": "running", "request_id": "req-1"}
+        task = asyncio.ensure_future(mcp_tasks.follow_revit_result(slow_fetch, EXPORT, first, booked.append))
+        await asyncio.sleep(0.6)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    asyncio.run(main())
+    assert booked == [{"status": "running", "request_id": "req-1"}]
+
+
+def test_follow_revit_result_leaves_final_results_alone():
+    async def never(request_id):
+        raise AssertionError("not called")
+
+    for result in ({"success": True}, {"status": "running"}, {"job_id": "j", "state": "queued"}, ["x"]):
+        assert asyncio.run(mcp_tasks.follow_revit_result(never, EXPORT, result, lambda last: None)) == result
+
+
+def test_register_returns_false_without_sdk_tasks_api():
+    assert mcp_tasks.register_task_handlers(SimpleNamespace(), mcp_tasks.TaskBridge(lambda: None)) is False
+
+
+def test_every_task_tool_exists_in_mock_registry():
+    from revit_mcp_server.registry_factory import build_registry
+
+    registry = build_registry()[0]
+    names = {t.name for _p, t in registry.get_tools_with_providers()}
+    assert mcp_tasks.TASK_TOOLS <= names, sorted(mcp_tasks.TASK_TOOLS - names)
+
+
+# -- tasks/cancel on a revit_run_job task cancels the inner Revit job (read-only only) --
+
+
+RUN_JOB = "revit_run_job"
+
+
+class JobProvider:
+    """Fake RevitJobProvider: one inner job j1 that stays running until the test says otherwise."""
+
+    def __init__(self, cancel_reply=None, cancel_error=None):
+        self.calls = []
+        self.cancel_reply = cancel_reply or {"job_id": "j1", "state": "cancelled", "cancelled": True}
+        self.cancel_error = cancel_error
+
+    def get_identity(self):
+        return "revit_jobs"
+
+    def call_is_read_only(self, name, arguments):
+        return name == RUN_JOB and arguments.get("mode") == "read"
+
+    async def execute_tool(self, name, arguments):
+        self.calls.append((name, dict(arguments)))
+        if name == RUN_JOB:
+            return {"job_id": "j1", "state": "queued"}
+        if name == "revit_job_status":
+            return {"job_id": "j1", "state": "running"}
+        if name == "revit_job_cancel":
+            if self.cancel_error is not None:
+                raise self.cancel_error
+            return dict(self.cancel_reply)
+        raise AssertionError(name)
+
+
+def _install_jobs(monkeypatch, provider):
+    gate = Gate()
+    tool = ProviderTool(name=RUN_JOB, description="Run a job.", inputSchema={"type": "object"}, is_mutating=True)
+    registry = SimpleNamespace(
+        lookup_tool_provider=lambda name: provider if name == RUN_JOB else None,
+        lookup_tool=lambda name: tool if name == RUN_JOB else None,
+        get_tools_with_providers=lambda: [(provider, tool)],
+    )
+    monkeypatch.setattr(mcp_server, "registry", registry)
+    monkeypatch.setattr(mcp_server, "approval_provider", SimpleNamespace(gate=gate))
+    monkeypatch.setattr(mcp_server.task_bridge, "_entries", {})
+    monkeypatch.setattr(mcp_tasks, "_FOLLOW_STEP_S", 0.01)
+    return gate
+
+
+def _cancel_job_task(monkeypatch, provider, arguments):
+    async def scenario(client):
+        created = await client.experimental.call_tool_as_task(RUN_JOB, arguments)
+        task_id = created.task.taskId
+        while not any(name == "revit_job_status" for name, _ in provider.calls):
+            await asyncio.sleep(0.01)
+        try:
+            cancelled = await client.experimental.cancel_task(task_id)
+        except McpError as refused:
+            return refused, None
+        final = await client.experimental.get_task_result(task_id, CallToolResult)
+        return cancelled, final
+
+    return _run(monkeypatch, scenario)
+
+
+def test_cancelling_read_job_task_cancels_the_revit_job(monkeypatch):
+    provider = JobProvider()
+    _install_jobs(monkeypatch, provider)
+    cancelled, final = _cancel_job_task(monkeypatch, provider, {"script": "print(1)", "mode": "read"})
+    assert cancelled.status == "cancelled"
+    assert "Revit job j1 was cancelled before Revit started it" in cancelled.statusMessage
+    assert ("revit_job_cancel", {"job_id": "j1"}) in provider.calls
+    # The task asks for the job id at once, so a cancel can reach the inner job.
+    assert provider.calls[0] == (RUN_JOB, {"script": "print(1)", "mode": "read", "wait_s": 0})
+    assert final.isError and "cancelled before Revit started it" in final.content[0].text
+
+
+def test_cancelling_read_job_task_reports_job_still_running(monkeypatch):
+    provider = JobProvider(cancel_reply={
+        "job_id": "j1", "state": "running", "cancelled": False,
+        "message": "The job is already running in Revit; only queued jobs can be cancelled.",
+    })
+    _install_jobs(monkeypatch, provider)
+    cancelled, _final = _cancel_job_task(monkeypatch, provider, {"command": "revit_list_levels", "mode": "read"})
+    assert cancelled.status == "cancelled"
+    assert "Cancel requested; Revit reports job j1 still running" in cancelled.statusMessage
+    assert "cannot change the model" in cancelled.statusMessage
+
+
+def test_cancelling_write_job_task_never_cancels_the_revit_job(monkeypatch):
+    provider = JobProvider()
+    gate = _install_jobs(monkeypatch, provider)
+    refused, _ = _cancel_job_task(monkeypatch, provider, {"script": "x = 1", "mode": "write", "plan_id": "plan-1"})
+    assert isinstance(refused, McpError)
+    assert "half-applied" in str(refused)
+    assert not any(name == "revit_job_cancel" for name, _ in provider.calls)
+    assert "wait_s" not in provider.calls[0][1]
+    assert len(gate.claims) == 1
+
+
+def test_failing_revit_job_cancel_is_reported_plainly(monkeypatch):
+    provider = JobProvider(cancel_error=RuntimeError("lost contact with Revit"))
+    _install_jobs(monkeypatch, provider)
+    cancelled, final = _cancel_job_task(monkeypatch, provider, {"script": "print(1)", "mode": "read"})
+    assert cancelled.status == "cancelled"
+    assert "cancelling the Revit job failed: lost contact with Revit" in cancelled.statusMessage
+    assert "may still be running in Revit" in cancelled.statusMessage
+    assert "cancelling the Revit job failed" in final.content[0].text
+
+
+def test_cancel_inner_is_ignored_for_a_write_task():
+    async def main():
+        manager = JobManager()
+        bridge = mcp_tasks.TaskBridge(lambda: manager)
+        inner = []
+
+        async def cancel_inner():
+            inner.append(True)
+            return "cancelled inner"
+
+        async def work():
+            return CallToolResult(content=[], isError=False)
+
+        created = await bridge.start(
+            tool=RUN_JOB, writes=True, metadata=TaskMetadata(), scope="s1",
+            work=work, on_cancel_before_start=lambda: None, cancel_inner=cancel_inner,
+        )
+        cancelled = await bridge.cancel(created.task.taskId, "s1")
+        await manager.shutdown()
+        return cancelled, inner
+
+    cancelled, inner = asyncio.run(main())
+    assert cancelled.status == "cancelled"
+    assert inner == []
+
+
+def test_revit_job_canceller_without_job_id_cancels_nothing():
+    provider = JobProvider()
+    message = asyncio.run(mcp_tasks.RevitJobCanceller(provider).cancel())
+    assert "no Revit job was cancelled" in message
+    assert provider.calls == []
+
+
+def test_revit_job_canceller_reports_finished_job_and_odd_reply():
+    finished = JobProvider(cancel_reply={"job_id": "j1", "state": "completed", "cancelled": False})
+    canceller = mcp_tasks.RevitJobCanceller(finished)
+    canceller.note("j1")
+    assert "had already finished (completed)" in asyncio.run(canceller.cancel())
+    odd = mcp_tasks.RevitJobCanceller(JobProvider(cancel_reply={"state": "weird"}))
+    odd.note("j1")
+    with pytest.raises(ValueError):
+        asyncio.run(odd.cancel())
+
+
+def test_read_job_task_with_idempotency_key_never_cancels_the_inner_job(monkeypatch):
+    """#335 review: a key can return an existing (possibly write) job, so no inner cancel is attempted."""
+    provider = JobProvider()
+    _install_jobs(monkeypatch, provider)
+    cancelled, _final = _cancel_job_task(
+        monkeypatch, provider, {"script": "print(1)", "mode": "read", "idempotency_key": "k1"})
+    assert not any(name == "revit_job_cancel" for name, _ in provider.calls)
+    assert "wait_s" not in provider.calls[0][1]

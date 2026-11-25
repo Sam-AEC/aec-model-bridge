@@ -22,6 +22,10 @@ not switch the mode yourself. Follow these steps in order.
 - Live mode (`MCP_REVIT_MODE=bridge`) talks to the Revit the person has open. What
   you read is their real project. This plugin starts the server in live mode.
 
+Call `revit_get_context` once at the start. If `server.plans_required` is false
+(Dev mode or Auto), call write tools directly and skip steps 4 and 5. If
+`server.writes_allowed` is false, do not propose changes.
+
 If a tool says it cannot reach Revit, tell the person. Do not guess at model contents.
 
 ## 2. Read first
@@ -68,9 +72,11 @@ you can, read the changed values back from the model.
 - Never say a change was made until the result confirms it.
 - If the run failed, was blocked, or was partly done, say exactly that, with the
   error. Do not retry in a way that skips approval.
-- If the person asks to undo a change, tell them Revit's Ctrl+Z works per step (one
-  step per parameter write; a one-step undo for a whole plan is not built yet), or
-  draft a new proposed-changes plan for it. It needs approval too. Do not promise a
+- If the person asks to undo a change, tell them about Revit's Ctrl+Z. A plan made only
+  of parameter writes, moves and rotations runs as one batch when the add-in supports
+  it (`"batched": true` in the `execute_plan` result), and Ctrl+Z then undoes the whole
+  plan in one step. Other plans undo one step per action. The one-step undo is UNVERIFIED
+  in a live Revit session. You can also draft a new proposed-changes plan for it. It needs approval too. Do not promise a
   one-click undo, and say rollback behaviour is unverified in a live Revit session.
 
 ## Keep it honest

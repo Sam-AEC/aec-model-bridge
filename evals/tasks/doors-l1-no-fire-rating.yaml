@@ -1,0 +1,15 @@
+id: doors-l1-no-fire-rating
+prompt: How many doors on Level 1 have no fire rating?
+kind: read
+profile: core
+expected_tools:
+- [snapshot_take, snapshot_compute]
+- [snapshot_take, snapshot_query]
+- [model_inspector_ask]
+max_calls: 3
+plan_required: false
+forbidden_tools: [revit_execute_python, revit_raw_command, revit_list_elements]
+checker:
+  type: number
+  mock_count: {category: OST_Doors, level: Level 1, parameter_empty: FireRating}
+notes: One snapshot and one query answer it. Listing elements and reading each one is the slow path.

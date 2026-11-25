@@ -116,16 +116,16 @@ VS Code mu kullanıyorsunuz? [Eklenti kaynağı ve yerel kurulum adımları](../
 
 | Alan | Araçlar | Ne yaparlar |
 | --- | --- | --- |
-| Revit | 110 | Modeli okuma; eleman, parametre, görünüm, pafta, çizelge oluşturma ve düzenleme; dışa aktarma; çalışma paylaşımı (worksharing) |
+| Revit | 111 | Modeli okuma; eleman, parametre, görünüm, pafta, çizelge oluşturma ve düzenleme; dışa aktarma; çalışma paylaşımı (worksharing) |
 | Onay | 6 | Model değişikliklerini planlama, inceleme, onaylama, çalıştırma ve geri alma |
 | Modüller | 114 | Snapshot incelemesi, parametre ızgaraları, QA/QC kontrolleri, reçeteler, raporlar, seçimler |
 | Rhino ve Grasshopper | 19 | Geometri, katmanlar, malzemeler, boolean işlemleri |
 | Speckle | 17 | Projeler, modeller, sürümler, gönderme ve alma |
 | Navisworks | 15 | Model ağacı, bakış noktaları, çakışma testleri (geliştirme sürüyor) |
 | IFC | 7 | IFC dosyalarını Revit olmadan okuma: yapı, özellikler, doğrulama |
-| Grafik, snapshot'lar, dışa aktarmalar, işler | 23 | Anlamsal grafik denetimleri, snapshot farkları, SQLite dışa aktarma, arka plan işleri |
+| Grafik, snapshot'lar, dışa aktarmalar, işler | 24 | Anlamsal grafik denetimleri, snapshot farkları, SQLite dışa aktarma, arka plan işleri |
 
-Varsayılan kurulumda 311 araç listelenir (mock modundaki mevcut sunucudan sayılmıştır). Autodesk Data araçları, APS kimlik bilgileri yapılandırıldığında görünür. [Araç başvurusu](../tools-generated.md) tüm araçları listeler. Her araç, istemcilerin okuma ile yazmayı ayırt edebilmesi için MCP ek açıklamaları (annotations; `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) taşır.
+Varsayılan kurulumda 313 araç listelenir (mock modundaki mevcut sunucudan sayılmıştır). Autodesk Data araçları, APS kimlik bilgileri yapılandırıldığında görünür. [Araç başvurusu](../tools-generated.md) tüm araçları listeler. Her araç, istemcilerin okuma ile yazmayı ayırt edebilmesi için MCP ek açıklamaları (annotations; `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) taşır.
 
 ### Gelişmiş Revit otomasyonu
 
@@ -170,7 +170,7 @@ Panel, plan incelemesini "Show the review to enable Approve" ile gösterir; onay
 
 <sub>Diyagram kaynağı: [approval-flow.mmd](../diagrams/approval-flow.mmd). Görselleri `python scripts/render_diagrams.py` ile yeniden oluşturun.</sub>
 
-Bir plan hatalı çıkarsa Revit'te Ctrl+Z ile geri alın. Her parametre yazımı kendi adlandırılmış işlemidir, bu yüzden tek bir plan için birkaç kez basmanız gerekebilir. Tüm plan için tek adımda geri alma planlanmıştır, henüz yapılmamıştır. İkinci yol bir geri alma planıdır: asistan, yürütülmüş bir planın kanıtından `plan_revert` ile bir taslak hazırlar ve siz onu diğer planlar gibi onaylarsınız. `rollback_plan` yalnızca insanlar içindir; ne bir düğmedir ne de bir komut, bu yüzden ona güvenmeyin. Bu yolların hiçbiri henüz gerçek bir Revit oturumunda doğrulanmadı (UNVERIFIED). Dosya çıktısı gibi geri alınamayan işlemler bunların hiçbiriyle geri alınamaz ve henüz ikinci bir onay istemez (planlanmıştır). Panelin Plans listesi yalnızca bekleyen planları gösterir; `aec-model-bridge-approve show <plan_id>` her durumdaki bir plan için çalışır, `proofs/` paketleri ise yalnızca yürütülen (veya yürütülmeye çalışılan) planlar için vardır. Yaşam döngüsü [ADR 0008](../adr/0008-approval-gate-lifecycle.md) belgesindedir.
+Bir plan hatalı çıkarsa Revit'te Ctrl+Z ile geri alın. Her parametre yazımı kendi adlandırılmış işlemidir, bu yüzden tek bir plan için birkaç kez basmanız gerekebilir. Yalnızca parametre yazan, öğe taşıyan veya döndüren bir plan, eklenti destekliyorsa tek bir toplu iş olarak çalışır ve tek bir Ctrl+Z tüm planı geri alır (gerçek Revit'te UNVERIFIED). İkinci yol bir geri alma planıdır: asistan, yürütülmüş bir planın kanıtından `plan_revert` ile bir taslak hazırlar ve siz onu diğer planlar gibi onaylarsınız. `rollback_plan` yalnızca insanlar içindir; ne bir düğmedir ne de bir komut, bu yüzden ona güvenmeyin. Bu yolların hiçbiri henüz gerçek bir Revit oturumunda doğrulanmadı (UNVERIFIED). Dosya çıktısı gibi geri alınamayan işlemler bunların hiçbiriyle geri alınamaz ve henüz ikinci bir onay istemez (planlanmıştır). Panelin Plans listesi yalnızca bekleyen planları gösterir; `aec-model-bridge-approve show <plan_id>` her durumdaki bir plan için çalışır, `proofs/` paketleri ise yalnızca yürütülen (veya yürütülmeye çalışılan) planlar için vardır. Yaşam döngüsü [ADR 0008](../adr/0008-approval-gate-lifecycle.md) belgesindedir.
 
 Gözetimsiz pipeline'lar için `MCP_REVIT_APPROVAL_MODE=auto` ayarlayabilirsiniz. Bu, insan denetimini kapatır; bu yüzden yalnızca kontrollü bir ortamda kullanın.
 

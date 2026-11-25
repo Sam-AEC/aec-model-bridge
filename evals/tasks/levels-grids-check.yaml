@@ -1,0 +1,10 @@
+id: levels-grids-check
+prompt: Check our levels and grids for problems.
+kind: read
+profile: core
+expected_tools:
+- [revit_check_levels_grids]
+max_calls: 2
+plan_required: false
+forbidden_tools: [revit_execute_python, revit_raw_command]
+checker: {type: none, reason: Mock mode returns a MOCK MODE result.}

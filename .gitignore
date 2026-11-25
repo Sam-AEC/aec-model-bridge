@@ -23,6 +23,8 @@ nosetests.xml
 coverage.xml
 *.cover
 .hypothesis/
+# mutmut working copy (packages/mcp-server-revit/pyproject.toml [tool.mutmut])
+mutants/
 .pytest_cache/
 
 # Translations

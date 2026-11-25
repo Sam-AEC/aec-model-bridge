@@ -8,10 +8,11 @@
 
 **AI assistants read the Revit model you have open. By default, nothing in it changes until you approve a plan.**
 
-Open-source Revit MCP server · Revit 2024 – 2027 · 311 tools · Claude, Codex, Cursor and other MCP clients
+Open-source Revit MCP server · Revit 2024 – 2027 · 313 tools · Claude, Codex, Cursor and other MCP clients
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Sam-AEC/aec-model-bridge/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Sam-AEC/aec-model-bridge/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
+[![Coverage floor](https://img.shields.io/badge/coverage_floor-80%25-0F766E?style=flat-square)](packages/mcp-server-revit/pyproject.toml)
 [![Revit](https://img.shields.io/badge/Revit-2024--2027-0696D7?style=flat-square)](#supported-revit-versions)
 [![License](https://img.shields.io/badge/license-GPL--3.0%20%2B%20commercial-2563EB?style=flat-square)](LICENSING.md)
 [![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/Sam-AEC/aec-model-bridge?style=flat-square&label=OpenSSF%20Scorecard)](https://scorecard.dev/viewer/?uri=github.com/Sam-AEC/aec-model-bridge)
@@ -189,16 +190,16 @@ published to the Marketplace.
 
 | Area | Tools | What they do |
 | --- | --- | --- |
-| Revit | 110 | Read the model, create and edit elements, parameters, views, sheets, schedules, exports, worksharing |
+| Revit | 111 | Read the model, create and edit elements, parameters, views, sheets, schedules, exports, worksharing |
 | Approval | 6 | Plan, review, approve, execute and roll back model changes; show the workspace policy |
 | Modules | 114 | Snapshot inspection, parameter grids, QA/QC checks, recipes, reports, selections |
 | Rhino and Grasshopper | 19 | Geometry, layers, materials, boolean operations |
 | Speckle | 17 | Projects, models, versions, send and receive |
 | Navisworks | 15 | Model tree, viewpoints, clash tests (in progress) |
 | IFC | 7 | Read IFC files without Revit: structure, properties, validation |
-| Graph, snapshots, exports, jobs | 23 | Semantic graph audits, snapshot diffs, SQLite export, background jobs |
+| Graph, snapshots, exports, jobs | 24 | Semantic graph audits, snapshot diffs, SQLite export, background jobs |
 
-311 tools are listed in the default setup (counted from the current server in mock
+313 tools are listed in the default setup (counted from the current server in mock
 mode). The Autodesk Data tools appear when APS credentials are configured. The
 [tool reference](docs/tools-generated.md) lists every tool. Each tool carries
 MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`,
@@ -249,7 +250,9 @@ In plain words:
   `aec-model-bridge-approve` command.
 - **Nothing applies on its own.** A change runs only if it matches an approved
   action of an approved plan, once.
-- **Undo is per action.** Revit's Ctrl+Z undoes one action per press.
+- **Undo.** A plan of parameter writes, moves and rotations is one Ctrl+Z step
+  when the add-in supports plan batches (UNVERIFIED in live Revit). Other plans
+  undo one action per press.
 
 The hub stops any tool call that changes the model unless it carries an
 approved plan. The AI proposes a plan, you review it, and the add-in runs it on
@@ -282,9 +285,13 @@ cover them.
 
 <sub>Diagram source: [approval-flow.mmd](docs/diagrams/approval-flow.mmd). Regenerate the images with `python scripts/render_diagrams.py`.</sub>
 
-If a plan turns out wrong, undo it with Revit's Ctrl+Z. Each parameter write is
-its own named transaction, so one plan can take several presses. A one-step undo
-for a whole plan is planned, not built. A second route is a revert plan: the
+If a plan turns out wrong, undo it with Revit's Ctrl+Z. When every action of a
+plan is a parameter write, move or rotation and the add-in lists
+`revit.execute_plan_batch`, the plan runs in one Revit transaction group named
+"AEC Model Bridge: <plan title> (<short id>)", so one press undoes the whole plan.
+If one action fails, the whole group is rolled back. This is UNVERIFIED in a live
+Revit session. Other plans run one named transaction per action, so they can take
+several presses. A second route is a revert plan: the
 assistant drafts one with `plan_revert` from the proof of an executed plan, and
 you approve it like any other plan. `rollback_plan` also writes the recorded
 before-values back in reverse order and can skip an action when no before-value
@@ -338,6 +345,8 @@ You install two parts: the Python MCP server and the Revit add-in. Live Revit
 automation needs both.
 
 ### 1. Install the MCP server
+
+To run the server without a clone, use `uvx` as in [Manual setup](#quick-start) or the [install guide](docs/install.md#run-the-server-with-uvx). The short `uvx aec-model-bridge` form needs a PyPI release, which has not happened yet. To work on the source:
 
 ```powershell
 git clone https://github.com/Sam-AEC/aec-model-bridge.git

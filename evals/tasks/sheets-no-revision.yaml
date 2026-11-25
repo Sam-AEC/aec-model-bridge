@@ -1,0 +1,12 @@
+id: sheets-no-revision
+prompt: Which sheets have no revision?
+kind: read
+profile: full
+expected_tools:
+- [revit_sheet_index]
+- [snapshot_take, sheet_set_qa_check]
+max_calls: 2
+plan_required: false
+forbidden_tools: [revit_execute_python, revit_raw_command, revit_add_revision]
+checker: {type: none, reason: 'Mock data has no sheets, revisions or warnings; the mock server returns an empty
+    or MOCK MODE result.'}

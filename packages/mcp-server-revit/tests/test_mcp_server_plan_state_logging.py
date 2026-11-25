@@ -41,5 +41,6 @@ def test_plan_state_failure_is_logged_and_result_unchanged(monkeypatch, caplog):
     assert "set_thing executed successfully" in result[0].text
     records = [r for r in caplog.records if "Could not record the outcome" in r.getMessage()]
     assert len(records) == 1
-    assert "plan-123" in records[0].getMessage()
+    message = records[0].getMessage()
+    assert "outcome of a plan action" in message and "plan-123" not in message  # ids stay out of logs
     assert records[0].exc_info and records[0].exc_info[0] is RuntimeError

@@ -116,16 +116,16 @@ Używasz VS Code? [Kod źródłowy rozszerzenia i kroki lokalnej instalacji](../
 
 | Obszar | Narzędzia | Co robią |
 | --- | --- | --- |
-| Revit | 110 | Odczyt modelu, tworzenie i edycja elementów, parametrów, widoków, arkuszy, zestawień, eksporty, współpraca (worksharing) |
+| Revit | 111 | Odczyt modelu, tworzenie i edycja elementów, parametrów, widoków, arkuszy, zestawień, eksporty, współpraca (worksharing) |
 | Zatwierdzanie | 6 | Planowanie, przegląd, zatwierdzanie, wykonywanie i wycofywanie zmian modelu |
 | Moduły | 114 | Inspekcja migawek, siatki parametrów, kontrole QA/QC, receptury, raporty, zaznaczenia |
 | Rhino i Grasshopper | 19 | Geometria, warstwy, materiały, operacje boolowskie |
 | Speckle | 17 | Projekty, modele, wersje, wysyłanie i odbieranie |
 | Navisworks | 15 | Drzewo modelu, punkty widzenia, testy kolizji (w trakcie prac) |
 | IFC | 7 | Odczyt plików IFC bez Revit: struktura, właściwości, walidacja |
-| Graf, migawki, eksporty, zadania | 23 | Audyty grafu semantycznego, różnice migawek, eksport do SQLite, zadania w tle |
+| Graf, migawki, eksporty, zadania | 24 | Audyty grafu semantycznego, różnice migawek, eksport do SQLite, zadania w tle |
 
-W konfiguracji domyślnej widocznych jest 311 narzędzi (policzone na aktualnym serwerze w trybie mock). Narzędzia Autodesk Data pojawiają się po skonfigurowaniu poświadczeń APS. [Opis narzędzi](../tools-generated.md) zawiera listę wszystkich. Każde narzędzie ma adnotacje MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), dzięki czemu klienci odróżniają odczyty od zapisów.
+W konfiguracji domyślnej widocznych jest 313 narzędzi (policzone na aktualnym serwerze w trybie mock). Narzędzia Autodesk Data pojawiają się po skonfigurowaniu poświadczeń APS. [Opis narzędzi](../tools-generated.md) zawiera listę wszystkich. Każde narzędzie ma adnotacje MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), dzięki czemu klienci odróżniają odczyty od zapisów.
 
 ### Zaawansowana automatyzacja Revit
 
@@ -170,7 +170,7 @@ Panel pokazuje ocenę planu przez "Show the review to enable Approve"; trzeba j�
 
 <sub>Źródło diagramu: [approval-flow.mmd](../diagrams/approval-flow.mmd). Obrazy wygenerujesz ponownie poleceniem `python scripts/render_diagrams.py`.</sub>
 
-Jeśli plan okaże się błędny, cofnij go skrótem Ctrl+Z w Revit. Każdy zapis parametru to osobna nazwana transakcja, więc jeden plan może wymagać kilku naciśnięć. Cofnięcie całego planu jednym krokiem jest planowane, ale jeszcze nie zbudowane. Drugą drogą jest plan cofnięcia: asystent sporządza go za pomocą `plan_revert` na podstawie dowodu wykonanego planu, a zatwierdzasz go jak każdy inny plan. `rollback_plan` jest tylko dla ludzi i nie jest ani przyciskiem, ani poleceniem, więc nie licz na niego. Żadna z tych dróg nie została jeszcze zweryfikowana w prawdziwej sesji Revit (UNVERIFIED). Operacje, których nie da się cofnąć, np. zapis plików, nie są cofane żadną z nich i nie wymagają jeszcze drugiego potwierdzenia (planowane). Lista Plans w panelu pokazuje tylko plany oczekujące; `aec-model-bridge-approve show <plan_id>` działa dla planu w dowolnym stanie, natomiast pakiety `proofs/` istnieją tylko dla planów, które wykonano (lub próbowano wykonać). Cykl życia opisuje [ADR 0008](../adr/0008-approval-gate-lifecycle.md).
+Jeśli plan okaże się błędny, cofnij go skrótem Ctrl+Z w Revit. Każdy zapis parametru to osobna nazwana transakcja, więc jeden plan może wymagać kilku naciśnięć. Plan, który tylko zapisuje parametry, przesuwa lub obraca elementy, działa jako jedna partia, gdy dodatek to obsługuje, i wtedy jedno Ctrl+Z cofa cały plan (UNVERIFIED w prawdziwym Revit). Drugą drogą jest plan cofnięcia: asystent sporządza go za pomocą `plan_revert` na podstawie dowodu wykonanego planu, a zatwierdzasz go jak każdy inny plan. `rollback_plan` jest tylko dla ludzi i nie jest ani przyciskiem, ani poleceniem, więc nie licz na niego. Żadna z tych dróg nie została jeszcze zweryfikowana w prawdziwej sesji Revit (UNVERIFIED). Operacje, których nie da się cofnąć, np. zapis plików, nie są cofane żadną z nich i nie wymagają jeszcze drugiego potwierdzenia (planowane). Lista Plans w panelu pokazuje tylko plany oczekujące; `aec-model-bridge-approve show <plan_id>` działa dla planu w dowolnym stanie, natomiast pakiety `proofs/` istnieją tylko dla planów, które wykonano (lub próbowano wykonać). Cykl życia opisuje [ADR 0008](../adr/0008-approval-gate-lifecycle.md).
 
 W potokach działających bez nadzoru możesz ustawić `MCP_REVIT_APPROVAL_MODE=auto`. To wyłącza kontrolę człowieka, więc używaj tego tylko w kontrolowanym środowisku.
 

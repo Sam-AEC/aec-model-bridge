@@ -24,13 +24,25 @@ from ..security.approval import VOLATILE_ARGUMENT_KEYS
 READ_ONLY_NAME_PREFIXES = ("get_", "list_", "read_", "query_", "search_", "describe_")
 
 
+def _hint(annotations: Any, camel: str, snake: str) -> Any:
+    """An annotation hint under either spelling: SDK 1.x uses camelCase attributes, SDK 2.x snake_case,
+    and upstream data may arrive as a dict. Reading only one spelling would make every hint None and
+    let a destructive get_* tool skip the gate after an SDK upgrade (ADR 0023)."""
+    if annotations is None:
+        return None
+    if isinstance(annotations, dict):
+        return annotations.get(camel, annotations.get(snake))
+    value = getattr(annotations, camel, None)
+    return value if value is not None else getattr(annotations, snake, None)
+
+
 def is_proxied_tool_read_only(remote_name: str, annotations: Any = None) -> bool:
     """Return True only when a proxied tool may skip the approval gate."""
     if not remote_name.lower().startswith(READ_ONLY_NAME_PREFIXES):
         return False
-    if getattr(annotations, "destructiveHint", None) is True:
+    if _hint(annotations, "destructiveHint", "destructive_hint") is True:
         return False
-    hint = getattr(annotations, "readOnlyHint", None)
+    hint = _hint(annotations, "readOnlyHint", "read_only_hint")
     if hint is None:
         return True  # no upstream annotation available: name verbs only
     return hint is True

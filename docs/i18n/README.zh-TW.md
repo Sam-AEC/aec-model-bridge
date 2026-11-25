@@ -116,16 +116,16 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 | 領域 | 工具數 | 功能 |
 | --- | --- | --- |
-| Revit | 110 | 讀取模型，建立與編輯元件、參數、視圖、圖紙、明細表，匯出，工作共享(worksharing) |
+| Revit | 111 | 讀取模型，建立與編輯元件、參數、視圖、圖紙、明細表，匯出，工作共享(worksharing) |
 | 核准 | 6 | 規劃、檢視、核准、執行並復原模型變更 |
 | 模組 | 114 | 快照檢查、參數表格、QA/QC 檢查、配方、報告、選取集 |
 | Rhino 與 Grasshopper | 19 | 幾何、圖層、材質、布林運算 |
 | Speckle | 17 | 專案、模型、版本、傳送與接收 |
 | Navisworks | 15 | 模型樹、視點、碰撞檢查（開發中） |
 | IFC | 7 | 無需 Revit 即可讀取 IFC 檔案：結構、屬性、驗證 |
-| 圖譜、快照、匯出、作業 | 23 | 語意圖譜稽核、快照差異比對、SQLite 匯出、背景作業 |
+| 圖譜、快照、匯出、作業 | 24 | 語意圖譜稽核、快照差異比對、SQLite 匯出、背景作業 |
 
-預設設定下共列出 311 個工具（在 mock 模式下由目前的伺服器統計）。設定 APS 憑證後，Autodesk Data 工具才會出現。[工具參考](../tools-generated.md)列出所有工具。每個工具都帶有 MCP 註解（`readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`），讓用戶端能分辨讀取與寫入。
+預設設定下共列出 313 個工具（在 mock 模式下由目前的伺服器統計）。設定 APS 憑證後，Autodesk Data 工具才會出現。[工具參考](../tools-generated.md)列出所有工具。每個工具都帶有 MCP 註解（`readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`），讓用戶端能分辨讀取與寫入。
 
 ### 進階 Revit 自動化
 
@@ -170,7 +170,7 @@ MCP 用戶端與一個 Python hub 溝通。hub 會把每次呼叫轉送給擁有
 
 <sub>圖表來源：[approval-flow.mmd](../diagrams/approval-flow.mmd)。使用 `python scripts/render_diagrams.py` 重新產生圖片。</sub>
 
-若計畫有誤，請在 Revit 中用 Ctrl+Z 復原。每次參數寫入都是各自獨立的具名交易，因此一個計畫可能需要按多次。整個計畫一步復原的功能已列入規劃，尚未實作。第二種方式是還原計畫：助理根據已執行計畫的憑證，以 `plan_revert` 起草一個新計畫，再像核准其他計畫一樣核准它。`rollback_plan` 僅供人使用，既不是按鈕也不是指令，因此不要指望它。這些方式目前都尚未在真實的 Revit 工作階段中驗證（UNVERIFIED）。無法復原的操作（例如檔案輸出）這些方式都無法復原，目前也尚未要求再次確認（已列入規劃）。面板的 Plans 清單只顯示待處理的計畫；`aec-model-bridge-approve show <plan_id>` 適用於任何狀態的計畫，而 `proofs/` 套件只存在於已執行（或嘗試執行）的計畫。完整生命週期請見 [ADR 0008](../adr/0008-approval-gate-lifecycle.md)。
+若計畫有誤，請在 Revit 中用 Ctrl+Z 復原。每次參數寫入都是各自獨立的具名交易，因此一個計畫可能需要按多次。只包含參數寫入、移動與旋轉的計畫，在增益集支援時會作為一個批次執行，這時按一次 Ctrl+Z 即可復原整個計畫（未在真實 Revit 中驗證，UNVERIFIED）。第二種方式是還原計畫：助理根據已執行計畫的憑證，以 `plan_revert` 起草一個新計畫，再像核准其他計畫一樣核准它。`rollback_plan` 僅供人使用，既不是按鈕也不是指令，因此不要指望它。這些方式目前都尚未在真實的 Revit 工作階段中驗證（UNVERIFIED）。無法復原的操作（例如檔案輸出）這些方式都無法復原，目前也尚未要求再次確認（已列入規劃）。面板的 Plans 清單只顯示待處理的計畫；`aec-model-bridge-approve show <plan_id>` 適用於任何狀態的計畫，而 `proofs/` 套件只存在於已執行（或嘗試執行）的計畫。完整生命週期請見 [ADR 0008](../adr/0008-approval-gate-lifecycle.md)。
 
 對於無人值守的流程，可以設定 `MCP_REVIT_APPROVAL_MODE=auto`。這會關閉人工檢查，因此請只在受控環境中使用。
 

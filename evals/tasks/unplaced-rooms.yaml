@@ -1,0 +1,17 @@
+id: unplaced-rooms
+prompt: Are there any rooms that aren't placed? Which ones?
+kind: read
+profile: full
+expected_tools:
+- [model_inspector_ask]
+- [snapshot_take, snapshot_query]
+- [snapshot_take, snapshot_compute]
+- [qaqc_checker_run_check]
+max_calls: 3
+plan_required: false
+forbidden_tools: [revit_execute_python, revit_raw_command]
+checker:
+- type: number
+  mock_count: {category: OST_Rooms, placed: false}
+- type: contains_any
+  values: [Office 1, '101']

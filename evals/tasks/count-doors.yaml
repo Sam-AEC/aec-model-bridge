@@ -1,0 +1,14 @@
+id: count-doors
+prompt: How many doors are in the model?
+kind: read
+profile: core
+expected_tools:
+- [model_inspector_summarize_model]
+- [snapshot_take, snapshot_compute]
+- [snapshot_take, snapshot_query]
+max_calls: 2
+plan_required: false
+forbidden_tools: [revit_execute_python, revit_raw_command]
+checker:
+  type: number
+  mock_count: {category: OST_Doors}

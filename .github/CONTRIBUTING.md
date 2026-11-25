@@ -71,6 +71,11 @@ Supported Revit versions are 2024 (net48), 2025 and 2026 (net8.0-windows), and
 
 You do not need Revit or Windows for these. The Python tests run in mock mode. The [project board](https://github.com/users/Sam-AEC/projects) has a Contributors view of open community issues by area ([how the board works](../docs/project-board.md)).
 
+To skip local setup, open the repository in its dev container (`.devcontainer/devcontainer.json`, for example with GitHub Codespaces or the VS Code Dev Containers extension). It installs Python 3.13 and uv, runs `uv sync --all-extras` in `packages/mcp-server-revit`, and sets `MCP_REVIT_MODE=mock`.
+
+`examples/mock-tour.ipynb` walks through a read, a snapshot query, a `snapshot_compute` pipeline and a plan in mock mode, and stops where a person would approve.
+`examples/ifc-speckle-roundtrip.ipynb` does the same for an IFC and Speckle exchange round trip ([docs/ifc-speckle-roundtrip.md](../docs/ifc-speckle-roundtrip.md)).
+
 ### Run the tests
 
 Install the package with its dev extra (`pip install -e "packages/mcp-server-revit[dev]"`), then run:
@@ -83,7 +88,39 @@ PYTHONPATH=src python -m pytest tests                                      # eve
 
 On Windows PowerShell, set the variable first: `$env:PYTHONPATH = "src"`.
 
+Optional pre-commit hooks (`.pre-commit-config.yaml`) run `ruff check`, `python scripts/version.py check` and the tool-count test before each commit, with the versions in `uv.lock`. They need uv on PATH. Install them with `pre-commit install`; run them on demand with `pre-commit run --all-files`.
+
 The full run takes about half a minute. A few tests are skipped on purpose: the end-to-end test needs a live Revit, and the proxy tests need a bridge. `test_wheel_contents.py` builds the wheel, so it needs an up-to-date `build` and `setuptools`. If it fails with a licence-metadata error on an old setuptools, upgrade setuptools before you report it.
+
+### Property and mutation tests
+
+`tests/test_property_*.py` use [Hypothesis](https://hypothesis.readthedocs.io/):
+
+- `test_property_gate.py`: a state machine drives the approval gate through random sequences of plan, approve, reject, execute, direct calls, mode switches (look only, ask first, Auto, timed Auto, Dev), expiry, document changes and edits of plan files. A model predicts every approval and every write; any difference fails the test.
+- `test_property_safe_paths.py`: generated hostile names and paths (`..`, absolute, drive letters, UNC, NUL, look-alike Unicode, links in the folder) never leave the root.
+- `test_property_input_fuzz.py`: random JSON for `plan_actions`, `execute_plan`, direct calls and the validators raises only `BridgeError` or `ValueError`.
+- `test_property_panel_execute.py`: random request bytes through the panel hub's request handler, in memory with no socket (`build_handler`). A request with a bad Host, an Origin, a wrong Content-Type or a missing or wrong token gets 401, 403, 415 or 429 and never reaches a tool or approves a plan. An authenticated body (malformed, huge, deeply nested, invalid UTF-8, `NaN`, wrong types) gets a 2xx or a 4xx with a plain JSON error, never a 5xx or an unhandled exception. Random path values through `RevitProvider._assert_paths_in_workspace` never pass when they point outside the workspace or into `plans/` or `proofs/`.
+
+The scheduled workflow `.github/workflows/fuzz-nightly.yml` runs these files every night with `AEC_HYPOTHESIS_PROFILE=slow` (30-minute limit, read-only token, no secrets). Start it by hand from the Actions tab with "Run workflow".
+
+The default profile runs a few examples with a fixed seed, so the suite stays fast and repeatable. For a deeper run:
+
+```bash
+AEC_HYPOTHESIS_PROFILE=slow uv run pytest -q -p no:cacheprovider tests/test_property_*.py
+```
+
+The `slow` profile takes a few minutes. Hypothesis prints a `@reproduce_failure` line for any failure; add a regular test for it before you fix the code.
+
+Mutation testing of `security/` uses mutmut (configured under `[tool.mutmut]` in `packages/mcp-server-revit/pyproject.toml`). It is not a dependency and not run in CI. It needs Linux or macOS:
+
+```bash
+cd packages/mcp-server-revit
+uv run --with mutmut mutmut run                                       # all of security/ (long)
+uv run --with mutmut mutmut run "revit_mcp_server.security.safe_paths*" # one module
+uv run --with mutmut mutmut results                                   # surviving mutants
+```
+
+A surviving mutant is a change to the code that no test noticed. Add a test that kills it, or note why it is equivalent. A sample run over `security/safe_paths.py` killed 55 of 58 mutants; the 3 survivors are the `startswith` check, which the stricter parent-folder check covers (2 mutants), and the text of one error message.
 
 ### Starter tasks
 

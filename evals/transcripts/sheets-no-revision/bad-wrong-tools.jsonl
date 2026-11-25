@@ -1,0 +1,5 @@
+{"meta": {"expect": {"passed": false, "failed_checks": ["tools", "calls"]}, "note": "Lists everything one by one and never reads revisions per sheet."}}
+{"tool": "revit_list_views", "arguments": {}}
+{"tool": "revit_list_sheets", "arguments": {}}
+{"tool": "revit_list_revisions", "arguments": {}}
+{"answer": "I could not find sheets without a revision."}

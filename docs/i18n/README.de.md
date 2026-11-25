@@ -116,16 +116,16 @@ Sie nutzen VS Code? Der [Quellcode der Erweiterung und die lokalen Installations
 
 | Bereich | Werkzeuge | Was sie tun |
 | --- | --- | --- |
-| Revit | 110 | Modell lesen, Elemente, Parameter, Ansichten, Pläne und Bauteillisten erstellen und bearbeiten, Exporte, Worksharing |
+| Revit | 111 | Modell lesen, Elemente, Parameter, Ansichten, Pläne und Bauteillisten erstellen und bearbeiten, Exporte, Worksharing |
 | Freigabe | 6 | Modelländerungen planen, prüfen, freigeben, ausführen und zurücksetzen |
 | Module | 114 | Snapshot-Prüfung, Parametertabellen, QA/QC-Prüfungen, Rezepte, Berichte, Auswahlen |
 | Rhino und Grasshopper | 19 | Geometrie, Layer, Materialien, boolesche Operationen |
 | Speckle | 17 | Projekte, Modelle, Versionen, Senden und Empfangen |
 | Navisworks | 15 | Modellbaum, Ansichtspunkte, Kollisionsprüfungen (in Arbeit) |
 | IFC | 7 | IFC-Dateien ohne Revit lesen: Struktur, Eigenschaften, Validierung |
-| Graph, Snapshots, Exporte, Jobs | 23 | Audits des semantischen Graphen, Snapshot-Vergleiche, SQLite-Export, Hintergrundjobs |
+| Graph, Snapshots, Exporte, Jobs | 24 | Audits des semantischen Graphen, Snapshot-Vergleiche, SQLite-Export, Hintergrundjobs |
 
-In der Standardkonfiguration werden 311 Werkzeuge aufgelistet (gezählt am aktuellen Server im Mock-Modus). Die Autodesk-Data-Werkzeuge erscheinen, wenn APS-Zugangsdaten konfiguriert sind. Die [Werkzeugreferenz](../tools-generated.md) listet jedes Werkzeug auf. Jedes Werkzeug trägt MCP-Annotationen (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), sodass Clients Lese- von Schreibzugriffen unterscheiden können.
+In der Standardkonfiguration werden 313 Werkzeuge aufgelistet (gezählt am aktuellen Server im Mock-Modus). Die Autodesk-Data-Werkzeuge erscheinen, wenn APS-Zugangsdaten konfiguriert sind. Die [Werkzeugreferenz](../tools-generated.md) listet jedes Werkzeug auf. Jedes Werkzeug trägt MCP-Annotationen (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), sodass Clients Lese- von Schreibzugriffen unterscheiden können.
 
 ### Erweiterte Revit-Automatisierung
 
@@ -170,7 +170,7 @@ Das Panel zeigt die Planprüfung über "Show the review to enable Approve"; vor 
 
 <sub>Diagrammquelle: [approval-flow.mmd](../diagrams/approval-flow.mmd). Die Bilder erzeugen Sie mit `python scripts/render_diagrams.py` neu.</sub>
 
-Erweist sich ein Plan als falsch, machen Sie ihn mit Strg+Z in Revit rückgängig. Jeder Parameterschreibvorgang ist eine eigene benannte Transaktion, daher kann ein Plan mehrere Tastendrücke brauchen. Ein Rückgängig in einem Schritt für einen ganzen Plan ist geplant, aber nicht gebaut. Ein zweiter Weg ist ein Revert-Plan: Der Assistent entwirft ihn mit `plan_revert` aus dem Nachweis eines ausgeführten Plans, und Sie geben ihn wie jeden anderen Plan frei. `rollback_plan` ist nur für Menschen gedacht und weder eine Schaltfläche noch ein Befehl; verlassen Sie sich daher nicht darauf. Keiner dieser Wege ist bisher in einer echten Revit-Sitzung geprüft (UNVERIFIED). Nicht umkehrbare Vorgänge, etwa das Schreiben von Dateien, werden von keinem davon rückgängig gemacht und verlangen noch keine zweite Bestätigung (geplant). Die Plans-Liste des Panels zeigt nur ausstehende Pläne; `aec-model-bridge-approve show <plan_id>` funktioniert für einen Plan in jedem Zustand, während `proofs/`-Bündel nur für Pläne existieren, die ausgeführt (oder versucht) wurden. Der Ablauf ist in [ADR 0008](../adr/0008-approval-gate-lifecycle.md) beschrieben.
+Erweist sich ein Plan als falsch, machen Sie ihn mit Strg+Z in Revit rückgängig. Jeder Parameterschreibvorgang ist eine eigene benannte Transaktion, daher kann ein Plan mehrere Tastendrücke brauchen. Ein Plan, der nur Parameter schreibt, Elemente verschiebt oder dreht, läuft als ein Stapel, wenn das Add-in es unterstützt; dann macht ein Strg+Z den ganzen Plan rückgängig (UNVERIFIED in einem echten Revit). Ein zweiter Weg ist ein Revert-Plan: Der Assistent entwirft ihn mit `plan_revert` aus dem Nachweis eines ausgeführten Plans, und Sie geben ihn wie jeden anderen Plan frei. `rollback_plan` ist nur für Menschen gedacht und weder eine Schaltfläche noch ein Befehl; verlassen Sie sich daher nicht darauf. Keiner dieser Wege ist bisher in einer echten Revit-Sitzung geprüft (UNVERIFIED). Nicht umkehrbare Vorgänge, etwa das Schreiben von Dateien, werden von keinem davon rückgängig gemacht und verlangen noch keine zweite Bestätigung (geplant). Die Plans-Liste des Panels zeigt nur ausstehende Pläne; `aec-model-bridge-approve show <plan_id>` funktioniert für einen Plan in jedem Zustand, während `proofs/`-Bündel nur für Pläne existieren, die ausgeführt (oder versucht) wurden. Der Ablauf ist in [ADR 0008](../adr/0008-approval-gate-lifecycle.md) beschrieben.
 
 Für unbeaufsichtigte Pipelines können Sie `MCP_REVIT_APPROVAL_MODE=auto` setzen. Das schaltet die Prüfung durch den Menschen ab; verwenden Sie es daher nur in einer kontrollierten Umgebung.
 

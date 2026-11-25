@@ -88,9 +88,11 @@ def baseline_diff(payload: dict, _: WorkspaceMonitor) -> dict:
 
 
 def sheet_batch_from_csv(payload: dict, workspace: WorkspaceMonitor) -> dict:
-    input_model = SheetBatchInput(**payload)
-    workspace.assert_in_workspace(Path(input_model.csv_path))
-    return SheetBatchOutput(sheets_created=3).model_dump()
+    """Mock for revit.batch_create_sheets_from_csv. The provider has already read the CSV into sheets."""
+    sheets = payload.get("sheets")
+    if not isinstance(sheets, list):
+        raise ValueError("revit.batch_create_sheets_from_csv needs a sheets list")
+    return SheetBatchOutput(sheets_created=len(sheets)).model_dump()
 
 
 def export_pdf_by_sheet(payload: dict, workspace: WorkspaceMonitor) -> dict:

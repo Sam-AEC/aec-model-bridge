@@ -1,0 +1,5 @@
+{"meta": {"expect": {"passed": true}, "note": "revit_make_sheet places the view in the same call."}}
+{"tool": "plan_actions", "arguments": {"actions": [{"tool": "revit_make_sheet", "arguments": {"number": "A101", "name": "Ground Floor Plan", "tag": "DOC1", "views": [{"view_name": "Floor Plan"}]}}]}}
+{"event": "human_approved", "plan_id": "plan_0123456789ab"}
+{"tool": "execute_plan", "arguments": {"plan_id": "plan_0123456789ab"}}
+{"answer": "After your approval the plan made sheet A101 Ground Floor Plan with the Floor Plan view on it."}

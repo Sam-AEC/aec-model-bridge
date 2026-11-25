@@ -16,7 +16,10 @@ namespace RevitBridge.Bridge;
 
 public static partial class BridgeCommandFactory
 {
-    private static readonly Dictionary<string, Func<UIApplication, JsonElement, object>> _handlers = new();
+    // Name to handler, built once from the [BridgeCommand] attributes (#291). Frozen on net8/net10.
+    private static readonly IReadOnlyDictionary<string, Func<UIApplication, JsonElement, object>> _handlers;
+    // Commands declared IsMutating = false and ConfirmationRequired = false: the only ones revit.batch runs.
+    private static readonly HashSet<string> _readOnlyCommands = new(StringComparer.Ordinal);
     private static readonly List<object> _capabilities = new();
     private static readonly List<string> _catalog = new();
 
@@ -32,8 +35,17 @@ public static partial class BridgeCommandFactory
         set => _currentActionId = value;
     }
 
+    // Above zero while revit.batch runs its members on this thread (#277). CreateTransaction refuses
+    // then, so a member that tries to change the model fails instead of writing.
+    [ThreadStatic]
+    private static int _readBatchDepth;
+
+    internal static bool InReadBatch => _readBatchDepth > 0;
+
     public static BridgeTransaction CreateTransaction(Document doc, string name)
     {
+        if (InReadBatch)
+            throw new InvalidOperationException($"'{name}' would change the model, and revit.batch runs reads only. Send this command on its own through a plan.");
         var actionId = CurrentActionId;
         string txName = string.IsNullOrEmpty(actionId) ? $"AMB: {name}" : $"AMB: {name} #{actionId}";
         return new BridgeTransaction(doc, txName, messages => _currentTransactionMessages?.AddRange(messages));
@@ -42,14 +54,17 @@ public static partial class BridgeCommandFactory
     static BridgeCommandFactory()
     {
         var methods = typeof(BridgeCommandFactory).GetMethods(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var entries = new List<KeyValuePair<string, Func<UIApplication, JsonElement, object>>>();
         foreach (var method in methods)
         {
             var attr = (BridgeCommandAttribute)Attribute.GetCustomAttribute(method, typeof(BridgeCommandAttribute));
             if (attr != null)
             {
                 var func = CreateHandlerDelegate(method);
-                _handlers[attr.Name] = func;
+                entries.Add(new KeyValuePair<string, Func<UIApplication, JsonElement, object>>(attr.Name, func));
                 _catalog.Add(attr.Name);
+                if (!attr.IsMutating && !attr.ConfirmationRequired)
+                    _readOnlyCommands.Add(attr.Name);
 
                 _capabilities.Add(new
                 {
@@ -59,6 +74,9 @@ public static partial class BridgeCommandFactory
                 });
             }
         }
+
+        // Throws on a duplicate name (the old dictionary let the second handler silently replace the first).
+        _handlers = BridgeDispatchTable.Build(entries);
     }
 
     private static Func<UIApplication, JsonElement, object> CreateHandlerDelegate(System.Reflection.MethodInfo method)
@@ -79,6 +97,10 @@ public static partial class BridgeCommandFactory
     {
         if (_handlers.TryGetValue(tool, out var handler))
         {
+            // Saved and restored so revit.batch can run its members through Execute without
+            // clearing its own state. At the top level both are null, as before.
+            var outerActionId = CurrentActionId;
+            var outerMessages = _currentTransactionMessages;
             try
             {
                 _currentTransactionMessages = new List<BridgeFailureMessage>();
@@ -100,11 +122,70 @@ public static partial class BridgeCommandFactory
             }
             finally
             {
-                CurrentActionId = null;
-                _currentTransactionMessages = null;
+                CurrentActionId = outerActionId;
+                _currentTransactionMessages = outerMessages;
             }
         }
         return new { status = "error", message = $"Unknown tool: {tool}" };
+    }
+
+    // ==================== BATCH (#277) ====================
+
+    // Runs up to 25 read-only commands in order inside one Revit turn and returns one entry per
+    // command, each with its own ok/error. The whole batch is refused before anything runs when a
+    // member is unknown, mutating, needs confirmation, or is revit.batch itself. Writes never go
+    // through here: they stay on the plan and approval path. Members still waiting after
+    // BridgeBatch.TimeBudgetMs are reported as not run. UNVERIFIED in live Revit (latency not measured).
+    [BridgeCommand("revit.batch", IsMutating = false)]
+    private static object ExecuteBatch(UIApplication app, JsonElement payload)
+    {
+        var members = BridgeBatch.Parse(payload, IsReadOnlyCommand);
+        var results = new List<object>(members.Count);
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+
+        _readBatchDepth++;
+        try
+        {
+            foreach (var member in members)
+            {
+                if (clock.ElapsedMilliseconds > BridgeBatch.TimeBudgetMs)
+                {
+                    results.Add(new
+                    {
+                        index = member.Index,
+                        tool = member.Tool,
+                        ok = false,
+                        error = $"Not run: the batch passed its {BridgeBatch.TimeBudgetMs / 1000} s budget. Send this command again.",
+                        not_run = true
+                    });
+                    continue;
+                }
+
+                try
+                {
+                    var result = Execute(app, member.Tool, member.Payload);
+                    results.Add(new { index = member.Index, tool = member.Tool, ok = true, result });
+                }
+                catch (Exception ex)
+                {
+                    var inner = ex is System.Reflection.TargetInvocationException tie && tie.InnerException != null ? tie.InnerException : ex;
+                    results.Add(new
+                    {
+                        index = member.Index,
+                        tool = member.Tool,
+                        ok = false,
+                        error = inner.Message,
+                        result = BridgeTransactionException.Find(inner)?.ToResult()
+                    });
+                }
+            }
+        }
+        finally
+        {
+            _readBatchDepth--;
+        }
+
+        return new { batch = true, count = results.Count, results };
     }
 
     public static List<string> GetToolCatalog()
@@ -115,6 +196,13 @@ public static partial class BridgeCommandFactory
     public static object GetCapabilities()
     {
         return _capabilities;
+    }
+
+    /// <summary>True only for a registered command marked IsMutating = false without ConfirmationRequired.
+    /// Unknown tools are not read-only. Used by revit.batch and by the executor's shared read turns.</summary>
+    public static bool IsReadOnlyCommand(string tool)
+    {
+        return _readOnlyCommands.Contains(tool);
     }
 
     // ==================== EXISTING TOOLS ====================
@@ -1509,19 +1597,152 @@ public static partial class BridgeCommandFactory
         var doc = app.ActiveUIDocument?.Document;
         if (doc == null)
             throw new InvalidOperationException("No active document");
+        if (doc.IsFamilyDocument)
+            throw new InvalidOperationException(
+                "The active document is a family. Shared parameters are bound to categories in a project; open a project document and try again.");
 
-        var parameterName = payload.GetProperty("name").GetString();
-        var parameterType = payload.GetProperty("parameter_type").GetString();
-        var groupName = payload.GetProperty("group_name").GetString();
-        var categoryNames = payload.GetProperty("categories").EnumerateArray()
-            .Select(e => e.GetString())
-            .ToList();
+        // Check every input before the shared parameter file or the model is touched.
+        var parameterName = RequireParameterName(payload);
+        var spec = ResolveParameterSpec(PayloadJson.OptionalString(payload, "parameter_type"), out var specLabel);
+        var groupTypeId = ResolveParameterGroup(PayloadJson.OptionalString(payload, "group_name"), out var groupLabel);
+        var isInstance = PayloadJson.OptionalBool(payload, "is_instance") ?? true;
+        var visible = PayloadJson.OptionalBool(payload, "visible") ?? true;
+        var fileGroupName = PayloadJson.OptionalString(payload, "definition_group")?.Trim() ?? DefaultDefinitionGroup;
+        var categories = ResolveBindableCategories(doc, ReadCategoryNames(payload));
 
-        // Note: Creating shared parameters requires a shared parameter file
-        // This is a simplified implementation
-        throw new NotImplementedException(
-            "Creating shared parameters requires a shared parameter file to be configured. " +
-            "Use Revit UI to set up shared parameter file first, or provide file path in payload.");
+        // Use the shared parameter file the user set in Revit. Never create or switch it here.
+        var application = app.Application;
+        var sharedFilePath = application.SharedParametersFilename;
+        if (string.IsNullOrWhiteSpace(sharedFilePath))
+            throw new InvalidOperationException(
+                "No shared parameter file is set in Revit (the SharedParametersFilename setting under Manage > Shared Parameters). " +
+                "Set one there and try again. The add-in does not create or switch the shared parameter file.");
+        if (!File.Exists(sharedFilePath))
+            throw new InvalidOperationException(
+                $"The shared parameter file set in Revit was not found: '{Path.GetFileName(sharedFilePath)}'. " +
+                "Fix the SharedParametersFilename setting under Manage > Shared Parameters and try again.");
+        var definitionFile = application.OpenSharedParameterFile();
+        if (definitionFile == null)
+            throw new InvalidOperationException(
+                $"Revit could not open the shared parameter file '{Path.GetFileName(sharedFilePath)}'. " +
+                "Check the file under Manage > Shared Parameters and try again.");
+
+        var warnings = new List<string>();
+        var existing = FindExternalDefinition(definitionFile, parameterName, out var existingGroupName, warnings);
+        if (existing != null && !SameSpec(existing.GetDataType(), spec))
+            throw new InvalidOperationException(
+                $"The shared parameter file already has '{parameterName}' with type '{SpecLabel(existing.GetDataType())}', not '{specLabel}'. " +
+                "Use the same parameter_type or another name.");
+
+        var bound = FindBoundDefinition(doc, parameterName, out var boundBinding, out var boundGuid);
+        if (bound != null && (existing == null || boundGuid != existing.GUID))
+            throw new InvalidOperationException(
+                $"The project already has a parameter named '{parameterName}' that is not this shared parameter. Rename one of them first.");
+        if (boundBinding != null && (boundBinding is InstanceBinding) != isInstance)
+            throw new InvalidOperationException(
+                $"'{parameterName}' is already bound as a {(boundBinding is InstanceBinding ? "instance" : "type")} parameter. " +
+                "Set is_instance to match, or change the binding in Revit.");
+
+        if (bound != null && boundBinding != null && existing != null)
+        {
+            var boundIds = new HashSet<long>();
+            foreach (Category category in boundBinding.Categories)
+                boundIds.Add(category.Id.Value);
+            var alreadyBound = new List<string>();
+            foreach (Category category in boundBinding.Categories)
+                alreadyBound.Add(category.Name);
+
+            // Nothing to change: do not call ReInsert, which can reset VariesAcrossGroups and its values.
+            if (categories.All(c => boundIds.Contains(c.Id.Value)))
+            {
+                warnings.Add($"'{parameterName}' is already bound to every requested category. The binding was not changed.");
+                return new
+                {
+                    name = parameterName,
+                    guid = existing.GUID.ToString(),
+                    parameter_type = specLabel,
+                    group = groupLabel,
+                    definition_group = existingGroupName,
+                    is_instance = isInstance,
+                    created_definition = false,
+                    rebound = false,
+                    bound_categories = alreadyBound,
+                    warnings
+                };
+            }
+
+            // A rebind (ReInsert) can reset VariesAcrossGroups and collapse values that differ between group instances.
+            if (bound.VariesAcrossGroups)
+                throw new InvalidOperationException(
+                    $"'{parameterName}' is set to vary between group instances. Changing its binding through the API can reset that setting " +
+                    "and lose the values that differ between model group instances, so the add-in will not change it. " +
+                    "Add the categories in Revit under Manage > Project Parameters instead. Nothing was changed.");
+        }
+
+        ExternalDefinition definition;
+        var createdDefinition = false;
+        var rebound = boundBinding != null;
+        var boundNames = new List<string>();
+        using (var trans = CreateTransaction(doc, "Create Shared Parameter"))
+        {
+            trans.Start();
+
+            if (existing != null)
+            {
+                definition = existing;
+                if (!string.Equals(existingGroupName, fileGroupName, StringComparison.Ordinal))
+                    warnings.Add($"Reused the existing definition '{parameterName}' from group '{existingGroupName}' of the shared parameter file.");
+            }
+            else
+            {
+                var fileGroup = definitionFile.Groups.Cast<DefinitionGroup>()
+                    .FirstOrDefault(g => string.Equals(g.Name, fileGroupName, StringComparison.Ordinal));
+                if (fileGroup == null)
+                    fileGroup = definitionFile.Groups.Create(fileGroupName);
+                var options = new ExternalDefinitionCreationOptions(parameterName, spec) { Visible = visible };
+                definition = fileGroup.Definitions.Create(options) as ExternalDefinition
+                    ?? throw new InvalidOperationException($"Revit did not create the definition '{parameterName}' in the shared parameter file.");
+                createdDefinition = true;
+                warnings.Add($"Added '{parameterName}' to group '{fileGroupName}' of the shared parameter file. Undo in Revit does not remove it from the file.");
+            }
+
+            var categorySet = application.Create.NewCategorySet();
+            foreach (var category in categories)
+                categorySet.Insert(category);
+            if (boundBinding != null)
+            {
+                foreach (Category category in boundBinding.Categories)
+                    categorySet.Insert(category);
+            }
+            Binding binding = isInstance
+                ? (Binding)application.Create.NewInstanceBinding(categorySet)
+                : (Binding)application.Create.NewTypeBinding(categorySet);
+
+            var ok = rebound
+                ? doc.ParameterBindings.ReInsert(definition, binding, groupTypeId)
+                : doc.ParameterBindings.Insert(definition, binding, groupTypeId);
+            if (!ok)
+                throw new InvalidOperationException(
+                    $"Revit refused to bind '{parameterName}' to the requested categories. Some categories may not take {(isInstance ? "instance" : "type")} parameters.");
+
+            trans.CommitChecked();
+            foreach (Category category in categorySet)
+                boundNames.Add(category.Name);
+        }
+
+        return new
+        {
+            name = parameterName,
+            guid = definition.GUID.ToString(),
+            parameter_type = specLabel,
+            group = groupLabel,
+            definition_group = existing != null ? existingGroupName : fileGroupName,
+            is_instance = isInstance,
+            created_definition = createdDefinition,
+            rebound,
+            bound_categories = boundNames,
+            warnings
+        };
     }
 
     [BridgeCommand("revit.list_project_parameters", IsMutating = false)]
@@ -1549,22 +1770,361 @@ public static partial class BridgeCommandFactory
         };
     }
 
+    // The Revit API (2024 to 2027) has no call that creates a project parameter directly. The usual
+    // approach, used here: point Revit at a temporary shared parameter file, create the definition
+    // there, bind it, then restore the user's SharedParametersFilename and delete the temporary file.
+    // Revit stores the result as a shared parameter whose GUID is in no shared parameter file.
     [BridgeCommand("revit.create_project_parameter", IsMutating = true)]
     private static object ExecuteCreateProjectParameter(UIApplication app, JsonElement payload)
     {
         var doc = app.ActiveUIDocument?.Document;
         if (doc == null)
             throw new InvalidOperationException("No active document");
+        if (doc.IsFamilyDocument)
+            throw new InvalidOperationException(
+                "The active document is a family. Project parameters are bound to categories in a project; open a project document and try again.");
 
-        var parameterName = payload.GetProperty("name").GetString();
-        var parameterType = payload.GetProperty("parameter_type").GetString();
-        var groupName = payload.GetProperty("group").GetString();
-        var isInstance = payload.GetProperty("is_instance").GetBoolean();
+        // Check every input before the shared parameter setting or the model is touched.
+        var parameterName = RequireParameterName(payload);
+        var spec = ResolveParameterSpec(PayloadJson.OptionalString(payload, "parameter_type"), out var specLabel);
+        var groupTypeId = ResolveParameterGroup(PayloadJson.OptionalString(payload, "group"), out var groupLabel);
+        var isInstance = PayloadJson.OptionalBool(payload, "is_instance") ?? true;
+        var visible = PayloadJson.OptionalBool(payload, "visible") ?? true;
+        var categories = ResolveBindableCategories(doc, ReadCategoryNames(payload));
+        if (FindBoundDefinition(doc, parameterName, out _, out _) != null)
+            throw new InvalidOperationException(
+                $"The project already has a parameter named '{parameterName}'. Pick another name, or check it with revit_list_project_parameters.");
 
-        // Note: Creating project parameters is complex and requires category binding
-        throw new NotImplementedException(
-            "Creating project parameters requires category binding setup. " +
-            "This functionality is planned for a future release.");
+        var application = app.Application;
+        var warnings = new List<string>();
+        var boundNames = new List<string>();
+        Guid guid;
+        var originalSharedParametersFilename = application.SharedParametersFilename;
+        var tempPath = Path.Combine(Path.GetTempPath(), "amb-project-parameter-" + Guid.NewGuid().ToString("N") + ".txt");
+
+        using (var trans = CreateTransaction(doc, "Create Project Parameter"))
+        {
+            trans.Start();
+            try
+            {
+                File.WriteAllText(tempPath, string.Empty);
+                application.SharedParametersFilename = tempPath;
+                var tempFile = application.OpenSharedParameterFile()
+                    ?? throw new InvalidOperationException("Revit could not open the temporary parameter file. The project parameter was not created.");
+                var tempGroup = tempFile.Groups.Create(DefaultDefinitionGroup);
+                var options = new ExternalDefinitionCreationOptions(parameterName, spec) { Visible = visible };
+                var definition = tempGroup.Definitions.Create(options) as ExternalDefinition
+                    ?? throw new InvalidOperationException($"Revit did not create the definition '{parameterName}'.");
+                guid = definition.GUID;
+
+                var categorySet = application.Create.NewCategorySet();
+                foreach (var category in categories)
+                    categorySet.Insert(category);
+                Binding binding = isInstance
+                    ? (Binding)application.Create.NewInstanceBinding(categorySet)
+                    : (Binding)application.Create.NewTypeBinding(categorySet);
+                if (!doc.ParameterBindings.Insert(definition, binding, groupTypeId))
+                    throw new InvalidOperationException(
+                        $"Revit refused to bind '{parameterName}' to the requested categories. Some categories may not take {(isInstance ? "instance" : "type")} parameters.");
+                foreach (Category category in categorySet)
+                    boundNames.Add(category.Name);
+            }
+            finally
+            {
+                // Always give the user back their own shared parameter file setting.
+                try
+                {
+                    application.SharedParametersFilename = originalSharedParametersFilename ?? string.Empty;
+                }
+                catch (Exception ex)
+                {
+                    warnings.Add("Could not restore the shared parameter file setting; check it under Manage > Shared Parameters. " + ex.Message);
+                }
+                try
+                {
+                    if (File.Exists(tempPath))
+                        File.Delete(tempPath);
+                }
+                catch (Exception ex)
+                {
+                    warnings.Add($"Could not delete the temporary file '{Path.GetFileName(tempPath)}' in the temp folder. " + ex.Message);
+                }
+            }
+
+            trans.CommitChecked();
+        }
+
+        warnings.Add("The Revit API has no direct call for project parameters, so Revit stores this one as a shared parameter whose GUID is in no shared parameter file.");
+        return new
+        {
+            name = parameterName,
+            guid = guid.ToString(),
+            parameter_type = specLabel,
+            group = groupLabel,
+            is_instance = isInstance,
+            bound_categories = boundNames,
+            warnings
+        };
+    }
+
+    // ---- Parameter creation helpers (shared and project parameters) ----
+
+    private const string DefaultDefinitionGroup = "AEC Model Bridge";
+
+    private static string RequireParameterName(JsonElement payload)
+    {
+        var name = PayloadJson.OptionalString(payload, "name");
+        if (name == null)
+            throw new ArgumentException("name is required: the name of the parameter to create.");
+        return name.Trim();
+    }
+
+    private static string NormalizeParameterKey(string text)
+    {
+        var sb = new StringBuilder();
+        foreach (var ch in text)
+        {
+            if (char.IsLetterOrDigit(ch))
+                sb.Append(char.ToLowerInvariant(ch));
+        }
+        return sb.ToString();
+    }
+
+    private const string SupportedParameterTypes = "Text, Integer, Number, Length, Area, Volume, Angle, Currency, YesNo, URL, Material";
+
+    // Revit 2022+ ForgeTypeId specs; the same members exist in Revit 2024 to 2027.
+    private static ForgeTypeId ResolveParameterSpec(string? typeName, out string label)
+    {
+        switch (NormalizeParameterKey(typeName ?? "Text"))
+        {
+            case "":
+            case "text":
+            case "string":
+                label = "Text"; return SpecTypeId.String.Text;
+            case "integer":
+            case "int":
+                label = "Integer"; return SpecTypeId.Int.Integer;
+            case "number":
+            case "double":
+                label = "Number"; return SpecTypeId.Number;
+            case "length":
+                label = "Length"; return SpecTypeId.Length;
+            case "area":
+                label = "Area"; return SpecTypeId.Area;
+            case "volume":
+                label = "Volume"; return SpecTypeId.Volume;
+            case "angle":
+                label = "Angle"; return SpecTypeId.Angle;
+            case "currency":
+                label = "Currency"; return SpecTypeId.Currency;
+            case "yesno":
+            case "boolean":
+            case "bool":
+                label = "YesNo"; return SpecTypeId.Boolean.YesNo;
+            case "url":
+                label = "URL"; return SpecTypeId.String.Url;
+            case "material":
+                label = "Material"; return SpecTypeId.Reference.Material;
+            default:
+                throw new ArgumentException($"Unknown parameter_type '{typeName}'. Supported: {SupportedParameterTypes}.");
+        }
+    }
+
+    private const string SupportedParameterGroups = "Data, IdentityData, Text, Constraints, Dimensions, General (Other), Graphics, Materials, Construction, Phasing";
+
+    // Revit 2024+ groups parameters with GroupTypeId (BuiltInParameterGroup is gone in 2025).
+    private static ForgeTypeId ResolveParameterGroup(string? groupName, out string label)
+    {
+        switch (NormalizeParameterKey(groupName ?? "Data"))
+        {
+            case "":
+            case "data":
+                label = "Data"; return GroupTypeId.Data;
+            case "identitydata":
+            case "identity":
+                label = "IdentityData"; return GroupTypeId.IdentityData;
+            case "text":
+                label = "Text"; return GroupTypeId.Text;
+            case "constraints":
+                label = "Constraints"; return GroupTypeId.Constraints;
+            case "dimensions":
+            case "geometry":
+                label = "Dimensions"; return GroupTypeId.Geometry;
+            case "general":
+            case "other":
+                label = "General"; return GroupTypeId.General;
+            case "graphics":
+                label = "Graphics"; return GroupTypeId.Graphics;
+            case "materials":
+            case "materialsandfinishes":
+                label = "Materials"; return GroupTypeId.Materials;
+            case "construction":
+                label = "Construction"; return GroupTypeId.Construction;
+            case "phasing":
+                label = "Phasing"; return GroupTypeId.Phasing;
+            default:
+                throw new ArgumentException($"Unknown parameter group '{groupName}'. Supported: {SupportedParameterGroups}.");
+        }
+    }
+
+    private static string StripForgeVersion(string? typeId)
+    {
+        if (string.IsNullOrEmpty(typeId))
+            return string.Empty;
+        var text = typeId!;
+        var dash = text.LastIndexOf('-');
+        return dash > 0 ? text.Substring(0, dash) : text;
+    }
+
+    // Compare specs without the schema version suffix ("autodesk.spec.aec:length-2.0.0").
+    private static bool SameSpec(ForgeTypeId? a, ForgeTypeId? b)
+    {
+        if (a is null || b is null)
+            return false;
+        return string.Equals(StripForgeVersion(a.TypeId), StripForgeVersion(b.TypeId), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string SpecLabel(ForgeTypeId? spec)
+    {
+        if (spec is null)
+            return "unknown";
+        try
+        {
+            var label = LabelUtils.GetLabelForSpec(spec);
+            if (!string.IsNullOrEmpty(label))
+                return label;
+        }
+        catch
+        {
+        }
+        return spec.TypeId;
+    }
+
+    private static List<string> ReadCategoryNames(JsonElement payload)
+    {
+        var names = new List<string>();
+        if (!payload.TryGetProperty("categories", out var value) || value.ValueKind == JsonValueKind.Null)
+            return names;
+        if (value.ValueKind == JsonValueKind.String)
+        {
+            var single = value.GetString();
+            if (!string.IsNullOrWhiteSpace(single))
+                names.Add(single!.Trim());
+            return names;
+        }
+        if (value.ValueKind != JsonValueKind.Array)
+            throw new ArgumentException("categories must be a list of category names, for example [\"Walls\", \"Doors\"].");
+        foreach (var item in value.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.String)
+                continue;
+            var text = item.GetString();
+            if (!string.IsNullOrWhiteSpace(text))
+                names.Add(text!.Trim());
+        }
+        return names;
+    }
+
+    // Accepts the Revit category name ("Walls"), a BuiltInCategory name ("OST_Walls") or a snake_case key ("generic_models").
+    private static Category? FindCategoryForBinding(Document doc, string name)
+    {
+        var byName = doc.Settings.Categories.Cast<Category>()
+            .FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
+        if (byName != null)
+            return byName;
+
+        var bicName = name.StartsWith("OST_", StringComparison.OrdinalIgnoreCase) ? name : "OST_" + name.Replace(" ", string.Empty);
+        if (Enum.TryParse(bicName, true, out BuiltInCategory bic) && Enum.IsDefined(typeof(BuiltInCategory), bic))
+        {
+            var category = Category.GetCategory(doc, bic);
+            if (category != null)
+                return category;
+        }
+
+        try
+        {
+            return Category.GetCategory(doc, GetBuiltInCategoryByName(name));
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private static List<Category> ResolveBindableCategories(Document doc, List<string> names)
+    {
+        var found = new List<Category>();
+        var unknown = new List<string>();
+        var notBindable = new List<string>();
+        foreach (var name in names)
+        {
+            var category = FindCategoryForBinding(doc, name);
+            if (category == null)
+            {
+                unknown.Add(name);
+                continue;
+            }
+            if (!category.AllowsBoundParameters)
+            {
+                notBindable.Add(category.Name);
+                continue;
+            }
+            if (!found.Any(c => c.Id == category.Id))
+                found.Add(category);
+        }
+
+        if (unknown.Count > 0)
+            throw new ArgumentException(
+                $"Unknown categories: {string.Join(", ", unknown)}. Use Revit category names such as 'Walls' or 'Doors', or BuiltInCategory names such as 'OST_Walls'.");
+        if (notBindable.Count > 0)
+            throw new ArgumentException(
+                $"These categories do not take bound parameters: {string.Join(", ", notBindable)}.");
+        if (found.Count == 0)
+            throw new ArgumentException("categories is empty. Name at least one category to bind the parameter to.");
+        return found;
+    }
+
+    private static ExternalDefinition? FindExternalDefinition(DefinitionFile file, string name, out string? groupName, List<string> warnings)
+    {
+        groupName = null;
+        ExternalDefinition? found = null;
+        foreach (DefinitionGroup group in file.Groups)
+        {
+            foreach (Definition definition in group.Definitions)
+            {
+                if (!(definition is ExternalDefinition external) || !string.Equals(external.Name, name, StringComparison.Ordinal))
+                    continue;
+                if (found == null)
+                {
+                    found = external;
+                    groupName = group.Name;
+                }
+                else
+                {
+                    warnings.Add($"The shared parameter file has more than one '{name}'; used the one in group '{groupName}'.");
+                }
+            }
+        }
+        return found;
+    }
+
+    // The parameter bound in the document under this name, its binding and, for a shared parameter, its GUID.
+    private static InternalDefinition? FindBoundDefinition(Document doc, string name, out ElementBinding? binding, out Guid? sharedGuid)
+    {
+        binding = null;
+        sharedGuid = null;
+        var iterator = doc.ParameterBindings.ForwardIterator();
+        iterator.Reset();
+        while (iterator.MoveNext())
+        {
+            if (!(iterator.Key is InternalDefinition definition) || !string.Equals(definition.Name, name, StringComparison.OrdinalIgnoreCase))
+                continue;
+            binding = iterator.Current as ElementBinding;
+            if (doc.GetElement(definition.Id) is SharedParameterElement shared)
+                sharedGuid = shared.GuidValue;
+            return definition;
+        }
+        return null;
     }
 
     [BridgeCommand("revit.batch_set_parameters", IsMutating = true)]
@@ -2778,9 +3338,9 @@ public static partial class BridgeCommandFactory
             .ToList();
 
         var ids = requestedUids
-            .Select(uid => doc.GetElement(uid))
+            .Select(uid => ElementLookup.ByUniqueId(doc, uid))
             .Where(element => element != null)
-            .Select(element => element.Id)
+            .Select(element => element!.Id)
             .ToList();
 
         if (ids.Count == 0)
@@ -2814,7 +3374,7 @@ public static partial class BridgeCommandFactory
             foreach (var x in uidsProp.EnumerateArray())
             {
                 requested++;
-                var element = doc.GetElement(x.GetString());
+                var element = ElementLookup.ByUniqueId(doc, x.GetString());
                 if (element != null) ids.Add(element.Id);
             }
         }
@@ -5024,11 +5584,25 @@ public static partial class BridgeCommandFactory
             throw new InvalidOperationException("No active document");
 
         var clock = System.Diagnostics.Stopwatch.StartNew();
-        bool dirtyOnly = payload.ValueKind == JsonValueKind.Object &&
+        bool isObject = payload.ValueKind == JsonValueKind.Object;
+
+        // Issue 289: a cursor continues a sliced extraction. Every other option comes from the slice
+        // session the first call created, so the slices of one snapshot always use the same scope.
+        var cursor = isObject ? PayloadJson.OptionalString(payload, "cursor") : null;
+        if (cursor != null)
+            return ContinueSnapshotSlices(app, doc, cursor, clock);
+
+        bool dirtyOnly = isObject &&
                          payload.TryGetProperty("dirty_only", out var dirtyProp) &&
                          dirtyProp.ValueKind == JsonValueKind.True;
+        bool sliced = isObject && payload.TryGetProperty("slice_size", out var sliceProp) &&
+                      sliceProp.ValueKind == JsonValueKind.Number;
         var maxElements = ReadSnapshotInt(payload, "max_elements", SnapshotDefaultMaxElements, 1, 200000);
-        var budgetMs = ReadSnapshotInt(payload, "time_budget_ms", SnapshotDefaultBudgetMs, 1000, 25000);
+        // Sliced: time_budget_ms is the budget of one slice (one Revit turn), not of the whole snapshot.
+        var budgetMs = ReadSnapshotInt(payload, "time_budget_ms",
+            sliced ? SnapshotSliceDefaultBudgetMs : SnapshotDefaultBudgetMs, 1000, 25000);
+        var sliceSize = ReadSnapshotInt(payload, "slice_size", SnapshotDefaultSliceSize, 10, 5000);
+        var paramRequests = ReadSnapshotParams(payload);
         var unknownCategories = new List<string>();
         var categories = ReadSnapshotCategories(payload, unknownCategories);
         string snapshotId = Guid.NewGuid().ToString("N");
@@ -5037,6 +5611,10 @@ public static partial class BridgeCommandFactory
         var snapshotDir = Path.Combine(workspaceDir, "snapshots");
         Directory.CreateDirectory(snapshotDir);
         var snapshotPath = Path.Combine(snapshotDir, $"{snapshotId}.json");
+
+        // Change-journal position at the start of this capture. A later incremental snapshot re-reads
+        // everything changed after it, including changes made while this capture was running.
+        DocumentDirtyTracker.GetJournalState(doc, out var trackerEpoch, out var trackerSeq);
 
         // Ids first: no element objects are built until they are actually written.
         var idsToExtract = new List<ElementId>();
@@ -5049,7 +5627,7 @@ public static partial class BridgeCommandFactory
                 if (uid.StartsWith("deleted:")) continue;
                 try
                 {
-                    var elem = doc.GetElement(uid);
+                    var elem = ElementLookup.ByUniqueId(doc, uid);
                     if (elem != null) idsToExtract.Add(elem.Id);
                 }
                 catch { }
@@ -5077,9 +5655,67 @@ public static partial class BridgeCommandFactory
                 .ToElementIds());
         }
 
+        // Issue 290: incremental capture against a base snapshot. Only the elements changed since the
+        // base (and the instances of changed types) are read; the full list of UniqueIds in scope goes
+        // with them so the server can drop deleted elements and keep the rest from the base.
+        var baseEpoch = isObject ? PayloadJson.OptionalString(payload, "base_epoch") : null;
+        bool incrementalRequested = baseEpoch != null;
+        bool incremental = false;
+        string? incrementalReason = null;
+        List<string>? currentUids = null;
+        if (incrementalRequested && dirtyOnly)
+        {
+            incrementalReason = "dirty_only and an incremental base cannot be combined; a dirty-only capture was taken.";
+        }
+        else if (incrementalRequested)
+        {
+            var changed = DocumentDirtyTracker.GetChangedSince(doc, baseEpoch!, ReadSnapshotLong(payload, "base_seq", -1));
+            if (changed == null)
+            {
+                incrementalReason = "The change journal of this document does not cover the base snapshot (another document, " +
+                                    "a reopen, reload, sync with central, save as, or a Revit restart since then); a full snapshot was taken.";
+            }
+            else if (idsToExtract.Count > maxElements)
+            {
+                incrementalReason = $"The scope has {idsToExtract.Count} elements, more than max_elements ({maxElements}); " +
+                                    "a full snapshot was taken.";
+            }
+            else
+            {
+                var reread = SelectSnapshotElementsToReread(doc, idsToExtract, changed, out currentUids);
+                idsToExtract = reread;
+                incremental = true;
+            }
+        }
+
         // Views and sheets (issue 142): only for a whole-model capture. A category-filtered or dirty-only
         // snapshot writes null for them, and the audit then reports "views not captured: result not rated".
         var captureViews = !dirtyOnly && categories.Count == 0;
+
+        if (sliced && !incremental)
+        {
+            var session = new SnapshotSliceSession
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                DocKey = DocumentDirtyTracker.DocumentKey(doc),
+                SnapshotId = snapshotId,
+                SnapshotDir = snapshotDir,
+                Ids = idsToExtract.Count > maxElements ? idsToExtract.GetRange(0, maxElements) : idsToExtract,
+                Candidates = idsToExtract.Count,
+                CapTruncated = idsToExtract.Count > maxElements,
+                MaxElements = maxElements,
+                BudgetMs = budgetMs,
+                SliceSize = sliceSize,
+                DirtyOnly = dirtyOnly,
+                Categories = categories.Select(c => c.ToString()).ToList(),
+                Params = paramRequests,
+                TrackerEpoch = trackerEpoch,
+                TrackerSeq = trackerSeq,
+                LastUsedUtc = DateTime.UtcNow,
+            };
+            return StartSnapshotSlices(app, doc, session, captureViews, dirtyIds, unknownCategories, incrementalReason, clock);
+        }
+
         var viewRecords = new List<object?>();
         var sheetRecords = new List<object?>();
         var viewsTruncated = false;
@@ -5090,6 +5726,7 @@ public static partial class BridgeCommandFactory
         var totalCandidates = idsToExtract.Count;
         var truncated = false;
         var skippedHeavy = 0;
+        var typeCache = new Dictionary<long, SnapshotTypeInfo>();
         var elementRecords = new List<object>();
         foreach (var id in idsToExtract)
         {
@@ -5099,52 +5736,8 @@ public static partial class BridgeCommandFactory
                 break;
             }
 
-            var elem = doc.GetElement(id);
-            if (elem == null || string.IsNullOrEmpty(elem.UniqueId)) continue;
-
-            Element? typeElem = null;
-            try { typeElem = doc.GetElement(elem.GetTypeId()); } catch { }
-
-            var paramsDict = new Dictionary<string, object>();
-            foreach (Parameter param in elem.Parameters)
-            {
-                if (!param.HasValue) continue;
-                if (IsHeavySnapshotParameter(elem, param)) { skippedHeavy++; continue; }
-
-                object val = SnapshotParameterValue(param);
-
-                paramsDict[param.Definition.Name] = new
-                {
-                    v = val,
-                    storage = param.StorageType.ToString(),
-                    instance = true,
-                    @readonly = param.IsReadOnly
-                };
-            }
-
-            // Retain localized labels while also supplying stable built-in names for consumers.
-            AddSnapshotNameAliases(elem, paramsDict);
-            string catName = elem.Category?.BuiltInCategory.ToString() ?? elem.Category?.Name ?? "None";
-
-            elementRecords.Add(new
-            {
-                uid = elem.UniqueId,
-                amb_uid = elem.UniqueId,
-                element_id = elem.Id.Value,
-                category = catName,
-                @class = elem.GetType().Name,
-                name = elem.Name,
-                sheet_number = (elem as ViewSheet)?.SheetNumber,
-                type_uid = elem.GetTypeId().Value.ToString(),
-                family = typeElem?.get_Parameter(BuiltInParameter.ALL_MODEL_FAMILY_NAME)?.AsString() ?? typeElem?.Name ?? string.Empty,
-                type_name = typeElem?.Name ?? string.Empty,
-                level_uid = elem.LevelId != ElementId.InvalidElementId ? elem.LevelId.Value.ToString() : null,
-                location = GetSnapshotPointLocation(elem),
-                // The QA rules (door_no_host, window_no_host) test host_uid. Without it every hosted door
-                // was reported as unhosted (1,006 false errors on a real model).
-                host_uid = (elem as FamilyInstance)?.Host?.UniqueId,
-                @params = paramsDict
-            });
+            var record = BuildSnapshotElementRecord(doc, id, paramRequests, typeCache, ref skippedHeavy);
+            if (record != null) elementRecords.Add(record);
         }
 
         var deletedIdsList = dirtyOnly
@@ -5169,31 +5762,57 @@ public static partial class BridgeCommandFactory
             ["views_truncated"] = viewsTruncated,
             ["sheets_truncated"] = sheetsTruncated,
         };
+        AddSnapshotScopeCounts(counts, paramRequests, trackerEpoch, trackerSeq);
+        if (incrementalRequested)
+        {
+            counts["incremental"] = incremental;
+            if (incrementalReason != null) counts["incremental_reason"] = incrementalReason;
+        }
+
+        // An incremental capture holds only the changed elements; it is written next to the snapshot
+        // path, never under it, so no tool can read it as a whole snapshot before the server merges it.
+        if (incremental)
+            snapshotPath = Path.Combine(snapshotDir, $"{snapshotId}.delta.json");
 
         // views / sheets are null (JSON null) when they were not captured; the audit treats a non-list
         // "views" as "views not captured: result not rated".
-        var snapshot = new
+        var source = SnapshotSource(app, doc);
+        string json;
+        if (incremental)
         {
-            schema = "amb.snapshot/1",
-            snapshot_id = snapshotId,
-            taken_at = DateTime.UtcNow.ToString("o"),
-            source = new
+            json = JsonSerializer.Serialize(new
             {
-                app = "revit",
-                app_version = app.Application.VersionNumber,
-                doc_guid = doc.ProjectInformation?.UniqueId ?? doc.Title,
-                doc_title = doc.Title,
-                units = "SI"
-            },
-            elements = elementRecords,
-            views = captureViews ? viewRecords : null,
-            sheets = captureViews ? sheetRecords : null,
-            dirty_only = dirtyOnly,
-            counts,
-            deleted = deletedIdsList
-        };
-
-        var json = JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = false });
+                schema = "amb.snapshot/1",
+                snapshot_id = snapshotId,
+                taken_at = DateTime.UtcNow.ToString("o"),
+                source,
+                elements = elementRecords,
+                views = captureViews ? viewRecords : null,
+                sheets = captureViews ? sheetRecords : null,
+                dirty_only = dirtyOnly,
+                counts,
+                deleted = deletedIdsList,
+                incremental = true,
+                current_uids = currentUids
+            }, new JsonSerializerOptions { WriteIndented = false });
+        }
+        else
+        {
+            var snapshot = new
+            {
+                schema = "amb.snapshot/1",
+                snapshot_id = snapshotId,
+                taken_at = DateTime.UtcNow.ToString("o"),
+                source,
+                elements = elementRecords,
+                views = captureViews ? viewRecords : null,
+                sheets = captureViews ? sheetRecords : null,
+                dirty_only = dirtyOnly,
+                counts,
+                deleted = deletedIdsList
+            };
+            json = JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = false });
+        }
         File.WriteAllText(snapshotPath, json);
 
         return new
@@ -5208,11 +5827,475 @@ public static partial class BridgeCommandFactory
             truncated,
             elapsed_ms = clock.ElapsedMilliseconds,
             unknown_categories = unknownCategories,
+            incremental,
+            incremental_reason = incrementalReason,
             note = truncated
                 ? $"Partial snapshot: {elementRecords.Count} of {totalCandidates} elements captured within the " +
                   $"{maxElements}-element / {budgetMs} ms limits. Pass 'categories' (for example [\"Doors\",\"Rooms\"]) " +
                   "or raise max_elements to capture what the check needs."
                 : null
+        };
+    }
+
+    // --- Snapshot extraction helpers (issues 289, 290) ------------------------------------------------
+
+    // Sliced extraction: a slice reads about this many elements in one Revit turn, then hands control
+    // back to Revit. The time budget of a slice ends it early on slow elements.
+    private const int SnapshotDefaultSliceSize = 200;
+    private const int SnapshotSliceDefaultBudgetMs = 2000;
+    private const int SnapshotMaxParams = 100;
+    private const int SnapshotMaxParamNameLength = 200;
+    private const int SnapshotMaxSliceSessions = 4;
+    private static readonly TimeSpan SnapshotSliceSessionTtl = TimeSpan.FromMinutes(15);
+
+    private sealed class SnapshotTypeInfo
+    {
+        public string Family = string.Empty;
+        public string TypeName = string.Empty;
+    }
+
+    private sealed class SnapshotParamRequest
+    {
+        public string Name = string.Empty;
+        public BuiltInParameter? BuiltIn;
+    }
+
+    private sealed class SnapshotSliceSession
+    {
+        public string Id = string.Empty;
+        public string DocKey = string.Empty;
+        public string SnapshotId = string.Empty;
+        public string SnapshotDir = string.Empty;
+        public List<ElementId> Ids = new List<ElementId>();
+        public int Candidates;
+        public bool CapTruncated;
+        public int MaxElements;
+        public int BudgetMs;
+        public int SliceSize;
+        public bool DirtyOnly;
+        public List<string> Categories = new List<string>();
+        public List<SnapshotParamRequest>? Params;
+        public string TrackerEpoch = string.Empty;
+        public long TrackerSeq;
+        public int SkippedHeavy;
+        public readonly Dictionary<long, SnapshotTypeInfo> TypeCache = new Dictionary<long, SnapshotTypeInfo>();
+        public DateTime LastUsedUtc;
+    }
+
+    private static readonly Dictionary<string, SnapshotSliceSession> _snapshotSliceSessions =
+        new Dictionary<string, SnapshotSliceSession>(StringComparer.Ordinal);
+    private static readonly object _snapshotSliceLock = new object();
+
+    private static long ReadSnapshotLong(JsonElement payload, string name, long fallback)
+    {
+        if (payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty(name, out var el)
+            && el.ValueKind == JsonValueKind.Number && el.TryGetInt64(out var v))
+        {
+            return v;
+        }
+        return fallback;
+    }
+
+    /// <summary>
+    /// The optional "params" list: read only these parameters instead of every parameter. A name written
+    /// like a built-in id (for example ALL_MODEL_MARK) is read with get_Parameter; any other name with
+    /// LookupParameter. Returns null when the list is absent. Refuses a malformed list.
+    /// </summary>
+    private static List<SnapshotParamRequest>? ReadSnapshotParams(JsonElement payload)
+    {
+        if (payload.ValueKind != JsonValueKind.Object || !payload.TryGetProperty("params", out var arr)
+            || arr.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+        if (arr.ValueKind != JsonValueKind.Array)
+            throw new ArgumentException("params must be a list of parameter names");
+
+        var result = new List<SnapshotParamRequest>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var item in arr.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.String)
+                throw new ArgumentException("params must contain only parameter names (strings)");
+            var name = (item.GetString() ?? string.Empty).Trim();
+            if (name.Length == 0)
+                throw new ArgumentException("params must not contain an empty name");
+            if (name.Length > SnapshotMaxParamNameLength)
+                throw new ArgumentException($"params names must be at most {SnapshotMaxParamNameLength} characters");
+            if (!seen.Add(name)) continue;
+            result.Add(new SnapshotParamRequest { Name = name, BuiltIn = ParseSnapshotBuiltInParameter(name) });
+        }
+        if (result.Count == 0)
+            throw new ArgumentException("params must name at least one parameter; leave it out to read every parameter");
+        if (result.Count > SnapshotMaxParams)
+            throw new ArgumentException($"params can name at most {SnapshotMaxParams} parameters");
+        return result;
+    }
+
+    private static BuiltInParameter? ParseSnapshotBuiltInParameter(string name)
+    {
+        if (name.Length == 0 || name[0] < 'A' || name[0] > 'Z') return null;
+        foreach (var c in name)
+        {
+            if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_')) return null;
+        }
+        if (!Enum.TryParse(name, false, out BuiltInParameter bip)) return null;
+        if (!Enum.IsDefined(typeof(BuiltInParameter), bip) || bip == BuiltInParameter.INVALID) return null;
+        return bip;
+    }
+
+    /// <summary>Family and type name of a type element, read once per extraction and reused.</summary>
+    private static SnapshotTypeInfo GetSnapshotTypeInfo(Document doc, ElementId typeId, Dictionary<long, SnapshotTypeInfo> cache)
+    {
+        var key = typeId.Value;
+        if (cache.TryGetValue(key, out var cached)) return cached;
+
+        Element? typeElem = null;
+        try { typeElem = doc.GetElement(typeId); } catch { }
+        var info = new SnapshotTypeInfo
+        {
+            Family = typeElem?.get_Parameter(BuiltInParameter.ALL_MODEL_FAMILY_NAME)?.AsString() ?? typeElem?.Name ?? string.Empty,
+            TypeName = typeElem?.Name ?? string.Empty
+        };
+        cache[key] = info;
+        return info;
+    }
+
+    /// <summary>One element record of the snapshot, or null when the element is gone or has no UniqueId.</summary>
+    private static object? BuildSnapshotElementRecord(
+        Document doc, ElementId id, List<SnapshotParamRequest>? paramRequests,
+        Dictionary<long, SnapshotTypeInfo> typeCache, ref int skippedHeavy)
+    {
+        var elem = doc.GetElement(id);
+        if (elem == null || string.IsNullOrEmpty(elem.UniqueId)) return null;
+
+        var typeId = elem.GetTypeId();
+        var typeInfo = GetSnapshotTypeInfo(doc, typeId, typeCache);
+
+        var paramsDict = new Dictionary<string, object>();
+        if (paramRequests == null)
+        {
+            foreach (Parameter param in elem.Parameters)
+            {
+                if (!param.HasValue) continue;
+                if (IsHeavySnapshotParameter(elem, param)) { skippedHeavy++; continue; }
+
+                object val = SnapshotParameterValue(param);
+
+                paramsDict[param.Definition.Name] = new
+                {
+                    v = val,
+                    storage = param.StorageType.ToString(),
+                    instance = true,
+                    @readonly = param.IsReadOnly
+                };
+            }
+
+            // Retain localized labels while also supplying stable built-in names for consumers.
+            AddSnapshotNameAliases(elem, paramsDict);
+        }
+        else
+        {
+            // Projection: only the named parameters, keyed by the name the caller gave.
+            foreach (var request in paramRequests)
+            {
+                Parameter? param = null;
+                try
+                {
+                    param = request.BuiltIn.HasValue
+                        ? elem.get_Parameter(request.BuiltIn.Value)
+                        : elem.LookupParameter(request.Name);
+                }
+                catch { }
+                if (param == null || !param.HasValue) continue;
+                if (IsHeavySnapshotParameter(elem, param)) { skippedHeavy++; continue; }
+
+                object val = SnapshotParameterValue(param);
+
+                paramsDict[request.Name] = new
+                {
+                    v = val,
+                    storage = param.StorageType.ToString(),
+                    instance = true,
+                    @readonly = param.IsReadOnly
+                };
+            }
+        }
+
+        string catName = elem.Category?.BuiltInCategory.ToString() ?? elem.Category?.Name ?? "None";
+
+        return new
+        {
+            uid = elem.UniqueId,
+            amb_uid = elem.UniqueId,
+            element_id = elem.Id.Value,
+            category = catName,
+            @class = elem.GetType().Name,
+            name = elem.Name,
+            sheet_number = (elem as ViewSheet)?.SheetNumber,
+            type_uid = typeId.Value.ToString(),
+            family = typeInfo.Family,
+            type_name = typeInfo.TypeName,
+            level_uid = elem.LevelId != ElementId.InvalidElementId ? elem.LevelId.Value.ToString() : null,
+            location = GetSnapshotPointLocation(elem),
+            // The QA rules (door_no_host, window_no_host) test host_uid. Without it every hosted door
+            // was reported as unhosted (1,006 false errors on a real model).
+            host_uid = (elem as FamilyInstance)?.Host?.UniqueId,
+            @params = paramsDict
+        };
+    }
+
+    private static object SnapshotSource(UIApplication app, Document doc) => new
+    {
+        app = "revit",
+        app_version = app.Application.VersionNumber,
+        doc_guid = doc.ProjectInformation?.UniqueId ?? doc.Title,
+        doc_title = doc.Title,
+        units = "SI"
+    };
+
+    private static void AddSnapshotScopeCounts(
+        Dictionary<string, object> counts, List<SnapshotParamRequest>? paramRequests, string trackerEpoch, long trackerSeq)
+    {
+        // A parameter-limited snapshot is a partial capture for every check that reads other parameters.
+        if (paramRequests != null) counts["params"] = paramRequests.Select(p => p.Name).ToList();
+        // Journal position at the start of the capture: what a later incremental snapshot starts from.
+        counts["tracker"] = new Dictionary<string, object> { ["epoch"] = trackerEpoch, ["seq"] = trackerSeq };
+    }
+
+    /// <summary>
+    /// Incremental capture: the ids in scope whose records must be read again (changed elements, and
+    /// instances of changed types or families, whose family and type names are copied into their
+    /// records), plus every UniqueId in scope in collector order.
+    /// </summary>
+    private static List<ElementId> SelectSnapshotElementsToReread(
+        Document doc, List<ElementId> scope, HashSet<string> changed, out List<string> currentUids)
+    {
+        var changedTypeIds = new HashSet<long>();
+        foreach (var uid in changed)
+        {
+            try
+            {
+                var e = doc.GetElement(uid);
+                if (e is ElementType) changedTypeIds.Add(e.Id.Value);
+                else if (e is Family family)
+                {
+                    foreach (var symbolId in family.GetFamilySymbolIds()) changedTypeIds.Add(symbolId.Value);
+                }
+            }
+            catch { }
+        }
+
+        currentUids = new List<string>(scope.Count);
+        var reread = new List<ElementId>();
+        foreach (var id in scope)
+        {
+            var elem = doc.GetElement(id);
+            if (elem == null || string.IsNullOrEmpty(elem.UniqueId)) continue;
+            currentUids.Add(elem.UniqueId);
+            bool again = changed.Contains(elem.UniqueId);
+            if (!again && changedTypeIds.Count > 0)
+            {
+                try { again = changedTypeIds.Contains(elem.GetTypeId().Value); }
+                catch { again = true; }
+            }
+            if (again) reread.Add(id);
+        }
+        return reread;
+    }
+
+    private static void RegisterSnapshotSliceSession(SnapshotSliceSession session)
+    {
+        lock (_snapshotSliceLock)
+        {
+            var now = DateTime.UtcNow;
+            foreach (var stale in _snapshotSliceSessions.Values
+                         .Where(s => now - s.LastUsedUtc > SnapshotSliceSessionTtl).Select(s => s.Id).ToList())
+            {
+                _snapshotSliceSessions.Remove(stale);
+            }
+            while (_snapshotSliceSessions.Count >= SnapshotMaxSliceSessions)
+            {
+                var oldest = _snapshotSliceSessions.Values.OrderBy(s => s.LastUsedUtc).First().Id;
+                _snapshotSliceSessions.Remove(oldest);
+            }
+            _snapshotSliceSessions[session.Id] = session;
+        }
+    }
+
+    /// <summary>
+    /// First call of a sliced snapshot. With views and sheets in scope it captures only those (with the
+    /// single-call time budget, so they are as complete as in a single-call snapshot); otherwise it reads
+    /// the first slice of elements.
+    /// </summary>
+    private static object StartSnapshotSlices(
+        UIApplication app, Document doc, SnapshotSliceSession session, bool captureViews,
+        List<string> dirtyIds, List<string> unknownCategories, string? incrementalReason,
+        System.Diagnostics.Stopwatch clock)
+    {
+        RegisterSnapshotSliceSession(session);
+        if (!captureViews)
+            return RunSnapshotSlice(app, doc, session, 0, clock, true, unknownCategories, dirtyIds, incrementalReason);
+
+        var viewRecords = new List<object?>();
+        var sheetRecords = new List<object?>();
+        CaptureSnapshotViewsAndSheets(doc, clock, SnapshotDefaultBudgetMs, viewRecords, sheetRecords,
+            out var viewsTruncated, out var sheetsTruncated);
+
+        var counts = SnapshotSliceCounts(session, captureViews: true, viewRecords.Count, sheetRecords.Count,
+            viewsTruncated, sheetsTruncated, incrementalReason);
+        var partPath = Path.Combine(session.SnapshotDir, $"{session.SnapshotId}.part-start.json");
+        var part = new
+        {
+            schema = "amb.snapshot/1",
+            snapshot_id = session.SnapshotId,
+            taken_at = DateTime.UtcNow.ToString("o"),
+            source = SnapshotSource(app, doc),
+            elements = new List<object>(),
+            views = viewRecords,
+            sheets = sheetRecords,
+            dirty_only = session.DirtyOnly,
+            counts,
+            deleted = new List<string>(),
+            part = new { offset = 0, next_offset = 0, first = true }
+        };
+        File.WriteAllText(partPath, JsonSerializer.Serialize(part, new JsonSerializerOptions { WriteIndented = false }));
+
+        return SnapshotSliceResult(doc, session, partPath, 0, 0, 0, clock, unknownCategories, incrementalReason);
+    }
+
+    private static object ContinueSnapshotSlices(UIApplication app, Document doc, string cursor, System.Diagnostics.Stopwatch clock)
+    {
+        var colon = cursor.LastIndexOf(':');
+        if (colon <= 0 || !int.TryParse(cursor.Substring(colon + 1), out var offset))
+            throw new ArgumentException("cursor is not a snapshot slice cursor; pass the next_cursor of the previous slice");
+        var sessionId = cursor.Substring(0, colon);
+
+        SnapshotSliceSession? session;
+        lock (_snapshotSliceLock)
+        {
+            _snapshotSliceSessions.TryGetValue(sessionId, out session);
+        }
+        if (session == null)
+            throw new InvalidOperationException(
+                "The snapshot slice cursor is unknown or expired (unused for 15 minutes, replaced by newer sliced " +
+                "snapshots, or Revit restarted). Start the snapshot again without a cursor.");
+        if (!string.Equals(DocumentDirtyTracker.DocumentKey(doc), session.DocKey, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                "The active document changed during a sliced snapshot. Start the snapshot again without a cursor.");
+        if (offset < 0 || offset > session.Ids.Count)
+            throw new ArgumentException("cursor offset is outside this snapshot");
+
+        session.LastUsedUtc = DateTime.UtcNow;
+        return RunSnapshotSlice(app, doc, session, offset, clock, false, new List<string>(), null, null);
+    }
+
+    /// <summary>Read the elements of one slice from offset, write them to a part file, return the next cursor.</summary>
+    private static object RunSnapshotSlice(
+        UIApplication app, Document doc, SnapshotSliceSession session, int offset,
+        System.Diagnostics.Stopwatch clock, bool first, List<string> unknownCategories,
+        List<string>? dirtyIds, string? incrementalReason)
+    {
+        var records = new List<object>();
+        var skipped = 0;
+        var index = offset;
+        while (index < session.Ids.Count)
+        {
+            // At least one element per slice, so every slice makes progress.
+            if (index > offset && (index - offset >= session.SliceSize || clock.ElapsedMilliseconds > session.BudgetMs))
+                break;
+            var record = BuildSnapshotElementRecord(doc, session.Ids[index], session.Params, session.TypeCache, ref skipped);
+            if (record != null) records.Add(record);
+            index++;
+        }
+        session.SkippedHeavy += skipped;
+
+        var deleted = first && session.DirtyOnly && dirtyIds != null
+            ? dirtyIds.Where(id => id.StartsWith("deleted:")).Select(id => id.Substring(8)).ToList()
+            : new List<string>();
+        var counts = SnapshotSliceCounts(session, captureViews: false, 0, 0, false, false, incrementalReason);
+        var partPath = Path.Combine(session.SnapshotDir, $"{session.SnapshotId}.part-{offset:D7}.json");
+        var part = new
+        {
+            schema = "amb.snapshot/1",
+            snapshot_id = session.SnapshotId,
+            taken_at = DateTime.UtcNow.ToString("o"),
+            source = SnapshotSource(app, doc),
+            elements = records,
+            views = (List<object?>?)null,
+            sheets = (List<object?>?)null,
+            dirty_only = session.DirtyOnly,
+            counts,
+            deleted,
+            part = new { offset, next_offset = index, first }
+        };
+        File.WriteAllText(partPath, JsonSerializer.Serialize(part, new JsonSerializerOptions { WriteIndented = false }));
+
+        return SnapshotSliceResult(doc, session, partPath, offset, index, records.Count, clock, unknownCategories, incrementalReason);
+    }
+
+    private static Dictionary<string, object> SnapshotSliceCounts(
+        SnapshotSliceSession session, bool captureViews, int views, int sheets,
+        bool viewsTruncated, bool sheetsTruncated, string? incrementalReason)
+    {
+        var counts = new Dictionary<string, object>
+        {
+            ["candidates"] = session.Candidates,
+            ["truncated"] = session.CapTruncated,
+            ["dirty_only"] = session.DirtyOnly,
+            ["max_elements"] = session.MaxElements,
+            ["time_budget_ms"] = session.BudgetMs,
+            ["slice_size"] = session.SliceSize,
+            ["skipped_area_volume_values"] = session.SkippedHeavy,
+            ["categories"] = session.Categories,
+            ["views_captured"] = views,
+            ["sheets_captured"] = sheets,
+            ["views_truncated"] = viewsTruncated,
+            ["sheets_truncated"] = sheetsTruncated,
+            ["views_in_scope"] = captureViews,
+        };
+        AddSnapshotScopeCounts(counts, session.Params, session.TrackerEpoch, session.TrackerSeq);
+        if (incrementalReason != null)
+        {
+            counts["incremental"] = false;
+            counts["incremental_reason"] = incrementalReason;
+        }
+        return counts;
+    }
+
+    private static object SnapshotSliceResult(
+        Document doc, SnapshotSliceSession session, string partPath, int offset, int nextOffset, int elementCount,
+        System.Diagnostics.Stopwatch clock, List<string> unknownCategories, string? incrementalReason)
+    {
+        bool done = nextOffset >= session.Ids.Count;
+        if (done)
+        {
+            lock (_snapshotSliceLock)
+            {
+                _snapshotSliceSessions.Remove(session.Id);
+            }
+        }
+        // Edits between slices make the snapshot a mix of before and after; the server reports it.
+        DocumentDirtyTracker.GetJournalState(doc, out var epochNow, out var seqNow);
+        bool changedDuringCapture = !string.Equals(epochNow, session.TrackerEpoch, StringComparison.Ordinal)
+                                    || seqNow != session.TrackerSeq;
+        return new
+        {
+            snapshot_id = session.SnapshotId,
+            path = partPath,
+            sliced = true,
+            slice_offset = offset,
+            next_offset = nextOffset,
+            next_cursor = done ? null : $"{session.Id}:{nextOffset}",
+            total = session.Ids.Count,
+            element_count = elementCount,
+            candidates = session.Candidates,
+            truncated = session.CapTruncated,
+            changed_during_capture = changedDuringCapture,
+            elapsed_ms = clock.ElapsedMilliseconds,
+            unknown_categories = unknownCategories,
+            incremental = false,
+            incremental_reason = incrementalReason
         };
     }
 

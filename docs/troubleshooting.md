@@ -11,7 +11,16 @@ aec-model-bridge doctor
 python -m revit_mcp_server doctor --json
 ```
 
-(`aec-model-bridge-doctor` is the same command.) It reads your setup and changes nothing: Python version, package version against `VERSION`, mode, whether the workspace exists and is writable, the Revit add-in registry entry and whether it has a session token (Windows only; "N/A" elsewhere; the token value is never shown), whether the bridge port answers within one second, `ifcopenshell`, other optional packages, and the MCP client config files it knows (Claude Desktop, Claude Code, Cursor, Windsurf, VS Code, Gemini CLI, Codex). A client entry that points at an `.exe` launcher under `python\Scripts` is flagged FAIL ([#159](https://github.com/Sam-AEC/aec-model-bridge/issues/159)); use `uvx` or `python -m revit_mcp_server`. Exit code 0 means no FAIL, 1 means at least one. Paste the table into a bug report; it carries no tokens or client environment values.
+(`aec-model-bridge-doctor` is the same command.) Without `--fix` it reads your setup and changes nothing: Python version, package version against `VERSION`, mode, whether the workspace exists and is writable, the Revit add-in registry entry and whether it has a session token (Windows only; "N/A" elsewhere; the token value is never shown), whether the bridge port answers within one second, `ifcopenshell`, other optional packages, and the MCP client config files it knows (Claude Desktop, Claude Code, Cursor, Windsurf, VS Code, Gemini CLI, Codex). A client entry that points at an `.exe` launcher under `python\Scripts` is flagged FAIL ([#159](https://github.com/Sam-AEC/aec-model-bridge/issues/159)); use `uvx` or `python -m revit_mcp_server`. Exit code 0 means no FAIL, 1 means at least one. Paste the table into a bug report; it carries no tokens or client environment values.
+
+The table is followed by the fixes the doctor could apply. `aec-model-bridge doctor --fix` applies them, prints each result, then prints the table for the state after the fixes:
+
+- creates a missing workspace folder;
+- gives the owner read, write and search access to a workspace folder the current user owns (POSIX);
+- deletes add-in registry files whose Revit process is not running (Windows), and checks again just before each delete;
+- points a client entry that FAILs (an `.exe` launcher or a missing command) at the Python running the doctor, as `<python> -m revit_mcp_server`. The old file is kept as `<file>.aec-backup-<timestamp>`; `env` and every other key stay as they are. Codex (`config.toml`) entries are listed for a manual edit.
+
+It never starts or contacts Revit, never deletes user data and never changes approval settings. Unreadable registry files and config files that do not parse are left alone. The Windows fixes are UNVERIFIED on Windows.
 
 ## Error codes
 

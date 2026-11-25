@@ -3,7 +3,7 @@
 > Open-source Revit MCP server (Model Context Protocol) and native Revit add-in. AI assistants such as Claude, Codex and Cursor read and edit the BIM model open in Revit 2024 to 2027. Every model change is a plan that a person approves first (approval gate). Also reads IFC files; Rhino, Grasshopper and Speckle integrations included.
 
 - Protocol: Model Context Protocol, stdio transport. Any MCP client that can start a local server works.
-- Tools: 311 in the default setup, counted in mock mode. Revit has 110 of them.
+- Tools: 313 in the default setup, counted in mock mode. Revit has 111 of them.
 - Safety: tools that change the model are blocked until a plan is approved. An unattended mode exists and is opt-in.
 - Platform: live Revit work needs Windows and a licensed Revit. Mock mode (sample data) needs neither.
 - Licence: GPL-3.0-or-later with the Revit Linking Exception, plus a commercial option.
@@ -35,8 +35,14 @@
 - [Module authoring](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/module-authoring.md): write a plug-in module.
 - [Rule packs](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/rule-packs.md): BIM QA/QC rules.
 - [MCP token budget](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/mcp-token-budget.md): tool profiles and context size.
+- [Performance](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/performance.md): server cold start, bridge client compression and routing, `revit_perf_report`.
+- [Deferred tool loading](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/deferred-tool-loading.md): Claude Code and Claude API config that defers the server behind tool search and keeps eight tools loaded.
+- [Python automation](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/python-automation.md): fast revit_execute_python patterns and the opt-in `amb` helper library (`helpers: true`).
 - [snapshot_compute](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/snapshot-compute.md): one-call read-only query pipelines over a saved snapshot.
+- [Read result cursors](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/read-cursors.md): size cap, cursors and saved results for large read answers.
+- [Operator skill](https://github.com/Sam-AEC/aec-model-bridge/blob/main/packages/claude-plugin/skills/aec-model-bridge/SKILL.md): Agent Skills file that teaches clients to use few calls and small results.
 - [Dev workflow](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/dev-workflow.md): build, test and release commands.
+- [Record and replay](https://github.com/Sam-AEC/aec-model-bridge/blob/main/docs/record-replay.md): record bridge traffic to a cassette and replay it without Revit as a regression test.
 - [Agent instructions](https://github.com/Sam-AEC/aec-model-bridge/blob/main/AGENTS.md): repository layout, commands and rules for coding agents.
 
 ## Project

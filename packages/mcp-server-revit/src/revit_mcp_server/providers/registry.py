@@ -11,6 +11,8 @@ class ProviderRegistry:
         self._tool_profile: ToolProfile | None = None
         self._tool_snapshot: tuple[tuple[AECProvider, ProviderTool], ...] | None = None
         self._hidden_tools: frozenset[str] = frozenset()
+        # Local tool-usage counter (usage_counts.UsageCounter); set by the MCP server only.
+        self.usage_counter = None
 
     def freeze_tool_profile(self, profile: ToolProfile) -> None:
         """Snapshot discovery/lookup once for this MCP process, without altering providers.

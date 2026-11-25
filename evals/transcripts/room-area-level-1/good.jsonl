@@ -1,0 +1,4 @@
+{"meta": {"expect": {"passed": true}, "note": "Sum in snapshot_compute."}}
+{"tool": "snapshot_take", "arguments": {}}
+{"tool": "snapshot_compute", "arguments": {"snapshot_id": "01JEVALRECORDEDSNAPSHOT001", "steps": [{"join": ["level"], "where": [{"field": "category", "value": "OST_Rooms"}, {"field": "level.type_name", "value": "Level 1"}], "group_by": ["level.type_name"], "aggregate": {"area": {"op": "sum", "field": "params.Area"}}}]}}
+{"answer": "The rooms on Level 1 add up to 15.5 square metres (one room, Kitchen)."}

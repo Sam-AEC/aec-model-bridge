@@ -32,8 +32,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-import yaml
-
 logger = logging.getLogger(__name__)
 
 RECIPES_DIR = Path(__file__).parent / "recipes"
@@ -112,6 +110,8 @@ def _load_recipe(recipe_id: str, workspace: Any = None) -> Dict[str, Any]:
         path = RECIPES_DIR / f"{recipe_id}.yaml"
     if not path.exists():
         raise ValueError(f"Recipe '{recipe_id}' not found at {path}")
+    import yaml  # loaded on first use, not at server start
+
     with open(path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
     if not isinstance(data.get("steps", []), list):
@@ -121,6 +121,8 @@ def _load_recipe(recipe_id: str, workspace: Any = None) -> Dict[str, Any]:
 def _list_recipes() -> List[Dict[str, Any]]:
     if not RECIPES_DIR.exists():
         return []
+    import yaml
+
     result = []
     for p in sorted(RECIPES_DIR.glob("*.yaml")):
         try:

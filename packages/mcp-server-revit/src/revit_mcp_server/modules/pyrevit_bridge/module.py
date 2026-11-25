@@ -27,6 +27,8 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Dict, List, Optional, Tuple
 
 from revit_mcp_server.errors import BridgeError, WorkspaceViolation
+from revit_mcp_server.security import approval_signing as signing_mod
+from revit_mcp_server.security import proof as proof_mod
 from revit_mcp_server.security.workspace import WorkspaceMonitor
 
 ENV_VAR = "MCP_REVIT_PYREVIT_EXTENSION_DIRS"
@@ -141,6 +143,13 @@ def _load_approved_plan(plan_id: str, workspace: Any) -> Dict[str, Any]:
         raise BridgeError(f"Plan '{plan_id}' does not exist.") from exc
     if plan.get("state") != "approved":
         raise BridgeError(f"Plan '{plan_id}' is in state '{plan.get('state')}', not 'approved'. Execution blocked.")
+    try:
+        unchanged = plan.get("approved_hash") == proof_mod.plan_content_hash(plan)
+    except ValueError:
+        unchanged = False
+    if not unchanged:
+        raise BridgeError(f"Plan '{plan_id}' changed after it was approved (or has no approval record). Execution blocked.")
+    signing_mod.require_signed(plans, plan)
     return plan
 
 

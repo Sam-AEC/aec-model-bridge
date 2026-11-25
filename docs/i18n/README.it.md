@@ -116,16 +116,16 @@ Usi VS Code? Il [sorgente dell'estensione e i passaggi di installazione locale](
 
 | Area | Strumenti | Cosa fanno |
 | --- | --- | --- |
-| Revit | 110 | Leggere il modello, creare e modificare elementi, parametri, viste, tavole, abachi, esportazioni, condivisione del lavoro (worksharing) |
+| Revit | 111 | Leggere il modello, creare e modificare elementi, parametri, viste, tavole, abachi, esportazioni, condivisione del lavoro (worksharing) |
 | Approvazione | 6 | Pianificare, rivedere, approvare, eseguire e annullare le modifiche al modello |
 | Moduli | 114 | Ispezione degli snapshot, griglie di parametri, controlli QA/QC, ricette, report, selezioni |
 | Rhino e Grasshopper | 19 | Geometria, layer, materiali, operazioni booleane |
 | Speckle | 17 | Progetti, modelli, versioni, invio e ricezione |
 | Navisworks | 15 | Albero del modello, punti di vista, verifiche di interferenza (in sviluppo) |
 | IFC | 7 | Leggere file IFC senza Revit: struttura, proprietà, validazione |
-| Grafo, snapshot, esportazioni, job | 23 | Audit del grafo semantico, differenze tra snapshot, esportazione SQLite, job in background |
+| Grafo, snapshot, esportazioni, job | 24 | Audit del grafo semantico, differenze tra snapshot, esportazione SQLite, job in background |
 
-Nella configurazione predefinita sono elencati 311 strumenti (contati dal server attuale in modalità mock). Gli strumenti Autodesk Data compaiono quando sono configurate le credenziali APS. Il [riferimento degli strumenti](../tools-generated.md) li elenca tutti. Ogni strumento ha annotazioni MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), così i client possono distinguere le letture dalle scritture.
+Nella configurazione predefinita sono elencati 313 strumenti (contati dal server attuale in modalità mock). Gli strumenti Autodesk Data compaiono quando sono configurate le credenziali APS. Il [riferimento degli strumenti](../tools-generated.md) li elenca tutti. Ogni strumento ha annotazioni MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), così i client possono distinguere le letture dalle scritture.
 
 ### Automazione avanzata di Revit
 
@@ -170,7 +170,7 @@ Il pannello mostra la revisione del piano con "Show the review to enable Approve
 
 <sub>Sorgente del diagramma: [approval-flow.mmd](../diagrams/approval-flow.mmd). Rigenera le immagini con `python scripts/render_diagrams.py`.</sub>
 
-Se un piano si rivela sbagliato, annullalo con Ctrl+Z in Revit. Ogni scrittura di parametro è una transazione con nome a sé, quindi un piano può richiedere più pressioni. Un annullamento in un solo passaggio per un intero piano è pianificato, non realizzato. Una seconda via è un piano di ripristino: l'assistente ne redige uno con `plan_revert` a partire dalla prova di un piano eseguito, e tu lo approvi come qualsiasi altro piano. `rollback_plan` è solo per le persone e non è né un pulsante né un comando, quindi non contarci. Nessuna di queste vie è ancora verificata in una sessione Revit reale (UNVERIFIED). Le operazioni che non si possono annullare, come la scrittura di file, non vengono annullate da nessuna di esse e non chiedono ancora una seconda conferma (pianificato). L'elenco Plans del pannello mostra solo i piani in sospeso; `aec-model-bridge-approve show <plan_id>` funziona per un piano in qualsiasi stato, mentre i pacchetti `proofs/` esistono solo per i piani eseguiti (o tentati). Il ciclo di vita è descritto nell'[ADR 0008](../adr/0008-approval-gate-lifecycle.md).
+Se un piano si rivela sbagliato, annullalo con Ctrl+Z in Revit. Ogni scrittura di parametro è una transazione con nome a sé, quindi un piano può richiedere più pressioni. Un piano che scrive solo parametri, sposta o ruota elementi viene eseguito come un unico lotto se l'add-in lo supporta, e allora un Ctrl+Z annulla l'intero piano (UNVERIFIED in un Revit reale). Una seconda via è un piano di ripristino: l'assistente ne redige uno con `plan_revert` a partire dalla prova di un piano eseguito, e tu lo approvi come qualsiasi altro piano. `rollback_plan` è solo per le persone e non è né un pulsante né un comando, quindi non contarci. Nessuna di queste vie è ancora verificata in una sessione Revit reale (UNVERIFIED). Le operazioni che non si possono annullare, come la scrittura di file, non vengono annullate da nessuna di esse e non chiedono ancora una seconda conferma (pianificato). L'elenco Plans del pannello mostra solo i piani in sospeso; `aec-model-bridge-approve show <plan_id>` funziona per un piano in qualsiasi stato, mentre i pacchetti `proofs/` esistono solo per i piani eseguiti (o tentati). Il ciclo di vita è descritto nell'[ADR 0008](../adr/0008-approval-gate-lifecycle.md).
 
 Per le pipeline non presidiate puoi impostare `MCP_REVIT_APPROVAL_MODE=auto`. Questo disattiva il controllo da parte di una persona, quindi usalo solo in un ambiente controllato.
 

@@ -12,11 +12,11 @@ A tool failure reaches an MCP client in one of two shapes:
 Refusals never change the model. A refused write needs a new plan that a person approves.
 For logs and connection problems see [troubleshooting](troubleshooting.md).
 
-Entries: 136.
+Entries: 151.
 
 ## Tool error kinds
 
-Set by the MCP layer as `structuredContent.error.kind` when a call fails with `isError`. Entries: 7.
+Set by the MCP layer as `structuredContent.error.kind` when a call fails with `isError`. Entries: 12.
 
 ### `approval_blocked`
 
@@ -42,16 +42,46 @@ Set by the MCP layer as `structuredContent.error.kind` when a call fails with `i
 - What to do: Stop. Ask the person to approve, reject or roll back the plan in the Revit panel or with the aec-model-bridge-approve command.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
 
+### `input_needed`
+
+- When: A tool needs one more input: an export without its output file, a level name that matches several levels, or a parameter name that does not exist but has close names. The client did not support elicitation, or the person declined, cancelled or did not answer in time.
+- What to do: Read the message: it names the missing input and the choices. Call again with that input set. Do not guess a choice for the person.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
+
+### `invalid_cursor`
+
+- When: response_options.cursor was refused: it expired (default 600 seconds), the server restarted, it came from another call, or the tool takes no cursor.
+- What to do: Call the tool again without a cursor and page from the new answer.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
+
 ### `invalid_response_options`
 
 - When: The response_options argument is not an object, names an unsupported key, or has a value of the wrong type.
 - What to do: Remove response_options or fix it as the message says, then call again.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
 
+### `rate_limited`
+
+- When: Too many calls in a short time: the client session (default 600 per minute) or one tool (default 120 per minute for a write tool, 300 for a read tool) is over its limit. Nothing ran and no approved action was used. Approval tools are never counted.
+- What to do: Wait the number of seconds in error.retry_after_seconds, then call again. Do not loop on the call. The person can change the limits with MCP_REVIT_RATE_LIMITS (docs/configuration-reference.md).
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
+
+### `task_not_supported`
+
+- When: A tools/call carried a task field (MCP Tasks) for a tool that does not accept task-augmented calls. Nothing ran and no approved action was used.
+- What to do: Call the tool without the task field, or use a tool whose execution.taskSupport is optional (docs/mcp-tasks.md).
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
+
 ### `tool_profile_blocked`
 
 - When: The tool is registered but this server's static MCP tool profile hides it.
 - What to do: Use a tool the profile lists. To use this one, the person must change the tool profile and restart the server (docs/mcp-token-budget.md).
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
+
+### `tool_timeout`
+
+- When: A read tool did not finish within its timeout (default 300 s) and was stopped. Nothing in the model changed. A write that runs out of time is not refused this way: it is reported as possibly still running and its approved action stays used.
+- What to do: Ask for less (a narrower filter, fewer elements, a smaller view). The person can raise the timeout with MCP_REVIT_TOOL_TIMEOUT or MCP_REVIT_TOOL_TIMEOUTS (docs/configuration-reference.md).
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
 
 ### `unknown_tool`
@@ -738,7 +768,7 @@ Set by module tools as `kind` in an `ok: false` result, next to `message`, `elem
 
 ## Exception classes
 
-Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 17.
+Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 27.
 
 ### `ApprovalExpired`
 
@@ -746,17 +776,41 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 - What to do: Create a new plan and ask the person to approve it. Nothing renews an old approval.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/security/approval.py`
 
+### `ApprovalKeyError`
+
+- When: The workspace approval signing key (plans/.keys/approval-signing.key) is a symlink, owned by another user, readable by others, or malformed. The approval was not recorded.
+- What to do: Ask the person to delete the key file and approve the plan again. Plans approved under the old key must be approved again.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/security/approval_signing.py`
+
+### `AppsResourceError`
+
+- When: A ui:// MCP Apps URI is unknown, names a plan that is not allowed or not found, or MCP_REVIT_MCP_APPS is off.
+- What to do: Use ui://aec-model-bridge/plan-review or a plan id from list_pending_plans; check MCP_REVIT_MCP_APPS.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_apps.py`
+
 ### `BcfError`
 
 - When: A BCF file or its path is unsafe or invalid: no workspace, path outside the workspace, bad zip entry or an oversized entry.
 - What to do: Use a BCF file inside the workspace. Do not open archives from untrusted sources.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/modules/bcf_exchange/module.py`
 
+### `BridgeContractError`
+
+- When: The payload for an add-in command does not match contracts/bridge-commands.json. Nothing was sent to Revit.
+- What to do: Fix the parameter the message names and call again. MCP_REVIT_VALIDATE_BRIDGE_PAYLOADS=off turns the check off.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/errors.py`
+
 ### `BridgeError`
 
 - When: Communication with the Revit bridge failed, or a tool reported a failure. Returned to clients as kind bridge_error.
 - What to do: Run revit_health and check that Revit is running with the add-in.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/errors.py`
+
+### `CassetteError`
+
+- When: Replay mode cannot open, read or match a cassette, or MCP_REVIT_RECORD is not a plain cassette name. A kind of BridgeError, returned as bridge_error.
+- What to do: Set MCP_REVIT_CASSETTE to a readable cassette file, record the session again for an unmatched request, or use a plain name (letters, digits, _ or -) for MCP_REVIT_RECORD. See docs/record-replay.md.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/bridge/cassette.py`
 
 ### `CategoryMismatch`
 
@@ -770,11 +824,35 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 - What to do: Read the attached result. Plan a corrected action; the old approval is used up.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/errors.py`
 
+### `CursorError`
+
+- When: A read cursor is malformed, unknown, expired, past the end or belongs to another call. Returned to clients as kind invalid_cursor.
+- What to do: Call the tool again without a cursor, or repeat the first call's tool, arguments and fields exactly with the cursor.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/read_cursor.py`
+
 ### `DomainMismatch`
 
 - When: A system belongs to a different domain than the tool's kind.
 - What to do: Pick a system of the tool's kind, for example pipe systems for pipes.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/modules/revit_mep/module.py`
+
+### `ElicitationForbidden`
+
+- When: Server code tried to ask the person a question for an approval tool, from the approval code, or for something that looks like a secret.
+- What to do: Nothing for the client. Plan approval comes only from a person in the panel or the CLI; this is a server bug if it is ever seen.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/elicitation.py`
+
+### `IncrementalMergeError`
+
+- When: An incremental snapshot capture does not fit its base snapshot (another document, a cut-short capture, or an element missing from both).
+- What to do: Nothing to do. snapshot_take catches it, takes a full snapshot and gives the reason in counts.incremental_reason.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/semantic/engine.py`
+
+### `InputNeeded`
+
+- When: A tool needs one more input from the person. The MCP layer asks through elicitation when the client supports it; otherwise it returns kind input_needed.
+- What to do: Call again with the input the message names.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/elicitation.py`
 
 ### `InstanceRoutingError`
 
@@ -835,6 +913,18 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 - When: A registered tool is hidden by the static MCP tool profile. Returned as kind tool_profile_blocked.
 - What to do: Use a listed tool, or ask the person to change the profile.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/tool_profiles.py`
+
+### `ToolTimedOut`
+
+- When: Internal: a direct tool call outlived its timeout (call_limits.py). Never returned as is: a read becomes kind tool_timeout, a write becomes a reply that it may still be running.
+- What to do: See mcp/tool_timeout. For a write, do not repeat the call; check the model with a read tool.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/call_limits.py`
+
+### `UsageLockTimeout`
+
+- When: Another server process held the tool usage counts lock (usage/.tool-usage.json.lock) for longer than the 2 s wait. Logged as a warning; it never fails a tool call.
+- What to do: Nothing. The counts stay in memory and are written at the next flush. A lock file older than 30 s is removed as stale.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/usage_counts.py`
 
 ### `WorkspaceViolation`
 

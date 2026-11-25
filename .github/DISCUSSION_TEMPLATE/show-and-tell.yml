@@ -1,0 +1,32 @@
+title: "<what you built or ran>"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Show a workflow, prompt, rule pack, module or result you made with AEC Model Bridge.
+        Only post models, screenshots and files you have the right to share. Remove client names, project names and file paths you do not want public.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What it does
+      description: The task, the tools or prompts you used, and the result.
+    validations:
+      required: true
+  - type: dropdown
+    id: host
+    attributes:
+      label: Where it ran
+      options:
+        - Live Revit
+        - Mock mode (no Revit)
+        - IFC files only
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details, prompts or files
+      description: Prompts, plan output, screenshots or links. Use code blocks for prompts and logs.
+    validations:
+      required: false

@@ -1,0 +1,32 @@
+# Starter recipe: elements of one category whose parameter matches a rule (read only).
+# The match runs inside Revit (ElementParameterFilter after the category quick filter), not in a Python loop.
+# Uses the amb helper library (docs/python-automation.md).
+
+
+def main():
+    doc_meta()
+    p = load_params()
+    limit = int(p.get("limit", 200))
+    kind = p.get("value_type", "text")
+    op = p.get("op", "==")
+    raw = p.get("value", "")
+    if op in ("has_value", "no_value"):
+        value = None
+    elif kind == "number":
+        value = float(raw)
+        if p.get("unit", "internal") != "internal":
+            value = amb.to_internal(value, p.get("unit"))
+    elif kind == "integer":
+        value = int(raw)
+    else:
+        value = raw
+    col = amb.where(amb.instances(p.get("category", "Walls")), p.get("parameter"), op, value)
+    ids = amb.ids(col)
+    for e in amb.elements(ids[:limit]):
+        row([("id", eid(e)), ("category", cat_name(e)), ("name", ename(e))])
+    if len(ids) > limit:
+        info("LIST_CUT", "%d more elements not listed (raise limit)" % (len(ids) - limit))
+    summary("%d elements match" % len(ids))
+
+
+__output__ = run_main(main)

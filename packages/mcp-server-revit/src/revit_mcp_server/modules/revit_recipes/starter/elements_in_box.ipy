@@ -1,0 +1,22 @@
+# Starter recipe: elements of some categories whose bounding box touches (or lies inside) a box given in metres
+# (read only). Quick filters only: categories, then BoundingBoxIntersectsFilter or BoundingBoxIsInsideFilter.
+# Uses the amb helper library (docs/python-automation.md).
+
+
+def main():
+    doc_meta()
+    p = load_params()
+    limit = int(p.get("limit", 200))
+    cats = [c.strip() for c in p.get("categories", "Walls").split(",") if c.strip()]
+    lo = [amb.to_internal(p.get(k, 0.0), "m") for k in ("min_x", "min_y", "min_z")]
+    hi = [amb.to_internal(p.get(k, 0.0), "m") for k in ("max_x", "max_y", "max_z")]
+    col = amb.in_box(amb.instances(cats), lo, hi, inside=bool(p.get("inside", False)))
+    ids = amb.ids(col)
+    for e in amb.elements(ids[:limit]):
+        row([("id", eid(e)), ("category", cat_name(e)), ("name", ename(e))])
+    if len(ids) > limit:
+        info("LIST_CUT", "%d more elements not listed (raise limit)" % (len(ids) - limit))
+    summary("%d elements in the box" % len(ids))
+
+
+__output__ = run_main(main)

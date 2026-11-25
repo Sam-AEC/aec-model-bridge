@@ -19,7 +19,7 @@ CI does not start Revit. Tests that touch Revit use mock providers.
 Run on a Windows machine with Revit, starting with the write test in section 5. Mark each PASS or FAIL.
 
 1. First real write (for example `revit_set_parameter_value` through an approved plan). A crash here is the most important finding.
-2. Undo behaviour. The add-in names one transaction per action, so undoing a plan takes one Ctrl+Z per action. Check this, and check `rollback_plan`, which can skip actions that have no recorded before-value.
+2. Undo behaviour. A plan of only parameter writes, moves and rotations runs as one `revit.execute_plan_batch` and should be one Ctrl+Z step named "AEC Model Bridge: <plan title> (<short id>)" (UNVERIFIED). Check it with a plan of two or more actions, check that a plan whose second action fails leaves the model unchanged, and check that other plans still take one Ctrl+Z per action. Check `rollback_plan`, which can skip actions that have no recorded before-value.
 3. Two Revits open at once: requests reach the Revit the person means ([ADR 0014](adr/0014-multi-revit-routing.md), the "Several Revits" section of security.md).
 4. The WebView2 panel loads, lists pending plans and approves one. Run `aec-model-bridge-approve show <plan_id>` for the same plan and compare it with what the panel showed.
 5. Windows ACL on `%LOCALAPPDATA%\AECModelBridge\panel-hub.token`: only the current user has access. Windows does not re-verify the ACL on read.
@@ -30,11 +30,11 @@ Run on a Windows machine with Revit, starting with the write test in section 5. 
 
 - Plans do not record the Revit that created them. Until fixed, a plan drafted in Revit A can run against Revit B.
 - The client sends the raw token to whatever listens on 127.0.0.1:8787. On a shared machine another user could bind the port first.
-- No socket timeout or thread cap on the hub handler, so a slow unauthenticated body can hold a thread.
-- The routed-bridge lock is held during a network initialise, and cached clients for dead Revits are not evicted.
+- The hub caps request threads at `AEC_PANEL_MAX_THREADS` (default 32) and keeps 2 for `/execute`; over the cap a connection gets 503 with `Retry-After: 1` and no thread. Slow clients can still fill the other slots for up to 30 s per blocking read and delay non-`/execute` panel routes (UNVERIFIED with the live panel). MCP tool calls have per-tool timeouts and rate limits (UNVERIFIED in live Revit; see configuration-reference.md).
+- Routed bridge clients: the routing lock no longer covers network calls, and a cached client is dropped when its Revit registry entry is gone or its `/health` fails three times in a row after failed calls. Tested with fakes only; UNVERIFIED with two live Revits.
 - The dev panel displays validated plan reviews and blocks approval when a review is malformed, unsupported or too large. These browser checks passed; live plan approval acceptance remains pending. Compare the card with `aec-model-bridge-approve show <plan_id>` before approving.
 - The panel Plans view lists pending plans only. `aec-model-bridge-approve show <plan_id>` works for a plan in any state; `proofs/` bundles exist only for plans that were executed or attempted.
-- There is no one-step undo for a whole plan. Undo is Ctrl+Z once per action, or a revert plan (`plan_revert`) that is approved like any other plan. `rollback_plan` is for people only and has no panel button or command-line command yet.
+- One-step undo covers only plans made of parameter writes, moves and rotations, run through `revit.execute_plan_batch` (UNVERIFIED in live Revit). Other plans undo with Ctrl+Z once per action. A revert plan (`plan_revert`) is approved like any other plan. `rollback_plan` is for people only and has no panel button or command-line command yet.
 - Executing a plan costs O(n^2) in its action count; keep plans to a few hundred actions.
 - Environment Auto, timed panel Auto and explicit panel Dev skip per-change approval. Dev has no expiry until switched off and applies across sessions sharing the workspace; it does not relax filesystem scope or read-mode guards. An explicitly supplied plan must still be valid and approved.
 - The panel's `/execute` endpoint and the approval command line authenticate a local process, not a person. Do not give an AI client a shell on the same account if you rely on the gate.
@@ -49,10 +49,12 @@ Run on a Windows machine with Revit, starting with the write test in section 5. 
 1. Open the pull request from `dev` to `main` and review it. Do not merge until sections 1 and 2 are done or their gaps are accepted in writing.
 2. Import the repository rulesets in GitHub settings.
 3. Upload `docs/images/readme/social-preview.png` under repository Settings, General, Social preview. Only an admin can set it.
-4. Have counsel review the licences and the rule packs ([rule-packs.md](rule-packs.md), [LICENSING.md](../LICENSING.md)).
-5. Have native speakers review the 16 translated READMEs in `docs/i18n/`, including the Plans view note, approval and undo wording, and the current screenshot alt text. Source corrections do not establish native-language review.
-6. Run a pilot with BIM coordinators. None has been run yet.
-7. Tag and publish the release ([versioning.md](versioning.md)).
+4. Enable the docs site: repository Settings, Pages, Build and deployment, Source: GitHub Actions. `.github/workflows/docs.yml` then deploys the MkDocs site on the next push to `main` that touches `docs/` or `mkdocs.yml` (or run the workflow by hand). Until then the deploy job fails and the site is not published.
+5. Enable Discussions and create the categories in [maintainer/discussions.md](maintainer/discussions.md).
+6. Have counsel review the licences and the rule packs ([rule-packs.md](rule-packs.md), [LICENSING.md](../LICENSING.md)).
+7. Have native speakers review the 16 translated READMEs in `docs/i18n/`, including the Plans view note, approval and undo wording, and the current screenshot alt text. Source corrections do not establish native-language review.
+8. Run a pilot with BIM coordinators. None has been run yet.
+9. Tag and publish the release ([versioning.md](versioning.md)).
 
 ## 5. Minimal safe write test
 
@@ -64,7 +66,7 @@ The first real write against Revit since the `CreateTransaction` fix (#95). Buil
 4. In the Revit panel, check the arguments match what you asked for, then Approve. (Or `aec-model-bridge-approve`.)
 5. Ask the assistant to run `execute_plan`.
 6. Read the parameter in the Properties palette. Pass: value is `dev-test-1` and Revit did not hang or crash. Fail: freeze, close, a panel error, or an unchanged value.
-7. Press Ctrl+Z once and read it again. Pass: the original value is back. If it took more steps, note how many. Undo is per action, so one step for a whole plan is not built.
+7. Press Ctrl+Z once and read it again. Pass: the original value is back. If it took more steps, note how many. A one-action plan is one step either way; repeat with a two-action plan to check the one-step plan undo.
 8. Record pass or fail for the write and for undo, any message text, and the lines in `%APPDATA%\AECModelBridge\Logs\bridge.jsonl` around that time.
 
 Stop and report if step 5 or 6 fails.
@@ -95,8 +97,8 @@ Nothing here is automated except the workflows named. Account steps belong to th
 | GitHub MCP Registry, VS Code gallery | Read from the official registry. `.vscode/mcp.json` gives a workspace install. | Follows the official registry. |
 | Claude Code plugin | `.claude-plugin/marketplace.json` and `packages/claude-plugin/`. Users run `/plugin marketplace add Sam-AEC/aec-model-bridge`, then `/plugin install aec-model-bridge@aec-model-bridge`. Schema UNVERIFIED against `claude plugin validate`. | In the repository only. |
 | Anthropic directory | Local `.mcpb` listings are reported as no longer accepted (UNVERIFIED); a local server goes in as a plugin through the developer portal. Needs the privacy policy in `privacy.md` (referenced from `manifest.json`). | Not submitted. |
-| Glama | `glama.json` at the repository root on `main`; claim ownership while signed in as `Sam-AEC`. Re-claim after changing the file. | Not claimed. |
-| Smithery | `smithery.yaml` builds the root `Dockerfile` in mock mode only. Listings must say live use needs Revit. | Not listed. |
+| Glama | `glama.json` at the repository root on `main`; claim ownership while signed in as `Sam-AEC`. Re-claim after changing the file. The file lists maintainers only; the listing text is reported to come from the repository About text and README (UNVERIFIED), so those must say mock mode runs without Revit and live use needs Windows, Revit 2024 to 2027 and the add-in. | Not claimed. |
+| Smithery | `smithery.yaml` builds the root `Dockerfile` in mock mode only. Its config description says mock mode runs without Revit and live use needs Windows, Revit 2024 to 2027 and the add-in. | Not listed. |
 | Cline marketplace | Issue in the Cline marketplace repository with a 400x400 logo (none in the repo). Process UNVERIFIED. | Not submitted. |
 | Other directories (PulseMCP, MCP.Directory, MCP.so) | Submit the repository URL; they read the README and registry data. | Not submitted. |
 

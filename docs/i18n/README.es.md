@@ -145,16 +145,16 @@ publicado en el Marketplace.
 
 | Área | Herramientas | Qué hacen |
 | --- | --- | --- |
-| Revit | 110 | Leer el modelo, crear y editar elementos, parámetros, vistas, hojas, tablas de planificación, exportaciones, trabajo compartido |
+| Revit | 111 | Leer el modelo, crear y editar elementos, parámetros, vistas, hojas, tablas de planificación, exportaciones, trabajo compartido |
 | Aprobación | 6 | Planificar, revisar, aprobar, ejecutar y revertir cambios en el modelo |
 | Módulos | 114 | Inspección de instantáneas, cuadrículas de parámetros, comprobaciones de QA/QC, recetas, informes, selecciones |
 | Rhino y Grasshopper | 19 | Geometría, capas, materiales, operaciones booleanas |
 | Speckle | 17 | Proyectos, modelos, versiones, envío y recepción |
 | Navisworks | 15 | Árbol del modelo, puntos de vista, pruebas de interferencias (en desarrollo) |
 | IFC | 7 | Leer archivos IFC sin Revit: estructura, propiedades, validación |
-| Grafo, instantáneas, exportaciones, tareas | 23 | Auditorías del grafo semántico, diferencias entre instantáneas, exportación a SQLite, tareas en segundo plano |
+| Grafo, instantáneas, exportaciones, tareas | 24 | Auditorías del grafo semántico, diferencias entre instantáneas, exportación a SQLite, tareas en segundo plano |
 
-En la configuración predeterminada aparecen 311 herramientas (contadas desde el servidor actual en modo
+En la configuración predeterminada aparecen 313 herramientas (contadas desde el servidor actual en modo
 mock). Las herramientas de Autodesk Data aparecen cuando se configuran credenciales de APS. La
 [referencia de herramientas](../tools-generated.md) las enumera todas. Cada herramienta incluye
 anotaciones MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`,
@@ -217,7 +217,8 @@ El panel muestra la revisión del plan con "Show the review to enable Approve" y
 
 Si un plan resulta ser erróneo, deshazlo con Ctrl+Z en Revit. Cada escritura de parámetro
 es su propia transacción con nombre, así que un plan puede requerir varias pulsaciones.
-Un deshacer en un solo paso para un plan completo está planificado, no construido.
+Un plan que solo escribe parámetros, mueve o gira elementos se ejecuta como un lote si el complemento lo admite,
+y entonces un Ctrl+Z deshace el plan completo (UNVERIFIED en un Revit real).
 Una segunda vía es un plan de reversión: el asistente lo redacta con `plan_revert` a partir de la prueba de un plan ejecutado, y tú lo apruebas como cualquier otro plan. `rollback_plan` es solo para personas y no es un botón ni un comando, así que no cuentes con él. Ninguna de estas vías está verificada todavía en una sesión real de Revit (UNVERIFIED). Las operaciones que no se pueden revertir, como la escritura de archivos, no se deshacen por ninguna de ellas y todavía no piden una segunda confirmación (planificado). La lista Plans del panel muestra solo los planes pendientes; `aec-model-bridge-approve show <plan_id>` funciona con un plan en cualquier estado, mientras que los paquetes de `proofs/` solo existen para los planes que se ejecutaron (o se intentaron). El ciclo de vida está descrito en
 [ADR 0008](../adr/0008-approval-gate-lifecycle.md).
 
