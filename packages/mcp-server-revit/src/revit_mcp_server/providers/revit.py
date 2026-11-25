@@ -21,6 +21,7 @@ from ..config import BridgeMode, config
 from ..elicitation import missing_export_path
 from ..errors import BridgeError, CommandFailed, WorkspaceViolation
 from ..legacy.tools import TOOL_HANDLERS
+from ..script_lint import lint_script
 from ..security import file_binding
 from ..security.read_mode import execute_python_payload, is_read_mode_call
 from ..security.workspace import WorkspaceMonitor
@@ -448,6 +449,15 @@ class RevitProvider(AECProvider):
         return {"count": len(commands), "commands": commands}
 
     async def execute_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        result = await self._execute_tool(name, arguments)
+        if name == "revit_execute_python" and isinstance(result, dict) and isinstance(arguments, dict):
+            # Advisory only: the script was already sent unchanged. See script_lint.py.
+            warnings = lint_script(arguments.get("script"))
+            if warnings:
+                result = {**result, "lint_warnings": warnings}
+        return result
+
+    async def _execute_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         if name in PAGED_READS and any(k in arguments for k in _PAGE_ARGS):
             page = _page_args(arguments)
             rest = {k: v for k, v in arguments.items() if k not in _PAGE_ARGS}
