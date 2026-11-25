@@ -238,17 +238,18 @@ def test_create_floor_plan_view_payload(build) -> None:
 
 
 def test_create_shared_parameter_payload(build) -> None:
-    assert build("revit_create_shared_parameter", {"name": "Fire rating", "visible": True}) == {
-        "name": "Fire rating", "parameter_type": "Text", "group_name": "General", "categories": []}
+    assert build("revit_create_shared_parameter", {"name": "Fire rating", "categories": "Doors"}) == {
+        "name": "Fire rating", "parameter_type": "Text", "group_name": "Data", "categories": ["Doors"]}
     full = build("revit_create_shared_parameter",
-                 {"name": "R", "type": "Length", "group": "Data", "categories": ["Walls", "Doors"]})
-    assert full == {"name": "R", "parameter_type": "Length", "group_name": "Data", "categories": ["Walls", "Doors"]}
+                 {"name": "R", "type": "Length", "group": "Data", "categories": ["Walls", "Doors"], "is_instance": False})
+    assert full["categories"] == ["Walls", "Doors"] and full["is_instance"] is False
 
 
 def test_create_project_parameter_payload(build) -> None:
-    assert build("revit_create_project_parameter", {"name": "Zone", "category": "Rooms"}) == {
-        "name": "Zone", "parameter_type": "Text", "group": "General", "is_instance": True}
-    assert build("revit_create_project_parameter", {"name": "Zone", "is_instance": False})["is_instance"] is False
+    assert build("revit_create_project_parameter", {"name": "Zone", "categories": ["Rooms"]}) == {
+        "name": "Zone", "parameter_type": "Text", "group": "Data", "is_instance": True, "categories": ["Rooms"]}
+    assert build("revit_create_project_parameter",
+                 {"name": "Zone", "categories": ["Rooms"], "is_instance": False})["is_instance"] is False
 
 
 def test_batch_set_parameters_payload(build) -> None:

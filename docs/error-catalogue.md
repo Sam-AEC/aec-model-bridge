@@ -12,7 +12,7 @@ A tool failure reaches an MCP client in one of two shapes:
 Refusals never change the model. A refused write needs a new plan that a person approves.
 For logs and connection problems see [troubleshooting](troubleshooting.md).
 
-Entries: 147.
+Entries: 148.
 
 ## Tool error kinds
 
@@ -756,7 +756,7 @@ Set by module tools as `kind` in an `ok: false` result, next to `message`, `elem
 
 ## Exception classes
 
-Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 25.
+Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 26.
 
 ### `ApprovalExpired`
 
@@ -769,6 +769,12 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 - When: The workspace approval signing key (plans/.keys/approval-signing.key) is a symlink, owned by another user, readable by others, or malformed. The approval was not recorded.
 - What to do: Ask the person to delete the key file and approve the plan again. Plans approved under the old key must be approved again.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/security/approval_signing.py`
+
+### `AppsResourceError`
+
+- When: A ui:// MCP Apps URI is unknown, names a plan that is not allowed or not found, or MCP_REVIT_MCP_APPS is false.
+- What to do: Use ui://aec-model-bridge/plan-review or a plan id from list_pending_plans; check MCP_REVIT_MCP_APPS.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_apps.py`
 
 ### `BcfError`
 

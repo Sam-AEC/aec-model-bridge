@@ -49,6 +49,14 @@ def _optional(args: Dict[str, Any], *names: str) -> Dict[str, Any]:
     return {name: args[name] for name in names if args.get(name) is not None}
 
 
+def _category_names(value: Any) -> Any:
+    """Category names as a list. One name becomes a one-item list; anything else passes unchanged
+    so the contract check refuses it with a plain message."""
+    if isinstance(value, str):
+        return [value]
+    return value
+
+
 # Read tools whose add-in result is one unpaginated list. limit, offset and count_only slice that
 # list here, after the add-in answered; nothing is sent to Revit differently. value = the list key.
 PAGED_READS = {
@@ -808,9 +816,28 @@ class RevitProvider(AECProvider):
                 lambda args: {"element_id": args.get("element_id"), "parameter_name": args.get("parameter_name")},
             ),
             "revit_list_shared_parameters": ("revit.list_shared_parameters", lambda args: {}),
-            "revit_create_shared_parameter": ("revit.create_shared_parameter", revit_payloads.shared_parameter),
+            "revit_create_shared_parameter": (
+                "revit.create_shared_parameter",
+                lambda args: {
+                    "name": args.get("name"),
+                    "parameter_type": args.get("type") or "Text",
+                    "group_name": args.get("group") or "Data",
+                    "categories": _category_names(args.get("categories")),
+                    **_optional(args, "is_instance", "visible", "definition_group"),
+                },
+            ),
             "revit_list_project_parameters": ("revit.list_project_parameters", lambda args: {}),
-            "revit_create_project_parameter": ("revit.create_project_parameter", revit_payloads.project_parameter),
+            "revit_create_project_parameter": (
+                "revit.create_project_parameter",
+                lambda args: {
+                    "name": args.get("name"),
+                    "parameter_type": args.get("type") or "Text",
+                    "group": args.get("group") or "Data",
+                    "is_instance": args.get("is_instance", True),
+                    "categories": _category_names(args.get("categories")),
+                    **_optional(args, "visible"),
+                },
+            ),
             "revit_batch_set_parameters": ("revit.batch_set_parameters", revit_payloads.batch_set_parameters),
             "revit_get_type_parameters": (
                 "revit.get_type_parameters",
@@ -1521,20 +1548,19 @@ class RevitProvider(AECProvider):
         ),
         ProviderTool(
             name="revit_create_shared_parameter",
-            description="Create a new shared parameter",
+            description="Create a shared parameter in the shared parameter file set in Revit and bind it to categories",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "name": {"type": "string"},
+                    "categories": {"type": "array", "items": {"type": "string"}},
                     "group": {"type": "string"},
                     "type": {"type": "string"},
-                    "categories": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Category names to bind the parameter to. Omit for none.",
-                    },
+                    "is_instance": {"type": "boolean"},
+                    "visible": {"type": "boolean"},
+                    "definition_group": {"type": "string"},
                 },
-                "required": ["name"],
+                "required": ["name", "categories"],
             },
         ),
         ProviderTool(
@@ -1544,20 +1570,18 @@ class RevitProvider(AECProvider):
         ),
         ProviderTool(
             name="revit_create_project_parameter",
-            description="Create a new project parameter",
+            description="Create a project parameter and bind it to categories",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "name": {"type": "string"},
-                    "category": {"type": "string", "description": "Revit category name. The add-in does not read it yet."},
+                    "categories": {"type": "array", "items": {"type": "string"}},
                     "group": {"type": "string"},
                     "type": {"type": "string"},
-                    "is_instance": {
-                        "type": "boolean",
-                        "description": "true for an instance parameter, false for a type parameter. Default true.",
-                    },
+                    "is_instance": {"type": "boolean"},
+                    "visible": {"type": "boolean"},
                 },
-                "required": ["name"],
+                "required": ["name", "categories"],
             },
         ),
         ProviderTool(

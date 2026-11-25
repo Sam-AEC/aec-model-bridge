@@ -80,14 +80,14 @@ Suggest a numbering pattern for the duplicates, but do not change anything.
 ```text
 I need a shared parameter "{parameter}" of type {data_type} in group {parameter_group}, bound to {category_list}.
 1. Check whether it already exists with revit_list_shared_parameters and revit_list_project_parameters. If it exists, stop and tell me.
-2. Otherwise draft one plan with plan_actions that calls revit_create_shared_parameter and, if needed, revit_create_project_parameter for the binding.
+2. Otherwise draft one plan with plan_actions that calls revit_create_shared_parameter with the name, type, group and categories. It also binds the parameter to those categories.
 3. You cannot approve the plan. Tell me to approve it in the Revit panel and wait.
 4. After I approve, run execute_plan and list project parameters again to confirm the binding.
 ```
 
-- **Tools:** `revit_list_shared_parameters`, `revit_list_project_parameters`, `plan_actions`, `revit_create_shared_parameter`, `revit_create_project_parameter`, `execute_plan`
+- **Tools:** `revit_list_shared_parameters`, `revit_list_project_parameters`, `plan_actions`, `revit_create_shared_parameter`, `execute_plan`
 - **Expected result:** A plan that adds one parameter, then a read-back of the binding.
-- **Safety:** Parameter creation changes the project template data and is hard to undo. It runs only after approval.
+- **Safety:** Parameter creation changes the project template data and is hard to undo. It runs only after approval. The add-in refuses when Revit has no shared parameter file set; it never creates or switches that file. A new definition is written to the shared parameter file, and Revit undo does not remove it there. For a parameter that is not in any shared parameter file, use `revit_create_project_parameter`; Revit still stores it as a shared parameter with a new GUID, because the API has no direct call for project parameters. Add-in behaviour is UNVERIFIED in live Revit.
 - **Tested:** Mock: exercised (the two list calls only).
 
 ### PAR-06 Door and room schedule consistency
