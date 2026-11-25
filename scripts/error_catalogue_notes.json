@@ -23,6 +23,14 @@
     "when": "A system belongs to a different domain than the tool's kind.",
     "do": "Pick a system of the tool's kind, for example pipe systems for pipes."
   },
+  "class/ElicitationForbidden": {
+    "when": "Server code tried to ask the person a question for an approval tool, from the approval code, or for something that looks like a secret.",
+    "do": "Nothing for the client. Plan approval comes only from a person in the panel or the CLI; this is a server bug if it is ever seen."
+  },
+  "class/InputNeeded": {
+    "when": "A tool needs one more input from the person. The MCP layer asks through elicitation when the client supports it; otherwise it returns kind input_needed.",
+    "do": "Call again with the input the message names."
+  },
   "class/InstanceRoutingError": {
     "when": "A panel request cannot be routed to exactly one running Revit.",
     "do": "Pass instance with the integer pid of the Revit process, or leave only one Revit open."
@@ -530,6 +538,10 @@
   "mcp/human_only": {
     "when": "An AI client called approve_plan, reject_plan or rollback_plan.",
     "do": "Stop. Ask the person to approve, reject or roll back the plan in the Revit panel or with the aec-model-bridge-approve command."
+  },
+  "mcp/input_needed": {
+    "when": "A tool needs one more input: an export without its output file, a level name that matches several levels, or a parameter name that does not exist but has close names. The client did not support elicitation, or the person declined, cancelled or did not answer in time.",
+    "do": "Read the message: it names the missing input and the choices. Call again with that input set. Do not guess a choice for the person."
   },
   "mcp/invalid_response_options": {
     "when": "The response_options argument is not an object, names an unsupported key, or has a value of the wrong type.",

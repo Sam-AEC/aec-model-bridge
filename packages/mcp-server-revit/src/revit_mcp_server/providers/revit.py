@@ -15,6 +15,7 @@ from ..bridge.client import BridgeClient
 from ..bridge.mock import MockBridge
 from ..check_contract import PageSpec, paginate
 from ..config import BridgeMode, config
+from ..elicitation import missing_export_path
 from ..errors import BridgeError, WorkspaceViolation
 from ..legacy.tools import TOOL_HANDLERS
 from ..security.read_mode import execute_python_payload, is_read_mode_call
@@ -335,6 +336,11 @@ class RevitProvider(AECProvider):
             if self.mode != BridgeMode.bridge:
                 raise ValueError("revit_get_result needs a live Revit connection; it is not available in mock mode.")
             return await asyncio.to_thread(revit_context.get_result, self._active_bridge(), arguments)
+
+        # An export without its output file is refused here too (other paths than MCP call this).
+        need = missing_export_path(name, arguments, None)
+        if need is not None:
+            raise need
 
         # Check path parameters for workspace compliance
         self._assert_paths_in_workspace(arguments)
@@ -1701,7 +1707,7 @@ class RevitProvider(AECProvider):
             inputSchema={
                 "type": "object",
                 "properties": {"view_id": {"type": "integer"}, "output_path": {"type": "string"}},
-                "required": ["view_id", "output_path"],
+                "required": ["view_id"],
             },
         ),
         ProviderTool(
@@ -1710,7 +1716,7 @@ class RevitProvider(AECProvider):
             inputSchema={
                 "type": "object",
                 "properties": {"output_path": {"type": "string"}},
-                "required": ["output_path"],
+                "required": [],
             },
         ),
         ProviderTool(
@@ -1719,7 +1725,7 @@ class RevitProvider(AECProvider):
             inputSchema={
                 "type": "object",
                 "properties": {"output_path": {"type": "string"}},
-                "required": ["output_path"],
+                "required": [],
             },
         ),
         ProviderTool(
@@ -1733,7 +1739,7 @@ class RevitProvider(AECProvider):
                     "width": {"type": "integer"},
                     "height": {"type": "integer"},
                 },
-                "required": ["view_id", "output_path"],
+                "required": ["view_id"],
             },
         ),
         ProviderTool(

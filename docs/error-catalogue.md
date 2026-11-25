@@ -12,11 +12,11 @@ A tool failure reaches an MCP client in one of two shapes:
 Refusals never change the model. A refused write needs a new plan that a person approves.
 For logs and connection problems see [troubleshooting](troubleshooting.md).
 
-Entries: 136.
+Entries: 139.
 
 ## Tool error kinds
 
-Set by the MCP layer as `structuredContent.error.kind` when a call fails with `isError`. Entries: 7.
+Set by the MCP layer as `structuredContent.error.kind` when a call fails with `isError`. Entries: 8.
 
 ### `approval_blocked`
 
@@ -40,6 +40,12 @@ Set by the MCP layer as `structuredContent.error.kind` when a call fails with `i
 
 - When: An AI client called approve_plan, reject_plan or rollback_plan.
 - What to do: Stop. Ask the person to approve, reject or roll back the plan in the Revit panel or with the aec-model-bridge-approve command.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
+
+### `input_needed`
+
+- When: A tool needs one more input: an export without its output file, a level name that matches several levels, or a parameter name that does not exist but has close names. The client did not support elicitation, or the person declined, cancelled or did not answer in time.
+- What to do: Read the message: it names the missing input and the choices. Call again with that input set. Do not guess a choice for the person.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
 
 ### `invalid_response_options`
@@ -738,7 +744,7 @@ Set by module tools as `kind` in an `ok: false` result, next to `message`, `elem
 
 ## Exception classes
 
-Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 17.
+Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 19.
 
 ### `ApprovalExpired`
 
@@ -775,6 +781,18 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 - When: A system belongs to a different domain than the tool's kind.
 - What to do: Pick a system of the tool's kind, for example pipe systems for pipes.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/modules/revit_mep/module.py`
+
+### `ElicitationForbidden`
+
+- When: Server code tried to ask the person a question for an approval tool, from the approval code, or for something that looks like a secret.
+- What to do: Nothing for the client. Plan approval comes only from a person in the panel or the CLI; this is a server bug if it is ever seen.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/elicitation.py`
+
+### `InputNeeded`
+
+- When: A tool needs one more input from the person. The MCP layer asks through elicitation when the client supports it; otherwise it returns kind input_needed.
+- What to do: Call again with the input the message names.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/elicitation.py`
 
 ### `InstanceRoutingError`
 

@@ -16,6 +16,9 @@ from mcp.types import CallToolResult, GetPromptResult, Prompt, Resource, Resourc
 
 from . import mcp_prompts, mcp_resources
 
+from .elicitation import (
+    MAX_ROUNDS, ElicitationForbidden, InputNeeded, elicit_choice, elicitation_allowed, missing_export_path,
+)
 from .errors import BridgeError, CommandFailed
 from .registry_factory import build_registry
 from .security.approval import HUMAN_ONLY_TOOLS
@@ -23,6 +26,7 @@ from .security.dispatch import (
     gate_after, gate_after_result, gate_before, result_failed, settle_in_flight,
 )
 from .security.audit import redact_data as _redact_secrets
+from .security.gating import requires_approval
 from .security.response_redaction import redact_response
 from .security.module_execution import authorized_module_execution
 from .tool_metadata import enrich_tool, is_read_only_tool
@@ -127,7 +131,77 @@ async def read_resource(uri: Any) -> list[ReadResourceContents]:
 
 @app.call_tool()
 async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolResult:
-    """Execute a registered AEC tool."""
+    """Execute a registered AEC tool.
+
+    When a tool needs one more input (InputNeeded) and the client declared elicitation,
+    the person is asked once per missing input and the call runs again with the answer.
+    Otherwise, or on decline, cancel or timeout, the call ends with the plain refusal.
+    Approval tools never ask (elicitation.elicitation_allowed).
+    """
+    rounds = 0
+    while True:
+        try:
+            return await _call_tool_once(name, arguments)
+        except InputNeeded as need:
+            answer = None
+            if rounds < MAX_ROUNDS and _may_elicit(name, arguments):
+                try:
+                    answer = await elicit_choice(
+                        _client_session(), need.question, need.options, tool=name, field=need.field,
+                        title=need.title, related_request_id=_request_id(),
+                    )
+                except ElicitationForbidden:
+                    answer = None
+            if answer is None:
+                return _tool_error("input_needed", need.refusal)
+            try:
+                arguments = need.apply(arguments if isinstance(arguments, dict) else {}, answer)
+            except InputNeeded as again:
+                return _tool_error("input_needed", again.refusal)
+            rounds += 1
+
+
+def _client_session() -> Any:
+    """The MCP session of the current request, or None outside a request (direct calls in tests)."""
+    try:
+        return app.request_context.session
+    except LookupError:
+        return None
+
+
+def _request_id() -> Any:
+    try:
+        return app.request_context.request_id
+    except LookupError:
+        return None
+
+
+def _workspace_root() -> Any:
+    try:
+        return workspace_monitor.allowed_directories[0]
+    except (AttributeError, IndexError, TypeError):
+        return None
+
+
+def _may_elicit(name: str, arguments: Any) -> bool:
+    """Ask only where an answer can be used: never for approval tools, never for a call that
+    carries a plan_id, and never for a call the gate would refuse without an approved plan
+    (an answer changes the arguments, so it cannot match an approved action)."""
+    if not elicitation_allowed(name):
+        return False
+    if isinstance(arguments, dict) and arguments.get("plan_id"):
+        return False
+    gate = getattr(approval_provider, "gate", None)
+    try:
+        tool_def = registry.lookup_tool(name)
+        if gate is None or tool_def is None or not tool_def.is_mutating:
+            return True
+        return not requires_approval(registry, name, tool_def, arguments) or gate.approval_mode == "auto"
+    except Exception:
+        return False  # fail closed: no question, plain refusal
+
+
+async def _call_tool_once(name: str, arguments: Any) -> list[TextContent] | CallToolResult:
     if name in HUMAN_ONLY_TOOLS:
         return _tool_error("human_only", (
             f"Error: '{name}' is not available to AI clients. A person approves, rejects and rolls back "
@@ -150,6 +224,11 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
         arguments, response_options = split_response_options(name, arguments, read_only)
     except ValueError as exc:
         return _tool_error("invalid_response_options", str(exc))
+
+    # A missing export file name is found before the approval gate, so no approved action is used up.
+    need = missing_export_path(name, arguments, _workspace_root())
+    if need is not None:
+        raise need
 
     # Approval gate: a mutating call consumes its approved action here, before it
     # runs, so it can run at most once even if it fails or is called concurrently.
@@ -235,6 +314,8 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
             )
         return [TextContent(type="text", text=response_text)]
 
+    except InputNeeded:
+        raise  # call_tool asks the person or returns the plain refusal
     except CommandFailed as e:
         return _tool_error("bridge_error", f"Revit Bridge Error: {str(e)}", result=e.payload)
     except ToolProfileBlocked as e:
