@@ -7,8 +7,11 @@ import hashlib
 import json
 import re
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
+from mcp import ClientSession, types
+from mcp.shared import memory
 
 from revit_mcp_server import mcp_apps, mcp_resources, mcp_server
 from revit_mcp_server.config import config
@@ -28,12 +31,12 @@ def gate(tmp_path):
 
 @pytest.fixture
 def apps_on(monkeypatch):
-    monkeypatch.setattr(config, "mcp_apps", True)
+    monkeypatch.setattr(config, "mcp_apps", "always")
 
 
 @pytest.fixture
 def apps_off(monkeypatch):
-    monkeypatch.setattr(config, "mcp_apps", False)
+    monkeypatch.setattr(config, "mcp_apps", "off")
 
 
 @pytest.fixture(scope="module")
@@ -240,10 +243,105 @@ def test_flag_off_removes_view_and_metadata(apps_off, server, gate):
         mcp_apps.read_resource(mcp_apps.PLAN_REVIEW_URI, gate)
 
 
-def test_flag_defaults_on(monkeypatch):
+def test_flag_defaults_to_auto(monkeypatch):
     from revit_mcp_server.config import Config
 
     monkeypatch.delenv("MCP_REVIT_MCP_APPS", raising=False)
-    assert Config().mcp_apps is True
-    monkeypatch.setenv("MCP_REVIT_MCP_APPS", "false")
-    assert Config().mcp_apps is False
+    assert Config().mcp_apps == "auto"
+    for raw, expected in (("always", "always"), ("OFF", "off"), ("auto", "auto"), ("false", "off"), ("true", "auto")):
+        monkeypatch.setenv("MCP_REVIT_MCP_APPS", raw)
+        assert Config().mcp_apps == expected, raw
+    monkeypatch.setenv("MCP_REVIT_MCP_APPS", "sometimes")
+    with pytest.raises(ValueError, match="auto, always or off"):
+        Config()
+
+
+# ---- client capability (auto mode) -----------------------------------------
+
+UI_EXTENSION = {mcp_apps.EXTENSION_ID: {"mimeTypes": [mcp_apps.MIME]}}
+
+
+class _ExtensionClient(ClientSession):
+    """SDK in-memory client that declares capabilities.extensions (the SDK has no option for it)."""
+
+    extensions: dict | None = None
+
+    async def initialize(self):
+        caps = {"extensions": self.extensions} if self.extensions is not None else {}
+        result = await self.send_request(
+            types.ClientRequest(types.InitializeRequest(params=types.InitializeRequestParams(
+                protocolVersion=types.LATEST_PROTOCOL_VERSION,
+                capabilities=types.ClientCapabilities(**caps),
+                clientInfo=types.Implementation(name="test-client", version="1"),
+            ))),
+            types.InitializeResult,
+        )
+        await self.send_notification(types.ClientNotification(types.InitializedNotification()))
+        return result
+
+
+async def _session_view(extensions):
+    """tools/list _meta.ui and plan result _meta as one connected client sees them."""
+    client_class = type("Client", (_ExtensionClient,), {"extensions": extensions})
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(memory, "ClientSession", client_class)
+        async with memory.create_connected_server_and_client_session(mcp_server.app) as client:
+            listed = await client.list_tools()
+            listing = await client.call_tool("list_pending_plans", {})
+    ui = {t.name: (t.meta or {}).get("ui") for t in listed.tools}
+    return ui, listing.meta
+
+
+def test_auto_sends_meta_ui_only_to_a_client_that_declared_the_extension(server, monkeypatch):
+    monkeypatch.setattr(config, "mcp_apps", "auto")
+    _, approval = server
+    ui, meta = asyncio.run(_session_view(UI_EXTENSION))
+    assert ui["plan_actions"] == {"resourceUri": mcp_apps.PLAN_REVIEW_URI, "visibility": ["model"]}
+    assert ui["execute_plan"] == {"visibility": ["model"]}
+    assert meta == {mcp_apps.APPROVAL_MODE_META_KEY: approval.gate.approval_mode}
+    # The next session (same server, same SDK tool cache) declared nothing: no _meta.ui at all.
+    ui, meta = asyncio.run(_session_view(None))
+    assert not [name for name, value in ui.items() if value is not None]
+    assert not (meta or {}).get(mcp_apps.APPROVAL_MODE_META_KEY)
+    # And a declaring session after that gets it again: nothing is cached across sessions.
+    ui, _ = asyncio.run(_session_view(UI_EXTENSION))
+    assert ui["list_pending_plans"]["resourceUri"] == mcp_apps.PLAN_REVIEW_URI
+
+
+def test_auto_ignores_other_extensions_and_other_mime_types(server, monkeypatch):
+    monkeypatch.setattr(config, "mcp_apps", "auto")
+    for extensions in ({"io.example/other": {}}, {mcp_apps.EXTENSION_ID: {"mimeTypes": ["text/html"]}}):
+        ui, _ = asyncio.run(_session_view(extensions))
+        assert not [name for name, value in ui.items() if value is not None], extensions
+
+
+def test_always_and_off_ignore_the_client(server, monkeypatch):
+    monkeypatch.setattr(config, "mcp_apps", "always")
+    ui, _ = asyncio.run(_session_view(None))
+    assert ui["plan_actions"]["resourceUri"] == mcp_apps.PLAN_REVIEW_URI
+    monkeypatch.setattr(config, "mcp_apps", "off")
+    ui, meta = asyncio.run(_session_view(UI_EXTENSION))
+    assert not [name for name, value in ui.items() if value is not None]
+    assert meta is None
+
+
+def test_auto_outside_a_request_sends_no_meta_ui(server, monkeypatch):
+    monkeypatch.setattr(config, "mcp_apps", "auto")
+    assert all("ui" not in (t.meta or {}) for t in asyncio.run(mcp_server.list_tools()))
+    # The view resources stay listed and readable; only _meta.ui depends on the client.
+    assert mcp_apps.PLAN_REVIEW_URI in {str(r.uri) for r in mcp_resources.list_resources()}
+
+
+@pytest.mark.parametrize("caps, expected", [
+    ({"extensions": UI_EXTENSION}, True),
+    ({"extensions": {mcp_apps.EXTENSION_ID: {}}}, True),
+    ({"extensions": {mcp_apps.EXTENSION_ID: {"mimeTypes": "text/html;profile=mcp-app"}}}, False),
+    ({"extensions": {mcp_apps.EXTENSION_ID: "yes"}}, False),
+    ({"extensions": ["io.modelcontextprotocol/ui"]}, False),
+    ({"experimental": {mcp_apps.EXTENSION_ID: {}}}, False),
+    ({}, False),
+])
+def test_client_declared(caps, expected):
+    session = SimpleNamespace(client_params=SimpleNamespace(capabilities=types.ClientCapabilities(**caps)))
+    assert mcp_apps.client_declared(session) is expected
+    assert mcp_apps.client_declared(None) is False

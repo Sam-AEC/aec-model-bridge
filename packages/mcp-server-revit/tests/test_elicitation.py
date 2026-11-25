@@ -363,3 +363,168 @@ def test_secrets_are_never_asked_for(field, message):
     with pytest.raises(ElicitationForbidden):
         asyncio.run(elicit_choice(session, message, None, tool="snapshot_query", field=field))
     assert session.calls == 0
+
+
+# ------------------------------------------------ (c) view and sheet names
+
+VIEWS = [{"kind": "view", "id": 11, "name": "Level 1", "type": "FloorPlan"},
+         {"kind": "view", "id": 12, "name": "Level 10", "type": "FloorPlan"},
+         {"kind": "view", "id": 21, "name": "Section A", "type": "Section"},
+         {"kind": "view", "id": 22, "name": "Section A", "type": "Detail"}]
+SHEETS = [{"kind": "sheet", "id": 101, "name": "Plans", "number": "A101"},
+          {"kind": "sheet", "id": 102, "name": "Sections", "number": "A102"}]
+
+
+@pytest.fixture
+def docs(server, monkeypatch):
+    """Auto mode (no plan needed), a fake view/sheet list and a recording revit_docs provider."""
+    server.approval.gate.approval_mode = "auto"
+    state = SimpleNamespace(views=list(VIEWS), sheets=list(SHEETS), listed=[], executed=[])
+
+    async def fake_list(kind, needle):
+        state.listed.append((kind, needle))
+        rows = state.views if kind == "view" else state.sheets
+        low = needle.lower()
+        hits = [r for r in rows if low in r["name"].lower() or low in r.get("number", "").lower()]
+        return hits, len(hits)
+
+    async def fake_execute(name, arguments):
+        state.executed.append((name, arguments))
+        return {"ok": True, "tool": name, "summary": "done"}
+
+    monkeypatch.setattr(mcp_server, "_list_views_or_sheets", fake_list)
+    provider = mcp_server.registry.lookup_tool_provider("revit_place_views")
+    monkeypatch.setattr(provider, "execute_tool", fake_execute)
+    return state
+
+
+def test_ambiguous_view_name_is_asked_and_the_answer_sets_view_id(docs):
+    asker = Asker(("accept", {"view": "Level 1"}))
+    answer = call("revit_place_views", {"sheet": "A101", "views": [{"view_name": "level 1"}]}, asker)
+    assert not answer.isError, answer.content[0].text
+    (question,) = asker.asked
+    assert question.requestedSchema["properties"]["view"]["enum"] == ["Level 1", "Level 10"]
+    assert "views[0].view_name" in question.message
+    ((name, arguments),) = docs.executed
+    assert name == "revit_place_views"
+    assert arguments["views"] == [{"view_id": 11}] and arguments["sheet"] == "A101"
+
+
+def test_ambiguous_view_name_without_capability_is_the_plain_refusal(docs):
+    message = _refusal(call("revit_make_view_template", {"view": {"view_name": "level"}, "name": "T"}))
+    assert "'Level 1'" in message and "'Level 10'" in message and "view.view_name" in message
+    assert "view_id" in message
+    assert docs.executed == []
+
+
+def test_two_views_with_the_exact_name_are_labelled_by_id(docs):
+    asker = Asker(("accept", {"view": "Section A [id 22]"}))
+    answer = call("revit_add_revision_clouds", {"revision_id": 5, "view": {"view_name": "Section A"},
+                                                "element_ids": [1]}, asker)
+    assert not answer.isError, answer.content[0].text
+    enum = asker.asked[0].requestedSchema["properties"]["view"]["enum"]
+    assert enum == ["Section A [id 21]", "Section A [id 22]"]
+    assert "matches several views" in asker.asked[0].message
+    assert docs.executed[0][1]["view"] == {"view_id": 22}
+
+
+def test_exact_view_and_sheet_need_no_question(docs):
+    asker = Asker()
+    answer = call("revit_place_views", {"sheet": "A101", "views": [{"view_name": "Level 10"}]}, asker)
+    assert not answer.isError, answer.content[0].text
+    assert asker.asked == []
+    assert docs.executed[0][1]["views"] == [{"view_name": "Level 10"}]
+
+
+def test_sheet_number_matched_by_name_or_case_is_asked(docs):
+    asker = Asker(("accept", {"sheet": "A102 - Sections"}))
+    answer = call("revit_issue_revision", {"revision_id": 5, "sheets": ["A101", "sections"]}, asker)
+    assert not answer.isError, answer.content[0].text
+    (question,) = asker.asked
+    assert question.requestedSchema["properties"]["sheet"]["enum"] == ["A102 - Sections"]
+    assert "sheets[1]" in question.message
+    assert docs.executed[0][1]["sheets"] == ["A101", "A102"]
+
+
+def test_nested_sheet_number_in_a_table(docs):
+    asker = Asker(("accept", {"sheet": "A101 - Plans"}))
+    answer = call("revit_update_sheets", {"sheets": [{"number": "a101", "new_name": "Ground"}]}, asker)
+    assert not answer.isError, answer.content[0].text
+    assert docs.executed[0][1]["sheets"] == [{"number": "A101", "new_name": "Ground"}]
+
+
+def test_a_misspelt_name_offers_close_names_from_the_full_list(docs):
+    asker = Asker(("accept", {"view": "Level 1"}))
+    answer = call("revit_set_view_templates", {"template_id": 3, "views": [{"view_name": "Levl 1"}]}, asker)
+    assert not answer.isError, answer.content[0].text
+    assert docs.listed == [("view", "Levl 1"), ("view", "")]
+    assert "Level 1" in asker.asked[0].requestedSchema["properties"]["view"]["enum"]
+
+
+def test_no_close_name_keeps_the_old_behaviour(docs):
+    asker = Asker()
+    answer = call("revit_make_view_template", {"view": {"view_name": "Roof terrace"}, "name": "T"}, asker)
+    assert not answer.isError, answer.content[0].text
+    assert asker.asked == []
+    assert docs.executed[0][1]["view"] == {"view_name": "Roof terrace"}
+
+
+def test_more_than_25_candidates_are_capped_and_counted(docs):
+    docs.views = [{"kind": "view", "id": 100 + i, "name": f"View {i}", "type": "FloorPlan"} for i in range(30)]
+    asker = Asker(("decline", None))
+    message = _refusal(call("revit_make_view_template", {"view": {"view_name": "view"}, "name": "T"}, asker))
+    (question,) = asker.asked
+    assert len(question.requestedSchema["properties"]["view"]["enum"]) == elicitation.MAX_OPTIONS
+    assert "+5 more" in question.message and "+5 more" in message
+
+
+def test_at_most_three_questions_per_call(docs):
+    asker = Asker(*[("accept", {"view": "Level 1"})] * 3)
+    views = [{"view_name": "level"} for _ in range(4)]
+    message = _refusal(call("revit_set_view_templates", {"template_id": 3, "views": views}, asker))
+    assert len(asker.asked) == elicitation.MAX_ROUNDS
+    assert "views[3].view_name" in message
+    assert docs.executed == []
+
+
+def test_view_names_are_never_checked_when_a_plan_is_needed(docs):
+    args = {"sheet": "a101", "views": [{"view_name": "level"}]}
+    mcp_server.approval_provider.gate.approval_mode = "ask_first"
+    asker = Asker(("accept", {"view": "Level 1"}))
+    answer = call("revit_place_views", args, asker)
+    assert answer.isError and "Approval Gate Blocked" in answer.content[0].text
+    assert asker.asked == [] and docs.listed == [] and docs.executed == []
+    # A call with a plan_id keeps its approved arguments, in any mode.
+    mcp_server.approval_provider.gate.approval_mode = "auto"
+    assert not mcp_server._may_elicit("revit_place_views", {**args, "plan_id": "plan_000000000001"})
+
+
+def test_the_name_check_does_nothing_in_mock_mode(server):
+    # The real list tool answers "mock" with no rows, so nothing is asked or refused.
+    assert asyncio.run(mcp_server._list_views_or_sheets("view", "level")) is None
+
+
+def test_name_paths_and_answers_on_nested_arguments():
+    args = {"reference": {"view_name": "A"}, "views": [{"view_id": 4}, {"view_name": " B "}], "sheets": ["X", 3, ""]}
+    assert elicitation._name_refs(args, "reference.view_name") == [("reference.view_name", "A")]
+    assert elicitation._name_refs(args, "views[].view_name") == [("views[1].view_name", "B")]
+    assert elicitation._name_refs(args, "sheets[]") == [("sheets[0]", "X")]
+    assert elicitation._name_refs(args, "sheet.number") == []
+    need = elicitation.ambiguous_view_or_sheet(
+        "revit_align_crop", "views[1].view_name", "view", "B", [{"id": 7, "name": "B1"}, {"id": 8, "name": "B2"}])
+    new = need.apply(args, "B2")
+    assert new["views"][1] == {"view_id": 8} and args["views"][1] == {"view_name": " B "}
+    assert elicitation.ambiguous_view_or_sheet("t", "sheet", "sheet", "A1", [{"id": 1, "number": "A1"}]) is None
+
+
+def test_every_view_sheet_tool_takes_the_listed_path(server):
+    for tool, refs in elicitation.VIEW_SHEET_REFS.items():
+        schema = mcp_server.registry.lookup_tool(tool).input_schema
+        for path, _kind in refs:
+            node = schema
+            for part in path.split("."):
+                key = part[:-2] if part.endswith("[]") else part
+                node = node["properties"][key]
+                if part.endswith("[]"):
+                    node = node["items"]
+            assert node.get("type") == "string", (tool, path)

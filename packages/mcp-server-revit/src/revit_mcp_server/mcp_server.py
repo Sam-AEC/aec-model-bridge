@@ -20,7 +20,8 @@ from mcp.types import (
 from . import mcp_apps, mcp_prompts, mcp_resources, mcp_tasks
 
 from .elicitation import (
-    MAX_ROUNDS, ElicitationForbidden, InputNeeded, elicit_choice, elicitation_allowed, missing_export_path,
+    MAX_ROUNDS, VIEW_SHEET_REFS, ElicitationForbidden, InputNeeded, check_view_sheet_names, elicit_choice,
+    elicitation_allowed, missing_export_path,
 )
 from .errors import BridgeError, CommandFailed
 from .registry_factory import build_registry
@@ -106,8 +107,9 @@ async def list_tools() -> list[Tool]:
     # listed_tool runs enrich_tool, which adds parameter docs and behaviour annotations (readOnlyHint,
     # destructiveHint, idempotentHint, openWorldHint) without changing behaviour.
     # For MCP Tasks it also sets execution.taskSupport on mcp_tasks.TASK_TOOLS.
-    # With MCP Apps on, plan tools name the read-only plan review view and every tool that is
-    # not read-only is marked callable by the model only, never by an app (mcp_apps.py).
+    # For a client that declared the MCP Apps extension (or MCP_REVIT_MCP_APPS=always), plan tools
+    # name the read-only plan review view and every tool that is not read-only is marked callable
+    # by the model only, never by an app (mcp_apps.py). Worked out per request, never cached.
     return [
         mcp_apps.listed_tool(provider.get_identity(), t)
         for provider, t in registry.get_tools_with_providers()
@@ -200,6 +202,39 @@ def _workspace_root() -> Any:
         return None
 
 
+VIEW_SHEET_LIST_TOOL = "revit_list_views_sheets_schedules"
+VIEW_SHEET_LIST_LIMIT = 500
+
+
+async def _list_views_or_sheets(kind: str, needle: str) -> tuple[list[dict], int] | None:
+    """Views (with schedules, which Revit also resolves by name) or sheets whose name or number
+    contains ``needle``, through the read-only list tool. None when it cannot run (mock mode,
+    hidden by the profile, no Revit, an error); then nothing is asked."""
+    args = {
+        "kinds": ["views", "schedules"] if kind == "view" else ["sheets"],
+        "name_contains": needle, "limit": VIEW_SHEET_LIST_LIMIT, "fields": ["kind", "id", "name", "number", "type"],
+    }
+    try:
+        provider = registry.lookup_tool_provider(VIEW_SHEET_LIST_TOOL)
+        tool_def = registry.lookup_tool(VIEW_SHEET_LIST_TOOL)
+        if provider is None or tool_def is None or tool_def.is_mutating:
+            return None
+        if gate_before(registry, approval_provider.gate, VIEW_SHEET_LIST_TOOL, args) is not None:
+            return None
+        with authorized_module_execution(VIEW_SHEET_LIST_TOOL):
+            result = await provider.execute_tool(VIEW_SHEET_LIST_TOOL, args)
+    except Exception as exc:  # no question; the tool resolves the name itself
+        logger.info("Could not list %ss for a name check: %s", kind, exc)
+        return None
+    if not isinstance(result, dict) or result.get("mock") or result.get("ok") is not True:
+        return None
+    rows = [r for r in result.get("rows") or [] if isinstance(r, dict) and r.get("id") is not None]
+    if kind == "sheet":
+        rows = [r for r in rows if r.get("number")]
+    total = (result.get("limits") or {}).get("rows_total")
+    return rows, total if isinstance(total, int) and total >= len(rows) else len(rows)
+
+
 def _may_elicit(name: str, arguments: Any) -> bool:
     """Ask only where an answer can be used: never for approval tools, never for a call that
     carries a plan_id, and never for a call the gate would refuse without an approved plan
@@ -256,6 +291,13 @@ async def _call_tool_once(name: str, arguments: Any) -> list[TextContent] | Call
     need = missing_export_path(name, arguments, _workspace_root())
     if need is not None:
         raise need
+    # A view name or sheet number that Revit would not match to exactly one view or sheet is asked
+    # about, or refused with the candidates, before the gate. Only where an answer can be used:
+    # a call that needs an approved plan keeps its arguments and Revit resolves the name itself.
+    if name in VIEW_SHEET_REFS and _may_elicit(name, arguments):
+        need = await check_view_sheet_names(name, arguments, _list_views_or_sheets)
+        if need is not None:
+            raise need
 
     # Approval gate: a mutating call consumes its approved action here, before it
     # runs, so it can run at most once even if it fails or is called concurrently.

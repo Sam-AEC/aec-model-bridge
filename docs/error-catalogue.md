@@ -772,7 +772,7 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 
 ### `AppsResourceError`
 
-- When: A ui:// MCP Apps URI is unknown, names a plan that is not allowed or not found, or MCP_REVIT_MCP_APPS is false.
+- When: A ui:// MCP Apps URI is unknown, names a plan that is not allowed or not found, or MCP_REVIT_MCP_APPS is off.
 - What to do: Use ui://aec-model-bridge/plan-review or a plan id from list_pending_plans; check MCP_REVIT_MCP_APPS.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_apps.py`
 

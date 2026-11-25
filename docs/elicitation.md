@@ -24,8 +24,40 @@ One call asks at most three questions, one input at a time. Each question has on
 | `snapshot_compute` | A field path such as `params.Fire Rating` names a parameter that no element or type has, and close names exist. The name is the one segment after `params.`; a suffix such as `.v` or `.storage` is not part of it | Pick one of the close names. Every path that names it is changed, and a suffix is kept. A saved query then runs inline with the changed steps. |
 | `revit_export_dwg`, `revit_export_ifc`, `revit_export_navisworks`, `revit_export_image` | `output_path` is missing | Type a file name. The file goes in the workspace folder with the tool's extension. |
 | `revit_export` | `path` is missing (and `format` is valid) | Type a file name. The file goes in the workspace folder with the format's extension. |
+| `revit_place_views` and nine other tools | A view name or sheet number does not match exactly one view or sheet | Pick one of the candidates. See [View and sheet names](#view-and-sheet-names). |
 
 A parameter name with no close match is not refused; the tool runs as before. An exact level name needs no question.
+
+## View and sheet names
+
+These tools name an existing view or sheet. Revit matches a view name or a sheet number character for character.
+
+| Tool | Input |
+| --- | --- |
+| `revit_place_views` | `sheet` (sheet number), `views[].view_name` |
+| `revit_make_sheet` | `views[].view_name` |
+| `revit_set_view_templates` | `views[].view_name` |
+| `revit_make_view_template` | `view.view_name` |
+| `revit_align_crop` | `reference.view_name`, `views[].view_name` |
+| `revit_add_revision_clouds` | `view.view_name` |
+| `revit_make_schedule` | `sheet.number` |
+| `revit_export` | `sheets[]` (sheet numbers) |
+| `revit_issue_revision` | `sheets[]` (sheet numbers) |
+| `revit_update_sheets` | `sheets[].number` |
+
+All of them change the model or write files, so the check runs only when the call needs no approved plan and carries no `plan_id`: Auto mode or Dev mode. In Ask first mode the server does not read the names and does not change the arguments; the approved arguments run as drafted and Revit refuses a name that does not match exactly one view or sheet, as before.
+
+When the check runs, the server lists views (with schedules) or sheets whose name or number contains the given text, with the read-only `revit_list_views_sheets_schedules`. If none does, it lists all of them and looks for a name inside the text or a close spelling.
+
+- One view with exactly that name, or one sheet with exactly that number: no question.
+- Several views with exactly that name: the choices are labelled `name [id N]`.
+- Otherwise the candidates are views whose name, or sheets whose number or name, match ignoring case, contain the text, or are spelt close to it. A sheet is shown as `number - name`.
+- At most 25 candidates are offered. The question and the refusal say "+N more" for the rest; call again with `view_id` or the exact sheet number to pick one of those.
+- No candidate: no question and no refusal from the server; the tool runs and Revit refuses the name.
+- The answer replaces that one input: a view becomes `view_id`, a sheet becomes its exact number. Each reference is one question, so a call with more than three unclear names ends with the plain refusal after three answers.
+- When the list tool cannot run (mock mode, hidden by the tool profile, no Revit, an error), nothing is checked.
+
+`sheet_set_qa_check` takes `sheet_numbers` too, but reports a number that is not in the snapshot as an error finding, so it does not ask. The view and sheet names in `providers/revit.py` (`view_name` of `revit_create_*_view`, `new_sheet_number` and `new_sheet_name`) name new views and sheets, so there is nothing to choose from. `snapshot_query` has no view or sheet filter.
 
 `output_path` and `path` are no longer in the tool schemas' `required` lists, so a call without them reaches the server and gets the plain refusal or the question. They are still required to run.
 
@@ -37,4 +69,4 @@ A parameter name with no close match is not refused; the tool runs as before. An
 
 ## Client support
 
-Client support for elicitation is UNVERIFIED. The tests use the MCP Python SDK in-memory client (`mcp` 1.30) with and without an elicitation callback. Whether Claude Desktop, Claude Code, Codex, Cursor or VS Code show the question has not been checked. A client that does not support it gets the plain refusal, as before.
+Client support for elicitation is UNVERIFIED. The tests use the MCP Python SDK in-memory client (`mcp` 1.30) with and without an elicitation callback. Whether Claude Desktop, Claude Code, Codex, Cursor or VS Code show the question has not been checked. A client that does not support it gets the plain refusal, as before. The view and sheet name check was tested with a fake list of views and sheets; against a live Revit it is UNVERIFIED.

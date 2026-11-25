@@ -246,3 +246,181 @@ def missing_export_path(tool: str, arguments: Any, workspace_root: Optional[Path
         title=f"File name ({ext})",
         apply=apply,
     )
+
+
+# ------------------------------------------------------- view and sheet names
+
+# Tools that name an existing view (view_name; the answer sets view_id) or sheet (a sheet
+# number), and where. Revit resolves these by exact name or number. They are checked before the
+# call only when the server may ask (no plan needed, no plan_id), so no approved action changes.
+VIEW_SHEET_REFS: Dict[str, tuple] = {
+    "revit_make_sheet": (("views[].view_name", "view"),),
+    "revit_place_views": (("sheet", "sheet"), ("views[].view_name", "view")),
+    "revit_set_view_templates": (("views[].view_name", "view"),),
+    "revit_make_view_template": (("view.view_name", "view"),),
+    "revit_align_crop": (("reference.view_name", "view"), ("views[].view_name", "view")),
+    "revit_add_revision_clouds": (("view.view_name", "view"),),
+    "revit_make_schedule": (("sheet.number", "sheet"),),
+    "revit_export": (("sheets[]", "sheet"),),
+    "revit_issue_revision": (("sheets[]", "sheet"),),
+    "revit_update_sheets": (("sheets[].number", "sheet"),),
+}
+# Longest name the list tool accepts as name_contains.
+MAX_NEEDLE = 100
+# list_rows(kind, needle) -> awaitable of (rows, total) or None when the model cannot be read.
+RowLister = Callable[[str, str], Any]
+_SEGMENT = re.compile(r"([a-z_]+)(?:\[(\d+)\])?")
+
+
+def _name_refs(arguments: Any, path: str) -> List[tuple]:
+    """(label, value) for each non-empty string at ``path`` (``a.b``, ``a[].b``, ``a[]``)."""
+    found: List[tuple] = []
+
+    def walk(node: Any, parts: List[str], label: str) -> None:
+        head, rest = parts[0], parts[1:]
+        key = head[:-2] if head.endswith("[]") else head
+        if not isinstance(node, dict) or key not in node:
+            return
+        value = node[key]
+        where = f"{label}.{key}" if label else key
+        if head.endswith("[]"):
+            if not isinstance(value, list):
+                return
+            for i, item in enumerate(value):
+                if rest:
+                    walk(item, rest, f"{where}[{i}]")
+                elif isinstance(item, str) and item.strip():
+                    found.append((f"{where}[{i}]", item.strip()))
+        elif rest:
+            walk(value, rest, where)
+        elif isinstance(value, str) and value.strip():
+            found.append((where, value.strip()))
+
+    walk(arguments, path.split("."), "")
+    return found
+
+
+def _locate(args: Dict[str, Any], label: str) -> tuple:
+    """(container, key) for a concrete label such as ``views[1].view_name`` or ``sheets[0]``."""
+    node: Any = args
+    parts = label.split(".")
+    for n, part in enumerate(parts):
+        key, index = _SEGMENT.fullmatch(part).groups()
+        if index is not None:
+            node, key = node[key], int(index)
+        if n == len(parts) - 1:
+            return node, key
+        node = node[key]
+    raise KeyError(label)
+
+
+def _exact_key(kind: str) -> str:
+    return "number" if kind == "sheet" else "name"
+
+
+def _row_keys(kind: str, row: Dict[str, Any]) -> List[str]:
+    keys = [str(row.get("number") or "")] if kind == "sheet" else []
+    keys.append(str(row.get("name") or ""))
+    return [k for k in keys if k]
+
+
+def view_sheet_candidates(kind: str, wanted: str, rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Rows the person may have meant. Empty when exactly one row matches as Revit matches
+    (view name or sheet number, character for character) or when nothing is close."""
+    exact = [r for r in rows if str(r.get(_exact_key(kind)) or "") == wanted]
+    if len(exact) == 1:
+        return []
+    if exact:
+        return list(exact)
+    needle = wanted.casefold()
+    same = [r for r in rows if any(k.casefold() == needle for k in _row_keys(kind, r))]
+    part = [r for r in rows if r not in same and any(
+        needle in k.casefold() or k.casefold() in needle for k in _row_keys(kind, r))]
+    found = same + part
+    if not found:
+        by_key: Dict[str, List[Dict[str, Any]]] = {}
+        for r in rows:
+            for k in _row_keys(kind, r):
+                by_key.setdefault(k, []).append(r)
+        for k in difflib.get_close_matches(wanted, list(by_key), n=MAX_OPTIONS, cutoff=0.6):
+            found.extend(r for r in by_key[k] if r not in found)
+    return found
+
+
+def _labels(kind: str, rows: Sequence[Dict[str, Any]]) -> List[str]:
+    if kind == "sheet":
+        base = [f"{r.get('number')} - {r.get('name')}" if r.get("name") else str(r.get("number")) for r in rows]
+    else:
+        base = [str(r.get("name") or "") for r in rows]
+    return [f"{b} [id {r.get('id')}]" if base.count(b) > 1 else b for b, r in zip(base, rows)]
+
+
+def ambiguous_view_or_sheet(
+    tool: str, label: str, kind: str, wanted: str, rows: Sequence[Dict[str, Any]], more: int = 0,
+) -> Optional[InputNeeded]:
+    """InputNeeded for one view or sheet reference that does not match exactly one, else None.
+
+    At most MAX_OPTIONS candidates are offered; the rest, plus ``more`` rows the list did not
+    return, are counted as "+N more" in the question and the refusal."""
+    found = view_sheet_candidates(kind, wanted, rows)
+    if not found:
+        return None
+    shown = found[:MAX_OPTIONS]
+    hidden = len(found) - len(shown) + max(0, more)
+    labels = _labels(kind, shown)
+    row_of = dict(zip(labels, shown))
+    word = kind
+    several = all(str(r.get(_exact_key(kind)) or "") == wanted for r in shown)
+    what = f"matches several {word}s" if several else f"does not match a {word} exactly"
+    extra = f" (+{hidden} more)" if hidden else ""
+    how = "view_id or the exact view name" if kind == "view" else "the exact sheet number"
+    refusal = (
+        f"{tool}: {word} '{wanted}' in {label} {what}. Candidates: "
+        + ", ".join(f"'{x}'" for x in labels) + f"{extra}. Call again with {label} set to {how}."
+    )
+
+    def apply(args: Dict[str, Any], chosen: str) -> Dict[str, Any]:
+        row = row_of[chosen]
+        new = copy.deepcopy(args)
+        container, key = _locate(new, label)
+        if kind == "view":
+            container.pop("view_name", None)
+            container["view_id"] = int(row["id"])
+        else:
+            container[key] = str(row["number"])
+        return new
+
+    question = f"{word.capitalize()} '{wanted}' ({label}) {what}. Which {word} do you mean?"
+    if hidden:
+        question += f" +{hidden} more not shown; decline and call again with {how} to pick another."
+    return InputNeeded(refusal, question=question, field=word, title=word.capitalize(), options=labels, apply=apply)
+
+
+async def check_view_sheet_names(tool: str, arguments: Any, list_rows: RowLister) -> Optional[InputNeeded]:
+    """InputNeeded for the first view or sheet reference in ``arguments`` that needs a choice, or None.
+
+    ``list_rows(kind, needle)`` returns ``(rows, total)`` for rows whose name (or sheet number)
+    contains ``needle``, or None when the model cannot be read; then that reference is not
+    checked and the tool resolves it itself, as before."""
+    refs = VIEW_SHEET_REFS.get(tool)
+    if not refs or not isinstance(arguments, dict):
+        return None
+    for path, kind in refs:
+        for label, wanted in _name_refs(arguments, path):
+            if len(wanted) > MAX_NEEDLE:
+                continue
+            listed = await list_rows(kind, wanted)
+            if listed is None:
+                continue
+            rows, total = listed
+            more = max(0, total - len(rows))
+            if not rows:
+                # No name contains it: look for a name inside it or a close spelling in the full list.
+                listed = await list_rows(kind, "")
+                if listed is None:
+                    continue
+                rows, more = listed[0], 0
+            need = ambiguous_view_or_sheet(tool, label, kind, wanted, rows, more=more)
+            if need is not None:
+                return need
+    return None
