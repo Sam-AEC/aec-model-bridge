@@ -12,7 +12,8 @@ from typing import Any, Dict, List
 import httpx
 
 from ..bridge import cassette
-from ..bridge.client import MAX_BATCH_COMMANDS, BridgeClient
+from ..bridge.client import MAX_BATCH_COMMANDS, MAX_PLAN_BATCH_ACTIONS, BridgeClient
+from ..bridge.contract_generated import validate_command
 from ..bridge.routing import RoutedBridgeCache
 from ..bridge.mock import MockBridge
 from ..check_contract import PageSpec, paginate
@@ -133,6 +134,19 @@ BATCH_SIDE_EFFECT_COMMANDS = frozenset({
 
 def _command_has_side_effects(command: str) -> bool:
     return command.startswith("revit.export_") or command in BATCH_SIDE_EFFECT_COMMANDS
+
+
+# Plan batches (#294): MCP tools whose approved actions may run together in one Revit turn and one
+# undo step (revit.execute_plan_batch). Only plain model writes that open one transaction and nothing
+# else. Keep the commands equal to PlanBatch._batchable in the add-in (PlanBatch.cs). A plan with any
+# other tool runs one action at a time, as before.
+PLAN_BATCH_TOOLS = {
+    "revit_set_parameter_value": "revit.set_parameter_value",
+    "revit_move_element": "revit.move_element",
+    "revit_rotate_element": "revit.rotate_element",
+}
+PLAN_BATCH_COMMANDS = frozenset(PLAN_BATCH_TOOLS.values())
+_PLAN_BATCH_ID_RE = re.compile(r"[A-Za-z0-9_-]{1,64}")
 
 
 class UnavailableBridge:
@@ -595,6 +609,58 @@ class RevitProvider(AECProvider):
             for (index, _), answer in zip(chunk, answers):
                 results[index] = answer
         return results
+
+    def plan_batch_members(self, plan_id: Any, actions: List[Any]) -> List[Dict[str, Any]] | None:
+        """The add-in members for running these approved plan actions as one batch (#294), or None
+        when the plan must run one action at a time (today's path).
+
+        None unless: a live add-in lists revit.execute_plan_batch, there are 1 to 50 actions, every
+        tool is in PLAN_BATCH_TOOLS, and every payload builds and fits the command contract. No I/O
+        and nothing is claimed here, so a None answer changes nothing."""
+        if self.mode != BridgeMode.bridge:
+            return None
+        if not isinstance(plan_id, str) or not _PLAN_BATCH_ID_RE.fullmatch(plan_id):
+            return None
+        bridge = self._active_bridge()
+        supports = getattr(bridge, "supports_plan_batch", None)
+        if not (callable(supports) and callable(getattr(bridge, "call_plan_batch", None))):
+            return None
+        try:
+            if supports() is not True:
+                return None
+        except Exception:  # noqa: BLE001 - an unknown answer means no batch
+            return None
+        if not actions or len(actions) > MAX_PLAN_BATCH_ACTIONS:
+            return None
+        members: List[Dict[str, Any]] = []
+        for action in actions:
+            if not isinstance(action, dict):
+                return None
+            tool = action.get("tool")
+            action_id = action.get("action_id")
+            arguments = action.get("arguments")
+            if tool not in PLAN_BATCH_TOOLS or not isinstance(arguments, dict):
+                return None
+            if not isinstance(action_id, str) or not _PLAN_BATCH_ID_RE.fullmatch(action_id):
+                return None
+            try:
+                args = {**arguments, "plan_id": plan_id}
+                self._assert_paths_in_workspace(args)
+                bridge_tool, payload = self._bridge_call_for(tool, args)
+                if bridge_tool != PLAN_BATCH_TOOLS[tool]:
+                    return None
+                validate_command(bridge_tool, payload)
+                self._check_with_legacy_handler(bridge_tool, payload)
+            except Exception:  # noqa: BLE001 - the one-by-one path reports this action's own error
+                return None
+            members.append({"action_id": action_id, "tool": bridge_tool, "payload": payload})
+        return members
+
+    async def execute_plan_batch(self, plan_id: str, title: str, members: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Send prepared members (plan_batch_members) as one revit.execute_plan_batch request. The
+        caller must have claimed every action first. Blocks off the event loop, like execute_tool."""
+        bridge = self._active_bridge()
+        return await asyncio.to_thread(bridge.call_plan_batch, plan_id, title, members)
 
     def _assert_paths_in_workspace(self, arguments: Dict[str, Any]) -> None:
         path_keys = ["path", "csv_path", "output_path", "file_path", "template_path"]

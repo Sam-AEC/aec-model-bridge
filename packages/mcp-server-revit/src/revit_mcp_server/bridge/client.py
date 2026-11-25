@@ -18,6 +18,11 @@ _MAX_POLL_FAILURES = 3
 BATCH_COMMAND = "revit.batch"
 MAX_BATCH_COMMANDS = 25
 _BATCH_EXTRA_WAITS = 3
+# revit.execute_plan_batch (#294): one approved plan's writes in one Revit turn and one undo step.
+# The cap and the add-in's time budget are PlanBatch.MaxActions and PlanBatch.TimeBudgetMs in C#.
+PLAN_BATCH_COMMAND = "revit.execute_plan_batch"
+MAX_PLAN_BATCH_ACTIONS = 50
+_PLAN_BATCH_EXTRA_WAITS = 4
 
 
 def _soft_wait_from_env() -> float:
@@ -225,6 +230,33 @@ class BridgeClient:
                     payload=payload if isinstance(payload, dict) else None,
                 ))
         return out
+
+    def supports_plan_batch(self) -> bool:
+        """True when the add-in's command list names revit.execute_plan_batch (#294). Unknown catalog: False."""
+        return bool(self._tool_catalog) and PLAN_BATCH_COMMAND in self._tool_catalog
+
+    def call_plan_batch(self, plan_id: str, title: str, actions: list[dict[str, Any]]) -> dict[str, Any]:
+        """Run one approved plan's write actions in one Revit turn, inside one undo group.
+
+        ``actions`` is [{"action_id", "tool", "payload"}, ...]. Returns the add-in's result dict
+        ({"committed", "group_name", "results": [...]}), or the {"status": "running", "request_id"}
+        envelope when Revit has not answered after a few extra waits. The caller claims every action
+        before calling and books each outcome from the results (ApprovalProvider).
+        """
+        if not actions:
+            raise ValueError("A plan batch needs at least one action.")
+        if len(actions) > MAX_PLAN_BATCH_ACTIONS:
+            raise ValueError(f"A plan batch takes at most {MAX_PLAN_BATCH_ACTIONS} actions; got {len(actions)}.")
+        result = self.call_tool(PLAN_BATCH_COMMAND, {"plan_id": plan_id, "title": title, "actions": actions})
+        for _ in range(_PLAN_BATCH_EXTRA_WAITS):
+            if not self._is_running(result):
+                break
+            result = self.get_result(str(result.get("request_id")))
+        if isinstance(result, dict) and not self._is_running(result):
+            for entry in result.get("results") or []:
+                if isinstance(entry, dict) and isinstance(entry.get("result"), dict):
+                    self._normalize_element_ids(entry["result"])
+        return result
 
     def get_result(self, request_id: str, wait_s: float | None = None) -> dict[str, Any]:
         """Collect the outcome of an earlier call by request id.

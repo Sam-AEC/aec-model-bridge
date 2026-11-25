@@ -217,7 +217,8 @@ El panel muestra la revisión del plan con "Show the review to enable Approve" y
 
 Si un plan resulta ser erróneo, deshazlo con Ctrl+Z en Revit. Cada escritura de parámetro
 es su propia transacción con nombre, así que un plan puede requerir varias pulsaciones.
-Un deshacer en un solo paso para un plan completo está planificado, no construido.
+Un plan que solo escribe parámetros, mueve o gira elementos se ejecuta como un lote si el complemento lo admite,
+y entonces un Ctrl+Z deshace el plan completo (UNVERIFIED en un Revit real).
 Una segunda vía es un plan de reversión: el asistente lo redacta con `plan_revert` a partir de la prueba de un plan ejecutado, y tú lo apruebas como cualquier otro plan. `rollback_plan` es solo para personas y no es un botón ni un comando, así que no cuentes con él. Ninguna de estas vías está verificada todavía en una sesión real de Revit (UNVERIFIED). Las operaciones que no se pueden revertir, como la escritura de archivos, no se deshacen por ninguna de ellas y todavía no piden una segunda confirmación (planificado). La lista Plans del panel muestra solo los planes pendientes; `aec-model-bridge-approve show <plan_id>` funciona con un plan en cualquier estado, mientras que los paquetes de `proofs/` solo existen para los planes que se ejecutaron (o se intentaron). El ciclo de vida está descrito en
 [ADR 0008](../adr/0008-approval-gate-lifecycle.md).
 

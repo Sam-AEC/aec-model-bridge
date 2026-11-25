@@ -19,7 +19,7 @@ CI does not start Revit. Tests that touch Revit use mock providers.
 Run on a Windows machine with Revit, starting with the write test in section 5. Mark each PASS or FAIL.
 
 1. First real write (for example `revit_set_parameter_value` through an approved plan). A crash here is the most important finding.
-2. Undo behaviour. The add-in names one transaction per action, so undoing a plan takes one Ctrl+Z per action. Check this, and check `rollback_plan`, which can skip actions that have no recorded before-value.
+2. Undo behaviour. A plan of only parameter writes, moves and rotations runs as one `revit.execute_plan_batch` and should be one Ctrl+Z step named "AEC Model Bridge: <plan title> (<short id>)" (UNVERIFIED). Check it with a plan of two or more actions, check that a plan whose second action fails leaves the model unchanged, and check that other plans still take one Ctrl+Z per action. Check `rollback_plan`, which can skip actions that have no recorded before-value.
 3. Two Revits open at once: requests reach the Revit the person means ([ADR 0014](adr/0014-multi-revit-routing.md), the "Several Revits" section of security.md).
 4. The WebView2 panel loads, lists pending plans and approves one. Run `aec-model-bridge-approve show <plan_id>` for the same plan and compare it with what the panel showed.
 5. Windows ACL on `%LOCALAPPDATA%\AECModelBridge\panel-hub.token`: only the current user has access. Windows does not re-verify the ACL on read.
@@ -34,7 +34,7 @@ Run on a Windows machine with Revit, starting with the write test in section 5. 
 - Routed bridge clients: the routing lock no longer covers network calls, and a cached client is dropped when its Revit registry entry is gone or its `/health` fails three times in a row after failed calls. Tested with fakes only; UNVERIFIED with two live Revits.
 - The dev panel displays validated plan reviews and blocks approval when a review is malformed, unsupported or too large. These browser checks passed; live plan approval acceptance remains pending. Compare the card with `aec-model-bridge-approve show <plan_id>` before approving.
 - The panel Plans view lists pending plans only. `aec-model-bridge-approve show <plan_id>` works for a plan in any state; `proofs/` bundles exist only for plans that were executed or attempted.
-- There is no one-step undo for a whole plan. Undo is Ctrl+Z once per action, or a revert plan (`plan_revert`) that is approved like any other plan. `rollback_plan` is for people only and has no panel button or command-line command yet.
+- One-step undo covers only plans made of parameter writes, moves and rotations, run through `revit.execute_plan_batch` (UNVERIFIED in live Revit). Other plans undo with Ctrl+Z once per action. A revert plan (`plan_revert`) is approved like any other plan. `rollback_plan` is for people only and has no panel button or command-line command yet.
 - Executing a plan costs O(n^2) in its action count; keep plans to a few hundred actions.
 - Environment Auto, timed panel Auto and explicit panel Dev skip per-change approval. Dev has no expiry until switched off and applies across sessions sharing the workspace; it does not relax filesystem scope or read-mode guards. An explicitly supplied plan must still be valid and approved.
 - The panel's `/execute` endpoint and the approval command line authenticate a local process, not a person. Do not give an AI client a shell on the same account if you rely on the gate.
@@ -66,7 +66,7 @@ The first real write against Revit since the `CreateTransaction` fix (#95). Buil
 4. In the Revit panel, check the arguments match what you asked for, then Approve. (Or `aec-model-bridge-approve`.)
 5. Ask the assistant to run `execute_plan`.
 6. Read the parameter in the Properties palette. Pass: value is `dev-test-1` and Revit did not hang or crash. Fail: freeze, close, a panel error, or an unchanged value.
-7. Press Ctrl+Z once and read it again. Pass: the original value is back. If it took more steps, note how many. Undo is per action, so one step for a whole plan is not built.
+7. Press Ctrl+Z once and read it again. Pass: the original value is back. If it took more steps, note how many. A one-action plan is one step either way; repeat with a two-action plan to check the one-step plan undo.
 8. Record pass or fail for the write and for undo, any message text, and the lines in `%APPDATA%\AECModelBridge\Logs\bridge.jsonl` around that time.
 
 Stop and report if step 5 or 6 fails.
