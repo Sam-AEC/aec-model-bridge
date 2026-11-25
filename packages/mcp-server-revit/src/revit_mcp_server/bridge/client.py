@@ -251,7 +251,8 @@ class BridgeClient:
         with self._http_lock:
             if self._http is None or self._http_key != key:
                 old = self._http
-                headers = {}
+                # The add-in gzips large responses when asked; httpx decodes them before .json().
+                headers = {"Accept-Encoding": "gzip"}
                 if self.token:
                     headers["Authorization"] = f"Bearer {self.token}"
                 self._http = httpx.Client(headers=headers, timeout=self.timeout)

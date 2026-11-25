@@ -17,7 +17,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "scripts" / "count_tools.py"
 ROW_RE = re.compile(r"^\| [^|]+ \| (\d+) \|", re.MULTILINE)
-# "270+ tools" and "more than 270 tools" are floors: true if the count is at least
+# "300+ tools" and "more than 300 tools" are floors: true if the count is at least
 # that, and stale if the real count has moved on by more than this.
 FLOOR_SLACK = 40
 

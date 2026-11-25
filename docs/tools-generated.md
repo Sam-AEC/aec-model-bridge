@@ -299,6 +299,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_list_views` | List all views in the active Revit project with their names, ids and view types. | No | sync |
 | `revit_mirror_element` | Mirror one element about a plane given by an origin point and a normal vector. | Yes | sync |
 | `revit_move_element` | Move one element by an offset vector in feet. | Yes | sync |
+| `revit_perf_report` | Read-only. | No | sync |
 | `revit_pin_element` | Pin an element so it cannot be moved by accident. | Yes | sync |
 | `revit_place_door` | Place a door of a given family and type in a host wall at a location. | Yes | sync |
 | `revit_place_family_instance` | Place an instance of a loaded family type (for example furniture or equipment) at a point on a level. | Yes | sync |

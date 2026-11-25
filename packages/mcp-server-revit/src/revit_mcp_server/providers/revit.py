@@ -5,23 +5,23 @@ import contextlib
 import contextvars
 import logging
 import math
-import threading
 from pathlib import Path
 from typing import Any, Dict, List
 
 import httpx
 
 from ..bridge.client import BridgeClient
+from ..bridge.routing import RoutedBridgeCache
 from ..bridge.mock import MockBridge
 from ..check_contract import PageSpec, paginate
 from ..config import BridgeMode, config
-from ..errors import BridgeError, WorkspaceViolation
+from ..errors import BridgeError, CommandFailed, WorkspaceViolation
 from ..legacy.tools import TOOL_HANDLERS
 from ..security.read_mode import execute_python_payload, is_read_mode_call
 from ..security.workspace import WorkspaceMonitor
 from .base import AECProvider, ProviderTool, enrich_mutation_metadata
 from .element_inspection import INSPECTION_SCHEMA, inspect_elements, validate_inspection
-from . import revit_context
+from . import revit_context, revit_perf
 
 logger = logging.getLogger(__name__)
 
@@ -132,8 +132,7 @@ class RevitProvider(AECProvider):
         # live mode (with any temporary Auto window), not only the configured one.
         self.approval_state_source = None
         self._bridge = self._build_bridge(bridge_factory)
-        self._routed_bridges: Dict[tuple, Any] = {}
-        self._routed_lock = threading.Lock()
+        self._routed_bridges = RoutedBridgeCache()
         self._init_tool_mapping()
         self._enrich_tool_metadata()
 
@@ -205,24 +204,46 @@ class RevitProvider(AECProvider):
     def routed_to(self, endpoint: str, token: str | None):
         """Send every Revit call made inside this block (same task/thread context) to the
         bridge at ``endpoint`` instead of the one chosen at hub start-up. Used by the panel
-        hub's instance routing; the registry decides the endpoint, never the request."""
+        hub's instance routing; the registry decides the endpoint, never the request.
+
+        Cached clients whose registry entry is gone are dropped first. A connection failure
+        inside the block triggers a /health probe; a client that fails it
+        ``RoutedBridgeCache.max_strikes`` times in a row is dropped. No network call runs
+        under the cache lock."""
         key = (endpoint, token)
-        with self._routed_lock:
-            bridge = self._routed_bridges.get(key)
-            if bridge is None:
-                factory = self._bridge_factory or (lambda u, t=None: BridgeClient(u, token=t))
-                bridge = factory(endpoint, token)
-                if hasattr(bridge, "initialize"):
-                    try:
-                        bridge.initialize()
-                    except Exception as e:
-                        logger.error("Failed to initialize routed Revit bridge client: %s", type(e).__name__)
-                self._routed_bridges[key] = bridge
+        live = self._live_route_keys()
+        if live is not None:
+            self._routed_bridges.evict_missing(live, keep=key)
+        factory = self._bridge_factory or (lambda u, t=None: BridgeClient(u, token=t))
+        bridge = self._routed_bridges.get(key, factory)
         reset = _BRIDGE_OVERRIDE.set(bridge)
         try:
             yield bridge
+        except (CommandFailed, WorkspaceViolation):
+            self._routed_bridges.record_success(key)  # Revit answered, or the call never left
+            raise
+        except (BridgeError, httpx.RequestError, OSError):
+            self._routed_bridges.record_failure(key, bridge)
+            raise
+        else:
+            self._routed_bridges.record_success(key)
         finally:
             _BRIDGE_OVERRIDE.reset(reset)
+
+    @staticmethod
+    def _live_route_keys():
+        """(endpoint, token) of every live Revit registry entry, or None when the registry cannot be read."""
+        from ..bridge import discovery
+
+        try:
+            return [
+                (s.endpoint, s.session_token)
+                for s in discovery.discover_switch_list(prune=False)
+                if s.provider_id == "revit"
+            ]
+        except Exception as e:
+            logger.debug("Registry read for routed-client eviction failed: %s", type(e).__name__)
+            return None
 
     def call_is_read_only(self, name: str, arguments: Dict[str, Any]) -> bool:
         """Lets the approval gate skip a revit_execute_python call made with mode='read'."""
@@ -331,6 +352,10 @@ class RevitProvider(AECProvider):
 
         if name == "revit_get_context":
             return await asyncio.to_thread(self.live_context)
+        if name == "revit_perf_report":
+            return await asyncio.to_thread(
+                revit_perf.perf_report, self._active_bridge(), arguments, live=self.mode == BridgeMode.bridge
+            )
         if name == "revit_get_result":
             if self.mode != BridgeMode.bridge:
                 raise ValueError("revit_get_result needs a live Revit connection; it is not available in mock mode.")
@@ -2299,6 +2324,7 @@ class RevitProvider(AECProvider):
         ),
     ]
     _capabilities += revit_context.CONTEXT_TOOLS
+    _capabilities += revit_perf.PERF_TOOLS
     for _tool in _capabilities:
         if _tool.name in PAGED_READS:
             _tool.input_schema.setdefault("properties", {}).update(copy.deepcopy(_PAGE_PROPERTIES))
@@ -2308,7 +2334,6 @@ class RevitProvider(AECProvider):
         close = getattr(getattr(self, "_bridge", None), "close", None)
         if callable(close):
             close()
-        for routed in list(getattr(self, "_routed_bridges", {}).values()):
-            routed_close = getattr(routed, "close", None)
-            if callable(routed_close):
-                routed_close()
+        routed = getattr(self, "_routed_bridges", None)
+        if routed is not None:
+            routed.close_all()
