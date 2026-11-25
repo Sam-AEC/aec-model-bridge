@@ -188,6 +188,16 @@ Dev permits unplanned writes while retaining Look only lockdown. Calls supplying
 
 An optional `policy.yaml` (or `MCP_REVIT_POLICY_FILE`) can block tools or parameters, limit categories and cap plan size. It is checked when a plan is drafted and again just before `execute_plan` runs its first action, so a tightened policy stops plans that were drafted earlier. It only adds refusals: approval stays with a person, and no policy rule approves or runs a plan. An invalid file refuses all plan drafting and execution. See [Policy file](configuration-reference.md#policy-file).
 
+### Machine policy and tiers
+
+An administrator can set a machine policy file: `MCP_REVIT_MACHINE_POLICY_FILE`, else `%PROGRAMDATA%\AECModelBridge\policy.yaml` on Windows or `/etc/aec-model-bridge/policy.yaml` elsewhere. No file means no machine policy. A file that cannot be read or is invalid refuses every write. It uses the same keys as the workspace policy, and the stricter rule wins: blocked lists are joined, allowed lists are intersected, number limits take the smaller value, and a tier that is off in either file is off. A workspace policy can only tighten the machine policy.
+
+Every tool has one tier. `script`: runs code or reaches arbitrary API members (`revit_execute_python`, invoke and reflect tools, `revit_run_job`). `write`: changes the model, plus `plan_actions`, `execute_plan` and `plan_revert`. `export`: writes files or state outside the model. `read`: everything else. Set `allowed_tiers` or `blocked_tiers` to turn a tier off. Its tools are hidden from `tools/list`, calls are refused with a message naming the policy file by level and file name, and plan actions that use them are refused. Approve, reject, roll back, list plans, policy show, proof bundle and job status or cancel tools are never hidden or refused, so a person can always reject a plan.
+
+Explicit Dev mode lifts the limits of both files. The AI cannot switch it on. Each bypassed call or plan is written to `dev-mode-audit.jsonl` with the rule it bypassed. Writes still go through `plan_actions`, approval and `execute_plan`. Dev mode does not lift an unreadable or invalid policy file. The server sends no `tools/list_changed`, so a client lists tools again after Dev mode or a policy file changes. `aec-model-bridge-doctor` shows the policy files, their hashes, the tiers that are off and whether the Dev override is active.
+
+UNVERIFIED: the Windows ProgramData path and the ACL that keeps standard users from editing the file were not checked on a live Windows machine. Set the ACL so only administrators can write it. A path set with the environment variable is only as safe as the place that sets it.
+
 ### Plan review in the panel
 
 The panel's `/execute` route adds a `review_view` to each plan in a `list_pending_plans` result and drops the raw `review` key from that copy. The hub computes it: `status` is `none` (a hash_version 1 plan with nothing outside its hash), `ok` (a hash_version 2 plan whose review is canonical, whose `reverts_plan_id` has the shape `plan_` plus 12 hex digits, and whose stored hash matches its content) or `invalid`. It also carries `hash_version`, `reverts_plan_id` and the normalised `review`. Through MCP and the chat, `list_pending_plans` is unchanged (no `review_view`); approve, reject and rollback stay human-only.
