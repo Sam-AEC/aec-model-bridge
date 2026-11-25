@@ -8,7 +8,7 @@
 #     name_pattern  ^(?i)\d{2}_hb_
 #   Levels (name_target element):  ^-?\d{2} (ok|bk)?\.? ?\w+      e.g. "00 begane grond", "01 ok. ruwe vloer"
 # Measured 16 Oct 2026: walls 115 of 13809 off pattern, floors 19 of 2680, roofs 314 of 634 (mostly "Roofs 2").
-# The AMB_ and AMB2_ names in that model are test leftovers, not Heijmans naming.
+# The AMB_ and AMB2_ names in that model are test leftovers, not project naming.
 rules:
   - id: door_mark_missing
     severity: error
@@ -59,7 +59,7 @@ rules:
   - id: inplace_family
     severity: warning
     category: Families
-    description: "In-place family. Heijmans models use loadable families."
+    description: "In-place family. This project uses loadable families."
     filter:
       family_source: inplace
     assertion: "element_count == 0"
