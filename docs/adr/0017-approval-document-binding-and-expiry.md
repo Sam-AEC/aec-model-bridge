@@ -39,6 +39,6 @@ Done, and only ever stricter:
 Differences from the proposal:
 
 - **Null binding is allowed.** When no live document can be identified at drafting (mock mode, no Revit, Revit busy, no guid or central path) the binding is `null` and the plan is not refused for its document. This is looser than "plans without a binding cannot be approved", chosen so mock mode and drafting while Revit is busy keep working; it is the one place this feature does not fail closed. The CLI prints "NOT BOUND".
-- **No process id or start time.** `revit_get_context` does not report them. The document identity is what is compared.
+- **Process id and start time are optional.** The binding records `revit_pid` and `revit_started_at` only when `revit_get_context` reports `revit.pid` and `revit.started_at`; an older add-in gives a document-only binding. Add-in reporting is UNVERIFIED in a live Revit (issue #152).
 - **Panel page** does not display the binding or the expired count yet; the data is in the list API and `show` prints it.
 - Plans drafted before this change need no redraft; they simply carry no binding.
