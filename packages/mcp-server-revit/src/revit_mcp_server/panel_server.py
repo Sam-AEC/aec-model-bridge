@@ -22,6 +22,7 @@ import json
 import logging
 import os
 import shutil
+import socketserver
 import threading
 import time
 from logging.handlers import RotatingFileHandler
@@ -73,6 +74,139 @@ FAILURE_WINDOW_SECONDS = 60.0
 # Seconds a blocking read or write on one connection may wait. Bounds a slow or stalled request
 # body; it does not limit how long a tool call runs.
 SOCKET_TIMEOUT_SECONDS = 30
+# Most request threads the hub runs at once (AEC_PANEL_MAX_THREADS). RESERVED_EXECUTE_SLOTS of
+# them serve only requests whose path is /execute, so the panel's approve and execute calls still
+# get a thread while other routes fill the rest. The tool name is in the body, so the reservation
+# covers /execute as a whole, not only approval tools.
+DEFAULT_MAX_THREADS = 32
+MIN_MAX_THREADS = 4
+MAX_MAX_THREADS = 256
+RESERVED_EXECUTE_SLOTS = 2
+BUSY_RETRY_AFTER_SECONDS = 1
+BUSY_ERROR = "The panel hub is busy. Try again in a moment."
+
+
+def max_threads_from_env(environ: Any = None) -> int:
+    """``AEC_PANEL_MAX_THREADS`` as an int in 4-256. Unset gives 32; a bad or out-of-range value
+    gives 32 and logs a warning."""
+    env = os.environ if environ is None else environ
+    raw = env.get("AEC_PANEL_MAX_THREADS")
+    if raw is None or not str(raw).strip():
+        return DEFAULT_MAX_THREADS
+    try:
+        value: int | None = int(str(raw).strip())
+    except ValueError:
+        value = None
+    if value is None or not MIN_MAX_THREADS <= value <= MAX_MAX_THREADS:
+        logger.warning(
+            "AEC_PANEL_MAX_THREADS=%r is not a whole number from %d to %d; using %d.",
+            raw, MIN_MAX_THREADS, MAX_MAX_THREADS, DEFAULT_MAX_THREADS,
+        )
+        return DEFAULT_MAX_THREADS
+    return value
+
+
+def _busy_response_bytes() -> bytes:
+    body = json.dumps({"ok": False, "kind": "hub_busy", "error": BUSY_ERROR}).encode("utf-8")
+    head = (
+        "HTTP/1.0 503 Service Unavailable\r\n"
+        "Content-Type: application/json\r\n"
+        f"Content-Length: {len(body)}\r\n"
+        f"Retry-After: {BUSY_RETRY_AFTER_SECONDS}\r\n"
+        "Connection: close\r\n\r\n"
+    ).encode("ascii")
+    return head + body
+
+
+class BoundedThreadingHTTPServer(ThreadingHTTPServer):
+    """ThreadingHTTPServer with a cap on request threads.
+
+    A slot is taken on the accept thread before a request thread starts. General slots go first;
+    when they are all in use, a connection gets one of the ``reserved_execute`` slots, and its
+    thread answers 503 unless the request path is ``/execute``. When every slot is in use, the
+    connection is answered 503 with ``Retry-After`` on the accept thread and closed; no thread
+    starts. A slot is released when its thread ends, also after an exception.
+    """
+
+    def __init__(self, server_address, handler_class, max_threads: int = DEFAULT_MAX_THREADS,
+                 reserved_execute: int = RESERVED_EXECUTE_SLOTS, bind_and_activate: bool = True) -> None:
+        if reserved_execute < 0 or max_threads <= reserved_execute:
+            raise ValueError("max_threads must be larger than reserved_execute")
+        self.max_threads = max_threads
+        self.reserved_execute = reserved_execute
+        self._general_slots = threading.BoundedSemaphore(max_threads - reserved_execute)
+        self._execute_slots = threading.BoundedSemaphore(reserved_execute) if reserved_execute else None
+        self._slot_state = threading.local()
+        self._count_lock = threading.Lock()
+        self.active_threads = 0
+        self.refused_busy = 0
+        super().__init__(server_address, handler_class, bind_and_activate)
+
+    def current_slot(self) -> str:
+        """``general`` or ``execute`` for the calling request thread (``general`` elsewhere)."""
+        return getattr(self._slot_state, "kind", "general")
+
+    def _take_slot(self) -> str | None:
+        if self._general_slots.acquire(blocking=False):
+            return "general"
+        if self._execute_slots is not None and self._execute_slots.acquire(blocking=False):
+            return "execute"
+        return None
+
+    def _release_slot(self, kind: str) -> None:
+        if kind == "general":
+            self._general_slots.release()
+        elif self._execute_slots is not None:
+            self._execute_slots.release()
+
+    def _refuse_busy(self, request) -> None:
+        with self._count_lock:
+            self.refused_busy += 1
+        try:
+            request.settimeout(1.0)
+            request.sendall(_busy_response_bytes())
+            # Read what the client already sent, so closing does not reset the connection
+            # before the client reads the 503.
+            request.setblocking(False)
+            with contextlib.suppress(OSError):
+                for _ in range(16):
+                    if not request.recv(65536):
+                        break
+        except OSError:
+            pass
+        finally:
+            self.shutdown_request(request)
+
+    def process_request(self, request, client_address) -> None:
+        kind = self._take_slot()
+        if kind is None:
+            self._refuse_busy(request)
+            return
+        if self.block_on_close:
+            vars(self).setdefault("_threads", socketserver._Threads())  # as ThreadingMixIn does
+        t = threading.Thread(target=self._process_request_in_slot, args=(request, client_address, kind))
+        t.daemon = self.daemon_threads
+        with self._count_lock:
+            self.active_threads += 1
+        try:
+            t.start()
+        except RuntimeError:
+            with self._count_lock:
+                self.active_threads -= 1
+            self._release_slot(kind)
+            self._refuse_busy(request)
+            return
+        self._threads.append(t)
+
+    def _process_request_in_slot(self, request, client_address, kind: str) -> None:
+        self._slot_state.kind = kind
+        try:
+            self.process_request_thread(request, client_address)
+        finally:
+            self._slot_state.kind = "general"
+            with self._count_lock:
+                self.active_threads -= 1
+            self._release_slot(kind)
 
 
 class InstanceRoutingError(Exception):
@@ -328,6 +462,18 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
 
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
         logger.debug("panel_server: " + format, *args)
+
+    def parse_request(self) -> bool:
+        if not super().parse_request():
+            return False
+        current_slot = getattr(self.server, "current_slot", None)
+        if callable(current_slot) and current_slot() == "execute" and self.path.split("?", 1)[0] != "/execute":
+            # A reserved slot serves only /execute; other routes wait for a general slot.
+            self.close_connection = True
+            self._send_json(503, {"ok": False, "kind": "hub_busy", "error": BUSY_ERROR},
+                            headers={"Retry-After": str(BUSY_RETRY_AFTER_SECONDS), "Connection": "close"})
+            return False
+        return True
 
     def _send_json(self, status: int, payload: Dict[str, Any], headers: Dict[str, str] | None = None) -> None:
         try:
@@ -707,7 +853,8 @@ def build_server(
     port: int | None = None,
     workspace: WorkspaceMonitor | None = None,
     token: str | None = None,
-) -> ThreadingHTTPServer:
+    max_threads: int | None = None,
+) -> BoundedThreadingHTTPServer:
     """Build the hub. ``token`` defaults to the per-user token file (created if this is the first
     hub to start); raises PanelTokenError if that file is unsafe. A hub never runs without a token."""
     resolved_token = token if token is not None else load_or_create_token()
@@ -716,8 +863,8 @@ def build_server(
     register_secret_value(resolved_token)
     handler = build_handler(workspace=workspace, token=resolved_token)
     resolved_port = port if port is not None else int(os.getenv("MCP_PANEL_HTTP_PORT", str(DEFAULT_PORT)))
-    server = ThreadingHTTPServer(("127.0.0.1", resolved_port), handler)
-    return server
+    resolved_max = max_threads if max_threads is not None else max_threads_from_env()
+    return BoundedThreadingHTTPServer(("127.0.0.1", resolved_port), handler, max_threads=resolved_max)
 
 
 def default_log_path() -> Path:
