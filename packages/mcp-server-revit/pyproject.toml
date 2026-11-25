@@ -31,8 +31,7 @@ dependencies = [
     "opentelemetry-api>=1.45.2",
     "python-dotenv>=1.0",
     # 1.10 added Tool.title and Tool.annotations (readOnlyHint etc.), which
-    # tool_metadata.py sets on every listed tool. Capped below 2: mcp 2.x (Python
-    # 3.12+) removed the low-level `Server.list_tools()` decorators this server is
+    # tool_metadata.py sets on every listed tool. Capped below 2: mcp 2.x removed the low-level `Server.list_tools()` decorators this server is
     # built on, so an unpinned install crashed at import time.
     "mcp>=1.30.0,<2",
     "ifcopenshell>=0.7.0",
