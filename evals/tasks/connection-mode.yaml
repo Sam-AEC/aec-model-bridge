@@ -1,0 +1,13 @@
+id: connection-mode
+prompt: Am I connected to Revit, and do changes need my approval?
+kind: read
+profile: core
+expected_tools:
+- [revit_get_context]
+max_calls: 1
+plan_required: false
+forbidden_tools: [revit_execute_python, revit_raw_command, revit_health]
+checker:
+  type: contains_any
+  values: [mock, not connected]
+notes: revit_get_context answers both questions in one call.

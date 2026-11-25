@@ -1,0 +1,4 @@
+{"meta": {"expect": {"passed": false, "failed_checks": ["forbidden", "calls"]}, "note": "Calls revit_health first, which the task forbids, and goes over budget."}}
+{"tool": "revit_health", "arguments": {}}
+{"tool": "revit_get_context", "arguments": {}}
+{"answer": "Mock mode, not connected. Changes need approval."}

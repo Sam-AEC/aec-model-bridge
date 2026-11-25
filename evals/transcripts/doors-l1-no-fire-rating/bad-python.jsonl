@@ -1,0 +1,3 @@
+{"meta": {"expect": {"passed": false, "failed_checks": ["forbidden", "tools"]}, "note": "Uses revit_execute_python for a simple read."}}
+{"tool": "revit_execute_python", "arguments": {"mode": "read", "code": "doors = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Doors)"}}
+{"answer": "No door on Level 1 is missing a fire rating."}

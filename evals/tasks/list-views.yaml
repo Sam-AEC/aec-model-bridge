@@ -1,0 +1,12 @@
+id: list-views
+prompt: List the views in the model.
+kind: read
+profile: core
+expected_tools:
+- [revit_list_views]
+max_calls: 2
+plan_required: false
+forbidden_tools: [revit_execute_python, revit_raw_command]
+checker:
+  type: contains_all
+  values: [Floor Plan, Ceiling Plan]

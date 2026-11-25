@@ -1,0 +1,12 @@
+id: worst-warnings
+prompt: What are the worst warnings in the model and how do I fix them?
+kind: read
+profile: core
+expected_tools:
+- [warnings_triage_review_warnings]
+- [revit_review]
+max_calls: 2
+plan_required: false
+forbidden_tools: [revit_execute_python, revit_raw_command]
+checker: {type: none, reason: 'Mock data has no sheets, revisions or warnings; the mock server returns an empty
+    or MOCK MODE result.'}

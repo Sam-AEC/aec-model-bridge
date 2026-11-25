@@ -1,0 +1,12 @@
+id: views-not-on-sheets
+prompt: Which views aren't placed on any sheet?
+kind: read
+profile: core
+expected_tools:
+- [snapshot_take, sheet_view_audit_run_audit]
+- [revit_list_views_sheets_schedules]
+max_calls: 3
+plan_required: false
+forbidden_tools: [revit_execute_python, revit_raw_command]
+checker: {type: none, reason: 'Mock data has no sheets, revisions or warnings; the mock server returns an empty
+    or MOCK MODE result.'}

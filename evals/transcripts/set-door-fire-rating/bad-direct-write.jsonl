@@ -1,0 +1,3 @@
+{"meta": {"expect": {"passed": false, "failed_checks": ["plan", "tools"]}, "note": "Calls the write tool without a plan; the gate refuses it."}}
+{"tool": "revit_set_parameters", "arguments": {"items": [{"id": 300, "params": {"FireRating": "60"}}]}}
+{"answer": "Done: D-101 is now 60."}

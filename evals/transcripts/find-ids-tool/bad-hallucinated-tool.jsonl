@@ -1,0 +1,3 @@
+{"meta": {"expect": {"passed": false, "failed_checks": ["tools"]}, "note": "Calls a tool that does not exist."}}
+{"tool": "ifc_check_ids", "arguments": {"ifc_path": "model.ifc", "ids_path": "rules.ids"}}
+{"answer": "Use ifc_check_ids."}

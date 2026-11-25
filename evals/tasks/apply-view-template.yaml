@@ -1,0 +1,13 @@
+id: apply-view-template
+prompt: Apply the 'Architectural Plan' view template to the Floor Plan view.
+kind: write
+profile: full
+expected_tools:
+- [revit_set_view_templates]
+- [revit_apply_view_template]
+max_calls: 3
+plan_required: true
+forbidden_tools: [revit_execute_python, revit_raw_command, revit_reflect_set, revit_invoke_method]
+checker:
+  type: contains_any
+  values: [approv, plan]
