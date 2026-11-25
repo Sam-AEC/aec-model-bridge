@@ -3799,17 +3799,17 @@ Every schema object now states `"additionalProperties": true` (about 30 characte
 
 A client with tool search can defer this server and keep a short always-loaded set: `ALWAYS_LOADED_TOOLS` in `tool_profiles.py` (`revit_get_context`, `snapshot_take`, `snapshot_compute`, `search_tools`, `context_report`, `plan_actions`, `execute_plan`, `list_pending_plans`). Setup: [deferred tool loading](deferred-tool-loading.md).
 
-Same method as above (mock mode, chars / 4 over `list_tools`), with 312 tools, after `context_report` and the `_meta` always-load flag were added. `--always-loaded` measures only the always-loaded set. Names-only is the JSON list of tool names.
+Same method as above (mock mode, chars / 4 over `list_tools`), with 313 tools, after `context_report` and the `_meta` always-load flag were added. `--always-loaded` measures only the always-loaded set. Names-only is the JSON list of tool names.
 
 | Setup | Tools in prompt | ~Tokens of tool definitions |
 | --- | ---: | ---: |
-| `full`, no deferral | 312 | 83,278 |
-| `daily`, no deferral | 241 | 65,312 |
-| `core`, no deferral | 58 | 15,094 |
-| Always-loaded set only (any profile) | 8 | 1,832 |
-| `full` deferred, plus names of the 304 deferred tools | 8 + 304 names | about 3,740 |
+| `full`, no deferral | 313 | 86,877 |
+| `daily`, no deferral | 242 | 68,639 |
+| `core`, no deferral | 58 | 17,104 |
+| Always-loaded set only (any profile) | 8 | 2,635 |
+| `full` deferred, plus names of the 305 deferred tools | 8 + 305 names | about 4,550 |
 
-With the Claude API tool search tool, deferred definitions are not in the prompt until a search returns them, so the startup cost is the always-loaded row plus the search tool itself. Claude Code lists the names of deferred tools at session start; the last row estimates that from names-only JSON (7,772 characters for all 312 names) and is not a measurement of Claude Code's own prompt. Neither row was measured in a live client. Server instructions (about 345 tokens) are sent in every setup.
+With the Claude API tool search tool, deferred definitions are not in the prompt until a search returns them, so the startup cost is the always-loaded row plus the search tool itself. Claude Code lists the names of deferred tools at session start; the last row estimates that from names-only JSON (7,792 characters for all 313 names) and is not a measurement of Claude Code's own prompt. Neither row was measured in a live client. Server instructions (about 345 tokens) are sent in every setup.
 
 Reproduce: `python scripts/measure_mcp_tokens.py --always-loaded --output always-loaded.json`, and `--profile full|daily|core` for the other rows. `--only-tools a,b,c` measures any other subset.
 
@@ -4046,7 +4046,7 @@ These eight tools stay loaded. The list is `ALWAYS_LOADED_TOOLS` in `packages/mc
 | `execute_plan` | Runs a plan after a person approves it |
 | `list_pending_plans` | Plan state |
 
-All eight are visible in the `core`, `daily` and `full` profiles. Together they are about 1,832 tokens.
+All eight are visible in the `core`, `daily` and `full` profiles. Together they are about 2,635 tokens.
 
 In `tools/list` the server marks each of these tools with `"_meta": {"anthropic/alwaysLoad": true}`. No other tool carries the flag.
 
