@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from . import file_binding
 from . import proof as proof_mod
+from ..script_lint import lint_script
 
 UNKNOWN = "unknown"
 EMPTY_TEXT = "(empty)"
@@ -277,6 +278,24 @@ def _bound_files_markdown(files: List[Dict[str, Any]]) -> List[str]:
     return lines
 
 
+def script_lint_warnings(plan: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Advisory lint warnings (script_lint.py) for each revit_execute_python action. They never block a plan."""
+    out: List[Dict[str, Any]] = []
+    for action in plan.get("actions", []) or []:
+        if isinstance(action, dict) and action.get("tool") == "revit_execute_python":
+            args = action.get("arguments")
+            for warning in lint_script(args.get("script") if isinstance(args, dict) else None):
+                out.append({"action_id": action.get("action_id"), **warning})
+    return out
+
+
+def _script_lint_markdown(warnings: List[Dict[str, Any]]) -> List[str]:
+    lines = ["Script lint (advisory, does not block): known Revit API traps found in the script text."]
+    for w in warnings:
+        lines.append(f"- {_md_cell(w['rule'])} (line {w['line']}): {_md_cell(w['message'])}")
+    return lines
+
+
 def review_aids(plan: Dict[str, Any], workspace_dir: Optional[Path] = None) -> Dict[str, Any]:
     """``preview``, ``preview_markdown`` and ``blast_radius`` for one plan. Never raises:
     on an internal error the plan is shown without them rather than failing the listing."""
@@ -294,6 +313,10 @@ def review_aids(plan: Dict[str, Any], workspace_dir: Optional[Path] = None) -> D
         if files:
             aids["bound_files"] = files
             aids["preview_markdown"] += "\n\n" + "\n".join(_bound_files_markdown(files))
+        lint = script_lint_warnings(plan)
+        if lint:
+            aids["script_lint"] = lint
+            aids["preview_markdown"] += "\n\n" + "\n".join(_script_lint_markdown(lint))
         return aids
     except Exception:  # noqa: BLE001
         return {}

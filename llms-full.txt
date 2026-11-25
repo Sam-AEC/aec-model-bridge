@@ -4248,6 +4248,16 @@ print(amb.dependents(wall, amb.category_filter(["Doors", "Windows"])))
 
 A script runs on Revit's user-interface thread and cannot be cancelled. Keep each call well under 20 seconds, work from ids, and split long work over several calls or `revit_run_job`.
 
+## Script lint (advisory)
+
+`revit_execute_python` checks the script text for known Revit API and IronPython traps (`revit_mcp_server/script_lint.py`). The warnings only inform. They never block, change or delay a script, and read mode and the approval gate are unchanged.
+
+- `execute_tool` adds `lint_warnings` to the result of a `revit_execute_python` call: a list of `{rule, line, message, example}`.
+- `plan_actions` listings add `script_lint` and a "Script lint" section in `preview_markdown` for each `revit_execute_python` action. Both are computed when the plan is shown, so they are not part of the plan hash.
+- Rules: `collections_import`, `fstring`, `out_parameter_roof`, `wall_flip`, `phase_indexer`, `transaction_unclosed`, `family_doc_not_closed_in_finally`, `dialog_blocks_bridge`, `long_sleep`.
+
+The rules are text matches and can warn about code that is fine. They were written from traps seen in live use and tested on fixture scripts only. UNVERIFIED in live Revit.
+
 ## Recipes that use the helpers
 
 Two read-only starter recipes use `amb`: `elements_by_parameter` (one category plus one parameter rule) and `elements_in_box` (categories plus a box in metres). See [recipes-library.md](recipes-library.md).
