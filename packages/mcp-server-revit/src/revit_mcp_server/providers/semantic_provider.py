@@ -20,7 +20,10 @@ QUERY_NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
 MAX_QUERY_BYTES = 256_000
 LEVEL_CATEGORIES = ("OST_Levels", "Levels")
 # A dotted path that ends in a parameter: 'params.Mark', 'host.params.Fire Rating', 'type.params.Width'.
-PARAM_PATH_RE = re.compile(r"^(?:[A-Za-z_][A-Za-z0-9_]*\.)*params\.(.+)$")
+# A field path that names a parameter. semantic.compute.get_path splits paths on '.', so the
+# parameter name is the one segment after 'params.'; a suffix such as '.v' or '.storage'
+# reads a field of the parameter record and is not part of the name.
+PARAM_PATH_RE = re.compile(r"^(?:[A-Za-z_][A-Za-z0-9_]*\.)*params\.([^.]+)(?:\..*)?$")
 # Keys whose string values are names or literals, not field paths.
 _NOT_PATH_KEYS = {"name", "as", "value", "from", "test", "op"}
 
@@ -531,7 +534,7 @@ def _replace_param(node: Any, bad: str, chosen: str) -> Any:
     if isinstance(node, str):
         m = PARAM_PATH_RE.match(node)
         if m and m.group(1) == bad:
-            return node[: m.start(1)] + chosen
+            return node[: m.start(1)] + chosen + node[m.end(1):]
     return node
 
 

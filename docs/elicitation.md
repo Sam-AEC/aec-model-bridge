@@ -21,7 +21,7 @@ One call asks at most three questions, one input at a time. Each question has on
 | --- | --- | --- |
 | `snapshot_query` | `filter.level` (a level name) matches several levels, or none exactly | Pick one level from the matching names (or every level when none is close). The answer becomes `filter.level_uid`. |
 | `snapshot_query` | `filter.parameter.name` is on no element or type in the snapshot, and close names exist | Pick one of the close names. |
-| `snapshot_compute` | A field path such as `params.Fire Rating` names a parameter that no element or type has, and close names exist | Pick one of the close names. Every path that names it is changed. A saved query then runs inline with the changed steps. |
+| `snapshot_compute` | A field path such as `params.Fire Rating` names a parameter that no element or type has, and close names exist. The name is the one segment after `params.`; a suffix such as `.v` or `.storage` is not part of it | Pick one of the close names. Every path that names it is changed, and a suffix is kept. A saved query then runs inline with the changed steps. |
 | `revit_export_dwg`, `revit_export_ifc`, `revit_export_navisworks`, `revit_export_image` | `output_path` is missing | Type a file name. The file goes in the workspace folder with the tool's extension. |
 | `revit_export` | `path` is missing (and `format` is valid) | Type a file name. The file goes in the workspace folder with the format's extension. |
 

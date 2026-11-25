@@ -163,6 +163,31 @@ def test_snapshot_compute_parameter_is_replaced_in_every_path(server):
     assert len(asker.asked) == 1
 
 
+def test_snapshot_compute_parameter_path_with_record_suffix(server):
+    # A known parameter read through a record field asks nothing.
+    steps = [{"name": "doors", "where": {"field": "params.FireRating.v", "op": "eq", "value": "30"},
+              "select": ["params.FireRating.storage"]}]
+    asker = Asker()
+    data = _result(call("snapshot_compute", {"snapshot_id": server.snapshot_id, "steps": steps}, asker))
+    assert data["row_count"] == 1 and asker.asked == []
+    # An unknown name is matched on its segment only, and the suffix is kept in the correction.
+    steps = [{"name": "doors", "where": {"field": "params.Fire Rating.v", "op": "eq", "value": "30"}}]
+    asker = Asker(("accept", {"parameter": "FireRating"}))
+    data = _result(call("snapshot_compute", {"snapshot_id": server.snapshot_id, "steps": steps}, asker))
+    assert data["row_count"] == 1 and len(asker.asked) == 1
+    assert "'Fire Rating'" in asker.asked[0].message
+
+
+def test_parameter_path_segments():
+    from revit_mcp_server.providers.semantic_provider import _param_refs, _replace_param
+
+    paths = ["params.FireRating.v", "params.Long Name.storage", "type.params.Mark", "params.Mark"]
+    assert _param_refs(paths) == ["FireRating", "Long Name", "Mark"]
+    assert _replace_param(paths, "Long Name", "LongName") == [
+        "params.FireRating.v", "params.LongName.storage", "type.params.Mark", "params.Mark"]
+    assert _replace_param(["type.params.Mark.v"], "Mark", "Tag") == ["type.params.Tag.v"]
+
+
 def test_snapshot_compute_saved_query_runs_inline_after_the_answer(server):
     queries = server.root / "queries"
     queries.mkdir()
