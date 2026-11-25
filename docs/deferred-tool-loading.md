@@ -19,7 +19,7 @@ These eight tools stay loaded. The list is `ALWAYS_LOADED_TOOLS` in `packages/mc
 | `execute_plan` | Runs a plan after a person approves it |
 | `list_pending_plans` | Plan state |
 
-All eight are visible in the `core`, `daily` and `full` profiles. Together they are about 1,832 tokens.
+All eight are visible in the `core`, `daily` and `full` profiles. Together they are about 2,635 tokens.
 
 In `tools/list` the server marks each of these tools with `"_meta": {"anthropic/alwaysLoad": true}`. No other tool carries the flag.
 
