@@ -277,7 +277,7 @@ class RevitProvider(AECProvider):
         )
 
     @contextlib.contextmanager
-    def routed_to(self, endpoint: str, token: str | None):
+    def routed_to(self, endpoint: str, token: str | None, switch=None):
         """Send every Revit call made inside this block (same task/thread context) to the
         bridge at ``endpoint`` instead of the one chosen at hub start-up. Used by the panel
         hub's instance routing; the registry decides the endpoint, never the request.
@@ -285,7 +285,17 @@ class RevitProvider(AECProvider):
         Cached clients whose registry entry is gone are dropped first. A connection failure
         inside the block triggers a /health probe; a client that fails it
         ``RoutedBridgeCache.max_strikes`` times in a row is dropped. No network call runs
-        under the cache lock."""
+        under the cache lock.
+
+        ``switch`` is the registry entry behind ``endpoint``. When the server uses the opt-in
+        pipe transport (``MCP_REVIT_BRIDGE_TRANSPORT=pipe``), a new routed client uses that
+        entry's pipe, or warns and keeps HTTP if the entry publishes none. An invalid
+        transport setting, or ``pipe`` off Windows, raises BridgeError before any call."""
+        from ..bridge.pipe_transport import require_windows, resolve_transport
+
+        transport = resolve_transport(self.bridge_transport)
+        if transport == "pipe":
+            require_windows()
         key = (endpoint, token)
         live = self._live_route_keys()
         if live is not None:
@@ -293,7 +303,10 @@ class RevitProvider(AECProvider):
         base_factory = self._bridge_factory or (lambda u, t=None: BridgeClient(u, token=t))
 
         def factory(u, t=None):
-            return self._maybe_record(base_factory(u, t))
+            made = base_factory(u, t)
+            if transport == "pipe":
+                self._apply_pipe(made, switch, u)
+            return self._maybe_record(made)
 
         bridge = self._routed_bridges.get(key, factory)
         reset = _BRIDGE_OVERRIDE.set(bridge)
@@ -328,6 +341,25 @@ class RevitProvider(AECProvider):
     def call_is_read_only(self, name: str, arguments: Dict[str, Any]) -> bool:
         """Lets the approval gate skip a revit_execute_python call made with mode='read'."""
         return name == "revit_execute_python" and is_read_mode_call(arguments)
+
+    @staticmethod
+    def _apply_pipe(bridge, switch, url) -> bool:
+        """Point ``bridge`` at the named pipe the registry entry ``switch`` publishes (ADR 0021).
+
+        Returns False, after a warning, when there is no pipe to use and HTTP stays in place.
+        Raises BridgeError when the pipe is refused (bad name, not Windows)."""
+        pipe_name = getattr(switch, "pipe_name", None) if switch is not None else None
+        if pipe_name and hasattr(bridge, "use_pipe"):
+            bridge.use_pipe(pipe_name, switch.pid)
+            logger.info("Using the named-pipe transport to Revit %s.", switch.host_version)
+            return True
+        logger.warning(
+            "MCP_REVIT_BRIDGE_TRANSPORT=pipe, but the selected Revit bridge publishes no pipe "
+            "(older add-in, explicit bridge URL, or AEC_BRIDGE_TRANSPORT=pipe not set for Revit). "
+            "Falling back to HTTP on %s.",
+            url,
+        )
+        return False
 
     def _build_bridge(self, factory=None):
         if self.mode == BridgeMode.replay:
@@ -390,21 +422,11 @@ class RevitProvider(AECProvider):
             if switch is not None and hasattr(bridge, "bind_registry_session"):
                 bridge.bind_registry_session(switch)
             if transport == "pipe":
-                pipe_name = getattr(switch, "pipe_name", None) if switch is not None else None
-                if pipe_name and hasattr(bridge, "use_pipe"):
-                    try:
-                        bridge.use_pipe(pipe_name, switch.pid)
-                    except BridgeError as e:
-                        logger.warning(str(e))
-                        return UnavailableBridge(str(e))
-                    logger.info("Using the named-pipe transport to Revit %s.", switch.host_version)
-                else:
-                    logger.warning(
-                        "MCP_REVIT_BRIDGE_TRANSPORT=pipe, but the selected Revit bridge publishes no pipe "
-                        "(older add-in, explicit bridge URL, or AEC_BRIDGE_TRANSPORT=pipe not set for Revit). "
-                        "Falling back to HTTP on %s.",
-                        url,
-                    )
+                try:
+                    self._apply_pipe(bridge, switch, url)
+                except BridgeError as e:
+                    logger.warning(str(e))
+                    return UnavailableBridge(str(e))
             if hasattr(bridge, "initialize"):
                 try:
                     bridge.initialize()
