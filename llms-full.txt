@@ -1414,7 +1414,7 @@ Element, category, level and workset values come from the action arguments and, 
 
 Old values and arguments come from the hashed plan. Element names and marks come from the snapshot and are not part of the hash.
 
-Output is plain ASCII layout with no ANSI codes, so it works in Windows cmd and PowerShell. `--color` adds color only when stdout is a terminal that supports it (on Windows: Windows Terminal, ConEmu, ANSICON, VS Code or a set `TERM`) and `NO_COLOR` is unset or empty. Long values wrap to the terminal width (60 to 200 columns). Model text is escaped. Without `--all`, at most 30 change rows and 300 characters per value are printed, followed by a `+N more ..., use --all` line. When that happens, `approve` says so above the confirmation prompt.
+Output is plain ASCII layout with no ANSI codes, so it works in Windows cmd and PowerShell. `--color` adds color only when stdout is a terminal that supports it (on Windows: Windows Terminal, ConEmu, ANSICON, VS Code or a set `TERM`) and `NO_COLOR` is unset or empty. Long values wrap to the terminal width (60 to 200 columns) without collapsing spaces. Text values print as JSON strings in double quotes, so `"A B"`, `"A  B"` and `" "` look different. Model text is escaped. Without `--all`, at most 30 change rows and 300 characters per value are printed, followed by a `+N more ..., use --all` line. Arguments of a parameter write that are not in the Element, Parameter or New column (for example the `filter` of `revit_batch_set_parameters_by_filter`) are printed on an `Other arguments:` line under the action's table, cut by the same rule. When anything is cut, `approve` says so above the confirmation prompt.
 
 | Option | Commands | Effect |
 | --- | --- | --- |
@@ -1423,7 +1423,7 @@ Output is plain ASCII layout with no ANSI codes, so it works in Windows cmd and 
 | `--json` | `--show`, `show` | Print the review as JSON and exit. Not accepted by `approve`. |
 | `--color` | `--show`, `show`, `approve`, `reject`, `recover` | Color the review when supported (see above). |
 
-The JSON review has `schema: "aec-model-bridge/plan-review"`, `schema_version: 1`, `plan_id`, `state`, `created_at`, `plan_hash`, `plan_hash_short`, `approval_mode` (`mode`, `configured_mode`, `auto_expires_at`), `expiry` (`applies`, `expired`, `reason`, `rule`, `ttl_seconds`, `expires_at`), `binding` (`recorded`, `bound`, and when bound `doc_title`, `revit_version`, `active_view_id`), `counts`, `tools`, `risk`, `warnings` (`source`, `text`), `approvable`, `not_approvable_reasons`, `actions` (each with `changes`: `element_id` as a string or null, `element_name`, `mark`, `unique_id`, `parameter`, `old`, `old_captured`, `new`, `new_is_arguments`), `review`, `not_hashed_keys`, `snapshot_id` and `reverts_plan_id`. Values are not cut. `approvable` only reflects the plan's state, expiry and shape; it does not approve anything.
+The JSON review has `schema: "aec-model-bridge/plan-review"`, `schema_version: 1`, `plan_id`, `state`, `created_at`, `plan_hash`, `plan_hash_short`, `approval_mode` (`mode`, `configured_mode`, `auto_expires_at`), `expiry` (`applies`, `expired`, `reason`, `rule`, `ttl_seconds`, `expires_at`), `binding` (`recorded`, `bound`, and when bound `doc_title`, `revit_version`, `active_view_id`), `counts`, `tools`, `risk`, `warnings` (`source`, `text`), `approvable`, `not_approvable_reasons`, `actions` (each with `changes`: `element_id` as a string or null, `element_name`, `mark`, `unique_id`, `parameter`, `old`, `old_captured`, `new`, `new_is_arguments`; and `other_arguments`, the arguments no change column shows), `review`, `not_hashed_keys`, `snapshot_id` and `reverts_plan_id`. Values are not cut. `approvable` only reflects the plan's state, expiry and shape; it does not approve anything.
 
 Approval is unchanged: the person types the plan id after the review. Without a terminal the command refuses unless `--yes` is given. The review never changes the plan file.
 
@@ -4649,6 +4649,7 @@ python -m revit_mcp_server
 - Each bridge call is appended as one JSON line. Lines are added to an existing cassette of the same name.
 - Calls routed by the panel hub to another Revit instance are recorded too.
 - A failure to write the cassette (for example a full disk) is logged and does not fail the Revit call.
+- Batches are off while recording. An approved plan runs one action at a time (no `revit.execute_plan_batch`, so no single undo step), and element reads are sent one command at a time (no `revit.batch`). Every write and read is then a line in the cassette, and replay serves it the same way.
 
 ### What is masked
 
