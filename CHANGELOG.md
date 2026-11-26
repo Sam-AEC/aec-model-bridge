@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Release builds measure the tool catalogue per profile, attach `token-budget.json` and fail past 10% growth over `docs/mcp-token-baseline.json`. Fixes #173
 - Panel: the Reject button on a plan card now asks "Reject this plan?" inline (focus on Cancel, Escape cancels) before it rejects, like bulk Reject.
 - Docs: README shows a Revit 2026 demo: a 30-storey twisting tower built in Dev mode, frames rendered by Revit.
 - VS Code extension: a registry file endpoint must be loopback HTTP (127.0.0.1, localhost or [::1]); other hosts are ignored. The in-flight settle log strips CR and LF from the tool name. Clears CodeQL alerts #31 and #32.
