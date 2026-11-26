@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fix (#379): the add-in build for Revit 2025 and 2026 now uses the NuGet Revit API by default instead of a local `RevitAPI.dll`, so `-p:RevitVersion=2026` builds with Revit 2026.5 installed (CS1705 before). Revit 2024 and 2027 are unchanged; `-p:UseLocalRevit=true` forces the local DLL.
 - Fix (#340): the panel hub now sends FIN after the 503 on a refused connection and drains the request for at most 0.25 s and 1 MB before closing, so the client reads the 503 and Retry-After instead of a reset. UNVERIFIED on Windows (WinError 10053 not reproduced here).
 - New module `mark_renumber_plan` (#361). Tool count is now 316 (116 module tools; Revit 112 with `revit_reconnect`). `mark_renumber_plan_analyze` finds duplicate marks, empty marks, gaps and out-of-order sequences for doors, rooms and windows and proposes a numbering from `conventions/mark_rules.json` (override with `mark_renumber_rules.json` in the workspace); `mark_renumber_plan_draft_plan` drafts one `plan_actions` list of `revit_set_parameter_value` writes, uses temporary values for swaps and chains, and refuses if the final numbering would hold a duplicate. Both are read-only. The Revit write is UNVERIFIED live.
 - Tests (#240): the workspace case-folding rule is covered on every OS through an optional `casefold` argument on `WorkspaceMonitor` (default unchanged: follows the OS), the unwritable-workspace doctor test no longer needs a non-root user, and the offline proxy provider has a contract test.
