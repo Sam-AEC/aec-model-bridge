@@ -374,6 +374,17 @@ def test_partial_link_marks_the_result_partial(snap):
     assert out["partial_snapshot"] is True
 
 
+def test_level_join_resolves_live_element_id_references(snap):
+    level = next(e for e in snap.elements if e.category == "OST_Levels")
+    for e in snap.elements:
+        if e.level_uid:
+            e.level_uid = str(level.element_id)
+    steps = [{"where": {"field": "category", "value": "OST_Doors"}, "join": ["level"],
+              "group_by": ["level.type_name"], "aggregate": {"n": "count"}}]
+    out = run_pipeline(snap, steps)
+    assert out["rows"] == [{"level.type_name": level.type_name, "n": 2}]
+
+
 def test_pipeline_runs_on_saved_snapshot_json(snap):
     data = snap.model_dump(by_alias=True, mode="json")
     out = run_pipeline(data, [{"join": ["host"], "where": {"field": "host.category", "value": "OST_Walls"},

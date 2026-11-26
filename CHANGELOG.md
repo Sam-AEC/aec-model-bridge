@@ -3,6 +3,7 @@
 ## Unreleased
 
 - `snapshot_compute`: a dotted path projected or grouped without an alias (`params.Mark`) can now be filtered, sorted and selected by later steps. Fixes #345.
+- Fix: semantic `level` joins resolve live snapshot level references by element id.
 
 ## 1.6.0 - 2026-11-26
 
