@@ -105,6 +105,14 @@ If you set `MCP_REVIT_HOST_VERSION`, the server only accepts a bridge for that y
 
 **Fix:** start Revit, open a project, wait for the **AEC Bridge** tab, and try again. If Revit is open, run the health check in [install](install.md#verify-the-bridge). Check that the add-in year matches the running Revit year.
 
+### Revit was restarted and calls say the session changed or closed
+
+**You see:** `The selected Revit 2024 session (process N) changed or closed. Call revit_reconnect, or restart this MCP client ...`
+
+**Cause:** the server is pinned to the Revit process it found at start. It refuses to send anything to a replacement Revit on its own.
+
+**Fix:** call `revit_reconnect`. It lists the live Revit sessions (process id, version, start time, active document) and binds the only one, or the one named by `pid`. It repeats the health check only: it sends no model request and does not change plans, approvals, the panel token or workspace checks. Then call `revit_get_context`, and check the model before repeating an earlier write. It is refused in mock mode, with an explicit bridge URL, and inside a panel-routed call. Tested with a simulated registry; a real Revit restart is UNVERIFIED live.
+
 ### The panel hub cannot start, port 8787 is in use
 
 **You see:** the Revit panel shows a connection error. `panel-hub.log` is empty or missing. The `bridge.jsonl` file may hold `Launched the panel hub but it never became reachable on 127.0.0.1:8787`.
