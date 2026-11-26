@@ -694,7 +694,7 @@ COMMANDS: dict[str, dict[str, Any]] = {'revit.apply_view_template': {'is_mutatin
                                                          'parameter_name': {'type': 'string'},
                                                          'value': {}},
                                           'required': ['element_id', 'parameter_name', 'value']}},
- 'revit.set_selection': {'is_mutating': True,
+ 'revit.set_selection': {'is_mutating': False,
                          'params': {'type': 'object',
                                     'properties': {'element_ids': {'type': 'array',
                                                                    'items': {'$ref': '#/$defs/int32'}}},

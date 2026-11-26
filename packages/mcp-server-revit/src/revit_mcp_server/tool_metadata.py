@@ -657,6 +657,7 @@ NOT_READ_ONLY: dict[str, tuple[bool, bool]] = {
     "revit_export_navisworks": (True, True),
     "revit_export_image": (True, True),
     "revit_render_3d": (True, True),
+    "revit_set_selection": (False, True),
     "revit_select_by_unique_ids": (False, True),
     "revit_preview_elements": (False, True),
     "revit_clear_preview": (False, True),
@@ -724,7 +725,6 @@ REPORT_FILE_WRITERS: dict[str, tuple[bool, bool]] = {
 ADDITIVE_NAME_PARTS = frozenset({"create", "place", "copy", "duplicate", "tag", "pin", "unpin"})
 ADDITIVE_NAMES = frozenset(
     {
-        "revit_set_selection",
         "selection_tools_set_selection",
         "selection_tools_restore_selection",
         "selection_tools_select_by_query",
