@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.6.1 - 2026-11-27
+
 - New module `geometry_screening` (#365). Tool count is now 322 (122 module tools). `geometry_screening_run_checks` screens a saved snapshot: room area against a brief table, door width against a minimum, a turning circle inside a room outline, and travel distance through doors to exit rooms. Findings carry element ids, the measured value, the threshold and the unit; checks refuse when room outlines or door data are missing. The add-in does not write room outlines (`geometry_ref.boundary`) yet, so it is tested on fixture snapshots only and real-model results are UNVERIFIED. A screening aid, not code compliance. Read-only. Fixes #365
 - Reviewed naming rules (#362). Tool count is now 321 (121 module tools). `qaqc_checker_test_naming_rule` tests a proposed regex rule against a snapshot (read-only, matches and misses with a capped sample). `qaqc_checker_save_naming_rule` is a mutating tool, so it saves the rule to `naming_rules/<id>.json` only as an approved plan action. `qaqc_checker_replay_naming_rules` replays saved rules with no model call, gives the same findings for the same snapshot, and records each rule hash in its result and in `naming_rules_audit.jsonl`. Invalid and catastrophic-backtracking regexes are refused. Fixes #362
 - Tests: contract tests for the Power BI, Navisworks and IFC providers check each tool's `is_mutating` flag against an explicit table and run every handler against mocks; the three providers are at 98% to 100% line coverage. Fixes #236
@@ -12,6 +14,11 @@
 - Example rule pack `door-fire-rating.yaml`: doors rated below their host wall, and doors or host walls without a rating. Fixes #172
 - Panel: the Reject button on a plan card now asks "Reject this plan?" inline (focus on Cancel, Escape cancels) before it rejects, like bulk Reject.
 - Add-in: `revit_execute_python` output on IronPython 3 is UTF-8 again. `sys.stdout` and `sys.stderr` are rewrapped as UTF-8 after the engine starts, and UTF-16LE bytes are decoded as a fallback, so there is no NUL after every character on Revit 2026 (Fixes #406).
+
+### Also in the 1.6.0 release build
+
+These shipped with the v1.6.0 tag but were not listed under 1.6.0.
+
 - Docs: README shows a Revit 2026 demo: a 30-storey twisting tower built in Dev mode, frames rendered by Revit.
 - VS Code extension: a registry file endpoint must be loopback HTTP (127.0.0.1, localhost or [::1]); other hosts are ignored. The in-flight settle log strips CR and LF from the tool name. Clears CodeQL alerts #31 and #32.
 - Supply chain: releases carry a `.intoto.jsonl` provenance bundle, CI installs from hash-pinned requirements and a digest-pinned base image, atheris fuzz harnesses run nightly, CodeQL scans every pull request, and SECURITY.md links the private reporting form.
