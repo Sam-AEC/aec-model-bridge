@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `snapshot_compute`: a dotted path projected or grouped without an alias (`params.Mark`) can now be filtered, sorted and selected by later steps. Fixes #345.
+
 ## 1.6.0 - 2026-11-26
 
 - Fix (#388): `revit_execute_python` failed with the bare error `Error` on Revit 2026.5, which hosts .NET 10: IronPython 3.4.1 cannot start its engine there (reproduced outside Revit on the .NET 10 runtime). The add-in now ships IronPython 3.4.2 on the net8 and net10 targets. A failed engine start now returns the exception types and messages with `error_kind` `engine_unavailable` and the host runtime in `runtime`. Live Revit run UNVERIFIED.

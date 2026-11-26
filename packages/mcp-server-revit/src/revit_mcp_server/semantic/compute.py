@@ -68,6 +68,9 @@ def _fail(step: str, message: str) -> None:
 def get_path(row: Any, path: str) -> Any:
     """Read a dotted path. A parameter record yields its value (`params.Mark` -> 'D-101')."""
     current = row
+    if isinstance(current, dict) and path in current:
+        current = current[path]
+        return current["v"] if isinstance(current, dict) and "v" in current and "storage" in current else current
     for part in path.split("."):
         if isinstance(current, dict):
             current = current.get(part)

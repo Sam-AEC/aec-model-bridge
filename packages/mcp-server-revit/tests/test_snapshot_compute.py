@@ -73,6 +73,23 @@ def test_steps_chain_group_and_aggregate(snap):
     assert out["step_counts"] == {"doors": 2, "by_level": 1}
 
 
+def test_projected_dotted_path_can_be_filtered(snap):
+    out = run_pipeline(snap, [
+        {"name": "doors", "where": {"field": "category", "value": "OST_Doors"}, "select": ["params.Mark"]},
+        {"name": "one", "from": "$doors", "where": {"field": "params.Mark", "value": "D-102"}},
+    ])
+    assert out["rows"] == [{"params.Mark": "D-102"}]
+
+
+def test_grouped_dotted_key_can_be_selected(snap):
+    out = run_pipeline(snap, [
+        {"name": "doors", "where": {"field": "category", "value": "OST_Doors"},
+         "group_by": ["params.Mark"], "aggregate": {"n": "count"}},
+        {"name": "marks", "from": "$doors", "select": ["params.Mark", "n"], "sort": [{"field": "params.Mark"}]},
+    ])
+    assert out["rows"] == [{"params.Mark": "D-101", "n": 1}, {"params.Mark": "D-102", "n": 1}]
+
+
 def test_return_an_earlier_step_and_sort_desc(snap):
     out = run_pipeline(snap, [
         {"name": "rooms", "where": {"field": "category", "value": "OST_Rooms"},
