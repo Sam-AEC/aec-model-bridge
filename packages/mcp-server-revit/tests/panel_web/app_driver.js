@@ -865,6 +865,51 @@
     expect($("reject-confirm").hidden && sentOf("plan.reject").length === 0, "cancel did not stop the reject");
   });
 
+  const rejectBtn = (card) => card.querySelector('[data-decision="reject"]');
+  const singleBox = (card) => card.querySelector(".plan-reject-confirm");
+
+  test("single reject: Reject only opens an inline confirm; Cancel sends nothing; Confirm sends one reject", () => {
+    fresh();
+    nav("plans");
+    plans([PLAN("s1", [SET([1], true)]), PLAN("s2", [SET([1], true)])]);
+    const card = cardOf("s1");
+    expect(!singleBox(card), "confirm visible before Reject was clicked");
+    sent().length = 0;
+    rejectBtn(card).click();
+    const box = singleBox(card);
+    expect(visible(box) && /Reject this plan\?/.test(box.textContent), "inline confirm not shown");
+    expect(sentOf("plan.reject").length === 0, "Reject sent before the confirm");
+    expect(document.activeElement && document.activeElement.dataset.rejectSingle === "cancel", "focus not on Cancel");
+    expect(!singleBox(cardOf("s2")), "confirm opened on another card");
+    box.querySelector('[data-reject-single="cancel"]').click();
+    expect(!singleBox(card) && sentOf("plan.reject").length === 0, "Cancel left the confirm open or rejected");
+    expect(document.activeElement === rejectBtn(card), "focus not returned to Reject");
+    rejectBtn(card).click();
+    singleBox(card).querySelector('[data-reject-single="confirm"]').click();
+    const rej = sentOf("plan.reject");
+    expect(rej.length === 1 && rej[0].planId === "s1" && rej[0].planHash === "abcdef0123456789", "wrong reject: " + JSON.stringify(rej));
+    expect(sentOf("plan.approve").length === 0 && !singleBox(card), "approve sent or confirm left open");
+  });
+
+  test("single reject: Escape cancels; a list refresh closes it and its Confirm is gone", () => {
+    fresh();
+    nav("plans");
+    plans([PLAN("s3", [SET([1], true)])]);
+    sent().length = 0;
+    rejectBtn(cardOf("s3")).click();
+    const confirmBtn = singleBox(cardOf("s3")).querySelector('[data-reject-single="confirm"]');
+    document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    expect(!singleBox(cardOf("s3")), "Escape left the confirm open");
+    confirmBtn.click();
+    expect(sentOf("plan.reject").length === 0, "stale Confirm rejected after Escape");
+    rejectBtn(cardOf("s3")).click();
+    const stale = singleBox(cardOf("s3")).querySelector('[data-reject-single="confirm"]');
+    plans([PLAN("s3", [SET([1], true)])]);
+    expect(!singleBox(cardOf("s3")), "confirm survived a list refresh");
+    stale.click();
+    expect(sentOf("plan.reject").length === 0, "detached Confirm rejected a plan");
+  });
+
   test("bound document: title and expiry are shown escaped; another document is hidden, and warns once shown", () => {
     fresh();
     const bound = { doc_title: "Other<img src=x onerror=window.__pwned=9>.rvt", doc_guid: "g" };
