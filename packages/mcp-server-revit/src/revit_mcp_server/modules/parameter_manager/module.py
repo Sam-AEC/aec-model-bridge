@@ -178,6 +178,39 @@ def _xlsx_path(workspace: Any, filename: str) -> Path:
     return safe_child(_workspace_dir(workspace), filename[:-5], ".xlsx", _XLSX_NAME_RE, refuse)
 
 
+_MAPPING_DIR = "excel_mappings"
+
+
+def _load_mapping(workspace: Any, name: Any, elements: List[Dict[str, Any]]) -> Dict[str, str]:
+    """Header -> parameter map from <workspace>/excel_mappings/<name>.json ({"columns": {...}})."""
+    from revit_mcp_server.security.safe_paths import safe_child
+
+    def refuse(_reason: str) -> Exception:
+        return ValueError("mapping must be the plain name of a file in excel_mappings/ (letters, digits, . _ -).")
+
+    path = safe_child(_workspace_dir(workspace), name, ".json", _XLSX_NAME_RE, refuse, subdir=_MAPPING_DIR)
+    if not path.is_file():
+        raise ValueError(f"Excel mapping '{name}' not found: expected {_MAPPING_DIR}/{name}.json in the workspace.")
+    try:
+        columns = json.loads(path.read_text(encoding="utf-8")).get("columns")
+    except (ValueError, AttributeError):
+        columns = None
+    if not isinstance(columns, dict) or not columns or not all(
+            isinstance(k, str) and k.strip() and isinstance(v, str) and v.strip() for k, v in columns.items()):
+        raise ValueError(f"Excel mapping '{name}' must be {{\"columns\": {{\"<header>\": \"<parameter>\"}}}} with text values.")
+    columns = {k.strip(): v.strip() for k, v in columns.items()}
+    clash = sorted(set(columns) & _RESERVED_COLS)
+    if clash:
+        raise ValueError(f"Excel mapping '{name}' uses reserved headers: {', '.join(clash)}.")
+    if len(set(columns.values())) != len(columns):
+        raise ValueError(f"Excel mapping '{name}' maps two headers to the same parameter.")
+    known = {p for el in elements for p in (el.get("params") or {})}
+    unknown = [v for v in columns.values() if v not in known]
+    if unknown:
+        raise ValueError(f"Excel mapping '{name}' names parameters not in the snapshot: {', '.join(unknown)}.")
+    return columns
+
+
 def _validate_param_update(
     el: Dict[str, Any],
     param_name: str,
@@ -459,21 +492,31 @@ class ParameterManagerModule:
     def export_params_xlsx(
         self,
         element_filter: Dict[str, Any],
-        param_names: List[str],
+        param_names: Optional[List[str]] = None,
         snapshot_id: str = "",
         output_filename: str = "params_export.xlsx",
+        mapping: str = "",
         workspace: Any = None,
         **_,
     ) -> Dict[str, Any]:
         from openpyxl import Workbook
 
         elements = self._get_elements(snapshot_id, workspace)
+        if mapping and param_names:
+            raise ValueError("Pass either mapping or param_names, not both.")
+        if mapping:
+            columns = _load_mapping(workspace, mapping, elements)
+            headers, param_names = list(columns), list(columns.values())
+        elif param_names:
+            headers = list(param_names)
+        else:
+            raise ValueError("param_names or mapping is required.")
         matched = [el for el in elements if _match_element(el, element_filter)]
         output_path = _xlsx_path(workspace, output_filename)
         wb = Workbook()
         ws = wb.active
         ws.title = "Parameters"
-        ws.append(["uid", "element_id", "category", "family", "type_name"] + list(param_names))
+        ws.append(["uid", "element_id", "category", "family", "type_name"] + headers)
         for el in matched:
             row = [el["uid"], el.get("element_id", ""), el.get("category", ""),
                    el.get("family", ""), el.get("type_name", "")]
@@ -493,6 +536,7 @@ class ParameterManagerModule:
         self,
         xlsx_filename: str,
         snapshot_id: str = "",
+        mapping: str = "",
         workspace: Any = None,
         **_,
     ) -> Dict[str, Any]:
@@ -502,6 +546,7 @@ class ParameterManagerModule:
         if not path.exists():
             raise ValueError(f"Workbook '{xlsx_filename}' not found in workspace.")
         elements = self._get_elements(snapshot_id, workspace)
+        columns = _load_mapping(workspace, mapping, elements) if mapping else None
         wb = load_workbook(path, read_only=True, data_only=True)
         try:
             ws = wb["Parameters"] if "Parameters" in wb.sheetnames else wb.worksheets[0]
@@ -510,6 +555,9 @@ class ParameterManagerModule:
             names = [str(h).strip() if h is not None else "" for h in (header or [])]
             if "uid" not in names:
                 raise ValueError("Workbook must have a header row with a 'uid' column.")
+            if columns is not None:
+                # Unmapped columns are dropped so a renamed header cannot reach a same-named parameter.
+                names = [n if n in _RESERVED_COLS else columns.get(n, "") for n in names]
             rows = [{n: _cell_text(c) for n, c in zip(names, r)} for r in it]
         finally:
             wb.close()
@@ -521,6 +569,8 @@ class ParameterManagerModule:
             "blocked": blocked,
             "row_diff": counts,
         }
+        if mapping:
+            preview["mapping"] = mapping
         return _make_action_plan("import_params_xlsx", {"xlsx_filename": xlsx_filename}, {**preview, "planned": planned})
 
     # -----------------------------------------------------------------------
