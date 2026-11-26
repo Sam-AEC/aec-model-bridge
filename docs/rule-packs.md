@@ -105,6 +105,11 @@ has the three `door-room-basics` rules written as pipelines, plus the rule
 above. On the mock snapshot the three converted rules find the same issues as
 the originals (`tests/test_qaqc_pipeline_rules.py`).
 
+[`docs/examples/rule_packs/door-fire-rating.yaml`](examples/rule_packs/door-fire-rating.yaml)
+reports doors rated lower than their host wall, doors without a rating, and doors
+whose host wall has no rating. Ratings must be numbers in one unit. Set the parameter
+name by replacing `Fire Rating` in the pack.
+
 Stored findings belong to their rule pack. Running one pack only reconciles that
 pack's issues, and identical rule IDs in different packs stay independent.
 Overwriting a pack refreshes its open issues' severity and message on the next run.

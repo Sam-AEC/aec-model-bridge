@@ -1,0 +1,40 @@
+# Door fire rating against the fire rating of its host wall.
+# Ratings must be numbers in the same unit (for example minutes: 30, 60, 90). Text such as "EI 60"
+# is compared as text, which is only correct when every value has the same format.
+# Parameter names: replace every "Fire Rating" below with the name your template uses
+# (for example a shared parameter); doors and walls must use the same name.
+# A door or host wall without a rating is reported, never passed.
+# Copy it into your workspace, then: import_rule_pack -> run_check(rule_pack="door-fire-rating")
+rules:
+  - id: door_fire_rating_below_wall
+    severity: error
+    category: Doors
+    description: "Door fire rating is lower than the fire rating of its host wall."
+    pipeline:
+      - join: [host]
+        where:
+          - {field: category, value: OST_Doors}
+          - {field: params.Fire Rating, op: lt, value: {field: host.params.Fire Rating}}
+    fix_template: "Raise the fire rating of door '{label}' to match its host wall."
+
+  - id: door_fire_rating_missing
+    severity: warning
+    category: Doors
+    description: "Door has no fire rating."
+    pipeline:
+      - where:
+          - {field: category, value: OST_Doors}
+          - {field: params.Fire Rating, op: empty}
+    fix_template: "Set the fire rating on door '{label}'."
+
+  - id: host_wall_fire_rating_missing
+    severity: warning
+    category: Doors
+    description: "The host wall of this door has no fire rating, so the door rating cannot be checked."
+    pipeline:
+      - join: [host]
+        where:
+          - {field: category, value: OST_Doors}
+          - {field: host_uid, op: exists}
+          - {field: host.params.Fire Rating, op: empty}
+    fix_template: "Set the fire rating on the wall that hosts door '{label}'."
