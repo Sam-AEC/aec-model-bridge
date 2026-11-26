@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- New module `geometry_screening` (#365). Tool count is now 318 (118 module tools). `geometry_screening_run_checks` screens a saved snapshot: room area against a brief table, door width against a minimum, a turning circle inside a room outline, and travel distance through doors to exit rooms. Findings carry element ids, the measured value, the threshold and the unit; checks refuse when room outlines or door data are missing. The add-in does not write room outlines (`geometry_ref.boundary`) yet, so it is tested on fixture snapshots only and real-model results are UNVERIFIED. A screening aid, not code compliance. Read-only. Fixes #365
 - Excel round-trip: saved per-project column mappings (`excel_mappings/<name>.json`) for export and import. Fixes #174
 - Example rule pack `door-fire-rating.yaml`: doors rated below their host wall, and doors or host walls without a rating. Fixes #172
 - Panel: the Reject button on a plan card now asks "Reject this plan?" inline (focus on Cancel, Escape cancels) before it rejects, like bulk Reject.
