@@ -7,6 +7,7 @@
 - `snapshot_compute`: a dotted path projected or grouped without an alias (`params.Mark`) can now be filtered, sorted and selected by later steps.
 - Fix: semantic `level` joins resolve live snapshot level references by element id.
 - `mark_renumber_plan`: `draft_plan` refuses a `dirty_only` snapshot (top-level or in `counts`) and `analyze` warns, since Marks held by unchanged elements cannot be checked. Take a full snapshot.
+- Directory listings: `server.json` description is now 94 characters (the registry maximum is 100) and matches pyproject, `manifest.json` and the package README; usage hints added to 27 tool descriptions; the Docker image pins its base by digest and starts with `CMD`; Dependabot tracks the Dockerfile.
 
 ## 1.6.0 - 2026-11-26
 

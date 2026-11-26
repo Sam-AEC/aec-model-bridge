@@ -37,4 +37,5 @@ USER mcp
 WORKDIR /workspace
 
 # stdio transport: the MCP client starts this container and talks over stdin/stdout.
-ENTRYPOINT ["aec-model-bridge"]
+# CMD, not ENTRYPOINT, so a host such as Glama can wrap the command with its own proxy.
+CMD ["aec-model-bridge"]
