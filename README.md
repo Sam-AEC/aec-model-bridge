@@ -25,7 +25,7 @@ Open-source Revit MCP server · Revit 2024 – 2027 · 317 tools · Claude, Code
 
 </div>
 
-**Pre-release (1.5.0).** See [status and limits](#status-and-limits).
+**Pre-release (1.6.0).** See [status and limits](#status-and-limits).
 
 <p align="center">
   <img src="docs/images/readme/revit-villa-panel.png" alt="Revit villa model beside the AEC Model Bridge panel." width="900">
