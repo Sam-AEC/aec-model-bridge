@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Docs: the README film is now a real screen recording of Revit 2026.5 (approve in the panel, one batch write, one Ctrl+Z undo) instead of the illustrative film.
 - `snapshot_compute`: a dotted path projected or grouped without an alias (`params.Mark`) can now be filtered, sorted and selected by later steps.
 - Fix: semantic `level` joins resolve live snapshot level references by element id.
 - `mark_renumber_plan`: `draft_plan` refuses a `dirty_only` snapshot (top-level or in `counts`) and `analyze` warns, since Marks held by unchanged elements cannot be checked. Take a full snapshot.
