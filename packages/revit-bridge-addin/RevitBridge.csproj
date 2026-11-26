@@ -57,11 +57,11 @@
     <PackageReference Include="System.Text.Json" Version="6.0.10" Condition="'$(TargetFramework)'=='net48'" />
     <!-- IronPython enables in-process scripting with broad public Revit API access. -->
     <PackageReference Include="IronPython" Version="2.7.12" Condition="'$(TargetFramework)'=='net48'" />
-    <PackageReference Include="IronPython" Version="3.4.1" Condition="'$(TargetFramework)'!='net48'" />
+    <PackageReference Include="IronPython" Version="3.4.2" Condition="'$(TargetFramework)'!='net48'" />
     <!-- The engine package does not contain Python's standard library. These
          matching packages copy their Lib content into the add-in output. -->
     <PackageReference Include="IronPython.StdLib" Version="2.7.12" Condition="'$(TargetFramework)'=='net48'" />
-    <PackageReference Include="IronPython.StdLib" Version="3.4.1" Condition="'$(TargetFramework)'!='net48'" />
+    <PackageReference Include="IronPython.StdLib" Version="3.4.2" Condition="'$(TargetFramework)'!='net48'" />
   </ItemGroup>
 
   <ItemGroup>

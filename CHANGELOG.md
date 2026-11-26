@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fix (#388): `revit_execute_python` failed with the bare error `Error` on Revit 2026.5, which hosts .NET 10: IronPython 3.4.1 cannot start its engine there (reproduced outside Revit on the .NET 10 runtime). The add-in now ships IronPython 3.4.2 on the net8 and net10 targets. A failed engine start now returns the exception types and messages with `error_kind` `engine_unavailable` and the host runtime in `runtime`. Live Revit run UNVERIFIED.
 - Snapshot: a plan preview no longer makes the panel say "Snapshot stale". Changes made inside the rolled-back preview group are held and dropped when Revit confirms the rollback; if it does not, they count as changes. Fixes #389.
 - `revit_list_elements`, `revit_get_selection` and `revit_get_element_parameters` also return the UniqueId (`unique_id` per element, `unique_ids` beside `element_ids`, `unique_id` on the element). Existing fields are unchanged. Fixes #390.
 - Panel hub: `/diagnostics` reports `hub_version`. The add-in compares it with its own version, logs a warning at startup and adds a failing "Panel hub version" check to the Setup check when they differ or the hub reports none. It never stops a hub it did not start. Fixes #386.
