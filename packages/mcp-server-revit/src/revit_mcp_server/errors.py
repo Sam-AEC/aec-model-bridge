@@ -10,6 +10,10 @@ class SchemaValidationError(RevitMCPError):
     """Presented when inputs fail the declared JSON schema."""
 
 
+class BridgeContractError(SchemaValidationError, ValueError):
+    """A payload for an add-in command does not match contracts/bridge-commands.json; nothing was sent."""
+
+
 class BridgeError(RevitMCPError):
     """Signals communication or response issues with the bridge."""
 

@@ -1,0 +1,13 @@
+id: renumber-sheets
+prompt: Renumber sheet A100 to A001 and A101 to A002.
+kind: write
+profile: full
+expected_tools:
+- [revit_update_sheets]
+- [revit_renumber_sheets]
+max_calls: 3
+plan_required: true
+forbidden_tools: [revit_execute_python, revit_raw_command, revit_reflect_set, revit_invoke_method]
+checker:
+  type: contains_any
+  values: [approv, plan]

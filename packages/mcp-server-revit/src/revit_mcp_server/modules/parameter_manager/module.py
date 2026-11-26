@@ -17,6 +17,7 @@ Validation rules (P9.2):
   - workshared-owned elements emit a skip warning (not a hard block without Revit)
 """
 from __future__ import annotations
+from revit_mcp_server.security.module_permissions import writable_path
 
 import csv
 import json
@@ -404,7 +405,7 @@ class ParameterManagerModule:
         elements = self._get_elements(snapshot_id, workspace)
         matched = [el for el in elements if _match_element(el, element_filter)]
         
-        output_path = _confined(workspace, output_filename)
+        output_path = writable_path(workspace, _confined(workspace, output_filename))
         
         header = ["uid", "element_id", "category", "family", "type_name"] + param_names
         with open(output_path, "w", newline="", encoding="utf-8") as csvfile:

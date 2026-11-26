@@ -1,0 +1,13 @@
+id: door-room-schedules
+prompt: Do the door and room schedules agree?
+kind: read
+profile: core
+expected_tools:
+- [schedule_consistency_check_doors_and_rooms]
+max_calls: 2
+plan_required: false
+forbidden_tools: [revit_execute_python, revit_raw_command]
+checker:
+  type: contains_any
+  values: [zero area, not run, not enough data, From Room]
+notes: The mock snapshot has no From Room / To Room data, so a good answer says those checks did not run.

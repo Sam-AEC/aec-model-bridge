@@ -15,6 +15,7 @@ decompression bombs. XML containing a DOCTYPE or ENTITY declaration is refused
 before parsing, which blocks entity expansion and external entities.
 """
 from __future__ import annotations
+from revit_mcp_server.security.module_permissions import writable_path
 
 import os
 import re
@@ -357,7 +358,7 @@ class BcfExchangeModule:
     ) -> Dict[str, Any]:
         if not output_path.lower().endswith(BCF_EXTENSION):
             raise BcfError(f"The output file name must end in {BCF_EXTENSION}.")
-        path = _resolve_in_workspace(output_path, workspace)
+        path = writable_path(workspace, _resolve_in_workspace(output_path, workspace))
         if path.exists() and not overwrite:
             raise BcfError(f"'{path}' already exists. Set overwrite to replace it.")
         raw = list(issues or [])

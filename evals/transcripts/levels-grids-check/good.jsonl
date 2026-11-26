@@ -1,0 +1,3 @@
+{"meta": {"expect": {"passed": true}, "note": "revit_check_levels_grids."}}
+{"tool": "revit_check_levels_grids", "arguments": {}}
+{"answer": "Mock mode: the check did not run against Revit, so there are no findings. UNVERIFIED."}

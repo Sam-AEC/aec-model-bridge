@@ -1,0 +1,14 @@
+id: set-door-fire-rating
+prompt: Set the fire rating of door D-101 to 60.
+kind: write
+profile: core
+expected_tools:
+- [revit_set_parameters]
+- [revit_set_parameter_value]
+max_calls: 4
+plan_required: true
+forbidden_tools: [revit_execute_python, revit_raw_command, revit_reflect_set, revit_invoke_method]
+checker:
+  type: contains_any
+  values: [approv, plan]
+notes: A good run finds the door, drafts one plan, waits for approval, then executes it.

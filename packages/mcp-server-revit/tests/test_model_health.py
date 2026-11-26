@@ -195,3 +195,72 @@ def test_read_only_manifest_and_description():
     manifest = json.loads((Path(mh.__file__).parent / "module.json").read_text(encoding="utf-8"))
     assert all(not c["is_mutating"] for c in manifest["commands"])
     assert DESCRIPTIONS["model_health_score"].endswith("Read-only.")
+
+
+# ---- HTML dashboard ------------------------------------------------------------------------
+
+def test_html_dashboard_is_self_contained_and_escaped(ws):
+    evil = "<script>alert(1)</script>"
+    _write(ws, "s1", [_el("a", mark="1")], taken_at="2026-11-01T09:00:00+00:00")
+    _write(ws, "s2", [_el("a", mark=""), _el(evil, cat=evil, mark="x")], taken_at="2026-11-02T09:00:00+00:00")
+    snaps = ws.allowed_directories[0] / "snapshots"
+    raw = json.loads((snaps / "s2.json").read_text(encoding="utf-8"))
+    raw["source"]["doc_title"] = 'T "quoted" & <b>bold</b>'
+    raw["elements"][1]["params"][evil] = {"v": "1"}
+    (snaps / "s2.json").write_text(json.dumps(raw), encoding="utf-8")
+    res = ModelHealthModule().score(snapshot_id="s2", html_filename="reports/health.html", workspace=ws)
+    page = Path(res["html_file"]).read_text(encoding="utf-8")
+    assert "<script" not in page.lower()
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in page
+    assert "T &quot;quoted&quot; &amp; &lt;b&gt;bold&lt;/b&gt;" in page
+    for external in ("http://", "https://", "<link", "@import", "src="):
+        assert external not in page
+    assert "<svg" in page and "<polyline" in page  # two scored points draw a line
+    assert "Health score" in page and "Parameter completeness" in page
+    assert "No QA/QC run is stored" in page
+    assert res["dashboard"]["qa_status"] == "no_run"
+
+
+def test_html_dashboard_shows_latest_qa_run(ws):
+    QaqcCheckerModule = mh.rg._qaqc_rules_module().QaqcCheckerModule  # loaded by file path, as the server does
+
+    doors = [_el(f"d{i}", mark="") for i in range(3)]
+    _write(ws, "s1", doors)
+    QaqcCheckerModule().run_check(snapshot_id="s1", rule_pack="core", workspace=ws)
+    db = ws.allowed_directories[0] / "qaqc_issues.db"
+    before = db.read_bytes()
+    qa = mh.latest_qa_issues(ws, "g-1")
+    assert qa["status"] == "ok" and qa["snapshot_id"] == "s1" and qa["groups"]
+    order = [(mh._SEV_RANK.get(g["severity"], 9), -g["count"], g["rule_id"]) for g in qa["groups"]]
+    assert order == sorted(order)
+    res = ModelHealthModule().score(snapshot_id="s1", html_filename="h.html", workspace=ws)
+    page = Path(res["html_file"]).read_text(encoding="utf-8")
+    assert "Top issues from the latest QA/QC run" in page and qa["groups"][0]["rule_id"] in page
+    assert db.read_bytes() == before  # the issue store is only read
+    assert mh.latest_qa_issues(ws, "other-doc")["status"] == "no_run"
+    assert mh.latest_qa_issues(ws, "")["status"] == "no_doc_guid"
+
+
+def test_html_dashboard_unreadable_store_is_reported(ws):
+    (ws.allowed_directories[0] / "qaqc_issues.db").write_bytes(b"not a database, just text " * 10)
+    qa = mh.latest_qa_issues(ws, "g-1")
+    assert qa["status"] == "unreadable" and "unknown" in qa["note"]
+
+
+def test_html_dashboard_mock_and_bad_names(ws, monkeypatch):
+    from revit_mcp_server.config import BridgeMode, config
+
+    monkeypatch.setattr(config, "mode", BridgeMode.mock)
+    res = ModelHealthModule().score(html_filename="mock.html", workspace=ws)
+    page = Path(res["html_file"]).read_text(encoding="utf-8")
+    assert "Mock data." in page and "Mock data is not saved" in page
+    for bad in ("../h.html", "h.htm", "h.csv"):
+        with pytest.raises(ValueError):
+            ModelHealthModule().score(html_filename=bad, workspace=ws)
+
+
+def test_html_dashboard_partial_banner_and_no_trend(ws):
+    _write(ws, "s1", [_el("a")], counts={"truncated": True})
+    res = ModelHealthModule().score(snapshot_id="s1", include_trend=False, html_filename="p.html", workspace=ws)
+    page = Path(res["html_file"]).read_text(encoding="utf-8")
+    assert "Partial capture." in page and "Trend not requested" in page

@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import re
 import sys
 import time
@@ -95,6 +96,21 @@ def write_evidence(report: dict[str, Any], directory: Path = ARTIFACTS) -> Path:
     return path
 
 
+PRODUCTION_PATTERN_ENV = "AEC_ACCEPTANCE_PRODUCTION_PATTERN"
+
+
+def production_pattern() -> re.Pattern[str] | None:
+    """Optional extra regex (case-insensitive) that marks a document as production. Empty means unset."""
+    raw = os.environ.get(PRODUCTION_PATTERN_ENV, "").strip()
+    if not raw:
+        return None
+    try:
+        return re.compile(raw, re.I)
+    except re.error:
+        # Fail closed: a pattern that cannot be read must not silently weaken the guard.
+        raise AcceptanceError(f"{PRODUCTION_PATTERN_ENV} is not a valid regular expression.") from None
+
+
 def identity(context: dict[str, Any], options: argparse.Namespace) -> dict[str, Any]:
     document = context.get("document")
     if (context.get("mock") or context.get("busy") or context.get("ok") is not True
@@ -106,7 +122,11 @@ def identity(context: dict[str, Any], options: argparse.Namespace) -> dict[str, 
         raise AcceptanceError("Use a project document, not a family document.")
     labels = " ".join(str(document.get(k, "")) for k in ("title", "path", "central_path"))
     scratch = bool(re.search(r"\b(?:scratch|disposable|acceptance|test)\b", labels, re.I))
-    production = bool(re.search(r"heijmans|\bproduction\b|\bprod\b", labels, re.I)) or document.get("is_workshared") is True
+    production = (bool(re.search(r"\bproduction\b|\bprod\b", labels, re.I))
+                  or document.get("is_workshared") is True)
+    extra = production_pattern()
+    if extra is not None and extra.search(labels):
+        production = True
     if not options.allow_existing_test_document and (not scratch or production):
         raise AcceptanceError("Default scope requires a disposable scratch/test project; existing projects need explicit owner authorization and --allow-existing-test-document.")
     stamp = context.get("addin") or {}

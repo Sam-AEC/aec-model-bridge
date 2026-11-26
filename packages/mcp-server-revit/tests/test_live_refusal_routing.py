@@ -24,7 +24,7 @@ def panel(tmp_path, monkeypatch):
     monkeypatch.setattr(panel_server.config, "mode", BridgeMode.mock)
     monkeypatch.setenv("MCP_PANEL_TOKEN_FILE", str(tmp_path / "panel.token"))
     server = panel_server.build_server(port=0, workspace=WorkspaceMonitor([tmp_path]))
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
     thread.start()
     try:
         yield server
@@ -131,7 +131,7 @@ def test_closed_or_changed_session_refuses_without_redirect_or_request(monkeypat
     live[:] = [] if replacement is None else [replacement]
     try:
         with pytest.raises(BridgeError, match="Reconnect or restart this MCP client"):
-            client.call_tool("revit.set_parameter_value", {"value": "write"})
+            client.call_tool("revit.set_parameter_value", {"element_id": 1, "parameter_name": "Mark", "value": "write"})
         with pytest.raises(BridgeError, match="changed or closed"):
             client.get_result("earlier-request", wait_s=0)
         assert sent == [] and client.base_url == "http://127.0.0.1:39001" and client.token == "old-token"
@@ -155,7 +155,7 @@ def test_session_change_between_retry_attempts_does_not_replay_into_replacement(
 
         client._sleep = pause
         with pytest.raises(BridgeError, match="changed or closed"):
-            client.call_tool("revit.set_parameter_value", {})
+            client.call_tool("revit.set_parameter_value", {"element_id": 1, "parameter_name": "Mark", "value": "write"})
         assert len(sent) == 1
     finally:
         client.close()

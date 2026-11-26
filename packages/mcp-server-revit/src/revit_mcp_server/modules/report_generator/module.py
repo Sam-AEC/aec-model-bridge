@@ -8,6 +8,7 @@ Commands:
                          Counts by category, What to do next.
 """
 from __future__ import annotations
+from revit_mcp_server.security.module_permissions import writable_path
 
 import json
 import logging
@@ -15,14 +16,23 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Dict, List
 
-import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment
-from openpyxl.utils import get_column_letter
-
 logger = logging.getLogger(__name__)
 
-_HEADER_FONT = Font(bold=True, color="FFFFFF")
-_HEADER_FILL = PatternFill("solid", fgColor="2C5F8A")
+# openpyxl (and the numpy it may pull in) loads on first use, not at server start.
+_HEADER_FONT_ARGS = {"bold": True, "color": "FFFFFF"}
+_HEADER_FILL_COLOR = "2C5F8A"
+
+
+def _workbook() -> Any:
+    import openpyxl
+
+    return openpyxl.Workbook()
+
+
+def _fill(color: str) -> Any:
+    from openpyxl.styles import PatternFill
+
+    return PatternFill("solid", fgColor=color)
 
 SEVERITY_COLORS = {
     "error": "FFE0E0",
@@ -132,10 +142,15 @@ def _count_by(issues: List[Dict[str, Any]], key: str) -> Dict[str, int]:
 
 
 def _write_header(ws: Any, headers: List[str]) -> None:
+    from openpyxl.styles import Alignment, Font
+    from openpyxl.utils import get_column_letter
+
+    header_font = Font(**_HEADER_FONT_ARGS)
+    header_fill = _fill(_HEADER_FILL_COLOR)
     for col, title in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=title)
-        cell.font = _HEADER_FONT
-        cell.fill = _HEADER_FILL
+        cell.font = header_font
+        cell.fill = header_fill
         cell.alignment = Alignment(horizontal="center")
         ws.column_dimensions[get_column_letter(col)].width = max(12, len(title) + 2)
 
@@ -170,6 +185,7 @@ def _load_review_snapshot(snapshot_id: str, workspace: Any) -> Dict[str, Any]:
             "source": {"doc_title": "Generated mock data (not a live model)", "doc_guid": "mock-doc"},
             "elements": [el.model_dump(by_alias=True) for el in snap.elements],
             "types": [t.model_dump() for t in snap.types],
+            "relations": [r.model_dump(by_alias=True) for r in snap.relations],
             "is_mock": True,
         }
     path = _snapshot_path(workspace, snapshot_id)
@@ -183,6 +199,7 @@ def _load_review_snapshot(snapshot_id: str, workspace: Any) -> Dict[str, Any]:
         "source": data.get("source", {}) or {},
         "elements": data.get("elements", []),
         "types": data.get("types", []),
+        "relations": data.get("relations") or [],
         "counts": data.get("counts") or {},
         "dirty_only": bool(data.get("dirty_only") or (data.get("counts") or {}).get("dirty_only")),
         "is_mock": False,
@@ -222,17 +239,18 @@ def _chunk_uids(uids: List[str], limit: int = _MAX_CELL_CHARS) -> List[str]:
 
 def _review_findings(
     elements: List[Dict[str, Any]], types: List[Dict[str, Any]], doc_guid: str, rule_pack: str,
-    workspace: Any = None, failed_rules: Any = None,
+    workspace: Any = None, failed_rules: Any = None, relations: Any = None,
 ) -> List[Dict[str, Any]]:
     """Run the QA/QC rules in memory (does not touch the issue store), grouped per rule.
 
-    ``workspace`` also finds user packs; ids of rules that raised are appended to ``failed_rules``."""
+    ``workspace`` also finds user packs; ids of rules that raised are appended to ``failed_rules``.
+    ``relations`` feed relation joins in pipeline rules."""
     qaqc = _qaqc_rules_module()
 
     grouped: List[Dict[str, Any]] = []
     for rule in qaqc._load_rule_pack(rule_pack, workspace):
         try:
-            hits = qaqc._run_rule(rule, elements, types, doc_guid)
+            hits = qaqc._run_rule(rule, elements, types, doc_guid, relations)
         except Exception as exc:  # a broken rule must not sink the whole pack
             logger.error("Rule '%s' failed: %s", rule.get("id"), exc)
             if failed_rules is not None:
@@ -263,7 +281,7 @@ def _review_findings(
 def _is_partial_snapshot(data: Dict[str, Any]) -> bool:
     counts = data.get("counts") or {}
     return bool(data.get("dirty_only") or counts.get("dirty_only")
-                or counts.get("truncated") or counts.get("categories"))
+                or counts.get("truncated") or counts.get("categories") or counts.get("params"))
 
 
 def _failed_rules_note(label: str, failed: List[Any]) -> str:
@@ -328,7 +346,7 @@ class ReportGeneratorModule:
 
         matched = [el for el in elements if _match_element(el, filter_dsl)]
 
-        wb = openpyxl.Workbook()
+        wb = _workbook()
         issues = _load_qaqc_issues(workspace) if include_qaqc else []
 
         ws_summary = wb.active
@@ -393,12 +411,12 @@ class ReportGeneratorModule:
                 sev = issue.get("severity", "")
                 fill_color = SEVERITY_COLORS.get(sev)
                 if fill_color:
-                    fill = PatternFill("solid", fgColor=fill_color)
+                    fill = _fill(fill_color)
                     for col in range(1, len(qa_headers) + 1):
                         ws_qa.cell(row=r, column=col).fill = fill
 
         # --- Save ---
-        out_path = _confined(workspace, output_filename)
+        out_path = writable_path(workspace, _confined(workspace, output_filename))
         wb.save(str(out_path))
 
         return {
@@ -425,16 +443,18 @@ class ReportGeneratorModule:
         elements, types, source = data["elements"], data["types"], data["source"]
         doc_guid = source.get("doc_guid") or data["snapshot_id"]
         failed_rules: List[Any] = []
-        findings = _review_findings(elements, types, doc_guid, rule_pack, workspace, failed_rules)
+        findings = _review_findings(
+            elements, types, doc_guid, rule_pack, workspace, failed_rules, data.get("relations"),
+        )
         partial = _is_partial_snapshot(data)
 
-        out_path = WorkspaceMonitor(workspace.allowed_directories).assert_in_workspace(
+        out_path = writable_path(workspace, WorkspaceMonitor(workspace.allowed_directories).assert_in_workspace(
             _ws_dir(workspace) / output_filename
-        )
+        ))
         if out_path.suffix.lower() != ".xlsx":
             raise ValueError("output_filename must end in .xlsx")
 
-        wb = openpyxl.Workbook()
+        wb = _workbook()
 
         # --- Cover ---
         ws = wb.active
@@ -470,8 +490,8 @@ class ReportGeneratorModule:
         for row in _coverage_rows(data, failed_rules):
             ws_cov.append(list(row))
             if row[0] in ("Capture", "Rules not run", "Rule not run") and not row[1].startswith(("Complete", "MOCK")):
-                ws_cov.cell(row=ws_cov.max_row, column=1).fill = PatternFill("solid", fgColor=SEVERITY_COLORS.get("warning", "FFEB9C"))
-                ws_cov.cell(row=ws_cov.max_row, column=2).fill = PatternFill("solid", fgColor=SEVERITY_COLORS.get("warning", "FFEB9C"))
+                ws_cov.cell(row=ws_cov.max_row, column=1).fill = _fill(SEVERITY_COLORS.get("warning", "FFEB9C"))
+                ws_cov.cell(row=ws_cov.max_row, column=2).fill = _fill(SEVERITY_COLORS.get("warning", "FFEB9C"))
 
         # --- Findings ---
         ws_f = wb.create_sheet("Findings")
@@ -493,7 +513,7 @@ class ReportGeneratorModule:
                 color = SEVERITY_COLORS.get(f["severity"])
                 if color:
                     for col in range(1, len(f_headers) + 1):
-                        ws_f.cell(row=r, column=col).fill = PatternFill("solid", fgColor=color)
+                        ws_f.cell(row=r, column=col).fill = _fill(color)
 
         # --- Counts by category ---
         ws_c = wb.create_sheet("Counts by category")

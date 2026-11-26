@@ -127,7 +127,7 @@ def test_identifiers_and_counts_preserved(english: str, label: str, name: str) -
 @pytest.mark.parametrize(("label", "name"), TRANSLATIONS)
 def test_translation_note_links_contributing(label: str, name: str) -> None:
     head = "\n".join(read(I18N_DIR / name).split("\n")[:15])
-    assert "(../../CONTRIBUTING.md)" in head
+    assert "(../../.github/CONTRIBUTING.md)" in head
     assert "(../../README.md)" in head
 
 

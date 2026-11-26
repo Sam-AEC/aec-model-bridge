@@ -20,8 +20,11 @@ Every request carries the explicit PID through the real panel `instance` schema.
 Each read script checks the actual executing PID, title and GUID. Context must
 be live, idle, supported by the loaded add-in and carry a module/file-time stamp.
 
-Default scope requires a scratch/disposable/test title and rejects Heijmans,
-production and workshared documents. When the owner has explicitly designated
+Default scope requires a scratch/disposable/test title and rejects titles or
+paths that contain `production` or `prod`, and workshared documents. To reject
+more names, set `AEC_ACCEPTANCE_PRODUCTION_PATTERN` to an extra regular
+expression (case-insensitive, matched against title, path and central path).
+An empty value is ignored. An invalid expression stops the run. When the owner has explicitly designated
 the exact existing document for tests, add `--allow-existing-test-document`.
 That flag still requires the exact title/GUID/PID and permits no model writes.
 Future mutating cases must create uniquely phase-tagged fixtures, record their

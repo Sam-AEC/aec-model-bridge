@@ -1,0 +1,7 @@
+{"meta": {"expect": {"passed": false, "failed_checks": ["calls"]}, "note": "Queries one thing at a time and goes over the call budget."}}
+{"tool": "snapshot_take", "arguments": {}}
+{"tool": "snapshot_query", "arguments": {"snapshot_id": "01JEVALRECORDEDSNAPSHOT001", "filter": {"category": "OST_Levels"}}}
+{"tool": "snapshot_query", "arguments": {"snapshot_id": "01JEVALRECORDEDSNAPSHOT001", "filter": {"category": "OST_Doors"}}}
+{"tool": "snapshot_query", "arguments": {"snapshot_id": "01JEVALRECORDEDSNAPSHOT001", "filter": {"category": "OST_Doors", "parameter": {"name": "FireRating", "empty": true}}}}
+{"tool": "snapshot_query", "arguments": {"snapshot_id": "01JEVALRECORDEDSNAPSHOT001", "filter": {"category": "OST_Doors", "level_uid": "c0326e0e-473d-4952-b8ec-f23696541f41-level-1"}}}
+{"answer": "None: 0 doors on Level 1 lack a fire rating."}

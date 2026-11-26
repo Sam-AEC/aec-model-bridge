@@ -448,11 +448,13 @@ def validate_spec(value: Any, index: int) -> Dict[str, Any]:
     }
 
 
-def _in_workspace(workspace: Any, candidate: Path) -> Path:
+def _in_workspace(workspace: Any, candidate: Path, write: bool = False) -> Path:
     """Resolve a path and require it inside the workspace sandbox (the same rule the bridge applies to path arguments)."""
     if workspace is None or not getattr(workspace, "assert_in_workspace", None):
         raise _OutsideWorkspace("no workspace is configured, so no path can be validated")
     try:
+        if write and callable(getattr(workspace, "assert_writable", None)):
+            return workspace.assert_writable(Path(candidate))
         return workspace.assert_in_workspace(Path(candidate))
     except Exception as exc:  # noqa: BLE001 - WorkspaceViolation or an OS error while resolving
         raise _OutsideWorkspace(str(exc)) from exc
@@ -651,7 +653,7 @@ class RevitFamilyModule:
                 raise ValueError(f"on_error must be one of abort, skip, got {on_error!r}")
             if not isinstance(output_dir, str) or not output_dir.strip():
                 raise ValueError("output_dir is required: a folder inside the workspace for the .rfa files")
-            target = _in_workspace(workspace, Path(output_dir))
+            target = _in_workspace(workspace, Path(output_dir), write=True)
             template = ""
             if template_path not in (None, ""):
                 if not isinstance(template_path, str) or Path(template_path).suffix.lower() != ".rft":

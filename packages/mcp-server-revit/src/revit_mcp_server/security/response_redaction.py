@@ -24,6 +24,7 @@ _EMAIL_RE = re.compile(r"(?<![\w.+-])[\w.+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+"
 _PERSON_KEYS = {
     "user", "username", "author", "owner", "createdby", "lasteditedby", "editedby",
     "modifiedby", "checkedoutby", "worksetowner", "creator", "currentowner", "lastmodifiedby",
+    "lastsavedby", "savedby",
 }
 
 

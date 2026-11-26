@@ -1,0 +1,3 @@
+{"meta": {"expect": {"passed": false, "failed_checks": ["forbidden", "plan", "tools"]}, "note": "Renames through revit_execute_python with no plan."}}
+{"tool": "revit_execute_python", "arguments": {"code": "for v in views: v.Name = 'A-L01-' + v.Name"}}
+{"answer": "Renamed both views."}

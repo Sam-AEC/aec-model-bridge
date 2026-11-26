@@ -23,6 +23,8 @@ nosetests.xml
 coverage.xml
 *.cover
 .hypothesis/
+# mutmut working copy (packages/mcp-server-revit/pyproject.toml [tool.mutmut])
+mutants/
 .pytest_cache/
 
 # Translations
@@ -240,7 +242,7 @@ metrics/
 *.rhl
 
 # Generated canonical Revit test models
-fixtures/canonical-model/generated/
+packages/mcp-server-revit/tests/fixtures/canonical-model/generated/
 
 
 

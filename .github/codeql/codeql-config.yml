@@ -1,0 +1,6 @@
+name: aec-model-bridge CodeQL config
+paths-ignore:
+  - panel/vendor
+  - "**/node_modules"
+  - "**/tests"
+  - "**/*-tests"

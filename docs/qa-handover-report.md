@@ -59,3 +59,14 @@ Score = sum(weight x subscore) / sum(weight), over the components the snapshot c
 | `completeness` | 15 | filled / total over the 5 most common parameters per category | elements with parameters |
 
 An input the snapshot does not have is left out and listed under `excluded` with the reason; it is never scored as 0 or 100. No usable input means no score. A change (`delta`) is given only when both points are complete captures that used the same components; otherwise it is `null` with a `delta_note`. Today the add-in does not write `counts.warnings`, so that component is normally excluded. `csv_filename` writes the trend as CSV in the workspace.
+
+## Model health dashboard
+
+`model_health_score` with `html_filename` (a `.html` name inside the workspace) also writes one self-contained HTML page: inline CSS and SVG, no scripts, fonts or external links. All model text is HTML-escaped. The page holds:
+
+- the score and its components, and the excluded inputs with reasons;
+- the trend across saved snapshots of the same document as a line chart and a table (partial captures are hollow points);
+- the top 10 rules by open issues from the latest stored QA/QC run of the document (`qaqc_checker_run_check`). The issue store is opened read-only. With no stored run, an unreadable store or no `source.doc_guid`, the page says so instead of showing "no issues". A run on a different snapshot than the scored one is flagged;
+- parameter completeness: the 5 most common parameters per category, up to 400 rows.
+
+The result's `dashboard` key gives the QA status and row counts; `html_file` is the written path. Mock and partial snapshots get a banner. For sheet checks before an issue see [sheet-set-qa.md](sheet-set-qa.md).

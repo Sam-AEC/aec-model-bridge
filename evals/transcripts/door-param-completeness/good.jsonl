@@ -1,0 +1,3 @@
+{"meta": {"expect": {"passed": true}, "note": "param_completeness_heatmap."}}
+{"tool": "param_completeness_heatmap", "arguments": {"categories": ["OST_Doors"]}}
+{"answer": "None. FireRating and Mark are both 100% filled on doors (mock data)."}

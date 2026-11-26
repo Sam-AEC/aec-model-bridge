@@ -19,7 +19,8 @@ import pytest
 PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 SRC_PACKAGE = PACKAGE_ROOT / "src" / "revit_mcp_server"
 
-pytestmark = pytest.mark.timeout(300)
+# Slow (about 57 s each): CI runs these on the primary leg only; the others use -m "not slow".
+pytestmark = [pytest.mark.timeout(300), pytest.mark.slow]
 
 
 @pytest.fixture(scope="module")

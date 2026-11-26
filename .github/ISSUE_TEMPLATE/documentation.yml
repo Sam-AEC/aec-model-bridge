@@ -1,0 +1,45 @@
+name: Documentation
+description: A page is wrong, missing, out of date or unclear.
+title: "docs: <page>: <what is wrong>"
+labels: ["type: docs", "area: docs", "status: triage"]
+body:
+  - type: input
+    id: page
+    attributes:
+      label: Page
+      description: Path in the repository or URL.
+      placeholder: docs/install.md
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of problem
+      options:
+        - States something that is not true
+        - Out of date (a tool, setting or count changed)
+        - Missing a step or setting
+        - Unclear or hard to follow
+        - Broken link or example
+        - Translation (docs/i18n)
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: What the page says now
+      description: Quote the sentence or section, with the line number if you have it.
+    validations:
+      required: true
+  - type: textarea
+    id: correct
+    attributes:
+      label: What it should say
+      description: The corrected text, or the fact that is missing. Say how you know (a command output, a test, a source file).
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit you checked against
+      placeholder: "1.5.1"

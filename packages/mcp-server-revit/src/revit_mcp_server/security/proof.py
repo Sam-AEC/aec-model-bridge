@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from .safe_paths import safe_child, snapshot_file
+from . import rollback_preview
 from .binding import validate_binding
 
 SCHEMA = "amb.proof/1"
@@ -71,7 +72,9 @@ EXCLUDED_KEYS = ("element_id", "reason")
 # ``binding`` (ADR 0017) is hashed only when the key is present, in either version, so every plan
 # stored before it existed hashes exactly as before. Removing the key from a bound plan changes
 # the hash, so it cannot be stripped after approval.
-HASHED_PLAN_KEYS_V1 = ("plan_id", "created_at", "snapshot_id", "skipped", "actions", "binding")
+# ``rollback_preview`` (#293) follows the same rule: hashed only when the key is present, so a preview
+# cannot be added, changed or removed after approval, and plans stored before it hash as before.
+HASHED_PLAN_KEYS_V1 = ("plan_id", "created_at", "snapshot_id", "skipped", "actions", "binding", "rollback_preview")
 HASHED_PLAN_KEYS_V2 = HASHED_PLAN_KEYS_V1 + ("hash_version", "review", "reverts_plan_id")
 STATE_PLAN_KEYS = frozenset({
     "state", "plan_hash", "approved_hash", "approved_at", "approved_by", "approved_via",
@@ -79,12 +82,13 @@ STATE_PLAN_KEYS = frozenset({
     "expired", "expired_at", "expired_reason",
     "is_reversible", "reversible_strategy",
     "policy_hash",  # bookkeeping: hash of the policy file in force when the plan was drafted
+    "approval_sig",  # HMAC over the approval record (security/approval_signing.py)
 })
 
 
 # Keys the server computes when it shows a plan (plan_review.review_aids). They are never stored on a
 # plan and are overwritten on display, so they are neither approved content nor unhashed metadata.
-DERIVED_PLAN_KEYS = frozenset({"preview", "preview_markdown", "blast_radius"})
+DERIVED_PLAN_KEYS = frozenset({"preview", "preview_markdown", "blast_radius", "bound_files", "script_lint"})
 
 
 def unhashed_metadata_keys(plan: Dict[str, Any]) -> List[str]:
@@ -367,6 +371,8 @@ def plan_content_hash(plan: Dict[str, Any]) -> str:
     if "binding" in plan:
         validate_binding(plan["binding"])
         content["binding"] = plan["binding"]
+    if "rollback_preview" in plan:
+        content["rollback_preview"] = rollback_preview.validate(plan["rollback_preview"])
     blob = json.dumps(content, sort_keys=True, separators=(",", ":"), default=str)
     return "sha256:" + hashlib.sha256(blob.encode("utf-8")).hexdigest()
 

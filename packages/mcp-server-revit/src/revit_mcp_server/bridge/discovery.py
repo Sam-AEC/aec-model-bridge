@@ -25,6 +25,8 @@ class SwitchInfo(BaseModel):
     capability_digest: str
     session_token: str
     started_at: str
+    # Named pipe of the opt-in pipe transport (ADR 0021); absent for older add-ins or when the add-in did not open one.
+    pipe_name: str | None = None
 
 
 def is_pid_alive(pid: int) -> bool:

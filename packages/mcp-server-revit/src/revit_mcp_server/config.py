@@ -37,6 +37,8 @@ if not _env_loaded:
 class BridgeMode(str, Enum):
     mock = "mock"
     bridge = "bridge"
+    # Serves responses from a recorded cassette (MCP_REVIT_CASSETTE); never contacts Revit.
+    replay = "replay"
 
 
 class _RawEnvSource(env_source.EnvSettingsSource):
@@ -95,6 +97,28 @@ def normalize_ttl(value: Any, default: int, name: str = "ttl") -> int:
         return default
 
 
+_MCP_APPS_ALIASES = {
+    "auto": "auto", "always": "always", "off": "off",
+    # Older true/false values: true was the default, which is now auto.
+    "true": "auto", "1": "auto", "yes": "auto", "on": "auto",
+    "false": "off", "0": "off", "no": "off",
+}
+
+
+def normalize_mcp_apps(value) -> str:
+    """MCP_REVIT_MCP_APPS: auto (default), always or off. true and false still work (auto, off)."""
+    if value is None:
+        return "auto"
+    if isinstance(value, bool):
+        return "auto" if value else "off"
+    text = str(value).strip().lower()
+    if text == "":
+        return "auto"
+    if text not in _MCP_APPS_ALIASES:
+        raise ValueError(f"MCP_REVIT_MCP_APPS must be auto, always or off, not '{value}'.")
+    return _MCP_APPS_ALIASES[text]
+
+
 class Config(BaseSettings):
     # Both default safely so a one-click install works with no configuration.
     # An explicit MCP_REVIT_* value always wins. The default directory is only
@@ -103,6 +127,8 @@ class Config(BaseSettings):
     allowed_directories: List[DirectoryPath] = Field(default_factory=list)
     bridge_url: str | None = Field(default=None)
     host_version: str | None = Field(default=None)
+    # "http" (default) or "pipe" (ADR 0021). Unset falls back to AEC_BRIDGE_TRANSPORT, then "http".
+    bridge_transport: str | None = Field(default=None)
     mode: BridgeMode = Field(default=BridgeMode.mock)
     audit_log: Path = Field(default_factory=lambda: Path("audit.log"))
     log_level: str = Field("INFO")
@@ -113,6 +139,9 @@ class Config(BaseSettings):
     allow_python_host: bool = Field(default=False)
     module_permission_mode: str = Field(default="enforce")  # "enforce" or "warn" for files.write (issue #157)
     anthropic_api_key: str | None = Field(default=None)
+    # MCP Apps plan review view (ui://aec-model-bridge/plan-review) and its tool _meta; read-only.
+    # auto: _meta.ui only for clients that declare the extension; always; off.
+    mcp_apps: str = Field(default="auto")
 
     _auto_dirs: List[Path] = PrivateAttr(default_factory=list)
 
@@ -139,6 +168,10 @@ class Config(BaseSettings):
     @field_validator("approval_mode", mode="before")
     def check_approval_mode(cls, value):
         return normalize_approval_mode(value)
+
+    @field_validator("mcp_apps", mode="before")
+    def check_mcp_apps(cls, value):
+        return normalize_mcp_apps(value)
 
     @field_validator("approval_ttl", mode="before")
     def check_approval_ttl(cls, value):

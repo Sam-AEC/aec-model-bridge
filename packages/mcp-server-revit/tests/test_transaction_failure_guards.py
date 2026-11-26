@@ -21,7 +21,10 @@ def test_factory_has_no_unchecked_or_raw_transactions():
     assert "new Transaction(" not in source
     assert source.count(".CommitChecked();") >= 59  # place_door/place_window share one commit in PlaceHostedOpening
     assert "BridgeTransactionResults.AppendWarnings(result, _currentTransactionMessages)" in source
-    assert "_currentTransactionMessages = null;" in source
+    # Cleared after each command: Execute restores the value it found (null at the top level, the
+    # batch's own list for a revit.batch member).
+    assert "var outerMessages = _currentTransactionMessages;" in source
+    assert "_currentTransactionMessages = outerMessages;" in source
 
 
 STUBS = r"""
@@ -124,9 +127,17 @@ namespace Autodesk.Revit.DB
 
 namespace Autodesk.Revit.UI
 {
-    public class UIApplication { }
+    public class UIApplication
+    {
+        public event EventHandler<Autodesk.Revit.UI.Events.IdlingEventArgs>? Idling;
+        public int IdlingHandlers => Idling?.GetInvocationList().Length ?? 0;
+    }
     public interface IExternalEventHandler { void Execute(UIApplication app); string GetName(); }
     public class ExternalEvent { public void Raise() { } }
+}
+namespace Autodesk.Revit.UI.Events
+{
+    public class IdlingEventArgs : EventArgs { public void SetRaiseWithoutDelay() { } }
 }
 namespace Serilog
 {
@@ -153,13 +164,27 @@ namespace RevitBridge.Bridge
     public class CommandQueue
     {
         public int Count;
+        // When set, the tools handed out in order (Count follows it).
+        public Queue<string>? Pending;
         public TimeSpan AbandonAfter = TimeSpan.FromMinutes(1);
         public string State = "queued";
         public CommandResponse? Response;
         public bool TryDequeue(out CommandRequest? request)
         {
+            if (Pending != null)
+            {
+                request = Pending.Count > 0 ? new CommandRequest { Tool = Pending.Dequeue() } : null;
+                Count = Pending.Count;
+                return request != null;
+            }
             request = Count-- > 0 ? new CommandRequest() : null;
             return request != null;
+        }
+        public bool TryDequeueIf(Func<CommandRequest, bool> accept, out CommandRequest? request)
+        {
+            request = null;
+            if (Pending == null || Pending.Count == 0 || !accept(new CommandRequest { Tool = Pending.Peek() })) return false;
+            return TryDequeue(out request);
         }
         public bool IsWanted(string id) => true;
         public void MarkRunning(string id) { State = "running"; }
@@ -172,8 +197,11 @@ namespace RevitBridge.Bridge
     public static class BridgeCommandFactory
     {
         public static Exception? Error;
+        public static List<string> Calls = new List<string>();
+        public static bool IsReadOnlyCommand(string tool) => false;
         public static object Execute(Autodesk.Revit.UI.UIApplication app, string tool, JsonElement payload)
         {
+            Calls.Add(tool);
             if (Error != null) throw Error;
             return new { element_id = 123 };
         }
@@ -195,8 +223,38 @@ public class Program
     static JsonElement Json(object value) => JsonSerializer.SerializeToElement(value,
         new JsonSerializerOptions { IncludeFields = true });
 
+    static int Turns()
+    {
+        // #287: reads share a turn, a write runs alone, budget 0 means one request per turn.
+        var app = new Autodesk.Revit.UI.UIApplication();
+        var turns = new CommandQueue { Pending = new Queue<string>(new[] { "read", "read", "write", "read" }), Count = 4 };
+        var executor = new RevitCommandExecutor(turns, t => t == "read", 200, false);
+        executor.Execute(app);
+        Check(BridgeCommandFactory.Calls.SequenceEqual(new[] { "read", "read" }), "reads did not share a turn, or the write joined them");
+        executor.Execute(app);
+        Check(BridgeCommandFactory.Calls.Count == 3 && BridgeCommandFactory.Calls[2] == "write", "the write did not run alone");
+        executor.Execute(app);
+        Check(BridgeCommandFactory.Calls.Count == 4 && turns.Count == 0, "the last read did not run");
+        var single = new CommandQueue { Pending = new Queue<string>(new[] { "read", "read" }), Count = 2 };
+        new RevitCommandExecutor(single, t => true, 0, false).Execute(app);
+        Check(BridgeCommandFactory.Calls.Count == 5 && single.Count == 1, "budget 0 must run one request per turn");
+        // #288: the Idling handler is attached only while work is queued, and only when enabled.
+        var woken = new CommandQueue { Pending = new Queue<string>(new[] { "write", "write" }), Count = 2 };
+        var waker = new RevitCommandExecutor(woken, t => false, 40, true);
+        waker.Execute(app);
+        Check(app.IdlingHandlers == 1, "fast wake not attached while work is queued");
+        waker.Execute(app);
+        Check(app.IdlingHandlers == 0, "fast wake still attached with an empty queue");
+        var off = new CommandQueue { Pending = new Queue<string>(new[] { "write", "write" }), Count = 2 };
+        new RevitCommandExecutor(off, t => false, 40, false).Execute(app);
+        Check(app.IdlingHandlers == 0, "fast wake attached although it is off");
+        Console.WriteLine("PASS turns");
+        return 0;
+    }
+
     public static int Main(string[] args)
     {
+        if (args[0] == "turns") return Turns();
         var doc = new Document();
         var reported = new List<BridgeFailureMessage>();
         using var tx = new BridgeTransaction(doc, "test", messages => reported.AddRange(messages));
@@ -290,7 +348,7 @@ def transaction_harness(tmp_path_factory):
         '<Nullable>enable</Nullable></PropertyGroup></Project>', encoding="utf-8"
     )
     (directory / "Harness.cs").write_text(STUBS, encoding="utf-8")
-    for name in ("BridgeTransaction.cs", "BridgeFailureText.cs", "ExternalEventHandler.cs"):
+    for name in ("BridgeTransaction.cs", "BridgeFailureText.cs", "ExternalEventHandler.cs", "ExecutorTurnPolicy.cs"):
         shutil.copyfile(BRIDGE / name, directory / name)
     built = subprocess.run(
         ["dotnet", "build", str(directory / "Policy.csproj"), "-c", "Release", "--nologo", "-v:q"],
@@ -301,7 +359,7 @@ def transaction_harness(tmp_path_factory):
 
 
 @pytest.mark.parametrize("scenario", [
-    "warning", "error", "rollback", "mismatch", "exception", "dispose", "pending", "start", "envelope",
+    "warning", "error", "rollback", "mismatch", "exception", "dispose", "pending", "start", "envelope", "turns",
 ])
 def test_transaction_policy_behavior(transaction_harness, scenario):
     result = subprocess.run(

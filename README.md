@@ -4,16 +4,18 @@
 
 **English** | [简体中文](docs/i18n/README.zh-CN.md) | [Español](docs/i18n/README.es.md) | [हिन्दी](docs/i18n/README.hi.md) | [العربية](docs/i18n/README.ar.md) | [Português (BR)](docs/i18n/README.pt-BR.md) | [Русский](docs/i18n/README.ru.md) | [日本語](docs/i18n/README.ja.md) | [Deutsch](docs/i18n/README.de.md) | [Français](docs/i18n/README.fr.md) | [Bahasa Indonesia](docs/i18n/README.id.md) | [Türkçe](docs/i18n/README.tr.md) | [한국어](docs/i18n/README.ko.md) | [Tiếng Việt](docs/i18n/README.vi.md) | [Italiano](docs/i18n/README.it.md) | [Polski](docs/i18n/README.pl.md) | [繁體中文](docs/i18n/README.zh-TW.md)
 
-# The Revit MCP server that asks first
+# AI for Revit you can trust
 
 **AI assistants read the Revit model you have open. By default, nothing in it changes until you approve a plan.**
 
-Open source · Revit 2024 – 2027 · 309 tools · Claude, Codex, Cursor and other MCP clients
+Open-source Revit MCP server · Revit 2024 – 2027 · 313 tools · Claude, Codex, Cursor and other MCP clients
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Sam-AEC/aec-model-bridge/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Sam-AEC/aec-model-bridge/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
+[![Coverage floor](https://img.shields.io/badge/coverage_floor-80%25-0F766E?style=flat-square)](packages/mcp-server-revit/pyproject.toml)
 [![Revit](https://img.shields.io/badge/Revit-2024--2027-0696D7?style=flat-square)](#supported-revit-versions)
 [![License](https://img.shields.io/badge/license-GPL--3.0%20%2B%20commercial-2563EB?style=flat-square)](LICENSING.md)
+[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/Sam-AEC/aec-model-bridge?style=flat-square&label=OpenSSF%20Scorecard)](https://scorecard.dev/viewer/?uri=github.com/Sam-AEC/aec-model-bridge)
 
 [Get started](#quick-start) | [Example workflows](#example-workflows) | [Tools](docs/tools-generated.md) | [Documentation](#documentation) | [Download](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -180,7 +182,7 @@ returns canned responses. It does not touch a model. A `Dockerfile` for the same
 mode is in the repository root (`docker build -t aec-model-bridge .`, then
 `docker run -i --rm aec-model-bridge`).
 
-Using VS Code? The [extension source and local install steps](extensions/vscode/README.md)
+Using VS Code? The [extension source and local install steps](packages/vscode-extension/README.md)
 register the MCP server and show the Revit connection status. It has not been
 published to the Marketplace.
 
@@ -188,16 +190,16 @@ published to the Marketplace.
 
 | Area | Tools | What they do |
 | --- | --- | --- |
-| Revit | 110 | Read the model, create and edit elements, parameters, views, sheets, schedules, exports, worksharing |
+| Revit | 111 | Read the model, create and edit elements, parameters, views, sheets, schedules, exports, worksharing |
 | Approval | 6 | Plan, review, approve, execute and roll back model changes; show the workspace policy |
-| Modules | 113 | Snapshot inspection, parameter grids, QA/QC checks, recipes, reports, selections |
+| Modules | 114 | Snapshot inspection, parameter grids, QA/QC checks, recipes, reports, selections |
 | Rhino and Grasshopper | 19 | Geometry, layers, materials, boolean operations |
 | Speckle | 17 | Projects, models, versions, send and receive |
 | Navisworks | 15 | Model tree, viewpoints, clash tests (in progress) |
 | IFC | 7 | Read IFC files without Revit: structure, properties, validation |
-| Graph, snapshots, exports, jobs | 22 | Semantic graph audits, snapshot diffs, SQLite export, background jobs |
+| Graph, snapshots, exports, jobs | 24 | Semantic graph audits, snapshot diffs, SQLite export, background jobs |
 
-309 tools are listed in the default setup (counted from the current server in mock
+313 tools are listed in the default setup (counted from the current server in mock
 mode). The Autodesk Data tools appear when APS credentials are configured. The
 [tool reference](docs/tools-generated.md) lists every tool. Each tool carries
 MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`,
@@ -248,7 +250,9 @@ In plain words:
   `aec-model-bridge-approve` command.
 - **Nothing applies on its own.** A change runs only if it matches an approved
   action of an approved plan, once.
-- **Undo is per action.** Revit's Ctrl+Z undoes one action per press.
+- **Undo.** A plan of parameter writes, moves and rotations is one Ctrl+Z step
+  when the add-in supports plan batches (UNVERIFIED in live Revit). Other plans
+  undo one action per press.
 
 The hub stops any tool call that changes the model unless it carries an
 approved plan. The AI proposes a plan, you review it, and the add-in runs it on
@@ -281,9 +285,13 @@ cover them.
 
 <sub>Diagram source: [approval-flow.mmd](docs/diagrams/approval-flow.mmd). Regenerate the images with `python scripts/render_diagrams.py`.</sub>
 
-If a plan turns out wrong, undo it with Revit's Ctrl+Z. Each parameter write is
-its own named transaction, so one plan can take several presses. A one-step undo
-for a whole plan is planned, not built. A second route is a revert plan: the
+If a plan turns out wrong, undo it with Revit's Ctrl+Z. When every action of a
+plan is a parameter write, move or rotation and the add-in lists
+`revit.execute_plan_batch`, the plan runs in one Revit transaction group named
+"AEC Model Bridge: <plan title> (<short id>)", so one press undoes the whole plan.
+If one action fails, the whole group is rolled back. This is UNVERIFIED in a live
+Revit session. Other plans run one named transaction per action, so they can take
+several presses. A second route is a revert plan: the
 assistant drafts one with `plan_revert` from the proof of an executed plan, and
 you approve it like any other plan. `rollback_plan` also writes the recorded
 before-values back in reverse order and can skip an action when no before-value
@@ -294,7 +302,7 @@ file output, are not undone by any of them and do not get a second confirmation
 yet (planned). The panel's Plans list shows pending plans only; `aec-model-bridge-approve show <plan_id>`
 works for a plan in any state, while `proofs/` bundles exist only for plans that
 were executed (or attempted). The lifecycle is in
-[ADR 0008](docs/0008-approval-gate-lifecycle.md).
+[ADR 0008](docs/adr/0008-approval-gate-lifecycle.md).
 
 For unattended pipelines you can set `MCP_REVIT_APPROVAL_MODE=auto`. That turns
 the human check off, so use it only in a controlled environment.
@@ -337,6 +345,8 @@ You install two parts: the Python MCP server and the Revit add-in. Live Revit
 automation needs both.
 
 ### 1. Install the MCP server
+
+To run the server without a clone, use `uvx` as in [Manual setup](#quick-start) or the [install guide](docs/install.md#run-the-server-with-uvx). The short `uvx aec-model-bridge` form needs a PyPI release, which has not happened yet. To work on the source:
 
 ```powershell
 git clone https://github.com/Sam-AEC/aec-model-bridge.git
@@ -464,7 +474,7 @@ and About.
 - Tool calls are written to an audit log, and secrets are redacted.
 
 Details are in [docs/security.md](docs/security.md). To report a
-vulnerability, follow [SECURITY.md](SECURITY.md).
+vulnerability, follow [SECURITY.md](.github/SECURITY.md).
 
 ## FAQ
 
@@ -483,7 +493,7 @@ that read a standard `mcpServers` configuration. Windsurf, Cline, Roo Code,
 Continue, Zed, Claude Code and Gemini CLI should work the same way but have not
 been tested. See [compatibility](docs/compatibility.md). The panel chat can also
 use an Anthropic API key, or the `claude` or `codex` command-line tools if they
-are installed. See [ADR 0012](docs/0012-native-agent-chat-backend.md).
+are installed. See [ADR 0012](docs/adr/0012-native-agent-chat-backend.md).
 
 ### Can the AI change my model without asking?
 
@@ -533,20 +543,21 @@ python -m pytest packages/mcp-server-revit/tests
 ```
 
 CI builds the Python server and the add-in targets for Revit 2024 through 2027.
-See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+See [CONTRIBUTING.md](.github/CONTRIBUTING.md) before opening a pull request.
 
 ## Documentation
 
 - [Installation guide](docs/install.md)
 - [Tool reference](docs/tools-generated.md)
-- [Architecture](docs/0001-multi-provider-architecture.md)
+- [Prompt library](docs/prompts/README.md): copy-ready prompts for QA, data, sheets, coordination, IFC/BCF and hand-over
+- [Architecture](docs/adr/0001-multi-provider-architecture.md)
 - [Configuration reference](docs/configuration-reference.md)
 - [Security](docs/security.md)
 - [Versioning and releases](docs/versioning.md)
 - [Release checklist](docs/release-checklist.md)
 - [Proof bundles and revert plans](docs/proof-and-revert.md)
 - [Privacy](docs/privacy.md)
-- [Contributing](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Contributing](.github/CONTRIBUTING.md) and [Code of Conduct](.github/CODE_OF_CONDUCT.md)
 
 ## Built with
 

@@ -129,6 +129,38 @@ $RevitVersion = Read-Host "Choose one of the listed Revit years"
 
 If there is no prebuilt package for your year, use the source install above.
 
+Check that the download was built by this repository's release workflow (needs the GitHub CLI):
+
+```bash
+gh attestation verify aec-model-bridge-revit-2026-1.6.0.zip --repo Sam-AEC/aec-model-bridge
+```
+
+Use the name of the file you downloaded. The same check works for the installer, the `.mcpb` bundle and the PyPI wheel and sdist. See [Supply chain](supply-chain.md).
+
+## Run the server with uvx
+
+[uv](https://docs.astral.sh/uv/getting-started/installation/) can fetch and start
+the MCP server from this repository without a clone. This works today, without a
+PyPI release:
+
+```bash
+uvx --from "git+https://github.com/Sam-AEC/aec-model-bridge#subdirectory=packages/mcp-server-revit" aec-model-bridge
+```
+
+The server speaks MCP over stdin and stdout, so you normally put this command in
+your client configuration instead of running it in a terminal (see
+[one-click install links](#one-click-install-links)). Set `MCP_REVIT_MODE=mock`
+to try it without Revit. Live use still needs the Revit add-in, from the installer
+or the source install above.
+
+After the first PyPI release, the short form will be:
+
+```bash
+uvx aec-model-bridge
+```
+
+The package is not on PyPI yet, so the short form does not work today.
+
 ## Configure an MCP client
 
 If you do not set a workspace, the server uses `~/Documents/AEC Model Bridge`.

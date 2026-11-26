@@ -17,6 +17,7 @@ Architecture:
   - Rules run synchronously (P10.4 async via JobManager is wired as a future extension)
 """
 from __future__ import annotations
+from revit_mcp_server.security.module_permissions import writable_path
 
 import json
 import logging
@@ -28,10 +29,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import yaml
-
 from revit_mcp_server.errors import WorkspaceViolation
 from revit_mcp_server.security.safe_paths import snapshot_file
+from revit_mcp_server.semantic.compute import QueryError, pipeline_rows, validate_steps
 
 logger = logging.getLogger(__name__)
 
@@ -114,13 +114,18 @@ SEVERITIES = ("error", "warning", "info")
 # without adding engine support.
 FILTER_KEYS = ("category", "placed", "parameter", "workset", "family_source")
 PARAMETER_KEYS = ("name", "empty", "value")
-RULE_KEYS = ("id", "severity", "category", "description", "filter", "assertion", "fix_template")
+RULE_KEYS = ("id", "severity", "category", "description", "filter", "assertion", "fix_template", "pipeline")
 ASSERTION_COUNT = "element_count == 0"
 ASSERTION_PREFIX = "all elements have "
 
 
 def _workspace_root(workspace: Any) -> Path:
     return Path(workspace.allowed_directories[0])
+
+
+def _assert_writable(workspace: Any, candidate: Path) -> Path:
+    """Confine the path, then require files.write (a bare workspace has no write gate)."""
+    return writable_path(workspace, _assert_in_workspace(workspace, candidate))
 
 
 def _assert_in_workspace(workspace: Any, candidate: Path) -> Path:
@@ -165,6 +170,8 @@ def _resolve_pack_path(pack_name: str, workspace: Any = None) -> Path:
 
 
 def _load_yaml_file(path: Path) -> Any:
+    import yaml  # loaded on first use, not at server start
+
     if path.stat().st_size > MAX_PACK_BYTES:
         raise ValueError(f"Rule pack file is larger than {MAX_PACK_BYTES} bytes.")
     with open(path, "r", encoding="utf-8") as f:
@@ -229,6 +236,17 @@ def _validate_filter(rid: Any, flt: Any, errors: List[Dict[str, Any]]) -> None:
                 errors.append(_err(rid, f"{f}.value", "parameter.value must be a scalar (compared as text)."))
 
 
+def _validate_pipeline(label: Any, rule: Dict[str, Any], errors: List[Dict[str, Any]]) -> None:
+    """A pipeline rule: snapshot_compute steps whose result rows are the issues."""
+    for other in ("filter", "assertion"):
+        if other in rule:
+            errors.append(_err(label, other, f"A pipeline rule has no {other}: every row the pipeline returns is an issue."))
+    try:
+        validate_steps(rule["pipeline"])
+    except QueryError as e:
+        errors.append(_err(label, "pipeline", str(e)))
+
+
 def _validate_pack_data(data: Any) -> Dict[str, Any]:
     """Schema-check parsed pack data. Pure: never evaluates anything."""
     errors: List[Dict[str, Any]] = []
@@ -264,6 +282,9 @@ def _validate_pack_data(data: Any) -> Dict[str, Any]:
         for k in rule:
             if k not in RULE_KEYS:
                 warnings.append(_err(label, k, f"Unknown rule field '{k}' is ignored."))
+        if "pipeline" in rule:
+            _validate_pipeline(label, rule, errors)
+            continue
         if "filter" not in rule:
             warnings.append(_err(label, "filter", "No filter: the rule applies to every element."))
         else:
@@ -282,6 +303,8 @@ def _validate_pack_data(data: Any) -> Dict[str, Any]:
 
 
 def _validate_file(path: Path) -> Dict[str, Any]:
+    import yaml
+
     try:
         data = _load_yaml_file(path)
     except yaml.YAMLError as e:
@@ -336,8 +359,32 @@ def _run_rule(
     elements: List[Dict[str, Any]],
     types: List[Dict[str, Any]],
     doc_guid: str,
+    relations: Optional[List[Dict[str, Any]]] = None,
 ) -> List[Dict[str, Any]]:
-    """Evaluate one rule. Returns list of issue dicts (one per offending element)."""
+    """Evaluate one rule. Returns list of issue dicts (one per offending element).
+
+    A rule with ``pipeline`` runs it with snapshot_compute's engine; each result row
+    is an issue (``uid`` gives the element, ``label`` or type_name or category the label).
+    ``relations`` feed its relation joins; without them those joins find nothing.
+    """
+    if "pipeline" in rule:
+        data = {"elements": elements, "types": types, "relations": relations or []}
+        issues = []
+        for row in pipeline_rows(data, rule["pipeline"]):
+            uid = row.get("uid")
+            if uid is not None and not isinstance(uid, str):
+                raise QueryError("pipeline rows give 'uid' as text (an element uid), not a list or object")
+            label = row.get("label") or row.get("type_name") or row.get("category") or ""
+            issues.append({
+                "rule_id": rule["id"],
+                "severity": rule["severity"],
+                "element_uid": uid,
+                "label": label if isinstance(label, str) else str(label),
+                "message": rule["description"],
+                "fix_template": rule.get("fix_template", ""),
+                "doc_guid": doc_guid,
+            })
+        return issues
     filter_dsl = rule.get("filter", {})
     assertion = rule.get("assertion", "element_count == 0")
     
@@ -483,6 +530,7 @@ class QaqcCheckerModule:
         # Derive doc_guid from snapshot or fallback
         doc_guid = "mock-doc"
         captured_at: Optional[str] = None
+        relations: List[Dict[str, Any]] = []
         if snapshot_id:
             snap_path = snapshot_file(workspace.allowed_directories[0] / "snapshots", snapshot_id)
             if snap_path.exists():
@@ -491,6 +539,10 @@ class QaqcCheckerModule:
                 doc_guid = data.get("source", {}).get("doc_guid", snapshot_id)
                 taken = data.get("taken_at")
                 captured_at = str(taken) if taken else None
+                relations = data.get("relations") or []
+        elif any("pipeline" in rule for rule in rules):
+            from revit_mcp_server.semantic.engine import generate_mock_snapshot
+            relations = [r.model_dump(by_alias=True) for r in generate_mock_snapshot().relations]
         
         elements_uids = {el.get("uid") for el in elements + types if el.get("uid")}
         
@@ -498,7 +550,7 @@ class QaqcCheckerModule:
         rules_run = []
         for rule in rules:
             try:
-                findings = _run_rule(rule, elements, types, doc_guid)
+                findings = _run_rule(rule, elements, types, doc_guid, relations)
                 all_findings.extend(findings)
                 rules_run.append({
                     "id": rule["id"],
@@ -715,9 +767,9 @@ class QaqcCheckerModule:
                 + "; ".join(f"{e['rule_id'] or 'pack'}: {e['message']}" for e in result["errors"][:5])
             )
         udir = _user_packs_dir(workspace)
-        _assert_in_workspace(workspace, udir)
+        _assert_writable(workspace, udir)
         dest = udir / f"{pack_name}.yaml"
-        _assert_in_workspace(workspace, dest)
+        _assert_writable(workspace, dest)
         if dest.exists() and not overwrite:
             raise ValueError(f"Rule pack '{pack_name}' already exists; pass overwrite=true to replace it.")
         udir.mkdir(parents=True, exist_ok=True)
@@ -735,13 +787,13 @@ class QaqcCheckerModule:
         if result["errors"]:
             raise ValueError(f"Refusing to export invalid rule pack '{rule_pack}'; run validate_rule_pack.")
         if destination:
-            dest = _assert_in_workspace(workspace, Path(destination))
+            dest = _assert_writable(workspace, Path(destination))
             if dest.is_dir():
                 dest = dest / f"{rule_pack}.yaml"
-                _assert_in_workspace(workspace, dest)
+                _assert_writable(workspace, dest)
         else:
             dest = _workspace_root(workspace) / "exports" / f"{rule_pack}.yaml"
-            _assert_in_workspace(workspace, dest)
+            _assert_writable(workspace, dest)
         if dest.suffix.lower() not in (".yaml", ".yml"):
             raise ValueError("Destination must end in .yaml or .yml.")
         if dest.exists() and not overwrite:

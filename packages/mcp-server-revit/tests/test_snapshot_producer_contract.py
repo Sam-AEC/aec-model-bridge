@@ -85,9 +85,11 @@ def test_producer_uses_si_point_locations_and_stable_metadata():
     assert "rotation = point.Rotation" in point
     body = source.split("private static object ExecuteExtractSnapshot(", 1)[1]
     assert 'name = elem.Name' in body and 'sheet_number = (elem as ViewSheet)?.SheetNumber' in body
-    assert 'level_uid = elem.LevelId != ElementId.InvalidElementId' in body
-    assert 'location = GetSnapshotPointLocation(elem)' in body
-    assert '["dirty_only"] = dirtyOnly' in body and 'dirty_only = dirtyOnly' in body
+    # The level and location are read once, so the optional rooms block (issue 146) can fill gaps.
+    assert 'var levelUid = elem.LevelId != ElementId.InvalidElementId' in body
+    assert 'var location = GetSnapshotPointLocation(elem)' in body
+    assert 'level_uid = levelUid' in body and 'location,' in body
+    assert '["dirty_only"] = dirtyOnly' in body
 
 
 def test_sheet_and_element_capture_share_all_parameter_storage_conversions():

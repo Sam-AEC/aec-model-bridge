@@ -474,9 +474,9 @@ class NamingCheckerModule:
             snap = self._load_snapshot(snapshot_id, workspace)
             snap_names, info = _names_from_snapshot(snap)
             coverage = snap.get("counts") or {}
-            if coverage.get("truncated") or coverage.get("categories") or coverage.get("dirty_only") or snap.get("dirty_only"):
+            if coverage.get("truncated") or coverage.get("categories") or coverage.get("params") or coverage.get("dirty_only") or snap.get("dirty_only"):
                 incomplete.append({"kind": "snapshot", "reason": (
-                    "Snapshot capture was truncated, category-filtered, or dirty-only; only captured names were checked, "
+                    "Snapshot capture was truncated, category-filtered, parameter-limited, or dirty-only; only captured names were checked, "
                     "so this result does not cover all model names.")})
             for kind, values in snap_names.items():
                 to_check[kind].extend(values)

@@ -13,7 +13,7 @@ Status: in 1.5.0. Nothing here has run against a live Revit (UNVERIFIED).
 | `revit_recipe_run` | Runs a recipe. `dry_run: true` checks everything and runs nothing | read recipe: none. Write recipe: approved plan |
 | `revit_recipe_delete` | Removes a recipe | approved plan |
 
-Ids are `a-z`, `0-9`, `_`, `-`, 1 to 64 characters. Code is at most 64 KiB. Three read-only starters ship with the server: `element_count_by_category`, `level_list`, `warning_summary`. Save a recipe with the same id to replace one.
+Ids are `a-z`, `0-9`, `_`, `-`, 1 to 64 characters. Code is at most 64 KiB. Five read-only starters ship with the server: `element_count_by_category`, `elements_by_parameter`, `elements_in_box`, `level_list`, `warning_summary`. Every recipe script gets the `amb` helper library (read part; a write run also gets the write part), see [python-automation.md](python-automation.md). Save a recipe with the same id to replace one.
 
 ## What the manifest holds
 

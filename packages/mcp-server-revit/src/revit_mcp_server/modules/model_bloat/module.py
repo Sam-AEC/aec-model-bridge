@@ -12,13 +12,18 @@ What the snapshot carries (see semantic/models.py):
     records that point at each type. This is only exact when the snapshot
     contains every placed instance of the model.
   - Types: TypeRecord.family / type_name / family_source (system|loadable|inplace).
-  - Imported CAD: there is no dedicated field. Detected from element records with
-    class "ImportInstance" / "CADLinkType" or a .dwg/.dxf/.dgn name.
+    A snapshot taken with include=["types"] also carries `instance_count` on every
+    type, counted by the add-in over the whole document. When every type has one,
+    usage comes from it and does not depend on which elements were captured.
+  - Imported CAD: detected from element records with class "ImportInstance" /
+    "CADLinkType" or a .dwg/.dxf/.dgn name, and from the top-level `cad` list that
+    include=["cad"] writes (name, is_link, view_specific, element_id).
   Honesty rule: a check whose data is missing reports "not_enough_data" (with
   what is missing) and the cleanliness score is null ("not rated"), never 100.
-  Today's live snapshots carry no `types` list and no CAD records, so they are
-  not rated until the add-in extractor supplies them. CAD "none found" is only
-  trusted if the snapshot has a top-level `cad_scanned: true` or contains CAD.
+  A default live snapshot carries no `types` list and no CAD records, so it is
+  not rated; take it with include=["types", "cad"] to get a rating. CAD "none
+  found" is only trusted if the snapshot has a top-level `cad_scanned: true` or
+  contains CAD.
   Not carried by the snapshot (not reported): nested/shared family usage, types
   used only by other types, file size, and anything Revit stores outside elements.
 """
@@ -44,6 +49,11 @@ COUNT_CAVEAT = (
     "filtered or partial, or a type is used only inside another family or type, "
     "it can look unused when it is not. Check in Revit before purging."
 )
+COUNTED_CAVEAT = (
+    "Usage is the instance count the add-in read for each type over the whole document. "
+    "A type used only inside another family or type can still look unused when it is not. "
+    "Check in Revit before purging."
+)
 
 
 def _load_snapshot(snapshot_id: str, workspace: Any) -> Dict[str, Any]:
@@ -54,6 +64,22 @@ def _load_snapshot(snapshot_id: str, workspace: Any) -> Dict[str, Any]:
         raise ValueError(f"Snapshot '{snapshot_id}' not found.")
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def _cad_elements(records: Any) -> List[dict]:
+    """Element-shaped dicts for the top-level `cad` list, so one rule reads both sources."""
+    out: List[dict] = []
+    for rec in records if isinstance(records, list) else []:
+        if not isinstance(rec, dict):
+            continue
+        linked = rec.get("is_link") is True
+        out.append({
+            "class": "CADLinkType" if linked else "ImportInstance",
+            "type_name": rec.get("name") or "",
+            "element_id": rec.get("element_id"),
+            "params": {"IsLinked": linked, "ViewSpecific": rec.get("view_specific") is True},
+        })
+    return out
 
 
 def _get_data(snapshot_id: str, workspace: Any) -> Tuple[List[dict], List[dict], bool, bool]:
@@ -70,8 +96,11 @@ def _get_data(snapshot_id: str, workspace: Any) -> Tuple[List[dict], List[dict],
         )
     data = _load_snapshot(snapshot_id, workspace)
     counts = data.get("counts") or {}
-    partial = bool(counts.get("truncated") or counts.get("categories") or counts.get("dirty_only") or data.get("dirty_only"))
-    return data.get("elements", []), data.get("types", []), data.get("cad_scanned") is True, partial
+    partial = bool(counts.get("truncated") or counts.get("categories") or counts.get("params") or counts.get("dirty_only") or data.get("dirty_only"))
+    elements = list(data.get("elements", []))
+    seen = {el.get("element_id") for el in elements if el.get("element_id") is not None}
+    elements += [c for c in _cad_elements(data.get("cad")) if c["element_id"] not in seen]
+    return elements, data.get("types", []), data.get("cad_scanned") is True, partial
 
 
 def _param_value(el: dict, *names: str) -> Any:
@@ -149,11 +178,19 @@ class ModelBloatModule:
 
         types_available = bool(types)
 
+        # The add-in counts instances over the whole document (include=["types"]), so when every
+        # type carries a count, usage does not depend on the captured elements.
+        counted = types_available and all(
+            isinstance(t.get("instance_count"), int) and not isinstance(t.get("instance_count"), bool)
+            and t["instance_count"] >= 0 for t in types)
+
         def used(t: dict) -> int:
+            if counted:
+                return t["instance_count"]
             return by_uid.get(t.get("uid"), 0) + by_name.get((t.get("family"), t.get("type_name")), 0)
 
-        matched_instances = any(used(t) for t in types)
-        usage_available = matched_instances and types_available and not partial
+        matched_instances = counted or any(used(t) for t in types)
+        usage_available = matched_instances and types_available and (counted or not partial)
         # A CAD scan is trusted only if the snapshot says it looked for CAD
         # (cad_scanned) or actually found some. "No CAD records" alone could just
         # mean the extractor never collects them.
@@ -271,7 +308,9 @@ class ModelBloatModule:
             cad_items, imported_cad, linked_cad = [], [], []
 
         notes = [PURGE_NOTE]
-        if usage_available:
+        if usage_available and counted:
+            notes.append(COUNTED_CAVEAT)
+        elif usage_available:
             notes.append(COUNT_CAVEAT)
         elif partial:
             notes.append("This snapshot is filtered or truncated; unused families and types are not inferred from incomplete instance records.")

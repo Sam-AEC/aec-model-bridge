@@ -535,7 +535,10 @@ function renderPlans() {
     const previewMount = item.querySelector("[data-preview-mount]");
     if (previewMount) {
       const block = buildPreviewBlock(plan.preview, plan.blastRadius, plan.id);
-      if (block) previewMount.replaceWith(block);
+      const rolledBack = buildRollbackPreviewBlock(plan.rollbackPreview);
+      if (block && rolledBack) block.append(rolledBack);
+      const shown = block || rolledBack;
+      if (shown) previewMount.replaceWith(shown);
       else previewMount.remove();
     }
     const pre = item.querySelector("pre.plan-review");
@@ -1169,6 +1172,58 @@ function buildPreviewBlock(preview, radius, planId) {
   }
 }
 
+// The rolled-back preview (#293): what the add-in reported when it ran the plan in a transaction group
+// that it always rolls back. It is part of the plan hash. Every cell is a text node run through
+// visibleText. A missing or malformed record yields null. It never changes the Approve button: a preview
+// is not an approval.
+function buildRollbackPreviewBlock(record) {
+  try {
+    if (!isPlainObject(record)) return null;
+    const root = reviewEl("div", "plan-rollback-preview");
+    const status = visibleText(record.status);
+    if (record.rolled_back === false) {
+      const alert = reviewEl("p", "plan-blast", "The preview was NOT rolled back. Check the model before approving anything.");
+      alert.dataset.risk = "high";
+      root.append(alert);
+    }
+    const ids = Array.isArray(record.changed_element_ids) ? record.changed_element_ids : [];
+    const warnings = Array.isArray(record.warnings) ? record.warnings.filter(isPlainObject) : [];
+    if (status === "unavailable") {
+      root.append(reviewEl("p", "review-empty", `Rolled-back preview: not available. ${visibleText(record.reason || "")}`));
+      return root;
+    }
+    let head = `Rolled-back preview (nothing was kept in the model): ${ids.length} element(s) would change, ${warnings.length} warning(s).`;
+    if (status === "failed") head += ` A step failed in the preview: ${visibleText(record.reason || "no reason given")}.`;
+    root.append(reviewEl("p", "plan-blast", head));
+    if (ids.length > 0) {
+      const shown = ids.slice(0, 20).map((id) => visibleText(id)).join(", ");
+      root.append(reviewEl("p", "review-empty", `Changed element ids: ${shown}${ids.length > 20 ? ` and ${ids.length - 20} more` : ""}.`));
+    }
+    const actions = Array.isArray(record.actions) ? record.actions.filter(isPlainObject) : [];
+    if (actions.length > 0) {
+      const table = reviewEl("table", "plan-preview-table");
+      const headRow = reviewEl("tr");
+      ["Step", "Tool", "Result", "Element", "Parameter", "Before", "After"].forEach((h) => headRow.append(reviewEl("th", "", h)));
+      table.append(headRow);
+      actions.slice(0, PREVIEW_ROW_CAP).forEach((a) => {
+        const tr = reviewEl("tr");
+        [Number.isSafeInteger(a.index) ? a.index + 1 : "", a.tool, a.ok === true ? "ok" : (a.error || "failed"),
+          a.element_id === undefined ? "-" : a.element_id, a.parameter || "-",
+          a.before === undefined ? "(not captured)" : a.before, a.after === undefined ? "(not reported)" : a.after]
+          .forEach((cell) => tr.append(reviewEl("td", "", visibleText(cell === undefined || cell === null ? "" : cell))));
+        table.append(tr);
+      });
+      root.append(table);
+    }
+    warnings.slice(0, PREVIEW_ROW_CAP).forEach((w) => {
+      root.append(reviewEl("p", "review-empty", `Warning: ${visibleText(w.message || "")}`));
+    });
+    return root;
+  } catch (error) {
+    return null;
+  }
+}
+
 function mapPlans(hubResult) {
   const all = (hubResult && hubResult.plans) || [];
   const hubOmitted = Number.isSafeInteger(hubResult && hubResult.omitted) && hubResult.omitted > 0 ? hubResult.omitted : 0;
@@ -1191,6 +1246,7 @@ function mapPlans(hubResult) {
       reviewState,
       preview: plan.preview,
       blastRadius: plan.blast_radius,
+      rollbackPreview: plan.rollback_preview,
       reviewBlocked: !reviewState.ok,
       reviewPending: reviewState.ok && reviewState.version === 2 && !state.openedReviews.has(`${plan.plan_id}:${plan.plan_hash || ""}`),
       // Facts for the chat card, from the same real actions: tool, arguments, captured before value.

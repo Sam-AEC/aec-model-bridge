@@ -1,0 +1,78 @@
+{
+  "approval": "per_run",
+  "created_at": "2026-11-24T00:00:00Z",
+  "description": "Lists the elements of some categories whose bounding box touches, or lies inside, a box given in metres. Uses bounding-box quick filters.",
+  "id": "elements_in_box",
+  "mode": "read",
+  "params": [
+    {
+      "default": "Walls",
+      "description": "Comma-separated category names, for example Walls,Doors.",
+      "name": "categories",
+      "required": false,
+      "type": "string"
+    },
+    {
+      "description": "Box corner in metres (project internal origin).",
+      "name": "min_x",
+      "required": true,
+      "type": "number",
+      "unit": "m"
+    },
+    {
+      "description": "Box corner in metres (project internal origin).",
+      "name": "min_y",
+      "required": true,
+      "type": "number",
+      "unit": "m"
+    },
+    {
+      "description": "Box corner in metres (project internal origin).",
+      "name": "min_z",
+      "required": true,
+      "type": "number",
+      "unit": "m"
+    },
+    {
+      "description": "Box corner in metres (project internal origin).",
+      "name": "max_x",
+      "required": true,
+      "type": "number",
+      "unit": "m"
+    },
+    {
+      "description": "Box corner in metres (project internal origin).",
+      "name": "max_y",
+      "required": true,
+      "type": "number",
+      "unit": "m"
+    },
+    {
+      "description": "Box corner in metres (project internal origin).",
+      "name": "max_z",
+      "required": true,
+      "type": "number",
+      "unit": "m"
+    },
+    {
+      "default": false,
+      "description": "true: only elements fully inside the box.",
+      "name": "inside",
+      "required": false,
+      "type": "boolean"
+    },
+    {
+      "default": 200,
+      "description": "Elements to list.",
+      "max": 500,
+      "min": 1,
+      "name": "limit",
+      "required": false,
+      "type": "integer"
+    }
+  ],
+  "sha256": "f48421bbafbb85ab35722eb261d0fd4fa66e43d25c7c23cf929cb06eea971cbf",
+  "title": "Elements in a box",
+  "updated_at": "2026-11-24T00:00:00Z",
+  "version": 1
+}

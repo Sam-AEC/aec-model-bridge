@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from helpers import human_approve, panel_decide
+from helpers import human_approve, panel_decide, resign_approval
 from test_approval_provider import FakeParamStore
 from revit_mcp_server import approve_cli
 from revit_mcp_server.config import APPROVAL_TTL_DEFAULT, PENDING_TTL_DEFAULT, Config, normalize_ttl
@@ -32,6 +32,8 @@ def _stamp(plan_id, gate, key, seconds_ago):
     """Move a stored timestamp (approved_at / created_at) into the past, outside the hash."""
     plan = gate.load_plan(plan_id)
     plan[key] = (datetime.now(timezone.utc) - timedelta(seconds=seconds_ago)).isoformat()
+    if key == "approved_at" and plan.get("state") == "approved":
+        resign_approval(gate, plan)
     gate.save_plan(plan)
 
 

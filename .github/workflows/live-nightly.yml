@@ -1,0 +1,100 @@
+name: Live nightly (self-hosted Revit)
+
+# Optional nightly check against a real Revit on the maintainer's machine (#295). It opens a
+# scratch copy of the canonical model, runs the add-in benchmark, makes one approved write,
+# reverts it and compares snapshots. It runs only on a runner labelled self-hosted, windows and
+# revit-live, and only on schedule or manual dispatch. It has no pull_request, pull_request_target
+# or push trigger, so code from a fork can never reach that machine. No secrets are used.
+# Setup and limits: scripts/revit/nightly/README.md and docs/release-checklist.md, section 8.
+on:
+  schedule:
+    - cron: "17 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-nightly
+  cancel-in-progress: false
+
+jobs:
+  live:
+    # Dispatch can pick any branch; only these two may run code on the runner.
+    if: github.repository == 'Sam-AEC/aec-model-bridge' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+    runs-on: [self-hosted, windows, revit-live]
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      # Repository variables (Settings, Secrets and variables, Actions, Variables). They hold
+      # paths and ids, not secrets. They reach the scripts only through the environment.
+      MODEL_PATH: ${{ vars.AEC_NIGHTLY_MODEL_PATH }}
+      REVIT_EXE: ${{ vars.AEC_NIGHTLY_REVIT_EXE }}
+      MODEL_GUID: ${{ vars.AEC_NIGHTLY_MODEL_GUID }}
+      ELEMENT_ID: ${{ vars.AEC_NIGHTLY_ELEMENT_ID }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check the runner configuration
+        shell: pwsh
+        run: |
+          foreach ($name in "MODEL_PATH", "REVIT_EXE", "MODEL_GUID", "ELEMENT_ID") {
+            if ([string]::IsNullOrWhiteSpace((Get-Item -Path "Env:$name" -ErrorAction SilentlyContinue).Value)) {
+              throw "Repository variable for $name is not set. See scripts/revit/nightly/README.md."
+            }
+          }
+          if ($env:ELEMENT_ID -notmatch '^[0-9]+$') { throw "ELEMENT_ID must be a number." }
+          if ($env:MODEL_GUID -notmatch '^[0-9a-fA-F-]{36}$') { throw "MODEL_GUID must be a GUID." }
+
+      # uv and Python 3.11 or newer are installed on the runner once; see the README.
+      - name: Install dependencies
+        shell: pwsh
+        working-directory: packages/mcp-server-revit
+        run: uv sync --locked --extra dev
+
+      - name: Open a scratch copy in Revit
+        id: scratch
+        shell: pwsh
+        run: ./scripts/revit/nightly/prepare-scratch.ps1 -Source $env:MODEL_PATH -RevitExe $env:REVIT_EXE
+
+      - name: Benchmark the add-in (read-only)
+        shell: pwsh
+        run: ./scripts/bench-addin.ps1 -Iterations 20 -OutFile "$env:RUNNER_TEMP/bench-addin.json"
+
+      - name: Run the live write test
+        shell: pwsh
+        working-directory: packages/mcp-server-revit
+        env:
+          SCRATCH_PID: ${{ steps.scratch.outputs.pid }}
+          SCRATCH_TITLE: ${{ steps.scratch.outputs.title }}
+        run: >
+          uv run --no-sync python ../../scripts/revit/nightly/run.py --run --self-approve
+          --pid $env:SCRATCH_PID
+          --expected-document $env:SCRATCH_TITLE
+          --expected-guid $env:MODEL_GUID
+          --element-id $env:ELEMENT_ID
+          --bench-json "$env:RUNNER_TEMP/bench-addin.json"
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: live-nightly-report
+          path: artifacts/revit-nightly/*.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Close Revit and delete the scratch copy
+        if: always()
+        shell: pwsh
+        env:
+          SCRATCH_PID: ${{ steps.scratch.outputs.pid }}
+          SCRATCH_FILE: ${{ steps.scratch.outputs.scratch_file }}
+        run: |
+          $scratchPid = 0
+          [void][int]::TryParse($env:SCRATCH_PID, [ref]$scratchPid)
+          ./scripts/revit/nightly/cleanup-scratch.ps1 -ProcessId $scratchPid -ScratchFile $env:SCRATCH_FILE

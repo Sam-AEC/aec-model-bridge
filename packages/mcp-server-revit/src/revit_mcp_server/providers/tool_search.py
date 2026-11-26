@@ -1,12 +1,19 @@
-"""search_tools: read-only search over the full tool registry, in every profile.
+"""search_tools and context_report: read-only tools over the tool registry, in every profile.
 
-The startup profile (core, daily, full) hides tools from tools/list. This tool
+The startup profile (core, daily, full) hides tools from tools/list. search_tools
 still searches all of them and says which profile shows each hidden one, so a
 client can ask the person to switch instead of guessing. Ranking is plain
-token matching with a fixed tie-break on tool name, so results are repeatable.
+token matching; equal scores are ordered by local usage counts (last 30 days,
+when counting is on) and then by tool name, so results are repeatable.
+
+context_report measures what the listed tools cost: the same serialization and
+chars/4 estimate as scripts/measure_mcp_tokens.py, over the same list that
+mcp_server.list_tools returns. It also shows the most used tools from the local
+usage counts and suggests the `learned` profile when that would list far fewer tools.
 """
 from __future__ import annotations
 
+import json
 import re
 from typing import Any, Dict, List
 
@@ -15,6 +22,9 @@ from ..tool_profiles import CORE_TOOLS, DAILY_EXCLUDE, TOOL_SEARCH_PROVIDER_ID, 
 
 DEFAULT_LIMIT = 5
 MAX_LIMIT = 25
+REPORT_TOP = 10
+# Suggest `learned` when it would list at most this share of the current list.
+LEARNED_SUGGEST_RATIO = 0.75
 
 _BUILTIN_PROFILES = (
     ToolProfile(name="full"),
@@ -60,7 +70,17 @@ class ToolSearchProvider(AECProvider):
                     "required": ["query"],
                     "additionalProperties": False,
                 },
-            )
+            ),
+            ProviderTool(
+                name="context_report",
+                description=(
+                    "Report what this server's tool list costs in context: active profile, listed tool "
+                    "count, approximate characters and tokens (chars/4), the 10 largest tool definitions, "
+                    "the most used tools from local usage counts and tips to use less. Read-only; "
+                    "estimates, not billed tokens."
+                ),
+                inputSchema={"type": "object", "properties": {}, "additionalProperties": False},
+            ),
         ]
 
     def get_identity(self) -> str:
@@ -76,7 +96,12 @@ class ToolSearchProvider(AECProvider):
         pass
 
     async def execute_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        if name.replace(".", "_") != "search_tools":
+        name = name.replace(".", "_")
+        if name == "context_report":
+            if arguments:
+                raise ValueError("context_report takes no arguments.")
+            return self.context_report()
+        if name != "search_tools":
             raise ValueError(f"Unknown tool: {name}")
         query = arguments.get("query")
         if not isinstance(query, str) or not _words(query):
@@ -95,6 +120,7 @@ class ToolSearchProvider(AECProvider):
 
         tokens = list(dict.fromkeys(_words(query)))
         active = getattr(self.registry, "_tool_profile", None)
+        usage = {row["name"]: row["calls"] for row in self._usage_rows()}
         scored: list[tuple[int, str, dict[str, Any]]] = []
         total = 0
         for provider in self.registry.get_all_providers():
@@ -124,7 +150,7 @@ class ToolSearchProvider(AECProvider):
                 if include_schema:
                     item["input_schema"] = enriched.inputSchema
                 scored.append((score, tool.name, item))
-        scored.sort(key=lambda row: (-row[0], row[1]))
+        scored.sort(key=lambda row: (-row[0], -usage.get(row[1], 0), row[1]))
         return {
             "query": query,
             "current_profile": active.name if active else "full",
@@ -133,6 +159,121 @@ class ToolSearchProvider(AECProvider):
             "returned": min(limit, len(scored)),
             "tools": [row[2] for row in scored[:limit]],
         }
+
+
+    def context_report(self) -> Dict[str, Any]:
+        from ..mcp_apps import listed_tool
+        from ..security.approval import HUMAN_ONLY_TOOLS
+        from ..tool_profiles import ALWAYS_LOADED_TOOLS
+
+        active = getattr(self.registry, "_tool_profile", None)
+        profile = active.name if active else "full"
+        rows: list[dict[str, Any]] = []
+        total_chars = 0
+        always_chars = 0
+        for provider, tool in self.registry.get_tools_with_providers():
+            if tool.name in HUMAN_ONLY_TOOLS:
+                continue
+            chars = len(_dump(listed_tool(provider.get_identity(), tool)))
+            total_chars += chars
+            if tool.name in ALWAYS_LOADED_TOOLS:
+                always_chars += chars
+            rows.append({"name": tool.name, "provider": provider.get_identity(),
+                         "chars": chars, "approx_tokens": _tokens(chars)})
+        rows.sort(key=lambda row: (-row["chars"], row["name"]))
+        listed = len(rows)
+        usage = self._usage_report(listed)
+        tips = _tips(profile, listed)
+        if usage.get("learned_listed_tools") is not None and profile != "learned" and (
+                usage["learned_listed_tools"] <= listed * LEARNED_SUGGEST_RATIO):
+            tips.insert(0, (
+                f"From local usage counts, MCP_REVIT_TOOL_PROFILE=learned would list "
+                f"{usage['learned_listed_tools']} tools instead of {listed}. Ask the person to set it and "
+                "restart; search_tools still finds hidden tools."
+            ))
+        return {
+            "profile": profile,
+            "profile_detail": active.detail if active is not None else "",
+            "listed_tools": listed,
+            "chars": total_chars,
+            "approx_tokens": _tokens(total_chars),
+            "always_loaded": {"tools": sum(1 for r in rows if r["name"] in ALWAYS_LOADED_TOOLS),
+                              "chars": always_chars, "approx_tokens": _tokens(always_chars)},
+            "largest_tools": rows[:REPORT_TOP],
+            "method": ("Each listed tool serialized as compact MCP JSON, summed; tokens are chars/4, "
+                       "not billed tokens. Excludes server instructions and tool results."),
+            "usage": usage,
+            "tips": tips,
+        }
+
+    def _usage_rows(self) -> list[dict[str, Any]]:
+        from ..usage_counts import top_tools
+
+        counter = getattr(self.registry, "usage_counter", None)
+        if counter is None or not counter.enabled:
+            return []
+        try:
+            return top_tools(counter.snapshot())
+        except Exception:
+            return []
+
+    def _usage_report(self, listed: int) -> dict[str, Any]:
+        """Top tools from the local counts and how many tools `learned` would list."""
+        from ..security.approval import HUMAN_ONLY_TOOLS
+        from ..tool_profiles import LEARNED_MIN_CALLS, LEARNED_TOP_N_DEFAULT, learned_tools
+        from ..usage_counts import ENV_VAR, WINDOW_DAYS, top_tools
+
+        counter = getattr(self.registry, "usage_counter", None)
+        enabled = bool(counter is not None and counter.enabled)
+        report: dict[str, Any] = {"counting": enabled, "window_days": WINDOW_DAYS}
+        if not enabled:
+            report["note"] = f"Usage counts are off ({ENV_VAR}) or not available in this process."
+            return report
+        try:
+            data = counter.snapshot()
+        except Exception:
+            data = {"tools": {}}
+        rows = top_tools(data)
+        names, calls = learned_tools(data, LEARNED_TOP_N_DEFAULT)
+        report.update({"calls": calls, "top_tools": rows[:REPORT_TOP], "learned_listed_tools": None})
+        if names is None:
+            report["note"] = (f"{calls} calls counted in the last {WINDOW_DAYS} days; the learned profile "
+                              f"needs {LEARNED_MIN_CALLS}.")
+            return report
+        learned = ToolProfile(name="learned", tools=names)
+        report["learned_listed_tools"] = sum(
+            1 for provider in self.registry.get_all_providers()
+            for tool in provider.get_capabilities()
+            if tool.name not in HUMAN_ONLY_TOOLS
+            and learned.allows(provider.get_identity(), tool.module_id, tool.name)
+        )
+        return report
+
+
+def _dump(tool: Any) -> str:
+    if hasattr(tool, "model_dump_json"):
+        return tool.model_dump_json(by_alias=True, exclude_none=True)
+    return json.dumps(tool, ensure_ascii=False, separators=(",", ":"))
+
+
+def _tokens(chars: int) -> int:
+    return round(chars / 4)
+
+
+def _tips(profile: str, listed: int) -> list[str]:
+    tips = []
+    if profile != "core":
+        tips.append(
+            f"Profile '{profile}' lists {listed} tools. Ask the person to set MCP_REVIT_TOOL_PROFILE=core "
+            "and restart for a smaller list; search_tools still finds hidden tools."
+        )
+    tips += [
+        "Clients with tool search can defer this server and keep the always_loaded set "
+        "(docs/deferred-tool-loading.md).",
+        "Take one snapshot_take, then answer multi-element questions with snapshot_compute.",
+        "On list reads pass limit, count_only or response_options.fields; in snapshot_compute end with select and limit.",
+    ]
+    return tips
 
 
 def _hidden_note(name: str, current: str, profiles: list[str]) -> str:

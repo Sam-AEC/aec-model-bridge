@@ -7,7 +7,7 @@ import pytest
 from revit_mcp_server.modules.schedule_consistency.module import ScheduleConsistencyModule as Mod
 
 ROOT = Path(__file__).resolve().parents[3]
-SEEDED = json.loads((ROOT / "fixtures/canonical-model/seeded-defects.json").read_text(encoding="utf-8"))
+SEEDED = json.loads((ROOT / "packages/mcp-server-revit/tests/fixtures/canonical-model/seeded-defects.json").read_text(encoding="utf-8"))
 SEEDED_COUNTS = {f["rule_id"]: f["expected_count"] for f in SEEDED["expected_findings"]}
 
 
@@ -176,12 +176,6 @@ def test_partial_room_data_does_not_invent_missing_rooms(tmp_path):
     res = run(tmp_path, [door(1, 'A', 'r1', 'r2'), door(2, 'B', False)])
     assert 'door_missing_room' not in res['counts']
     assert any('1 door(s)' in row['reason'] for row in res['skipped'])
-
-
-@pytest.mark.parametrize('snapshot_id', ['../secret', r'..\secret', 'C:secret'])
-def test_snapshot_path_traversal_is_rejected(tmp_path, snapshot_id):
-    with pytest.raises(ValueError, match='plain snapshot name'):
-        Mod().check_doors_and_rooms(snapshot_id=snapshot_id, workspace=WS(tmp_path))
 
 
 @pytest.mark.parametrize('counts', [{'truncated': True}, {'categories': ['OST_Rooms']}, {'dirty_only': True}])

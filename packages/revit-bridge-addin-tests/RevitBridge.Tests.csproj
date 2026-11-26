@@ -40,5 +40,15 @@
     <Compile Include="..\revit-bridge-addin\src\Bridge\WorkspaceMonitor.cs" Link="Linked\WorkspaceMonitor.cs" />
     <Compile Include="..\revit-bridge-addin\src\Bridge\WorkspaceDirectory.cs" Link="Linked\WorkspaceDirectory.cs" />
     <Compile Include="..\revit-bridge-addin\src\Bridge\SnapshotViewRecords.cs" Link="Linked\SnapshotViewRecords.cs" />
+    <Compile Include="..\revit-bridge-addin\src\Bridge\SnapshotExtraRecords.cs" Link="Linked\SnapshotExtraRecords.cs" />
+    <Compile Include="..\revit-bridge-addin\src\Bridge\ToolTimings.cs" Link="Linked\ToolTimings.cs" />
+    <Compile Include="..\revit-bridge-addin\src\Bridge\ExecutorTurnPolicy.cs" Link="Linked\ExecutorTurnPolicy.cs" />
+    <Compile Include="..\revit-bridge-addin\src\Bridge\PythonEngineReusePolicy.cs" Link="Linked\PythonEngineReusePolicy.cs" />
+    <Compile Include="..\revit-bridge-addin\src\Bridge\PipeFraming.cs" Link="Linked\PipeFraming.cs" />
+    <Compile Include="..\revit-bridge-addin\src\Bridge\BridgeBatch.cs" Link="Linked\BridgeBatch.cs" />
+    <Compile Include="..\revit-bridge-addin\src\Bridge\PlanBatch.cs" Link="Linked\PlanBatch.cs" />
+    <Compile Include="..\revit-bridge-addin\src\Bridge\BridgeDispatchTable.cs" Link="Linked\BridgeDispatchTable.cs" />
+    <Compile Include="..\revit-bridge-addin\src\Bridge\ResponseCompression.cs" Link="Linked\ResponseCompression.cs" />
+    <Compile Include="..\revit-bridge-addin\src\Bridge\UniqueIdCache.cs" Link="Linked\UniqueIdCache.cs" />
   </ItemGroup>
 </Project>

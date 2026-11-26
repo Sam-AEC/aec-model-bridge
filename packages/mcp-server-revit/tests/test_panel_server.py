@@ -7,8 +7,8 @@ so ApprovalGate plan files never land in the shared tests/ workspace.
 from __future__ import annotations
 
 import json
+import os
 import threading
-import time
 import urllib.error
 import urllib.request
 from unittest.mock import Mock
@@ -24,7 +24,7 @@ from revit_mcp_server.security.workspace import WorkspaceMonitor
 def running_server(tmp_path):
     workspace = WorkspaceMonitor([tmp_path])
     server = build_server(port=0, workspace=workspace)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
     thread.start()
     port = server.server_address[1]
     try:
@@ -78,9 +78,9 @@ def test_execute_runs_a_real_readonly_tool(running_server):
     assert "plans" in body["result"]
 
 
-def test_execute_unknown_tool_returns_500_with_message(running_server):
+def test_execute_unknown_tool_returns_400_with_message(running_server):
     status, body = _post(running_server, "/execute", {"tool": "not_a_real_tool", "arguments": {}})
-    assert status == 500
+    assert status == 400
     assert body["ok"] is False
     assert "not_a_real_tool" in body["error"]
 
@@ -113,8 +113,9 @@ def test_reports_lists_workspace_exports_newest_first(running_server, tmp_path):
     """The Reports tab's Refresh button has no MCP tool behind it - it lists
     whatever report_generator has already written to the workspace root."""
     (tmp_path / "model_report.xlsx").write_bytes(b"x")
-    time.sleep(0.05)
     (tmp_path / "model_data.db").write_bytes(b"x")
+    os.utime(tmp_path / "model_report.xlsx", (1_000_000, 1_000_000))
+    os.utime(tmp_path / "model_data.db", (2_000_000, 2_000_000))
 
     status, body = _get(running_server, "/reports")
 
@@ -373,7 +374,7 @@ def test_diagnostics_reports_approval_mode(tmp_path, mode, note, ok):
     # Diagnostics report the mode the hub's own approval gate is in, not a separate config read.
     server = build_server(port=0, workspace=WorkspaceMonitor([tmp_path]))
     server.RequestHandlerClass.approval_provider.gate.approval_mode = mode
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
     thread.start()
     try:
         status, body = _get(server.server_address[1], "/diagnostics")

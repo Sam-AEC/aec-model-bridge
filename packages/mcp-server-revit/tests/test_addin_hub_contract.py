@@ -62,6 +62,10 @@ KNOWN_UNMAPPED_MUTATING = {
     ("revit", "revit.create_cable_tray"),
     ("revit", "revit.create_revision_cloud"),
     ("revit", "revit.create_text_type"),
+    # Not a tool: execute_plan sends it for an approved plan of batchable actions (#294).
+    ("revit", "revit.execute_plan_batch"),
+    # Not a tool: plan_actions sends it to preview a draft plan in a group that is always rolled back (#293).
+    ("revit", "revit.preview_plan_batch"),
 }
 
 # Rhino has no attribute catalog: commands are ``case "name":`` labels in one switch,
@@ -197,7 +201,8 @@ def _hub_tools(provider):
 # earlier request by id (GET /result/{id}) and runs no command, revit_inspect_elements composes several
 # existing read commands.
 LOCALLY_HANDLED = frozenset(
-    {"revit_raw_command", "revit_list_commands", "revit_get_result", "revit_inspect_elements"}
+    {"revit_raw_command", "revit_list_commands", "revit_get_result", "revit_inspect_elements",
+     "revit_perf_report"}
 )
 
 

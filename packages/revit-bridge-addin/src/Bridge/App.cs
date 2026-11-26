@@ -28,6 +28,10 @@ namespace RevitBridge.Bridge
 
                 RevitVersion = application.ControlledApplication.VersionNumber;
 
+                // Build the command table now (#291): a duplicate [BridgeCommand] name throws here, is
+                // logged as fatal below and stops the bridge, instead of failing on the first request.
+                Log.Information("Bridge command table: {Count} commands", BridgeCommandFactory.GetToolCatalog().Count);
+
                 _queue = new CommandQueue();
                 var handler = new RevitCommandExecutor(_queue);
                 _externalEvent = ExternalEvent.Create(handler);
@@ -70,10 +74,25 @@ namespace RevitBridge.Bridge
                 {
                     ActiveDocumentName = args.GetDocument()?.Title;
                     DocumentDirtyTracker.HandleDocumentChanged(sender, args);
+                    ElementLookup.OnDocumentChanged(args);
                 };
+                application.ControlledApplication.DocumentClosing += (sender, args) =>
+                {
+                    ElementLookup.OnDocumentClosing(args);
+                };
+                // Incremental snapshots (issue 290) trust the change journal only while it saw every
+                // change. These events load changes that may not raise DocumentChanged, or give the
+                // document a new identity, so they start a new journal epoch (next snapshot is full).
+                var controlled = application.ControlledApplication;
+                controlled.DocumentOpened += (sender, args) => DocumentDirtyTracker.ResetDocument(args.Document);
+                controlled.DocumentClosing += (sender, args) => DocumentDirtyTracker.ResetDocument(args.Document);
+                controlled.DocumentSynchronizedWithCentral += (sender, args) => DocumentDirtyTracker.ResetDocument(args.Document);
+                controlled.DocumentReloadedLatest += (sender, args) => DocumentDirtyTracker.ResetDocument(args.Document);
+                controlled.DocumentSavedAs += (sender, args) => DocumentDirtyTracker.ResetDocument(args.Document);
                 application.ViewActivated += (sender, args) =>
                 {
                     ActiveDocumentName = args.CurrentActiveView?.Document?.Title;
+                    ElementLookup.OnViewActivated(args);
                     // Do NOT clear dirty tracker here — it must persist until after a
                     // successful revit_extract_snapshot so get_snapshot_delta has a
                     // complete list. Clearing on view activation dropped the entire
@@ -380,6 +399,7 @@ namespace RevitBridge.Bridge
                 _hubLauncher?.StopIfLaunched();
                 _server?.Stop();
                 _externalEvent?.Dispose();
+                PythonScriptRunner.ShutdownEngine();
                 Log.Information("AEC Model Bridge stopped");
                 Log.CloseAndFlush();
                 return Result.Succeeded;

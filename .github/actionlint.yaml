@@ -1,0 +1,4 @@
+# Custom labels of the optional self-hosted runner used by live-nightly.yml.
+self-hosted-runner:
+  labels:
+    - revit-live

@@ -23,7 +23,8 @@
           "rule_pack": {"type": "string", "description": "Optional QA/QC rule pack. When given, error and warning rule hits count toward the score; when empty, QA is left out."},
           "include_trend": {"type": "boolean", "default": true, "description": "Also score every saved snapshot of the same document, oldest first, with changes."},
           "max_points": {"type": "integer", "default": 50, "description": "Latest N snapshots in the trend (1 to 500)."},
-          "csv_filename": {"type": "string", "description": "Optional .csv file name inside the workspace for the trend."}
+          "csv_filename": {"type": "string", "description": "Optional .csv file name inside the workspace for the trend."},
+          "html_filename": {"type": "string", "description": "Optional .html file name inside the workspace: a self-contained dashboard with the score, components, trend, top open issues of the latest stored QA/QC run, and parameter completeness."}
         },
         "required": []
       }

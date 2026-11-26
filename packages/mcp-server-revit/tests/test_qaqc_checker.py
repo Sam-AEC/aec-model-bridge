@@ -158,7 +158,7 @@ def test_run_check_without_snapshot_rejected_in_bridge_mode(module, workspace, m
 # --- Shareable rule packs ---
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-EXAMPLE_PACK = REPO_ROOT / "rule_packs" / "examples" / "door-room-basics.yaml"
+EXAMPLE_PACK = REPO_ROOT / "docs" / "examples" / "rule_packs" / "door-room-basics.yaml"
 
 VALID_PACK = """rules:
   - id: door_mark_missing
@@ -395,11 +395,11 @@ def test_symlinked_user_pack_escaping_workspace_is_refused(module, workspace, tm
     assert "link" not in {p["name"] for p in module.list_rule_packs(workspace=workspace)["packs"]}
 
 
-def test_heijmans_derived_pack_is_valid():
+def test_example_derived_pack_is_valid():
     import yaml
 
 
-    pack = REPO_ROOT / "rule_packs" / "heijmans-derived.yaml"
+    pack = REPO_ROOT / "docs" / "examples" / "rule_packs" / "example-derived.yaml"
     result = _qaqc._validate_pack_data(yaml.safe_load(pack.read_text(encoding="utf-8")))
     assert result["errors"] == [] and result["rules_count"] == 5
 

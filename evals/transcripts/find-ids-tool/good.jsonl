@@ -1,0 +1,3 @@
+{"meta": {"expect": {"passed": true}, "note": "search_tools."}}
+{"tool": "search_tools", "arguments": {"query": "validate IFC against IDS", "limit": 5}}
+{"answer": "Yes: ids_validator_validate_ifc checks an IFC file against an IDS file. It is read-only."}

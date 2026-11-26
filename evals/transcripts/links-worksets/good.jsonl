@@ -1,0 +1,3 @@
+{"meta": {"expect": {"passed": true}, "note": "links_worksets_audit_audit."}}
+{"tool": "links_worksets_audit_audit", "arguments": {}}
+{"answer": "No links or worksets were found to check (mock data). The result is UNVERIFIED against live Revit."}

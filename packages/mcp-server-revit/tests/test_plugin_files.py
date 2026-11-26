@@ -14,9 +14,11 @@ import re
 import tomllib
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[3]
 MARKETPLACE = ROOT / ".claude-plugin" / "marketplace.json"
-PLUGIN_DIR = ROOT / "plugin"
+PLUGIN_DIR = ROOT / "packages" / "claude-plugin"
 PLUGIN_JSON = PLUGIN_DIR / ".claude-plugin" / "plugin.json"
 MCP_JSON = PLUGIN_DIR / ".mcp.json"
 SKILL = PLUGIN_DIR / "skills" / "revit-review" / "SKILL.md"
@@ -115,3 +117,60 @@ def test_manifest_privacy_policy_points_at_existing_doc():
     assert urls and all(u.startswith("https://") for u in urls)
     assert urls[0].endswith("/main/docs/privacy.md")
     assert (ROOT / "docs" / "privacy.md").is_file()
+
+
+# ---- every skill in the plugin --------------------------------------------------------
+
+SKILLS = sorted((PLUGIN_DIR / "skills").glob("*/SKILL.md"))
+OPERATOR_SKILL = PLUGIN_DIR / "skills" / "aec-model-bridge" / "SKILL.md"
+BACKTICKED = re.compile(r"`([a-z][a-z0-9]*(?:_[a-z0-9]+)+)`")
+
+
+def frontmatter(path: Path) -> dict[str, str]:
+    match = re.match(r"^---\n(.*?)\n---\n", path.read_text(encoding="utf-8"), re.S)
+    assert match, f"{path} needs YAML frontmatter"
+    return {k.strip(): v.strip() for k, v in (
+        line.split(":", 1) for line in match.group(1).splitlines() if ":" in line)}
+
+
+@pytest.mark.parametrize("skill", SKILLS, ids=lambda p: p.parent.name)
+def test_every_skill_has_frontmatter_and_is_listed_by_the_marketplace(skill):
+    fields = frontmatter(skill)
+    assert fields["name"] == skill.parent.name and KEBAB.match(fields["name"])
+    assert fields["description"] and len(fields["description"]) <= 1024
+    listed = " ".join(p["description"] for p in load(MARKETPLACE)["plugins"])
+    assert fields["name"] in listed, f"marketplace.json does not mention skill {fields['name']}"
+
+
+def test_operator_skill_teaches_the_rules():
+    lowered = OPERATOR_SKILL.read_text(encoding="utf-8").lower()
+    for phrase in ("server.dev_mode", "plans_required`, when present", "never approve",
+                   "one plan per change set", "docs/error-catalogue.md", "codex", "cursor"):
+        assert phrase in lowered, f"aec-model-bridge SKILL.md no longer mentions: {phrase}"
+
+
+def test_operator_skill_names_only_real_tools(tmp_path):
+    from revit_mcp_server.config import APPROVAL_MODES
+    from revit_mcp_server.registry_factory import build_registry
+    from revit_mcp_server.security.workspace import WorkspaceMonitor
+    from revit_mcp_server.tool_metadata import enrich_tool
+
+    registry, *_ = build_registry(WorkspaceMonitor([tmp_path]))
+    # Enriched schemas, as clients see them (they add response_options and plan_id).
+    tools = {t.name: enrich_tool(p.get_identity(), t) for p, t in registry.get_tools_with_providers()}
+    # Backticked snake_case words that are not tools must be a schema property or enum
+    # value, an approval mode, or an error kind from the catalogue.
+    words = set(APPROVAL_MODES)
+    for tool in tools.values():
+        for name, prop in (tool.inputSchema.get("properties") or {}).items():
+            words.add(name)
+            words.update(v for v in (prop.get("enum") or []) if isinstance(v, str))
+    catalogue = (ROOT / "docs" / "error-catalogue.md").read_text(encoding="utf-8")
+    words.update(re.findall(r"^### `([a-z_]+)`", catalogue, re.M))
+    named = set(BACKTICKED.findall(OPERATOR_SKILL.read_text(encoding="utf-8")))
+    unknown = sorted(n for n in named if n not in tools and n not in words)
+    assert not unknown, f"SKILL.md names tools that do not exist: {unknown}"
+    # The tools the skill is built around must be named, so a rename breaks this test.
+    for name in ("revit_get_context", "search_tools", "context_report", "snapshot_take",
+                 "snapshot_compute", "plan_actions", "execute_plan", "list_pending_plans"):
+        assert name in named and name in tools, name

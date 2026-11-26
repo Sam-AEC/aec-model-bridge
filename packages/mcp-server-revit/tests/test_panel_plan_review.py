@@ -47,7 +47,7 @@ REVIEW = {
 @pytest.fixture
 def hub(tmp_path):
     server = build_server(port=0, workspace=WorkspaceMonitor([tmp_path]))
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
     thread.start()
     try:
         yield server.server_address[1], tmp_path

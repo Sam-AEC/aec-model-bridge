@@ -38,7 +38,7 @@ def _no_real_agents(monkeypatch):
 @pytest.fixture
 def hub(tmp_path):
     server = build_server(port=0, workspace=WorkspaceMonitor([tmp_path / "ws"]))
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
     thread.start()
     try:
         yield server.server_address[1], read_token()
@@ -550,7 +550,7 @@ def two_revits(tmp_path, monkeypatch):
     monkeypatch.setattr(revit_module, "BridgeClient", _Recorder)
     _Recorder.calls = []
     server = build_server(port=0, workspace=WorkspaceMonitor([tmp_path / "ws"]))
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
     thread.start()
     try:
         yield server.server_address[1], read_token()

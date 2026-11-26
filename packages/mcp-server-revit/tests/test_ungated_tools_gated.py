@@ -197,3 +197,17 @@ async def test_approved_direct_call_and_execute_plan_reach_strict_upstream(tmp_p
     assert out["state"] == "executed", out
     assert len(prov._session.calls) == 2
     assert all(c == ("write_thing", {"path": "a", "value": 1}) for c in prov._session.calls)
+
+
+def test_proxy_read_only_rule_reads_snake_case_and_dict_hints():
+    """ADR 0023: SDK 2.x names the hints destructive_hint/read_only_hint; a dict may arrive too.
+    A destructive get_* tool must stay gated under every spelling."""
+    from types import SimpleNamespace
+
+    from revit_mcp_server.providers.proxy import is_proxied_tool_read_only
+
+    assert is_proxied_tool_read_only("get_x", SimpleNamespace(destructive_hint=True)) is False
+    assert is_proxied_tool_read_only("get_x", SimpleNamespace(read_only_hint=False)) is False
+    assert is_proxied_tool_read_only("get_x", {"destructiveHint": True}) is False
+    assert is_proxied_tool_read_only("get_x", {"read_only_hint": False}) is False
+    assert is_proxied_tool_read_only("get_x", SimpleNamespace(read_only_hint=True)) is True

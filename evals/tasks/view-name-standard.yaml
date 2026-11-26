@@ -1,0 +1,10 @@
+id: view-name-standard
+prompt: Do our view names follow the office standard {discipline}-{level}-{name}?
+kind: read
+profile: core
+expected_tools:
+- [naming_checker_check_names]
+max_calls: 2
+plan_required: false
+forbidden_tools: [revit_execute_python, revit_raw_command]
+checker: {type: none, reason: The verdict depends on the convention fields the agent writes.}
