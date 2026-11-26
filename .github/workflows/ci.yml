@@ -396,9 +396,8 @@ jobs:
       - name: Generate CycloneDX SBOM from uv.lock
         working-directory: packages/mcp-server-revit
         run: |
-          python -m pip install "cyclonedx-bom==${CYCLONEDX_BOM_VERSION}"
           uv export --frozen --no-dev --no-hashes --no-emit-project --format requirements-txt -o "$RUNNER_TEMP/sbom-requirements.txt"
-          cyclonedx-py requirements "$RUNNER_TEMP/sbom-requirements.txt" \
+          uvx --from "cyclonedx-bom==${CYCLONEDX_BOM_VERSION}" cyclonedx-py requirements "$RUNNER_TEMP/sbom-requirements.txt" \
             --pyproject pyproject.toml --sv 1.6 --of JSON --validate \
             -o "$RUNNER_TEMP/aec-model-bridge-lock.cdx.json"
           count="$(python -c 'import json, os, sys; print(len(json.load(open(sys.argv[1]))["components"]))' "$RUNNER_TEMP/aec-model-bridge-lock.cdx.json")"
