@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- MCP logging: the server declares the `logging` capability and, after `logging/setLevel`, sends its log messages at or above that level to the client as `notifications/message`. Nothing is sent until a level is set; the level is kept per session. Messages pass the tool-result redaction (secrets and paths always), carry no traceback, and a failed send never affects the tool call. Behaviour in specific MCP clients is UNVERIFIED. See `docs/logging-and-audit.md`. Fixes #181
 - Release builds measure the tool catalogue per profile, attach `token-budget.json` and fail past 10% growth over `docs/mcp-token-baseline.json`. Fixes #173
 - Excel round-trip: saved per-project column mappings (`excel_mappings/<name>.json`) for export and import. Fixes #174
 - Example rule pack `door-fire-rating.yaml`: doors rated below their host wall, and doors or host walls without a rating. Fixes #172

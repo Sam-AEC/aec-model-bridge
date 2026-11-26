@@ -3183,6 +3183,15 @@ Limits: removing lines from the end of the file is not detected, and anyone who 
 
 Note: in the current code, only the legacy server (`legacy/server.py`) creates an `AuditRecorder`. The main server (`mcp_server.py`) uses the same redaction but does not write this file. If `audit.log` is missing, this is the likely reason.
 
+## MCP log messages
+
+The server declares the MCP `logging` capability. A client sends `logging/setLevel` with `debug`, `info`, `notice`, `warning`, `error`, `critical`, `alert` or `emergency`, and the server sends each log message at or above that level as a `notifications/message`. A client that has not sent `logging/setLevel` receives no messages. The level is kept per client session. The code is in [packages/mcp-server-revit/src/revit_mcp_server/mcp_logging.py](../packages/mcp-server-revit/src/revit_mcp_server/mcp_logging.py).
+
+- Messages come from the `revit_mcp_server` loggers. Log files and stderr are unchanged.
+- Each message passes the same redaction as tool results: secrets and file paths always, personal data per `MCP_REVIT_REDACT_RESPONSES`.
+- Only the message text is sent, cut to 2,000 characters. Tracebacks are never sent.
+- A message that cannot be delivered is dropped.
+
 ## Add-in runtime log
 
 The Revit add-in starts Serilog in [App.cs](../packages/revit-bridge-addin/src/Bridge/App.cs).
