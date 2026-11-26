@@ -295,7 +295,7 @@ $switch = Get-Content $registry.FullName -Raw | ConvertFrom-Json
 Invoke-RestMethod "$($switch.endpoint)/health"
 ```
 
-La risposta deve riportare `healthy` e la versione di Revit in esecuzione. In Revit cerca la scheda della barra multifunzione `AEC Bridge`. Il suo pannello Workflows contiene Open Panel, Health Check, Pending Actions e Reports. Il pannello Tools contiene Config, Help e About.
+La risposta deve riportare `healthy` e la versione di Revit in esecuzione. In Revit cerca la scheda della barra multifunzione `AEC Bridge`. Il pannello Model Bridge contiene Panel, Approve e Check model. Il pannello Connection ha un solo interruttore Connected/Disconnected; il suo pannello a scorrimento contiene Status, Config, Reports, Help e About.
 
 ## Sicurezza
 

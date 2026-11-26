@@ -295,7 +295,7 @@ $switch = Get-Content $registry.FullName -Raw | ConvertFrom-Json
 Invoke-RestMethod "$($switch.endpoint)/health"
 ```
 
-Die Antwort sollte `healthy` und die laufende Revit-Version melden. Suchen Sie in Revit den Ribbon-Reiter `AEC Bridge`. Das Panel Workflows enthält Open Panel, Health Check, Pending Actions und Reports. Das Panel Tools enthält Config, Help und About.
+Die Antwort sollte `healthy` und die laufende Revit-Version melden. Suchen Sie in Revit den Ribbon-Reiter `AEC Bridge`. Das Panel Model Bridge enthält Panel, Approve und Check model. Das Panel Connection hat einen Connected/Disconnected-Schalter; sein Ausklappbereich enthält Status, Config, Reports, Help und About.
 
 ## Sicherheit
 

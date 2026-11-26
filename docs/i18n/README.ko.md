@@ -295,7 +295,7 @@ $switch = Get-Content $registry.FullName -Raw | ConvertFrom-Json
 Invoke-RestMethod "$($switch.endpoint)/health"
 ```
 
-응답에 `healthy`와 실행 중인 Revit 버전이 표시되어야 합니다. Revit에서 `AEC Bridge` 리본 탭을 찾아보세요. Workflows 패널에는 Open Panel, Health Check, Pending Actions, Reports가 있고, Tools 패널에는 Config, Help, About이 있습니다.
+응답에 `healthy`와 실행 중인 Revit 버전이 표시되어야 합니다. Revit에서 `AEC Bridge` 리본 탭을 찾아보세요. Model Bridge 패널에는 Panel, Approve, Check model이 있습니다. Connection 패널에는 Connected/Disconnected 토글이 하나 있으며, 슬라이드아웃에는 Status, Config, Reports, Help, About이 있습니다.
 
 ## 보안
 

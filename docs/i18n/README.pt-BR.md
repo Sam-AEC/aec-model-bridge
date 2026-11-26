@@ -295,7 +295,7 @@ $switch = Get-Content $registry.FullName -Raw | ConvertFrom-Json
 Invoke-RestMethod "$($switch.endpoint)/health"
 ```
 
-A resposta deve indicar `healthy` e a versão do Revit em execução. No Revit, procure a guia da faixa de opções `AEC Bridge`. O painel Workflows tem Open Panel, Health Check, Pending Actions e Reports. O painel Tools tem Config, Help e About.
+A resposta deve indicar `healthy` e a versão do Revit em execução. No Revit, procure a guia da faixa de opções `AEC Bridge`. O painel Model Bridge tem Panel, Approve e Check model. O painel Connection tem um único botão alternador Connected/Disconnected; seu painel deslizante tem Status, Config, Reports, Help e About.
 
 ## Segurança
 

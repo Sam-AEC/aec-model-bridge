@@ -295,7 +295,7 @@ $switch = Get-Content $registry.FullName -Raw | ConvertFrom-Json
 Invoke-RestMethod "$($switch.endpoint)/health"
 ```
 
-Phản hồi phải cho biết `healthy` và phiên bản Revit đang chạy. Trong Revit, hãy tìm tab ribbon `AEC Bridge`. Bảng Workflows có Open Panel, Health Check, Pending Actions và Reports. Bảng Tools có Config, Help và About.
+Phản hồi phải cho biết `healthy` và phiên bản Revit đang chạy. Trong Revit, hãy tìm tab ribbon `AEC Bridge`. Bảng Model Bridge có Panel, Approve và Check model. Bảng Connection có một nút chuyển Connected/Disconnected; bảng trượt của nó có Status, Config, Reports, Help và About.
 
 ## Bảo mật
 

@@ -370,9 +370,9 @@ Invoke-RestMethod "$($switch.endpoint)/health"
 ```
 
 La respuesta debe indicar `healthy` y la versión de Revit en ejecución. En Revit,
-busca la pestaña de la cinta `AEC Bridge`. Su panel Workflows incluye Open Panel,
-Health Check, Pending Actions y Reports. Su panel Tools incluye Config, Help
-y About.
+busca la pestaña de la cinta `AEC Bridge`. Su panel Model Bridge incluye Panel,
+Approve y Check model. Su panel Connection tiene un interruptor Connected/Disconnected;
+su panel desplegable incluye Status, Config, Reports, Help y About.
 
 ## Seguridad
 

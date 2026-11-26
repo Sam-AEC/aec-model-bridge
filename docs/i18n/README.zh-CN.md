@@ -296,7 +296,7 @@ $switch = Get-Content $registry.FullName -Raw | ConvertFrom-Json
 Invoke-RestMethod "$($switch.endpoint)/health"
 ```
 
-响应应报告 `healthy` 以及正在运行的 Revit 版本。在 Revit 中查找 `AEC Bridge` 功能区选项卡。其 Workflows 面板包含 Open Panel、Health Check、Pending Actions 和 Reports；Tools 面板包含 Config、Help 和 About。
+响应应报告 `healthy` 以及正在运行的 Revit 版本。在 Revit 中查找 `AEC Bridge` 功能区选项卡。Model Bridge 面板包含 Panel、Approve 和 Check model。Connection 面板有一个 Connected/Disconnected 切换按钮；其滑出面板包含 Status、Config、Reports、Help 和 About。
 
 ## 安全
 
