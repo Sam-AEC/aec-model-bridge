@@ -1,16 +1,22 @@
-# Ribbon icons ("cut slate")
+# Ribbon layout and icons
 
-The AEC Bridge tab uses the same icon style as the Recipe Editor pyRevit tab: a solid silhouette with the detail cut out, slate on the light ribbon and near-white on the dark one, one Autodesk-blue (#0696D7) block for the subject, at most one small Dutch-orange (#FF6C00) piece for the action, 1 px gaps, and a light top-to-bottom gradient with a darker bottom edge.
+**Layout.** The AEC Bridge tab has two panels.
 
-**Regenerate.** `python scripts/make_ribbon_icons.py` (Pillow, offline, deterministic) writes `packages/revit-bridge-addin/Resources/RibbonIcons/<name>_<16|32>_<light|dark>.png`. Add `--preview artifacts/ribbon-preview.png --refs <folder with a ribbon screenshot 3.png>` for a contact sheet (mock ribbon, dark and light, 100 % and 200 %, 4x zoom).
+- Model Bridge: Panel (open the dockable panel), Approve (the approval queue), Check model (health check).
+- Connection: one large toggle that reads Connected or Disconnected and starts or stops the bridge server. Its slide-out holds Status, Config, Reports, Help and About.
 
-**Wiring.** `RevitBridge.csproj` embeds the PNGs as `RevitBridge.RibbonIcons.<file>`. Each `IconGenerator.Create*Icon(size)` first calls `LoadEmbedded(name, size)`, which picks the `light` or `dark` file from `UIThemeManager.CurrentTheme`; the old vector drawing is the fallback when a resource is missing. `App.cs` still writes `Icons\*.png` next to the DLL at start-up, and `RefreshRibbonIcons` swaps every button when Revit's theme changes. The About button uses `about` (the cerberus mark); the brand tile stays the tooltip image. Names: connect, disconnect, status, panel, healthcheck, pending, reports, settings (Config), help, about.
+There is no Dev panel. The hub signs `.dev-mode.json` and only the hub can verify it, so the add-in has no reliable Dev mode signal. Reports sits in the slide-out instead.
+
+**Code.** `Bridge/App.cs` builds the ribbon. `CommandToggleConnection` (`Bridge/BridgeCommands.cs`) flips the server and calls `App.RefreshConnectionButton`, which updates the text, tooltip and icon. `CommandConnect` and `CommandDisconnect` stay available but are not on the ribbon.
+
+**Regenerate icons.** `pip install resvg-py`, then `python scripts/make_ribbon_icons.py`. It reads the Fluent glyphs from the icon kit (`--fluent path/to/fluent_lib.json`), renders `assets/logo-mark.svg` for Panel, and writes `packages/revit-bridge-addin/Resources/RibbonIcons/<name>_<16|32>_<dark|light>.png`. Names: panel, approve, healthcheck, connected, disconnected, status, settings, reports, help, about. The glyphs are MIT licensed; the notice is in `NOTICE`.
+
+**Wiring.** `RevitBridge.csproj` embeds the PNGs as `RevitBridge.RibbonIcons.<file>`. Each `IconGenerator.Create*Icon(size)` calls `LoadEmbedded(name, size)`, which picks the `dark` or `light` file from `UIThemeManager.CurrentTheme`; the old vector drawing is the fallback when a resource is missing. `App.cs` tracks every button, and `RefreshRibbonIcons` swaps the images when Revit's theme changes.
 
 **Deploy (owner, only after closing Revit).**
 
 1. Close every Revit session. The add-in is the live MCP bridge, so tell anyone who uses it first.
-2. `git switch ribbon-cut-slate`
-3. `.\scripts\deploy-addin.ps1 -RevitYear 2024`. This builds Release, refuses to run while Revit.exe is running, backs up the current `C:\ProgramData\AECModelBridge\bin\2024` to `C:\ProgramData\AECModelBridge\backup\2024-<timestamp>`, copies the whole output folder, and checks the copy. You do not need to copy any files yourself.
-4. Start Revit and open the AEC Bridge tab. Switch the theme (Options > User Interface) to check both variants.
+2. `.\scripts\deploy-addin.ps1 -RevitYear 2024`. This builds Release, refuses to run while Revit.exe is running, backs up the current `C:\ProgramData\AECModelBridge\bin\2024` to `C:\ProgramData\AECModelBridge\backup\2024-<timestamp>`, copies the whole output folder, and checks the copy.
+3. Start Revit and open the AEC Bridge tab. Switch the theme (Options > User Interface) to check both variants.
 
-**Roll back.** Close Revit. Run `git switch dev` (or `main`), then `.\scripts\deploy-addin.ps1 -RevitYear 2024`. Or copy the backup folder from step 3 back to `C:\ProgramData\AECModelBridge\bin\2024`.
+**Roll back.** Close Revit. Check out the previous version and run `.\scripts\deploy-addin.ps1 -RevitYear 2024`. Or copy the backup folder from step 2 back to `C:\ProgramData\AECModelBridge\bin\2024`.

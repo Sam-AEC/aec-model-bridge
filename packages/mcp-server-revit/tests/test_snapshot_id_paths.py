@@ -17,12 +17,14 @@ import pytest
 
 from revit_mcp_server.modules.clash_triage import module as clash_triage
 from revit_mcp_server.modules.familytype_mapper import module as familytype_mapper
+from revit_mcp_server.modules.geometry_screening import module as geometry_screening
 from revit_mcp_server.modules.links_worksets_audit import module as links_worksets_audit
 from revit_mcp_server.modules.model_bloat import module as model_bloat
 from revit_mcp_server.modules.model_changes import module as model_changes
 from revit_mcp_server.modules.model_inspector import module as model_inspector
 from revit_mcp_server.modules.naming_checker import module as naming_checker
 from revit_mcp_server.modules.schedule_consistency import module as schedule_consistency
+from revit_mcp_server.modules.schedule_diff import module as schedule_diff
 from revit_mcp_server.modules.selection_tools import module as selection_tools
 from revit_mcp_server.modules.sheet_set_qa import module as sheet_set_qa
 from revit_mcp_server.modules.sheet_view_audit import module as sheet_view_audit
@@ -102,6 +104,10 @@ def _commands(ws):
         "selection_tools.group_convert_to_detail": lambda sid: st.group_convert_to_detail(group_uid="g", snapshot_id=sid, workspace=ws),
         "clash_triage.match_clashes": lambda sid: ct.match_clashes(clash_results=[], snapshot_id=sid, record_issues=False, workspace=ws),
         "sheet_view_audit.run_audit": lambda sid: sv.run_audit(snapshot_id=sid, workspace=ws),
+        "schedule_diff.compare": lambda sid: schedule_diff.ScheduleDiffModule().compare(
+            older_snapshot_id=sid, newer_snapshot_id=sid, workspace=ws),
+        "geometry_screening.run_checks": lambda sid: geometry_screening.GeometryScreeningModule().run_checks(
+            snapshot_id=sid, door_width={"min_clear_width_m": 0.8}, workspace=ws),
         "sheet_set_qa.check": lambda sid: sheet_set_qa.SheetSetQaModule().check(snapshot_id=sid, workspace=ws),
     }
     if mb is not None:

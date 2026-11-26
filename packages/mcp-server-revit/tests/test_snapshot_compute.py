@@ -73,6 +73,23 @@ def test_steps_chain_group_and_aggregate(snap):
     assert out["step_counts"] == {"doors": 2, "by_level": 1}
 
 
+def test_projected_dotted_path_can_be_filtered(snap):
+    out = run_pipeline(snap, [
+        {"name": "doors", "where": {"field": "category", "value": "OST_Doors"}, "select": ["params.Mark"]},
+        {"name": "one", "from": "$doors", "where": {"field": "params.Mark", "value": "D-102"}},
+    ])
+    assert out["rows"] == [{"params.Mark": "D-102"}]
+
+
+def test_grouped_dotted_key_can_be_selected(snap):
+    out = run_pipeline(snap, [
+        {"name": "doors", "where": {"field": "category", "value": "OST_Doors"},
+         "group_by": ["params.Mark"], "aggregate": {"n": "count"}},
+        {"name": "marks", "from": "$doors", "select": ["params.Mark", "n"], "sort": [{"field": "params.Mark"}]},
+    ])
+    assert out["rows"] == [{"params.Mark": "D-101", "n": 1}, {"params.Mark": "D-102", "n": 1}]
+
+
 def test_return_an_earlier_step_and_sort_desc(snap):
     out = run_pipeline(snap, [
         {"name": "rooms", "where": {"field": "category", "value": "OST_Rooms"},
@@ -355,6 +372,17 @@ def test_partial_link_marks_the_result_partial(snap):
     link.counts["truncated"] = True
     out = run_pipeline(snap, [{"from": "link:P", "limit": 1}], load_snapshot=lambda _id: link)
     assert out["partial_snapshot"] is True
+
+
+def test_level_join_resolves_live_element_id_references(snap):
+    level = next(e for e in snap.elements if e.category == "OST_Levels")
+    for e in snap.elements:
+        if e.level_uid:
+            e.level_uid = str(level.element_id)
+    steps = [{"where": {"field": "category", "value": "OST_Doors"}, "join": ["level"],
+              "group_by": ["level.type_name"], "aggregate": {"n": "count"}}]
+    out = run_pipeline(snap, steps)
+    assert out["rows"] == [{"level.type_name": level.type_name, "n": 2}]
 
 
 def test_pipeline_runs_on_saved_snapshot_json(snap):

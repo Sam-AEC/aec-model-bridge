@@ -116,16 +116,16 @@ VS Code をお使いですか？[拡張機能のソースとローカルへの�
 
 | 分野 | ツール数 | できること |
 | --- | --- | --- |
-| Revit | 111 | モデルの読み取り、要素・パラメータ・ビュー・シート・集計表の作成と編集、エクスポート、ワークシェアリング |
+| Revit | 112 | モデルの読み取り、要素・パラメータ・ビュー・シート・集計表の作成と編集、エクスポート、ワークシェアリング |
 | 承認 | 6 | モデル変更の計画、レビュー、承認、実行、ロールバック |
-| モジュール | 116 | スナップショットの検査、パラメータグリッド、QA/QC チェック、レシピ、レポート、選択 |
+| モジュール | 122 | スナップショットの検査、パラメータグリッド、QA/QC チェック、レシピ、レポート、選択 |
 | Rhino と Grasshopper | 19 | ジオメトリ、レイヤー、マテリアル、ブーリアン演算 |
 | Speckle | 17 | プロジェクト、モデル、バージョン、送信と受信 |
 | Navisworks | 15 | モデルツリー、ビューポイント、干渉チェック（開発中） |
 | IFC | 7 | Revit なしで IFC ファイルを読み取り：構造、プロパティ、検証 |
 | グラフ、スナップショット、エクスポート、ジョブ | 24 | セマンティックグラフの監査、スナップショットの差分、SQLite へのエクスポート、バックグラウンドジョブ |
 
-デフォルト構成では 315 個のツールが一覧に表示されます（モックモードで現行サーバーから集計）。Autodesk Data のツールは、APS の認証情報を設定すると表示されます。[ツールリファレンス](../tools-generated.md)にすべてのツールを掲載しています。各ツールには MCP アノテーション（`readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`）が付いており、クライアントは読み取りと書き込みを区別できます。
+デフォルト構成では 322 個のツールが一覧に表示されます（モックモードで現行サーバーから集計）。Autodesk Data のツールは、APS の認証情報を設定すると表示されます。[ツールリファレンス](../tools-generated.md)にすべてのツールを掲載しています。各ツールには MCP アノテーション（`readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`）が付いており、クライアントは読み取りと書き込みを区別できます。
 
 ### Revit 自動化の応用
 
@@ -295,7 +295,7 @@ $switch = Get-Content $registry.FullName -Raw | ConvertFrom-Json
 Invoke-RestMethod "$($switch.endpoint)/health"
 ```
 
-レスポンスに `healthy` と実行中の Revit バージョンが表示されるはずです。Revit では、`AEC Bridge` リボンタブを探してください。Workflows パネルには Open Panel、Health Check、Pending Actions、Reports があり、Tools パネルには Config、Help、About があります。
+レスポンスに `healthy` と実行中の Revit バージョンが表示されるはずです。Revit では、`AEC Bridge` リボンタブを探してください。Model Bridge パネルには Panel、Approve、Check model があります。Connection パネルには Connected/Disconnected の切り替えボタンが 1 つあり、そのスライドアウトには Status、Config、Reports、Help、About があります。
 
 ## セキュリティ
 

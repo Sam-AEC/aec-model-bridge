@@ -117,6 +117,7 @@ internal static class PythonScriptRunner
             var error = new RedirectingStream();
             engine.Runtime.IO.SetOutput(output, Encoding.UTF8);
             engine.Runtime.IO.SetErrorOutput(error, Encoding.UTF8);
+            PythonEngineFactory.UseUtf8StandardStreams(engine);
 
             var resetScope = engine.CreateScope();
             // Keep the stream objects the engine was started with (they write to the RedirectingStreams), so the
@@ -278,7 +279,7 @@ internal static class PythonScriptRunner
             FlushStandardStreams(engine, scope);
 
             outputMs.Position = 0;
-            var output = new StreamReader(outputMs, Encoding.UTF8).ReadToEnd();
+            var output = PythonEngineFactory.DecodeOutput(outputMs.ToArray());
 
             // Also honour __output__ if the script set it explicitly
             if (scope.TryGetVariable("__output__", out object outVar) && outVar is string outStr && !string.IsNullOrEmpty(outStr))
@@ -316,6 +317,12 @@ internal static class PythonScriptRunner
             return BridgeTransactionResults.AppendWarnings(
                 Result(true, output, "", mode, progress, null, 0, runtime), scriptWarnings);
         }
+        catch (Exception ex) when (engine == null)
+        {
+            // AcquireEngine failed: no script ran. Say why instead of returning a bare message.
+            return Result(false, "", PythonEngineFailure.Describe(ex), mode, progress,
+                PythonEngineFailure.EngineUnavailableKind, 0, PythonEngineFailure.Unavailable());
+        }
         catch (Exception ex)
         {
             string error;
@@ -323,7 +330,7 @@ internal static class PythonScriptRunner
             {
                 FlushStandardStreams(engine, scope);
                 errorMs.Position = 0;
-                var errText = new StreamReader(errorMs, Encoding.UTF8).ReadToEnd();
+                var errText = PythonEngineFactory.DecodeOutput(errorMs.ToArray());
                 error = string.IsNullOrEmpty(errText) ? ex.Message : errText + "\n" + ex.Message;
             }
             catch

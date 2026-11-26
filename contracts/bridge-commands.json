@@ -2410,7 +2410,7 @@
       }
     },
     "revit.set_selection": {
-      "is_mutating": true,
+      "is_mutating": false,
       "params": {
         "type": "object",
         "properties": {

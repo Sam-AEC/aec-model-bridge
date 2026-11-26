@@ -27,7 +27,7 @@ from ..security.read_mode import execute_python_payload, is_read_mode_call
 from ..security.workspace import WorkspaceMonitor
 from .base import AECProvider, ProviderTool, enrich_mutation_metadata
 from .element_inspection import INSPECTION_SCHEMA, inspect_elements, validate_inspection
-from . import revit_context, revit_payloads, revit_perf
+from . import revit_context, revit_payloads, revit_perf, revit_reconnect
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +131,7 @@ _RAW_COMMAND_RE = re.compile(r"revit\.[a-z][a-z0-9_]{1,63}")
 # caller-chosen command or code, or the hub answers them itself instead of one add-in command.
 BATCH_EXCLUDED = frozenset({
     "revit_raw_command", "revit_execute_python", "revit_inspect_elements",
-    "revit_get_context", "revit_get_result", "revit_list_commands",
+    "revit_get_context", "revit_get_result", "revit_list_commands", "revit_reconnect",
 })
 
 # Add-in commands declared read-only that still write files, open a transaction, change the
@@ -247,6 +247,10 @@ class RevitProvider(AECProvider):
             }),
             destructive={"revit_execute_python", "revit_raw_command"},
         )
+        # Changes only the UI selection, like revit_select_by_unique_ids; the "set" verb must not gate it.
+        for tool in self._capabilities:
+            if tool.name == "revit_set_selection":
+                tool.is_mutating = False
 
     def get_identity(self) -> str:
         return "revit"
@@ -360,6 +364,127 @@ class RevitProvider(AECProvider):
             url,
         )
         return False
+
+    @staticmethod
+    def _probe_document(bridge) -> str | None:
+        """Active document title from the add-in's unqueued /health, or None. Best effort, read-only."""
+        try:
+            health = bridge._get("/health")
+        except Exception:
+            return None
+        title = health.get("active_document") if isinstance(health, dict) else None
+        return title if isinstance(title, str) else None
+
+    def _session_documents(self, sessions) -> Dict[int, str | None]:
+        """Active document title per session, read from each session's own /health with its registry
+        token. A session that does not answer shows None; nothing here sends a model request."""
+        factory = self._bridge_factory or (lambda u, t=None: BridgeClient(u, token=t))
+        titles: Dict[int, str | None] = {}
+        for switch in sessions:
+            probe = None
+            try:
+                probe = factory(switch.endpoint, switch.session_token)
+                titles[switch.pid] = self._probe_document(probe)
+            except Exception:
+                titles[switch.pid] = None
+            finally:
+                close = getattr(probe, "close", None)
+                if callable(close):
+                    try:
+                        close()
+                    except Exception:
+                        pass
+        return titles
+
+    def _connect_session(self, switch) -> None:
+        """Handshake with one registry session, then make it this server's bridge. The old bridge is
+        replaced only after the new one passed the health check; any failure leaves it in place."""
+        from ..bridge.pipe_transport import require_windows, resolve_transport
+
+        transport = resolve_transport(self.bridge_transport)
+        if transport == "pipe":
+            require_windows()
+        factory = self._bridge_factory or (lambda u, t=None: BridgeClient(u, token=t))
+        bridge = factory(switch.endpoint, switch.session_token)
+        try:
+            if hasattr(bridge, "bind_registry_session"):
+                bridge.bind_registry_session(switch)
+            if transport == "pipe":
+                self._apply_pipe(bridge, switch, switch.endpoint)
+            if hasattr(bridge, "initialize"):
+                bridge.initialize()
+        except Exception as exc:
+            close = getattr(bridge, "close", None)
+            if callable(close):
+                close()
+            if isinstance(exc, BridgeError):
+                raise
+            raise BridgeError(str(exc)) from exc
+        old = self._bridge
+        self._bridge = self._maybe_record(bridge)
+        close = getattr(old, "close", None)
+        if callable(close) and old is not bridge:
+            try:
+                close()
+            except Exception as e:
+                logger.debug("Closing the replaced Revit bridge failed: %s", type(e).__name__)
+
+    def reconnect(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """revit_reconnect: list live Revit sessions and re-bind this server to one. Discovery and
+        health handshake only: no model request, no plan or approval change. Fails closed."""
+        from ..bridge import discovery
+
+        if self.mode != BridgeMode.bridge:
+            raise ValueError("revit_reconnect needs a live Revit connection; it is not available in mock or replay mode.")
+        if _BRIDGE_OVERRIDE.get() is not None:
+            raise ValueError(
+                "revit_reconnect cannot run inside a panel-routed call. Choose the Revit instance in the panel instead."
+            )
+        if self.bridge_url:
+            raise ValueError(
+                "This server uses an explicit bridge URL, which is not tied to a registry session, so there is "
+                "nothing to reconnect. Check that Revit is running with the add-in loaded and the URL is correct."
+            )
+        wanted = revit_reconnect.read_pid(arguments or {})
+        sessions = [
+            s for s in discovery.discover_switch_list(prune=False)
+            if s.provider_id == "revit" and revit_reconnect.version_matches(s.host_version, self.host_version)
+        ]
+        chosen = revit_reconnect.pick(sessions, wanted)
+        titles = self._session_documents(sessions)
+        previous = getattr(self._bridge, "_registry_session", None)
+        previous_pid = previous[0] if previous else None
+        listing = [revit_reconnect.describe(s, titles.get(s.pid), previous_pid) for s in sessions]
+        if chosen is None:
+            return {
+                "ok": True,
+                "tool": "revit_reconnect",
+                "reconnected": False,
+                "sessions": listing,
+                "message": (
+                    "More than one Revit session is open, so nothing was changed. Call revit_reconnect again "
+                    "with pid set to the session you want."
+                ),
+            }
+        try:
+            self._connect_session(chosen)
+        except BridgeError as exc:
+            raise BridgeError(
+                f"Could not connect to Revit {chosen.host_version} (process {chosen.pid}): {exc} "
+                "The previous connection was not changed."
+            ) from exc
+        for entry in listing:
+            entry["bound"] = entry["pid"] == chosen.pid
+        return {
+            "ok": True,
+            "tool": "revit_reconnect",
+            "reconnected": True,
+            "session": next(e for e in listing if e["pid"] == chosen.pid),
+            "previous_pid": previous_pid,
+            "sessions": listing,
+            "message": f"Connected to Revit {chosen.host_version} (process {chosen.pid}). Call revit_get_context next.",
+            "warnings": [revit_reconnect.CHECK_MODEL_WARNING, revit_reconnect.PLANS_UNTOUCHED_NOTE],
+        }
 
     def _build_bridge(self, factory=None):
         if self.mode == BridgeMode.replay:
@@ -498,6 +623,8 @@ class RevitProvider(AECProvider):
             return await asyncio.to_thread(
                 revit_perf.perf_report, self._active_bridge(), arguments, live=self.mode == BridgeMode.bridge
             )
+        if name == "revit_reconnect":
+            return await asyncio.to_thread(self.reconnect, arguments)
         if name == "revit_get_result":
             if not self._uses_bridge:
                 raise ValueError("revit_get_result needs a live Revit connection; it is not available in mock mode.")
@@ -2610,6 +2737,7 @@ class RevitProvider(AECProvider):
     ]
     _capabilities += revit_context.CONTEXT_TOOLS
     _capabilities += revit_perf.PERF_TOOLS
+    _capabilities += revit_reconnect.RECONNECT_TOOLS
     for _tool in _capabilities:
         if _tool.name in PAGED_READS:
             _tool.input_schema.setdefault("properties", {}).update(copy.deepcopy(_PAGE_PROPERTIES))

@@ -98,6 +98,9 @@ PAIRS = [
     ("warning", "surface", 4.5, "look-only / auto note in chat cards"),
     ("ink", "danger-wash", 4.5, "chat error text on its wash"),
     ("brand-strong", "surface", 4.5, "chat link text"),
+    ("warning", "bg", 4.5, "status strip: items to fix"),
+    ("brand-strong", "bg", 4.5, "status strip: Ready"),
+    ("ink-muted", "bg", 4.5, "status strip: summary"),
 ]
 LIGHT_BADGES = ("danger", "warning", "info", "success", "pending", "idle")
 
@@ -184,6 +187,29 @@ def test_status_pill_keeps_port_visible_when_narrow():
     assert "text-overflow: ellipsis" not in CSS.split(".status-pill > span:last-child")[1].split("}")[0]
 
 
+def test_status_strip_replaces_the_stacked_banners():
+    """One strip holds the setup check, the alerts and the only Refresh; Plans and Reports have none of their own."""
+    assert 'id="setup-toggle"' in HTML and 'aria-controls="setup-body"' in HTML
+    body = HTML[HTML.index('id="setup-body"'):HTML.index('id="view-chat"')]
+    assert 'id="system-alerts"' in body and 'id="setup-list"' in body
+    assert HTML.count(">Refresh<") == 1 and 'id="setup-refresh"' in HTML
+    assert "refresh-plans" not in HTML and "refresh-reports" not in HTML
+
+
+def test_reject_confirm_bar_is_closed_in_the_markup_and_opens_only_from_reject_selected():
+    assert re.search(r'id="reject-confirm"[^>]*\bhidden\b', HTML)
+    opens = [m.start() for m in re.finditer(r'getElementById\("reject-confirm"\)\.hidden = false', JS)]
+    assert len(opens) == 1
+    assert "rejectArmed = true" in JS[opens[0] - 400:opens[0]]
+    assert "const ids = rejectArmed ? selectedRejectablePlanIds() : [];" in JS
+
+
+def test_plan_card_actions_are_pinned_and_bulk_footer_is_one_row():
+    assert re.search(r"\.plan-card \.item-actions\s*\{[^}]*position:\s*sticky;[^}]*bottom:\s*0", CSS, re.S)
+    assert re.search(r"\.plan-card \.plan-review\s*\{[^}]*max-height:", CSS, re.S)
+    assert re.search(r"#plan-bulk,\s*#reject-confirm:not\(\[hidden\]\)\s*\{[^}]*flex-wrap:\s*nowrap", CSS, re.S)
+
+
 # ------------------------------------------------------------------- plans
 
 
@@ -252,8 +278,8 @@ def _run(body: str):
 
 
 PLAN_LIST = (
-    "[{plan_id:'p1',state:'pending',actions:[{tool:'a'}]},"
-    "{plan_id:'p2',state:'pending',actions:[{tool:'b'}]},"
+    "[{plan_id:'p1',state:'pending',binding:{doc_guid:'g1'},actions:[{tool:'a'}]},"
+    "{plan_id:'p2',state:'pending',binding:{doc_guid:'g1'},actions:[{tool:'b'}]},"
     "{plan_id:'p3',state:'executed',actions:[{tool:'c'}]},"
     "{plan_id:'p4',state:'rolled_back',actions:[{tool:'d'}]},"
     "{plan_id:'p5',state:'rejected',actions:[{tool:'e'}]},"
@@ -387,3 +413,108 @@ def test_icon_buttons_and_landmarks_are_named():
     assert re.search(r"<main\b[^>]*aria-label=", HTML) or "<main" in HTML
     assert re.search(r'<nav\b|<aside class="rail" aria-label="Primary"', HTML)
     assert re.search(r'id="plan-list"[^>]*aria-label=', HTML)
+
+
+# ------------------------------------------------ plan scope: other sessions and unbound plans
+
+
+def _scope_plan(pid, binding=None, text="SECRET_SCRIPT"):
+    plan = {"plan_id": pid, "state": "pending", "plan_hash": "h", "actions": [{"tool": "revit_execute_python", "arguments": {"code": text}}]}
+    if binding is not None:
+        plan["binding"] = binding
+    return plan
+
+
+def test_plans_for_other_models_are_hidden_and_never_rendered_until_shown():
+    mine = _scope_plan("mine", {"doc_guid": "g1", "revit_pid": 10})
+    other_doc = _scope_plan("odoc", {"doc_guid": "g2", "revit_pid": 10})
+    other_pid = _scope_plan("opid", {"doc_guid": "g1", "revit_pid": 11})
+    got = _run(f"""
+host({{ activeDocumentGuid: 'g1', revitPid: 10 }});
+plans({json.dumps([mine, other_doc, other_pid])});
+const hidden = els['plan-list'].innerHTML;
+const note = els['other-note'].textContent;
+const barHidden = els['other-bar'].hidden;
+sent.length = 0;
+fire('click', {{ plan: 'odoc', decision: 'approve', hash: 'h' }});
+const blocked = sent.length;
+fire('click', {{ action: 'toggle-other-plans' }});
+const shown = els['plan-list'].innerHTML;
+console.log(JSON.stringify({{ hidden, note, barHidden, blocked, shown, shownNote: els['other-note'].textContent }}));
+""")
+    assert "mine" in got["hidden"] and "odoc" not in got["hidden"] and "opid" not in got["hidden"]
+    assert got["hidden"].count("SECRET_SCRIPT") == 1
+    assert got["note"] == "2 plans for other models hidden" and got["barHidden"] is False
+    assert got["blocked"] == 0, "a hidden plan could be approved"
+    assert "odoc" in got["shown"] and "opid" in got["shown"]
+    assert got["shown"].count("SECRET_SCRIPT") == 3
+    assert "other models are shown" in got["shownNote"]
+
+
+def test_pid_mismatch_warns_when_the_other_session_plans_are_shown():
+    plan = _scope_plan("opid", {"doc_guid": "g1", "doc_title": "m.rvt", "revit_pid": 11})
+    got = _run(f"""
+host({{ activeDocumentGuid: 'g1', revitPid: 10 }});
+plans({json.dumps([plan])});
+fire('click', {{ action: 'toggle-other-plans' }});
+console.log(JSON.stringify(els['plan-list'].innerHTML));
+""")
+    assert 'id="plan-warn-opid"' in got and "process 11" in got and "process 10" in got
+
+
+def test_matching_session_shows_no_warning_and_no_hidden_bar():
+    plan = _scope_plan("mine", {"doc_guid": "g1", "doc_title": "m.rvt", "revit_pid": 10})
+    got = _run(f"""
+host({{ activeDocumentGuid: 'g1', revitPid: 10 }});
+plans({json.dumps([plan])});
+console.log(JSON.stringify({{ html: els['plan-list'].innerHTML, barHidden: els['other-bar'].hidden }}));
+""")
+    assert "plan-warn-" not in got["html"] and "plan-unbound-" not in got["html"]
+    assert got["barHidden"] is True
+    assert " disabled" not in re.search(r'<button[^>]*data-decision="approve"[^>]*>', got["html"]).group(0)
+
+
+def test_title_decides_scope_when_the_host_reports_no_guid():
+    other = _scope_plan("odoc", {"doc_title": "Other.rvt"})
+    got = _run(f"""
+host(); plans({json.dumps([other])});
+console.log(JSON.stringify({{ html: els['plan-list'].innerHTML, note: els['other-note'].textContent }}));
+""")
+    assert "odoc" not in got["html"] and got["note"] == "1 plan for other models hidden"
+
+
+def test_host_status_arriving_after_the_plans_hides_other_session_plans():
+    other = _scope_plan("odoc", {"doc_guid": "g2"})
+    got = _run(f"""
+host(); plans({json.dumps([other])});
+const before = els['plan-list'].innerHTML.includes('odoc');
+host({{ activeDocumentGuid: 'g1', revitPid: 10 }});
+console.log(JSON.stringify({{ before, after: els['plan-list'].innerHTML.includes('odoc') }}));
+""")
+    assert got == {"before": True, "after": False}
+
+
+def test_unbound_plan_warns_and_approve_stays_disabled_until_confirmed():
+    plan = _scope_plan("legacy")
+    got = _run(f"""
+host(); plans({json.dumps([plan])});
+const button = () => (els['plan-list'].innerHTML.match(/<button[^>]*data-decision="approve"[^>]*>/) || [''])[0];
+const before = {{ html: els['plan-list'].innerHTML, button: button() }};
+sent.length = 0;
+fire('click', {{ plan: 'legacy', decision: 'approve', hash: 'h' }});
+fire('change', {{ selectPlan: 'legacy', checked: 'true' }});
+fire('click', {{ action: 'approve-selected' }});
+const unconfirmed = sent.length;
+fire('change', {{ confirmUnbound: 'legacy', checked: 'true' }});
+const after = button();
+fire('click', {{ plan: 'legacy', decision: 'approve', hash: 'h' }});
+fire('change', {{ confirmUnbound: 'legacy', checked: '' }});
+fire('click', {{ plan: 'legacy', decision: 'approve', hash: 'h' }});
+console.log(JSON.stringify({{ before, unconfirmed, after, sent }}));
+""")
+    assert 'id="plan-unbound-legacy"' in got["before"]["html"] and "not bound to any document" in got["before"]["html"]
+    assert 'data-confirm-unbound="legacy"' in got["before"]["html"]
+    assert " disabled" in got["before"]["button"]
+    assert got["unconfirmed"] == 0, "an unconfirmed unbound plan was approved"
+    assert " disabled" not in got["after"]
+    assert [m["type"] for m in got["sent"]] == ["plan.approve"], "confirm must enable exactly one approval, and unticking must disable it"

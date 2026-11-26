@@ -17,7 +17,7 @@ from mcp.types import (
     TextContent,
 )
 
-from . import call_limits, mcp_apps, mcp_prompts, mcp_resources, mcp_tasks
+from . import call_limits, mcp_apps, mcp_logging, mcp_prompts, mcp_resources, mcp_tasks
 
 from .elicitation import (
     MAX_ROUNDS, VIEW_SHEET_REFS, ElicitationForbidden, InputNeeded, check_view_sheet_names, elicit_choice,
@@ -130,6 +130,17 @@ def _session_key() -> str:
 def _identity(provider: Any) -> str:
     getter = getattr(provider, "get_identity", None)
     return str(getter()) if callable(getter) else ""
+
+
+mcp_logging.install()
+
+
+@app.set_logging_level()
+async def set_logging_level(level: str) -> None:
+    """logging/setLevel: server log messages at or above this level reach this client as notifications."""
+    session = _client_session()
+    if session is not None:
+        mcp_logging.handler.set_level(session, level)
 
 
 @app.list_tools()

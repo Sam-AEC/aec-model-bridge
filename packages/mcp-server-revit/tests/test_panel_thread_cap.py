@@ -267,6 +267,32 @@ def test_slots_are_released_after_requests_and_exceptions(capped):
         assert _status_headers_body(_read_all(sock))[0] == 200
 
 
+def test_slot_is_free_before_the_socket_closes(tmp_path):
+    """Root cause of the Ubuntu flake (#340): the slot was released after the socket closed, so a client
+    that saw EOF and reconnected at once could still find the slot taken and get 503."""
+    seen: list = []
+
+    class Recording(_QuietServer):
+        def shutdown_request(self, request) -> None:
+            seen.append(self.active_threads)
+            super().shutdown_request(request)
+
+    release = threading.Event()
+    release.set()
+    server = Recording(("127.0.0.1", 0), _make_handler(release, []), max_threads=3, reserved_execute=1)
+    thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
+    thread.start()
+    try:
+        port = server.server_address[1]
+        assert _status_headers_body(_read_all(_send(port, "GET", "/ok")))[0] == 200
+        _read_all(_send(port, "GET", "/boom"))
+        _wait_for(lambda: len(seen) == 2)
+        assert seen == [0, 0]
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
 def test_constructor_needs_more_slots_than_reserved():
     with pytest.raises(ValueError):
         BoundedThreadingHTTPServer(("127.0.0.1", 0), PanelRequestHandler, max_threads=2, reserved_execute=2,

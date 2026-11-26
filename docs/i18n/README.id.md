@@ -116,16 +116,16 @@ Memakai VS Code? [Sumber ekstensi dan langkah instalasi lokal](../../packages/vs
 
 | Bidang | Tool | Fungsinya |
 | --- | --- | --- |
-| Revit | 111 | Membaca model, membuat dan mengedit elemen, parameter, view, sheet, schedule, ekspor, worksharing |
+| Revit | 112 | Membaca model, membuat dan mengedit elemen, parameter, view, sheet, schedule, ekspor, worksharing |
 | Persetujuan | 6 | Merencanakan, meninjau, menyetujui, menjalankan, dan membatalkan perubahan model |
-| Modul | 116 | Inspeksi snapshot, grid parameter, pemeriksaan QA/QC, resep, laporan, seleksi |
+| Modul | 122 | Inspeksi snapshot, grid parameter, pemeriksaan QA/QC, resep, laporan, seleksi |
 | Rhino dan Grasshopper | 19 | Geometri, layer, material, operasi boolean |
 | Speckle | 17 | Proyek, model, versi, kirim dan terima |
 | Navisworks | 15 | Model tree, viewpoint, uji clash (dalam pengerjaan) |
 | IFC | 7 | Membaca file IFC tanpa Revit: struktur, properti, validasi |
 | Graf, snapshot, ekspor, job | 24 | Audit graf semantik, selisih snapshot, ekspor SQLite, job latar belakang |
 
-Ada 315 tool yang terdaftar pada pengaturan default (dihitung dari server saat ini dalam mode mock). Tool Autodesk Data muncul saat kredensial APS dikonfigurasi. [Referensi tool](../tools-generated.md) mencantumkan setiap tool. Setiap tool membawa anotasi MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), sehingga klien dapat membedakan operasi baca dari tulis.
+Ada 322 tool yang terdaftar pada pengaturan default (dihitung dari server saat ini dalam mode mock). Tool Autodesk Data muncul saat kredensial APS dikonfigurasi. [Referensi tool](../tools-generated.md) mencantumkan setiap tool. Setiap tool membawa anotasi MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), sehingga klien dapat membedakan operasi baca dari tulis.
 
 ### Otomatisasi Revit lanjutan
 
@@ -295,7 +295,7 @@ $switch = Get-Content $registry.FullName -Raw | ConvertFrom-Json
 Invoke-RestMethod "$($switch.endpoint)/health"
 ```
 
-Respons harus menunjukkan `healthy` dan versi Revit yang berjalan. Di Revit, cari tab ribbon `AEC Bridge`. Panel Workflows berisi Open Panel, Health Check, Pending Actions, dan Reports. Panel Tools berisi Config, Help, dan About.
+Respons harus menunjukkan `healthy` dan versi Revit yang berjalan. Di Revit, cari tab ribbon `AEC Bridge`. Panel Model Bridge berisi Panel, Approve, dan Check model. Panel Connection memiliki satu tombol Connected/Disconnected; panel gesernya berisi Status, Config, Reports, Help, dan About.
 
 ## Keamanan
 

@@ -116,16 +116,16 @@ Używasz VS Code? [Kod źródłowy rozszerzenia i kroki lokalnej instalacji](../
 
 | Obszar | Narzędzia | Co robią |
 | --- | --- | --- |
-| Revit | 111 | Odczyt modelu, tworzenie i edycja elementów, parametrów, widoków, arkuszy, zestawień, eksporty, współpraca (worksharing) |
+| Revit | 112 | Odczyt modelu, tworzenie i edycja elementów, parametrów, widoków, arkuszy, zestawień, eksporty, współpraca (worksharing) |
 | Zatwierdzanie | 6 | Planowanie, przegląd, zatwierdzanie, wykonywanie i wycofywanie zmian modelu |
-| Moduły | 116 | Inspekcja migawek, siatki parametrów, kontrole QA/QC, receptury, raporty, zaznaczenia |
+| Moduły | 122 | Inspekcja migawek, siatki parametrów, kontrole QA/QC, receptury, raporty, zaznaczenia |
 | Rhino i Grasshopper | 19 | Geometria, warstwy, materiały, operacje boolowskie |
 | Speckle | 17 | Projekty, modele, wersje, wysyłanie i odbieranie |
 | Navisworks | 15 | Drzewo modelu, punkty widzenia, testy kolizji (w trakcie prac) |
 | IFC | 7 | Odczyt plików IFC bez Revit: struktura, właściwości, walidacja |
 | Graf, migawki, eksporty, zadania | 24 | Audyty grafu semantycznego, różnice migawek, eksport do SQLite, zadania w tle |
 
-W konfiguracji domyślnej widocznych jest 315 narzędzi (policzone na aktualnym serwerze w trybie mock). Narzędzia Autodesk Data pojawiają się po skonfigurowaniu poświadczeń APS. [Opis narzędzi](../tools-generated.md) zawiera listę wszystkich. Każde narzędzie ma adnotacje MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), dzięki czemu klienci odróżniają odczyty od zapisów.
+W konfiguracji domyślnej widocznych jest 322 narzędzi (policzone na aktualnym serwerze w trybie mock). Narzędzia Autodesk Data pojawiają się po skonfigurowaniu poświadczeń APS. [Opis narzędzi](../tools-generated.md) zawiera listę wszystkich. Każde narzędzie ma adnotacje MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), dzięki czemu klienci odróżniają odczyty od zapisów.
 
 ### Zaawansowana automatyzacja Revit
 
@@ -295,7 +295,7 @@ $switch = Get-Content $registry.FullName -Raw | ConvertFrom-Json
 Invoke-RestMethod "$($switch.endpoint)/health"
 ```
 
-Odpowiedź powinna zawierać `healthy` oraz wersję uruchomionego Revit. W Revit poszukaj karty wstążki `AEC Bridge`. Jej panel Workflows zawiera Open Panel, Health Check, Pending Actions i Reports. Panel Tools zawiera Config, Help i About.
+Odpowiedź powinna zawierać `healthy` oraz wersję uruchomionego Revit. W Revit poszukaj karty wstążki `AEC Bridge`. Panel Model Bridge zawiera Panel, Approve i Check model. Panel Connection ma jeden przełącznik Connected/Disconnected; jego wysuwany panel zawiera Status, Config, Reports, Help i About.
 
 ## Bezpieczeństwo
 

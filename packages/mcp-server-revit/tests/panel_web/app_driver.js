@@ -9,7 +9,7 @@
   const feed = () => document.querySelector("#chat-root .feed");
 
   function host(extra) {
-    deliver(Object.assign({ type: "host.status", serverRunning: true, activeDocument: "m.rvt", revitVersion: "2025", port: 1 }, extra));
+    deliver(Object.assign({ type: "host.status", serverRunning: true, activeDocument: "m.rvt", activeDocumentGuid: "g1", revitPid: 7, revitVersion: "2025", port: 1 }, extra));
   }
   function diag(mode) {
     deliver({ type: "diagnostics.updated", diagnostics: { ok: true, approval_mode: mode, checks: [] } });
@@ -35,7 +35,8 @@
     sent().length = 0;
     window.__copied.length = 0;
   }
-  const PLAN = (id, actions, state) => ({ plan_id: id, plan_hash: "abcdef0123456789", state: state || "pending", actions });
+  const SESSION = { doc_guid: "g1", revit_pid: 7 };
+  const PLAN = (id, actions, state) => ({ plan_id: id, plan_hash: "abcdef0123456789", state: state || "pending", actions, binding: SESSION });
   const SET = (ids, withBefore) => ({
     tool: "revit_set_parameter",
     arguments: { element_ids: ids, name: "Fire Rating", value: "2h" },
@@ -425,7 +426,7 @@
     conflicts: [{ element_id: 1, parameter: "FireRating", expected_current: "60", actual_current: "90", revert_to: "30" }],
   });
   const V2 = (id, review, extra) => Object.assign({
-    plan_id: id, plan_hash: "abcdef0123456789", state: "pending", hash_version: 2,
+    plan_id: id, plan_hash: "abcdef0123456789", state: "pending", hash_version: 2, binding: SESSION,
     actions: [SET([1], true)],
     review_view: { status: "ok", hash_version: 2, reverts_plan_id: null, review, error: "" },
   }, extra || {});
@@ -498,11 +499,30 @@
       hash_version: undefined, preview: { rows: [ROW(1), ROW(2, { before: "old" })], row_count: 2, rows_omitted: 0 }, blast_radius: RADIUS })]);
     const card = cardOf("pv1");
     const cells = Array.from(card.querySelectorAll(".plan-preview-table tr")).map((tr) => Array.from(tr.children).map((c) => c.textContent));
-    expect(cells.length === 3 && cells[0][3] === "Before" && cells[1][3] === "(empty)" && cells[2][3] === "old" && cells[2][4] === "A2", "rows " + JSON.stringify(cells));
-    expect(cells[1][1] === "unknown", "missing UniqueId should read unknown");
+    expect(cells.length === 3 && cells[0][2] === "Before" && cells[1][2] === "(empty)" && cells[2][2] === "old" && cells[2][3] === "A2", "rows " + JSON.stringify(cells));
+    expect(!cells[0].includes("UniqueId") && !/unknown/.test(JSON.stringify(cells)), "a UniqueId nobody knows must not be printed as unknown");
     const head = card.querySelector(".plan-blast");
-    expect(head && /Risk: medium/.test(head.textContent) && /Categories: Walls, unknown/.test(head.textContent), "blast radius header missing");
+    expect(head && /Risk: medium/.test(head.textContent) && /Categories: Walls \(not all known\)/.test(head.textContent), "blast radius header missing");
+    expect(!/Levels|Worksets|unknown/.test(head.textContent), "unknown fields must be left out: " + head.textContent);
     expect(!!approveBtn(card) && !approveBtn(card).disabled, "preview must not change Approve state");
+  });
+
+  test("preview: a known UniqueId gets its column, and a before value comes from the rolled-back preview when the plan did not capture it", () => {
+    fresh();
+    const rb = { version: 1, status: "ok", rolled_back: true, changed_element_ids: [1, 2, 77],
+      actions: [{ index: 0, tool: "revit_set_parameter_value", ok: true, element_id: 1, parameter: "Mark", before: "OLD1", after: "A1" }],
+      warnings: [{ action_index: 0, severity: "Warning", message: "Duplicate Mark.", element_ids: [1, 2] }] };
+    plans([V2("pv5", null, Object.assign({ rollback_preview: rb }, { review_view: { status: "none", hash_version: 1, reverts_plan_id: null, review: null, error: "" }, hash_version: undefined,
+      preview: { rows: [ROW(1, { unique_id: "uid-1", before: "(not captured)" }), ROW(2, { before: "(not captured)" })], row_count: 2, rows_omitted: 0 }, blast_radius: RADIUS }))]);
+    const card = cardOf("pv5");
+    const cells = Array.from(card.querySelectorAll(".plan-preview-table tr")).map((tr) => Array.from(tr.children).map((c) => c.textContent));
+    expect(cells[0].includes("UniqueId") && cells[1][1] === "uid-1", "UniqueId column " + JSON.stringify(cells[1]));
+    expect(cells[1][3] === "OLD1" && cells[2][3] === "(not captured)", "before fill " + JSON.stringify(cells));
+    expect(/1 before value\(s\) come from the rolled-back preview/.test(card.querySelector(".plan-preview").textContent), "fill not disclosed");
+    const rbText = card.querySelector(".plan-rollback-preview").textContent;
+    expect(/Also changed, not named in the plan: 77\./.test(rbText), "extra changed ids missing: " + rbText);
+    expect(/Duplicate Mark\. \(elements: 1, 2\)/.test(rbText), "warning elements missing: " + rbText);
+    expect(card.querySelector(".plan-details").contains(card.querySelector(".plan-rollback-preview")), "rolled-back preview belongs in the details");
   });
 
   test("preview: rows are capped at 25 and the rest is counted", () => {
@@ -845,20 +865,93 @@
     expect($("reject-confirm").hidden && sentOf("plan.reject").length === 0, "cancel did not stop the reject");
   });
 
-  test("bound document: title and expiry are shown escaped; a different active document warns before Approve", () => {
+  const rejectBtn = (card) => card.querySelector('[data-decision="reject"]');
+  const singleBox = (card) => card.querySelector(".plan-reject-confirm");
+
+  test("single reject: Reject only opens an inline confirm; Cancel sends nothing; Confirm sends one reject", () => {
+    fresh();
+    nav("plans");
+    plans([PLAN("s1", [SET([1], true)]), PLAN("s2", [SET([1], true)])]);
+    const card = cardOf("s1");
+    expect(!singleBox(card), "confirm visible before Reject was clicked");
+    sent().length = 0;
+    rejectBtn(card).click();
+    const box = singleBox(card);
+    expect(visible(box) && /Reject this plan\?/.test(box.textContent), "inline confirm not shown");
+    expect(sentOf("plan.reject").length === 0, "Reject sent before the confirm");
+    expect(document.activeElement && document.activeElement.dataset.rejectSingle === "cancel", "focus not on Cancel");
+    expect(!singleBox(cardOf("s2")), "confirm opened on another card");
+    box.querySelector('[data-reject-single="cancel"]').click();
+    expect(!singleBox(card) && sentOf("plan.reject").length === 0, "Cancel left the confirm open or rejected");
+    expect(document.activeElement === rejectBtn(card), "focus not returned to Reject");
+    rejectBtn(card).click();
+    singleBox(card).querySelector('[data-reject-single="confirm"]').click();
+    const rej = sentOf("plan.reject");
+    expect(rej.length === 1 && rej[0].planId === "s1" && rej[0].planHash === "abcdef0123456789", "wrong reject: " + JSON.stringify(rej));
+    expect(sentOf("plan.approve").length === 0 && !singleBox(card), "approve sent or confirm left open");
+  });
+
+  test("single reject: Escape cancels; a list refresh closes it and its Confirm is gone", () => {
+    fresh();
+    nav("plans");
+    plans([PLAN("s3", [SET([1], true)])]);
+    sent().length = 0;
+    rejectBtn(cardOf("s3")).click();
+    const confirmBtn = singleBox(cardOf("s3")).querySelector('[data-reject-single="confirm"]');
+    document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    expect(!singleBox(cardOf("s3")), "Escape left the confirm open");
+    confirmBtn.click();
+    expect(sentOf("plan.reject").length === 0, "stale Confirm rejected after Escape");
+    rejectBtn(cardOf("s3")).click();
+    const stale = singleBox(cardOf("s3")).querySelector('[data-reject-single="confirm"]');
+    plans([PLAN("s3", [SET([1], true)])]);
+    expect(!singleBox(cardOf("s3")), "confirm survived a list refresh");
+    stale.click();
+    expect(sentOf("plan.reject").length === 0, "detached Confirm rejected a plan");
+  });
+
+  test("bound document: title and expiry are shown escaped; another document is hidden, and warns once shown", () => {
     fresh();
     const bound = { doc_title: "Other<img src=x onerror=window.__pwned=9>.rvt", doc_guid: "g" };
     plans([PLAN("d1", [SET([1], true)])].map((p) => Object.assign(p, { binding: bound, expires_at: "2030-01-02T03:04:05Z" })));
+    expect(!cardOf("d1") && /1 plan for other models hidden/.test($("other-note").textContent), "other model's plan not collapsed");
+    expect(!/Other/.test($("plan-list").textContent), "hidden plan details were rendered");
+    document.querySelector('[data-action="toggle-other-plans"]').click();
     const card = cardOf("d1");
     expect(/Bound to document: Other/.test(card.textContent) && /Expires:/.test(card.textContent), "binding or expiry missing");
     expect(!card.querySelector("img"), "binding title was not escaped");
     const warn = card.querySelector('[role="alert"]');
     expect(warn && /active document is m\.rvt/.test(warn.textContent), "no mismatch warning");
     expect(approveBtn(card).getAttribute("aria-describedby") === warn.id, "Approve not tied to the warning");
-    plans([PLAN("d2", [SET([1], true)])].map((p) => Object.assign(p, { binding: { doc_title: "M" } })));
+    document.querySelector('[data-action="toggle-other-plans"]').click();
+    expect(!cardOf("d1"), "Hide did not collapse the plan again");
+    plans([PLAN("d2", [SET([1], true)])].map((p) => Object.assign(p, { binding: { doc_title: "M", doc_guid: "g1", revit_pid: 7 } })));
     expect(!cardOf("d2").querySelector('[id^="plan-warn-"]'), "warned although the document matches");
-    plans([PLAN("d3", [SET([1], true)])]);
-    expect(!/Bound to document|Expires:/.test(cardOf("d3").textContent), "unbound plan shows binding text");
+  });
+
+  test("another Revit process with the same document is hidden, and warns about the pid once shown", () => {
+    fresh();
+    plans([PLAN("pid1", [SET([1], true)])].map((p) => Object.assign(p, { binding: { doc_title: "m.rvt", doc_guid: "g1", revit_pid: 8 } })));
+    expect(!cardOf("pid1") && !$("other-bar").hidden, "same title, other pid was listed");
+    document.querySelector('[data-action="toggle-other-plans"]').click();
+    const warn = cardOf("pid1").querySelector('[id^="plan-warn-"]');
+    expect(warn && /process 8/.test(warn.textContent) && /process 7/.test(warn.textContent), "no pid warning");
+  });
+
+  test("unbound plan: warning shown, Approve disabled until the confirm is ticked", () => {
+    fresh();
+    plans([Object.assign(PLAN("u1", [SET([1], true)]), { binding: null })]);
+    const card = cardOf("u1");
+    expect(card.querySelector('[id^="plan-unbound-"]') && !/Bound to document|Expires:/.test(card.textContent), "no unbound warning");
+    expect(approveBtn(card).disabled, "unbound plan approvable before the confirm");
+    approveBtn(card).click();
+    expect(sentOf("plan.approve").length === 0, "approve sent without the confirm");
+    const box = card.querySelector("[data-confirm-unbound]");
+    box.checked = true;
+    box.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(!approveBtn(cardOf("u1")).disabled, "confirm did not enable Approve");
+    approveBtn(cardOf("u1")).click();
+    expect(sentOf("plan.approve").length === 1, "approve not sent after the confirm");
   });
 
   test("expired plans: N hidden is announced, the toggle asks the host, expired plans cannot be approved but can be rejected in bulk", () => {
@@ -881,6 +974,131 @@
     bulk().click();
     document.querySelector('[data-action="reject-confirm"]').click();
     expect(sentOf("plan.reject").map((m) => m.planId).join() === "e2" && sentOf("plan.approve").length === 0, "expired reject wrong");
+  });
+
+  // ---- layout: status strip, one Refresh per view, confirm bar trigger, footer, compact empty state ----
+  const visible = (el) => !!el && getComputedStyle(el).display !== "none" && el.getClientRects().length > 0;
+  const nav = (v) => document.querySelector('.nav[data-view="' + v + '"]').click();
+
+  test("confirm bar: closed on load, on render and on view switches; opens only from Reject selected; Confirm alone sends nothing", () => {
+    fresh();
+    nav("plans");
+    plans([PLAN("k1", [SET([1], true)]), PLAN("k2", [SET([1], true)])]);
+    const bar = $("reject-confirm");
+    expect(bar.hidden && !visible(bar), "confirm bar visible before any Reject selected click");
+    tick("k1");
+    tick("k2");
+    nav("chat"); nav("plans");
+    plans([PLAN("k1", [SET([1], true)]), PLAN("k2", [SET([1], true)])]);
+    expect(!visible(bar), "bar opened by a render or a view switch");
+    sent().length = 0;
+    document.querySelector('[data-action="reject-confirm"]').click();
+    expect(sentOf("plan.reject").length === 0, "Confirm rejected a plan although the bar was never opened");
+    bulk().click();
+    expect(visible(bar) && /Reject 2 selected/.test($("reject-confirm-text").textContent), "bar did not open from Reject selected");
+    expect(!visible($("plan-bulk")), "bulk footer and confirm bar are both shown");
+    document.querySelector('[data-action="reject-cancel"]').click();
+    expect(!visible(bar) && sentOf("plan.reject").length === 0, "Cancel left the bar open or rejected");
+  });
+
+  test("confirm bar: a refreshed list closes it", () => {
+    fresh();
+    nav("plans");
+    plans([PLAN("r1", [SET([1], true)]), PLAN("r2", [SET([1], true)])]);
+    tick("r1"); tick("r2");
+    bulk().click();
+    expect(visible($("reject-confirm")), "bar did not open");
+    plans([PLAN("r1", [SET([1], true)]), PLAN("r2", [SET([1], true)])]);
+    expect(!visible($("reject-confirm")), "bar survived a list refresh");
+    sent().length = 0;
+    document.querySelector('[data-action="reject-confirm"]').click();
+    expect(sentOf("plan.reject").length === 0, "stale Confirm rejected a plan");
+  });
+
+  test("bulk footer: hidden with fewer than two ticked plans, shown with two, one row", () => {
+    fresh();
+    nav("plans");
+    plans([PLAN("f1", [SET([1], true)]), PLAN("f2", [SET([1], true)])]);
+    expect(!visible($("plan-bulk")), "footer shown with nothing ticked");
+    tick("f1");
+    expect(!visible($("plan-bulk")), "footer shown for one plan; its card has the buttons");
+    tick("f2");
+    expect(visible($("plan-bulk")) && $("plan-selected-count").textContent === "2 selected", "footer missing for two");
+    const tops = Array.from($("plan-bulk").children).filter(visible).map((n) => n.getBoundingClientRect().top);
+    expect(Math.max(...tops) - Math.min(...tops) < 20, "footer is not one row");
+  });
+
+  test("one Refresh per view: Plans and Reports have no button of their own; the strip Refresh asks for the view's list", () => {
+    fresh();
+    ["plans", "reports", "findings", "log", "settings"].forEach((v) => {
+      nav(v);
+      const shown = Array.from(document.querySelectorAll("button")).filter((b) => visible(b) && /^refresh/i.test(b.textContent.trim()));
+      expect(shown.length === 1 && shown[0].id === "setup-refresh", v + ": " + shown.length + " Refresh buttons");
+    });
+    nav("plans");
+    sent().length = 0;
+    $("setup-refresh").click();
+    expect(sentOf("plans.refresh").length === 1 && sentOf("diagnostics.refresh").length === 1, "Plans refresh not sent: " + JSON.stringify(sent().map((m) => m.type)));
+    nav("reports");
+    sent().length = 0;
+    $("setup-refresh").click();
+    expect(sentOf("reports.refresh").length === 1 && sentOf("plans.refresh").length === 0, "Reports refresh wrong");
+  });
+
+  test("status strip: setup check and snapshot warning share one collapsed strip that expands on click", () => {
+    fresh();
+    nav("plans");
+    host({ snapshotStale: true, dirtyElementCount: 3 });
+    deliver({ type: "diagnostics.updated", diagnostics: { ok: false, approval_mode: "ask_first", checks: [
+      { id: "mode", ok: false, detail: "Hub is in mock mode.", next_step: "Set MCP_REVIT_MODE=bridge." },
+      { id: "hub", ok: true, detail: "Panel hub is running." }] } });
+    const strip = $("setup-check");
+    expect(strip.dataset.state === "blocked" && /2 to fix/.test($("setup-label").textContent), "label: " + $("setup-label").textContent);
+    expect(/Live Revit mode/.test($("setup-summary").textContent) && /Snapshot stale/.test($("setup-summary").textContent), "summary: " + $("setup-summary").textContent);
+    expect(!visible($("setup-body")) && !visible($("system-alerts")) && !visible($("setup-list")), "strip starts expanded");
+    expect(strip.getBoundingClientRect().height < 60, "strip is " + strip.getBoundingClientRect().height + "px tall");
+    $("setup-toggle").click();
+    expect($("setup-toggle").getAttribute("aria-expanded") === "true" && visible($("setup-body")), "did not expand");
+    expect(/Snapshot stale/.test($("system-alerts").textContent) && /MCP_REVIT_MODE=bridge/.test($("setup-list").textContent), "alert or step missing when expanded");
+    $("setup-toggle").click();
+    expect(!visible($("setup-body")), "did not collapse");
+    host({ snapshotStale: false });
+    diag("ask_first");
+    expect(strip.dataset.state === "ready" && $("setup-label").textContent === "Ready", "did not return to Ready");
+  });
+
+  test("empty plans: one compact line, no second block of text", () => {
+    fresh();
+    nav("plans");
+    plans([]);
+    const empty = document.querySelector("#plan-list .empty");
+    expect(empty && empty.classList.contains("is-compact") && /No pending plans/.test(empty.textContent), "compact empty state missing");
+    expect(empty.getBoundingClientRect().height < 56 && empty.querySelectorAll("p").length === 0, "empty state is a box: " + empty.getBoundingClientRect().height);
+    expect(!visible($("plan-bulk")), "footer shown with no plans");
+  });
+
+  test("plan card: Approve and Reject are sticky, so a long review cannot push them off screen", () => {
+    fresh();
+    nav("plans");
+    const long = Array.from({ length: 60 }, (_, i) => "line " + i + " of the review").join("\n");
+    plans([V2("s1", { summary: long, reasoning: long, citations: [], assumptions: [], excluded: [], warnings: [], conflicts: [] })]);
+    const open = $("plan-list").querySelector("[data-open-review]");
+    if (open) open.click();
+    const card = cardOf("s1");
+    const actions = card.querySelector(".item-actions");
+    expect(getComputedStyle(actions).position === "sticky", "actions are " + getComputedStyle(actions).position);
+    const list = $("plan-list");
+    list.scrollTop = 0;
+    expect(card.getBoundingClientRect().height > list.getBoundingClientRect().height, "card is not taller than the list; the test proves nothing");
+    expect(actions.getBoundingClientRect().bottom <= list.getBoundingClientRect().bottom + 1, "Approve/Reject below the visible list at the top of a long card");
+  });
+
+  test("preview: no Element or Parameter column when the hub names neither (no repeated unknown cells)", () => {
+    fresh();
+    plans([V2("pn1", null, { review_view: { status: "none", hash_version: 1, reverts_plan_id: null, review: null, error: "" }, hash_version: undefined,
+      preview: { rows: [ROW(1, { element_id: null, parameter: null, before: "(not captured)", after: "{}" })], row_count: 1, rows_omitted: 0 }, blast_radius: RADIUS })]);
+    const cells = Array.from(cardOf("pn1").querySelectorAll(".plan-preview-table tr")).map((tr) => Array.from(tr.children).map((c) => c.textContent));
+    expect(cells[0].join() === "Before,After,Tool" && cells[1][0] === "(not captured)" && cells[1][1] === "{}", "cells " + JSON.stringify(cells));
   });
 
   window.addEventListener("load", () => { runAll(); });

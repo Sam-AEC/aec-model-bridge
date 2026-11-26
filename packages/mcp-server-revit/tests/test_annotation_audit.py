@@ -30,12 +30,14 @@ WRITE_WORDS = {
     "run", "rotate", "mirror", "align", "tag", "pin", "unpin", "load", "reload", "register", "compile",
 }
 REVIEWED_READ_ONLY = {
+    "geometry_screening_run_checks",       # screens a saved snapshot
     "sheet_view_audit_run_audit",          # audits a saved snapshot
     "model_inspector_run_saved_query",     # reads a saved query and runs it on a snapshot
     "recipe_runner_get_run_status",        # status read
     "parameter_manager_plan_set_params",   # computes a plan proposal; the write goes through plan_actions
     "pyrevit_bridge_plan_run_pyrevit_script",
     "bcf_exchange_import_bcf",             # parses a BCF file and returns the issues
+    "clash_triage_import_clash_report",    # parses a clash report and returns matched groups
     "parameter_manager_import_params_csv", # reads a CSV and returns a change proposal
     "parameter_manager_import_params_xlsx", # reads a workbook and returns a change proposal
 }

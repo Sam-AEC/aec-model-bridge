@@ -20,7 +20,7 @@ from . import file_binding
 from . import proof as proof_mod
 from . import rollback_preview as rollback_preview_mod
 from .approval_override import active_override
-from .dev_mode import active_dev, audit_dev_event
+from .dev_mode import active_dev, audit_dev_event, dev_off_reason
 from .recipe_store import RecipeStore, standing_authorizes
 from .safe_paths import PLAN_ID_RE, safe_child
 from .workspace import WorkspaceMonitor
@@ -702,6 +702,21 @@ class ApprovalGate:
             if action.get("state") in OPEN_ACTION_STATES:
                 file_binding.verify_action(action.get("tool"), action.get("arguments"), self.workspace_monitor)
 
+    def missing_plan_message(self, tool_name: str) -> str:
+        """The refusal for a mutating call without a plan_id. Wording only; it never decides anything.
+
+        Adds why Dev mode is off for this server's workspace and which workspace that is, so a
+        panel and a server that resolved different workspaces are easy to tell apart.
+        """
+        message = f"Approval mode is enabled. Mutating tool '{tool_name}' requires a valid 'plan_id' parameter."
+        try:
+            reason = dev_off_reason(self.workspace_dir, token=self.override_token)
+            if reason is not None:
+                message += f" Dev mode is off for this server's workspace '{self.workspace_dir}': {reason}."
+        except Exception:  # a reporting failure must not hide the refusal
+            pass
+        return message
+
     def check_tool_execution(self, tool_name: str, arguments: Dict[str, Any]) -> None:
         """Read-only check that a call is covered by an approved, unchanged plan.
 
@@ -716,7 +731,7 @@ class ApprovalGate:
 
         plan_id = arguments.get("plan_id") if isinstance(arguments, dict) else None
         if not plan_id:
-            raise BridgeError(f"Approval mode is enabled. Mutating tool '{tool_name}' requires a valid 'plan_id' parameter.")
+            raise BridgeError(self.missing_plan_message(tool_name))
 
         plan = self.load_plan(plan_id)
         if not plan:
@@ -806,7 +821,7 @@ class ApprovalGate:
                 # an action of this plan runs at most once in every mode (issue #314).
                 return self._auto_claim(plan_id, tool_name, arguments)
         if not plan_id:
-            raise BridgeError(f"Approval mode is enabled. Mutating tool '{tool_name}' requires a valid 'plan_id' parameter.")
+            raise BridgeError(self.missing_plan_message(tool_name))
         return self._claim(plan_id, tool_name, arguments)
 
     def _claim(self, plan_id: Any, tool_name: str, arguments: Any) -> Dict[str, str]:

@@ -1,0 +1,76 @@
+{
+  "id": "geometry_screening",
+  "name": "Geometry Screening",
+  "version": "1.0.0",
+  "schema_version": 1,
+  "min_hub_version": "1.2.0",
+  "description": "Repeatable geometric screening of a saved snapshot: room area against a brief table, door width against a minimum, a turning circle inside a room outline, and travel distance through doors to exit rooms. Every finding names element ids, the measured value, the threshold and the unit. A screening aid, not a code compliance check. Read-only.",
+  "author": "AEC Model Bridge",
+  "license": "GPL-3.0-or-later",
+  "requires_providers": ["semantic"],
+  "permissions": ["model.read"],
+  "commands": [
+    {
+      "id": "run_checks",
+      "title": "Run Geometry Screening Checks",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {"type": "string", "description": "Saved snapshot to screen. Take it with snapshot_take first (include rooms for door room keys)."},
+          "snapshot_units": {"type": "string", "enum": ["feet", "metres"], "description": "Length unit of the snapshot coordinates and widths. Revit stores feet. Thresholds and results are always in metres.", "default": "feet"},
+          "room_area": {
+            "type": "object",
+            "description": "Room area against a brief. Rooms are matched by exact room number or room name (not case sensitive).",
+            "properties": {
+              "brief": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "match": {"type": "string", "description": "Room number or name."},
+                    "min_m2": {"type": "number"},
+                    "max_m2": {"type": "number"}
+                  },
+                  "required": ["match"]
+                }
+              }
+            },
+            "required": ["brief"]
+          },
+          "door_width": {
+            "type": "object",
+            "description": "Door width against a minimum. Reads the Clear Width parameter, else Width, on the door, else on its type.",
+            "properties": {
+              "min_clear_width_m": {"type": "number"}
+            },
+            "required": ["min_clear_width_m"]
+          },
+          "turning_circle": {
+            "type": "object",
+            "description": "A circle of the given diameter must fit inside each listed room outline.",
+            "properties": {
+              "diameter_m": {"type": "number"},
+              "rooms": {"type": "array", "items": {"type": "string"}, "description": "Room numbers or names to check."}
+            },
+            "required": ["diameter_m", "rooms"]
+          },
+          "travel_distance": {
+            "type": "object",
+            "description": "Shortest path from each room centroid through door points to the nearest exit room, over rooms joined by doors (From Room and To Room).",
+            "properties": {
+              "exit_rooms": {"type": "array", "items": {"type": "string"}, "description": "Room numbers or names that count as exits."},
+              "max_m": {"type": "number"},
+              "from_rooms": {"type": "array", "items": {"type": "string"}, "description": "Limit the start rooms. Default is every other room with an outline."}
+            },
+            "required": ["exit_rooms", "max_m"]
+          },
+          "max_items": {"type": "integer", "description": "Maximum findings listed per check; counts are always complete.", "default": 200}
+        },
+        "required": ["snapshot_id"]
+      }
+    }
+  ]
+}

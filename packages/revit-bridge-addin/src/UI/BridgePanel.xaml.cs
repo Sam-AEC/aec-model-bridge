@@ -457,6 +457,14 @@ namespace RevitBridge.UI
             }));
         }
 
+        private static int CurrentProcessId()
+        {
+            using (var current = System.Diagnostics.Process.GetCurrentProcess())
+            {
+                return current.Id;
+            }
+        }
+
         private void PostHostStatus()
         {
             var dirtyCount = DocumentDirtyTracker.GetDirtyUniqueIds().Count;
@@ -467,6 +475,8 @@ namespace RevitBridge.UI
                 port = App.Server?.Port,
                 revitVersion = App.RevitVersion,
                 activeDocument = App.ActiveDocumentName,
+                activeDocumentGuid = App.ActiveDocumentGuid,
+                revitPid = CurrentProcessId(),
                 dirtyElementCount = dirtyCount,
                 snapshotStale = dirtyCount > 0,
                 isDarkTheme = IconGenerator.IsDarkTheme()

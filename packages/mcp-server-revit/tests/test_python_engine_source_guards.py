@@ -157,3 +157,19 @@ def test_deploy_script_mirrors_the_whole_folder_and_verifies_it():
     iss = (REPO_ROOT / "scripts" / "installer" / "AECModelBridge.iss").read_text(encoding="utf-8")
     for name in ("RevitAPI.dll", "RevitAPIUI.dll", "AdWindows.dll", "AdskLicensingSDK_*.dll"):
         assert name in iss and name in DEPLOY_SCRIPT
+
+
+def test_modern_ironpython_is_at_least_3_4_2_for_net10_hosts():
+    # 3.4.1 cannot start its engine on the .NET 10 runtime that Revit 2026.5 hosts (#388).
+    version = _package_versions("IronPython")["other"]
+    assert tuple(int(part) for part in version.split(".")) >= (3, 4, 2)
+
+
+def test_failed_engine_start_reports_the_exception_and_engine_unavailable():
+    text = RUNNER.replace("\r\n", "\n")
+    handler = text.split("catch (Exception ex) when (engine == null)", 1)[1].split("catch (Exception ex)", 1)[0]
+    assert "PythonEngineFailure.Describe(ex)" in handler
+    assert "PythonEngineFailure.EngineUnavailableKind" in handler
+    failure = (ADDIN / "src" / "Bridge" / "PythonEngineFailure.cs").read_text(encoding="utf-8")
+    assert 'EngineUnavailableKind = "engine_unavailable"' in failure
+    assert "Autodesk.Revit" not in failure and "using IronPython" not in failure

@@ -88,6 +88,7 @@ nav:
           - Dynamo: prompts/dynamo.md
           - Scripting with execute_python: prompts/scripting-execute-python.md
       - snapshot_compute: snapshot-compute.md
+      - Geometry screening: geometry-screening.md
       - Read result cursors: read-cursors.md
       - MCP Apps plan review view: mcp-apps.md
       - Preview in model: preview-in-model.md

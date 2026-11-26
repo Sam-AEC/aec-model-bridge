@@ -116,16 +116,16 @@ Usa o VS Code? O [código da extensão e os passos de instalação local](../../
 
 | Área | Ferramentas | O que fazem |
 | --- | --- | --- |
-| Revit | 111 | Ler o modelo, criar e editar elementos, parâmetros, vistas, folhas, tabelas de quantitativos, exportações, trabalho compartilhado |
+| Revit | 112 | Ler o modelo, criar e editar elementos, parâmetros, vistas, folhas, tabelas de quantitativos, exportações, trabalho compartilhado |
 | Aprovação | 6 | Planejar, revisar, aprovar, executar e reverter alterações no modelo |
-| Módulos | 116 | Inspeção de snapshots, grades de parâmetros, verificações de QA/QC, receitas, relatórios, seleções |
+| Módulos | 122 | Inspeção de snapshots, grades de parâmetros, verificações de QA/QC, receitas, relatórios, seleções |
 | Rhino e Grasshopper | 19 | Geometria, camadas, materiais, operações booleanas |
 | Speckle | 17 | Projetos, modelos, versões, envio e recebimento |
 | Navisworks | 15 | Árvore do modelo, pontos de vista, testes de interferência (em desenvolvimento) |
 | IFC | 7 | Ler arquivos IFC sem o Revit: estrutura, propriedades, validação |
 | Grafo, snapshots, exportações, tarefas | 24 | Auditorias do grafo semântico, diferenças entre snapshots, exportação para SQLite, tarefas em segundo plano |
 
-315 ferramentas são listadas na configuração padrão (contadas no servidor atual em modo mock). As ferramentas do Autodesk Data aparecem quando as credenciais do APS estão configuradas. A [referência de ferramentas](../tools-generated.md) lista todas elas. Cada ferramenta traz anotações MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), para que os clientes distingam leituras de escritas.
+322 ferramentas são listadas na configuração padrão (contadas no servidor atual em modo mock). As ferramentas do Autodesk Data aparecem quando as credenciais do APS estão configuradas. A [referência de ferramentas](../tools-generated.md) lista todas elas. Cada ferramenta traz anotações MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), para que os clientes distingam leituras de escritas.
 
 ### Automação avançada do Revit
 
@@ -295,7 +295,7 @@ $switch = Get-Content $registry.FullName -Raw | ConvertFrom-Json
 Invoke-RestMethod "$($switch.endpoint)/health"
 ```
 
-A resposta deve indicar `healthy` e a versão do Revit em execução. No Revit, procure a guia da faixa de opções `AEC Bridge`. O painel Workflows tem Open Panel, Health Check, Pending Actions e Reports. O painel Tools tem Config, Help e About.
+A resposta deve indicar `healthy` e a versão do Revit em execução. No Revit, procure a guia da faixa de opções `AEC Bridge`. O painel Model Bridge tem Panel, Approve e Check model. O painel Connection tem um único botão alternador Connected/Disconnected; seu painel deslizante tem Status, Config, Reports, Help e About.
 
 ## Segurança
 

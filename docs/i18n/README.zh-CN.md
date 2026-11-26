@@ -117,16 +117,16 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 | 领域 | 工具数 | 功能 |
 | --- | --- | --- |
-| Revit | 111 | 读取模型，创建和编辑构件、参数、视图、图纸、明细表，导出，工作共享 |
+| Revit | 112 | 读取模型，创建和编辑构件、参数、视图、图纸、明细表，导出，工作共享 |
 | 审批 | 6 | 规划、审阅、批准、执行并回滚模型变更 |
-| 模块 | 116 | 快照检查、参数网格、QA/QC 检查、配方、报告、选择集 |
+| 模块 | 122 | 快照检查、参数网格、QA/QC 检查、配方、报告、选择集 |
 | Rhino 与 Grasshopper | 19 | 几何体、图层、材质、布尔运算 |
 | Speckle | 17 | 项目、模型、版本、发送与接收 |
 | Navisworks | 15 | 模型树、视点、碰撞测试（开发中） |
 | IFC | 7 | 无需 Revit 即可读取 IFC 文件：结构、属性、校验 |
 | 图谱、快照、导出、作业 | 24 | 语义图谱审计、快照差异比对、SQLite 导出、后台作业 |
 
-默认配置下共列出 315 个工具（在 mock 模式下统计自当前服务器）。配置 APS 凭据后会出现 Autodesk Data 工具。[工具参考](../tools-generated.md)列出了所有工具。每个工具都带有 MCP 注解（`readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`），客户端据此区分读取和写入。
+默认配置下共列出 322 个工具（在 mock 模式下统计自当前服务器）。配置 APS 凭据后会出现 Autodesk Data 工具。[工具参考](../tools-generated.md)列出了所有工具。每个工具都带有 MCP 注解（`readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`），客户端据此区分读取和写入。
 
 ### 高级 Revit 自动化
 
@@ -296,7 +296,7 @@ $switch = Get-Content $registry.FullName -Raw | ConvertFrom-Json
 Invoke-RestMethod "$($switch.endpoint)/health"
 ```
 
-响应应报告 `healthy` 以及正在运行的 Revit 版本。在 Revit 中查找 `AEC Bridge` 功能区选项卡。其 Workflows 面板包含 Open Panel、Health Check、Pending Actions 和 Reports；Tools 面板包含 Config、Help 和 About。
+响应应报告 `healthy` 以及正在运行的 Revit 版本。在 Revit 中查找 `AEC Bridge` 功能区选项卡。Model Bridge 面板包含 Panel、Approve 和 Check model。Connection 面板有一个 Connected/Disconnected 切换按钮；其滑出面板包含 Status、Config、Reports、Help 和 About。
 
 ## 安全
 

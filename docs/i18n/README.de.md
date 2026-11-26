@@ -116,16 +116,16 @@ Sie nutzen VS Code? Der [Quellcode der Erweiterung und die lokalen Installations
 
 | Bereich | Werkzeuge | Was sie tun |
 | --- | --- | --- |
-| Revit | 111 | Modell lesen, Elemente, Parameter, Ansichten, Pläne und Bauteillisten erstellen und bearbeiten, Exporte, Worksharing |
+| Revit | 112 | Modell lesen, Elemente, Parameter, Ansichten, Pläne und Bauteillisten erstellen und bearbeiten, Exporte, Worksharing |
 | Freigabe | 6 | Modelländerungen planen, prüfen, freigeben, ausführen und zurücksetzen |
-| Module | 116 | Snapshot-Prüfung, Parametertabellen, QA/QC-Prüfungen, Rezepte, Berichte, Auswahlen |
+| Module | 122 | Snapshot-Prüfung, Parametertabellen, QA/QC-Prüfungen, Rezepte, Berichte, Auswahlen |
 | Rhino und Grasshopper | 19 | Geometrie, Layer, Materialien, boolesche Operationen |
 | Speckle | 17 | Projekte, Modelle, Versionen, Senden und Empfangen |
 | Navisworks | 15 | Modellbaum, Ansichtspunkte, Kollisionsprüfungen (in Arbeit) |
 | IFC | 7 | IFC-Dateien ohne Revit lesen: Struktur, Eigenschaften, Validierung |
 | Graph, Snapshots, Exporte, Jobs | 24 | Audits des semantischen Graphen, Snapshot-Vergleiche, SQLite-Export, Hintergrundjobs |
 
-In der Standardkonfiguration werden 315 Werkzeuge aufgelistet (gezählt am aktuellen Server im Mock-Modus). Die Autodesk-Data-Werkzeuge erscheinen, wenn APS-Zugangsdaten konfiguriert sind. Die [Werkzeugreferenz](../tools-generated.md) listet jedes Werkzeug auf. Jedes Werkzeug trägt MCP-Annotationen (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), sodass Clients Lese- von Schreibzugriffen unterscheiden können.
+In der Standardkonfiguration werden 322 Werkzeuge aufgelistet (gezählt am aktuellen Server im Mock-Modus). Die Autodesk-Data-Werkzeuge erscheinen, wenn APS-Zugangsdaten konfiguriert sind. Die [Werkzeugreferenz](../tools-generated.md) listet jedes Werkzeug auf. Jedes Werkzeug trägt MCP-Annotationen (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), sodass Clients Lese- von Schreibzugriffen unterscheiden können.
 
 ### Erweiterte Revit-Automatisierung
 
@@ -295,7 +295,7 @@ $switch = Get-Content $registry.FullName -Raw | ConvertFrom-Json
 Invoke-RestMethod "$($switch.endpoint)/health"
 ```
 
-Die Antwort sollte `healthy` und die laufende Revit-Version melden. Suchen Sie in Revit den Ribbon-Reiter `AEC Bridge`. Das Panel Workflows enthält Open Panel, Health Check, Pending Actions und Reports. Das Panel Tools enthält Config, Help und About.
+Die Antwort sollte `healthy` und die laufende Revit-Version melden. Suchen Sie in Revit den Ribbon-Reiter `AEC Bridge`. Das Panel Model Bridge enthält Panel, Approve und Check model. Das Panel Connection hat einen Connected/Disconnected-Schalter; sein Ausklappbereich enthält Status, Config, Reports, Help und About.
 
 ## Sicherheit
 

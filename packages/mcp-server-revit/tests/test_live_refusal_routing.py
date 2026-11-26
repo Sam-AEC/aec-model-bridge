@@ -130,7 +130,7 @@ def test_closed_or_changed_session_refuses_without_redirect_or_request(monkeypat
     client, live, sent = registry_client(monkeypatch)
     live[:] = [] if replacement is None else [replacement]
     try:
-        with pytest.raises(BridgeError, match="Reconnect or restart this MCP client"):
+        with pytest.raises(BridgeError, match="Call revit_reconnect, or restart this MCP client"):
             client.call_tool("revit.set_parameter_value", {"element_id": 1, "parameter_name": "Mark", "value": "write"})
         with pytest.raises(BridgeError, match="changed or closed"):
             client.get_result("earlier-request", wait_s=0)

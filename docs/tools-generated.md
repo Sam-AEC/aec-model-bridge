@@ -23,7 +23,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `approve_plan` | Approve a pending ActionPlan so that its actions may be executed. | No | sync |
 | `execute_plan` | Run every action in an approved ActionPlan. | No | sync |
 | `get_proof_bundle` | Return the proof bundle (plan hash, approver, document, per-element before and new values, skipped elements and execution outcome) of a finished ActionPlan. | No | sync |
-| `list_pending_plans` | List all ActionPlans that are waiting for review. | No | sync |
+| `list_pending_plans` | List the ActionPlans waiting for human approval, with their plan_id. | No | sync |
 | `plan_actions` | Create a draft ActionPlan describing the model changes you want to make, capturing the before-state of each. | No | sync |
 | `plan_revert` | Draft a new ActionPlan that sets each parameter back to the before value recorded in an executed plan's proof bundle. | No | sync |
 | `policy_show` | Show the effective workspace policy (blocked and allowed tools, allowed categories, blocked parameters, plan size limits) and its hash. | No | sync |
@@ -63,7 +63,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
-| `job_cancel` | Cancel a running or queued background job. | No | sync |
+| `job_cancel` | Cancel a running or queued background job by job_id. | No | sync |
 | `job_status` | Return the status, progress, result or error of a background job started with run_async. | No | sync |
 
 ## Mcp Proxy Provider
@@ -76,10 +76,12 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | --- | --- | --- | --- |
 | `bcf_exchange_export_bcf` | Save issues (your own list and/or the recorded QA/QC issues) to a BCF 2. | No | sync |
 | `bcf_exchange_import_bcf` | Read a BCF. | No | sync |
+| `clash_triage_import_clash_report` | Read a Navisworks XML clash report or a BCF. | No | sync |
 | `clash_triage_list_clash_issues` | List the clash issues recorded by clash triage, optionally filtered by status and match confidence. | No | sync |
 | `clash_triage_match_clashes` | Match each clash from a Navisworks clash test to the Revit elements it involves, by UniqueId or IFC GUID, and say how sure each match is (exact, ambiguous or unmatched). | No | sync |
 | `familytype_mapper_audit_families` | Audit the families in a saved snapshot and report problems such as unmapped or inconsistent family types. | No | sync |
 | `familytype_mapper_list_type_mappings` | List family-type mappings found in a saved snapshot, optionally for one category. | No | sync |
+| `geometry_screening_run_checks` | Screen a saved snapshot with repeatable geometric checks: room area against a brief table, door width against a minimum, a turning circle inside a room outline, and travel distance through doors to exit rooms. | No | sync |
 | `hello_world_say_hello` | Example module command that returns a greeting; use it to confirm the module system works. | No | sync |
 | `ids_validator_validate_ifc` | Check an IFC file in the workspace against a buildingSMART IDS file and return pass or fail per specification with the GlobalIds of failing entities (capped, with full counts). | No | sync |
 | `links_worksets_audit_audit` | Check linked models and worksets for problems (unloaded or missing links, links not pinned or placed Origin to Origin, empty or default-named worksets, worksets owned by someone else, elements on the wrong workset) and give plain next steps. | No | sync |
@@ -90,7 +92,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `model_changes_list_snapshots` | List the saved model snapshots with their timestamps, newest first, so you can pick the latest and previous ones to compare. | No | sync |
 | `model_health_score` | Give a 0 to 100 health score for a saved snapshot with its components, and a trend across all saved snapshots of the same document with changes between captures. | No | sync |
 | `model_inspector_ask` | Answer a question about a saved snapshot by filtering its element records with the filter DSL. | No | sync |
-| `model_inspector_inspect_selection` | Return the snapshot records of the given elements (by UniqueId). | No | sync |
+| `model_inspector_inspect_selection` | Return the snapshot records of the given elements (by UniqueId) from a saved snapshot. | No | sync |
 | `model_inspector_list_groups` | List the model groups found in a saved snapshot. | No | sync |
 | `model_inspector_list_saved_queries` | List the saved named queries. | No | sync |
 | `model_inspector_run_saved_query` | Run a previously saved named query against a saved snapshot. | No | sync |
@@ -116,8 +118,11 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `qaqc_checker_list_issues` | List recorded QA/QC issues for a document, optionally filtered by status, severity and snapshot. | No | sync |
 | `qaqc_checker_list_rule_packs` | List the built-in QA/QC rule packs and the user packs in the workspace rule_packs folder, with a validity flag for each. | No | sync |
 | `qaqc_checker_list_rules` | List the QA/QC rules that are available, optionally for one rule pack. | No | sync |
+| `qaqc_checker_replay_naming_rules` | Replay the saved naming rules against a saved snapshot with no model call. | No | sync |
 | `qaqc_checker_resolve_issue` | Mark one recorded QA/QC issue as resolved. | No | sync |
 | `qaqc_checker_run_check` | Run a QA/QC rule pack against a saved snapshot and record the issues it finds. | No | sync |
+| `qaqc_checker_save_naming_rule` | Save a tested naming rule to the workspace naming_rules folder so it can be replayed without a model. | Yes | sync |
+| `qaqc_checker_test_naming_rule` | Test a proposed naming rule (category, regex, message, severity) against a saved snapshot and return how many names match and miss, with a capped sample of each. | No | sync |
 | `qaqc_checker_validate_rule_pack` | Schema-check a YAML rule pack and return actionable errors per rule (id, severity, required fields, unknown operators). | No | sync |
 | `recipe_runner_get_run_status` | Return the status and results of one recipe run. | No | sync |
 | `recipe_runner_list_recipes` | List the available automation recipes. | No | sync |
@@ -180,6 +185,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_update_sheets` | Bulk renumber and rename sheets from a table (number = the current number; new_number and/or new_name). | Yes | sync |
 | `revit_warnings_delta` | Track Revit warnings across a build phase. | No | sync |
 | `schedule_consistency_check_doors_and_rooms` | Check door and room schedules in a saved snapshot for duplicate or missing Marks, missing or identical From/To rooms, unnumbered or duplicate room numbers and zero-area rooms, and optionally Marks that do not fit a pattern you supply. | No | sync |
+| `schedule_diff_compare` | Compare two saved snapshots by their sheet list, sheet revision fields and schedule rows: sheets added, removed, renumbered, renamed or moved in the numbering order, revision fields changed, and schedule rows added, removed, changed or moved. | No | sync |
 | `selection_tools_group_convert_to_detail` | Convert a model group into a detail group. | Yes | sync |
 | `selection_tools_group_rename` | Rename a model group identified by its UniqueId. | Yes | sync |
 | `selection_tools_group_ungroup` | Ungroup a model group identified by its UniqueId. | Yes | sync |
@@ -268,7 +274,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_get_document_info` | Return metadata about the active Revit document, such as its title, path and workshare status. | No | sync |
 | `revit_get_element_bounding_box` | Return the axis-aligned bounding box (min and max corner, feet) of an element. | No | sync |
 | `revit_get_element_geometry` | Get geometric data for an element: location point or curve endpoints, bounding box, level, area, volume, and length. | No | sync |
-| `revit_get_element_parameters` | Return every instance parameter of one element (name, value, storage type and read-only flag). | No | sync |
+| `revit_get_element_parameters` | Return every instance parameter of one element (name, value, storage type and read-only flag), and the element's unique_id. | No | sync |
 | `revit_get_element_type` | Find element types by category name and family name in the active document. | No | sync |
 | `revit_get_elements_by_type` | Get element IDs and key parameters, filtered by type, category, and/or level. | No | sync |
 | `revit_get_group_members` | List the member elements of a model group. | No | sync |
@@ -279,8 +285,8 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_get_result` | Collect the outcome of an earlier Revit call that returned status 'running' with a request_id. | No | sync |
 | `revit_get_revision_sequences` | List the revision sequences defined in the active Revit document. | No | sync |
 | `revit_get_rvt_links` | List the linked Revit models (link types) in the active document. | No | sync |
-| `revit_get_schedule_data` | Return the rows and columns of an existing schedule. | No | sync |
-| `revit_get_selection` | Return the ElementIds of the elements currently selected in the Revit UI. | No | sync |
+| `revit_get_schedule_data` | Return the rows and columns of an existing schedule by schedule_id. | No | sync |
+| `revit_get_selection` | Return the ElementIds, and the matching UniqueIds, of the elements currently selected in the Revit UI. | No | sync |
 | `revit_get_sheet_info` | Return detailed information about one sheet, such as its number, name, title block and placed views. | No | sync |
 | `revit_get_snapshot_delta` | Get lists of unique IDs for elements added, modified, or deleted during the active session. | No | sync |
 | `revit_get_type_parameters` | Return the type parameters of the family type that an element belongs to. | No | sync |
@@ -310,6 +316,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_populate_titleblock` | Write a set of parameter values into the title block of a sheet. | Yes | sync |
 | `revit_preview_elements` | Preview which elements a proposed change affects: select and zoom to them in the active view and temporarily isolate them. | No | sync |
 | `revit_raw_command` | Advanced: send any Revit add-in command (for example revit. | Yes | sync |
+| `revit_reconnect` | Use after Revit was restarted or closed, when Revit calls are refused because the selected session changed or closed. | No | sync |
 | `revit_reflect_get` | Advanced: read any public Revit API property of an object identified by target_id, through reflection. | Yes | sync |
 | `revit_reflect_set` | Advanced escape hatch: set any writable Revit API property of an object identified by target_id, through reflection. | Yes | sync |
 | `revit_relinquish_all` | Relinquish every element and workset the current user owns in a workshared model. | Yes | sync |
@@ -321,7 +328,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_select_by_unique_ids` | Select elements by UniqueId and zoom to them in the active view. | No | sync |
 | `revit_set_element_material` | Assign a material, by name, to an element or to one of its faces. | Yes | sync |
 | `revit_set_parameter_value` | Set one instance parameter on one element to a new value in the active Revit document. | Yes | sync |
-| `revit_set_selection` | Replace the current Revit UI selection with the given ElementIds. | Yes | sync |
+| `revit_set_selection` | Replace the current Revit UI selection with the given ElementIds. | No | sync |
 | `revit_set_type_parameter` | Set one type parameter on a family type, given by type_id. | Yes | sync |
 | `revit_sync_to_central` | Synchronise a workshared model with the central model with a comment, optionally relinquishing ownership. | Yes | sync |
 | `revit_tag_all_in_view` | Tag every element of a category in the active view. | Yes | sync |
