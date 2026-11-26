@@ -170,80 +170,60 @@ Open-source Revit MCP server · Revit 2024 – 2027 · 317 tools · Claude, Code
 
 [Get started](#quick-start) | [Example workflows](#example-workflows) | [Tools](docs/tools-generated.md) | [Documentation](#documentation) | [Download](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
-<img src="assets/readme-flow.svg" alt="Three steps. 1, AI proposes: it reads the model and drafts a plan, and nothing is written. 2, You approve: you review the plan in the Revit panel, and only a person can approve. 3, Revit changes: the approved actions run once and a proof file records each one." width="900">
+<a href="docs/images/readme/film.mp4"><img src="docs/images/readme/film.gif" alt="The assistant reads the model, drafts a plan, a person approves it in the Revit panel, and Revit applies it." width="800"></a>
+
+<sub>Illustrative run on the Autodesk Snowdon Towers sample. [Watch the MP4](docs/images/readme/film.mp4).</sub>
 
 </div>
 
-**Pre-release (1.5.0).** Read-only checks have run in a live Revit 2024 session. Writes and rollback have automated tests only and still need live acceptance in Revit. See [status and limits](#status-and-limits).
+**Pre-release (1.5.0).** See [status and limits](#status-and-limits).
 
 <p align="center">
-  <img src="docs/images/readme/revit-villa-panel.png" alt="Revit villa model beside the AEC Model Bridge panel with Dev mode enabled." width="900">
+  <img src="docs/images/readme/revit-villa-panel.png" alt="Revit villa model beside the AEC Model Bridge panel." width="900">
 </p>
 
 AEC Model Bridge is an open-source Revit MCP server with a native Revit
-add-in. Claude, Codex, Cursor and other AI assistants use it to read your open
-model and to propose edits.
+add-in. AI assistants use it to read your open model and propose edits.
 
 - **Reads run straight away.** Warnings, elements, parameters, sheets, views.
 - **Writes wait for you.** The assistant drafts a plan with `plan_actions`. You
   review it in the Revit panel. `execute_plan` applies it only after you approve.
-- **Every executed plan leaves a proof file** that records what changed. The
-  assistant can draft a revert plan from it, and you approve that the same way.
-- **No Revit on this machine?** Mock mode starts the server anywhere and returns
-  sample data. [Try it in 60 seconds](#quick-start).
+- **Every executed plan leaves a proof file** that can seed a revert plan, which
+  you approve the same way.
+- **No Revit here?** Mock mode returns sample data. [Try it in 60 seconds](#quick-start).
 
-[See the approval flow](#how-approval-works).
-
-**Who it is for.** BIM coordinators and managers who want an AI assistant to
-check model quality, find affected elements and prepare parameter fixes, while a
-person stays in control of every change. You do not need to write scripts.
+It is for BIM coordinators and managers who want an assistant to check model
+quality and prepare parameter fixes while a person approves every change. You
+do not need to write scripts.
 
 <a id="status-and-limits"></a>
-**Status and limits.** This is pre-release software. Try it on a copy of a
-project first: approving a plan changes the open model.
+**Status and limits.** Try it on a copy of a project first: approving a plan
+changes the open model.
 
 - Verified live: bounded read-only checks in Revit 2024
   ([report](docs/revit-addin-live-validation-2026-10-14.md)).
-- Not yet verified live: writes, rollback, recovery, and Revit 2025 to 2027. CI
-  runs the Python tests and compiles the add-in, but does not start Revit. See
-  the [release checklist](docs/release-checklist.md).
-- This page follows the development branch. The latest release may not include
-  everything described here.
-- Known limits are listed under [How approval works](#how-approval-works) and in
-  [docs/security.md](docs/security.md).
+- Not verified live: writes, rollback, recovery, and Revit 2025 to 2027. CI does
+  not start Revit. See the [release checklist](docs/release-checklist.md).
+- This page follows the development branch. The latest release may differ.
 
 Setup is documented for Claude Desktop, VS Code with GitHub Copilot, Cursor and
-Codex. The server speaks standard MCP over stdio, so Claude Code, Windsurf,
-Cline, Continue, Zed and Gemini CLI should work too. The
-[compatibility](docs/compatibility.md) page lists what is documented and what
-is untested.
-
-The same server also inspects IFC files, automates Rhino and Grasshopper, and
-connects to Speckle. [Integration status](#other-integrations) shows which
-providers are available and which are still in progress.
+Codex ([compatibility](docs/compatibility.md)). The server also handles IFC,
+Rhino, Grasshopper and Speckle ([integrations](#other-integrations)).
 
 ## Star History
 
 <a href="https://www.star-history.com/?repos=sam-aec%2Faec-model-bridge&type=date&legend=top-right">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&theme=dark&legend=bottom-right" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right" />
- </picture>
+  <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=sam-aec/aec-model-bridge&type=date&legend=bottom-right">
 </a>
 
 ## Example workflows
 
-For BIM coordinators: check model quality, review the affected elements,
-approve a parameter fix, then check the result and export a report. These
-examples use tools in the [current catalog](docs/tools-generated.md).
-
 | Workflow | Example request | Tools used |
 | --- | --- | --- |
-| Model review | "Show the active document, list its warnings and find affected elements." | `revit_get_document_info`, `revit_get_warnings`, `revit_get_elements_by_type` |
-| Parameter updates | "Find walls on Level 02, show their Comments values, and propose a batch update." | `revit_get_elements_by_type`, `revit_get_element_parameters`, `revit_batch_set_parameters` |
-| Drawing production | "Prepare a sheet list from this CSV, then propose creating the sheets and placing the views." | `revit_batch_create_sheets_from_csv`, `revit_place_viewport_on_sheet` |
-| IFC review | "Show this IFC file's storeys, inspect the wall properties and report schema validation issues." | `ifc_get_spatial_structure`, `ifc_get_properties`, `ifc_validate` |
+| Model review | "List the active document's warnings and find affected elements." | `revit_get_document_info`, `revit_get_warnings`, `revit_get_elements_by_type` |
+| Parameter updates | "Find walls on Level 02 and propose a batch update of Comments." | `revit_get_elements_by_type`, `revit_get_element_parameters`, `revit_batch_set_parameters` |
+| Drawing production | "Create sheets from this CSV and place the views." | `revit_batch_create_sheets_from_csv`, `revit_place_viewport_on_sheet` |
+| IFC review | "Show this IFC file's storeys and report schema validation issues." | `ifc_get_spatial_structure`, `ifc_get_properties`, `ifc_validate` |
 
 For a first run in Revit, try:
 
@@ -260,16 +240,13 @@ Comments to "Coordination reviewed" for the elements I choose. After I approve
 the plan in Revit, apply it and read the values back to confirm the result.
 ```
 
-For edits, the assistant creates a plan with `plan_actions`. You review it in
-the Revit panel, and only then does `execute_plan` apply it. IFC review runs
-without Revit.
+IFC review runs without Revit.
 
-The snapshot QA/QC and report modules need a compatible saved snapshot. The
-handoff from Revit to these modules currently needs the filename and workspace
-to match. If you leave out `snapshot_id`, most of these modules now refuse in
-bridge mode with a clear message, and return generated sample data only in mock
-mode. Not every module has that guard yet (`model_bloat` does not), so always
-pass `snapshot_id`. For live inspection, use the direct Revit tools above.
+Snapshot QA/QC and report modules need a compatible saved snapshot, and the
+filename and workspace must match. Always pass `snapshot_id`: without it most
+modules refuse in bridge mode and return sample data in mock mode
+(`model_bloat` does not yet). For live inspection,
+use the direct Revit tools above.
 
 ## Quick start
 
@@ -277,15 +254,12 @@ pass `snapshot_id`. For live inspection, use the direct Revit tools above.
 
 1. Install [uv](https://docs.astral.sh/uv/getting-started/installation/).
 2. Add the server to your client with the JSON under Manual setup and set
-   `"MCP_REVIT_MODE": "mock"`. The one-click buttons below start in `bridge`
-   mode, which needs Revit.
-3. Restart the client and ask it to list the AEC Model Bridge tools.
-4. Ask it to read the active document. Mock mode returns generated sample
-   data, never your model, so the answers are a way to see the tools and the
-   approval flow before you connect Revit.
-5. For your own model, install the Revit add-in
-   ([install steps](#install-the-revit-add-in)) and switch the mode to
-   `bridge`.
+   `"MCP_REVIT_MODE": "mock"`. The one-click buttons below use `bridge` mode,
+   which needs Revit.
+3. Restart the client and ask it to list the tools, then read the active
+   document. Mock mode returns generated sample data, never your model.
+4. For your own model, [install the Revit add-in](#install-the-revit-add-in) and
+   switch the mode to `bridge`.
 
 **One-click install**
 
@@ -293,19 +267,16 @@ pass `snapshot_id`. For live inspection, use the direct Revit tools above.
 [![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-111111?style=for-the-badge)](https://cursor.com/en/install-mcp?name=aec-model-bridge&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL1NhbS1BRUMvYWVjLW1vZGVsLWJyaWRnZSNzdWJkaXJlY3Rvcnk9cGFja2FnZXMvbWNwLXNlcnZlci1yZXZpdCIsImFlYy1tb2RlbC1icmlkZ2UiXSwiZW52Ijp7Ik1DUF9SRVZJVF9NT0RFIjoiYnJpZGdlIn19)
 [![Claude Desktop bundle](https://img.shields.io/badge/Claude_Desktop-.mcpb_bundle-D97757?style=for-the-badge)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
-The buttons need [uv](https://docs.astral.sh/uv/getting-started/installation/)
-and nothing else. The server uses `~/Documents/AEC Model Bridge` as its
-workspace unless you set your own. For Claude Desktop, download the `.mcpb`
-file from the latest release and open it. Live Revit work still needs Revit and
-[the add-in](#install-the-revit-add-in). Mock mode needs neither.
+The buttons need only uv. The workspace is `~/Documents/AEC Model Bridge`
+unless you set your own. For Claude Desktop, open the `.mcpb` file from the
+latest release. Live Revit work also needs [the add-in](#install-the-revit-add-in).
 
 **Manual setup**
 
-For live Revit automation you need Windows, a licensed Revit 2024 to 2027,
-Python 3.11 or newer, [uv](https://docs.astral.sh/uv/getting-started/installation/), and the Revit add-in
-([install steps](#install-the-revit-add-in)). Then add this to your
-`claude_desktop_config.json` (Codex, Cursor and VS Code use the same values;
-the two directory variables are optional and default to the workspace above):
+Live Revit automation needs Windows, a licensed Revit 2024 to 2027, Python 3.11
+or newer, uv and the [add-in](#install-the-revit-add-in). Add this to
+`claude_desktop_config.json` (Codex, Cursor and VS Code use the same values).
+The two directory variables are optional and default to the workspace above.
 
 ```json
 {
@@ -327,136 +298,101 @@ the two directory variables are optional and default to the workspace above):
 }
 ```
 
-Want to look at the tools first, without Revit? Set `"MCP_REVIT_MODE": "mock"`.
-The server then starts on any machine, lists every tool with its schema and
-returns canned responses. It does not touch a model. A `Dockerfile` for the same mock
-mode is in the repository root (`docker build -t aec-model-bridge .`, then
-`docker run -i --rm aec-model-bridge`).
+Set `"MCP_REVIT_MODE": "mock"` to list every tool and its schema without
+touching a model. A root `Dockerfile` runs mock mode:
+`docker build -t aec-model-bridge .`, then `docker run -i --rm aec-model-bridge`.
 
-Using VS Code? The [extension source and local install steps](packages/vscode-extension/README.md)
-register the MCP server and show the Revit connection status. It has not been
-published to the Marketplace.
+The [VS Code extension](packages/vscode-extension/README.md) shows connection
+status. It is not on the Marketplace.
 
 ### Tools at a glance
 
 | Area | Tools | What they do |
 | --- | --- | --- |
-| Revit | 112 | Read the model, create and edit elements, parameters, views, sheets, schedules, exports, worksharing |
-| Approval | 6 | Plan, review, approve, execute and roll back model changes; show the workspace policy |
+| Revit | 112 | Read the model, edit elements, parameters, views, sheets, schedules, exports, worksharing |
+| Approval | 6 | Plan, review, approve, execute and roll back changes; show the workspace policy |
 | Modules | 117 | Snapshot inspection, parameter grids, QA/QC checks, recipes, reports, selections |
 | Rhino and Grasshopper | 19 | Geometry, layers, materials, boolean operations |
 | Speckle | 17 | Projects, models, versions, send and receive |
 | Navisworks | 15 | Model tree, viewpoints, clash tests (in progress) |
-| IFC | 7 | Read IFC files without Revit: structure, properties, validation |
-| Graph, snapshots, exports, jobs | 24 | Semantic graph audits, snapshot diffs, SQLite export, background jobs |
+| IFC | 7 | Read IFC files without Revit |
+| Graph, snapshots, exports, jobs | 24 | Graph audits, snapshot diffs, SQLite export, background jobs |
 
-317 tools are listed in the default setup (counted from the current server in mock
-mode). The Autodesk Data tools appear when APS credentials are configured. The
+317 tools are listed in the default setup (counted from the current server in
+mock mode). Autodesk Data tools appear when APS credentials are configured. The
 [tool reference](docs/tools-generated.md) lists every tool. Each tool carries
 MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`,
 `openWorldHint`), so clients can tell reads from writes.
 
 ### Advanced Revit automation
 
-Alongside model queries and parameter updates, Revit tools create building
-elements, views, sheets, schedules, tags and dimensions, and export IFC, DWG,
-images and Navisworks files. See the [tool reference](docs/tools-generated.md)
-for supported operations and inputs.
-
-For anything the tool catalog does not cover, `revit_invoke_method`,
-`revit_reflect_get` and `revit_reflect_set` work with public Revit API members.
-`revit_execute_python` runs IronPython inside Revit. These advanced tools have
-the same permissions as the Revit process. Use them only with MCP clients and
-prompts you trust.
+For anything the catalog does not cover, `revit_invoke_method`,
+`revit_reflect_get` and `revit_reflect_set` work with public Revit API members,
+and `revit_execute_python` runs IronPython inside Revit. They have the same
+permissions as the Revit process. Use them only with clients and prompts you
+trust.
 
 ## How it works
 
-The MCP client talks to one Python hub. The hub sends each call to the
-provider that owns the tool. Providers for desktop apps talk to a small add-in
-inside that app over localhost.
+The MCP client talks to one Python hub, which routes each call to the provider
+that owns the tool. Desktop providers talk to an add-in inside the app over
+localhost.
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/architecture-dark.png">
-    <img src="docs/images/architecture-light.png" alt="Architecture of AEC Model Bridge: an MCP client such as Claude or Codex calls the Python MCP hub, which routes tool calls to the Revit, Rhino, Navisworks, IFC and Speckle providers. The Revit and Rhino providers talk to add-ins over localhost HTTP, the IFC provider reads IFC files with IfcOpenShell, and Navisworks is still in progress." width="900">
+    <img src="docs/images/architecture-light.png" alt="Architecture: an MCP client calls the Python hub, which routes to the Revit, Rhino, Navisworks, IFC and Speckle providers." width="900">
   </picture>
 </p>
 
-<sub>Diagram source: [architecture.mmd](docs/diagrams/architecture.mmd). Regenerate the images with `python scripts/render_diagrams.py`.</sub>
-
-Teal boxes work today. The amber dashed boxes are in progress. Indigo
-shapes are data and external services.
+<sub>Diagram source: [architecture.mmd](docs/diagrams/architecture.mmd). Regenerate the images with `python scripts/render_diagrams.py`. Teal boxes work today, amber dashed boxes are in progress, indigo shapes are external services.</sub>
 
 ### How approval works
 
-In plain words:
-
-- **Two modes you will use.** `look_only` lets the assistant read but refuses
+- **Two modes you will use.** `look_only` lets the assistant read and refuses
   every tool that changes the model. `ask_first` (the default, also written
   `required`) lets it draft changes, but nothing runs until a person approves.
-  A third value, `auto`, switches the check off and is meant only for
-  controlled pipelines.
+  `auto` switches the check off, for controlled pipelines only
+  (`MCP_REVIT_APPROVAL_MODE=auto`).
 - **Only a person approves.** Approving, rejecting and rolling back plans are
-  not offered to AI clients. A person approves in the Revit panel or with the
+  not offered to AI clients. Approve in the Revit panel or with the
   `aec-model-bridge-approve` command.
-- **Nothing applies on its own.** A change runs only if it matches an approved
-  action of an approved plan, once.
-- **Undo.** A plan of parameter writes, moves and rotations is one Ctrl+Z step
-  when the add-in supports plan batches (UNVERIFIED in live Revit). Other plans
-  undo one action per press.
-
-The hub stops any tool call that changes the model unless it carries an
-approved plan. The AI proposes a plan, you review it, and the add-in runs it on
-Revit's main thread. The panel's Plans list shows each pending plan's tools,
-arguments and, when one was captured, the before-value. When a plan carries
-review text (reasoning, citations, assumptions or warnings), the card offers
-"Show the review to enable Approve" and requires you to open it before approval.
-Malformed, unsupported or oversized reviews block approval. If the panel cannot
-show the approved content completely, it disables Approve and points to
-`aec-model-bridge-approve show <plan_id>` for the full plan. See
-[plan review in the panel](docs/security.md#plan-review-in-the-panel).
-This UI is covered by automated browser checks; live WebView2 approval still
-needs acceptance. Parameter and model-edit actions each run in their own named
-transaction; some actions (save, sync, scripts) do not, so Ctrl+Z does not
-cover them.
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-dark.png">
-    <img src="https://raw.githubusercontent.com/Sam-AEC/aec-model-bridge/main/docs/images/readme/readme-workflow-light.png" alt="Inspect, Propose, Approve, Verify. Four steps: inspect finds an empty Mark, propose drafts a change, approve is a human decision, verify reads the value back. Example values are illustrative." width="900">
-  </picture>
-</p>
+- **Nothing applies on its own.** A change runs once, and only if it matches an
+  approved action of an approved plan.
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/approval-flow-dark.png">
-    <img src="docs/images/approval-flow-light.png" alt="Approval flow: the AI assistant drafts a plan with plan_actions, the side panel shows the proposed changes (counts, scope, before and after), and a human approves in the panel or with the aec-model-bridge-approve CLI, never over MCP. The hub checks that the plan matches the approved tool and arguments, once only. Revit then runs each action in its own transaction, so Ctrl+Z undoes one action per press. If you reject or never approve, the call is blocked and the model stays untouched." width="900">
+    <img src="docs/images/approval-flow-light.png" alt="Approval flow: the assistant drafts a plan, a person approves it in the panel or the command line, and the hub runs only the approved actions." width="900">
   </picture>
 </p>
 
-<sub>Diagram source: [approval-flow.mmd](docs/diagrams/approval-flow.mmd). Regenerate the images with `python scripts/render_diagrams.py`.</sub>
+<sub>Diagram source: [approval-flow.mmd](docs/diagrams/approval-flow.mmd).</sub>
 
-If a plan turns out wrong, undo it with Revit's Ctrl+Z. When every action of a
-plan is a parameter write, move or rotation and the add-in lists
-`revit.execute_plan_batch`, the plan runs in one Revit transaction group named
-"AEC Model Bridge: <plan title> (<short id>)", so one press undoes the whole plan.
-If one action fails, the whole group is rolled back. This is UNVERIFIED in a live
-Revit session. Other plans run one named transaction per action, so they can take
-several presses. A second route is a revert plan: the
-assistant drafts one with `plan_revert` from the proof of an executed plan, and
-you approve it like any other plan. `rollback_plan` also writes the recorded
-before-values back in reverse order and can skip an action when no before-value
-was recorded, but it is for people only and has no panel button or command-line
-command yet, so do not count on it. None of these paths is verified in a live
-Revit session yet (UNVERIFIED). Operations that cannot be reversed, such as
-file output, are not undone by any of them and do not get a second confirmation
-yet (planned). The panel's Plans list shows pending plans only; `aec-model-bridge-approve show <plan_id>`
-works for a plan in any state, while `proofs/` bundles exist only for plans that
-were executed (or attempted). The lifecycle is in
-[ADR 0008](docs/adr/0008-approval-gate-lifecycle.md).
+The panel's Plans list shows each pending plan's tools, arguments and, when
+captured, the before-value. Review text (reasoning, citations, assumptions,
+warnings) must be opened before Approve is enabled. Malformed, unsupported or
+oversized reviews block approval. If the panel cannot show a plan completely, it
+disables Approve and points to `aec-model-bridge-approve show <plan_id>`, which
+works for a plan in any state. See
+[plan review in the panel](docs/security.md#plan-review-in-the-panel). Live
+WebView2 approval still needs acceptance.
 
-For unattended pipelines you can set `MCP_REVIT_APPROVAL_MODE=auto`. That turns
-the human check off, so use it only in a controlled environment.
+**Undo.** Parameter and model-edit actions each run in their own named
+transaction, so Ctrl+Z undoes one action per press. Save, sync and scripts are
+not covered. If every action of a plan is a parameter write, move or rotation and
+the add-in lists `revit.execute_plan_batch`, the plan runs as one transaction
+group named "AEC Model Bridge: <plan title> (<short id>)". One press undoes it,
+and one failed action rolls the whole group back.
+
+**Revert.** The assistant can draft a revert plan with `plan_revert` from the
+proof of an executed plan, and you approve it like any other plan.
+`rollback_plan` writes recorded before-values back in reverse order. It is for
+people only and has no panel button or command yet, so do not count on it.
+File output and other irreversible operations are not undone and get no second
+confirmation yet (planned). No undo or revert path is verified in a live Revit
+session (UNVERIFIED). `proofs/` bundles exist only for plans that were executed
+or attempted. See [ADR 0008](docs/adr/0008-approval-gate-lifecycle.md).
 
 ## Supported Revit versions
 
@@ -467,37 +403,38 @@ the human check off, so use it only in a controlled environment.
 | 2026 | .NET 8 for Windows | .NET 8 SDK |
 | 2027 | .NET 10 for Windows | .NET 10 SDK |
 
-These are the build targets. CI compiles the add-in for all four years, but no
-year has been verified in a live Revit session yet.
-
-You also need Windows 10 or 11, Python 3.11 or later, and a licensed Revit
-installation for the version you use. Mock mode runs the server without Revit,
-which is useful for development and tests.
+CI compiles the add-in for all four years, but no year is verified in a live
+Revit session. You also need Windows 10 or 11, Python 3.11 or later, and a
+licensed Revit. Mock mode runs without Revit.
 
 ### Other integrations
 
 | Integration | Status |
 |---|---|
 | Revit | Available. Native C# add-in. |
-| IFC (IfcOpenShell) | Available. Reads IFC files without Revit running. |
+| IFC (IfcOpenShell) | Available. Reads IFC files without Revit. |
 | Rhino and Grasshopper | Available. Connects to the Rhino add-in on `localhost:3004`. |
 | Speckle | Available. Needs a Speckle client ID in your environment. |
-| Navisworks Manage | In progress. The provider and its tools are registered. The Navisworks add-in is not finished. |
-| Power BI | In progress. The provider and tool exist but are not registered in the hub. |
+| Navisworks Manage | In progress. Provider and tools are registered; the add-in is not finished. |
+| Power BI | In progress. Provider and tool exist but are not registered in the hub. |
 | Excel, Parquet and DuckDB | Planned. |
 
-Product names and logos belong to their owners. The banner uses them only to show what this project works with.
+Product names and logos belong to their owners.
 
 ## Install the Revit add-in
 
-**Easiest (Windows):** download `AECModelBridge-Setup-<version>.exe` from the [latest release](https://github.com/Sam-AEC/aec-model-bridge/releases/latest), double-click it, pick your Revit versions and restart Revit. It installs the add-in and the bundled Python server. If you tick the box, it also sets up Claude Desktop and VS Code, and it backs up your current settings first. Uninstall it from Windows Settings. The steps below are for building from source.
-
-You install two parts: the Python MCP server and the Revit add-in. Live Revit
-automation needs both.
+**Easiest (Windows):** download `AECModelBridge-Setup-<version>.exe` from the
+[latest release](https://github.com/Sam-AEC/aec-model-bridge/releases/latest),
+run it, pick your Revit versions and restart Revit. It installs the add-in and
+the bundled Python server. If you tick the box, it also sets up Claude Desktop
+and VS Code after backing up your settings. Uninstall from Windows Settings. The steps below build from source.
 
 ### 1. Install the MCP server
 
-To run the server without a clone, use `uvx` as in [Manual setup](#quick-start) or the [install guide](docs/install.md#run-the-server-with-uvx). The short `uvx aec-model-bridge` form needs a PyPI release, which has not happened yet. To work on the source:
+To run the server without a clone, use `uvx` as in [Manual setup](#quick-start)
+or the [install guide](docs/install.md#run-the-server-with-uvx). The short
+`uvx aec-model-bridge` form needs a PyPI release, which does not exist yet. To
+work on the source:
 
 ```powershell
 git clone https://github.com/Sam-AEC/aec-model-bridge.git
@@ -510,9 +447,8 @@ python -m pip install -e packages/mcp-server-revit
 
 ### 2. Install the Revit add-in
 
-Set the version to match your Revit installation. If Windows blocks the
-downloaded scripts, right-click each `.ps1` file, open Properties, and select
-Unblock before running them.
+If Windows blocks the downloaded scripts, right-click each `.ps1` file, open
+Properties, and select Unblock.
 
 ```powershell
 $RevitVersion = Read-Host "Revit year (2024, 2025, 2026, or 2027)"
@@ -533,31 +469,26 @@ The add-in manifest is installed per user in:
 %APPDATA%\Autodesk\Revit\Addins\<year>
 ```
 
-Use `-AllUsers` with `install.ps1` to install the manifest under
-`C:\ProgramData\Autodesk\Revit\Addins\<year>` instead.
-
-To prepare binaries for every supported version in one pass:
+Add `-AllUsers` to `install.ps1` to use
+`C:\ProgramData\Autodesk\Revit\Addins\<year>` instead. To prepare every
+supported version:
 
 ```powershell
 .\scripts\package.ps1 -RevitVersion All
 ```
 
-Each [GitHub release](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
-has a ready-made package per Revit year, for example
-`aec-model-bridge-revit-2026-<version>.zip`. Unzip it and run
-`.\install.ps1 -RevitVersion 2026` instead of building from source. For a double-click
-Windows installer, `scripts/build-installer.ps1` builds one with Inno Setup.
-The full guide, with troubleshooting, is in [docs/install.md](docs/install.md).
+Each [release](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
+has a package per Revit year, for example `aec-model-bridge-revit-2026-<version>.zip`.
+Unzip it and run `.\install.ps1 -RevitVersion 2026` instead of building.
+`scripts/build-installer.ps1` builds an Inno Setup installer. Troubleshooting is
+in [docs/install.md](docs/install.md).
 
 ## Connect Claude Desktop to Revit
 
-Add the server to your MCP client configuration. For Claude Desktop, that is
-the `mcpServers` section of `claude_desktop_config.json`. Codex, Cursor, VS
-Code and other MCP clients use the same `command`, `args` and `env` values in
-their own config format.
-
-Use the Python executable from your virtual environment, and choose a workspace
-folder the server may access:
+Add the server to the `mcpServers` section of `claude_desktop_config.json`.
+Codex, Cursor, VS Code and other MCP clients use the same `command`, `args` and
+`env` values in their own format. Use the Python from your virtual environment
+and a workspace folder the server may access:
 
 ```json
 {
@@ -585,21 +516,19 @@ folder the server may access:
 }
 ```
 
-Leave out `MCP_REVIT_HOST_VERSION` to target the newest open Revit instance.
-Set it to a year such as `2024` or `2026` to lock a client entry to that Revit
-version. `MCP_REVIT_BRIDGE_URL` overrides the endpoint for advanced setups.
+Leave out `MCP_REVIT_HOST_VERSION` to target the newest open Revit. Set it to a
+year such as `2024` or `2026` to lock an entry to that version.
+`MCP_REVIT_BRIDGE_URL` overrides the endpoint.
 
-VS Code users can start from [`.vscode/mcp.json`](.vscode/mcp.json). Hermes
-Desktop users can start from [`docs/examples/hermes-desktop.json`](docs/examples/hermes-desktop.json) after replacing the
-placeholder Python path. Clients that support MCP Bundles can install the
-`.mcpb` file from the
-[latest release](https://github.com/Sam-AEC/aec-model-bridge/releases/latest).
-The Revit add-in is still required, because the server talks to the running
-desktop application.
+Other starting points: [`.vscode/mcp.json`](.vscode/mcp.json) and
+[`docs/examples/hermes-desktop.json`](docs/examples/hermes-desktop.json) (replace
+the placeholder Python path). MCP Bundle clients can use the `.mcpb` file from
+the [latest release](https://github.com/Sam-AEC/aec-model-bridge/releases/latest).
+The add-in is still required.
 
 ### Check the connection
 
-Restart Revit after installing the add-in, open a model, and run:
+Restart Revit, open a model, and run:
 
 ```powershell
 $registry = Get-ChildItem "$env:LOCALAPPDATA\AECModelBridge\registry\revit-*.json" | Select-Object -First 1
@@ -607,78 +536,67 @@ $switch = Get-Content $registry.FullName -Raw | ConvertFrom-Json
 Invoke-RestMethod "$($switch.endpoint)/health"
 ```
 
-The response should report `healthy` and the running Revit version. In Revit,
-look for the `AEC Bridge` ribbon tab. Its Workflows panel has Open Panel,
-Health Check, Pending Actions and Reports. Its Tools panel has Config, Help
-and About.
+The response should report `healthy` and the Revit version. In Revit, look for
+the `AEC Bridge` ribbon tab. Workflows has Open Panel, Health Check, Pending
+Actions and Reports. Tools has Config, Help and About.
 
 ## Security
 
 - The Revit bridge listens on localhost only.
-- The server reads and writes only inside the folders in
-  `MCP_REVIT_ALLOWED_DIRECTORIES`.
-- Mutating tools need an approved plan unless you turn approval off, and
-  `look_only` mode refuses them outright.
-- Approval is recorded with the channel (panel or command line) and your
-  operating-system account. It does not prove who is typing, so do not give an
-  AI client a shell on the account you approve plans with.
-- Tool calls are written to an audit log, and secrets are redacted.
+- The server reads and writes only inside `MCP_REVIT_ALLOWED_DIRECTORIES`.
+- Mutating tools need an approved plan unless you turn approval off.
+- Approval records the channel (panel or command line) and your operating-system
+  account. It does not prove who is typing, so do not give an AI client a shell
+  on the account you approve with.
+- Tool calls go to an audit log, and secrets are redacted.
 
-Details are in [docs/security.md](docs/security.md). To report a
-vulnerability, follow [SECURITY.md](.github/SECURITY.md).
+Details: [docs/security.md](docs/security.md). To report a vulnerability, follow
+[SECURITY.md](.github/SECURITY.md).
 
 ## FAQ
 
 ### What is an MCP server for Revit?
 
 The Model Context Protocol (MCP) is an open standard that lets AI assistants
-call tools in other software. An MCP server for Revit publishes Revit
-operations as tools. The assistant picks the tools, and the add-in runs them
-inside Revit.
+call tools in other software. This server publishes Revit operations as tools,
+and the add-in runs them in Revit.
 
 ### Which AI assistants work with it?
 
 Any MCP client that can start a local stdio server. Setup is documented for
-Claude Desktop, VS Code with GitHub Copilot, Cursor and Codex, and for clients
-that read a standard `mcpServers` configuration. Windsurf, Cline, Roo Code,
-Continue, Zed, Claude Code and Gemini CLI should work the same way but have not
-been tested. See [compatibility](docs/compatibility.md). The panel chat can also
-use an Anthropic API key, or the `claude` or `codex` command-line tools if they
-are installed. See [ADR 0012](docs/adr/0012-native-agent-chat-backend.md).
+Claude Desktop, VS Code with GitHub Copilot, Cursor and Codex. Windsurf, Cline,
+Roo Code, Continue, Zed, Claude Code and Gemini CLI should work but are
+untested ([compatibility](docs/compatibility.md)). The panel chat can also use
+an Anthropic API key, or the `claude` or `codex` command-line tools
+([ADR 0012](docs/adr/0012-native-agent-chat-backend.md)).
 
 ### Can the AI change my model without asking?
 
-Not in the default mode. Tools that change the model are blocked until a plan
-is approved by a person, in the Revit panel or with the
-`aec-model-bridge-approve` command. Read-only tools run without approval. In
-`look_only` mode nothing that changes the model runs at all. If you set
-`MCP_REVIT_APPROVAL_MODE=auto`, approval is skipped.
+Not in the default mode. Tools that change the model are blocked until a person
+approves a plan. With `MCP_REVIT_APPROVAL_MODE=auto`, approval is skipped. See
+[How approval works](#how-approval-works).
 
 ### Does it send my model to the cloud?
 
-The server and the add-in run on your machine, and the bridge listens on
-localhost. The AI assistant sees what the tools return, and those results go
-to the model provider behind your client. Cloud providers, such as Speckle,
-only run when you configure them and call their tools.
+The server, add-in and bridge run on your machine. Tool results go to the model
+provider behind your client. Cloud providers such as Speckle run only when you
+configure them.
 
 ### Does it work with IFC files without Revit?
 
-Yes. The IFC provider reads files with IfcOpenShell. It can return file
-metadata, the spatial structure, element properties and bounding boxes, run
-queries by class, GUID, name or property, and validate the schema. It does
-not edit IFC files.
+Yes. The IFC provider uses IfcOpenShell to read structure, properties and
+bounding boxes, query by class, GUID, name or property, and validate the schema.
+It does not edit IFC files.
 
 ### Can I use it without Revit installed?
 
-Only in mock mode, which is meant for development and tests. Live model work
-needs Revit 2024 to 2027 and the add-in.
+Only in mock mode. Live work needs Revit 2024 to 2027 and the add-in.
 
 ## Releases and versions
 
-AEC Model Bridge follows Semantic Versioning. Releases are tagged `vX.Y.Z` on
-GitHub, and a root `VERSION` file holds the version number. See
-[docs/versioning.md](docs/versioning.md) for the release process and
-[CHANGELOG.md](CHANGELOG.md) for what changed in each version.
+Semantic Versioning. Releases are tagged `vX.Y.Z`, and a root `VERSION` file
+holds the version. See [docs/versioning.md](docs/versioning.md) and
+[CHANGELOG.md](CHANGELOG.md).
 
 ## Development
 
@@ -693,40 +611,33 @@ python -m pytest packages/mcp-server-revit/tests
 .\scripts\package.ps1 -RevitVersion All
 ```
 
-CI builds the Python server and the add-in targets for Revit 2024 through 2027.
-See [CONTRIBUTING.md](.github/CONTRIBUTING.md) before opening a pull request.
+CI builds the server and the add-in for Revit 2024 through 2027. See
+[CONTRIBUTING.md](.github/CONTRIBUTING.md) before opening a pull request.
 
 ## Documentation
 
-- [Installation guide](docs/install.md)
-- [Tool reference](docs/tools-generated.md)
-- [Prompt library](docs/prompts/README.md): copy-ready prompts for QA, data, sheets, coordination, IFC/BCF and hand-over
+- [Installation guide](docs/install.md) and [configuration reference](docs/configuration-reference.md)
+- [Tool reference](docs/tools-generated.md) and [prompt library](docs/prompts/README.md)
 - [Architecture](docs/adr/0001-multi-provider-architecture.md)
-- [Configuration reference](docs/configuration-reference.md)
-- [Security](docs/security.md)
-- [Versioning and releases](docs/versioning.md)
-- [Release checklist](docs/release-checklist.md)
+- [Security](docs/security.md) and [privacy](docs/privacy.md)
+- [Versioning and releases](docs/versioning.md) and [release checklist](docs/release-checklist.md)
 - [Proof bundles and revert plans](docs/proof-and-revert.md)
-- [Privacy](docs/privacy.md)
 - [Contributing](.github/CONTRIBUTING.md) and [Code of Conduct](.github/CODE_OF_CONDUCT.md)
 
 ## Built with
 
-AEC Model Bridge stands on open-source work. It is independent and is not affiliated with or endorsed by any project named here.
+Independent of, and not endorsed by, any project named here.
 
-- [Model Context Protocol](https://modelcontextprotocol.io) Python SDK (MIT) for the MCP server
-- [IfcOpenShell](https://ifcopenshell.org) (LGPL-3.0-or-later) for IFC files
-- [specklepy](https://github.com/specklesystems/specklepy) (Apache-2.0) for Speckle
+- [Model Context Protocol](https://modelcontextprotocol.io) Python SDK (MIT), [IfcOpenShell](https://ifcopenshell.org) (LGPL-3.0-or-later), [specklepy](https://github.com/specklesystems/specklepy) (Apache-2.0), [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) (MIT)
 - [pydantic](https://docs.pydantic.dev), [httpx](https://www.python-httpx.org), [NetworkX](https://networkx.org), [openpyxl](https://openpyxl.readthedocs.io) and [PyYAML](https://pyyaml.org) (MIT or BSD)
-- [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) (MIT) for the built-in agent chat
-- [Serilog](https://serilog.net), [IronPython](https://ironpython.net) and [Microsoft WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) in the Revit add-in
+- [Serilog](https://serilog.net), [IronPython](https://ironpython.net) and [Microsoft WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) in the add-in
 - Autodesk Revit and Navisworks and McNeel Rhino are separate products that you license yourself. This project does not include their code.
 
-Licence texts and the full list of packages are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Licences were read from package metadata; rows that could not be verified are marked as such.
+Licence texts and the full package list: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Rows whose licence could not be verified are marked as such.
 
 ## Project and license
 
-Thanks to [Yuhan Jiang](https://github.com/jyh100) for the Hermes Desktop tool subset ([#19](https://github.com/Sam-AEC/aec-model-bridge/pull/19)), and to everyone listed on the [contributors page](https://github.com/Sam-AEC/aec-model-bridge/graphs/contributors).
+Thanks to [Yuhan Jiang](https://github.com/jyh100) for the Hermes Desktop tool subset ([#19](https://github.com/Sam-AEC/aec-model-bridge/pull/19)), and to everyone on the [contributors page](https://github.com/Sam-AEC/aec-model-bridge/graphs/contributors).
 
 Maintained by [A. Sam Mohammad](https://github.com/Sam-AEC).
 [LinkedIn](https://www.linkedin.com/in/a-sam-mohammad-92790416b) |
