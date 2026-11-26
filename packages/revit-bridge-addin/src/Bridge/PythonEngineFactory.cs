@@ -67,6 +67,42 @@ internal static class PythonEngineFactory
         }
     }
 
+    // IronPython 3 builds sys.stdout and sys.stderr when the engine is created, from the console encoding.
+    // A process without a console (Revit on .NET 8/10) gets UTF-16LE there, and a later
+    // Runtime.IO.SetOutput(stream, UTF8) only swaps the byte stream underneath. Wrap the same byte
+    // buffers again as UTF-8 text. IronPython 2.7 has no .buffer and already honours SetOutput.
+    private const string Utf8StreamsScript =
+        "import sys, io\n" +
+        "if hasattr(sys.stdout, 'buffer'):\n" +
+        "    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='strict', line_buffering=True)\n" +
+        "if hasattr(sys.stderr, 'buffer'):\n" +
+        "    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='backslashreplace', line_buffering=True)\n";
+
+    /// <summary>Call after SetOutput/SetErrorOutput and before anything captures sys.stdout.</summary>
+    public static void UseUtf8StandardStreams(ScriptEngine engine) =>
+        engine.Execute(Utf8StreamsScript, engine.CreateScope());
+
+    /// <summary>
+    /// Text from the captured stream bytes: UTF-8, unless most odd bytes are NUL (UTF-16LE), so output
+    /// never reaches the client with a NUL after every character.
+    /// </summary>
+    public static string DecodeOutput(byte[] bytes)
+    {
+        // Encoding.UTF8 writers emit a BOM first; StreamReader used to drop it, so keep dropping it.
+        var start = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF ? 3
+            : bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE ? 2 : 0;
+        var count = bytes.Length - start;
+        if (count >= 2 && count % 2 == 0)
+        {
+            var nulOdd = 0;
+            for (var i = start + 1; i < bytes.Length; i += 2)
+                if (bytes[i] == 0) nulOdd++;
+            if (nulOdd * 4 >= count / 2 * 3)
+                return System.Text.Encoding.Unicode.GetString(bytes, start, count);
+        }
+        return System.Text.Encoding.UTF8.GetString(bytes, start, count);
+    }
+
     /// <summary>Ends the engine's runtime; never throws. PythonScriptRunner calls it when it recycles its warm engine.</summary>
     public static void ShutdownQuietly(ScriptEngine? engine)
     {

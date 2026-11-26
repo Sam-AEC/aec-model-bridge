@@ -16,6 +16,21 @@ Edit parameters in Excel, then turn the edits into a plan you can review.
 4. Pass the draft to `plan_actions`. A person approves it in the panel before
    `execute_plan` runs. The import tool never writes to the model.
 
+## Saved column mappings
+
+A mapping gives the parameter columns your own headers, for example a client template.
+Save it as `excel_mappings/<name>.json` in the workspace:
+
+```json
+{"columns": {"Door number": "Mark", "Fire rating": "FireRating"}}
+```
+
+Pass `mapping="<name>"` to the export instead of `param_names`, and the same name to the
+import. The export writes your headers; the import maps them back and ignores columns
+that are not in the mapping. A mapping that names a parameter not in the snapshot, uses a
+reserved header (`uid`, `element_id`, `category`, `family`, `type_name`) or maps two headers
+to one parameter is refused. Mapping names are plain names; paths are refused.
+
 ## Rules
 
 - File names are plain names in the workspace root and must end in `.xlsx`.

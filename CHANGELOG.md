@@ -3,7 +3,10 @@
 ## Unreleased
 
 - Release builds measure the tool catalogue per profile, attach `token-budget.json` and fail past 10% growth over `docs/mcp-token-baseline.json`. Fixes #173
+- Excel round-trip: saved per-project column mappings (`excel_mappings/<name>.json`) for export and import. Fixes #174
+- Example rule pack `door-fire-rating.yaml`: doors rated below their host wall, and doors or host walls without a rating. Fixes #172
 - Panel: the Reject button on a plan card now asks "Reject this plan?" inline (focus on Cancel, Escape cancels) before it rejects, like bulk Reject.
+- Add-in: `revit_execute_python` output on IronPython 3 is UTF-8 again. `sys.stdout` and `sys.stderr` are rewrapped as UTF-8 after the engine starts, and UTF-16LE bytes are decoded as a fallback, so there is no NUL after every character on Revit 2026 (Fixes #406).
 - Docs: README shows a Revit 2026 demo: a 30-storey twisting tower built in Dev mode, frames rendered by Revit.
 - VS Code extension: a registry file endpoint must be loopback HTTP (127.0.0.1, localhost or [::1]); other hosts are ignored. The in-flight settle log strips CR and LF from the tool name. Clears CodeQL alerts #31 and #32.
 - Supply chain: releases carry a `.intoto.jsonl` provenance bundle, CI installs from hash-pinned requirements and a digest-pinned base image, atheris fuzz harnesses run nightly, CodeQL scans every pull request, and SECURITY.md links the private reporting form.
