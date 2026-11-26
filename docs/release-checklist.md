@@ -27,6 +27,14 @@ Run on a Windows machine with Revit, starting with the write test in section 5. 
 6. The Revit 2024 Release build and authenticated panel backend passed on 14 October 2026. Build and run the net8 and net10 targets as well, and repeat the release checks on each supported year.
 7. Verify the panel review card and explicit Dev mode (Settings, Dev mode). Dev must stay visibly enabled until switched off, audit its writes, and preserve read-mode guards, filesystem scope and supplied-plan checks.
 
+Results for 1.6.0, Revit 2026.5, scratch copy of the Snowdon Towers sample, 2026-11-26:
+- 1 PASS: a two-action `revit_set_parameter_value` plan, approved by the person in the panel, wrote both values. No crash.
+- 2 PASS for the batched case: the plan ran as one batch, reported `undo.one_step: true`, and one Ctrl+Z restored both values. The failing-second-action case and `rollback_plan` were not run.
+- 2a PASS: drafting carried a rolled-back preview and left the parameter values unchanged.
+- 4 PASS: the panel listed and approved the plan. Findings: #383 (plans from other documents listed), #384 (review card fields unknown).
+- 7 PARTIAL: Dev switches on and off and is shown in the panel. Findings: #385 (audit logs read polls). Writes in Dev were not run.
+- 3, 5 and 6 not run. Revit 2027 is UNVERIFIED. Other findings: #386 to #390.
+
 ## 3. Known limits (from security.md)
 
 - Plans do not record the Revit that created them. Until fixed, a plan drafted in Revit A can run against Revit B.
