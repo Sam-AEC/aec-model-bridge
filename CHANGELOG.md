@@ -3,6 +3,10 @@
 ## Unreleased
 
 - Tests: contract tests for the Power BI, Navisworks and IFC providers check each tool's `is_mutating` flag against an explicit table and run every handler against mocks; the three providers are at 98% to 100% line coverage. Fixes #236
+- `clash_triage_import_clash_report`: reads a Navisworks XML clash report or a BCF file, groups clashes by element pair and level, and lists unmatched items with the reason. Read-only; fixture-tested only. Tool count is now 318 (118 module tools). Fixes #180
+- MCP logging: the server declares the `logging` capability and, after `logging/setLevel`, sends its log messages at or above that level to the client as `notifications/message`. Nothing is sent until a level is set; the level is kept per session. Messages pass the tool-result redaction (secrets and paths always), carry no traceback, and a failed send never affects the tool call. Behaviour in specific MCP clients is UNVERIFIED. See `docs/logging-and-audit.md`. Fixes #181
+- Release builds measure the tool catalogue per profile, attach `token-budget.json` and fail past 10% growth over `docs/mcp-token-baseline.json`. Fixes #173
+- Excel round-trip: saved per-project column mappings (`excel_mappings/<name>.json`) for export and import. Fixes #174
 - Example rule pack `door-fire-rating.yaml`: doors rated below their host wall, and doors or host walls without a rating. Fixes #172
 - Panel: the Reject button on a plan card now asks "Reject this plan?" inline (focus on Cancel, Escape cancels) before it rejects, like bulk Reject.
 - Add-in: `revit_execute_python` output on IronPython 3 is UTF-8 again. `sys.stdout` and `sys.stderr` are rewrapped as UTF-8 after the engine starts, and UTF-16LE bytes are decoded as a fallback, so there is no NUL after every character on Revit 2026 (Fixes #406).

@@ -2,7 +2,7 @@
 
 Measured 2026-11-05 with `MCP_REVIT_MODE=mock`, the supplied Python interpreter, a temporary workspace, no user modules or provider credentials, and no Revit model execution. Baseline captured at `87d1d1bb5312ccb9868786860cbc66f76c47b895` before production changes; results were reported before edits.
 
-The checkout exposes **317** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
+The checkout exposes **318** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
 
 ## Initial profile and response pass
 
@@ -259,6 +259,14 @@ The follow-up argument-echo change passes **109 targeted tests**, including
 approval/review/hash invariants, default-response compatibility, invalid options,
 error/progress preservation, and real MCP subprocess round trips. All changed
 Python files pass Ruff. Independent review found no remaining concrete defects.
+
+## Per-release measurement
+
+Each release build runs `scripts/token_budget.py`, which measures the `core`, `daily` and `full`
+catalogues and the representative mock calls, and attaches `token-budget.json` to the GitHub
+release. The build fails when a profile's catalogue grows more than `threshold_pct` (10%) over
+`docs/mcp-token-baseline.json`. When the growth is intended, run
+`python scripts/token_budget.py --output token-budget.json --update-baseline` and commit the baseline.
 
 ## Reproduce
 
