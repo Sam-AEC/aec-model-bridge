@@ -116,7 +116,7 @@ Usa o VS Code? O [código da extensão e os passos de instalação local](../../
 
 | Área | Ferramentas | O que fazem |
 | --- | --- | --- |
-| Revit | 111 | Ler o modelo, criar e editar elementos, parâmetros, vistas, folhas, tabelas de quantitativos, exportações, trabalho compartilhado |
+| Revit | 112 | Ler o modelo, criar e editar elementos, parâmetros, vistas, folhas, tabelas de quantitativos, exportações, trabalho compartilhado |
 | Aprovação | 6 | Planejar, revisar, aprovar, executar e reverter alterações no modelo |
 | Módulos | 116 | Inspeção de snapshots, grades de parâmetros, verificações de QA/QC, receitas, relatórios, seleções |
 | Rhino e Grasshopper | 19 | Geometria, camadas, materiais, operações booleanas |
@@ -125,7 +125,7 @@ Usa o VS Code? O [código da extensão e os passos de instalação local](../../
 | IFC | 7 | Ler arquivos IFC sem o Revit: estrutura, propriedades, validação |
 | Grafo, snapshots, exportações, tarefas | 24 | Auditorias do grafo semântico, diferenças entre snapshots, exportação para SQLite, tarefas em segundo plano |
 
-315 ferramentas são listadas na configuração padrão (contadas no servidor atual em modo mock). As ferramentas do Autodesk Data aparecem quando as credenciais do APS estão configuradas. A [referência de ferramentas](../tools-generated.md) lista todas elas. Cada ferramenta traz anotações MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), para que os clientes distingam leituras de escritas.
+316 ferramentas são listadas na configuração padrão (contadas no servidor atual em modo mock). As ferramentas do Autodesk Data aparecem quando as credenciais do APS estão configuradas. A [referência de ferramentas](../tools-generated.md) lista todas elas. Cada ferramenta traz anotações MCP (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), para que os clientes distingam leituras de escritas.
 
 ### Automação avançada do Revit
 
