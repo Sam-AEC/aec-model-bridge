@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fix (#388): `revit_execute_python` failed with the bare error `Error` on Revit 2026.5, which hosts .NET 10: IronPython 3.4.1 cannot start its engine there (reproduced outside Revit on the .NET 10 runtime). The add-in now ships IronPython 3.4.2 on the net8 and net10 targets. A failed engine start now returns the exception types and messages with `error_kind` `engine_unavailable` and the host runtime in `runtime`. Live Revit run UNVERIFIED.
 - `revit_set_selection` no longer needs a plan: it changes only the UI selection, like `revit_select_by_unique_ids`. The add-in command `revit.set_selection` is now `IsMutating = false` (C# change not built here). Fixes #387.
 - Dev mode now audits only mutating calls; read polls such as `list_pending_plans` no longer write `dev-mode-audit.jsonl` entries. Fixes #385.
 - Ribbon: the AEC Bridge tab now has two panels. Model Bridge holds Panel, Approve (the approval queue) and Check model; Connection holds one Connected/Disconnected toggle that starts or stops the bridge server, with Status, Config, Reports, Help and About in its slide-out. New icons (Fluent glyphs, MIT) come from `scripts/make_ribbon_icons.py`. No Dev panel: the add-in has no reliable Dev mode signal. UNVERIFIED in Revit.

@@ -316,6 +316,12 @@ internal static class PythonScriptRunner
             return BridgeTransactionResults.AppendWarnings(
                 Result(true, output, "", mode, progress, null, 0, runtime), scriptWarnings);
         }
+        catch (Exception ex) when (engine == null)
+        {
+            // AcquireEngine failed: no script ran. Say why instead of returning a bare message.
+            return Result(false, "", PythonEngineFailure.Describe(ex), mode, progress,
+                PythonEngineFailure.EngineUnavailableKind, 0, PythonEngineFailure.Unavailable());
+        }
         catch (Exception ex)
         {
             string error;
