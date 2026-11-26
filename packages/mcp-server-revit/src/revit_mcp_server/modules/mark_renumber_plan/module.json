@@ -1,0 +1,63 @@
+{
+  "id": "mark_renumber_plan",
+  "name": "Mark Renumber Planner",
+  "version": "1.0.0",
+  "schema_version": 1,
+  "min_hub_version": "1.2.0",
+  "description": "Read-only check of door, room and window marks in a saved snapshot: duplicate marks, empty marks, gaps and out-of-order sequences. Proposes a new numbering from a small rule file (doors: To room number plus a letter; rooms: level prefix plus sequence; windows: same as rooms). A second command drafts one plan of parameter writes for human approval and refuses if the final numbering would hold a duplicate. This module never writes to the model.",
+  "author": "AEC Model Bridge",
+  "license": "GPL-3.0-or-later",
+  "requires_providers": ["revit", "semantic"],
+  "permissions": ["model.read"],
+  "commands": [
+    {
+      "id": "analyze",
+      "title": "Find Mark Problems and Propose Numbering",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "description": "Saved snapshot to read. Leave empty only in mock mode."
+          },
+          "categories": {
+            "type": "array",
+            "items": {"type": "string", "enum": ["doors", "rooms", "windows"]},
+            "description": "Categories to check. Default: doors, rooms and windows."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "id": "draft_plan",
+      "title": "Draft Renumbering Plan",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "description": "Saved snapshot to read. Leave empty only in mock mode."
+          },
+          "categories": {
+            "type": "array",
+            "items": {"type": "string", "enum": ["doors", "rooms", "windows"]},
+            "description": "Categories to renumber. Default: doors, rooms and windows."
+          },
+          "only_unique_ids": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Optional. Limit the changes to these element UniqueIds. Uniqueness is still checked across the whole category."
+          }
+        },
+        "required": []
+      }
+    }
+  ]
+}
