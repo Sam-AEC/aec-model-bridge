@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `clash_triage_import_clash_report`: reads a Navisworks XML clash report or a BCF file, groups clashes by element pair and level, and lists unmatched items with the reason. Read-only; fixture-tested only. Tool count is now 318 (118 module tools). Fixes #180
 - Example rule pack `door-fire-rating.yaml`: doors rated below their host wall, and doors or host walls without a rating. Fixes #172
 - Panel: the Reject button on a plan card now asks "Reject this plan?" inline (focus on Cancel, Escape cancels) before it rejects, like bulk Reject.
 - Add-in: `revit_execute_python` output on IronPython 3 is UTF-8 again. `sys.stdout` and `sys.stderr` are rewrapped as UTF-8 after the engine starts, and UTF-16LE bytes are decoded as a fallback, so there is no NUL after every character on Revit 2026 (Fixes #406).
