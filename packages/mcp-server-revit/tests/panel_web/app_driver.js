@@ -499,11 +499,30 @@
       hash_version: undefined, preview: { rows: [ROW(1), ROW(2, { before: "old" })], row_count: 2, rows_omitted: 0 }, blast_radius: RADIUS })]);
     const card = cardOf("pv1");
     const cells = Array.from(card.querySelectorAll(".plan-preview-table tr")).map((tr) => Array.from(tr.children).map((c) => c.textContent));
-    expect(cells.length === 3 && cells[0][3] === "Before" && cells[1][3] === "(empty)" && cells[2][3] === "old" && cells[2][4] === "A2", "rows " + JSON.stringify(cells));
-    expect(cells[1][1] === "unknown", "missing UniqueId should read unknown");
+    expect(cells.length === 3 && cells[0][2] === "Before" && cells[1][2] === "(empty)" && cells[2][2] === "old" && cells[2][3] === "A2", "rows " + JSON.stringify(cells));
+    expect(!cells[0].includes("UniqueId") && !/unknown/.test(JSON.stringify(cells)), "a UniqueId nobody knows must not be printed as unknown");
     const head = card.querySelector(".plan-blast");
-    expect(head && /Risk: medium/.test(head.textContent) && /Categories: Walls, unknown/.test(head.textContent), "blast radius header missing");
+    expect(head && /Risk: medium/.test(head.textContent) && /Categories: Walls \(not all known\)/.test(head.textContent), "blast radius header missing");
+    expect(!/Levels|Worksets|unknown/.test(head.textContent), "unknown fields must be left out: " + head.textContent);
     expect(!!approveBtn(card) && !approveBtn(card).disabled, "preview must not change Approve state");
+  });
+
+  test("preview: a known UniqueId gets its column, and a before value comes from the rolled-back preview when the plan did not capture it", () => {
+    fresh();
+    const rb = { version: 1, status: "ok", rolled_back: true, changed_element_ids: [1, 2, 77],
+      actions: [{ index: 0, tool: "revit_set_parameter_value", ok: true, element_id: 1, parameter: "Mark", before: "OLD1", after: "A1" }],
+      warnings: [{ action_index: 0, severity: "Warning", message: "Duplicate Mark.", element_ids: [1, 2] }] };
+    plans([V2("pv5", null, Object.assign({ rollback_preview: rb }, { review_view: { status: "none", hash_version: 1, reverts_plan_id: null, review: null, error: "" }, hash_version: undefined,
+      preview: { rows: [ROW(1, { unique_id: "uid-1", before: "(not captured)" }), ROW(2, { before: "(not captured)" })], row_count: 2, rows_omitted: 0 }, blast_radius: RADIUS }))]);
+    const card = cardOf("pv5");
+    const cells = Array.from(card.querySelectorAll(".plan-preview-table tr")).map((tr) => Array.from(tr.children).map((c) => c.textContent));
+    expect(cells[0].includes("UniqueId") && cells[1][1] === "uid-1", "UniqueId column " + JSON.stringify(cells[1]));
+    expect(cells[1][3] === "OLD1" && cells[2][3] === "(not captured)", "before fill " + JSON.stringify(cells));
+    expect(/1 before value\(s\) come from the rolled-back preview/.test(card.querySelector(".plan-preview").textContent), "fill not disclosed");
+    const rbText = card.querySelector(".plan-rollback-preview").textContent;
+    expect(/Also changed, not named in the plan: 77\./.test(rbText), "extra changed ids missing: " + rbText);
+    expect(/Duplicate Mark\. \(elements: 1, 2\)/.test(rbText), "warning elements missing: " + rbText);
+    expect(card.querySelector(".plan-details").contains(card.querySelector(".plan-rollback-preview")), "rolled-back preview belongs in the details");
   });
 
   test("preview: rows are capped at 25 and the rest is counted", () => {
