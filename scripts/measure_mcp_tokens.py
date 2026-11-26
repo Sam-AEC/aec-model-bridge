@@ -5,6 +5,7 @@ Run with the server's Python environment, e.g.:
   python scripts/measure_mcp_tokens.py --output docs/mcp-token-measurement-after.json
   python scripts/measure_mcp_tokens.py --profile daily --compact-read-results \
       --project-module-commands --output docs/mcp-token-measurement-daily.json
+  python scripts/measure_mcp_tokens.py --always-loaded --output docs/mcp-token-measurement-always-loaded.json
 
 Counts are characters, UTF-8 bytes, and an explicit chars/4 estimate, not billed
 tokens. Uses actual list_tools/call_tool entry points, no Revit or model writes.
@@ -38,7 +39,7 @@ def size(text):
 
 async def measure(workspace, *, profile="full", profile_file=None,
                   compact_read_results=False, project_module_commands=False,
-                  plan_script_chars=0, omit_plan_arguments=False):
+                  plan_script_chars=0, omit_plan_arguments=False, only_tools=None):
     # Deliberately stable default catalogue; no credentials/proxies/user modules.
     for key in list(os.environ):
         if key.startswith(("APS_", "SPECKLE_", "MCP_PROXY_", "MCP_REVIT_")):
@@ -63,6 +64,12 @@ async def measure(workspace, *, profile="full", profile_file=None,
     registry.freeze_tool_profile(load_tool_profile(profile_settings))
     mcp_server.registry, mcp_server.approval_provider, mcp_server.job_manager = registry, approval, jobs
     listed = await mcp_server.list_tools()
+    if only_tools is not None:
+        # The tools a deferring client keeps loaded (docs/deferred-tool-loading.md).
+        missing = sorted(set(only_tools) - {tool.name for tool in listed})
+        if missing:
+            raise SystemExit(f"--only-tools names tools this profile does not list: {', '.join(missing)}")
+        listed = [tool for tool in listed if tool.name in set(only_tools)]
     listed_names = {tool.name for tool in listed}
     full = ListToolsResult(tools=listed)
     ownership, explicit_module_ownership, raw = {}, {}, []
@@ -104,6 +111,7 @@ async def measure(workspace, *, profile="full", profile_file=None,
                    "project_module_commands": project_module_commands,
                    "plan_script_chars": plan_script_chars,
                    "omit_plan_arguments": omit_plan_arguments,
+                   "only_tools": sorted(only_tools) if only_tools is not None else None,
                    "serialization": "MCP SDK model_dump_json(by_alias=True, exclude_none=True), compact UTF-8 JSON",
                    "catalogue_payload": "ListToolsResult; excludes JSON-RPC envelope/transport framing",
                    "raw_baseline": "same providers, Tool(name, description, inputSchema) without enrich_tool",
@@ -175,7 +183,20 @@ def main():
                         help="Replace the parameter plan with an unexecuted script of this many characters")
     parser.add_argument("--omit-plan-arguments", action="store_true",
                         help="Request omission of echoed action arguments in the pending-plan response")
+    parser.add_argument("--only-tools",
+                        help="Comma-separated tool names; measure only these listed tools")
+    parser.add_argument("--always-loaded", action="store_true",
+                        help="Measure only tool_profiles.ALWAYS_LOADED_TOOLS (the set kept loaded under tool search)")
     args = parser.parse_args()
+    only_tools = None
+    if args.always_loaded and args.only_tools:
+        parser.error("use --always-loaded or --only-tools, not both")
+    if args.always_loaded:
+        sys.path.insert(0, str(ROOT / "packages/mcp-server-revit/src"))
+        from revit_mcp_server.tool_profiles import ALWAYS_LOADED_TOOLS
+        only_tools = list(ALWAYS_LOADED_TOOLS)
+    elif args.only_tools:
+        only_tools = [name.strip() for name in args.only_tools.split(",") if name.strip()]
     if args.profile == "custom" and args.profile_file is None:
         parser.error("--profile custom requires --profile-file")
     if args.plan_script_chars < 0:
@@ -186,7 +207,8 @@ def main():
                                     compact_read_results=args.compact_read_results,
                                     project_module_commands=args.project_module_commands,
                                     plan_script_chars=args.plan_script_chars,
-                                    omit_plan_arguments=args.omit_plan_arguments))
+                                    omit_plan_arguments=args.omit_plan_arguments,
+                                    only_tools=only_tools))
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({key: result[key] for key in ("tool_count", "catalogue", "raw_catalogue", "metadata_delta", "names_only_json")}, indent=2))

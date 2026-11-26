@@ -35,8 +35,9 @@ def _ico_sizes(path: Path) -> set[tuple[int, int]]:
     return {(data[6 + 16 * i] or 256, data[7 + 16 * i] or 256) for i in range(count)}
 
 
-@pytest.mark.parametrize("readme", READMES, ids=lambda p: p.name)
-def test_readme_images_exist(readme: Path) -> None:
+# Translated READMEs get the same check from test_i18n_readmes.test_relative_links_resolve.
+def test_readme_images_exist() -> None:
+    readme = ROOT / "README.md"
     text = readme.read_text(encoding="utf-8")
     refs = re.findall(r'<img[^>]+src="([^"]+)"', text) + re.findall(
         r"!\[[^\]]*\]\(([^)\s]+)", text
@@ -61,7 +62,7 @@ def test_readme_header_is_the_product_logo(readme: Path) -> None:
 def test_product_icon_and_rasters() -> None:
     assert _ico_sizes(ROOT / "assets" / "icon.ico") == {(s, s) for s in ICO_SIZES}
     assert _png_size(ROOT / "assets" / "logo-mark-512.png") == (512, 512)
-    assert _png_size(ROOT / "extensions" / "vscode" / "media" / "icon.png") == (
+    assert _png_size(ROOT / "packages" / "vscode-extension" / "media" / "icon.png") == (
         512,
         512,
     )
@@ -72,7 +73,11 @@ def test_product_icon_and_rasters() -> None:
 def test_product_mark_is_not_the_cerberus_mark() -> None:
     product = (ROOT / "assets" / "logo-mark.svg").read_text(encoding="utf-8")
     assert product != (CERBERUS / "mark.svg").read_text(encoding="utf-8")
-    assert not (ROOT / "assets" / "social-preview.png").exists()
+    # A social preview may exist, but it must not be one of the Cerberus images.
+    preview = ROOT / "assets" / "social-preview.png"
+    if preview.exists():
+        data = preview.read_bytes()
+        assert all(data != p.read_bytes() for p in CERBERUS.glob("*.png"))
 
 
 CERBERUS_FILES = [

@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from helpers import human_approve
+from helpers import human_approve, resign_approval
 from revit_mcp_server.errors import BridgeError
 from revit_mcp_server.security.approval import ApprovalGate
 
@@ -75,6 +75,7 @@ async def test_rollback_hash_check_is_independent_of_execution_approval_expiry(t
     gate, plan_id = _executed_plan(tmp_path, n=1)
     plan = gate.load_plan(plan_id)
     plan["approved_at"] = (datetime.now(timezone.utc) - timedelta(seconds=gate.approval_ttl + 1)).isoformat()
+    resign_approval(gate, plan)
     gate.save_plan(plan)
     calls = []
 

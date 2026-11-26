@@ -1,9 +1,22 @@
-"""``aec-model-bridge doctor``: a read-only check of the local setup.
+"""``aec-model-bridge doctor``: a check of the local setup, read-only by default.
 
-Prints a plain table (or JSON with ``--json``) and exits 1 when any check FAILs. It never
-changes anything: it does not prune registry entries, create the workspace or start
-Revit. It reports whether a session token is present and never prints its value, and it
-never prints environment values found in client config files (they can hold keys).
+Prints a plain table (or JSON with ``--json``) and exits 1 when any check FAILs. Without
+``--fix`` it changes nothing and only lists the fixes it could apply. It reports whether a
+session token is present and never prints its value, and it never prints environment
+values found in client config files (they can hold keys).
+
+``--fix`` applies local fixes for faults the checks found, printing each one:
+
+* create a missing workspace folder;
+* restore owner read/write/search permission on a workspace folder this user owns;
+* delete add-in registry files whose Revit process is no longer running (the same rule
+  the server's own discovery uses; a file for a running process is never touched);
+* point a client config entry that FAILs (an ``.exe`` launcher, issue #159, or a missing
+  command) at this Python: ``<python> -m revit_mcp_server``. The old file is kept as
+  ``<name>.aec-backup-<timestamp>``; ``env`` and every other key are kept as they are.
+
+It never starts or contacts Revit, never deletes user data and never changes approval
+settings. Codex (TOML) entries are reported for a manual edit.
 """
 from __future__ import annotations
 
@@ -16,9 +29,10 @@ import shutil
 import socket
 import sys
 import tempfile
-from dataclasses import asdict, dataclass
+import time
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 from urllib.parse import urlparse
 
 OK, WARN, FAIL, NA = "OK", "WARN", "FAIL", "N/A"
@@ -33,6 +47,15 @@ class Check:
     name: str
     status: str
     detail: str
+
+
+@dataclass
+class Fix:
+    """A local fix for a FAIL or WARN check. ``apply`` is None for a manual step."""
+
+    check: str
+    action: str
+    apply: Callable[[], str] | None = field(default=None, repr=False, compare=False)
 
 
 def _version_file() -> Path | None:
@@ -303,6 +326,172 @@ def check_client_configs(env: Mapping[str, str], home: Path, cwd: Path, platform
     return checks
 
 
+# ---- fixes ----------------------------------------------------------------
+
+FIX_ARGS = ["-m", "revit_mcp_server"]
+
+
+def _workspace_fixes(cfg: Any, platform: str) -> list[Fix]:
+    path = Path(cfg.workspace_dir)
+    if not path.exists():
+        if check_workspace(cfg).status != WARN:
+            return []  # cannot be created; a fix would only fail
+
+        def create() -> str:
+            path.mkdir(parents=True, exist_ok=True)
+            return f"created {path}"
+
+        return [Fix("workspace", f"create the workspace folder {path}", create)]
+    if platform == "win32" or os.name == "nt" or path.is_symlink() or not path.is_dir():
+        return []
+    st = path.stat()
+    if st.st_uid != os.getuid() or (st.st_mode & 0o700) == 0o700:
+        return []
+    mode = st.st_mode & 0o7777
+    wanted = mode | 0o700
+
+    def chmod() -> str:
+        os.chmod(path, wanted)
+        return f"{path} mode {mode:04o} -> {wanted:04o}"
+
+    return [Fix("workspace", f"give the owner read/write/search access to {path} (mode {mode:04o} -> {wanted:04o})", chmod)]
+
+
+def _registry_fixes(env: Mapping[str, str], pid_alive) -> list[Fix]:
+    folder = _registry_dir(env)
+    if folder is None or not folder.is_dir():
+        return []
+    if pid_alive is None:
+        from .bridge.discovery import is_pid_alive as pid_alive
+    rows, _ = read_registry(env, pid_alive)
+    fixes = []
+    for row in rows:
+        if not row.get("valid") or row.get("alive") or not isinstance(row.get("pid"), int):
+            continue  # unreadable files are left for a person to look at
+        path, pid = folder / row["file"], row["pid"]
+
+        def delete(path: Path = path, pid: int = pid) -> str:
+            try:
+                current = json.loads(path.read_text(encoding="utf-8-sig"))
+            except (OSError, ValueError):
+                return f"skipped {path.name}: it changed or could not be read again"
+            if not isinstance(current, dict) or current.get("pid") != pid or pid_alive(pid):
+                return f"skipped {path.name}: its process is running or the file changed"
+            path.unlink()
+            return f"deleted {path.name}"
+
+        fixes.append(Fix("add-in discovery", f"delete stale registry file {path.name} (process {pid} is not running)", delete))
+    return fixes
+
+
+def _write_json_with_backup(path: Path, data: Any) -> Path:
+    """Copy ``path`` to a timestamped backup, then replace it in one step (temp file + rename)."""
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    backup = path.with_name(f"{path.name}.aec-backup-{stamp}")
+    n = 1
+    while backup.exists():
+        backup = path.with_name(f"{path.name}.aec-backup-{stamp}-{n}")
+        n += 1
+    shutil.copy2(path, backup)
+    tmp = path.with_name(f"{path.name}.aec-tmp")
+    try:
+        tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        shutil.copymode(path, tmp)
+        os.replace(tmp, path)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
+    return backup
+
+
+def _read_client_config(path: Path) -> Any:
+    if path.suffix == ".toml":
+        import tomllib
+
+        return tomllib.loads(path.read_text(encoding="utf-8"))
+    return json.loads(path.read_text(encoding="utf-8-sig"))
+
+
+def _client_fixes(env: Mapping[str, str], home: Path, cwd: Path, platform: str, python: str) -> list[Fix]:
+    fixes: list[Fix] = []
+    path_env = env.get("PATH")
+
+    def broken_names(data: Any) -> list[str]:
+        return [name for name, entry in _servers(data).items()
+                if _is_ours(name, entry) and isinstance(entry.get("command"), str) and entry["command"].strip()
+                and judge_command(entry["command"], path_env)[0] == FAIL]
+
+    for client, path in client_config_files(env, home, cwd, platform):
+        if not path.is_file():
+            continue
+        try:
+            broken = broken_names(_read_client_config(path))
+        except Exception:
+            continue  # never rewrite a file that cannot be parsed
+        if not broken:
+            continue
+        if path.suffix == ".toml":
+            fixes.append(Fix(f"client: {client}", f"edit {path} by hand: set command = \"{python}\" and "
+                             f"args = {json.dumps(FIX_ARGS)} for {', '.join(broken)}"))
+            continue
+
+        def rewrite(path: Path = path) -> str:
+            data = json.loads(path.read_text(encoding="utf-8-sig"))
+            servers = _servers(data)  # the entries are the dicts inside ``data``
+            changed = broken_names(data)
+            if not changed:
+                return f"skipped {path}: nothing to change any more"
+            for name in changed:
+                servers[name]["command"] = python
+                servers[name]["args"] = list(FIX_ARGS)
+            backup = _write_json_with_backup(path, data)
+            return f"updated {', '.join(changed)} in {path}; backup {backup.name}"
+
+        fixes.append(Fix(f"client: {client}", f"point {', '.join(broken)} in {path} at {python} {' '.join(FIX_ARGS)} "
+                         "(backup kept, env unchanged)", rewrite))
+    return fixes
+
+
+def plan_fixes(env: Mapping[str, str] | None = None, platform: str | None = None,
+               home: Path | None = None, cwd: Path | None = None,
+               pid_alive=None, python: str | None = None) -> list[Fix]:
+    """The fixes ``--fix`` would apply. Planning changes nothing."""
+    env = dict(os.environ) if env is None else dict(env)
+    platform = sys.platform if platform is None else platform
+    home = Path.home() if home is None else home
+    cwd = Path.cwd() if cwd is None else cwd
+    python = sys.executable if python is None else python
+
+    fixes: list[Fix] = []
+    try:
+        cfg = _load_config(env)
+    except Exception:
+        cfg = None  # invalid settings are for a person to correct
+    if cfg is not None:
+        fixes += _workspace_fixes(cfg, platform)
+    if platform == "win32":
+        fixes += _registry_fixes(env, pid_alive)
+    if python and Path(python).is_file():
+        fixes += _client_fixes(env, home, cwd, platform, python)
+    return fixes
+
+
+def apply_fixes(fixes: list[Fix]) -> list[dict[str, str]]:
+    """Apply each fix in order. One failure does not stop the others."""
+    results = []
+    for fix in fixes:
+        if fix.apply is None:
+            status, result = "manual", "manual step; not applied"
+        else:
+            try:
+                result = fix.apply()
+                status = "skipped" if result.startswith("skipped") else "applied"
+            except (OSError, ValueError) as exc:
+                status, result = "failed", f"failed: {getattr(exc, 'strerror', None) or exc}"
+        results.append({"check": fix.check, "action": fix.action, "status": status, "result": result})
+    return results
+
+
 # ---- run ------------------------------------------------------------------
 
 def run_checks(env: Mapping[str, str] | None = None, platform: str | None = None,
@@ -341,18 +530,45 @@ def render_table(checks: list[Check]) -> str:
     return "\n".join(lines)
 
 
+def render_fixes(results: list[dict[str, str]], applied: bool) -> str:
+    if not results:
+        return "No fixes to apply." if applied else ""
+    if not applied:
+        lines = ["Fixes available (run `aec-model-bridge doctor --fix` to apply):"]
+        lines += [f"  - [{r['check']}] {r['action']}" for r in results]
+    else:
+        lines = ["Fixes:"]
+        lines += [f"  - [{r['check']}] {r['status'].upper()}: {r['action']}. {r['result']}" for r in results]
+    return "\n".join(lines)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="aec-model-bridge doctor", description="Check the local AEC Model Bridge setup. Read-only.")
+    parser = argparse.ArgumentParser(prog="aec-model-bridge doctor",
+                                     description="Check the local AEC Model Bridge setup. Read-only unless --fix is given.")
     parser.add_argument("--json", action="store_true", help="print JSON instead of a table")
+    parser.add_argument("--fix", action="store_true",
+                        help="apply safe local fixes (workspace folder, stale registry files, broken client entries)")
     args = parser.parse_args(argv)
     from . import __version__
 
-    checks = run_checks()
+    fixes = plan_fixes()
+    if args.fix:
+        results = apply_fixes(fixes)
+    else:
+        results = [{"check": f.check, "action": f.action, "status": "available" if f.apply else "manual", "result": ""}
+                   for f in fixes]
+    checks = run_checks()  # after any fixes, so the table shows the current state
     failed = any(c.status == FAIL for c in checks)
     if args.json:
-        print(json.dumps({"version": __version__, "ok": not failed, "checks": [asdict(c) for c in checks]}, indent=2))
+        print(json.dumps({"version": __version__, "ok": not failed, "checks": [asdict(c) for c in checks],
+                          "fixes_applied": args.fix, "fixes": results}, indent=2))
     else:
+        text = render_fixes(results, args.fix)
+        if text and args.fix:
+            print(text + "\n")
         print(render_table(checks))
+        if text and not args.fix:
+            print("\n" + text)
     return 1 if failed else 0
 
 

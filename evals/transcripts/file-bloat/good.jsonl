@@ -1,0 +1,3 @@
+{"meta": {"expect": {"passed": true}, "note": "model_bloat_audit."}}
+{"tool": "model_bloat_audit", "arguments": {}}
+{"answer": "The audit could not rate this model: the snapshot has too little data (no CAD records). Nothing points to bloat yet."}

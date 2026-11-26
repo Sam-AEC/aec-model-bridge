@@ -67,7 +67,7 @@ internal static class PythonEngineFactory
         }
     }
 
-    /// <summary>Ends the engine's runtime; never throws. Call after every script so no state leaks into the next one.</summary>
+    /// <summary>Ends the engine's runtime; never throws. PythonScriptRunner calls it when it recycles its warm engine.</summary>
     public static void ShutdownQuietly(ScriptEngine? engine)
     {
         if (engine == null) return;
@@ -75,7 +75,8 @@ internal static class PythonEngineFactory
         catch { /* a failed shutdown must not hide the script's own result */ }
     }
 
-    public static object Describe(ScriptEngine engine)
+    /// <param name="engineRun">Which script this is on the engine (1 = the engine was started for it); 0 when not known.</param>
+    public static object Describe(ScriptEngine engine, int engineRun = 0)
     {
         var available = StandardLibraryAvailable;
         return new
@@ -85,7 +86,8 @@ internal static class PythonEngineFactory
             standard_library_available = available,
             standard_library_path = StandardLibraryPath,
             standard_library_warning = available ? null : MissingLibraryWarning,
-            verified_modules = available ? new[] { "json", "time" } : new[] { "time" }
+            verified_modules = available ? new[] { "json", "time" } : new[] { "time" },
+            engine_run = engineRun
         };
     }
 }

@@ -1,0 +1,7 @@
+{"meta": {"expect": {"passed": true}, "note": "Find the door, one plan, approval, execute."}}
+{"tool": "snapshot_take", "arguments": {}}
+{"tool": "snapshot_query", "arguments": {"snapshot_id": "01JEVALRECORDEDSNAPSHOT001", "filter": {"category": "OST_Doors", "parameter": {"name": "Mark", "value": "D-101"}}}}
+{"tool": "plan_actions", "arguments": {"actions": [{"tool": "revit_set_parameters", "arguments": {"items": [{"id": 300, "params": {"FireRating": "60"}}]}}]}}
+{"event": "human_approved", "plan_id": "plan_0123456789ab"}
+{"tool": "execute_plan", "arguments": {"plan_id": "plan_0123456789ab"}}
+{"answer": "You approved the plan and it ran: door D-101 now has FireRating 60."}

@@ -9,7 +9,7 @@
   const feed = () => document.querySelector("#chat-root .feed");
 
   function host(extra) {
-    deliver(Object.assign({ type: "host.status", serverRunning: true, activeDocument: "m.rvt", revitVersion: "2025", port: 1 }, extra));
+    deliver(Object.assign({ type: "host.status", serverRunning: true, activeDocument: "m.rvt", activeDocumentGuid: "g1", revitPid: 7, revitVersion: "2025", port: 1 }, extra));
   }
   function diag(mode) {
     deliver({ type: "diagnostics.updated", diagnostics: { ok: true, approval_mode: mode, checks: [] } });
@@ -35,7 +35,8 @@
     sent().length = 0;
     window.__copied.length = 0;
   }
-  const PLAN = (id, actions, state) => ({ plan_id: id, plan_hash: "abcdef0123456789", state: state || "pending", actions });
+  const SESSION = { doc_guid: "g1", revit_pid: 7 };
+  const PLAN = (id, actions, state) => ({ plan_id: id, plan_hash: "abcdef0123456789", state: state || "pending", actions, binding: SESSION });
   const SET = (ids, withBefore) => ({
     tool: "revit_set_parameter",
     arguments: { element_ids: ids, name: "Fire Rating", value: "2h" },
@@ -425,7 +426,7 @@
     conflicts: [{ element_id: 1, parameter: "FireRating", expected_current: "60", actual_current: "90", revert_to: "30" }],
   });
   const V2 = (id, review, extra) => Object.assign({
-    plan_id: id, plan_hash: "abcdef0123456789", state: "pending", hash_version: 2,
+    plan_id: id, plan_hash: "abcdef0123456789", state: "pending", hash_version: 2, binding: SESSION,
     actions: [SET([1], true)],
     review_view: { status: "ok", hash_version: 2, reverts_plan_id: null, review, error: "" },
   }, extra || {});
@@ -498,11 +499,30 @@
       hash_version: undefined, preview: { rows: [ROW(1), ROW(2, { before: "old" })], row_count: 2, rows_omitted: 0 }, blast_radius: RADIUS })]);
     const card = cardOf("pv1");
     const cells = Array.from(card.querySelectorAll(".plan-preview-table tr")).map((tr) => Array.from(tr.children).map((c) => c.textContent));
-    expect(cells.length === 3 && cells[0][3] === "Before" && cells[1][3] === "(empty)" && cells[2][3] === "old" && cells[2][4] === "A2", "rows " + JSON.stringify(cells));
-    expect(cells[1][1] === "unknown", "missing UniqueId should read unknown");
+    expect(cells.length === 3 && cells[0][2] === "Before" && cells[1][2] === "(empty)" && cells[2][2] === "old" && cells[2][3] === "A2", "rows " + JSON.stringify(cells));
+    expect(!cells[0].includes("UniqueId") && !/unknown/.test(JSON.stringify(cells)), "a UniqueId nobody knows must not be printed as unknown");
     const head = card.querySelector(".plan-blast");
-    expect(head && /Risk: medium/.test(head.textContent) && /Categories: Walls, unknown/.test(head.textContent), "blast radius header missing");
+    expect(head && /Risk: medium/.test(head.textContent) && /Categories: Walls \(not all known\)/.test(head.textContent), "blast radius header missing");
+    expect(!/Levels|Worksets|unknown/.test(head.textContent), "unknown fields must be left out: " + head.textContent);
     expect(!!approveBtn(card) && !approveBtn(card).disabled, "preview must not change Approve state");
+  });
+
+  test("preview: a known UniqueId gets its column, and a before value comes from the rolled-back preview when the plan did not capture it", () => {
+    fresh();
+    const rb = { version: 1, status: "ok", rolled_back: true, changed_element_ids: [1, 2, 77],
+      actions: [{ index: 0, tool: "revit_set_parameter_value", ok: true, element_id: 1, parameter: "Mark", before: "OLD1", after: "A1" }],
+      warnings: [{ action_index: 0, severity: "Warning", message: "Duplicate Mark.", element_ids: [1, 2] }] };
+    plans([V2("pv5", null, Object.assign({ rollback_preview: rb }, { review_view: { status: "none", hash_version: 1, reverts_plan_id: null, review: null, error: "" }, hash_version: undefined,
+      preview: { rows: [ROW(1, { unique_id: "uid-1", before: "(not captured)" }), ROW(2, { before: "(not captured)" })], row_count: 2, rows_omitted: 0 }, blast_radius: RADIUS }))]);
+    const card = cardOf("pv5");
+    const cells = Array.from(card.querySelectorAll(".plan-preview-table tr")).map((tr) => Array.from(tr.children).map((c) => c.textContent));
+    expect(cells[0].includes("UniqueId") && cells[1][1] === "uid-1", "UniqueId column " + JSON.stringify(cells[1]));
+    expect(cells[1][3] === "OLD1" && cells[2][3] === "(not captured)", "before fill " + JSON.stringify(cells));
+    expect(/1 before value\(s\) come from the rolled-back preview/.test(card.querySelector(".plan-preview").textContent), "fill not disclosed");
+    const rbText = card.querySelector(".plan-rollback-preview").textContent;
+    expect(/Also changed, not named in the plan: 77\./.test(rbText), "extra changed ids missing: " + rbText);
+    expect(/Duplicate Mark\. \(elements: 1, 2\)/.test(rbText), "warning elements missing: " + rbText);
+    expect(card.querySelector(".plan-details").contains(card.querySelector(".plan-rollback-preview")), "rolled-back preview belongs in the details");
   });
 
   test("preview: rows are capped at 25 and the rest is counted", () => {
@@ -524,6 +544,43 @@
     expect(card.querySelectorAll(FORBIDDEN).length === 0, "active element in card");
     expect(card.querySelector(".plan-preview").textContent.includes("<script>window.__pwned=1</script>"), "markup should be literal text");
     expect(!card.querySelector(".plan-preview").textContent.includes("\u202E"), "bidi override shown raw");
+    expect(window.__pwned === undefined, "script ran");
+  });
+
+  const ROLLED = (over) => Object.assign({ version: 1, status: "ok", rolled_back: true, changed_element_ids: [11, 12],
+    actions: [{ index: 0, tool: "revit_set_parameter_value", ok: true, element_id: 11, parameter: "Mark", before: "A", after: "B" }],
+    warnings: [{ action_index: 0, severity: "Warning", message: "Elements have duplicate Mark values.", element_ids: [11] }] }, over || {});
+  const NO_REVIEW = { review_view: { status: "none", hash_version: 1, reverts_plan_id: null, review: null, error: "" }, hash_version: undefined };
+
+  test("rollback preview: shows changed ids, before and after and the warnings, and leaves Approve alone", () => {
+    fresh();
+    plans([V2("rp1", null, Object.assign({ rollback_preview: ROLLED() }, NO_REVIEW))]);
+    const card = cardOf("rp1");
+    const block = card.querySelector(".plan-rollback-preview");
+    expect(!!block, "rolled-back preview block missing");
+    expect(/nothing was kept in the model/.test(block.textContent) && /Changed element ids: 11, 12/.test(block.textContent), "head " + block.textContent);
+    const cells = Array.from(block.querySelectorAll("tr")).map((tr) => Array.from(tr.children).map((c) => c.textContent));
+    expect(cells[1][5] === "A" && cells[1][6] === "B", "before/after " + JSON.stringify(cells));
+    expect(/Elements have duplicate Mark values/.test(block.textContent), "warning missing");
+    expect(!!approveBtn(card) && !approveBtn(card).disabled, "a preview must not change Approve state");
+  });
+
+  test("rollback preview: an unavailable preview says so, and a preview that was not rolled back is flagged", () => {
+    fresh();
+    plans([V2("rp2", null, Object.assign({ rollback_preview: ROLLED({ status: "unavailable", reason: "Revit was busy.", actions: [], changed_element_ids: [], warnings: [] }) }, NO_REVIEW)),
+           V2("rp3", null, Object.assign({ rollback_preview: ROLLED({ rolled_back: false }) }, NO_REVIEW))]);
+    expect(/not available\. Revit was busy\./.test(cardOf("rp2").querySelector(".plan-rollback-preview").textContent), "unavailable text");
+    expect(/NOT rolled back/.test(cardOf("rp3").querySelector(".plan-rollback-preview").textContent), "not-rolled-back alert");
+  });
+
+  test("rollback preview: hostile text stays inert", () => {
+    fresh();
+    plans([V2("rp4", null, Object.assign({ rollback_preview: ROLLED({ warnings: [{ action_index: 0, severity: "Warning", message: XSS, element_ids: [] }],
+      actions: [{ index: 0, tool: XSS, ok: false, error: XSS, before: "x‮y" }] }) }, NO_REVIEW))]);
+    const card = cardOf("rp4");
+    expect(card.querySelectorAll(FORBIDDEN).length === 0, "active element in card");
+    expect(card.querySelector(".plan-rollback-preview").textContent.includes("<script>window.__pwned=1</script>"), "markup should be literal text");
+    expect(!card.querySelector(".plan-rollback-preview").textContent.includes("‮"), "bidi override shown raw");
     expect(window.__pwned === undefined, "script ran");
   });
 
@@ -808,20 +865,48 @@
     expect($("reject-confirm").hidden && sentOf("plan.reject").length === 0, "cancel did not stop the reject");
   });
 
-  test("bound document: title and expiry are shown escaped; a different active document warns before Approve", () => {
+  test("bound document: title and expiry are shown escaped; another document is hidden, and warns once shown", () => {
     fresh();
     const bound = { doc_title: "Other<img src=x onerror=window.__pwned=9>.rvt", doc_guid: "g" };
     plans([PLAN("d1", [SET([1], true)])].map((p) => Object.assign(p, { binding: bound, expires_at: "2030-01-02T03:04:05Z" })));
+    expect(!cardOf("d1") && /1 plan for other models hidden/.test($("other-note").textContent), "other model's plan not collapsed");
+    expect(!/Other/.test($("plan-list").textContent), "hidden plan details were rendered");
+    document.querySelector('[data-action="toggle-other-plans"]').click();
     const card = cardOf("d1");
     expect(/Bound to document: Other/.test(card.textContent) && /Expires:/.test(card.textContent), "binding or expiry missing");
     expect(!card.querySelector("img"), "binding title was not escaped");
     const warn = card.querySelector('[role="alert"]');
     expect(warn && /active document is m\.rvt/.test(warn.textContent), "no mismatch warning");
     expect(approveBtn(card).getAttribute("aria-describedby") === warn.id, "Approve not tied to the warning");
-    plans([PLAN("d2", [SET([1], true)])].map((p) => Object.assign(p, { binding: { doc_title: "M" } })));
+    document.querySelector('[data-action="toggle-other-plans"]').click();
+    expect(!cardOf("d1"), "Hide did not collapse the plan again");
+    plans([PLAN("d2", [SET([1], true)])].map((p) => Object.assign(p, { binding: { doc_title: "M", doc_guid: "g1", revit_pid: 7 } })));
     expect(!cardOf("d2").querySelector('[id^="plan-warn-"]'), "warned although the document matches");
-    plans([PLAN("d3", [SET([1], true)])]);
-    expect(!/Bound to document|Expires:/.test(cardOf("d3").textContent), "unbound plan shows binding text");
+  });
+
+  test("another Revit process with the same document is hidden, and warns about the pid once shown", () => {
+    fresh();
+    plans([PLAN("pid1", [SET([1], true)])].map((p) => Object.assign(p, { binding: { doc_title: "m.rvt", doc_guid: "g1", revit_pid: 8 } })));
+    expect(!cardOf("pid1") && !$("other-bar").hidden, "same title, other pid was listed");
+    document.querySelector('[data-action="toggle-other-plans"]').click();
+    const warn = cardOf("pid1").querySelector('[id^="plan-warn-"]');
+    expect(warn && /process 8/.test(warn.textContent) && /process 7/.test(warn.textContent), "no pid warning");
+  });
+
+  test("unbound plan: warning shown, Approve disabled until the confirm is ticked", () => {
+    fresh();
+    plans([Object.assign(PLAN("u1", [SET([1], true)]), { binding: null })]);
+    const card = cardOf("u1");
+    expect(card.querySelector('[id^="plan-unbound-"]') && !/Bound to document|Expires:/.test(card.textContent), "no unbound warning");
+    expect(approveBtn(card).disabled, "unbound plan approvable before the confirm");
+    approveBtn(card).click();
+    expect(sentOf("plan.approve").length === 0, "approve sent without the confirm");
+    const box = card.querySelector("[data-confirm-unbound]");
+    box.checked = true;
+    box.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(!approveBtn(cardOf("u1")).disabled, "confirm did not enable Approve");
+    approveBtn(cardOf("u1")).click();
+    expect(sentOf("plan.approve").length === 1, "approve not sent after the confirm");
   });
 
   test("expired plans: N hidden is announced, the toggle asks the host, expired plans cannot be approved but can be rejected in bulk", () => {

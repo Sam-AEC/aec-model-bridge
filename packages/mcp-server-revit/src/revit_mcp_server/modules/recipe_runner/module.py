@@ -22,6 +22,7 @@ Template variables: {{key}} → replaced from context dict.
 Condition: minimal eval — supports == != >= <= comparisons on {{prev.field}}.
 """
 from __future__ import annotations
+from revit_mcp_server.security.module_permissions import writable_path
 
 import json
 import logging
@@ -30,8 +31,6 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
-
-import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +110,8 @@ def _load_recipe(recipe_id: str, workspace: Any = None) -> Dict[str, Any]:
         path = RECIPES_DIR / f"{recipe_id}.yaml"
     if not path.exists():
         raise ValueError(f"Recipe '{recipe_id}' not found at {path}")
+    import yaml  # loaded on first use, not at server start
+
     with open(path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
     if not isinstance(data.get("steps", []), list):
@@ -120,6 +121,8 @@ def _load_recipe(recipe_id: str, workspace: Any = None) -> Dict[str, Any]:
 def _list_recipes() -> List[Dict[str, Any]]:
     if not RECIPES_DIR.exists():
         return []
+    import yaml
+
     result = []
     for p in sorted(RECIPES_DIR.glob("*.yaml")):
         try:
@@ -151,7 +154,7 @@ def _load_runs(workspace: Any) -> List[Dict[str, Any]]:
 def _save_run(run: Dict[str, Any], workspace: Any) -> None:
     runs = _load_runs(workspace)
     runs.append(run)
-    with open(_run_log_path(workspace), "w", encoding="utf-8") as f:
+    with open(writable_path(workspace, _run_log_path(workspace)), "w", encoding="utf-8") as f:
         json.dump(runs, f, indent=2, default=str)
 
 def _run_status(step_results: List[Dict[str, Any]], dry_run: bool) -> str:

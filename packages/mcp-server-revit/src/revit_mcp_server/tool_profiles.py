@@ -10,7 +10,8 @@ from fnmatch import fnmatchcase
 import json
 import os
 from pathlib import Path
-from typing import Mapping
+from datetime import date
+from typing import Any, Mapping
 
 from .errors import BridgeError
 
@@ -20,13 +21,13 @@ DAILY_EXCLUDE = (
     "clash_triage*", "ifc*", "revit_ifc*",
 )
 
-# The `core` profile: the BIM-coordinator loop in 49 tools (plus the always-visible
+# The `core` profile: the BIM-coordinator loop in 50 tools (plus the always-visible
 # approval tools). Matches tool names, not provider/module IDs. Families: see
 # docs/mcp-token-budget.md.
 CORE_TOOLS = (
     "revit_get_context", "revit_health", "revit_get_document_info", "revit_get_result",
     "job_status", "job_cancel",
-    "snapshot_take", "snapshot_query", "snapshot_diff",
+    "snapshot_take", "snapshot_query", "snapshot_diff", "snapshot_compute",
     "qaqc_checker_run_check", "qaqc_checker_list_issues", "qaqc_checker_resolve_issue",
     "qaqc_checker_list_rules", "qaqc_checker_list_rule_packs",
     "revit_review", "revit_warnings_delta", "revit_check_levels_grids", "revit_system_report",
@@ -45,6 +46,16 @@ CORE_TOOLS = (
 )
 
 
+# Tools a client should keep loaded when it defers the rest of this server behind tool
+# search (docs/deferred-tool-loading.md). list_tools marks each with
+# `_meta["anthropic/alwaysLoad"] = true`. Every name must be visible in every built-in
+# profile, so a deferred client can always read context, search, snapshot and plan.
+ALWAYS_LOADED_TOOLS = (
+    "revit_get_context", "snapshot_take", "snapshot_compute", "search_tools",
+    "context_report", "plan_actions", "execute_plan", "list_pending_plans",
+)
+
+
 # Tools hidden in every profile until the thing behind them exists. The pyRevit run tool has
 # no add-in runner yet (docs/pyrevit-bridge.md), so a live call could only report bridge_unavailable.
 # The pyRevit list and plan tools stay available.
@@ -60,6 +71,15 @@ APPROVAL_PROVIDER_ID = "approval"
 TOOL_SEARCH_PROVIDER_ID = "tool_search"
 
 
+# The `learned` profile: core + always-loaded + the most used tools of the last
+# WINDOW_DAYS days, from the local usage counts (usage_counts.py). With fewer than
+# LEARNED_MIN_CALLS counted calls in that window it falls back to `daily`.
+LEARNED_TOP_N_DEFAULT = 25
+LEARNED_TOP_N_MAX = 200
+LEARNED_MIN_CALLS = 50
+PROFILE_NAMES = ("full", "daily", "core", "learned", "custom")
+
+
 class ToolProfileBlocked(BridgeError):
     """A registered tool is unavailable in this process's static MCP profile."""
 
@@ -70,6 +90,7 @@ class ToolProfile:
     include: tuple[str, ...] = ("*",)
     exclude: tuple[str, ...] = ()
     tools: tuple[str, ...] | None = None  # exact tool names; None means no name filter
+    detail: str = ""  # how the profile was chosen, for context_report (learned profile)
 
     def allows(self, provider_id: str, module_id: str | None = None, tool_name: str | None = None) -> bool:
         if provider_id in (APPROVAL_PROVIDER_ID, TOOL_SEARCH_PROVIDER_ID):
@@ -92,17 +113,24 @@ class ToolProfile:
         )
 
 
-def load_tool_profile(environ: Mapping[str, str] | None = None) -> ToolProfile:
+def load_tool_profile(environ: Mapping[str, str] | None = None,
+                      usage_data: Mapping[str, Any] | None = None,
+                      today: date | None = None) -> ToolProfile:
     """Read and validate settings once. JSON include/exclude contain ID globs.
 
     The optional file narrows any profile; custom requires a file. Exclusions
     always win, including daily's built-in exclusions, except that the approval
     provider is never hidden: an exclusion matching it is refused. No file is reread later.
+    `learned` reads the usage counts once here (``usage_data`` overrides the file, for tests).
     """
     env = os.environ if environ is None else environ
     name = env.get("MCP_REVIT_TOOL_PROFILE", "full")
-    if name not in {"full", "daily", "core", "custom"}:
-        raise ValueError("MCP_REVIT_TOOL_PROFILE must be full, daily, core, or custom")
+    if name not in PROFILE_NAMES:
+        raise ValueError("MCP_REVIT_TOOL_PROFILE must be full, daily, core, learned, or custom")
+    tools: tuple[str, ...] | None = CORE_TOOLS if name == "core" else None
+    detail = ""
+    if name == "learned":
+        name, tools, detail = _learned(env, usage_data, today)
     filename = env.get("MCP_REVIT_TOOL_PROFILE_FILE")
     if name == "custom" and not filename:
         raise ValueError("MCP_REVIT_TOOL_PROFILE=custom requires MCP_REVIT_TOOL_PROFILE_FILE")
@@ -133,5 +161,48 @@ def load_tool_profile(environ: Mapping[str, str] | None = None) -> ToolProfile:
                     "(plan_actions, execute_plan, list_pending_plans stay visible in every profile)"
                 )
         exclude += tuple(data.get("exclude", []))
-    return ToolProfile(name=name, include=include, exclude=exclude,
-                       tools=CORE_TOOLS if name == "core" else None)
+    return ToolProfile(name=name, include=include, exclude=exclude, tools=tools, detail=detail)
+
+
+def learned_top_n(environ: Mapping[str, str]) -> int:
+    raw = environ.get("MCP_REVIT_LEARNED_TOP_N", "").strip()
+    if not raw:
+        return LEARNED_TOP_N_DEFAULT
+    if not raw.isdigit() or not 1 <= int(raw) <= LEARNED_TOP_N_MAX:
+        raise ValueError(f"MCP_REVIT_LEARNED_TOP_N must be a whole number from 1 to {LEARNED_TOP_N_MAX}")
+    return int(raw)
+
+
+def learned_tools(usage_data: Mapping[str, Any], top_n: int = LEARNED_TOP_N_DEFAULT,
+                  today: date | None = None) -> tuple[tuple[str, ...] | None, int]:
+    """(tool names for `learned`, calls in the window). Names is None when there is too little data."""
+    from .usage_counts import WINDOW_DAYS, top_tools
+
+    rows = top_tools(usage_data, today=today, days=WINDOW_DAYS)
+    calls = sum(row["calls"] for row in rows)
+    if calls < LEARNED_MIN_CALLS:
+        return None, calls
+    top = tuple(row["name"] for row in rows[:top_n])
+    return tuple(dict.fromkeys(CORE_TOOLS + ALWAYS_LOADED_TOOLS + top)), calls
+
+
+def _learned(env: Mapping[str, str], usage_data: Mapping[str, Any] | None,
+             today: date | None) -> tuple[str, tuple[str, ...] | None, str]:
+    """Resolve `learned` to (profile name, tool names, detail). Falls back to `daily`."""
+    from . import usage_counts
+
+    top_n = learned_top_n(env)
+    days = usage_counts.WINDOW_DAYS
+    if usage_data is None:
+        if not usage_counts.counts_enabled(env):
+            return "daily", None, (f"learned profile fell back to daily: usage counts are off "
+                                   f"({usage_counts.ENV_VAR}).")
+        from .config import config
+        usage_data = usage_counts.load(usage_counts.usage_file(env.get("MCP_REVIT_WORKSPACE_DIR")
+                                                               or config.workspace_dir))
+    names, calls = learned_tools(usage_data, top_n, today)
+    if names is None:
+        return "daily", None, (f"learned profile fell back to daily: {calls} tool calls counted in the "
+                               f"last {days} days, {LEARNED_MIN_CALLS} needed.")
+    return "learned", names, (f"learned profile: core, always-loaded and the {top_n} most used tools "
+                              f"from {calls} calls in the last {days} days.")

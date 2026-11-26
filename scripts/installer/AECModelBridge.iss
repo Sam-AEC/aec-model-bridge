@@ -20,7 +20,7 @@
 [Setup]
 AppId={{D41A24F3-87B1-4A51-9F31-30919E371C25}
 AppName=AEC Model Bridge
-AppVersion=1.5.1
+AppVersion=1.6.0
 AppPublisher=Sam-AEC
 AppPublisherURL=https://github.com/Sam-AEC/aec-model-bridge
 AppSupportURL=https://github.com/Sam-AEC/aec-model-bridge/issues
@@ -52,12 +52,12 @@ CloseApplications=yes
 RestartApplications=no
 
 [Messages]
-WelcomeLabel2=This installs [name/ver] for Autodesk Revit on your computer.%n%nClose Revit before you continue.
+WelcomeLabel2=This installs [name/ver]: a Revit add-in and the server that lets AI assistants such as Claude, Codex or Cursor work with your Revit model. By default, every change to the model waits for your approval.%n%nYou do not need administrator rights. Close Revit before you continue.
 WizardSelectComponents=Revit versions
 SelectComponentsDesc=Which Revit versions should AEC Model Bridge be installed for?
-SelectComponentsLabel2=Versions of Revit found on this computer are already ticked. Change the selection if needed, then click Next.
-FinishedLabelNoIcons=Setup has finished installing [name] on your computer.%n%nStart Revit and look for the AEC Bridge tab.
-FinishedLabel=Setup has finished installing [name] on your computer.%n%nStart Revit and look for the AEC Bridge tab.
+SelectComponentsLabel2=The Revit versions found on this computer are already ticked. Change the selection if needed, then click Next.
+FinishedLabelNoIcons=[name] is installed.%n%nStart Revit and look for the AEC Bridge tab.%n%nIf you chose to set up Claude Desktop or VS Code, restart them. For other AI assistants, see the install guide on the project page (docs/install.md).
+FinishedLabel=[name] is installed.%n%nStart Revit and look for the AEC Bridge tab.%n%nIf you chose to set up Claude Desktop or VS Code, restart them. For other AI assistants, see the install guide on the project page (docs/install.md).
 
 [Types]
 Name: "full"; Description: "All supported Revit versions (2024 to 2027)"
@@ -114,7 +114,7 @@ Source: "{#Dist}\LICENSING.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Dist}\LICENSES\*"; DestDir: "{app}\LICENSES"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Run]
-Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\ensure-webview2.ps1"""; StatusMsg: "Checking the WebView2 runtime..."; Flags: runhidden waituntilterminated; Check: WantWebView2
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\ensure-webview2.ps1"""; StatusMsg: "Checking for Microsoft WebView2, which the AEC Bridge panel needs..."; Flags: runhidden waituntilterminated; Check: WantWebView2
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\configure-mcp-clients.ps1"" -PythonPath ""{app}\python\python.exe"""; StatusMsg: "Setting up Claude Desktop and VS Code..."; Flags: runhidden waituntilterminated; Tasks: mcpclients
 
 [UninstallDelete]

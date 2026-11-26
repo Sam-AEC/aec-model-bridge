@@ -83,6 +83,8 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `hello_world_say_hello` | Example module command that returns a greeting; use it to confirm the module system works. | No | sync |
 | `ids_validator_validate_ifc` | Check an IFC file in the workspace against a buildingSMART IDS file and return pass or fail per specification with the GlobalIds of failing entities (capped, with full counts). | No | sync |
 | `links_worksets_audit_audit` | Check linked models and worksets for problems (unloaded or missing links, links not pinned or placed Origin to Origin, empty or default-named worksets, worksets owned by someone else, elements on the wrong workset) and give plain next steps. | No | sync |
+| `mark_renumber_plan_analyze` | Find duplicate marks, empty marks, gaps and out-of-order sequences for doors, rooms and windows in a saved snapshot, and propose a new numbering from a small rule file (doors: To room number plus a letter; rooms and windows: level prefix plus sequence). | No | sync |
+| `mark_renumber_plan_draft_plan` | Draft one plan_actions-ready list of parameter writes for the proposed mark numbering. | No | sync |
 | `model_bloat_audit` | Check a saved snapshot for model bloat: unused families and types (purge candidates), in-place families, families with very many types, imported CAD files, and a rough cleanliness score, sorted by likely impact. | No | sync |
 | `model_changes_compare_snapshots` | Say what changed between two saved snapshots: elements added, removed or modified, parameter values before and after, and counts per category. | No | sync |
 | `model_changes_list_snapshots` | List the saved model snapshots with their timestamps, newest first, so you can pick the latest and previous ones to compare. | No | sync |
@@ -178,6 +180,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_update_sheets` | Bulk renumber and rename sheets from a table (number = the current number; new_number and/or new_name). | Yes | sync |
 | `revit_warnings_delta` | Track Revit warnings across a build phase. | No | sync |
 | `schedule_consistency_check_doors_and_rooms` | Check door and room schedules in a saved snapshot for duplicate or missing Marks, missing or identical From/To rooms, unnumbered or duplicate room numbers and zero-area rooms, and optionally Marks that do not fit a pattern you supply. | No | sync |
+| `schedule_diff_compare` | Compare two saved snapshots by their sheet list, sheet revision fields and schedule rows: sheets added, removed, renumbered, renamed or moved in the numbering order, revision fields changed, and schedule rows added, removed, changed or moved. | No | sync |
 | `selection_tools_group_convert_to_detail` | Convert a model group into a detail group. | Yes | sync |
 | `selection_tools_group_rename` | Rename a model group identified by its UniqueId. | Yes | sync |
 | `selection_tools_group_ungroup` | Ungroup a model group identified by its UniqueId. | Yes | sync |
@@ -186,6 +189,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `selection_tools_save_selection` | Save a set of element UniqueIds under a name for later restore. | No | sync |
 | `selection_tools_select_by_query` | Select in Revit the elements of a snapshot that match a filter query. | Yes | sync |
 | `selection_tools_set_selection` | Select the given elements (by UniqueId) in the Revit UI. | Yes | sync |
+| `sheet_set_qa_check` | Check the sheets in a saved snapshot before a drawing issue: duplicate or equivalent sheet numbers, gaps in the numbering within a prefix, empty title block fields (configurable, defaults Sheet Number, Sheet Name, Drawn By, Checked By, Sheet Issue Date), sheets with no placed views, and numbers or names that break a regex. | No | sync |
 | `sheet_view_audit_run_audit` | Check the sheets and views in a saved snapshot for empty sheets, unplaced views, duplicate sheet numbers, missing sheet parameters and default view names. | No | sync |
 | `warnings_triage_review_warnings` | Group the open project's Revit warnings by type, rank them by how many elements they touch, flag duplicate marks, overlapping elements and rooms not enclosed for the coordinator, and suggest a next step for each group. | No | sync |
 
@@ -214,7 +218,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
 | `revit_apply_view_template` | Apply a view template to a view in the active Revit document. | Yes | sync |
-| `revit_batch_create_sheets_from_csv` | Create many sheets from a CSV file inside the allowed workspace, using the named title block. | Yes | sync |
+| `revit_batch_create_sheets_from_csv` | Create many sheets from a CSV file inside the allowed workspace. | Yes | sync |
 | `revit_batch_set_parameters` | Set the same parameter to the same value on many elements, given by ElementId, in one Revit transaction. | Yes | sync |
 | `revit_batch_set_parameters_by_filter` | Set a parameter value on all elements matching a filter (category, type, level, or parameter value). | Yes | sync |
 | `revit_calculate_material_quantities` | Calculate material volumes and areas for all elements of a category. | No | sync |
@@ -239,22 +243,22 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_create_material` | Create a new material with a colour, transparency, shininess and smoothness. | Yes | sync |
 | `revit_create_new_document` | Create a new Revit project, optionally from a template file inside the allowed workspace. | Yes | sync |
 | `revit_create_pipe` | Create a pipe between two points at an elevation on a level, with a piping system type and pipe type. | Yes | sync |
-| `revit_create_project_parameter` | Create a new project parameter and bind it to a category in the active Revit document. | Yes | sync |
+| `revit_create_project_parameter` | Create a project parameter and bind it to categories in the active Revit document. | Yes | sync |
 | `revit_create_roof` | Create a roof on a level from a closed footprint of points, with an optional slope, in the active Revit document. | Yes | sync |
 | `revit_create_room` | Create a room at an x/y point on a level, with a name and number, in the active Revit document. | Yes | sync |
 | `revit_create_schedule` | Create a schedule view for a category with the given name. | Yes | sync |
 | `revit_create_section_view` | Create a section view between two points with the given height in the active Revit document. | Yes | sync |
-| `revit_create_shared_parameter` | Create a new shared parameter with a name, parameter group and data type in the active Revit document. | Yes | sync |
+| `revit_create_shared_parameter` | Create a shared parameter in the shared parameter file set in Revit, or reuse one with the same name and type, and bind it to categories in the active Revit document. | Yes | sync |
 | `revit_create_sheet` | Create a new sheet with a name, number and title block in the active Revit document. | Yes | sync |
 | `revit_create_tag` | Tag one element at an x/y position in a view. | Yes | sync |
 | `revit_create_text_note` | Create a text note at an x/y position in a view of the active Revit document. | Yes | sync |
 | `revit_create_wall` | Create a straight wall between two points on a level in the active Revit document. | Yes | sync |
 | `revit_delete_element` | Delete one element by its Revit ElementId from the active document. | Yes | sync |
 | `revit_delete_sheet` | Delete a sheet by ElementId. | Yes | sync |
-| `revit_duplicate_sheet` | Duplicate a sheet, optionally with its views, using one of Revit's duplicate options. | Yes | sync |
+| `revit_duplicate_sheet` | Duplicate a sheet under a new number and name, optionally copying its viewports. | Yes | sync |
 | `revit_edit_family` | Open a family for editing in the Revit family editor. | Yes | sync |
 | `revit_execute_python` | Advanced: run IronPython 2. | Yes | sync |
-| `revit_export_dwg` | Export a view to a DWG file at a path inside the allowed workspace. | No | sync |
+| `revit_export_dwg` | Export a view to a DWG file in a folder inside the allowed workspace; the file is named after the view. | No | sync |
 | `revit_export_ifc` | Export the model to an IFC file at a path inside the allowed workspace. | No | sync |
 | `revit_export_image` | Export a view to an image file of the given pixel size at a path inside the allowed workspace. | No | sync |
 | `revit_export_navisworks` | Export the model to a Navisworks NWC file at a path inside the allowed workspace. | No | sync |
@@ -265,7 +269,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_get_document_info` | Return metadata about the active Revit document, such as its title, path and workshare status. | No | sync |
 | `revit_get_element_bounding_box` | Return the axis-aligned bounding box (min and max corner, feet) of an element. | No | sync |
 | `revit_get_element_geometry` | Get geometric data for an element: location point or curve endpoints, bounding box, level, area, volume, and length. | No | sync |
-| `revit_get_element_parameters` | Return every instance parameter of one element (name, value, storage type and read-only flag). | No | sync |
+| `revit_get_element_parameters` | Return every instance parameter of one element (name, value, storage type and read-only flag), and the element's unique_id. | No | sync |
 | `revit_get_element_type` | Find element types by category name and family name in the active document. | No | sync |
 | `revit_get_elements_by_type` | Get element IDs and key parameters, filtered by type, category, and/or level. | No | sync |
 | `revit_get_group_members` | List the member elements of a model group. | No | sync |
@@ -277,7 +281,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_get_revision_sequences` | List the revision sequences defined in the active Revit document. | No | sync |
 | `revit_get_rvt_links` | List the linked Revit models (link types) in the active document. | No | sync |
 | `revit_get_schedule_data` | Return the rows and columns of an existing schedule. | No | sync |
-| `revit_get_selection` | Return the ElementIds of the elements currently selected in the Revit UI. | No | sync |
+| `revit_get_selection` | Return the ElementIds, and the matching UniqueIds, of the elements currently selected in the Revit UI. | No | sync |
 | `revit_get_sheet_info` | Return detailed information about one sheet, such as its number, name, title block and placed views. | No | sync |
 | `revit_get_snapshot_delta` | Get lists of unique IDs for elements added, modified, or deleted during the active session. | No | sync |
 | `revit_get_type_parameters` | Return the type parameters of the family type that an element belongs to. | No | sync |
@@ -298,6 +302,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_list_views` | List all views in the active Revit project with their names, ids and view types. | No | sync |
 | `revit_mirror_element` | Mirror one element about a plane given by an origin point and a normal vector. | Yes | sync |
 | `revit_move_element` | Move one element by an offset vector in feet. | Yes | sync |
+| `revit_perf_report` | Read-only. | No | sync |
 | `revit_pin_element` | Pin an element so it cannot be moved by accident. | Yes | sync |
 | `revit_place_door` | Place a door of a given family and type in a host wall at a location. | Yes | sync |
 | `revit_place_family_instance` | Place an instance of a loaded family type (for example furniture or equipment) at a point on a level. | Yes | sync |
@@ -306,19 +311,20 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_populate_titleblock` | Write a set of parameter values into the title block of a sheet. | Yes | sync |
 | `revit_preview_elements` | Preview which elements a proposed change affects: select and zoom to them in the active view and temporarily isolate them. | No | sync |
 | `revit_raw_command` | Advanced: send any Revit add-in command (for example revit. | Yes | sync |
+| `revit_reconnect` | Use after Revit was restarted or closed, when Revit calls are refused because the selected session changed or closed. | No | sync |
 | `revit_reflect_get` | Advanced: read any public Revit API property of an object identified by target_id, through reflection. | Yes | sync |
 | `revit_reflect_set` | Advanced escape hatch: set any writable Revit API property of an object identified by target_id, through reflection. | Yes | sync |
 | `revit_relinquish_all` | Relinquish every element and workset the current user owns in a workshared model. | Yes | sync |
 | `revit_render_3d` | Render a 3D view to an image file at a chosen quality level. | Yes | sync |
-| `revit_renumber_sheets` | Renumber all sheets in one batch using a prefix and a starting number. | Yes | sync |
+| `revit_renumber_sheets` | Renumber the listed sheets in one transaction: sheet_ids with a prefix and start number, or explicit numbers. | Yes | sync |
 | `revit_replace_family_type` | Replace all instances of one family/type combination with another, identified by name. | Yes | sync |
 | `revit_rotate_element` | Rotate one element about a vertical axis through a centre point by an angle in radians. | Yes | sync |
 | `revit_save_document` | Save the active Revit document, optionally to a path inside the allowed workspace directories. | Yes | sync |
 | `revit_select_by_unique_ids` | Select elements by UniqueId and zoom to them in the active view. | No | sync |
 | `revit_set_element_material` | Assign a material, by name, to an element or to one of its faces. | Yes | sync |
 | `revit_set_parameter_value` | Set one instance parameter on one element to a new value in the active Revit document. | Yes | sync |
-| `revit_set_selection` | Replace the current Revit UI selection with the given ElementIds. | Yes | sync |
-| `revit_set_type_parameter` | Set one type parameter on the family type of an element. | Yes | sync |
+| `revit_set_selection` | Replace the current Revit UI selection with the given ElementIds. | No | sync |
+| `revit_set_type_parameter` | Set one type parameter on a family type, given by type_id. | Yes | sync |
 | `revit_sync_to_central` | Synchronise a workshared model with the central model with a comment, optionally relinquishing ownership. | Yes | sync |
 | `revit_tag_all_in_view` | Tag every element of a category in the active view. | Yes | sync |
 | `revit_ungroup` | Dissolve a model group into its member elements. | Yes | sync |
@@ -397,4 +403,11 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `exporter_db_health` | Check health and readiness of the local database exporter. | No | sync |
 | `exporter_graph_to_sqlite` | Extract the active semantic network graph and dump its nodes, properties, and typed edges to a local SQLite database in the workspace. | No | sync |
 | `exporter_to_sqlite` | Export a structured payload of BIM elements, parameters, and relationships to a local SQLite database in the workspace. | No | sync |
+
+## Tool Search Provider
+
+| Tool Name | Description | Mutating? | Execution Type |
+| --- | --- | --- | --- |
+| `context_report` | Report what this server's tool list costs in context: active profile, listed tool count, approximate characters and tokens (chars/4), the 10 largest tool definitions, the most used tools from local usage counts and tips to use less. | No | sync |
+| `search_tools` | Search every tool this server has, including tools the current profile hides, and return the best matches with their schemas. | No | sync |
 

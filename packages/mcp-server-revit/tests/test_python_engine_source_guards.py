@@ -78,12 +78,61 @@ def test_missing_lib_degrades_instead_of_disabling_python():
     assert "standard_library_warning" in FACTORY and "deploy-addin.ps1" in FACTORY
 
 
-def test_runner_shuts_the_engine_down_after_every_script():
+def test_runner_keeps_one_warm_engine_with_a_new_scope_per_run():
+    """#286: the engine is reused, but every run gets a new scope, its own streams and a reset."""
     text = RUNNER.replace("\r\n", "\n")
+    run = text.split("internal static object Run(", 1)[1].split("private static void FlushStandardStreams", 1)[0]
+    assert "AcquireEngine(doc, outputMs, errorMs, mode)" in run
+    assert "scope = engine.CreateScope();" in run, "a variable set in one run must be absent in the next"
+    assert "PythonEngineFactory.Create()" not in run, "Run must not start an engine itself"
     marker = "finally\n        {\n            ActiveProgress = null;"
-    finally_block = text.split(marker, 1)[1].split("\n    }\n", 1)[0]
-    assert "PythonEngineFactory.ShutdownQuietly(engine)" in finally_block
+    finally_block = run.split(marker, 1)[1]
+    assert "ReleaseEngine(engine, dropEngine)" in finally_block
+    # Revit assemblies are loaded once, when the warm engine starts.
+    start = text.split("private static void StartEngine(", 1)[1].split("private static void ReleaseEngine(", 1)[0]
+    assert "PythonEngineFactory.Create()" in start
+    assert "LoadAssembly(typeof(Document).Assembly)" in start and "LoadAssembly(typeof(UIApplication).Assembly)" in start
+    assert "new RedirectingStream()" in start and "SetOutput(" in start and "SetErrorOutput(" in start
+    # The reset restores stdout, stderr and sys.path. It runs at the end of a read-mode run, inside the read
+    # guard, never when an engine is acquired: no leftover script code runs outside a guard (#286 review).
+    acquire = text.split("private static ScriptEngine AcquireEngine(", 1)[1].split("private static void StartEngine(", 1)[0]
+    assert "ResetScript" not in acquire and "RecycleReason(" in acquire and "ShutdownEngine()" in acquire
+    assert "mode == ModeWrite || !_engineClean" in acquire, "write runs get a fresh engine; an unreset engine is dropped"
+    assert "sys.stdout = _amb_stdout" in text and "sys.path[:] = _amb_sys_path" in text
+    assert "_amb_stdout = sys.stdout" in start, "the reset restores the streams the engine started with"
+    release = text.split("private static void ReleaseEngine(", 1)[1].split("internal static void ShutdownEngine()", 1)[0]
+    assert "if (drop || !_engineClean || _engineRuns >= RecycleRuns) ShutdownEngine();" in release, \
+        "AEC_BRIDGE_PYTHON_RECYCLE_RUNS=1 must not keep an engine alive between scripts"
     assert "Runtime.Shutdown()" in FACTORY.split("ShutdownQuietly(ScriptEngine? engine)", 1)[1]
+    assert "PythonEngineFactory.ShutdownQuietly(engine)" in text.split("internal static void ShutdownEngine()", 1)[1]
+
+
+def test_warm_engine_reset_runs_inside_the_read_guard():
+    """#286 review (P1): a callback a read-mode script leaves behind (a custom sys.stdout.flush) must not run
+    outside the read guard, where it could change the model without approval or a violation report."""
+    text = RUNNER.replace("\r\n", "\n")
+    reset = text.split("private static void ResetInsideGuard(", 1)[1].split("private static", 1)[0]
+    assert "mode != ModeRead" in reset and "engine.Execute(ResetScript, _engineResetScope)" in reset
+    assert "_engineClean = true;" in reset and "_engineClean = false;" in reset
+    run = text.split("internal static object Run(", 1)[1].split("private static void FlushStandardStreams", 1)[0]
+    # Both the success path and the error path reset before the guard is ended.
+    for path in run.split("catch (Exception ex)", 1):
+        assert path.index("ResetInsideGuard(engine, mode);") < path.index("EndReadGuard(ref readGuard")
+    assert text.count("engine.Execute(ResetScript") == 1, "the reset must have no other call site"
+
+
+def test_warm_engine_is_recycled_on_run_limit_document_change_and_misbehaving_scripts():
+    policy = (ADDIN / "src" / "Bridge" / "PythonEngineReusePolicy.cs").read_text(encoding="utf-8")
+    assert "AEC_BRIDGE_PYTHON_RECYCLE_RUNS" in policy and "DefaultRecycleRuns = 50" in policy
+    assert '"run_limit"' in policy and '"document_changed"' in policy
+    for kind in ("read_mode_violation", "transaction_left_open"):
+        assert f'"{kind}"' in policy
+    assert "Autodesk.Revit" not in policy and "IronPython" not in policy.split("namespace", 1)[0]
+    text = RUNNER.replace("\r\n", "\n")
+    assert text.count("dropEngine = true;") >= 3
+    assert "PythonEngineReusePolicy.RecycleAfterResult(kind) || IsEngineFatal(ex)" in text
+    app = (ADDIN / "src" / "Bridge" / "App.cs").read_text(encoding="utf-8")
+    assert "PythonScriptRunner.ShutdownEngine();" in app
 
 
 def test_runner_rolls_back_transactions_a_script_left_open():
@@ -108,3 +157,19 @@ def test_deploy_script_mirrors_the_whole_folder_and_verifies_it():
     iss = (REPO_ROOT / "scripts" / "installer" / "AECModelBridge.iss").read_text(encoding="utf-8")
     for name in ("RevitAPI.dll", "RevitAPIUI.dll", "AdWindows.dll", "AdskLicensingSDK_*.dll"):
         assert name in iss and name in DEPLOY_SCRIPT
+
+
+def test_modern_ironpython_is_at_least_3_4_2_for_net10_hosts():
+    # 3.4.1 cannot start its engine on the .NET 10 runtime that Revit 2026.5 hosts (#388).
+    version = _package_versions("IronPython")["other"]
+    assert tuple(int(part) for part in version.split(".")) >= (3, 4, 2)
+
+
+def test_failed_engine_start_reports_the_exception_and_engine_unavailable():
+    text = RUNNER.replace("\r\n", "\n")
+    handler = text.split("catch (Exception ex) when (engine == null)", 1)[1].split("catch (Exception ex)", 1)[0]
+    assert "PythonEngineFailure.Describe(ex)" in handler
+    assert "PythonEngineFailure.EngineUnavailableKind" in handler
+    failure = (ADDIN / "src" / "Bridge" / "PythonEngineFailure.cs").read_text(encoding="utf-8")
+    assert 'EngineUnavailableKind = "engine_unavailable"' in failure
+    assert "Autodesk.Revit" not in failure and "using IronPython" not in failure

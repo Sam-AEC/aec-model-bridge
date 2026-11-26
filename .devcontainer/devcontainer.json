@@ -1,0 +1,23 @@
+{
+  "name": "aec-model-bridge (Python, mock mode)",
+  "image": "mcr.microsoft.com/devcontainers/python:3.13",
+  "containerEnv": {
+    "MCP_REVIT_MODE": "mock",
+    "UV_PYTHON": "3.13",
+    "UV_LINK_MODE": "copy"
+  },
+  "postCreateCommand": "pipx install uv && cd packages/mcp-server-revit && uv sync --all-extras",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "charliermarsh.ruff"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "${containerWorkspaceFolder}/packages/mcp-server-revit/.venv/bin/python",
+        "python.testing.pytestEnabled": true,
+        "python.testing.cwd": "${containerWorkspaceFolder}/packages/mcp-server-revit"
+      }
+    }
+  }
+}

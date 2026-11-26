@@ -6,7 +6,9 @@ from pathlib import Path
 
 import pytest
 
+from helpers import human_approve
 from revit_mcp_server.errors import BridgeError
+from revit_mcp_server.security.approval import ApprovalGate
 
 
 def _load():
@@ -50,11 +52,18 @@ def _sid(env):
     return "0:Tools.extension/Arch.tab/Rooms.panel/Renumber Rooms.pushbutton/script.py"
 
 
-def _approved_plan(env, sha, state="approved", plan_id="plan_abc"):
-    plan = {"plan_id": plan_id, "state": state,
-            "actions": [{"tool": RUN_TOOL, "arguments": {"script_id": _sid(env), "script_sha256": sha}}]}
-    (env["ws_dir"] / "plans" / f"{plan_id}.json").write_text(json.dumps(plan), encoding="utf-8")
-    return plan_id
+def _approved_plan(env, sha, state="approved"):
+    """Draft the plan through the approval gate and, for state 'approved', approve it the way a
+    person does, so it carries a signed approval record."""
+    gate = ApprovalGate(env["ws_dir"], approval_mode="ask_first")
+    plan = gate.create_plan([{"tool": RUN_TOOL, "arguments": {"script_id": _sid(env), "script_sha256": sha}}], [{}])
+    if state == "approved":
+        human_approve(gate, plan["plan_id"])
+    return plan["plan_id"]
+
+
+def _write_plan_file(env, plan):
+    (env["ws_dir"] / "plans" / f"{plan['plan_id']}.json").write_text(json.dumps(plan), encoding="utf-8")
 
 
 def test_list_scripts(env):
@@ -190,3 +199,28 @@ def test_explicit_bridge_failure_is_not_executed(env):
     with pytest.raises(BridgeError, match="failed execution"):
         _mod.PyrevitBridgeModule().run_pyrevit_script(
             _sid(env), sha, pid, workspace=env["ws"], tool_executor=lambda *a: {"ok": False})
+
+
+def test_run_refuses_unsigned_or_tampered_approval(env):
+    sha = hashlib.sha256(WRITE_SCRIPT.encode()).hexdigest()
+    pid = _approved_plan(env, sha)
+    path = env["ws_dir"] / "plans" / f"{pid}.json"
+    plan = json.loads(path.read_text(encoding="utf-8"))
+    calls = []
+
+    def run():
+        return _mod.PyrevitBridgeModule().run_pyrevit_script(
+            _sid(env), sha, pid, workspace=env["ws"], tool_executor=lambda *a: calls.append(a) or {"ok": True})
+
+    unsigned = {k: v for k, v in plan.items() if k != "approval_sig"}
+    _write_plan_file(env, unsigned)
+    with pytest.raises(BridgeError, match="approval record does not verify"):
+        run()
+    _write_plan_file(env, {**plan, "approved_via": "panel" if plan["approved_via"] == "cli" else "cli"})
+    with pytest.raises(BridgeError, match="approval record does not verify"):
+        run()
+    forged = {k: v for k, v in plan.items() if k not in ("approval_sig", "approved_hash")}
+    _write_plan_file(env, forged)
+    with pytest.raises(BridgeError, match="no approval record"):
+        run()
+    assert calls == []

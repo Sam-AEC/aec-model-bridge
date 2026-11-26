@@ -6,7 +6,7 @@ the panel gets a real chat surface without this hub owning an LLM agent
 loop. This module is the opposite bet - it owns the model call and the
 tool-calling loop directly against the Anthropic API using only an API key,
 because the CLI-shelling path fails out of the box on a fresh install with
-neither CLI on PATH (see docs/0012-native-agent-chat-backend.md for the
+neither CLI on PATH (see docs/adr/0012-native-agent-chat-backend.md for the
 decision record). Both modules keep the exact same safety boundary: a
 mutating Revit tool call must pass ApprovalGate.check_tool_execution before
 it runs, no matter which chat surface requested it - this module is not
@@ -72,8 +72,9 @@ _SYSTEM_PROMPT = (
     "view - you cannot approve your own plans. Once a plan is approved, call "
     "execute_plan to run it. If a mutating call is rejected because no "
     "approved plan backs it, tell the user to review the plan in the panel "
-    "rather than retrying blindly. If revit_get_context shows server.dev_mode "
-    "true, call mutating tools directly with no plan_actions and no plan_id. "
+    "rather than retrying blindly. If revit_get_context shows "
+    "server.plans_required false (Dev mode or Auto), call mutating tools directly with no plan_actions and "
+    "no plan_id. "
     "If any tool call returns an error, explain "
     "the failure to the user."
 )

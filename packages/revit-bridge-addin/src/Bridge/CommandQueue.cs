@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using System.Text.Json;
 
@@ -33,6 +35,8 @@ public sealed class RequestSnapshot
     public long ElapsedMs { get; set; }
     /// <summary>The serialized CommandResponse, set when State is done or failed.</summary>
     public string? ResponseJson { get; set; }
+    /// <summary>Set when State is done or failed and the request ran (abandoned requests have none).</summary>
+    public RequestTimings? Timings { get; set; }
 
     public bool IsFinished => State == "done" || State == "failed";
 }
@@ -49,6 +53,10 @@ public class CommandQueue
         public DateTime? FinishedUtc;
         public DateTime LastTouchedUtc;
         public string? ResponseJson;
+        // Stopwatch timestamps for the timings (#285); 0 means not reached.
+        public long EnqueuedTicks;
+        public long StartedTicks;
+        public RequestTimings? Timings;
         public TaskCompletionSource<bool> Finished = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public bool IsFinished => State == "done" || State == "failed";
     }
@@ -62,6 +70,9 @@ public class CommandQueue
     private readonly ConcurrentDictionary<string, byte> _inflight = new();
     private long _finishedBytes;
     private readonly Func<DateTime> _utcNow = () => DateTime.UtcNow;
+
+    /// <summary>Rolling per-tool run times and response sizes, for /health.</summary>
+    public ToolTimings Timings { get; } = new();
 
     /// <summary>How long a finished result stays retrievable by request id.</summary>
     public TimeSpan ResultTtl { get; } = TimeSpan.FromSeconds(EnvInt("AEC_BRIDGE_RESULT_TTL_SECONDS", 900, 30, 86400));
@@ -110,6 +121,7 @@ public class CommandQueue
                     RequestId = request.RequestId,
                     Tool = request.Tool,
                     EnqueuedUtc = now,
+                    EnqueuedTicks = Stopwatch.GetTimestamp(),
                     LastTouchedUtc = now
                 };
             }
@@ -128,6 +140,25 @@ public class CommandQueue
         lock (_sync)
         {
             if (_queue.Count > 0)
+            {
+                request = _queue.Dequeue();
+                return true;
+            }
+        }
+
+        request = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Dequeues the next request only if <paramref name="accept"/> says yes to it; otherwise leaves it at the
+    /// head of the queue. The executor uses this to add read-only requests to a turn without taking a write.
+    /// </summary>
+    public bool TryDequeueIf(Func<CommandRequest, bool> accept, out CommandRequest? request)
+    {
+        lock (_sync)
+        {
+            if (_queue.Count > 0 && accept(_queue.Peek()))
             {
                 request = _queue.Dequeue();
                 return true;
@@ -161,12 +192,14 @@ public class CommandQueue
             {
                 entry.State = "running";
                 entry.StartedUtc = _utcNow();
+                entry.StartedTicks = Stopwatch.GetTimestamp();
             }
         }
     }
 
     public void Complete(string requestId, CommandResponse response)
     {
+        var runEndTicks = Stopwatch.GetTimestamp();
         // Serialize now: the result must stay readable after the command is long gone.
         string json;
         try
@@ -182,6 +215,8 @@ public class CommandQueue
                 Message = "The command finished but its result could not be serialized: " + ex.Message
             });
         }
+        var serializedTicks = Stopwatch.GetTimestamp();
+        var responseBytes = (long)Encoding.UTF8.GetByteCount(json);
 
         lock (_sync)
         {
@@ -193,6 +228,18 @@ public class CommandQueue
             entry.FinishedUtc = now;
             entry.ResponseJson = json;
             _finishedBytes += json.Length;
+            if (entry.StartedTicks != 0)
+            {
+                var runMs = TicksToMs(runEndTicks - entry.StartedTicks);
+                entry.Timings = new RequestTimings
+                {
+                    QueuedMs = TicksToMs(entry.StartedTicks - entry.EnqueuedTicks),
+                    RunMs = runMs,
+                    SerializeMs = TicksToMs(serializedTicks - runEndTicks),
+                    ResponseBytes = responseBytes
+                };
+                Timings.Record(entry.Tool, runMs, responseBytes);
+            }
             entry.Finished.TrySetResult(true);
             Sweep(now);
         }
@@ -254,7 +301,8 @@ public class CommandQueue
             Tool = entry.Tool,
             State = entry.State,
             ElapsedMs = (long)(until - since).TotalMilliseconds,
-            ResponseJson = entry.ResponseJson
+            ResponseJson = entry.ResponseJson,
+            Timings = entry.Timings
         };
     }
 
@@ -272,6 +320,11 @@ public class CommandQueue
             _finishedBytes -= entry.ResponseJson?.Length ?? 0;
             count--;
         }
+    }
+
+    private static long TicksToMs(long ticks)
+    {
+        return ticks <= 0 ? 0 : ticks * 1000 / Stopwatch.Frequency;
     }
 
     private static int EnvInt(string name, int fallback, int min, int max)

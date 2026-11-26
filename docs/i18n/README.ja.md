@@ -4,7 +4,7 @@
 
 [English](../../README.md) | [简体中文](README.zh-CN.md) | [Español](README.es.md) | [हिन्दी](README.hi.md) | [العربية](README.ar.md) | [Português (BR)](README.pt-BR.md) | [Русский](README.ru.md) | **日本語** | [Deutsch](README.de.md) | [Français](README.fr.md) | [Bahasa Indonesia](README.id.md) | [Türkçe](README.tr.md) | [한국어](README.ko.md) | [Tiếng Việt](README.vi.md) | [Italiano](README.it.md) | [Polski](README.pl.md) | [繁體中文](README.zh-TW.md)
 
-> この文書は AI の支援で翻訳されたものです。内容は英語版の [README](../../README.md) が正であり、誤りや改善点があれば Pull Request でお寄せください。詳しくは [CONTRIBUTING.md](../../CONTRIBUTING.md) をご覧ください。
+> この文書は AI の支援で翻訳されたものです。内容は英語版の [README](../../README.md) が正であり、誤りや改善点があれば Pull Request でお寄せください。詳しくは [CONTRIBUTING.md](../../.github/CONTRIBUTING.md) をご覧ください。
 
 **開いている Revit モデルについて AI に質問できます。デフォルトでは、プランを承認するまで書き込みツールはブロックされます。**
 
@@ -14,6 +14,7 @@ Revit 2024 – 2027 向けのオープンソースの MCP サーバーとネイ�
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 [![Revit](https://img.shields.io/badge/Revit-2024--2027-0696D7?style=flat-square)](#対応する-revit-バージョン)
 [![License](https://img.shields.io/badge/license-GPL--3.0%20%2B%20commercial-2563EB?style=flat-square)](../../LICENSING.md)
+[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/Sam-AEC/aec-model-bridge?style=flat-square&label=OpenSSF%20Scorecard)](https://scorecard.dev/viewer/?uri=github.com/Sam-AEC/aec-model-bridge)
 
 [はじめに](#クイックスタート) | [ワークフローの例](#ワークフローの例) | [ツール](../tools-generated.md) | [ドキュメント](#ドキュメント) | [ダウンロード](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
@@ -109,22 +110,22 @@ the plan in Revit, apply it and read the values back to confirm the result.
 
 まず Revit なしでツールを確認したい場合は、`"MCP_REVIT_MODE": "mock"` を設定します。サーバーはどの環境でも起動し、すべてのツールをスキーマ付きで一覧表示し、モデルには触れずに定型のレスポンスを返します。同じモックモード用の `Dockerfile` がリポジトリのルートにあります（`docker build -t aec-model-bridge .` のあと `docker run -i --rm aec-model-bridge`）。
 
-VS Code をお使いですか？[拡張機能のソースとローカルへのインストール手順](../../extensions/vscode/README.md)で、MCP サーバーの登録と Revit の接続状態の表示ができます。Marketplace では公開されていません。
+VS Code をお使いですか？[拡張機能のソースとローカルへのインストール手順](../../packages/vscode-extension/README.md)で、MCP サーバーの登録と Revit の接続状態の表示ができます。Marketplace では公開されていません。
 
 ### ツール一覧
 
 | 分野 | ツール数 | できること |
 | --- | --- | --- |
-| Revit | 110 | モデルの読み取り、要素・パラメータ・ビュー・シート・集計表の作成と編集、エクスポート、ワークシェアリング |
+| Revit | 112 | モデルの読み取り、要素・パラメータ・ビュー・シート・集計表の作成と編集、エクスポート、ワークシェアリング |
 | 承認 | 6 | モデル変更の計画、レビュー、承認、実行、ロールバック |
-| モジュール | 113 | スナップショットの検査、パラメータグリッド、QA/QC チェック、レシピ、レポート、選択 |
+| モジュール | 117 | スナップショットの検査、パラメータグリッド、QA/QC チェック、レシピ、レポート、選択 |
 | Rhino と Grasshopper | 19 | ジオメトリ、レイヤー、マテリアル、ブーリアン演算 |
 | Speckle | 17 | プロジェクト、モデル、バージョン、送信と受信 |
 | Navisworks | 15 | モデルツリー、ビューポイント、干渉チェック（開発中） |
 | IFC | 7 | Revit なしで IFC ファイルを読み取り：構造、プロパティ、検証 |
-| グラフ、スナップショット、エクスポート、ジョブ | 22 | セマンティックグラフの監査、スナップショットの差分、SQLite へのエクスポート、バックグラウンドジョブ |
+| グラフ、スナップショット、エクスポート、ジョブ | 24 | セマンティックグラフの監査、スナップショットの差分、SQLite へのエクスポート、バックグラウンドジョブ |
 
-デフォルト構成では 309 個のツールが一覧に表示されます（モックモードで現行サーバーから集計）。Autodesk Data のツールは、APS の認証情報を設定すると表示されます。[ツールリファレンス](../tools-generated.md)にすべてのツールを掲載しています。各ツールには MCP アノテーション（`readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`）が付いており、クライアントは読み取りと書き込みを区別できます。
+デフォルト構成では 317 個のツールが一覧に表示されます（モックモードで現行サーバーから集計）。Autodesk Data のツールは、APS の認証情報を設定すると表示されます。[ツールリファレンス](../tools-generated.md)にすべてのツールを掲載しています。各ツールには MCP アノテーション（`readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`）が付いており、クライアントは読み取りと書き込みを区別できます。
 
 ### Revit 自動化の応用
 
@@ -169,7 +170,7 @@ MCP クライアントは 1 つの Python ハブと通信します。ハブは�
 
 <sub>図のソース：[approval-flow.mmd](../diagrams/approval-flow.mmd)。画像は `python scripts/render_diagrams.py` で再生成できます。</sub>
 
-プランが誤りだと分かった場合は、Revit の Ctrl+Z で元に戻してください。パラメータの書き込みはそれぞれ個別の名前付きトランザクションなので、1 つのプランで複数回押す必要があることがあります。プラン全体を 1 ステップで元に戻す機能は計画中で、まだ実装されていません。もう 1 つの方法は取り消しプランです。アシスタントが実行済みプランの証跡から `plan_revert` で作成し、ほかのプランと同様に承認します。`rollback_plan` は人専用で、ボタンでもコマンドでもないため、あてにしないでください。これらのいずれの方法も、実際の Revit セッションではまだ検証されていません（UNVERIFIED）。ファイル出力など元に戻せない操作はどの方法でも戻せず、再度の確認もまだ求めません（計画中）。パネルの Plans 一覧に表示されるのは保留中のプランだけです。`aec-model-bridge-approve show <plan_id>` はどの状態のプランでも使えますが、`proofs/` のバンドルは実行された（または実行を試みた）プランにしか存在しません。ライフサイクルは [ADR 0008](../0008-approval-gate-lifecycle.md) をご覧ください。
+プランが誤りだと分かった場合は、Revit の Ctrl+Z で元に戻してください。パラメータの書き込みはそれぞれ個別の名前付きトランザクションなので、1 つのプランで複数回押す必要があることがあります。パラメータの書き込み、移動、回転だけのプランは、アドインが対応していれば 1 つのバッチとして実行され、Ctrl+Z 1 回でプラン全体が元に戻ります（実際の Revit では UNVERIFIED）。もう 1 つの方法は取り消しプランです。アシスタントが実行済みプランの証跡から `plan_revert` で作成し、ほかのプランと同様に承認します。`rollback_plan` は人専用で、ボタンでもコマンドでもないため、あてにしないでください。これらのいずれの方法も、実際の Revit セッションではまだ検証されていません（UNVERIFIED）。ファイル出力など元に戻せない操作はどの方法でも戻せず、再度の確認もまだ求めません（計画中）。パネルの Plans 一覧に表示されるのは保留中のプランだけです。`aec-model-bridge-approve show <plan_id>` はどの状態のプランでも使えますが、`proofs/` のバンドルは実行された（または実行を試みた）プランにしか存在しません。ライフサイクルは [ADR 0008](../adr/0008-approval-gate-lifecycle.md) をご覧ください。
 
 無人で動かすパイプラインでは `MCP_REVIT_APPROVAL_MODE=auto` を設定できます。これは人による確認を無効にするため、管理された環境でのみ使ってください。
 
@@ -294,7 +295,7 @@ $switch = Get-Content $registry.FullName -Raw | ConvertFrom-Json
 Invoke-RestMethod "$($switch.endpoint)/health"
 ```
 
-レスポンスに `healthy` と実行中の Revit バージョンが表示されるはずです。Revit では、`AEC Bridge` リボンタブを探してください。Workflows パネルには Open Panel、Health Check、Pending Actions、Reports があり、Tools パネルには Config、Help、About があります。
+レスポンスに `healthy` と実行中の Revit バージョンが表示されるはずです。Revit では、`AEC Bridge` リボンタブを探してください。Model Bridge パネルには Panel、Approve、Check model があります。Connection パネルには Connected/Disconnected の切り替えボタンが 1 つあり、そのスライドアウトには Status、Config、Reports、Help、About があります。
 
 ## セキュリティ
 
@@ -303,7 +304,7 @@ Invoke-RestMethod "$($switch.endpoint)/health"
 - 承認をオフにしない限り、モデルを変更するツールには承認済みのプランが必要です。
 - ツール呼び出しは監査ログに記録され、機密情報はマスクされます。
 
-詳細は [docs/security.md](../security.md) をご覧ください。脆弱性を報告するには [SECURITY.md](../../SECURITY.md) に従ってください。
+詳細は [docs/security.md](../security.md) をご覧ください。脆弱性を報告するには [SECURITY.md](../../.github/SECURITY.md) に従ってください。
 
 ## FAQ
 
@@ -313,7 +314,7 @@ Model Context Protocol（MCP）は、AI アシスタントが他のソフトウ�
 
 ### どの AI アシスタントで使えますか？
 
-ローカルの stdio サーバーを起動できる MCP クライアントであれば使えます。ドキュメントがあるのは、Claude Desktop、GitHub Copilot を併用する VS Code、Cursor、Codex、および標準的な `mcpServers` 設定を読み込むクライアントです。Windsurf、Cline、Roo Code、Continue、Zed、Claude Code、Gemini CLI も同じ方法で動作するはずですが、未検証です。[互換性](../compatibility.md)をご覧ください。パネルのチャットでは、Anthropic API キー、またはインストール済みの `claude` や `codex` のコマンドラインツールも使えます。[ADR 0012](../0012-native-agent-chat-backend.md) をご覧ください。
+ローカルの stdio サーバーを起動できる MCP クライアントであれば使えます。ドキュメントがあるのは、Claude Desktop、GitHub Copilot を併用する VS Code、Cursor、Codex、および標準的な `mcpServers` 設定を読み込むクライアントです。Windsurf、Cline、Roo Code、Continue、Zed、Claude Code、Gemini CLI も同じ方法で動作するはずですが、未検証です。[互換性](../compatibility.md)をご覧ください。パネルのチャットでは、Anthropic API キー、またはインストール済みの `claude` や `codex` のコマンドラインツールも使えます。[ADR 0012](../adr/0012-native-agent-chat-backend.md) をご覧ください。
 
 ### AI が確認なしにモデルを変更することはありますか？
 
@@ -348,17 +349,17 @@ python -m pytest packages/mcp-server-revit/tests
 .\scripts\package.ps1 -RevitVersion All
 ```
 
-CI は、Python サーバーと、Revit 2024〜2027 向けのアドインのターゲットをビルドします。Pull Request を作成する前に [CONTRIBUTING.md](../../CONTRIBUTING.md) をお読みください。
+CI は、Python サーバーと、Revit 2024〜2027 向けのアドインのターゲットをビルドします。Pull Request を作成する前に [CONTRIBUTING.md](../../.github/CONTRIBUTING.md) をお読みください。
 
 ## ドキュメント
 
 - [インストールガイド](../install.md)
 - [ツールリファレンス](../tools-generated.md)
-- [アーキテクチャ](../0001-multi-provider-architecture.md)
+- [アーキテクチャ](../adr/0001-multi-provider-architecture.md)
 - [設定リファレンス](../configuration-reference.md)
 - [セキュリティ](../security.md)
 - [バージョニングとリリース](../versioning.md)
-- [コントリビューション](../../CONTRIBUTING.md) と [行動規範](../../CODE_OF_CONDUCT.md)
+- [コントリビューション](../../.github/CONTRIBUTING.md) と [行動規範](../../.github/CODE_OF_CONDUCT.md)
 
 ## Built with
 

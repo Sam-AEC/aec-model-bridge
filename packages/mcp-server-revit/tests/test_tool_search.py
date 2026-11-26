@@ -86,3 +86,15 @@ def test_limit_and_bad_input_are_refused(tmp_path):
 def test_no_match_returns_empty_list(tmp_path):
     result = run(build(tmp_path), query="zzzqqqxxx")
     assert result["tools"] == [] and result["matched"] == 0 and result["searched"] > 100
+
+
+def test_search_results_use_registered_tool_names(tmp_path):
+    # A deferred client looks each hit up by this exact name, so it must match the registry.
+    registry = build(tmp_path, "core")
+    registered = {t.name for p in registry.get_all_providers() for t in p.get_capabilities()}
+    hits = 0
+    for query in ("wall", "snapshot", "plan", "revit_get_context", "search tools"):
+        for hit in run(registry, query=query, limit=25)["tools"]:
+            hits += 1
+            assert hit["name"] in registered
+    assert hits

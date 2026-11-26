@@ -56,3 +56,17 @@ class ModuleWorkspace:
                 raise WorkspaceViolation(message)
             logger.warning("%s (warn mode: allowed)", message)
         return self._workspace.assert_in_workspace(Path(candidate))
+
+
+def writable_path(workspace: Any, candidate: Path) -> Path:
+    """Check a path a built-in module is about to write.
+
+    Uses ``workspace.assert_writable`` (needs ``files.write``) when the module got a
+    ``ModuleWorkspace``; a bare workspace falls back to ``assert_in_workspace``.
+    """
+    check = getattr(workspace, "assert_writable", None)
+    if callable(check):
+        return check(Path(candidate))
+    plain = getattr(workspace, "assert_in_workspace", None)
+    # A bare directory holder (tests) has no checker; the module's own confinement already ran.
+    return plain(Path(candidate)) if callable(plain) else Path(candidate)

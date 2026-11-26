@@ -64,7 +64,7 @@ The C# layer also references:
 - `Serilog.Sinks.File`
 - `System.Text.Json`
 - `IronPython` 2.7 on `net48`
-- `IronPython` 3.4.1 on the modern .NET targets used by Revit 2025-2027
+- `IronPython` 3.4.2 on the modern .NET targets used by Revit 2025-2027
 - `IronPython.StdLib` matching the engine version on each target
 
 The conditional IronPython dependency exists because the repo exposes an `execute_python` bridge command.
@@ -86,7 +86,7 @@ metadata after verification. Incomplete or mismatched dependencies return
 `success: false` with an actionable error.
 
 Revit 2024 runs Python 2.7 semantics; Revit 2025-2027 run Python 3.4 semantics
-through IronPython 3.4.1. The MCP server's bundled CPython is a separate process
+through IronPython 3.4.2. The MCP server's bundled CPython is a separate process
 and its newer library is not used inside Revit. This change does not install
 pip packages or support CPython native extensions. Standard-library licenses
 are included in `LICENSES/IronPython-StdLib-2.7.txt` (upstream CPython 2.7

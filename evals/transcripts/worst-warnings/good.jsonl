@@ -1,0 +1,3 @@
+{"meta": {"expect": {"passed": true}, "note": "warnings_triage_review_warnings."}}
+{"tool": "warnings_triage_review_warnings", "arguments": {"coordinator_only": true}}
+{"answer": "The mock model reports no warnings, so there is nothing to fix."}

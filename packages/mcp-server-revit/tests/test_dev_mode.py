@@ -13,6 +13,7 @@ from types import SimpleNamespace
 import pytest
 
 from helpers import human_approve
+from revit_mcp_server.errors import BridgeError
 from revit_mcp_server.panel_server import build_server
 from revit_mcp_server.providers.revit_context import get_context
 from revit_mcp_server.registry_factory import build_registry
@@ -238,7 +239,7 @@ def test_dev_to_off_keeps_strict_plan_check_and_audit_from_snapshot(tmp_path, mo
     assert len(entries) == 1 and entries[0]["tool"] == SET and entries[0]["mutating"] is True
 
 
-def test_every_dev_read_and_write_logged_and_secrets_redacted(tmp_path):
+def test_dev_audit_records_writes_not_reads_and_redacts_secrets(tmp_path):
     gate = _gate(tmp_path)
     dev.enable_dev(gate.workspace_dir, token=TOKEN)
     registry = SimpleNamespace(lookup_tool=lambda n: SimpleNamespace(is_mutating=n == SET),
@@ -246,12 +247,22 @@ def test_every_dev_read_and_write_logged_and_secrets_redacted(tmp_path):
     gate_before(registry, gate, "revit_get_context", {"password": "private", "file": "C:/secret/model.rvt"})
     gate_before(registry, gate, SET, {"value": "safe", "api_key": "private"})
     entries = [json.loads(line) for line in gate.workspace_dir.joinpath(dev.AUDIT_FILENAME).read_text().splitlines()]
-    assert [e["tool"] for e in entries] == ["revit_get_context", SET]
-    assert [e["mutating"] for e in entries] == [False, True]
+    assert [e["tool"] for e in entries] == [SET]
+    assert [e["mutating"] for e in entries] == [True]
     assert all(e["event"] == "call" for e in entries)
     raw = json.dumps(entries)
     assert "private" not in raw and "C:/secret" not in raw
     assert "safe" in raw
+
+
+def test_dev_read_polls_write_no_audit_entries(tmp_path):
+    gate = _gate(tmp_path)
+    dev.enable_dev(gate.workspace_dir, token=TOKEN)
+    registry = SimpleNamespace(lookup_tool=lambda n: SimpleNamespace(is_mutating=False),
+                               lookup_tool_provider=lambda n: None)
+    for _ in range(3):
+        gate_before(registry, gate, "list_pending_plans", {})
+    assert not gate.workspace_dir.joinpath(dev.AUDIT_FILENAME).exists()
 
 
 def test_audit_failure_blocks_execution(tmp_path):
@@ -292,7 +303,7 @@ def test_dev_preserves_read_guard_and_human_only_tools(tmp_path):
 @pytest.fixture
 def hub(tmp_path):
     server = build_server(port=0, workspace=WorkspaceMonitor([tmp_path / "ws"]))
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
     thread.start()
     try:
         yield server.server_address[1], load_or_create_token(), tmp_path / "ws", server
@@ -373,15 +384,48 @@ def _plan_call():
     return {"actions": [{"tool": SET, "arguments": {"element_id": 1, "parameter_name": "Comments", "value": "x"}}]}
 
 
-def test_plan_actions_in_dev_flags_dev_but_still_creates_a_pending_plan(tmp_path):
+def test_plan_actions_in_dev_drafts_nothing_and_says_to_call_directly(tmp_path):
     approval = _provider(tmp_path)
     off = asyncio.run(approval.execute_tool("plan_actions", _plan_call()))
-    assert "dev_mode" not in off
+    assert "dev_mode" not in off and approval.gate.load_plan(off["plan_id"])["state"] == "pending"
+    before = sorted(p.name for p in approval.gate.plans_dir.glob("*.json"))
     dev.enable_dev(approval.gate.workspace_dir, token=TOKEN)
-    plan = asyncio.run(approval.execute_tool("plan_actions", _plan_call()))
-    assert plan["dev_mode"] is True
-    assert "omit plan_id" in plan["note"] and "no approval needed" in plan["note"]
-    assert approval.gate.load_plan(plan["plan_id"])["state"] == "pending"
+    out = asyncio.run(approval.execute_tool("plan_actions", _plan_call()))
+    assert out["status"] == "not_needed" and out["dev_mode"] is True
+    assert out["plans_required"] is False and out["writes_allowed"] is True
+    assert "plan_id" not in out and "no plan_id" in out["message"]
+    assert sorted(p.name for p in approval.gate.plans_dir.glob("*.json")) == before
+
+
+def test_plan_actions_in_dev_still_refuses_unknown_tools(tmp_path):
+    approval = _provider(tmp_path)
+    dev.enable_dev(approval.gate.workspace_dir, token=TOKEN)
+    with pytest.raises(Exception):
+        asyncio.run(approval.execute_tool("plan_actions", {"actions": [{"tool": "no_such_tool", "arguments": {}}]}))
+
+
+@pytest.mark.parametrize(
+    ("mode", "dev_on", "required", "allowed"),
+    [("ask_first", False, True, True), ("auto", False, False, True), ("auto", True, False, True),
+     ("look_only", False, False, False)],
+)
+def test_write_rule_tells_the_client_whether_plans_are_needed(mode, dev_on, required, allowed):
+    from revit_mcp_server.security.approval import write_rule
+
+    rule = write_rule(mode, dev_on)
+    assert (rule["plans_required"], rule["writes_allowed"]) == (required, allowed)
+    assert ("Dev mode" in rule["write_rule"]) is dev_on
+
+
+def test_context_reports_plans_required_from_the_live_gate_state(tmp_path):
+    from revit_mcp_server.providers import revit_context
+
+    gate = _gate(tmp_path)
+    ctx = revit_context.get_context(None, live=False, approval_mode="ask_first", approval=gate.approval_state())
+    assert ctx["server"]["plans_required"] is True
+    dev.enable_dev(gate.workspace_dir, token=TOKEN)
+    ctx = revit_context.get_context(None, live=False, approval_mode="ask_first", approval=gate.approval_state())
+    assert ctx["server"]["plans_required"] is False and ctx["server"]["dev_mode"] is True
 
 
 def test_pending_plan_refusal_in_dev_says_to_omit_plan_id_but_still_refuses(tmp_path):
@@ -445,3 +489,27 @@ def test_export_image_outside_workspace_refuses_in_dev_and_names_the_workspace(t
     assert "outside the allowed workspace" in text
     assert "Use a path inside the workspace folder" in text
     assert str(ws.resolve()) in text
+
+
+@pytest.mark.parametrize("path", ["check", "claim"])
+def test_missing_plan_refusal_names_workspace_and_why_dev_is_off(tmp_path, path):
+    # Dev is on for workspace A (the panel's); the server resolved workspace B (issue #370).
+    other = ApprovalGate(tmp_path / "a", "ask_first")
+    dev.enable_dev(other.workspace_dir, token=TOKEN, now=1)
+    gate = _gate(tmp_path / "b")
+    call = gate.check_tool_execution if path == "check" else gate.claim_action
+    with pytest.raises(BridgeError) as exc:
+        call("revit_execute_python", {})
+    text = str(exc.value)
+    assert "requires a valid 'plan_id' parameter" in text
+    assert str(gate.workspace_dir) in text
+    assert dev.dev_off_reason(gate.workspace_dir, token=TOKEN) in text
+    assert TOKEN not in text
+
+
+def test_missing_plan_refusal_still_refuses_and_stays_quiet_when_dev_is_on(tmp_path):
+    gate = _gate(tmp_path)
+    dev.enable_dev(gate.workspace_dir, token=TOKEN, now=1)
+    # Dev on: an unplanned call is allowed, so the helper is never the reason for a refusal.
+    gate.check_tool_execution("revit_execute_python", {})
+    assert "Dev mode is off" not in gate.missing_plan_message("revit_execute_python")

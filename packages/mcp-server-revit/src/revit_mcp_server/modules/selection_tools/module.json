@@ -8,7 +8,7 @@
   "author": "AEC Model Bridge",
   "license": "GPL-3.0-or-later",
   "requires_providers": ["revit", "semantic"],
-  "permissions": ["model.read", "model.write"],
+  "permissions": ["model.read", "model.write", "files.write"],
   "commands": [
     {
       "id": "set_selection",

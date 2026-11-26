@@ -1,0 +1,4 @@
+{"meta": {"expect": {"passed": true}, "note": "group_by type in snapshot_compute."}}
+{"tool": "snapshot_take", "arguments": {}}
+{"tool": "snapshot_compute", "arguments": {"snapshot_id": "01JEVALRECORDEDSNAPSHOT001", "steps": [{"where": {"field": "category", "value": "OST_Walls"}, "group_by": ["type_name"], "aggregate": {"n": "count"}}]}}
+{"answer": "One wall type is used: Basic Wall Generic - 200mm, 1 wall."}

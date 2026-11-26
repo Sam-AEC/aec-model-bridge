@@ -1,0 +1,3 @@
+{"meta": {"expect": {"passed": false, "failed_checks": ["tools"]}, "note": "Calls the checker without a convention, so the call fails."}}
+{"tool": "naming_checker_check_names", "arguments": {"names": {"view_names": ["Floor Plan", "Ceiling Plan"]}}}
+{"answer": "The view names look fine."}

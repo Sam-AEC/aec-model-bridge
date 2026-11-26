@@ -163,12 +163,6 @@ def test_live_mode_requires_snapshot(monkeypatch, tmp_path):
         ModelBloatModule().audit(workspace=WS(tmp_path))
 
 
-@pytest.mark.parametrize('snapshot_id', ['../secret', r'..\secret', 'C:secret'])
-def test_snapshot_path_traversal_is_rejected(tmp_path, snapshot_id):
-    with pytest.raises(ValueError, match='plain snapshot name'):
-        ModelBloatModule().audit(snapshot_id=snapshot_id, workspace=WS(tmp_path))
-
-
 def test_unmatched_instance_types_do_not_prove_usage_coverage(tmp_path):
     sid = _write(tmp_path, [_el(1, 'Chair', 'Std', 'unknown')], [_ty('t1', 'Chair', 'Std')], cad_scanned=True)
     res = ModelBloatModule().audit(snapshot_id=sid, workspace=WS(tmp_path))

@@ -98,7 +98,7 @@ def test_auto_window_lets_an_unplanned_call_through(tmp_path):
 @pytest.fixture
 def hub(tmp_path):
     server = build_server(port=0, workspace=WorkspaceMonitor([tmp_path / "ws"]))
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
     thread.start()
     try:
         yield server.server_address[1], load_or_create_token(), tmp_path / "ws"

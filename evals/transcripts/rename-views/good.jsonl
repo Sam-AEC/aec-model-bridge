@@ -1,0 +1,6 @@
+{"meta": {"expect": {"passed": true}, "note": "List views, one plan with both renames, execute."}}
+{"tool": "revit_list_views", "arguments": {}}
+{"tool": "plan_actions", "arguments": {"actions": [{"tool": "revit_set_parameters", "arguments": {"items": [{"selector": {"category": "Views", "name": "Floor Plan"}, "params": {"View Name": "A-L01-Floor Plan"}}, {"selector": {"category": "Views", "name": "Ceiling Plan"}, "params": {"View Name": "A-L01-Ceiling Plan"}}]}}]}}
+{"event": "human_approved", "plan_id": "plan_0123456789ab"}
+{"tool": "execute_plan", "arguments": {"plan_id": "plan_0123456789ab"}}
+{"answer": "After your approval the plan ran: the views are now A-L01-Floor Plan and A-L01-Ceiling Plan."}

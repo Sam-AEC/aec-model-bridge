@@ -324,9 +324,9 @@ class SheetViewAuditModule:
         if coverage.get("views_truncated") or coverage.get("sheets_truncated"):
             result["status"] = "partial"
             result["message"] = (result.get("message", "") + " The view/sheet capture was truncated by the time budget; findings cover only the captured views and sheets.").strip()
-        if coverage.get("truncated") or coverage.get("categories") or coverage.get("dirty_only") or data.get("dirty_only"):
+        if coverage.get("truncated") or coverage.get("categories") or coverage.get("params") or coverage.get("dirty_only") or data.get("dirty_only"):
             result["status"] = "partial"
-            result["message"] = (result.get("message", "") + " Snapshot capture was truncated, category-filtered, or dirty-only; findings cover only the captured records.").strip()
+            result["message"] = (result.get("message", "") + " Snapshot capture was truncated, category-filtered, parameter-limited, or dirty-only; findings cover only the captured records.").strip()
         result["data_source"] = source
         result["snapshot_id"] = snapshot_id
         result["required_sheet_parameters"] = required

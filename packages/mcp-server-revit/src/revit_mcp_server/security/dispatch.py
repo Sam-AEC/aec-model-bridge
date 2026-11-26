@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import re
+import uuid
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
@@ -45,12 +46,10 @@ def gate_before(registry: Any, gate: Optional[ApprovalGate], name: str, argument
     if gate is None:
         return None
     if not (tool_def and tool_def.is_mutating):
-        gate.audit_dev_call(name, arguments, mutating=False)
         return None
     # A call that provably cannot change the model (revit_execute_python with mode='read',
     # or a revit_run_job wrapping one) skips the gate. A provider may raise to refuse it.
     if not requires_approval(registry, name, tool_def, arguments):
-        gate.audit_dev_call(name, arguments, mutating=False)
         return None
     return gate.claim_action(name, arguments)
 
@@ -63,7 +62,7 @@ def gate_after(gate: Optional[ApprovalGate], claim: Optional[Dict[str, str]], ok
     try:
         gate.finish_action(claim, ok=ok, error=error)
     except Exception:
-        logger.exception("Could not record the outcome of plan action %s", claim)
+        logger.exception("Could not record the outcome of a plan action")
 
 
 def result_failed(result: Any) -> bool:
@@ -140,7 +139,7 @@ def gate_after_result(gate: Optional[ApprovalGate], claim: Optional[Dict[str, st
             try:
                 gate.mark_in_flight(claim, outcome.key, tool)
             except Exception:
-                logger.exception("Could not record plan action %s as in flight", claim)
+                logger.exception("Could not record a plan action as in flight")
         return outcome
     gate_after(gate, claim, ok=outcome.state == "ok", error=outcome.error)
     return outcome
@@ -174,6 +173,49 @@ def settle_in_flight(gate: Optional[ApprovalGate], tool: str, arguments: Any, re
         gate.settle_in_flight(key, ok=outcome.state == "ok", error=outcome.error)
     except Exception:
         logger.exception("Could not settle the in-flight action for %s", tool)
+
+
+def timeout_key() -> str:
+    """In-flight key for a write that outlived its timeout (no Revit request id is known)."""
+    return "timeout_" + uuid.uuid4().hex[:24]
+
+
+def mark_timed_out(gate: Optional[ApprovalGate], claim: Optional[Dict[str, str]], tool: str) -> Optional[str]:
+    """A write outlived its timeout and may still be running in Revit. Keep the claim used (no
+    replay) and record the action as in flight, like a 'running' result. Returns the key, or
+    None when there is no claimed action to record. Never raises."""
+    if gate is None or not claim:
+        return None
+    key = timeout_key()
+    try:
+        gate.mark_in_flight(claim, key, tool)
+    except Exception:
+        logger.exception("Could not record a plan action as in flight after a timeout")
+    return key
+
+
+def settle_late_result(gate: Optional[ApprovalGate], key: Optional[str], tool: str, result: Any = None,
+                       error: Optional[BaseException] = None) -> None:
+    """A timed-out write finished in the background: close its in-flight action with the real
+    outcome. A 'running' answer moves the record to Revit's request id; an error that is not
+    Revit's own verdict leaves the action running for a person to recover. Never raises."""
+    if gate is None or not key:
+        return
+    try:
+        if gate.in_flight(key) is None:
+            return
+        if error is not None:
+            if isinstance(error, CommandFailed):
+                gate.settle_in_flight(key, ok=False, error=str(error))
+            return
+        outcome = classify_outcome(tool, result)
+        if outcome.state == "running":
+            if outcome.key and outcome.key != key:
+                gate.rekey_in_flight(key, outcome.key)
+            return
+        gate.settle_in_flight(key, ok=outcome.state == "ok", error=outcome.error)
+    except Exception:
+        logger.exception("Could not settle the timed-out action for %s", tool)
 
 
 async def run_gated_tool(registry: Any, gate: Optional[ApprovalGate], name: str, arguments: Any,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import importlib.metadata
 import importlib.util
 import json
@@ -15,6 +16,15 @@ from .security.module_permissions import unknown_permissions
 
 
 logger = logging.getLogger(__name__)
+
+
+@functools.lru_cache(maxsize=1)
+def _hub_version() -> str:
+    """The installed server version, read once (each metadata read parses a file)."""
+    try:
+        return importlib.metadata.version("aec-model-bridge")
+    except importlib.metadata.PackageNotFoundError:
+        return "1.2.0"  # fallback for editable installs without metadata
 
 class CommandSpec(BaseModel):
     id: str
@@ -172,10 +182,7 @@ class ModuleRegistry:
                 logger.warning(f"Module '{manifest.id}' declares unknown permission '{bad}' (see docs/module-authoring.md)")
             
             # Version checks: min_hub_version gate
-            try:
-                hub_version = importlib.metadata.version("aec-model-bridge")
-            except importlib.metadata.PackageNotFoundError:
-                hub_version = "1.2.0"  # fallback for editable installs without metadata
+            hub_version = _hub_version()
             if manifest.min_hub_version:
                 # Basic check: compare major/minor parts
                 try:

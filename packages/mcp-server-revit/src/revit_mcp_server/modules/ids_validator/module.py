@@ -11,6 +11,7 @@ Read-only: the IFC and IDS files are only read. ifctester is an optional extra
 (``pip install "aec-model-bridge[ids]"``); without it the tool refuses with that hint.
 """
 from __future__ import annotations
+from revit_mcp_server.security.module_permissions import writable_path
 
 import importlib.util
 import json
@@ -157,14 +158,14 @@ class IdsValidatorModule:
             "notes": notes,
         }
         if json_filename:
-            path = rg._confined(workspace, json_filename)
+            path = writable_path(workspace, rg._confined(workspace, json_filename))
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
             result["json_file"] = str(path)
         if html_filename:
             html_reporter = reporter.Html(spec)
             html_reporter.report()
-            path = rg._confined(workspace, html_filename)
+            path = writable_path(workspace, rg._confined(workspace, html_filename))
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(html_reporter.to_string(), encoding="utf-8")
             result["html_file"] = str(path)

@@ -1,0 +1,12 @@
+id: room-area-level-1
+prompt: What's the total room area on Level 1?
+kind: read
+profile: core
+expected_tools:
+- [snapshot_take, snapshot_compute]
+max_calls: 2
+plan_required: false
+forbidden_tools: [revit_execute_python, revit_raw_command]
+checker:
+  type: number
+  mock_sum: {category: OST_Rooms, level: Level 1, parameter: Area}

@@ -1,0 +1,31 @@
+{
+  "id": "schedule_diff",
+  "name": "Schedule and Sheet Diff",
+  "version": "1.0.0",
+  "schema_version": 1,
+  "min_hub_version": "1.2.0",
+  "description": "Compare the sheet list, sheet revisions and schedule rows between two saved snapshots: sheets added, removed, renumbered, renamed or moved in the numbering order, revision fields that changed, and schedule rows added, removed, changed or moved. A block the snapshot does not hold is reported as not captured, never as no change. Optional CSV or Excel export in the workspace. Read-only.",
+  "author": "AEC Model Bridge",
+  "license": "GPL-3.0-or-later",
+  "requires_providers": ["semantic"],
+  "permissions": ["model.read", "files.write"],
+  "commands": [
+    {
+      "id": "compare",
+      "title": "Schedule and Sheet Diff Between Snapshots",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "older_snapshot_id": {"type": "string", "description": "Snapshot id of the earlier issue."},
+          "newer_snapshot_id": {"type": "string", "description": "Snapshot id of the later issue."},
+          "max_items": {"type": "integer", "minimum": 1, "maximum": 5000, "default": 200, "description": "Most rows listed per section; counts are always complete. The export holds every row."},
+          "export_filename": {"type": "string", "description": "Optional .csv or .xlsx file name inside the workspace with every difference, one row each."}
+        },
+        "required": ["older_snapshot_id", "newer_snapshot_id"]
+      }
+    }
+  ]
+}

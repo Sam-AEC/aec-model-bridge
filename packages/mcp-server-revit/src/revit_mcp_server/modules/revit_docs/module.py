@@ -647,7 +647,7 @@ class RevitDocsModule:
             target = Path(output_path)
             if target.suffix.lower() != ".png":
                 raise ValueError("output_path must end in .png")
-            target = _in_workspace(workspace, target)
+            target = _in_workspace(workspace, target, write=True)
         except _OutsideWorkspace as exc:
             return error_result(tool, "path_outside_workspace", str(exc), hint=_HINTS["path_outside_workspace"])
         except (TypeError, ValueError) as exc:
@@ -979,7 +979,7 @@ class RevitDocsModule:
                 raise ValueError(f"path must end in {EXPORT_EXT[fmt]} for format {fmt}")
             if not target.stem or any(c in _BAD_NAME_CHARS - {":", "\\"} for c in target.stem):
                 raise ValueError("the file name has characters that are not allowed")
-            target = _in_workspace(workspace, target)
+            target = _in_workspace(workspace, target, write=True)
             sheet_list = [_name(s, "sheets[]") for s in (sheets or [])]
             ids = _int_list(view_ids, "view_ids")
             if fmt in ("pdf", "dwg") and not (sheet_list or ids or all_sheets):
@@ -1421,11 +1421,13 @@ class _OutsideWorkspace(ValueError):
     pass
 
 
-def _in_workspace(workspace: Any, candidate: Path) -> Path:
+def _in_workspace(workspace: Any, candidate: Path, write: bool = False) -> Path:
     """Resolve a path and require it inside the workspace sandbox (the same rule the bridge applies to path arguments)."""
     if workspace is None or not getattr(workspace, "assert_in_workspace", None):
         raise _OutsideWorkspace("no workspace is configured, so no output path can be validated")
     try:
+        if write and callable(getattr(workspace, "assert_writable", None)):
+            return workspace.assert_writable(Path(candidate))
         return workspace.assert_in_workspace(Path(candidate))
     except Exception as exc:  # noqa: BLE001 - WorkspaceViolation or an OS error while resolving
         raise _OutsideWorkspace(str(exc)) from exc

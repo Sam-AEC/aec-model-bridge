@@ -26,7 +26,7 @@ def version_script(tmp_path):
 
 def test_extension_version_updates_preserve_dependency_lock(version_script):
     script = version_script
-    lock_path = script.ROOT / "extensions/vscode/package-lock.json"
+    lock_path = script.ROOT / "packages/vscode-extension/package-lock.json"
     before = json.loads(lock_path.read_text(encoding="utf-8"))
     script.apply("1.4.0-rc.1")
     assert script.current() == "1.4.0-rc.1"
@@ -41,7 +41,7 @@ def test_extension_version_updates_preserve_dependency_lock(version_script):
 @pytest.mark.parametrize("root_package", [False, True])
 def test_extension_lock_version_drift_is_reported(version_script, root_package):
     script = version_script
-    lock_path = script.ROOT / "extensions/vscode/package-lock.json"
+    lock_path = script.ROOT / "packages/vscode-extension/package-lock.json"
     lock = json.loads(lock_path.read_text(encoding="utf-8"))
     target = lock["packages"][""] if root_package else lock
     target["version"] = "0.0.0"

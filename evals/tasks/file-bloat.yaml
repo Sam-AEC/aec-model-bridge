@@ -1,0 +1,11 @@
+id: file-bloat
+prompt: Why is this file so big?
+kind: read
+profile: core
+expected_tools:
+- [model_bloat_audit]
+max_calls: 2
+plan_required: false
+forbidden_tools: [revit_execute_python, revit_raw_command, revit_cleanup_audit]
+checker: {type: none, reason: The mock snapshot is too small to rate.}
+notes: revit_cleanup_audit is forbidden here because it plans deletions; the question only asks why.

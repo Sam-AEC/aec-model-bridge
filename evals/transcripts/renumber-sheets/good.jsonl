@@ -1,0 +1,5 @@
+{"meta": {"expect": {"passed": true}, "note": "revit_update_sheets with a table."}}
+{"tool": "plan_actions", "arguments": {"actions": [{"tool": "revit_update_sheets", "arguments": {"sheets": [{"number": "A100", "new_number": "A001"}, {"number": "A101", "new_number": "A002"}]}}]}}
+{"event": "human_approved", "plan_id": "plan_0123456789ab"}
+{"tool": "execute_plan", "arguments": {"plan_id": "plan_0123456789ab"}}
+{"answer": "After your approval the plan renumbered A100 to A001 and A101 to A002."}

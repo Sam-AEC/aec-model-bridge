@@ -83,7 +83,7 @@ def test_bad_preflight_never_submits_script(ctx):
 
 def test_existing_document_requires_explicit_exact_owner_scope():
     opts = options()
-    opts.expected_document = "Heijmans project"
+    opts.expected_document = "Example project"
     ctx = context(title=opts.expected_document)
     with pytest.raises(harness.AcceptanceError, match="Default scope"):
         harness.identity(ctx, opts)
@@ -92,6 +92,38 @@ def test_existing_document_requires_explicit_exact_owner_scope():
     ctx["document"]["guid"] = "different"
     with pytest.raises(harness.AcceptanceError, match="exact expected"):
         harness.identity(ctx, opts)
+
+
+def _scratch_context(title):
+    ctx = context(title=title)
+    return ctx
+
+
+def test_production_pattern_env_rejects_matching_names(monkeypatch):
+    opts = options()
+    opts.expected_document = "Acme scratch"
+    ctx = _scratch_context(opts.expected_document)
+    monkeypatch.delenv("AEC_ACCEPTANCE_PRODUCTION_PATTERN", raising=False)
+    assert harness.identity(ctx, opts)["title"] == "Acme scratch"
+    monkeypatch.setenv("AEC_ACCEPTANCE_PRODUCTION_PATTERN", "ACME|contoso")
+    with pytest.raises(harness.AcceptanceError, match="Default scope"):
+        harness.identity(ctx, opts)
+    monkeypatch.setenv("AEC_ACCEPTANCE_PRODUCTION_PATTERN", "")
+    assert harness.identity(ctx, opts)["title"] == "Acme scratch"
+
+
+def test_production_pattern_env_invalid_regex_fails_closed(monkeypatch):
+    monkeypatch.setenv("AEC_ACCEPTANCE_PRODUCTION_PATTERN", "(unclosed")
+    with pytest.raises(harness.AcceptanceError, match="AEC_ACCEPTANCE_PRODUCTION_PATTERN"):
+        harness.identity(context(), options())
+
+
+def test_builtin_production_words_still_rejected(monkeypatch):
+    monkeypatch.delenv("AEC_ACCEPTANCE_PRODUCTION_PATTERN", raising=False)
+    opts = options()
+    opts.expected_document = "prod scratch"
+    with pytest.raises(harness.AcceptanceError, match="Default scope"):
+        harness.identity(_scratch_context(opts.expected_document), opts)
 
 
 @pytest.mark.parametrize(("mode", "expected"), [("ask_first", "PASS"), ("auto", "PARTIAL"), ("look_only", "PARTIAL")])

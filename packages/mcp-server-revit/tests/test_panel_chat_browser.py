@@ -36,7 +36,7 @@ PANEL = ROOT / "panel"
 WEB = Path(__file__).resolve().parent / "panel_web"
 CSP = (
     "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
-    "connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    "font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
 )
 
 

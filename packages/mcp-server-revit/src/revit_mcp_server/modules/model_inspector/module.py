@@ -11,6 +11,7 @@ Commands:
   list_saved_queries  — Enumerate saved queries.
 """
 from __future__ import annotations
+from revit_mcp_server.security.module_permissions import writable_path
 
 import json
 import logging
@@ -50,7 +51,7 @@ def _load_queries(workspace: Any) -> Dict[str, Any]:
     return {}
 
 def _save_queries(queries: Dict[str, Any], workspace: Any) -> None:
-    qfile = _queries_file(workspace)
+    qfile = writable_path(workspace, _queries_file(workspace))
     with open(qfile, "w", encoding="utf-8") as f:
         json.dump(queries, f, indent=2)
 

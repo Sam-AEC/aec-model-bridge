@@ -3,10 +3,10 @@
 Root `AGENTS.md` applies. This file lists what differs here.
 
 ## What this is
-Plain HTML, CSS and JavaScript with no build step. The Revit add-in loads it in a WebView2 dockable pane (ADR `docs/0011-panel-architecture.md`). The panel talks to the Python panel hub (`panel_server.py`, `127.0.0.1:8787`) through the add-in host bridge.
+Plain HTML, CSS and JavaScript with no build step. The Revit add-in loads it in a WebView2 dockable pane (ADR `docs/adr/0011-panel-architecture.md`). The panel talks to the Python panel hub (`panel_server.py`, `127.0.0.1:8787`) through the add-in host bridge.
 
 ## Rules
-- No bundler, no npm, no CDN. Vendored libraries live in `vendor/` with their licences and `VENDOR.txt`.
+- No bundler, no npm, no CDN. Vendored libraries and fonts live in `vendor/` with their licences and `VENDOR.txt`. The CSP allows fonts only from `'self'`.
 - Approval and rejection are human-only. Do not add a code path that approves a plan without a click.
 - Show plan arguments exactly as the hub returns them. Block approval when a review is malformed, unsupported or too large (`docs/security.md`, "Plan review in the panel").
 - Follow Revit's light or dark theme. Colours come from `docs/design/tokens.md`.

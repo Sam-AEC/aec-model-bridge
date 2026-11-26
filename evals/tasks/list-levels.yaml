@@ -1,0 +1,15 @@
+id: list-levels
+prompt: What levels does this model have, and at what elevation?
+kind: read
+profile: core
+expected_tools:
+- [snapshot_take, snapshot_query]
+- [snapshot_take, snapshot_compute]
+- [model_inspector_ask]
+max_calls: 3
+plan_required: false
+forbidden_tools: [revit_execute_python, revit_raw_command]
+checker:
+  type: contains_all
+  values: [Level 1, Level 2]
+notes: revit_list_levels returns no data in mock mode, so the snapshot is the source here.

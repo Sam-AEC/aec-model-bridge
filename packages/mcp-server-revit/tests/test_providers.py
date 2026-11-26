@@ -73,6 +73,14 @@ def test_provider_registry():
     assert provider is fake
 
 
+def test_revit_set_selection_is_not_mutating(tmp_path):
+    workspace = WorkspaceMonitor([tmp_path])
+    provider = RevitProvider(workspace=workspace, mode=BridgeMode.mock)
+
+    tools = {tool.name: tool for tool in provider.get_capabilities()}
+    assert tools["revit_set_selection"].is_mutating is False
+
+
 @pytest.mark.anyio
 async def test_revit_provider_mock_mode(tmp_path):
     workspace = WorkspaceMonitor([tmp_path])
@@ -235,6 +243,27 @@ async def test_ifc_provider_tools(tmp_path):
     # Validation
     val = await provider.execute_tool("ifc_validate", {"ifc_path": str(ifc_file_path)})
     assert "is_valid" in val
+    assert not any("Validation engine execution failed" in e["message"] for e in val["errors"])
+
+
+@pytest.mark.anyio
+async def test_ifc_validate_reports_schema_errors(tmp_path):
+    ifcopenshell = pytest.importorskip("ifcopenshell")
+    f = ifcopenshell.file(schema="IFC4")
+    f.createIfcProject(ifcopenshell.guid.new())
+    f.createIfcCartesianPoint((0.0, 0.0, 0.0, 0.0, 0.0))  # more than 3 coordinates
+    bad = tmp_path / "bad.ifc"
+    f.write(str(bad))
+    good_file = ifcopenshell.file(schema="IFC4")
+    good_file.createIfcProject(ifcopenshell.guid.new())
+    good = tmp_path / "good.ifc"
+    good_file.write(str(good))
+    provider = IfcProvider(workspace=WorkspaceMonitor([tmp_path]))
+    res = await provider.execute_tool("ifc_validate", {"ifc_path": str(bad)})
+    assert res["is_valid"] is False
+    assert any(e.get("attribute") == "Coordinates" for e in res["errors"])
+    ok = await provider.execute_tool("ifc_validate", {"ifc_path": str(good)})
+    assert ok["is_valid"] is True, ok["errors"]
 
 
 @pytest.mark.anyio
@@ -293,10 +322,9 @@ def test_revit_opening_tools_forward_swing_flips(tmp_path):
         payload = build_payload({"wall_id": 7, "x": 1, "y": 2, "hand_flipped": True, "facing_flipped": False})
         assert payload["hand_flipped"] is True
         assert payload["facing_flipped"] is False
-        # Omitted flips stay None so the add-in leaves the family default alone.
+        # Omitted flips and names are left out of the payload so the add-in keeps the family default.
         bare = build_payload({"wall_id": 7, "x": 1, "y": 2})
-        assert bare["hand_flipped"] is None and bare["facing_flipped"] is None
-        assert bare["family_name"] is None and bare["type_name"] is None
+        assert not {"hand_flipped", "facing_flipped", "family_name", "type_name"} & set(bare)
 
 
 def test_revit_opening_and_clash_schemas_describe_new_inputs(tmp_path):

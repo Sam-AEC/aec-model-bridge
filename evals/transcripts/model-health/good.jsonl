@@ -1,0 +1,3 @@
+{"meta": {"expect": {"passed": true}, "note": "model_health_score."}}
+{"tool": "model_health_score", "arguments": {}}
+{"answer": "Health score 80 out of 100 (mock data). One of two rooms is unplaced; warnings and QA were not included."}

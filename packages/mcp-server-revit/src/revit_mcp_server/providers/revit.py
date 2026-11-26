@@ -5,30 +5,57 @@ import contextlib
 import contextvars
 import logging
 import math
-import threading
+import os
 from pathlib import Path
 from typing import Any, Dict, List
 
 import httpx
 
-from ..bridge.client import BridgeClient
+from ..bridge import cassette
+from ..bridge.client import MAX_BATCH_COMMANDS, MAX_PLAN_BATCH_ACTIONS, BridgeClient
+from ..bridge.contract_generated import validate_command
+from ..bridge.routing import RoutedBridgeCache
 from ..bridge.mock import MockBridge
 from ..check_contract import PageSpec, paginate
 from ..config import BridgeMode, config
-from ..errors import BridgeError, WorkspaceViolation
+from ..elicitation import missing_export_path
+from ..errors import BridgeError, CommandFailed, WorkspaceViolation
 from ..legacy.tools import TOOL_HANDLERS
+from ..script_lint import lint_script
+from ..security import file_binding
 from ..security.read_mode import execute_python_payload, is_read_mode_call
 from ..security.workspace import WorkspaceMonitor
 from .base import AECProvider, ProviderTool, enrich_mutation_metadata
 from .element_inspection import INSPECTION_SCHEMA, inspect_elements, validate_inspection
-from . import revit_context
+from . import revit_context, revit_payloads, revit_perf, revit_reconnect
 
 logger = logging.getLogger(__name__)
+
+
+# Options the add-in's revit.extract_snapshot reads (issues 289, 290). Values pass through
+# unchanged; the add-in validates and clamps them and refuses a malformed params list.
+_SNAPSHOT_PAYLOAD_KEYS = (
+    "categories", "max_elements", "time_budget_ms", "params", "include", "slice_size", "cursor", "base_epoch", "base_seq",
+)
+
+
+def _snapshot_payload(args: Dict[str, Any]) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {"dirty_only": args.get("dirty_only", False)}
+    payload.update({k: args[k] for k in _SNAPSHOT_PAYLOAD_KEYS if args.get(k) is not None})
+    return payload
 
 
 def _optional(args: Dict[str, Any], *names: str) -> Dict[str, Any]:
     """Forward only the arguments the caller actually gave, so the add-in applies its own defaults."""
     return {name: args[name] for name in names if args.get(name) is not None}
+
+
+def _category_names(value: Any) -> Any:
+    """Category names as a list. One name becomes a one-item list; anything else passes unchanged
+    so the contract check refuses it with a plain message."""
+    if isinstance(value, str):
+        return [value]
+    return value
 
 
 # Read tools whose add-in result is one unpaginated list. limit, offset and count_only slice that
@@ -100,6 +127,39 @@ _BRIDGE_OVERRIDE: contextvars.ContextVar = contextvars.ContextVar("revit_bridge_
 
 _RAW_COMMAND_RE = re.compile(r"revit\.[a-z][a-z0-9_]{1,63}")
 
+# Tools that never run inside a read batch (#277), whatever their flags say: they forward a
+# caller-chosen command or code, or the hub answers them itself instead of one add-in command.
+BATCH_EXCLUDED = frozenset({
+    "revit_raw_command", "revit_execute_python", "revit_inspect_elements",
+    "revit_get_context", "revit_get_result", "revit_list_commands", "revit_reconnect",
+})
+
+# Add-in commands declared read-only that still write files, open a transaction, change the
+# selection or view, or reset the dirty tracker. The add-in refuses them in a batch
+# (BridgeBatch.HasSideEffects); the server refuses them before sending. Also every revit.export_*.
+BATCH_SIDE_EFFECT_COMMANDS = frozenset({
+    "revit.extract_snapshot", "revit.get_snapshot_delta", "revit.select_by_unique_ids",
+    "revit.preview_elements", "revit.clear_preview",
+})
+
+
+def _command_has_side_effects(command: str) -> bool:
+    return command.startswith("revit.export_") or command in BATCH_SIDE_EFFECT_COMMANDS
+
+
+# Plan batches (#294): MCP tools whose approved actions may run together in one Revit turn and one
+# undo step (revit.execute_plan_batch). Only plain model writes that open one transaction and nothing
+# else. Keep the commands equal to PlanBatch._batchable in the add-in (PlanBatch.cs). A plan with any
+# other tool runs one action at a time, as before.
+PLAN_BATCH_TOOLS = {
+    "revit_set_parameter_value": "revit.set_parameter_value",
+    "revit_move_element": "revit.move_element",
+    "revit_rotate_element": "revit.rotate_element",
+}
+PLAN_BATCH_COMMANDS = frozenset(PLAN_BATCH_TOOLS.values())
+_PLAN_BATCH_ID_RE = re.compile(r"[A-Za-z0-9_-]{1,64}")
+
+
 class UnavailableBridge:
     def __init__(self, message: str) -> None:
         self.message = message
@@ -122,18 +182,19 @@ class RevitProvider(AECProvider):
         bridge_url: str | None = config.bridge_url,
         host_version: str | None = config.host_version,
         bridge_factory=None,
+        bridge_transport: str | None = config.bridge_transport,
     ) -> None:
         self.workspace = workspace
         self.mode = mode
         self.bridge_url = bridge_url
         self.host_version = host_version
+        self.bridge_transport = bridge_transport
         self._bridge_factory = bridge_factory
         # Set by build_registry to ApprovalGate.approval_state, so revit_get_context reports the
         # live mode (with any temporary Auto window), not only the configured one.
         self.approval_state_source = None
         self._bridge = self._build_bridge(bridge_factory)
-        self._routed_bridges: Dict[tuple, Any] = {}
-        self._routed_lock = threading.Lock()
+        self._routed_bridges = RoutedBridgeCache()
         self._init_tool_mapping()
         self._enrich_tool_metadata()
 
@@ -186,9 +247,27 @@ class RevitProvider(AECProvider):
             }),
             destructive={"revit_execute_python", "revit_raw_command"},
         )
+        # Changes only the UI selection, like revit_select_by_unique_ids; the "set" verb must not gate it.
+        for tool in self._capabilities:
+            if tool.name == "revit_set_selection":
+                tool.is_mutating = False
 
     def get_identity(self) -> str:
         return "revit"
+
+    @property
+    def _uses_bridge(self) -> bool:
+        """Calls go to a bridge object: the live add-in, or a recorded cassette in replay mode."""
+        return self.mode in (BridgeMode.bridge, BridgeMode.replay)
+
+    def _maybe_record(self, bridge):
+        """Wrap a live bridge in the opt-in cassette recorder (MCP_REVIT_RECORD). An invalid
+        recording name fails closed: every call then reports why, nothing is sent unrecorded."""
+        try:
+            return cassette.wrap_for_recording(bridge, config.workspace_dir)
+        except cassette.CassetteError as exc:
+            logger.error("%s", exc)
+            return UnavailableBridge(str(exc))
 
     def _active_bridge(self):
         return _BRIDGE_OVERRIDE.get() or self._bridge
@@ -202,35 +281,225 @@ class RevitProvider(AECProvider):
         )
 
     @contextlib.contextmanager
-    def routed_to(self, endpoint: str, token: str | None):
+    def routed_to(self, endpoint: str, token: str | None, switch=None):
         """Send every Revit call made inside this block (same task/thread context) to the
         bridge at ``endpoint`` instead of the one chosen at hub start-up. Used by the panel
-        hub's instance routing; the registry decides the endpoint, never the request."""
+        hub's instance routing; the registry decides the endpoint, never the request.
+
+        Cached clients whose registry entry is gone are dropped first. A connection failure
+        inside the block triggers a /health probe; a client that fails it
+        ``RoutedBridgeCache.max_strikes`` times in a row is dropped. No network call runs
+        under the cache lock.
+
+        ``switch`` is the registry entry behind ``endpoint``. When the server uses the opt-in
+        pipe transport (``MCP_REVIT_BRIDGE_TRANSPORT=pipe``), a new routed client uses that
+        entry's pipe, or warns and keeps HTTP if the entry publishes none. An invalid
+        transport setting, or ``pipe`` off Windows, raises BridgeError before any call."""
+        from ..bridge.pipe_transport import require_windows, resolve_transport
+
+        transport = resolve_transport(self.bridge_transport)
+        if transport == "pipe":
+            require_windows()
         key = (endpoint, token)
-        with self._routed_lock:
-            bridge = self._routed_bridges.get(key)
-            if bridge is None:
-                factory = self._bridge_factory or (lambda u, t=None: BridgeClient(u, token=t))
-                bridge = factory(endpoint, token)
-                if hasattr(bridge, "initialize"):
-                    try:
-                        bridge.initialize()
-                    except Exception as e:
-                        logger.error("Failed to initialize routed Revit bridge client: %s", type(e).__name__)
-                self._routed_bridges[key] = bridge
+        live = self._live_route_keys()
+        if live is not None:
+            self._routed_bridges.evict_missing(live, keep=key)
+        base_factory = self._bridge_factory or (lambda u, t=None: BridgeClient(u, token=t))
+
+        def factory(u, t=None):
+            made = base_factory(u, t)
+            if transport == "pipe":
+                self._apply_pipe(made, switch, u)
+            return self._maybe_record(made)
+
+        bridge = self._routed_bridges.get(key, factory)
         reset = _BRIDGE_OVERRIDE.set(bridge)
         try:
             yield bridge
+        except (CommandFailed, WorkspaceViolation):
+            self._routed_bridges.record_success(key)  # Revit answered, or the call never left
+            raise
+        except (BridgeError, httpx.RequestError, OSError):
+            self._routed_bridges.record_failure(key, bridge)
+            raise
+        else:
+            self._routed_bridges.record_success(key)
         finally:
             _BRIDGE_OVERRIDE.reset(reset)
+
+    @staticmethod
+    def _live_route_keys():
+        """(endpoint, token) of every live Revit registry entry, or None when the registry cannot be read."""
+        from ..bridge import discovery
+
+        try:
+            return [
+                (s.endpoint, s.session_token)
+                for s in discovery.discover_switch_list(prune=False)
+                if s.provider_id == "revit"
+            ]
+        except Exception as e:
+            logger.debug("Registry read for routed-client eviction failed: %s", type(e).__name__)
+            return None
 
     def call_is_read_only(self, name: str, arguments: Dict[str, Any]) -> bool:
         """Lets the approval gate skip a revit_execute_python call made with mode='read'."""
         return name == "revit_execute_python" and is_read_mode_call(arguments)
 
+    @staticmethod
+    def _apply_pipe(bridge, switch, url) -> bool:
+        """Point ``bridge`` at the named pipe the registry entry ``switch`` publishes (ADR 0021).
+
+        Returns False, after a warning, when there is no pipe to use and HTTP stays in place.
+        Raises BridgeError when the pipe is refused (bad name, not Windows)."""
+        pipe_name = getattr(switch, "pipe_name", None) if switch is not None else None
+        if pipe_name and hasattr(bridge, "use_pipe"):
+            bridge.use_pipe(pipe_name, switch.pid)
+            logger.info("Using the named-pipe transport to Revit %s.", switch.host_version)
+            return True
+        logger.warning(
+            "MCP_REVIT_BRIDGE_TRANSPORT=pipe, but the selected Revit bridge publishes no pipe "
+            "(older add-in, explicit bridge URL, or AEC_BRIDGE_TRANSPORT=pipe not set for Revit). "
+            "Falling back to HTTP on %s.",
+            url,
+        )
+        return False
+
+    @staticmethod
+    def _probe_document(bridge) -> str | None:
+        """Active document title from the add-in's unqueued /health, or None. Best effort, read-only."""
+        try:
+            health = bridge._get("/health")
+        except Exception:
+            return None
+        title = health.get("active_document") if isinstance(health, dict) else None
+        return title if isinstance(title, str) else None
+
+    def _session_documents(self, sessions) -> Dict[int, str | None]:
+        """Active document title per session, read from each session's own /health with its registry
+        token. A session that does not answer shows None; nothing here sends a model request."""
+        factory = self._bridge_factory or (lambda u, t=None: BridgeClient(u, token=t))
+        titles: Dict[int, str | None] = {}
+        for switch in sessions:
+            probe = None
+            try:
+                probe = factory(switch.endpoint, switch.session_token)
+                titles[switch.pid] = self._probe_document(probe)
+            except Exception:
+                titles[switch.pid] = None
+            finally:
+                close = getattr(probe, "close", None)
+                if callable(close):
+                    try:
+                        close()
+                    except Exception:
+                        pass
+        return titles
+
+    def _connect_session(self, switch) -> None:
+        """Handshake with one registry session, then make it this server's bridge. The old bridge is
+        replaced only after the new one passed the health check; any failure leaves it in place."""
+        from ..bridge.pipe_transport import require_windows, resolve_transport
+
+        transport = resolve_transport(self.bridge_transport)
+        if transport == "pipe":
+            require_windows()
+        factory = self._bridge_factory or (lambda u, t=None: BridgeClient(u, token=t))
+        bridge = factory(switch.endpoint, switch.session_token)
+        try:
+            if hasattr(bridge, "bind_registry_session"):
+                bridge.bind_registry_session(switch)
+            if transport == "pipe":
+                self._apply_pipe(bridge, switch, switch.endpoint)
+            if hasattr(bridge, "initialize"):
+                bridge.initialize()
+        except Exception as exc:
+            close = getattr(bridge, "close", None)
+            if callable(close):
+                close()
+            if isinstance(exc, BridgeError):
+                raise
+            raise BridgeError(str(exc)) from exc
+        old = self._bridge
+        self._bridge = self._maybe_record(bridge)
+        close = getattr(old, "close", None)
+        if callable(close) and old is not bridge:
+            try:
+                close()
+            except Exception as e:
+                logger.debug("Closing the replaced Revit bridge failed: %s", type(e).__name__)
+
+    def reconnect(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """revit_reconnect: list live Revit sessions and re-bind this server to one. Discovery and
+        health handshake only: no model request, no plan or approval change. Fails closed."""
+        from ..bridge import discovery
+
+        if self.mode != BridgeMode.bridge:
+            raise ValueError("revit_reconnect needs a live Revit connection; it is not available in mock or replay mode.")
+        if _BRIDGE_OVERRIDE.get() is not None:
+            raise ValueError(
+                "revit_reconnect cannot run inside a panel-routed call. Choose the Revit instance in the panel instead."
+            )
+        if self.bridge_url:
+            raise ValueError(
+                "This server uses an explicit bridge URL, which is not tied to a registry session, so there is "
+                "nothing to reconnect. Check that Revit is running with the add-in loaded and the URL is correct."
+            )
+        wanted = revit_reconnect.read_pid(arguments or {})
+        sessions = [
+            s for s in discovery.discover_switch_list(prune=False)
+            if s.provider_id == "revit" and revit_reconnect.version_matches(s.host_version, self.host_version)
+        ]
+        chosen = revit_reconnect.pick(sessions, wanted)
+        titles = self._session_documents(sessions)
+        previous = getattr(self._bridge, "_registry_session", None)
+        previous_pid = previous[0] if previous else None
+        listing = [revit_reconnect.describe(s, titles.get(s.pid), previous_pid) for s in sessions]
+        if chosen is None:
+            return {
+                "ok": True,
+                "tool": "revit_reconnect",
+                "reconnected": False,
+                "sessions": listing,
+                "message": (
+                    "More than one Revit session is open, so nothing was changed. Call revit_reconnect again "
+                    "with pid set to the session you want."
+                ),
+            }
+        try:
+            self._connect_session(chosen)
+        except BridgeError as exc:
+            raise BridgeError(
+                f"Could not connect to Revit {chosen.host_version} (process {chosen.pid}): {exc} "
+                "The previous connection was not changed."
+            ) from exc
+        for entry in listing:
+            entry["bound"] = entry["pid"] == chosen.pid
+        return {
+            "ok": True,
+            "tool": "revit_reconnect",
+            "reconnected": True,
+            "session": next(e for e in listing if e["pid"] == chosen.pid),
+            "previous_pid": previous_pid,
+            "sessions": listing,
+            "message": f"Connected to Revit {chosen.host_version} (process {chosen.pid}). Call revit_get_context next.",
+            "warnings": [revit_reconnect.CHECK_MODEL_WARNING, revit_reconnect.PLANS_UNTOUCHED_NOTE],
+        }
+
     def _build_bridge(self, factory=None):
+        if self.mode == BridgeMode.replay:
+            return cassette.replay_bridge_from_env()
         if self.mode == BridgeMode.bridge:
             from ..bridge.discovery import available_host_versions, select_switch
+            from ..bridge.pipe_transport import require_windows, resolve_transport
+
+            try:
+                transport = resolve_transport(self.bridge_transport)
+                if transport == "pipe":
+                    require_windows()
+            except BridgeError as e:
+                logger.warning(str(e))
+                return UnavailableBridge(str(e))
 
             url = self.bridge_url
             token = None
@@ -277,12 +546,20 @@ class RevitProvider(AECProvider):
             bridge = bridge_factory(url, token)
             if switch is not None and hasattr(bridge, "bind_registry_session"):
                 bridge.bind_registry_session(switch)
+            if transport == "pipe":
+                try:
+                    self._apply_pipe(bridge, switch, url)
+                except BridgeError as e:
+                    logger.warning(str(e))
+                    return UnavailableBridge(str(e))
             if hasattr(bridge, "initialize"):
                 try:
                     bridge.initialize()
                 except Exception as e:
                     logger.error(f"Failed to initialize Revit Bridge client: {e}")
-            return bridge
+            return self._maybe_record(bridge)
+        if (os.environ.get(cassette.RECORD_ENV) or "").strip():
+            logger.warning("%s is ignored in mock mode; only live bridge traffic is recorded.", cassette.RECORD_ENV)
         return MockBridge()
 
     def get_capabilities(self) -> List[ProviderTool]:
@@ -290,6 +567,8 @@ class RevitProvider(AECProvider):
         return self._capabilities
 
     async def check_health(self) -> Dict[str, Any]:
+        if self.mode == BridgeMode.replay:
+            return {"status": "healthy", "mode": "replay"}
         if self.mode == BridgeMode.bridge:
             try:
                 # Direct check
@@ -302,7 +581,7 @@ class RevitProvider(AECProvider):
         return {"status": "healthy", "mode": "mock"}
 
     def _list_commands(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        if self.mode != BridgeMode.bridge:
+        if not self._uses_bridge:
             raise ValueError("revit_list_commands asks the live Revit add-in; it is not available in mock mode.")
         listed = self._active_bridge().list_commands()
         needle = str(arguments.get("contains") or "").lower()
@@ -317,6 +596,15 @@ class RevitProvider(AECProvider):
         return {"count": len(commands), "commands": commands}
 
     async def execute_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        result = await self._execute_tool(name, arguments)
+        if name == "revit_execute_python" and isinstance(result, dict) and isinstance(arguments, dict):
+            # Advisory only: the script was already sent unchanged. See script_lint.py.
+            warnings = lint_script(arguments.get("script"))
+            if warnings:
+                result = {**result, "lint_warnings": warnings}
+        return result
+
+    async def _execute_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         if name in PAGED_READS and any(k in arguments for k in _PAGE_ARGS):
             page = _page_args(arguments)
             rest = {k: v for k, v in arguments.items() if k not in _PAGE_ARGS}
@@ -325,16 +613,27 @@ class RevitProvider(AECProvider):
 
         if name == "revit_inspect_elements":
             validate_inspection(arguments)
-            if self.mode != BridgeMode.bridge:
+            if not self._uses_bridge:
                 raise ValueError("revit_inspect_elements requires a live Revit connection; it is not available in mock mode.")
-            return await inspect_elements(self.execute_tool, arguments)
+            return await inspect_elements(self.execute_tool, arguments, execute_batch=self.execute_read_batch)
 
         if name == "revit_get_context":
             return await asyncio.to_thread(self.live_context)
+        if name == "revit_perf_report":
+            return await asyncio.to_thread(
+                revit_perf.perf_report, self._active_bridge(), arguments, live=self.mode == BridgeMode.bridge
+            )
+        if name == "revit_reconnect":
+            return await asyncio.to_thread(self.reconnect, arguments)
         if name == "revit_get_result":
-            if self.mode != BridgeMode.bridge:
+            if not self._uses_bridge:
                 raise ValueError("revit_get_result needs a live Revit connection; it is not available in mock mode.")
             return await asyncio.to_thread(revit_context.get_result, self._active_bridge(), arguments)
+
+        # An export without its output file is refused here too (other paths than MCP call this).
+        need = missing_export_path(name, arguments, None)
+        if need is not None:
+            raise need
 
         # Check path parameters for workspace compliance
         self._assert_paths_in_workspace(arguments)
@@ -342,50 +641,16 @@ class RevitProvider(AECProvider):
         if name == "revit_list_commands":
             return self._list_commands(arguments)
 
-        if "." in name:
-            # Legacy dot notation (e.g. "revit.health")
-            bridge_tool = name
-            payload = arguments
-        else:
-            # MCP underscore notation (e.g. "revit_health")
-            normalized_name = name
-            if normalized_name not in self._tool_mapping:
-                raise ValueError(f"Unknown Revit tool '{name}'")
-            bridge_tool, payload_builder = self._tool_mapping[normalized_name]
-            if normalized_name == "revit_raw_command":
-                bridge_tool = str(arguments.get("command") or "")
-                if not _RAW_COMMAND_RE.fullmatch(bridge_tool):
-                    raise ValueError("revit_raw_command needs a command like 'revit.create_wall'.")
-                if self.mode != BridgeMode.bridge:
-                    raise ValueError("revit_raw_command talks to a live Revit add-in; it is not available in mock mode.")
-            payload = payload_builder(arguments)
-            if "request_id" in arguments and "request_id" not in payload:
-                payload["request_id"] = arguments["request_id"]
+        bridge_tool, payload = self._bridge_call_for(name, arguments)
 
-        if self.mode == BridgeMode.bridge:
-            # Under bridge mode, run the legacy handler for validation/prep only — its
-            # return value is discarded, the bridge call below is the real result.
-            legacy_dot_name = bridge_tool
-            handler = TOOL_HANDLERS.get(legacy_dot_name)
-            if handler:
-                try:
-                    handler({"request_id": "mcp-bridge", **payload}, self.workspace)
-                except WorkspaceViolation:
-                    # A workspace-sandbox escape must always block the call — swallowing
-                    # this as a warning would let a path-outside-workspace request reach
-                    # the live bridge anyway, silently defeating the sandbox for every
-                    # tool that happens to have a legacy handler.
-                    raise
-                except Exception as e:
-                    # Other legacy-schema validation failures are advisory only: these
-                    # Pydantic input models predate the current provider architecture
-                    # and can drift out of sync with what the bridge actually accepts.
-                    logger.warning(f"Revit legacy handler validation warning: {e}")
+        if self._uses_bridge:
+            self._check_with_legacy_handler(bridge_tool, payload)
 
             # Send to bridge client. send_tool blocks (HTTP plus polling for up to the soft
             # wait), so run it off the event loop; the loop keeps serving other calls (B-16).
             bridge = self._active_bridge()
-            return await asyncio.to_thread(bridge.send_tool, bridge_tool, payload)
+            with cassette.tool_call(name, arguments):
+                return await asyncio.to_thread(bridge.send_tool, bridge_tool, payload)
         else:
             # Mock mode
             legacy_dot_name = bridge_tool
@@ -401,10 +666,201 @@ class RevitProvider(AECProvider):
             bridge = self._active_bridge()
             return await asyncio.to_thread(bridge.send_tool, bridge_tool, payload)
 
+    def _bridge_call_for(self, name: str, arguments: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:
+        """The add-in command and payload for one tool call (no I/O)."""
+        if "." in name:
+            # Legacy dot notation (e.g. "revit.health")
+            return name, arguments
+        # MCP underscore notation (e.g. "revit_health")
+        if name not in self._tool_mapping:
+            raise ValueError(f"Unknown Revit tool '{name}'")
+        bridge_tool, payload_builder = self._tool_mapping[name]
+        if name == "revit_raw_command":
+            bridge_tool = str(arguments.get("command") or "")
+            if not _RAW_COMMAND_RE.fullmatch(bridge_tool):
+                raise ValueError("revit_raw_command needs a command like 'revit.create_wall'.")
+            if not self._uses_bridge:
+                raise ValueError("revit_raw_command talks to a live Revit add-in; it is not available in mock mode.")
+        payload = payload_builder(arguments)
+        if "request_id" in arguments and "request_id" not in payload:
+            payload["request_id"] = arguments["request_id"]
+        return bridge_tool, payload
+
+    def _check_with_legacy_handler(self, bridge_tool: str, payload: Dict[str, Any]) -> None:
+        """Under bridge mode, run the legacy handler for validation/prep only. Its return value is
+        discarded; the bridge call is the real result."""
+        handler = TOOL_HANDLERS.get(bridge_tool)
+        if not handler:
+            return
+        try:
+            handler({"request_id": "mcp-bridge", **payload}, self.workspace)
+        except WorkspaceViolation:
+            # A workspace-sandbox escape must always block the call — swallowing
+            # this as a warning would let a path-outside-workspace request reach
+            # the live bridge anyway, silently defeating the sandbox for every
+            # tool that happens to have a legacy handler.
+            raise
+        except Exception as e:
+            # Other legacy-schema validation failures are advisory only: these
+            # Pydantic input models predate the current provider architecture
+            # and can drift out of sync with what the bridge actually accepts.
+            logger.warning(f"Revit legacy handler validation warning: {e}")
+
+    def batch_refusal(self, name: Any, arguments: Any) -> str | None:
+        """Why ``name`` may not be a member of a read batch, or None when it may (#277).
+
+        Only a read-only tool (tool_metadata.is_read_only_tool) that forwards one fixed add-in
+        command qualifies, so a batch can never carry a write past the approval gate. Fails closed."""
+        from ..tool_metadata import is_read_only_tool  # lazy: tool_metadata imports the providers package
+
+        if not isinstance(name, str) or "." in name:
+            return f"{name!r} is not a Revit tool name"
+        if name in BATCH_EXCLUDED or name not in self._tool_mapping:
+            return f"{name} cannot run inside a read batch"
+        if _command_has_side_effects(self._tool_mapping[name][0]):
+            return f"{name} writes files or changes the selection or view, so it cannot run inside a read batch"
+        tool = next((t for t in self._capabilities if t.name == name), None)
+        if not is_read_only_tool(name, tool):
+            return f"{name} is not a read-only tool; model changes go through a plan and approval"
+        if not isinstance(arguments, dict):
+            return f"{name} arguments must be an object"
+        if name in PAGED_READS and any(k in arguments for k in _PAGE_ARGS):
+            return f"{name} paging arguments are not supported inside a read batch"
+        return None
+
+    async def execute_read_batch(self, calls: List[Any]) -> List[Any]:
+        """Run read-only tool calls in order. Returns one entry per call: the result dict, or the
+        exception that call raised.
+
+        Every member is checked before anything is sent; one write or unknown tool refuses the
+        whole batch with ValueError. With a live add-in that lists revit.batch, members go up to 25
+        at a time, each group in one Revit turn (#277). Otherwise they run one by one through
+        execute_tool, exactly as separate calls would."""
+        calls = list(calls)
+        for index, call in enumerate(calls):
+            if not (isinstance(call, (tuple, list)) and len(call) == 2):
+                raise ValueError(f"Read batch entry {index} must be (tool name, arguments).")
+            reason = self.batch_refusal(call[0], call[1])
+            if reason:
+                raise ValueError(f"Read batch refused (entry {index}): {reason}.")
+
+        results: List[Any] = [None] * len(calls)
+        bridge = self._active_bridge()
+        supports = getattr(bridge, "supports_batch", None)
+        batched = (
+            self.mode == BridgeMode.bridge
+            and callable(getattr(bridge, "call_batch", None))
+            and callable(supports)
+            and supports() is True
+        )
+        if not batched:
+            for index, (name, arguments) in enumerate(calls):
+                try:
+                    results[index] = await self.execute_tool(name, arguments)
+                except Exception as exc:  # reported per call, like separate tool calls
+                    results[index] = exc
+            return results
+
+        pending: List[tuple[int, Dict[str, Any]]] = []
+        for index, (name, arguments) in enumerate(calls):
+            try:
+                self._assert_paths_in_workspace(arguments)
+                bridge_tool, payload = self._bridge_call_for(name, arguments)
+                self._check_with_legacy_handler(bridge_tool, payload)
+            except Exception as exc:  # this member is not sent
+                results[index] = exc
+                continue
+            pending.append((index, {"tool": bridge_tool, "payload": payload}))
+
+        for start in range(0, len(pending), MAX_BATCH_COMMANDS):
+            chunk = pending[start:start + MAX_BATCH_COMMANDS]
+            try:
+                answers = await asyncio.to_thread(bridge.call_batch, [command for _, command in chunk])
+            except Exception as exc:
+                answers = [exc] * len(chunk)
+            if not isinstance(answers, list) or len(answers) != len(chunk):
+                answers = [BridgeError("The add-in returned a batch result that does not match the request.")] * len(chunk)
+            for (index, _), answer in zip(chunk, answers):
+                results[index] = answer
+        return results
+
+    def plan_batch_members(self, plan_id: Any, actions: List[Any]) -> List[Dict[str, Any]] | None:
+        """The add-in members for running these approved plan actions as one batch (#294), or None
+        when the plan must run one action at a time (today's path).
+
+        None unless: a live add-in lists revit.execute_plan_batch, there are 1 to 50 actions, every
+        tool is in PLAN_BATCH_TOOLS, and every payload builds and fits the command contract. No I/O
+        and nothing is claimed here, so a None answer changes nothing."""
+        return self._batch_members(plan_id, actions, "supports_plan_batch", "call_plan_batch")
+
+    def plan_preview_members(self, actions: List[Any]) -> List[Dict[str, Any]] | None:
+        """The add-in members for a rolled-back preview of these draft actions (#293), or None when no
+        preview can be taken. Same rules as plan_batch_members, but the add-in must list
+        revit.preview_plan_batch. Each action needs an ``action_id`` (any id of letters, digits, _ and -)."""
+        return self._batch_members("preview", actions, "supports_plan_preview", "call_plan_preview")
+
+    def _batch_members(self, plan_id: Any, actions: List[Any], supports_name: str,
+                       call_name: str) -> List[Dict[str, Any]] | None:
+        if self.mode != BridgeMode.bridge:
+            return None
+        if not isinstance(plan_id, str) or not _PLAN_BATCH_ID_RE.fullmatch(plan_id):
+            return None
+        bridge = self._active_bridge()
+        supports = getattr(bridge, supports_name, None)
+        if not (callable(supports) and callable(getattr(bridge, call_name, None))):
+            return None
+        try:
+            if supports() is not True:
+                return None
+        except Exception:  # noqa: BLE001 - an unknown answer means no batch
+            return None
+        if not actions or len(actions) > MAX_PLAN_BATCH_ACTIONS:
+            return None
+        members: List[Dict[str, Any]] = []
+        for action in actions:
+            if not isinstance(action, dict):
+                return None
+            tool = action.get("tool")
+            action_id = action.get("action_id")
+            arguments = action.get("arguments")
+            if tool not in PLAN_BATCH_TOOLS or not isinstance(arguments, dict):
+                return None
+            if not isinstance(action_id, str) or not _PLAN_BATCH_ID_RE.fullmatch(action_id):
+                return None
+            try:
+                args = {**arguments, "plan_id": plan_id}
+                self._assert_paths_in_workspace(args)
+                bridge_tool, payload = self._bridge_call_for(tool, args)
+                if bridge_tool != PLAN_BATCH_TOOLS[tool]:
+                    return None
+                validate_command(bridge_tool, payload)
+                self._check_with_legacy_handler(bridge_tool, payload)
+            except Exception:  # noqa: BLE001 - the one-by-one path reports this action's own error
+                return None
+            members.append({"action_id": action_id, "tool": bridge_tool, "payload": payload})
+        return members
+
+    async def preview_plan_batch(self, title: str, members: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Send prepared members (plan_preview_members) as one revit.preview_plan_batch request. The add-in
+        rolls the group back whatever happens. Nothing is claimed and no plan state changes."""
+        bridge = self._active_bridge()
+        return await asyncio.to_thread(bridge.call_plan_preview, title, members)
+
+    async def execute_plan_batch(self, plan_id: str, title: str, members: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Send prepared members (plan_batch_members) as one revit.execute_plan_batch request. The
+        caller must have claimed every action first. Blocks off the event loop, like execute_tool."""
+        bridge = self._active_bridge()
+        return await asyncio.to_thread(bridge.call_plan_batch, plan_id, title, members)
+
     def _assert_paths_in_workspace(self, arguments: Dict[str, Any]) -> None:
-        path_keys = ["path", "csv_path", "output_path", "file_path", "template_path"]
+        path_keys = ["path", "csv_path", "output_path", "output_directory", "file_path", "template_path"]
         for key in path_keys:
-            if key in arguments and isinstance(arguments[key], str):
+            value = arguments.get(key)
+            if value is not None and not isinstance(value, str):
+                # Every schema types these as strings. A list or object would skip the check
+                # below and reach Revit unchecked, so refuse it (fail closed).
+                raise WorkspaceViolation(f"'{key}' must be a text path inside the workspace folder.")
+            if isinstance(value, str):
                 try:
                     self.workspace.assert_in_workspace(Path(arguments[key]))
                 except WorkspaceViolation as exc:
@@ -415,23 +871,18 @@ class RevitProvider(AECProvider):
                         f"{exc}. Dev mode does not change this. Use a path inside the workspace folder: {folders}"
                     ) from exc
 
-    @staticmethod
-    def _placement_location(args: Dict[str, Any]) -> Dict[str, Any]:
-        location = args.get("location")
-        if location is not None:
-            if not isinstance(location, dict):
-                raise ValueError("location must be an object with x, y, and optional z coordinates")
-            return {
-                "x": location.get("x"),
-                "y": location.get("y"),
-                "z": location.get("z", 0),
-            }
-
-        return {
-            "x": args.get("x"),
-            "y": args.get("y"),
-            "z": args.get("z", 0),
-        }
+    def _sheets_from_csv_payload(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """The add-in reads a sheets list, not a file: read the CSV here, after the workspace check."""
+        csv_path = args.get("csv_path")
+        if not isinstance(csv_path, str) or not csv_path:
+            raise ValueError("revit_batch_create_sheets_from_csv needs csv_path, a CSV file inside the workspace.")
+        tool = "revit_batch_create_sheets_from_csv"
+        if file_binding.bound_file(tool).digest_key in args:
+            # Planned call: parse exactly the bytes checked against the approved digest.
+            data = file_binding.read_verified(tool, args, self.workspace)
+            return revit_payloads.sheets_from_csv_bytes(data, args.get("titleblock_name"))
+        resolved = self.workspace.assert_in_workspace(Path(csv_path))
+        return revit_payloads.sheets_from_csv(resolved, args.get("titleblock_name"))
 
     def _init_tool_mapping(self):
         self._tool_mapping = {
@@ -514,33 +965,10 @@ class RevitProvider(AECProvider):
                     "location": {"x": args.get("x"), "y": args.get("y"), "z": args.get("z", 0)},
                 },
             ),
-            "revit_place_door": (
-                "revit.place_door",
-                lambda args: {
-                    "wall_id": args.get("wall_id"),
-                    "family_name": args.get("family_name"),
-                    "type_name": args.get("type_name"),
-                    "location": self._placement_location(args),
-                    "hand_flipped": args.get("hand_flipped"),
-                    "facing_flipped": args.get("facing_flipped"),
-                },
-            ),
-            "revit_place_window": (
-                "revit.place_window",
-                lambda args: {
-                    "wall_id": args.get("wall_id"),
-                    "family_name": args.get("family_name"),
-                    "type_name": args.get("type_name"),
-                    "location": self._placement_location(args),
-                    "hand_flipped": args.get("hand_flipped"),
-                    "facing_flipped": args.get("facing_flipped"),
-                },
-            ),
+            "revit_place_door": ("revit.place_door", revit_payloads.hosted_opening("revit_place_door")),
+            "revit_place_window": ("revit.place_window", revit_payloads.hosted_opening("revit_place_window")),
             "revit_list_families": ("revit.list_families", lambda args: {}),
-            "revit_create_floor_plan_view": (
-                "revit.create_floor_plan_view",
-                lambda args: {"level_name": args.get("level_name"), "view_name": args.get("view_name")},
-            ),
+            "revit_create_floor_plan_view": ("revit.create_floor_plan_view", revit_payloads.floor_plan_view),
             "revit_create_3d_view": ("revit.create_3d_view", lambda args: {"view_name": args.get("view_name")}),
             "revit_create_section_view": (
                 "revit.create_section_view",
@@ -572,9 +1000,10 @@ class RevitProvider(AECProvider):
                 "revit.create_shared_parameter",
                 lambda args: {
                     "name": args.get("name"),
-                    "group": args.get("group", "General"),
-                    "type": args.get("type", "Text"),
-                    "visible": args.get("visible", True),
+                    "parameter_type": args.get("type") or "Text",
+                    "group_name": args.get("group") or "Data",
+                    "categories": _category_names(args.get("categories")),
+                    **_optional(args, "is_instance", "visible", "definition_group"),
                 },
             ),
             "revit_list_project_parameters": ("revit.list_project_parameters", lambda args: {}),
@@ -582,41 +1011,21 @@ class RevitProvider(AECProvider):
                 "revit.create_project_parameter",
                 lambda args: {
                     "name": args.get("name"),
-                    "group": args.get("group", "General"),
-                    "type": args.get("type", "Text"),
-                    "category": args.get("category"),
-                    "visible": args.get("visible", True),
+                    "parameter_type": args.get("type") or "Text",
+                    "group": args.get("group") or "Data",
+                    "is_instance": args.get("is_instance", True),
+                    "categories": _category_names(args.get("categories")),
+                    **_optional(args, "visible"),
                 },
             ),
-            "revit_batch_set_parameters": (
-                "revit.batch_set_parameters",
-                lambda args: {
-                    "element_ids": args.get("element_ids"),
-                    "parameter_name": args.get("parameter_name"),
-                    "value": args.get("value"),
-                },
-            ),
+            "revit_batch_set_parameters": ("revit.batch_set_parameters", revit_payloads.batch_set_parameters),
             "revit_get_type_parameters": (
                 "revit.get_type_parameters",
                 lambda args: {"element_id": args.get("element_id")},
             ),
-            "revit_set_type_parameter": (
-                "revit.set_type_parameter",
-                lambda args: {
-                    "element_id": args.get("element_id"),
-                    "parameter_name": args.get("parameter_name"),
-                    "value": args.get("value"),
-                },
-            ),
+            "revit_set_type_parameter": ("revit.set_type_parameter", revit_payloads.set_type_parameter),
             "revit_list_sheets": ("revit.list_sheets", lambda args: {}),
-            "revit_create_sheet": (
-                "revit.create_sheet",
-                lambda args: {
-                    "name": args.get("name"),
-                    "number": args.get("number"),
-                    "titleblock_id": args.get("titleblock_id"),
-                },
-            ),
+            "revit_create_sheet": ("revit.create_sheet", revit_payloads.create_sheet),
             "revit_delete_sheet": ("revit.delete_sheet", lambda args: {"sheet_id": args.get("sheet_id")}),
             "revit_place_viewport_on_sheet": (
                 "revit.place_viewport_on_sheet",
@@ -626,28 +1035,15 @@ class RevitProvider(AECProvider):
                     "location": {"x": args.get("x"), "y": args.get("y"), "z": 0},
                 },
             ),
-            "revit_batch_create_sheets_from_csv": (
-                "revit.batch_create_sheets_from_csv",
-                lambda args: {"csv_path": args.get("csv_path"), "titleblock_name": args.get("titleblock_name")},
-            ),
+            "revit_batch_create_sheets_from_csv": ("revit.batch_create_sheets_from_csv", self._sheets_from_csv_payload),
             "revit_populate_titleblock": (
                 "revit.populate_titleblock",
                 lambda args: {"sheet_id": args.get("sheet_id"), "parameters": args.get("parameters")},
             ),
             "revit_list_titleblocks": ("revit.list_titleblocks", lambda args: {}),
             "revit_get_sheet_info": ("revit.get_sheet_info", lambda args: {"sheet_id": args.get("sheet_id")}),
-            "revit_duplicate_sheet": (
-                "revit.duplicate_sheet",
-                lambda args: {
-                    "sheet_id": args.get("sheet_id"),
-                    "with_views": args.get("with_views", False),
-                    "duplicate_option": args.get("duplicate_option", "Duplicate"),
-                },
-            ),
-            "revit_renumber_sheets": (
-                "revit.renumber_sheets",
-                lambda args: {"prefix": args.get("prefix"), "start_number": args.get("start_number")},
-            ),
+            "revit_duplicate_sheet": ("revit.duplicate_sheet", revit_payloads.duplicate_sheet),
+            "revit_renumber_sheets": ("revit.renumber_sheets", revit_payloads.renumber_sheets),
             "revit_get_selection": ("revit.get_selection", lambda args: {}),
             "revit_set_selection": ("revit.set_selection", lambda args: {"element_ids": args.get("element_ids")}),
             "revit_select_by_unique_ids": (
@@ -663,22 +1059,8 @@ class RevitProvider(AECProvider):
                 },
             ),
             "revit_clear_preview": ("revit.clear_preview", lambda args: {}),
-            "revit_create_text_note": (
-                "revit.create_text_note",
-                lambda args: {
-                    "text": args.get("text"),
-                    "location": {"x": args.get("x"), "y": args.get("y"), "z": 0},
-                    "view_id": args.get("view_id"),
-                },
-            ),
-            "revit_create_tag": (
-                "revit.create_tag",
-                lambda args: {
-                    "element_id": args.get("element_id"),
-                    "location": {"x": args.get("x"), "y": args.get("y"), "z": 0},
-                    "view_id": args.get("view_id"),
-                },
-            ),
+            "revit_create_text_note": ("revit.create_text_note", revit_payloads.text_note),
+            "revit_create_tag": ("revit.create_tag", revit_payloads.tag),
             "revit_create_column": (
                 "revit.create_column",
                 lambda args: {
@@ -742,7 +1124,7 @@ class RevitProvider(AECProvider):
             ),
             "revit_export_dwg": (
                 "revit.export_dwg_by_view",
-                lambda args: {"view_id": args.get("view_id"), "output_path": args.get("output_path")},
+                lambda args: revit_payloads.export_dwg(args, resolve=self.workspace.assert_in_workspace),
             ),
             "revit_export_ifc": (
                 "revit.export_ifc_with_settings",
@@ -871,26 +1253,12 @@ class RevitProvider(AECProvider):
                     "smoothness": args.get("smoothness", 50),
                 },
             ),
-            "revit_set_element_material": (
-                "revit.set_element_material",
-                lambda args: {
-                    "element_id": args.get("element_id"),
-                    "material_name": args.get("material_name"),
-                    "face_index": args.get("face_index"),
-                },
-            ),
+            "revit_set_element_material": ("revit.set_element_material", revit_payloads.element_material),
             "revit_convert_to_group": (
                 "revit.convert_to_group",
                 lambda args: {"element_ids": args.get("element_ids"), "name": args.get("name")},
             ),
-            "revit_edit_family": (
-                "revit.edit_family",
-                lambda args: {
-                    "family_name": args.get("family_name"),
-                    "family_symbol_id": args.get("family_symbol_id"),
-                    "family_instance_id": args.get("family_instance_id"),
-                },
-            ),
+            "revit_edit_family": ("revit.edit_family", revit_payloads.edit_family),
             "revit_create_dimension": (
                 "revit.create_dimension",
                 lambda args: {
@@ -979,7 +1347,7 @@ class RevitProvider(AECProvider):
             ),
             "revit_extract_snapshot": (
                 "revit.extract_snapshot",
-                lambda args: {"dirty_only": args.get("dirty_only", False)},
+                _snapshot_payload,
             ),
             "revit_get_snapshot_delta": ("revit.get_snapshot_delta", lambda args: {}),
         }
@@ -1360,16 +1728,19 @@ class RevitProvider(AECProvider):
         ),
         ProviderTool(
             name="revit_create_shared_parameter",
-            description="Create a new shared parameter",
+            description="Create a shared parameter in the shared parameter file set in Revit and bind it to categories",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "name": {"type": "string"},
+                    "categories": {"type": "array", "items": {"type": "string"}},
                     "group": {"type": "string"},
                     "type": {"type": "string"},
+                    "is_instance": {"type": "boolean"},
                     "visible": {"type": "boolean"},
+                    "definition_group": {"type": "string"},
                 },
-                "required": ["name"],
+                "required": ["name", "categories"],
             },
         ),
         ProviderTool(
@@ -1379,16 +1750,18 @@ class RevitProvider(AECProvider):
         ),
         ProviderTool(
             name="revit_create_project_parameter",
-            description="Create a new project parameter",
+            description="Create a project parameter and bind it to categories",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "name": {"type": "string"},
-                    "category": {"type": "string"},
+                    "categories": {"type": "array", "items": {"type": "string"}},
                     "group": {"type": "string"},
                     "type": {"type": "string"},
+                    "is_instance": {"type": "boolean"},
+                    "visible": {"type": "boolean"},
                 },
-                "required": ["name", "category"],
+                "required": ["name", "categories"],
             },
         ),
         ProviderTool(
@@ -1419,11 +1792,19 @@ class RevitProvider(AECProvider):
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "element_id": {"type": "integer"},
+                    "type_id": {
+                        "type": "integer",
+                        "description": "ElementId of the type itself. revit_get_type_parameters returns it as type_id.",
+                    },
+                    "element_id": {
+                        "type": "integer",
+                        "description": "Older name for type_id. It must be the type's id; an instance id is refused.",
+                    },
                     "parameter_name": {"type": "string"},
                     "value": {"type": ["string", "number"]},
                 },
-                "required": ["element_id", "parameter_name", "value"],
+                "required": ["parameter_name", "value"],
+                "oneOf": [{"required": ["type_id"]}, {"required": ["element_id"]}],
             },
         ),
         ProviderTool(
@@ -1437,7 +1818,10 @@ class RevitProvider(AECProvider):
                 "properties": {
                     "name": {"type": "string"},
                     "number": {"type": "string"},
-                    "titleblock_id": {"type": "integer"},
+                    "titleblock_name": {
+                        "type": "string",
+                        "description": "Title block family name. Omit for a placeholder sheet.",
+                    },
                 },
                 "required": ["name", "number"],
             },
@@ -1466,7 +1850,10 @@ class RevitProvider(AECProvider):
             description="Create multiple sheets from a CSV file",
             inputSchema={
                 "type": "object",
-                "properties": {"csv_path": {"type": "string"}, "titleblock_name": {"type": "string"}},
+                "properties": {
+                    "csv_path": {"type": "string"}, "titleblock_name": {"type": "string"},
+                    "csv_sha256": {"type": "string"}, "csv_row_count": {"type": "integer"},
+                },
                 "required": ["csv_path"],
             },
         ),
@@ -1496,19 +1883,37 @@ class RevitProvider(AECProvider):
                 "type": "object",
                 "properties": {
                     "sheet_id": {"type": "integer"},
-                    "with_views": {"type": "boolean"},
-                    "duplicate_option": {"type": "string"},
+                    "new_sheet_number": {"type": "string", "description": "Number for the new sheet."},
+                    "new_sheet_name": {"type": "string", "description": "Name for the new sheet."},
+                    "with_views": {"type": "boolean", "description": "Also copy the viewports. Default false."},
                 },
-                "required": ["sheet_id"],
+                "required": ["sheet_id", "new_sheet_number", "new_sheet_name"],
             },
         ),
         ProviderTool(
             name="revit_renumber_sheets",
-            description="Batch renumber sheets",
+            description="Renumber the listed sheets in one transaction",
             inputSchema={
                 "type": "object",
-                "properties": {"prefix": {"type": "string"}, "start_number": {"type": "integer"}},
-                "required": ["start_number"],
+                "properties": {
+                    "sheet_ids": {
+                        "type": "array",
+                        "items": {"type": "integer"},
+                        "description": "Sheets to renumber, in the new order. Numbered prefix + start_number upward.",
+                    },
+                    "start_number": {"type": "integer", "description": "Number for the first sheet in sheet_ids."},
+                    "prefix": {"type": "string", "description": "Text before each number, for example 'A-'."},
+                    "sheets": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {"sheet_id": {"type": "integer"}, "new_sheet_number": {"type": "string"}},
+                            "required": ["sheet_id", "new_sheet_number"],
+                        },
+                        "description": "Explicit numbers instead of sheet_ids: [{sheet_id, new_sheet_number}].",
+                    },
+                },
+                "oneOf": [{"required": ["sheet_ids", "start_number"]}, {"required": ["sheets"]}],
             },
         ),
         ProviderTool(
@@ -1697,11 +2102,27 @@ class RevitProvider(AECProvider):
         ),
         ProviderTool(
             name="revit_export_dwg",
-            description="Export view to DWG",
+            description="Export one view to DWG files in a workspace folder",
             inputSchema={
                 "type": "object",
-                "properties": {"view_id": {"type": "integer"}, "output_path": {"type": "string"}},
-                "required": ["view_id", "output_path"],
+                "properties": {
+                    "view_id": {"type": "integer"},
+                    "output_directory": {
+                        "type": "string",
+                        "description": "Folder inside the workspace. The add-in names the file after the view.",
+                    },
+                    "output_path": {
+                        "type": "string",
+                        "description": "Older name for output_directory. A file name such as A101.dwg is refused.",
+                    },
+                    "dwg_version": {
+                        "type": "string",
+                        "enum": ["AutoCAD2018", "AutoCAD2013", "AutoCAD2010"],
+                        "description": "DWG file version. Omit for AutoCAD2018.",
+                    },
+                },
+                "required": ["view_id"],
+                "oneOf": [{"required": ["output_directory"]}, {"required": ["output_path"]}],
             },
         ),
         ProviderTool(
@@ -1710,7 +2131,7 @@ class RevitProvider(AECProvider):
             inputSchema={
                 "type": "object",
                 "properties": {"output_path": {"type": "string"}},
-                "required": ["output_path"],
+                "required": [],
             },
         ),
         ProviderTool(
@@ -1719,7 +2140,7 @@ class RevitProvider(AECProvider):
             inputSchema={
                 "type": "object",
                 "properties": {"output_path": {"type": "string"}},
-                "required": ["output_path"],
+                "required": [],
             },
         ),
         ProviderTool(
@@ -1733,7 +2154,7 @@ class RevitProvider(AECProvider):
                     "width": {"type": "integer"},
                     "height": {"type": "integer"},
                 },
-                "required": ["view_id", "output_path"],
+                "required": ["view_id"],
             },
         ),
         ProviderTool(
@@ -2014,6 +2435,11 @@ class RevitProvider(AECProvider):
                     "family_instance_id": {"type": "integer"},
                 },
                 "required": [],
+                "anyOf": [
+                    {"required": ["family_name"]},
+                    {"required": ["family_symbol_id"]},
+                    {"required": ["family_instance_id"]},
+                ],
             },
         ),
         ProviderTool(
@@ -2168,7 +2594,9 @@ class RevitProvider(AECProvider):
                 "The script runs on Revit's user-interface thread and cannot be cancelled, so keep it short "
                 "(well under 20 seconds) and work from element ids rather than whole-model geometry. "
                 "Use revit_list_commands first: a dedicated command is safer when one exists. "
-                "Check unfamiliar API members with revit_api_lookup first: it confirms the name and signature from the Revit docs."
+                "Check unfamiliar API members with revit_api_lookup first: it confirms the name and signature from the Revit docs. "
+                "helpers=true puts the amb helper library before the script (fast collectors, parameter and bounding-box "
+                "filters, unit conversion; in write mode also batched transactions); see docs/python-automation.md."
             ),
             inputSchema={
                 "type": "object",
@@ -2183,6 +2611,15 @@ class RevitProvider(AECProvider):
                             "'read' needs no approval; the script is refused if it mentions Transaction, "
                             "SubTransaction or TransactionGroup, and the add-in blocks them at run time. "
                             "A safety rail against mistakes, not a security boundary."
+                        ),
+                    },
+                    "helpers": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": (
+                            "true puts the amb helper library before the script. Read mode gets only the read "
+                            "helpers and the combined text must still pass read mode. Error line numbers then "
+                            "include the helper lines. No 'from __future__' import with helpers."
                         ),
                     },
                 },
@@ -2299,6 +2736,8 @@ class RevitProvider(AECProvider):
         ),
     ]
     _capabilities += revit_context.CONTEXT_TOOLS
+    _capabilities += revit_perf.PERF_TOOLS
+    _capabilities += revit_reconnect.RECONNECT_TOOLS
     for _tool in _capabilities:
         if _tool.name in PAGED_READS:
             _tool.input_schema.setdefault("properties", {}).update(copy.deepcopy(_PAGE_PROPERTIES))
@@ -2308,7 +2747,6 @@ class RevitProvider(AECProvider):
         close = getattr(getattr(self, "_bridge", None), "close", None)
         if callable(close):
             close()
-        for routed in list(getattr(self, "_routed_bridges", {}).values()):
-            routed_close = getattr(routed, "close", None)
-            if callable(routed_close):
-                routed_close()
+        routed = getattr(self, "_routed_bridges", None)
+        if routed is not None:
+            routed.close_all()

@@ -9,7 +9,7 @@ This page separates two groups. The first is what this repository documents and 
 | Client | Status | How to connect |
 | --- | --- | --- |
 | Claude Desktop | Documented here | Install the `.mcpb` bundle from the [latest release](https://github.com/Sam-AEC/aec-model-bridge/releases/latest), or tick the Claude Desktop option in the installer. The README shows the `claude_desktop_config.json` entry. |
-| VS Code with GitHub Copilot (agent mode) | Documented here | Use the [VS Code extension](../extensions/vscode/README.md), the committed [`.vscode/mcp.json`](../.vscode/mcp.json), or the install link in [install.md](install.md#vs-code). |
+| VS Code with GitHub Copilot (agent mode) | Documented here | Use the [VS Code extension](../packages/vscode-extension/README.md), the committed [`.vscode/mcp.json`](../.vscode/mcp.json), or the install link in [install.md](install.md#vs-code). |
 | Cursor | Documented here | Use the Cursor install link in the README, or add the `mcpServers` entry from the README. |
 | Codex | Documented here | The README states Codex uses the same values as the Claude Desktop entry. The panel chat can also call the `codex` command-line tool. |
 | Hermes Desktop | Example provided | Start from [`docs/examples/hermes-desktop.json`](examples/hermes-desktop.json). |
@@ -37,6 +37,10 @@ Live work always needs the Revit add-in. The server talks to a running copy of R
 | Navisworks Manage | In progress | The provider and tools are registered. The add-in is not finished. |
 | Power BI | In progress | The tool exists but is not registered in the hub. |
 | Excel and SQLite | Available as export | The report tools write `.xlsx` and `.db` files. |
+
+## Beside Autodesk's Revit MCP server
+
+Using both servers in one client is UNVERIFIED. [run-beside-autodesk-revit-mcp.md](run-beside-autodesk-revit-mcp.md) lists this server's tool name prefixes and a configuration with two distinct server names.
 
 ## Where the server is listed
 

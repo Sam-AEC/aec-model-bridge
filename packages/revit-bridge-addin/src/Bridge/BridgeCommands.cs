@@ -114,6 +114,32 @@ namespace RevitBridge.Bridge
     }
 
     [Transaction(TransactionMode.Manual)]
+    public class CommandToggleConnection : IExternalCommand
+    {
+        public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
+        {
+            var server = App.Server;
+            if (server == null)
+            {
+                message = "The bridge server is not available.";
+                return Result.Failed;
+            }
+
+            if (server.IsListening)
+            {
+                server.Stop();
+            }
+            else
+            {
+                server.Start();
+            }
+
+            App.RefreshConnectionButton();
+            return Result.Succeeded;
+        }
+    }
+
+    [Transaction(TransactionMode.Manual)]
     public class CommandStatus : IExternalCommand
     {
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)

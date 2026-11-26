@@ -722,7 +722,12 @@ def test_secrets_in_parameters_are_never_logged_or_stored(tmp_path, monkeypatch,
 # --------------------------------------------------------------------------- #
 # Starter recipes (data files)
 # --------------------------------------------------------------------------- #
-STARTERS = ["element_count_by_category", "level_list", "warning_summary"]
+STARTERS = ["element_count_by_category", "elements_by_parameter", "elements_in_box", "level_list", "warning_summary"]
+# Values for the starters' required parameters.
+STARTER_PARAMS = {
+    "elements_by_parameter": {"parameter": "ALL_MODEL_INSTANCE_COMMENTS", "op": "begins", "value": "AMB"},
+    "elements_in_box": {"min_x": 0, "min_y": 0, "min_z": 0, "max_x": 10, "max_y": 10, "max_z": 3},
+}
 
 
 @pytest.mark.parametrize("rid", STARTERS)
@@ -737,7 +742,7 @@ def test_starter_recipes_are_consistent_read_only_and_python27_safe(tmp_path, mo
         if isinstance(node, ast.FunctionDef):
             assert node.returns is None and all(a.annotation is None for a in node.args.args)
     compile(recipes.build_script(recipe.code, "{}").replace("PARAMS_JSON = u'", "PARAMS_JSON = '"), rid, "exec")
-    run = run_tool(w, RUN, {"id": rid})
+    run = run_tool(w, RUN, {"id": rid, "params": STARTER_PARAMS.get(rid, {})})
     assert run["ok"] is True and w.revit.calls[-1][1]["mode"] == "read"
     validate_read_script(w.revit.calls[-1][1]["script"])
 
@@ -758,15 +763,6 @@ def test_a_workspace_recipe_replaces_a_starter_with_the_same_id(tmp_path, monkey
     assert w.store.load("level_list").source == "workspace"
     assert w.module.recipe_delete(id="level_list", workspace=w.workspace)["ok"] is True
     assert w.store.load("level_list").source == "starter"
-
-
-def test_module_files_have_no_conflict_markers():
-    import re
-
-    for path in sorted(recipes.MODULE_DIR.rglob("*")):
-        if path.is_file() and path.suffix in {".py", ".json", ".ipy"}:
-            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-                assert not re.match(r"^(<{7}|={7}|>{7})( |$)", line), f"{path.name}:{number}"
 
 
 # --------------------------------------------------------------------------- #

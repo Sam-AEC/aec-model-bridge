@@ -13,4 +13,4 @@ packages/rhino-bridge-addin
 panel
 assets
 docs
-fixtures
+packages/mcp-server-revit/tests/fixtures
