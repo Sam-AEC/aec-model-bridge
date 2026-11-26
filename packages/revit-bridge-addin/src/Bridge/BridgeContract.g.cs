@@ -247,7 +247,7 @@ public static class BridgeContract
         { RevitSelectByUniqueIds,           false },
         { RevitSetElementMaterial,          true },
         { RevitSetParameterValue,           true },
-        { RevitSetSelection,                true },
+        { RevitSetSelection,                false },
         { RevitSetTypeParameter,            true },
         { RevitSyncToCentral,               true },
         { RevitTagAllInView,                true },
