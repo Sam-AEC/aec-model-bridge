@@ -269,7 +269,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_get_document_info` | Return metadata about the active Revit document, such as its title, path and workshare status. | No | sync |
 | `revit_get_element_bounding_box` | Return the axis-aligned bounding box (min and max corner, feet) of an element. | No | sync |
 | `revit_get_element_geometry` | Get geometric data for an element: location point or curve endpoints, bounding box, level, area, volume, and length. | No | sync |
-| `revit_get_element_parameters` | Return every instance parameter of one element (name, value, storage type and read-only flag). | No | sync |
+| `revit_get_element_parameters` | Return every instance parameter of one element (name, value, storage type and read-only flag), and the element's unique_id. | No | sync |
 | `revit_get_element_type` | Find element types by category name and family name in the active document. | No | sync |
 | `revit_get_elements_by_type` | Get element IDs and key parameters, filtered by type, category, and/or level. | No | sync |
 | `revit_get_group_members` | List the member elements of a model group. | No | sync |
@@ -281,7 +281,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_get_revision_sequences` | List the revision sequences defined in the active Revit document. | No | sync |
 | `revit_get_rvt_links` | List the linked Revit models (link types) in the active document. | No | sync |
 | `revit_get_schedule_data` | Return the rows and columns of an existing schedule. | No | sync |
-| `revit_get_selection` | Return the ElementIds of the elements currently selected in the Revit UI. | No | sync |
+| `revit_get_selection` | Return the ElementIds, and the matching UniqueIds, of the elements currently selected in the Revit UI. | No | sync |
 | `revit_get_sheet_info` | Return detailed information about one sheet, such as its number, name, title block and placed views. | No | sync |
 | `revit_get_snapshot_delta` | Get lists of unique IDs for elements added, modified, or deleted during the active session. | No | sync |
 | `revit_get_type_parameters` | Return the type parameters of the family type that an element belongs to. | No | sync |

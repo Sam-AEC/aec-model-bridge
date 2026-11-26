@@ -271,7 +271,8 @@ namespace RevitBridge.UI
                             && checks.ValueKind == JsonValueKind.Array)
                         {
                             // The whole payload is the result: {ok, checks:[...]}; ok=false is still a valid answer.
-                            return HubResult.Success(doc.RootElement.Clone());
+                            // A hub older or newer than this add-in adds a failing hub_version check.
+                            return HubResult.Success(HubVersionCheck.Apply(doc.RootElement.Clone(), ProductInfo.Version));
                         }
                     }
                 }

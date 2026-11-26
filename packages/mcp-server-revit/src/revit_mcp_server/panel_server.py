@@ -33,7 +33,7 @@ from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, Optional
 
-from . import agent_bridge
+from . import __version__, agent_bridge
 from . import agent_native
 from . import call_limits
 from .config import config
@@ -490,6 +490,7 @@ def collect_diagnostics(workspace_dir: Path, approval_mode: Any = None, auto_win
 
     return {
         "ok": all(c["ok"] for c in checks),
+        "hub_version": __version__,
         "approval_mode": mode_value,
         "approval_mode_note": mode_note,
         "dev_mode": dev_mode,

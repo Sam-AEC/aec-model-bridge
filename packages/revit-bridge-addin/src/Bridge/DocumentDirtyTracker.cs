@@ -31,6 +31,42 @@ namespace RevitBridge.Bridge
         // bounded; the next snapshot after that is a full capture.
         private const int JournalMaxEntries = 500000;
 
+        // While a rolled-back preview runs, changes are held here instead of counted. They are dropped
+        // when the group was rolled back and counted when it was not, so a failed rollback stays visible.
+        private static int _holdDepth;
+        private static readonly List<(string Key, string Id)> _held = new();
+
+        public static void BeginHold()
+        {
+            lock (_lock)
+            {
+                _holdDepth++;
+            }
+        }
+
+        public static void EndHold(bool changesWereRolledBack)
+        {
+            lock (_lock)
+            {
+                if (_holdDepth > 0) _holdDepth--;
+                if (_holdDepth > 0) return;
+                var held = _held.ToList();
+                _held.Clear();
+                if (changesWereRolledBack) return;
+                foreach (var group in held.GroupBy(h => h.Key))
+                {
+                    Journal? journal = group.Key.Length == 0 ? null : GetOrCreate(group.Key);
+                    if (journal != null) journal.Seq++;
+                    foreach (var item in group)
+                    {
+                        _dirtyUniqueIds.Add(item.Id);
+                        if (journal != null && !item.Id.StartsWith("deleted:", StringComparison.Ordinal))
+                            journal.ChangedAt[item.Id] = journal.Seq;
+                    }
+                }
+            }
+        }
+
         public static void Clear()
         {
             lock (_lock)
@@ -129,6 +165,18 @@ namespace RevitBridge.Bridge
 
             lock (_lock)
             {
+                if (_holdDepth > 0)
+                {
+                    var holdKey = key ?? "";
+                    foreach (var id in e.GetAddedElementIds().Concat(e.GetModifiedElementIds()))
+                    {
+                        var held = doc.GetElement(id);
+                        if (held != null && !string.IsNullOrEmpty(held.UniqueId)) _held.Add((holdKey, held.UniqueId));
+                    }
+                    foreach (var id in e.GetDeletedElementIds()) _held.Add((holdKey, $"deleted:{id.Value}"));
+                    return;
+                }
+
                 Journal? journal = key == null ? null : GetOrCreate(key);
                 if (journal != null) journal.Seq++;
                 long seq = journal?.Seq ?? 0;

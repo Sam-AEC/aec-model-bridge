@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Snapshot: a plan preview no longer makes the panel say "Snapshot stale". Changes made inside the rolled-back preview group are held and dropped when Revit confirms the rollback; if it does not, they count as changes. Fixes #389.
+- `revit_list_elements`, `revit_get_selection` and `revit_get_element_parameters` also return the UniqueId (`unique_id` per element, `unique_ids` beside `element_ids`, `unique_id` on the element). Existing fields are unchanged. Fixes #390.
+- Panel hub: `/diagnostics` reports `hub_version`. The add-in compares it with its own version, logs a warning at startup and adds a failing "Panel hub version" check to the Setup check when they differ or the hub reports none. It never stops a hub it did not start. Fixes #386.
 - Docs: README leads with the illustrative film (GIF linked to MP4), drops the duplicate workflow image and is about a quarter shorter.
 
 ## 1.6.0 - 2026-11-26
