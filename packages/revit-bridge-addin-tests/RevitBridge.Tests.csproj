@@ -51,5 +51,6 @@
     <Compile Include="..\revit-bridge-addin\src\Bridge\BridgeDispatchTable.cs" Link="Linked\BridgeDispatchTable.cs" />
     <Compile Include="..\revit-bridge-addin\src\Bridge\ResponseCompression.cs" Link="Linked\ResponseCompression.cs" />
     <Compile Include="..\revit-bridge-addin\src\Bridge\UniqueIdCache.cs" Link="Linked\UniqueIdCache.cs" />
+    <Compile Include="..\revit-bridge-addin\src\Bridge\HubVersionCheck.cs" Link="Linked\HubVersionCheck.cs" />
   </ItemGroup>
 </Project>

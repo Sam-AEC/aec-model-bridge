@@ -18,6 +18,7 @@ namespace RevitBridge.Bridge
 
         public static string? RevitVersion { get; private set; }
         public static string? ActiveDocumentName { get; private set; }
+        public static string? ActiveDocumentGuid { get; private set; }
         public static BridgeServer? Server { get; private set; }
 
         public Result OnStartup(UIControlledApplication application)
@@ -73,6 +74,7 @@ namespace RevitBridge.Bridge
                 application.ControlledApplication.DocumentChanged += (sender, args) =>
                 {
                     ActiveDocumentName = args.GetDocument()?.Title;
+                    ActiveDocumentGuid = args.GetDocument()?.CreationGUID.ToString();
                     DocumentDirtyTracker.HandleDocumentChanged(sender, args);
                     ElementLookup.OnDocumentChanged(args);
                 };
@@ -92,6 +94,7 @@ namespace RevitBridge.Bridge
                 application.ViewActivated += (sender, args) =>
                 {
                     ActiveDocumentName = args.CurrentActiveView?.Document?.Title;
+                    ActiveDocumentGuid = args.CurrentActiveView?.Document?.CreationGUID.ToString();
                     ElementLookup.OnViewActivated(args);
                     // Do NOT clear dirty tracker here — it must persist until after a
                     // successful revit_extract_snapshot so get_snapshot_delta has a
