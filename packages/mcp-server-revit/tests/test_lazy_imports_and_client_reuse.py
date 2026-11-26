@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 
 import httpx
+import pytest
 
 from revit_mcp_server.bridge import client as client_module
 from revit_mcp_server.bridge.client import BridgeClient
@@ -13,35 +15,69 @@ from revit_mcp_server.bridge.client import BridgeClient
 HEAVY = ("specklepy", "ifcopenshell", "networkx")
 
 
-def _run(code: str) -> subprocess.CompletedProcess:
-    return subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+# Loaded by module code only when a tool needs them (report_generator, qaqc_checker, recipe_runner).
+STARTUP_LAZY = ("openpyxl", "numpy", "yaml")
+
+# One fresh interpreter walks through every import-time stage and records which
+# forbidden modules are loaded after each one. Each stage only adds imports, so a
+# module that leaks at an earlier stage is still reported at that stage.
+_PROBE = """
+import json, os, sys, tempfile
+import httpx
+
+tmp = tempfile.mkdtemp()
+os.environ.update(MCP_REVIT_MODE='mock', MCP_REVIT_WORKSPACE_DIR=tmp, MCP_REVIT_ALLOWED_DIRECTORIES=tmp)
+heavy, lazy = {heavy!r}, {lazy!r}
+made = []
+real = httpx.AsyncClient.__init__
+def counting(self, *a, **k):
+    made.append(1)
+    real(self, *a, **k)
+httpx.AsyncClient.__init__ = counting
+
+def loaded(names):
+    return [m for m in names if m in sys.modules]
+
+out = {{}}
+import revit_mcp_server.mcp_server
+out['mcp_server'] = loaded(heavy)
+
+import revit_mcp_server.providers
+import revit_mcp_server.providers.cloud, revit_mcp_server.providers.ifc
+import revit_mcp_server.providers.graph, revit_mcp_server.providers.semantic_provider
+import revit_mcp_server.providers.identity_mapper
+from revit_mcp_server.providers.graph import SemanticGraphProvider
+SemanticGraphProvider().get_capabilities()
+out['providers'] = loaded(heavy)
+
+from revit_mcp_server.registry_factory import build_registry
+build_registry()
+out['registry'] = loaded(heavy + lazy)
+out['registry_http_clients'] = len(made)
+print('PROBE ' + json.dumps(out))
+"""
 
 
-def test_importing_mcp_server_does_not_pull_heavy_modules():
-    code = (
-        "import sys, revit_mcp_server.mcp_server\n"
-        f"heavy = [m for m in {HEAVY!r} if m in sys.modules]\n"
-        "print(','.join(heavy))\n"
-        "sys.exit(1 if heavy else 0)\n"
-    )
-    result = _run(code)
-    assert result.returncode == 0, f"heavy modules imported at startup: {result.stdout.strip()} {result.stderr[-500:]}"
+@pytest.fixture(scope="module")
+def import_probe() -> dict:
+    code = _PROBE.format(heavy=HEAVY, lazy=STARTUP_LAZY)
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    assert result.returncode == 0, f"import probe failed: {result.stderr[-800:]}"
+    line = next(ln for ln in result.stdout.splitlines() if ln.startswith("PROBE "))
+    return json.loads(line[len("PROBE "):])
 
 
-def test_importing_provider_package_does_not_pull_heavy_modules():
-    code = (
-        "import sys, revit_mcp_server.providers\n"
-        "import revit_mcp_server.providers.cloud, revit_mcp_server.providers.ifc\n"
-        "import revit_mcp_server.providers.graph, revit_mcp_server.providers.semantic_provider\n"
-        "import revit_mcp_server.providers.identity_mapper\n"
-        "from revit_mcp_server.providers.graph import SemanticGraphProvider\n"
-        "SemanticGraphProvider().get_capabilities()\n"
-        f"heavy = [m for m in {HEAVY!r} if m in sys.modules]\n"
-        "print(','.join(heavy))\n"
-        "sys.exit(1 if heavy else 0)\n"
-    )
-    result = _run(code)
-    assert result.returncode == 0, f"heavy modules imported by providers: {result.stdout.strip()} {result.stderr[-500:]}"
+def test_importing_mcp_server_does_not_pull_heavy_modules(import_probe):
+    assert import_probe["mcp_server"] == [], f"heavy modules imported at startup: {import_probe['mcp_server']}"
+
+
+def test_importing_provider_package_does_not_pull_heavy_modules(import_probe):
+    assert import_probe["providers"] == [], f"heavy modules imported by providers: {import_probe['providers']}"
+
+
+def test_building_the_registry_does_not_pull_lazy_modules_or_open_http_clients(import_probe):
+    assert import_probe["registry"] == [], f"loaded at registry build: {import_probe['registry']}"
+    assert import_probe["registry_http_clients"] == 0
 
 
 def _patched_bridge(monkeypatch, token=None):
@@ -82,31 +118,6 @@ def test_client_rebuilt_when_token_changes_and_closed_on_close(monkeypatch):
     bridge.call_tool("x", {})
     assert len(created) == 3
     bridge.close()
-
-
-# Loaded by module code only when a tool needs them (report_generator, qaqc_checker, recipe_runner).
-STARTUP_LAZY = ("openpyxl", "numpy", "yaml")
-
-
-def test_building_the_registry_does_not_pull_lazy_modules_or_open_http_clients(tmp_path):
-    code = (
-        "import os, sys, httpx\n"
-        f"os.environ.update(MCP_REVIT_MODE='mock', MCP_REVIT_WORKSPACE_DIR={str(tmp_path)!r},\n"
-        f"                  MCP_REVIT_ALLOWED_DIRECTORIES={str(tmp_path)!r})\n"
-        "made = []\n"
-        "real = httpx.AsyncClient.__init__\n"
-        "def counting(self, *a, **k):\n"
-        "    made.append(1)\n"
-        "    real(self, *a, **k)\n"
-        "httpx.AsyncClient.__init__ = counting\n"
-        "from revit_mcp_server.registry_factory import build_registry\n"
-        "build_registry()\n"
-        f"heavy = [m for m in {HEAVY + STARTUP_LAZY!r} if m in sys.modules]\n"
-        "print(','.join(heavy), len(made))\n"
-        "sys.exit(1 if heavy or made else 0)\n"
-    )
-    result = _run(code)
-    assert result.returncode == 0, f"loaded at registry build: {result.stdout.strip()} {result.stderr[-800:]}"
 
 
 def test_cloud_provider_builds_its_http_client_on_first_use_and_closes_it():
