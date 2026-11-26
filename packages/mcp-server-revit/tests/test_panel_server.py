@@ -481,3 +481,8 @@ def test_no_cors_headers_and_options_not_served(running_server):
         assert not any(k.lower().startswith("access-control-") for k, _ in resp.getheaders())
     finally:
         conn.close()
+
+
+def test_diagnostics_report_the_hub_version_so_the_add_in_can_compare(tmp_path):
+    from revit_mcp_server import __version__
+    assert panel_server.collect_diagnostics(tmp_path)["hub_version"] == __version__

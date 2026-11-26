@@ -63,6 +63,7 @@ public static partial class BridgeCommandFactory
         _planBatchDepth++;
         TransactionGroup? group = null;
         var subscribed = false;
+        DocumentDirtyTracker.BeginHold();
         try
         {
             app.Application.DocumentChanged += onChanged;
@@ -147,6 +148,7 @@ public static partial class BridgeCommandFactory
                 catch (Exception) { /* nothing to undo if Revit already dropped the handler */ }
             }
             _planBatchDepth--;
+            DocumentDirtyTracker.EndHold(rolledBack);
         }
 
         return new

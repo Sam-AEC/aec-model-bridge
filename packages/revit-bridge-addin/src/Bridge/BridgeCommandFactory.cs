@@ -772,6 +772,7 @@ public static partial class BridgeCommandFactory
             .Select(e => new
             {
                 id = e.Id.Value,
+                unique_id = SnapshotUid(e),
                 name = e.Name,
                 category = e.Category?.Name,
                 type = doc.GetElement(e.GetTypeId())?.Name
@@ -1490,6 +1491,7 @@ public static partial class BridgeCommandFactory
         return new
         {
             element_id = elementId,
+            unique_id = SnapshotUid(element),
             element_type = element.GetType().Name,
             element_name = element.Name,
             parameter_count = parameters.Count,
@@ -3304,8 +3306,12 @@ public static partial class BridgeCommandFactory
         var uidoc = app.ActiveUIDocument;
         if (uidoc == null) throw new InvalidOperationException("No active UIDocument");
 
-        var ids = uidoc.Selection.GetElementIds().Select(id => id.Value).ToList();
-        return new { count = ids.Count, element_ids = ids };
+        var selected = uidoc.Selection.GetElementIds().ToList();
+        var ids = selected.Select(id => id.Value).ToList();
+        var doc = uidoc.Document;
+        // unique_ids is parallel to element_ids; an entry is null when Revit gives no element for the id.
+        var uniqueIds = selected.Select(id => SnapshotUid(doc.GetElement(id))).ToList();
+        return new { count = ids.Count, element_ids = ids, unique_ids = uniqueIds };
     }
 
     [BridgeCommand("revit.set_selection", IsMutating = false)]

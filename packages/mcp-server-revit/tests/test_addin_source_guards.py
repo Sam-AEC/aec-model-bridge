@@ -273,3 +273,36 @@ def test_large_responses_are_gzipped_only_when_the_client_asks():
     assert '"Content-Encoding", "gzip"' in body
     compression = (ADDIN_SRC / "Bridge" / "ResponseCompression.cs").read_text(encoding="utf-8")
     assert "MinBytes = 64 * 1024" in compression
+
+
+# --- Rolled-back preview, UniqueIds in reads, hub version check (#389, #390, #386) ---------------
+# UNVERIFIED in live Revit. The Revit-free HubVersionCheck has C# tests in packages/revit-bridge-addin-tests.
+
+def test_preview_holds_dirty_tracking_and_drops_it_only_when_rolled_back():
+    preview = (ADDIN_SRC / "Bridge" / "PlanPreviewCommand.cs").read_text(encoding="utf-8")
+    assert preview.index("DocumentDirtyTracker.BeginHold()") < preview.index("group.Start()")
+    assert "DocumentDirtyTracker.EndHold(rolledBack)" in _method_body(preview, r"private static object PreviewPlanBatch\(")
+    tracker = (ADDIN_SRC / "Bridge" / "DocumentDirtyTracker.cs").read_text(encoding="utf-8")
+    handler = _method_body(tracker, r"public static void HandleDocumentChanged\(")
+    assert handler.index("_holdDepth > 0") < handler.index("_dirtyUniqueIds.Add(elem.UniqueId)")
+    end_hold = _method_body(tracker, r"public static void EndHold\(")
+    assert "if (changesWereRolledBack) return;" in end_hold
+    assert end_hold.index("if (changesWereRolledBack) return;") < end_hold.index("_dirtyUniqueIds.Add(item.Id)")
+
+
+def test_list_selection_and_parameter_reads_return_unique_ids():
+    source = _factory_text()
+    listing = _method_body(source, r"private static object ExecuteListElementsByCategory\(")
+    assert "unique_id = SnapshotUid(e)" in listing
+    selection = _method_body(source, r"private static object ExecuteGetSelection\(")
+    assert "unique_ids = uniqueIds" in selection and "element_ids = ids" in selection
+    parameters = _method_body(source, r"private static object ExecuteGetElementParameters\(")
+    assert "unique_id = SnapshotUid(element)" in parameters
+
+
+def test_hub_version_is_reported_and_checked_by_the_add_in():
+    client = (ADDIN_SRC / "UI" / "HubClient.cs").read_text(encoding="utf-8")
+    assert "HubVersionCheck.Apply(" in _method_body(client, r"public static async Task<HubResult> GetDiagnosticsAsync\(")
+    launcher = (ADDIN_SRC / "Bridge" / "PanelHubLauncher.cs").read_text(encoding="utf-8")
+    assert "await LogHubVersionAsync()" in _method_body(launcher, r"private async Task EnsureRunningAsync\(")
+    assert "Kill" not in _method_body(launcher, r"private static async Task LogHubVersionAsync\(")

@@ -160,6 +160,7 @@ function renderHostStatus() {
 // fall back to the id itself so a newer hub never hides a failing check.
 const CHECK_LABELS = {
   hub: "Panel hub",
+  hub_version: "Panel hub version",
   mode: "Live Revit mode",
   revit_bridge: "Revit connection",
   workspace: "Workspace folder",

@@ -59,6 +59,7 @@ public sealed class PanelHubLauncher
         {
             Log.Information("Panel hub already reachable on 127.0.0.1:{Port} — not launching a new one", Port);
             LogTokenFileState();
+            await LogHubVersionAsync().ConfigureAwait(false);
             return;
         }
 
@@ -169,6 +170,32 @@ public sealed class PanelHubLauncher
         catch (Exception ex)
         {
             Log.Warning(ex, "Could not check the panel hub token file");
+        }
+    }
+
+    /// <summary>
+    /// A hub this add-in did not start keeps running across Revit restarts, so after an update it can be
+    /// older than the add-in. Logs a warning with what to do; the panel's Setup check shows the same
+    /// message (HubVersionCheck). The hub is never stopped here. UNVERIFIED: not run against Revit.
+    /// </summary>
+    private static async Task LogHubVersionAsync()
+    {
+        try
+        {
+            var diagnostics = await RevitBridge.UI.HubClient.GetDiagnosticsAsync().ConfigureAwait(false);
+            if (!diagnostics.Ok) return;
+            foreach (var check in diagnostics.Result.GetProperty("checks").EnumerateArray())
+            {
+                if (check.TryGetProperty("id", out var id) && id.GetString() == HubVersionCheck.CheckId)
+                {
+                    Log.Warning("{Detail} {NextStep}", check.GetProperty("detail").GetString(), HubVersionCheck.NextStep);
+                    return;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "Could not check the panel hub version");
         }
     }
 
