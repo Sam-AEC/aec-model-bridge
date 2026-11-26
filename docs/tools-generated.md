@@ -323,7 +323,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_select_by_unique_ids` | Select elements by UniqueId and zoom to them in the active view. | No | sync |
 | `revit_set_element_material` | Assign a material, by name, to an element or to one of its faces. | Yes | sync |
 | `revit_set_parameter_value` | Set one instance parameter on one element to a new value in the active Revit document. | Yes | sync |
-| `revit_set_selection` | Replace the current Revit UI selection with the given ElementIds. | Yes | sync |
+| `revit_set_selection` | Replace the current Revit UI selection with the given ElementIds. | No | sync |
 | `revit_set_type_parameter` | Set one type parameter on a family type, given by type_id. | Yes | sync |
 | `revit_sync_to_central` | Synchronise a workshared model with the central model with a comment, optionally relinquishing ownership. | Yes | sync |
 | `revit_tag_all_in_view` | Tag every element of a category in the active view. | Yes | sync |

@@ -73,6 +73,14 @@ def test_provider_registry():
     assert provider is fake
 
 
+def test_revit_set_selection_is_not_mutating(tmp_path):
+    workspace = WorkspaceMonitor([tmp_path])
+    provider = RevitProvider(workspace=workspace, mode=BridgeMode.mock)
+
+    tools = {tool.name: tool for tool in provider.get_capabilities()}
+    assert tools["revit_set_selection"].is_mutating is False
+
+
 @pytest.mark.anyio
 async def test_revit_provider_mock_mode(tmp_path):
     workspace = WorkspaceMonitor([tmp_path])

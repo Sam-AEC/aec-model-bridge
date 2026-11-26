@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `revit_set_selection` no longer needs a plan: it changes only the UI selection, like `revit_select_by_unique_ids`. The add-in command `revit.set_selection` is now `IsMutating = false` (C# change not built here). Fixes #387.
+- Dev mode now audits only mutating calls; read polls such as `list_pending_plans` no longer write `dev-mode-audit.jsonl` entries. Fixes #385.
 - Ribbon: the AEC Bridge tab now has two panels. Model Bridge holds Panel, Approve (the approval queue) and Check model; Connection holds one Connected/Disconnected toggle that starts or stops the bridge server, with Status, Config, Reports, Help and About in its slide-out. New icons (Fluent glyphs, MIT) come from `scripts/make_ribbon_icons.py`. No Dev panel: the add-in has no reliable Dev mode signal. UNVERIFIED in Revit.
 - Docs: README leads with the illustrative film (GIF linked to MP4), drops the duplicate workflow image and is about a quarter shorter.
 

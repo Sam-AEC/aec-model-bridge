@@ -247,6 +247,10 @@ class RevitProvider(AECProvider):
             }),
             destructive={"revit_execute_python", "revit_raw_command"},
         )
+        # Changes only the UI selection, like revit_select_by_unique_ids; the "set" verb must not gate it.
+        for tool in self._capabilities:
+            if tool.name == "revit_set_selection":
+                tool.is_mutating = False
 
     def get_identity(self) -> str:
         return "revit"
