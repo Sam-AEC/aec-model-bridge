@@ -30,6 +30,7 @@ WRITE_WORDS = {
     "run", "rotate", "mirror", "align", "tag", "pin", "unpin", "load", "reload", "register", "compile",
 }
 REVIEWED_READ_ONLY = {
+    "geometry_screening_run_checks",       # screens a saved snapshot
     "sheet_view_audit_run_audit",          # audits a saved snapshot
     "model_inspector_run_saved_query",     # reads a saved query and runs it on a snapshot
     "recipe_runner_get_run_status",        # status read

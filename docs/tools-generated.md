@@ -81,6 +81,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `clash_triage_match_clashes` | Match each clash from a Navisworks clash test to the Revit elements it involves, by UniqueId or IFC GUID, and say how sure each match is (exact, ambiguous or unmatched). | No | sync |
 | `familytype_mapper_audit_families` | Audit the families in a saved snapshot and report problems such as unmapped or inconsistent family types. | No | sync |
 | `familytype_mapper_list_type_mappings` | List family-type mappings found in a saved snapshot, optionally for one category. | No | sync |
+| `geometry_screening_run_checks` | Screen a saved snapshot with repeatable geometric checks: room area against a brief table, door width against a minimum, a turning circle inside a room outline, and travel distance through doors to exit rooms. | No | sync |
 | `hello_world_say_hello` | Example module command that returns a greeting; use it to confirm the module system works. | No | sync |
 | `ids_validator_validate_ifc` | Check an IFC file in the workspace against a buildingSMART IDS file and return pass or fail per specification with the GlobalIds of failing entities (capped, with full counts). | No | sync |
 | `links_worksets_audit_audit` | Check linked models and worksets for problems (unloaded or missing links, links not pinned or placed Origin to Origin, empty or default-named worksets, worksets owned by someone else, elements on the wrong workset) and give plain next steps. | No | sync |
