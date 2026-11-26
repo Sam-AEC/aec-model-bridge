@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Reviewed naming rules (#362). Tool count is now 320 (120 module tools). `qaqc_checker_test_naming_rule` tests a proposed regex rule against a snapshot (read-only, matches and misses with a capped sample). `qaqc_checker_save_naming_rule` is a mutating tool, so it saves the rule to `naming_rules/<id>.json` only as an approved plan action. `qaqc_checker_replay_naming_rules` replays saved rules with no model call, gives the same findings for the same snapshot, and records each rule hash in its result and in `naming_rules_audit.jsonl`. Invalid and catastrophic-backtracking regexes are refused. Fixes #362
 - Example rule pack `door-fire-rating.yaml`: doors rated below their host wall, and doors or host walls without a rating. Fixes #172
 - Panel: the Reject button on a plan card now asks "Reject this plan?" inline (focus on Cancel, Escape cancels) before it rejects, like bulk Reject.
 - Add-in: `revit_execute_python` output on IronPython 3 is UTF-8 again. `sys.stdout` and `sys.stderr` are rewrapped as UTF-8 after the engine starts, and UTF-16LE bytes are decoded as a fallback, so there is no NUL after every character on Revit 2026 (Fixes #406).

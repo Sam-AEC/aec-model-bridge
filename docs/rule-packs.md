@@ -116,6 +116,44 @@ Overwriting a pack refreshes its open issues' severity and message on the next r
 Existing databases migrate without deleting history; older issues without a pack
 identity are assigned to `core`.
 
+## Reviewed naming rules
+
+A rule pack has no regular-expression operator. A naming rule is a separate, saved
+kind of rule: a category, a regex the name must fully match, a message and a severity.
+An agent can write one during a chat. It is kept only after a person approves it, and
+it runs later with no model call.
+
+| Tool | Reads/writes | What it does |
+| --- | --- | --- |
+| `qaqc_checker_test_naming_rule` | read-only | Runs a proposed rule against a snapshot. Returns the rule hash, `matches` and `misses`, each with a count and a sample (default 10, at most 25). Saves nothing. |
+| `qaqc_checker_save_naming_rule` | mutating | Writes `<workspace>/naming_rules/<rule_id>.json`. It is gated like any write: `plan_actions`, a person approves the plan in the panel, then `execute_plan`. It is not a human-only tool, and it cannot run without an approved plan unless the person has switched approval off. Refuses an existing id unless `overwrite=true`. |
+| `qaqc_checker_replay_naming_rules` | appends to a log | Runs every saved rule (or the ids in `rule_ids`) against a snapshot. No model call. The same snapshot gives the same findings, sorted by rule id and element uid. Returns `rule_hashes` and writes them to `<workspace>/naming_rules_audit.jsonl` with the snapshot id. |
+
+`target` picks the value that is checked: `type_name` (default), `name`, `family`, or
+`parameter` together with `parameter` (the parameter name). Elements are matched by
+`category`. An empty value, or a value longer than 128 characters, is a miss and is not
+passed to the regex.
+
+The rule hash is the SHA-256 of the rule fields as sorted compact JSON. The rule file
+stores it. Replay recomputes it and refuses a file that was edited, that has an invalid
+regex, or whose id does not match its file name. Rule ids use the pack-name character
+set and are built with the workspace path-safety helper, so a path never reaches the file
+system.
+
+### Which regexes are refused
+
+Python's `re` has no timeout, so the check is made before the pattern runs. A regex is
+refused when it:
+
+- is empty, longer than 200 characters, or does not compile;
+- uses a backreference or a lookaround;
+- puts a variable repeat (`+`, `*`, `?`, `{m,n}`) inside another repeat, for example `(a+)+` or `(\w+\s?)+`;
+- puts an alternation inside a repeat, for example `(a|aa)+`;
+- has more than 3 unbounded repeats.
+
+Safe patterns such as `[A-Z]{1,3}-\d{3}` or `(A|B)-\d+` pass. Together with the 128
+character cap on names, the work per element stays small.
+
 ## Example pack
 
 [`docs/examples/rule_packs/door-room-basics.yaml`](examples/rule_packs/door-room-basics.yaml)
