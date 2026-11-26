@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.6.0 - 2026-11-26
+
 - Fix (#388): `revit_execute_python` failed with the bare error `Error` on Revit 2026.5, which hosts .NET 10: IronPython 3.4.1 cannot start its engine there (reproduced outside Revit on the .NET 10 runtime). The add-in now ships IronPython 3.4.2 on the net8 and net10 targets. A failed engine start now returns the exception types and messages with `error_kind` `engine_unavailable` and the host runtime in `runtime`. Live Revit run UNVERIFIED.
 - Snapshot: a plan preview no longer makes the panel say "Snapshot stale". Changes made inside the rolled-back preview group are held and dropped when Revit confirms the rollback; if it does not, they count as changes. Fixes #389.
 - `revit_list_elements`, `revit_get_selection` and `revit_get_element_parameters` also return the UniqueId (`unique_id` per element, `unique_ids` beside `element_ids`, `unique_id` on the element). Existing fields are unchanged. Fixes #390.
@@ -12,9 +14,6 @@
 - Dev mode now audits only mutating calls; read polls such as `list_pending_plans` no longer write `dev-mode-audit.jsonl` entries. Fixes #385.
 - Ribbon: the AEC Bridge tab now has two panels. Model Bridge holds Panel, Approve (the approval queue) and Check model; Connection holds one Connected/Disconnected toggle that starts or stops the bridge server, with Status, Config, Reports, Help and About in its slide-out. New icons (Fluent glyphs, MIT) come from `scripts/make_ribbon_icons.py`. No Dev panel: the add-in has no reliable Dev mode signal. UNVERIFIED in Revit.
 - Docs: README leads with the illustrative film (GIF linked to MP4), drops the duplicate workflow image and is about a quarter shorter.
-
-## 1.6.0 - 2026-11-26
-
 - New module `schedule_diff` (#364). Tool count is now 317 (117 module tools). `schedule_diff_compare` compares two saved snapshots: sheets added, removed, renumbered, renamed or moved in the numbering order, sheet revision fields (`Current Revision*`) changed, and schedule rows added, removed, changed or moved. A block a snapshot does not hold is reported as `not_captured`, never as no change; schedule rows are not captured by the add-in yet (#367), so that part is tested on fixture snapshots only and the row layout is UNVERIFIED against live Revit. Optional `.csv` or `.xlsx` export in the workspace. Read-only. Refs #364.
 - Fix (#340): the panel hub frees a request thread slot before it closes the client socket, so a client that has read the end of a response and reconnects at once never meets a slot the previous request still holds (a 503 on a slow Linux runner).
 - Fix (#380): when the refusal closer queue is full, the hub waits up to 50 ms for the refused client's request to arrive before it closes the socket, so Windows no longer resets the connection and drops the 503 (WinError 10053).

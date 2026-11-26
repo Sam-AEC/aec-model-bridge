@@ -34,6 +34,8 @@ Results for 1.6.0, Revit 2026.5, scratch copy of the Snowdon Towers sample, 2026
 - 4 PASS: the panel listed and approved the plan. Findings: #383 (plans from other documents listed), #384 (review card fields unknown).
 - 7 PARTIAL: Dev switches on and off and is shown in the panel. Findings: #385 (audit logs read polls). Writes in Dev were not run.
 - 3, 5 and 6 not run. Revit 2027 is UNVERIFIED. Other findings: #386 to #390.
+- Fixed after the live run, UNVERIFIED in Revit: #388 (IronPython 3.4.2 for Revit 2026 on .NET 10), #389, #390, #386, #383, #384, #387, #385.
+- New ribbon (#395) and panel (#400): the look inside Revit and WebView2 is UNVERIFIED. Check both themes, the Connection toggle and slide-out, and that the panel fonts load.
 
 ## 3. Known limits (from security.md)
 

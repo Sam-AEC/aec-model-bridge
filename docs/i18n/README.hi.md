@@ -295,7 +295,7 @@ $switch = Get-Content $registry.FullName -Raw | ConvertFrom-Json
 Invoke-RestMethod "$($switch.endpoint)/health"
 ```
 
-जवाब में `healthy` और चल रहे Revit का वर्ज़न दिखना चाहिए। Revit में `AEC Bridge` रिबन टैब देखें। इसके Workflows पैनल में Open Panel, Health Check, Pending Actions और Reports हैं। इसके Tools पैनल में Config, Help और About हैं।
+जवाब में `healthy` और चल रहे Revit का वर्ज़न दिखना चाहिए। Revit में `AEC Bridge` रिबन टैब देखें। Model Bridge पैनल में Panel, Approve और Check model हैं। Connection पैनल में एक Connected/Disconnected टॉगल है; इसके स्लाइड-आउट में Status, Config, Reports, Help और About हैं।
 
 ## सुरक्षा
 

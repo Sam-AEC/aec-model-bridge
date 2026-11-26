@@ -341,7 +341,7 @@ Invoke-RestMethod "$($switch.endpoint)/health"
 
 <div dir="rtl">
 
-يجب أن يُظهر الرد `healthy` وإصدار Revit العامل. في Revit، ابحث عن علامة التبويب `AEC Bridge` في الشريط. تضم لوحة Workflows الأوامر Open Panel وHealth Check وPending Actions وReports. وتضم لوحة Tools الأوامر Config وHelp وAbout.
+يجب أن يُظهر الرد `healthy` وإصدار Revit العامل. في Revit، ابحث عن علامة التبويب `AEC Bridge` في الشريط. تضم لوحة Model Bridge الأوامر Panel وApprove وCheck model. وتضم لوحة Connection مفتاح تبديل واحدًا Connected/Disconnected، وتحتوي لوحته المنزلقة على Status وConfig وReports وHelp وAbout.
 
 ## الأمان
 

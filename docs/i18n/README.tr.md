@@ -295,7 +295,7 @@ $switch = Get-Content $registry.FullName -Raw | ConvertFrom-Json
 Invoke-RestMethod "$($switch.endpoint)/health"
 ```
 
-Yanıt `healthy` ve çalışan Revit sürümünü bildirmelidir. Revit'te `AEC Bridge` şerit sekmesini arayın. Workflows panelinde Open Panel, Health Check, Pending Actions ve Reports bulunur. Tools panelinde Config, Help ve About bulunur.
+Yanıt `healthy` ve çalışan Revit sürümünü bildirmelidir. Revit'te `AEC Bridge` şerit sekmesini arayın. Model Bridge panelinde Panel, Approve ve Check model bulunur. Connection panelinde tek bir Connected/Disconnected anahtarı vardır; açılır paneli Status, Config, Reports, Help ve About içerir.
 
 ## Güvenlik
 

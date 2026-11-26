@@ -295,7 +295,7 @@ $switch = Get-Content $registry.FullName -Raw | ConvertFrom-Json
 Invoke-RestMethod "$($switch.endpoint)/health"
 ```
 
-Respons harus menunjukkan `healthy` dan versi Revit yang berjalan. Di Revit, cari tab ribbon `AEC Bridge`. Panel Workflows berisi Open Panel, Health Check, Pending Actions, dan Reports. Panel Tools berisi Config, Help, dan About.
+Respons harus menunjukkan `healthy` dan versi Revit yang berjalan. Di Revit, cari tab ribbon `AEC Bridge`. Panel Model Bridge berisi Panel, Approve, dan Check model. Panel Connection memiliki satu tombol Connected/Disconnected; panel gesernya berisi Status, Config, Reports, Help, dan About.
 
 ## Keamanan
 
