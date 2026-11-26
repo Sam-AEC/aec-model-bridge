@@ -9,7 +9,7 @@
   const feed = () => document.querySelector("#chat-root .feed");
 
   function host(extra) {
-    deliver(Object.assign({ type: "host.status", serverRunning: true, activeDocument: "m.rvt", revitVersion: "2025", port: 1 }, extra));
+    deliver(Object.assign({ type: "host.status", serverRunning: true, activeDocument: "m.rvt", activeDocumentGuid: "g1", revitPid: 7, revitVersion: "2025", port: 1 }, extra));
   }
   function diag(mode) {
     deliver({ type: "diagnostics.updated", diagnostics: { ok: true, approval_mode: mode, checks: [] } });
@@ -35,7 +35,8 @@
     sent().length = 0;
     window.__copied.length = 0;
   }
-  const PLAN = (id, actions, state) => ({ plan_id: id, plan_hash: "abcdef0123456789", state: state || "pending", actions });
+  const SESSION = { doc_guid: "g1", revit_pid: 7 };
+  const PLAN = (id, actions, state) => ({ plan_id: id, plan_hash: "abcdef0123456789", state: state || "pending", actions, binding: SESSION });
   const SET = (ids, withBefore) => ({
     tool: "revit_set_parameter",
     arguments: { element_ids: ids, name: "Fire Rating", value: "2h" },
@@ -425,7 +426,7 @@
     conflicts: [{ element_id: 1, parameter: "FireRating", expected_current: "60", actual_current: "90", revert_to: "30" }],
   });
   const V2 = (id, review, extra) => Object.assign({
-    plan_id: id, plan_hash: "abcdef0123456789", state: "pending", hash_version: 2,
+    plan_id: id, plan_hash: "abcdef0123456789", state: "pending", hash_version: 2, binding: SESSION,
     actions: [SET([1], true)],
     review_view: { status: "ok", hash_version: 2, reverts_plan_id: null, review, error: "" },
   }, extra || {});
@@ -845,20 +846,48 @@
     expect($("reject-confirm").hidden && sentOf("plan.reject").length === 0, "cancel did not stop the reject");
   });
 
-  test("bound document: title and expiry are shown escaped; a different active document warns before Approve", () => {
+  test("bound document: title and expiry are shown escaped; another document is hidden, and warns once shown", () => {
     fresh();
     const bound = { doc_title: "Other<img src=x onerror=window.__pwned=9>.rvt", doc_guid: "g" };
     plans([PLAN("d1", [SET([1], true)])].map((p) => Object.assign(p, { binding: bound, expires_at: "2030-01-02T03:04:05Z" })));
+    expect(!cardOf("d1") && /1 plan for other models hidden/.test($("other-note").textContent), "other model's plan not collapsed");
+    expect(!/Other/.test($("plan-list").textContent), "hidden plan details were rendered");
+    document.querySelector('[data-action="toggle-other-plans"]').click();
     const card = cardOf("d1");
     expect(/Bound to document: Other/.test(card.textContent) && /Expires:/.test(card.textContent), "binding or expiry missing");
     expect(!card.querySelector("img"), "binding title was not escaped");
     const warn = card.querySelector('[role="alert"]');
     expect(warn && /active document is m\.rvt/.test(warn.textContent), "no mismatch warning");
     expect(approveBtn(card).getAttribute("aria-describedby") === warn.id, "Approve not tied to the warning");
-    plans([PLAN("d2", [SET([1], true)])].map((p) => Object.assign(p, { binding: { doc_title: "M" } })));
+    document.querySelector('[data-action="toggle-other-plans"]').click();
+    expect(!cardOf("d1"), "Hide did not collapse the plan again");
+    plans([PLAN("d2", [SET([1], true)])].map((p) => Object.assign(p, { binding: { doc_title: "M", doc_guid: "g1", revit_pid: 7 } })));
     expect(!cardOf("d2").querySelector('[id^="plan-warn-"]'), "warned although the document matches");
-    plans([PLAN("d3", [SET([1], true)])]);
-    expect(!/Bound to document|Expires:/.test(cardOf("d3").textContent), "unbound plan shows binding text");
+  });
+
+  test("another Revit process with the same document is hidden, and warns about the pid once shown", () => {
+    fresh();
+    plans([PLAN("pid1", [SET([1], true)])].map((p) => Object.assign(p, { binding: { doc_title: "m.rvt", doc_guid: "g1", revit_pid: 8 } })));
+    expect(!cardOf("pid1") && !$("other-bar").hidden, "same title, other pid was listed");
+    document.querySelector('[data-action="toggle-other-plans"]').click();
+    const warn = cardOf("pid1").querySelector('[id^="plan-warn-"]');
+    expect(warn && /process 8/.test(warn.textContent) && /process 7/.test(warn.textContent), "no pid warning");
+  });
+
+  test("unbound plan: warning shown, Approve disabled until the confirm is ticked", () => {
+    fresh();
+    plans([Object.assign(PLAN("u1", [SET([1], true)]), { binding: null })]);
+    const card = cardOf("u1");
+    expect(card.querySelector('[id^="plan-unbound-"]') && !/Bound to document|Expires:/.test(card.textContent), "no unbound warning");
+    expect(approveBtn(card).disabled, "unbound plan approvable before the confirm");
+    approveBtn(card).click();
+    expect(sentOf("plan.approve").length === 0, "approve sent without the confirm");
+    const box = card.querySelector("[data-confirm-unbound]");
+    box.checked = true;
+    box.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(!approveBtn(cardOf("u1")).disabled, "confirm did not enable Approve");
+    approveBtn(cardOf("u1")).click();
+    expect(sentOf("plan.approve").length === 1, "approve not sent after the confirm");
   });
 
   test("expired plans: N hidden is announced, the toggle asks the host, expired plans cannot be approved but can be rejected in bulk", () => {

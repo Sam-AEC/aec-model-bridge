@@ -22,6 +22,11 @@ const state = {
   // "<plan id>:<plan hash>" of plans whose review the person opened; Approve needs it for hash_version 2.
   openedReviews: new Set(),
   plansOmitted: 0,
+  allPlans: [],
+  showOtherPlans: false,
+  otherHidden: 0,
+  // "<plan id>:<plan hash>" of unbound plans the person ticked the explicit confirm for.
+  confirmedUnbound: new Set(),
   expiredHidden: 0,
   showExpired: false,
   findings: [],
@@ -388,7 +393,13 @@ function isPlanActionable(plan) {
 // Approve needs the plan's review (when it has one) to have been shown. Reject never does.
 // An expired plan (hub flag `expired`) can never be approved here; it can still be rejected.
 function isPlanApprovable(plan) {
-  return isPlanActionable(plan) && !plan.expired && !plan.reviewBlocked && !plan.reviewPending;
+  return isPlanActionable(plan) && !plan.expired && !plan.reviewBlocked && !plan.reviewPending
+    && (!isUnboundPlan(plan) || state.confirmedUnbound.has(reviewKey(plan)));
+}
+
+// A plan with no binding cannot be tied to any document; approving it needs an explicit confirm.
+function isUnboundPlan(plan) {
+  return !plan.binding;
 }
 
 function normalizeDocName(name) {
@@ -400,6 +411,65 @@ function isBoundToOtherDocument(plan) {
   const bound = plan.binding && typeof plan.binding.doc_title === "string" ? plan.binding.doc_title : "";
   if (!bound || !hasActiveDocument()) return false;
   return normalizeDocName(bound) !== normalizeDocName(state.host.activeDocument);
+}
+
+function hostPid() {
+  const pid = state.host && state.host.revitPid;
+  return Number.isSafeInteger(pid) ? pid : null;
+}
+
+function hostGuid() {
+  const guid = state.host && state.host.activeDocumentGuid;
+  return typeof guid === "string" && guid ? guid : "";
+}
+
+function boundGuid(plan) {
+  return plan.binding && typeof plan.binding.doc_guid === "string" ? plan.binding.doc_guid : "";
+}
+
+function boundPid(plan) {
+  return plan.binding && Number.isSafeInteger(plan.binding.revit_pid) ? plan.binding.revit_pid : null;
+}
+
+// Both ids known and different: the plan was drafted in another Revit process.
+function isBoundToOtherProcess(plan) {
+  const bound = boundPid(plan);
+  const live = hostPid();
+  return bound !== null && live !== null && bound !== live;
+}
+
+// A bound plan that is not for this panel's session: other document (guid, or title when the host
+// reports no guid) or other Revit process. Such plans are hidden until the person asks.
+function isOtherSessionPlan(plan) {
+  if (!plan.binding) return false;
+  if (isBoundToOtherProcess(plan)) return true;
+  const guid = hostGuid();
+  const bound = boundGuid(plan);
+  if (guid && bound) return guid !== bound;
+  return !guid && isBoundToOtherDocument(plan);
+}
+
+function applyPlanScope() {
+  const all = state.allPlans;
+  state.plans = state.showOtherPlans ? all : all.filter((plan) => !isOtherSessionPlan(plan));
+  state.otherHidden = all.length - state.plans.length;
+}
+
+function syncOtherBar() {
+  const bar = document.getElementById("other-bar");
+  if (!bar) return;
+  bar.hidden = !(state.otherHidden > 0 || state.showOtherPlans);
+  const note = document.getElementById("other-note");
+  const toggle = document.getElementById("other-toggle");
+  if (note) {
+    note.textContent = state.showOtherPlans
+      ? "Plans for other models are shown. Approve works only for the model open in this session."
+      : `${state.otherHidden} plan${state.otherHidden === 1 ? "" : "s"} for other models hidden`;
+  }
+  if (toggle) {
+    toggle.textContent = state.showOtherPlans ? "Hide" : "Show";
+    toggle.setAttribute("aria-pressed", state.showOtherPlans ? "true" : "false");
+  }
 }
 
 function formatExpiry(value) {
@@ -455,6 +525,7 @@ function renderPlans() {
   planList.innerHTML = "";
   hideRejectConfirm();
   syncExpiredBar();
+  syncOtherBar();
   if (state.plans.length === 0) {
     renderEmpty(planList, "No pending actions", "Approved or rejected ActionPlans will clear from this queue.");
     return;
@@ -499,19 +570,27 @@ function renderPlans() {
       ? `<label class="plan-select"><input type="checkbox" data-select-plan="${id}" aria-label="Select plan ${label}"${state.selectedPlanIds.has(plan.id) ? " checked" : ""}></label>`
       : "";
     const blockedAttr = !approvable && actionable ? ' disabled data-review-blocked="1"' : "";
-    const mismatch = actionable && !plan.expired && isBoundToOtherDocument(plan);
+    const mismatch = actionable && !plan.expired && (isBoundToOtherDocument(plan) || isBoundToOtherProcess(plan) || (!!hostGuid() && !!boundGuid(plan) && hostGuid() !== boundGuid(plan)));
+    const unbound = actionable && !plan.expired && isUnboundPlan(plan);
     const boundTitle = plan.binding && typeof plan.binding.doc_title === "string" ? plan.binding.doc_title : "";
     const metaParts = [];
     if (boundTitle) metaParts.push(`Bound to document: ${escapeHtml(visibleText(boundTitle))}`);
     if (plan.expiresAt) metaParts.push(`Expires: ${escapeHtml(formatExpiry(plan.expiresAt))}`);
     const metaLine = metaParts.length ? `<p class="plan-meta">${metaParts.join(". ")}.</p>` : "";
+    const pidNote = isBoundToOtherProcess(plan)
+      ? ` It was drafted in Revit process ${escapeHtml(String(boundPid(plan)))}; this panel is in process ${escapeHtml(String(hostPid()))}.`
+      : "";
     const warnLine = mismatch
-      ? `<p class="review-blocked" id="plan-warn-${id}" role="alert">Warning: this plan is bound to ${escapeHtml(visibleText(boundTitle))}, but the active document is ${escapeHtml(visibleText(state.host.activeDocument))}. The hub refuses the approval unless the bound document is active.</p>`
+      ? `<p class="review-blocked" id="plan-warn-${id}" role="alert">Warning: this plan is bound to ${escapeHtml(visibleText(boundTitle) || "another document")}, but the active document is ${escapeHtml(visibleText(state.host.activeDocument))}.${pidNote} The hub refuses the approval unless the bound document is active.</p>`
+      : "";
+    const unboundLine = unbound
+      ? `<div class="review-blocked" id="plan-unbound-${id}" role="alert"><p>Warning: this plan is not bound to any document. It can run on whichever model is open when you approve.</p>
+        <label><input type="checkbox" data-confirm-unbound="${id}"${state.confirmedUnbound.has(reviewKey(plan)) ? " checked" : ""}> I understand this plan is not tied to a document</label></div>`
       : "";
     const expiredLine = plan.expired
       ? `<p class="review-blocked" id="plan-expired-${id}">This plan has expired and cannot be approved. Reject it, or draft a new plan.</p>`
       : "";
-    const describedBy = [plan.expired ? `plan-expired-${id}` : "", mismatch ? `plan-warn-${id}` : ""].filter(Boolean).join(" ");
+    const describedBy = [plan.expired ? `plan-expired-${id}` : "", mismatch ? `plan-warn-${id}` : "", unbound ? `plan-unbound-${id}` : ""].filter(Boolean).join(" ");
     const describedAttr = describedBy ? ` aria-describedby="${describedBy}"` : "";
     const actions = actionable
       ? `<div class="item-actions">
@@ -525,7 +604,7 @@ function renderPlans() {
         <span class="badge ${planStatusBadgeClass(plan.status)}">${escapeHtml(String(plan.status).replace(/_/g, " "))}</span>
       </div>
       <p>${escapeHtml(plan.detail)}</p>
-      ${metaLine}${expiredLine}${warnLine}
+      ${metaLine}${expiredLine}${warnLine}${unboundLine}
       <p class="plan-cli">Plan <code>${id}</code>. To read it in full: <code class="plan-cli-command">${escapeHtml(cliShowCommand(plan.id))}</code>
         <button type="button" class="review-more" data-copy-command="${id}">Copy command</button></p>
       ${actionable ? '<div data-preview-mount></div>' : ""}
@@ -745,6 +824,12 @@ document.body.addEventListener("click", (event) => {
     if (ids.length > 0) addLog("Reject requested", `${ids.length} selected plan(s) sent to the host.`);
     renderPlans();
   }
+  if (action === "toggle-other-plans") {
+    state.showOtherPlans = !state.showOtherPlans;
+    applyPlanScope();
+    renderPlans();
+    if (chat) chat.setProposals(state.plans);
+  }
   if (action === "toggle-expired") {
     state.showExpired = !state.showExpired;
     syncExpiredBar();
@@ -792,6 +877,16 @@ document.body.addEventListener("click", (event) => {
 
 document.body.addEventListener("change", (event) => {
   const target = event.target;
+  if (target instanceof HTMLElement && target.dataset.confirmUnbound) {
+    const plan = state.plans.find((candidate) => candidate.id === target.dataset.confirmUnbound);
+    if (!plan) return;
+    if (target.checked) state.confirmedUnbound.add(reviewKey(plan));
+    else state.confirmedUnbound.delete(reviewKey(plan));
+    renderPlans();
+    const again = Array.from(planList.querySelectorAll("[data-confirm-unbound]")).find((node) => node.dataset.confirmUnbound === plan.id);
+    if (again) again.focus();
+    return;
+  }
   if (!(target instanceof HTMLElement) || !target.dataset.selectPlan) {
     return;
   }
@@ -1284,6 +1379,12 @@ if (window.chrome && window.chrome.webview) {
     if (event.data?.type === "host.status") {
       const hubWasOnline = isHubOnline();
       state.host = event.data;
+      const scoped = state.plans.map((plan) => plan.id).join();
+      applyPlanScope();
+      if (state.plans.map((plan) => plan.id).join() !== scoped) {
+        renderPlans();
+        if (chat) chat.setProposals(state.plans);
+      }
       if (state.host.serverRunning && !hubWasOnline) {
         requestDiagnostics();
       }
@@ -1310,7 +1411,8 @@ if (window.chrome && window.chrome.webview) {
       addLog("Health check complete", `${state.findings.length} finding(s)`);
     }
     if (event.data?.type === "plans.updated") {
-      state.plans = mapPlans(event.data.result);
+      state.allPlans = mapPlans(event.data.result);
+      applyPlanScope();
       // The hub hides expired plans by default; keep asking for them while the toggle is on.
       if (state.showExpired && state.expiredHidden > 0) postToHost("plans.refresh", { includeExpired: true });
       const known = new Set(state.plans.map((plan) => plan.id));

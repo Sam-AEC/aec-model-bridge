@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Approval panel lists only plans bound to its own Revit session (document guid and process id); plans for other models collapse into a count with a Show button and are not rendered until shown. An unbound plan shows a warning and Approve stays off until the person ticks a confirm. The mismatch warning also fires when the Revit process id differs. The add-in host status now carries the active document guid and process id (C# part UNVERIFIED in live Revit). Fixes #383.
 - `revit_set_selection` no longer needs a plan: it changes only the UI selection, like `revit_select_by_unique_ids`. The add-in command `revit.set_selection` is now `IsMutating = false` (C# change not built here). Fixes #387.
 - Dev mode now audits only mutating calls; read polls such as `list_pending_plans` no longer write `dev-mode-audit.jsonl` entries. Fixes #385.
 - Ribbon: the AEC Bridge tab now has two panels. Model Bridge holds Panel, Approve (the approval queue) and Check model; Connection holds one Connected/Disconnected toggle that starts or stops the bridge server, with Status, Config, Reports, Help and About in its slide-out. New icons (Fluent glyphs, MIT) come from `scripts/make_ribbon_icons.py`. No Dev panel: the add-in has no reliable Dev mode signal. UNVERIFIED in Revit.

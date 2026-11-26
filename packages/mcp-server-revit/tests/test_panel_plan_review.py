@@ -278,6 +278,8 @@ def test_real_hub_output_with_benign_content_is_approvable_in_the_page_and_shows
     make, expected = BENIGN_CASES[name]
     make(port, tmp)
     plans = _list(port)["plans"]
+    for plan in plans:
+        plan["binding"] = {"doc_guid": "g1"}  # mock-mode plans are unbound; an unbound plan needs a confirm
     got = _run(f"""
 host(); plans({json.dumps(plans)});
 const html = els['plan-list'].innerHTML;
@@ -437,7 +439,7 @@ def _v2(plan_id="v2", **view):
     base = {"status": "ok", "hash_version": 2, "reverts_plan_id": None, "review": copy.deepcopy(REVIEW), "error": ""}
     base.update(view)
     return {"plan_id": plan_id, "state": "pending", "plan_hash": "h" * 16, "hash_version": 2,
-            "actions": [{"tool": SET}], "review_view": base}
+            "actions": [{"tool": SET}], "review_view": base, "binding": {"doc_guid": "g1"}}
 
 
 def _blocked_scenarios():
@@ -487,7 +489,7 @@ console.log(JSON.stringify({{ approve, sent, checkbox: html.includes('data-selec
 
 
 def test_v2_plan_waits_for_its_review_to_be_opened_and_v1_does_not():
-    v1 = {"plan_id": "v1", "state": "pending", "plan_hash": "a", "actions": [{"tool": "a"}]}
+    v1 = {"plan_id": "v1", "state": "pending", "plan_hash": "a", "actions": [{"tool": "a"}], "binding": {"doc_guid": "g1"}}
     got = _run(f"""
 host(); plans([{json.dumps(_v2())}, {json.dumps(v1)}]);
 const html = els['plan-list'].innerHTML;
