@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `revit_set_selection` no longer needs a plan: it changes only the UI selection, like `revit_select_by_unique_ids`. The add-in command `revit.set_selection` is now `IsMutating = false` (C# change not built here). Fixes #387.
+- Dev mode now audits only mutating calls; read polls such as `list_pending_plans` no longer write `dev-mode-audit.jsonl` entries. Fixes #385.
+
 ## 1.6.0 - 2026-11-26
 
 - New module `schedule_diff` (#364). Tool count is now 317 (117 module tools). `schedule_diff_compare` compares two saved snapshots: sheets added, removed, renumbered, renamed or moved in the numbering order, sheet revision fields (`Current Revision*`) changed, and schedule rows added, removed, changed or moved. A block a snapshot does not hold is reported as `not_captured`, never as no change; schedule rows are not captured by the add-in yet (#367), so that part is tested on fixture snapshots only and the row layout is UNVERIFIED against live Revit. Optional `.csv` or `.xlsx` export in the workspace. Read-only. Refs #364.

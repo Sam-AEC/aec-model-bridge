@@ -3308,7 +3308,7 @@ public static partial class BridgeCommandFactory
         return new { count = ids.Count, element_ids = ids };
     }
 
-    [BridgeCommand("revit.set_selection", IsMutating = true)]
+    [BridgeCommand("revit.set_selection", IsMutating = false)]
     private static object ExecuteSetSelection(UIApplication app, JsonElement payload)
     {
         var uidoc = app.ActiveUIDocument;

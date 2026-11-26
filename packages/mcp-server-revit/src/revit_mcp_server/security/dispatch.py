@@ -46,12 +46,10 @@ def gate_before(registry: Any, gate: Optional[ApprovalGate], name: str, argument
     if gate is None:
         return None
     if not (tool_def and tool_def.is_mutating):
-        gate.audit_dev_call(name, arguments, mutating=False)
         return None
     # A call that provably cannot change the model (revit_execute_python with mode='read',
     # or a revit_run_job wrapping one) skips the gate. A provider may raise to refuse it.
     if not requires_approval(registry, name, tool_def, arguments):
-        gate.audit_dev_call(name, arguments, mutating=False)
         return None
     return gate.claim_action(name, arguments)
 
