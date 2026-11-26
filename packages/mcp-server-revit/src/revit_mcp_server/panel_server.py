@@ -22,6 +22,7 @@ import json
 import logging
 import os
 import queue
+import select
 import shutil
 import socket
 import socketserver
@@ -124,8 +125,11 @@ def _busy_response_bytes() -> bytes:
 REFUSAL_DRAIN_SECONDS = 0.25
 REFUSAL_DRAIN_MAX_BYTES = 1024 * 1024
 # Refused sockets wait for one closer thread in a queue of this size. When it is full, a refused
-# socket is closed at once after a non-blocking read, so the accept thread never waits on a client.
+# socket is closed after a non-blocking read, so the accept thread waits on a client for at most
+# REFUSAL_LAST_RESORT_WAIT_SECONDS.
 REFUSAL_CLOSER_QUEUE = 32
+# Last-resort path (closer queue full): wait this long for the request to arrive before closing.
+REFUSAL_LAST_RESORT_WAIT_SECONDS = 0.05
 
 # Request line and headers must arrive this fast on a reserved /execute slot.
 RESERVED_HEADER_TIMEOUT_SECONDS = 2.0
@@ -224,6 +228,11 @@ class BoundedThreadingHTTPServer(ThreadingHTTPServer):
 
     @staticmethod
     def _drain_nonblocking(request) -> None:
+        with contextlib.suppress(OSError, ValueError):
+            # A client that connected a moment ago may not have its request bytes here yet. Closing
+            # with data still arriving makes Windows reset the connection and drop the 503, so wait
+            # briefly (bounded) for the first bytes before draining what is there.
+            select.select([request], [], [], REFUSAL_LAST_RESORT_WAIT_SECONDS)
         with contextlib.suppress(OSError):
             request.setblocking(False)
             for _ in range(16):
