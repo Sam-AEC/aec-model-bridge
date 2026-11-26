@@ -4,7 +4,7 @@ This page says plainly how much you can trust a download from this project, and 
 
 ## What is attested today
 
-The current `Build GitHub Release` workflow builds on GitHub-hosted runners and runs `actions/attest-build-provenance` over `dist/release/*` before publishing. This produces a signed build provenance attestation stored by GitHub, linking each file to the repository, commit and workflow run. Older releases may predate these checks; verify the individual download.
+The current `Build GitHub Release` workflow builds on GitHub-hosted runners and runs `actions/attest-build-provenance` over `dist/release/*` before publishing. This produces a signed build provenance attestation stored by GitHub, linking each file to the repository, commit and workflow run. The attestation bundle is also attached to the release as `aec-model-bridge-<version>.intoto.jsonl`; check a download offline with `gh attestation verify <file> --bundle <bundle> --repo Sam-AEC/aec-model-bridge`. Older releases may predate these checks; verify the individual download.
 
 Each release also carries:
 

@@ -7,34 +7,17 @@ name: CodeQL
 # settings, disable it first: the two cannot be active at the same time.
 #
 # Pushes to main and dev, the weekly schedule and manual runs analyse every language.
-# A pull request analyses only the languages whose files it changes, and a pull request
-# that touches none of them (docs only, for example) does not start the workflow. This
-# workflow is not a required check (branch rules require only ci-success), so a skipped
-# run cannot leave a pull request pending.
+# A pull request analyses only the languages whose files it changes. A pull request that
+# changes none of them (docs only, for example) still analyses the workflow files, which
+# takes about a minute, so every pull request has a code scanning result (OpenSSF
+# Scorecard SAST counts commits that were scanned). This workflow is not a required check
+# (branch rules require only ci-success).
 on:
   push:
     branches:
       - main
       - dev
   pull_request:
-    paths:
-      - "**.py"
-      - "**.pyi"
-      - "**.js"
-      - "**.jsx"
-      - "**.mjs"
-      - "**.cjs"
-      - "**.ts"
-      - "**.tsx"
-      - "**.html"
-      - "**.cs"
-      - "**.csproj"
-      - "**.props"
-      - "**.targets"
-      - "global.json"
-      - ".github/workflows/**"
-      - ".github/actions/**"
-      - ".github/codeql/**"
   schedule:
     - cron: "23 4 * * 1" # Mondays 04:23 UTC
   workflow_dispatch:
@@ -97,7 +80,7 @@ jobs:
           grep -Ev '^panel/vendor/|/node_modules/|/tests?/' "$files" | grep -Eq '\.(js|jsx|mjs|cjs|ts|tsx|html)$' && langs+=(javascript-typescript)
           grep -Ev -- '-tests/|/tests?/' "$files" | grep -Eq '\.(cs|csproj|props|targets)$|^global\.json$' && langs+=(csharp)
           if [ "${#langs[@]}" -eq 0 ]; then
-            json='[]'
+            json='["actions"]'
           else
             json="$(printf '%s\n' "${langs[@]}" | jq -R . | jq -sc .)"
           fi

@@ -223,10 +223,23 @@ jobs:
           if-no-files-found: error
 
       - name: Attest build provenance
+        id: attest
         if: ${{ !inputs.dry_run }}
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: dist/release/*
+
+      # The signed attestation bundle ships as a release asset so it can be checked offline
+      # (gh attestation verify <file> --bundle <this file> --repo Sam-AEC/aec-model-bridge).
+      - name: Add the provenance bundle to the release files
+        if: ${{ !inputs.dry_run }}
+        shell: pwsh
+        env:
+          BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
+          RELEASE_VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          if (-not (Test-Path -LiteralPath $env:BUNDLE_PATH)) { throw "Attestation bundle not found" }
+          Copy-Item -LiteralPath $env:BUNDLE_PATH -Destination "dist/release/aec-model-bridge-$env:RELEASE_VERSION.intoto.jsonl"
 
       - name: Create or update GitHub release
         if: ${{ !inputs.dry_run }}
