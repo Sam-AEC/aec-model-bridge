@@ -386,8 +386,9 @@ Invoke-RestMethod "$($switch.endpoint)/health"
 ```
 
 The response should report `healthy` and the Revit version. In Revit, look for
-the `AEC Bridge` ribbon tab. Workflows has Open Panel, Health Check, Pending
-Actions and Reports. Tools has Config, Help and About.
+the `AEC Bridge` ribbon tab. Model Bridge has Panel, Approve and Check model.
+Connection has one Connected/Disconnected toggle; its slide-out has Status,
+Config, Reports, Help and About.
 
 ## Security
 

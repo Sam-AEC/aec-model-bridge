@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Ribbon: the AEC Bridge tab now has two panels. Model Bridge holds Panel, Approve (the approval queue) and Check model; Connection holds one Connected/Disconnected toggle that starts or stops the bridge server, with Status, Config, Reports, Help and About in its slide-out. New icons (Fluent glyphs, MIT) come from `scripts/make_ribbon_icons.py`. No Dev panel: the add-in has no reliable Dev mode signal. UNVERIFIED in Revit.
 - Docs: README leads with the illustrative film (GIF linked to MP4), drops the duplicate workflow image and is about a quarter shorter.
 
 ## 1.6.0 - 2026-11-26
