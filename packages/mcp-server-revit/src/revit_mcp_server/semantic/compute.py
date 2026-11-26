@@ -68,6 +68,9 @@ def _fail(step: str, message: str) -> None:
 def get_path(row: Any, path: str) -> Any:
     """Read a dotted path. A parameter record yields its value (`params.Mark` -> 'D-101')."""
     current = row
+    if isinstance(current, dict) and path in current:
+        current = current[path]
+        return current["v"] if isinstance(current, dict) and "v" in current and "storage" in current else current
     for part in path.split("."):
         if isinstance(current, dict):
             current = current.get(part)
@@ -245,6 +248,9 @@ class _Index:
         self.types = _records(snapshot, "types")
         self.relations = _records(snapshot, "relations")
         self.by_uid = {row["uid"]: row for row in self.elements if row.get("uid")}
+        self.by_element_id = {
+            str(row["element_id"]): row for row in self.elements if row.get("element_id") is not None
+        }
         self.type_by_uid = {row["uid"]: row for row in self.types if row.get("uid")}
         self.hosted: Dict[str, List[Dict[str, Any]]] = {}
         for row in self.elements:
@@ -281,7 +287,8 @@ def _join(
         if rel == "host":
             return index.by_uid.get(row.get("host_uid") or "")
         if rel == "level":
-            return index.by_uid.get(row.get("level_uid") or "")
+            ref = row.get("level_uid") or ""
+            return index.by_uid.get(ref) or index.by_element_id.get(str(ref))
         if rel == "group":
             return index.by_uid.get(row.get("group_uid") or "")
         if rel == "room":
