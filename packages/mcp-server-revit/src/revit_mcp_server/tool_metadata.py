@@ -642,6 +642,8 @@ TOOL_PARAM_DESCRIPTIONS: dict[tuple[str, str], str] = {
 # state). value = (destructiveHint, idempotentHint).
 NOT_READ_ONLY: dict[str, tuple[bool, bool]] = {
     "plan_actions": (False, False),
+    # Re-binds the server to a live Revit session (discovery and health check only); no model request.
+    "revit_reconnect": (False, True),
     "approve_plan": (False, True),
     "reject_plan": (False, True),
     "rollback_plan": (True, False),

@@ -311,6 +311,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_populate_titleblock` | Write a set of parameter values into the title block of a sheet. | Yes | sync |
 | `revit_preview_elements` | Preview which elements a proposed change affects: select and zoom to them in the active view and temporarily isolate them. | No | sync |
 | `revit_raw_command` | Advanced: send any Revit add-in command (for example revit. | Yes | sync |
+| `revit_reconnect` | Use after Revit was restarted or closed, when Revit calls are refused because the selected session changed or closed. | No | sync |
 | `revit_reflect_get` | Advanced: read any public Revit API property of an object identified by target_id, through reflection. | Yes | sync |
 | `revit_reflect_set` | Advanced escape hatch: set any writable Revit API property of an object identified by target_id, through reflection. | Yes | sync |
 | `revit_relinquish_all` | Relinquish every element and workset the current user owns in a workshared model. | Yes | sync |

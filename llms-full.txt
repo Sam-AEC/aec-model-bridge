@@ -50,7 +50,7 @@ Not copied (read them from the repository):
 > Open-source Revit MCP server (Model Context Protocol) and native Revit add-in. AI assistants such as Claude, Codex and Cursor read and edit the BIM model open in Revit 2024 to 2027. Every model change is a plan that a person approves first (approval gate). Also reads IFC files; Rhino, Grasshopper and Speckle integrations included.
 
 - Protocol: Model Context Protocol, stdio transport. Any MCP client that can start a local server works.
-- Tools: 316 in the default setup, counted in mock mode. Revit has 111 of them.
+- Tools: 317 in the default setup, counted in mock mode. Revit has 112 of them.
 - Safety: tools that change the model are blocked until a plan is approved. An unattended mode exists and is opt-in.
 - Platform: live Revit work needs Windows and a licensed Revit. Mock mode (sample data) needs neither.
 - Licence: GPL-3.0-or-later with the Revit Linking Exception, plus a commercial option.
@@ -341,9 +341,9 @@ published to the Marketplace.
 
 | Area | Tools | What they do |
 | --- | --- | --- |
-| Revit | 111 | Read the model, create and edit elements, parameters, views, sheets, schedules, exports, worksharing |
+| Revit | 112 | Read the model, create and edit elements, parameters, views, sheets, schedules, exports, worksharing |
 | Approval | 6 | Plan, review, approve, execute and roll back model changes; show the workspace policy |
-| Modules | 117 | Snapshot inspection, parameter grids, QA/QC checks, recipes, reports, selections |
+| Modules | 116 | Snapshot inspection, parameter grids, QA/QC checks, recipes, reports, selections |
 | Rhino and Grasshopper | 19 | Geometry, layers, materials, boolean operations |
 | Speckle | 17 | Projects, models, versions, send and receive |
 | Navisworks | 15 | Model tree, viewpoints, clash tests (in progress) |
@@ -1647,6 +1647,14 @@ If you set `MCP_REVIT_HOST_VERSION`, the server only accepts a bridge for that y
 **Cause:** the server cannot reach the add-in. Revit is closed, still starting, or the add-in is not loaded.
 
 **Fix:** start Revit, open a project, wait for the **AEC Bridge** tab, and try again. If Revit is open, run the health check in [install](install.md#verify-the-bridge). Check that the add-in year matches the running Revit year.
+
+### Revit was restarted and calls say the session changed or closed
+
+**You see:** `The selected Revit 2024 session (process N) changed or closed. Call revit_reconnect, or restart this MCP client ...`
+
+**Cause:** the server is pinned to the Revit process it found at start. It refuses to send anything to a replacement Revit on its own.
+
+**Fix:** call `revit_reconnect`. It lists the live Revit sessions (process id, version, start time, active document) and binds the only one, or the one named by `pid`. It repeats the health check only: it sends no model request and does not change plans, approvals, the panel token or workspace checks. Then call `revit_get_context`, and check the model before repeating an earlier write. It is refused in mock mode, with an explicit bridge URL, and inside a panel-routed call. Tested with a simulated registry; a real Revit restart is UNVERIFIED live.
 
 ### The panel hub cannot start, port 8787 is in use
 
