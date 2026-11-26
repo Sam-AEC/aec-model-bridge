@@ -98,6 +98,9 @@ PAIRS = [
     ("warning", "surface", 4.5, "look-only / auto note in chat cards"),
     ("ink", "danger-wash", 4.5, "chat error text on its wash"),
     ("brand-strong", "surface", 4.5, "chat link text"),
+    ("warning", "bg", 4.5, "status strip: items to fix"),
+    ("brand-strong", "bg", 4.5, "status strip: Ready"),
+    ("ink-muted", "bg", 4.5, "status strip: summary"),
 ]
 LIGHT_BADGES = ("danger", "warning", "info", "success", "pending", "idle")
 
@@ -182,6 +185,29 @@ def test_status_pill_keeps_port_visible_when_narrow():
     body = _block(r"\.status-pill")
     assert "white-space: nowrap" not in body
     assert "text-overflow: ellipsis" not in CSS.split(".status-pill > span:last-child")[1].split("}")[0]
+
+
+def test_status_strip_replaces_the_stacked_banners():
+    """One strip holds the setup check, the alerts and the only Refresh; Plans and Reports have none of their own."""
+    assert 'id="setup-toggle"' in HTML and 'aria-controls="setup-body"' in HTML
+    body = HTML[HTML.index('id="setup-body"'):HTML.index('id="view-chat"')]
+    assert 'id="system-alerts"' in body and 'id="setup-list"' in body
+    assert HTML.count(">Refresh<") == 1 and 'id="setup-refresh"' in HTML
+    assert "refresh-plans" not in HTML and "refresh-reports" not in HTML
+
+
+def test_reject_confirm_bar_is_closed_in_the_markup_and_opens_only_from_reject_selected():
+    assert re.search(r'id="reject-confirm"[^>]*\bhidden\b', HTML)
+    opens = [m.start() for m in re.finditer(r'getElementById\("reject-confirm"\)\.hidden = false', JS)]
+    assert len(opens) == 1
+    assert "rejectArmed = true" in JS[opens[0] - 400:opens[0]]
+    assert "const ids = rejectArmed ? selectedRejectablePlanIds() : [];" in JS
+
+
+def test_plan_card_actions_are_pinned_and_bulk_footer_is_one_row():
+    assert re.search(r"\.plan-card \.item-actions\s*\{[^}]*position:\s*sticky;[^}]*bottom:\s*0", CSS, re.S)
+    assert re.search(r"\.plan-card \.plan-review\s*\{[^}]*max-height:", CSS, re.S)
+    assert re.search(r"#plan-bulk,\s*#reject-confirm:not\(\[hidden\]\)\s*\{[^}]*flex-wrap:\s*nowrap", CSS, re.S)
 
 
 # ------------------------------------------------------------------- plans
