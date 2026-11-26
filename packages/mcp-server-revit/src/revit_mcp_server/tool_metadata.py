@@ -295,6 +295,7 @@ DESCRIPTIONS: dict[str, str] = {
     "qaqc_checker_export_rule_pack": "Copy a validated built-in or workspace rule pack to a YAML file inside the workspace so it can be shared. Refuses to overwrite unless overwrite is true.",
     "qaqc_checker_list_rules": "List the QA/QC rules that are available, optionally for one rule pack. Read-only.",
     "sheet_view_audit_run_audit": "Check the sheets and views in a saved snapshot for empty sheets, unplaced views, duplicate sheet numbers, missing sheet parameters and default view names. Read-only.",
+    "schedule_diff_compare": "Compare two saved snapshots by their sheet list, sheet revision fields and schedule rows: sheets added, removed, renumbered, renamed or moved in the numbering order, revision fields changed, and schedule rows added, removed, changed or moved. A block a snapshot does not hold (schedule rows are not captured yet) is reported as not captured, never as no change. Compact by default; optional .csv or .xlsx export in the workspace. Read-only.",
     "sheet_set_qa_check": "Check the sheets in a saved snapshot before a drawing issue: duplicate or equivalent sheet numbers, gaps in the numbering within a prefix, empty title block fields (configurable, defaults Sheet Number, Sheet Name, Drawn By, Checked By, Sheet Issue Date), sheets with no placed views, and numbers or names that break a regex. Findings have severities; checks the snapshot cannot support are reported as not run. Optional CSV in the workspace. Use sheet_view_audit_run_audit for unplaced views and view names. Read-only.",
     "schedule_consistency_check_doors_and_rooms":"Check door and room schedules in a saved snapshot for duplicate or missing Marks, missing or identical From/To rooms, unnumbered or duplicate room numbers and zero-area rooms, and optionally Marks that do not fit a pattern you supply. Read-only; any suggested Marks are a proposal only.",
     "mark_renumber_plan_analyze": "Find duplicate marks, empty marks, gaps and out-of-order sequences for doors, rooms and windows in a saved snapshot, and propose a new numbering from a small rule file (doors: To room number plus a letter; rooms and windows: level prefix plus sequence). Read-only.",
@@ -708,6 +709,7 @@ REPORT_FILE_WRITERS: dict[str, tuple[bool, bool]] = {
     "model_health_score": (True, True),
     "ids_validator_validate_ifc": (True, True),
     "sheet_set_qa_check": (True, True),
+    "schedule_diff_compare": (True, True),
     "qa_handover_build_report": (True, True),
     "revit_render_check": (True, True),
     # Without baseline_id it saves a new warnings baseline file under a fresh id.

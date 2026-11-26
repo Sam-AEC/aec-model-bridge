@@ -24,7 +24,7 @@ MODULE_PREFIXES = (
     "links_worksets_audit_", "mark_renumber_plan_", "model_bloat_", "model_changes_", "model_health_", "model_inspector_",
     "naming_checker_", "param_completeness_", "parameter_manager_", "pyrevit_bridge_",
     "qa_handover_", "qaqc_checker_", "recipe_runner_", "report_generator_",
-    "schedule_consistency_", "selection_tools_", "sheet_set_qa_", "sheet_view_audit_",
+    "schedule_consistency_", "schedule_diff_", "selection_tools_", "sheet_set_qa_", "sheet_view_audit_",
     "warnings_triage_",
 )
 FULL_NAMES = (

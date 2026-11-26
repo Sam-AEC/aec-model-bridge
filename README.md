@@ -8,7 +8,7 @@
 
 **AI assistants read the Revit model you have open. By default, nothing in it changes until you approve a plan.**
 
-Open-source Revit MCP server · Revit 2024 – 2027 · 315 tools · Claude, Codex, Cursor and other MCP clients
+Open-source Revit MCP server · Revit 2024 – 2027 · 316 tools · Claude, Codex, Cursor and other MCP clients
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Sam-AEC/aec-model-bridge/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Sam-AEC/aec-model-bridge/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
@@ -192,14 +192,14 @@ published to the Marketplace.
 | --- | --- | --- |
 | Revit | 111 | Read the model, create and edit elements, parameters, views, sheets, schedules, exports, worksharing |
 | Approval | 6 | Plan, review, approve, execute and roll back model changes; show the workspace policy |
-| Modules | 116 | Snapshot inspection, parameter grids, QA/QC checks, recipes, reports, selections |
+| Modules | 117 | Snapshot inspection, parameter grids, QA/QC checks, recipes, reports, selections |
 | Rhino and Grasshopper | 19 | Geometry, layers, materials, boolean operations |
 | Speckle | 17 | Projects, models, versions, send and receive |
 | Navisworks | 15 | Model tree, viewpoints, clash tests (in progress) |
 | IFC | 7 | Read IFC files without Revit: structure, properties, validation |
 | Graph, snapshots, exports, jobs | 24 | Semantic graph audits, snapshot diffs, SQLite export, background jobs |
 
-315 tools are listed in the default setup (counted from the current server in mock
+316 tools are listed in the default setup (counted from the current server in mock
 mode). The Autodesk Data tools appear when APS credentials are configured. The
 [tool reference](docs/tools-generated.md) lists every tool. Each tool carries
 MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`,
