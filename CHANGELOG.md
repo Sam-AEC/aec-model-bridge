@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Approval panel lists only plans bound to its own Revit session (document guid and process id); plans for other models collapse into a count with a Show button and are not rendered until shown. An unbound plan shows a warning and Approve stays off until the person ticks a confirm. The mismatch warning also fires when the Revit process id differs. The add-in host status now carries the active document guid and process id (C# part UNVERIFIED in live Revit). Fixes #383.
+
 ## 1.6.0 - 2026-11-26
 
 - New module `schedule_diff` (#364). Tool count is now 317 (117 module tools). `schedule_diff_compare` compares two saved snapshots: sheets added, removed, renumbered, renamed or moved in the numbering order, sheet revision fields (`Current Revision*`) changed, and schedule rows added, removed, changed or moved. A block a snapshot does not hold is reported as `not_captured`, never as no change; schedule rows are not captured by the add-in yet (#367), so that part is tested on fixture snapshots only and the row layout is UNVERIFIED against live Revit. Optional `.csv` or `.xlsx` export in the workspace. Read-only. Refs #364.
