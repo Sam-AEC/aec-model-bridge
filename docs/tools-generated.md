@@ -76,7 +76,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | --- | --- | --- | --- |
 | `bcf_exchange_export_bcf` | Save issues (your own list and/or the recorded QA/QC issues) to a BCF 2. | No | sync |
 | `bcf_exchange_import_bcf` | Read a BCF. | No | sync |
-| `clash_triage_import_clash_report` | Import Clash Report. | No | sync |
+| `clash_triage_import_clash_report` | Read a Navisworks XML clash report or a BCF. | No | sync |
 | `clash_triage_list_clash_issues` | List the clash issues recorded by clash triage, optionally filtered by status and match confidence. | No | sync |
 | `clash_triage_match_clashes` | Match each clash from a Navisworks clash test to the Revit elements it involves, by UniqueId or IFC GUID, and say how sure each match is (exact, ambiguous or unmatched). | No | sync |
 | `familytype_mapper_audit_families` | Audit the families in a saved snapshot and report problems such as unmapped or inconsistent family types. | No | sync |
