@@ -8,7 +8,6 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later WITH Revit-Linking-Exception
 # (or a commercial license - see LICENSING.md)
-# Pinned by digest (python:3.12-slim). Dependabot bumps it.
 FROM python:3.12-slim@sha256:191083cdf6c7bda8c76158983163ead5d5cf7b77cf3033e805bb0f5296f51b4b
 
 LABEL org.opencontainers.image.title="AEC Model Bridge" \

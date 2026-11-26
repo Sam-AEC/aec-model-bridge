@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Supply chain: releases carry a `.intoto.jsonl` provenance bundle, CI installs from hash-pinned requirements and a digest-pinned base image, atheris fuzz harnesses run nightly, CodeQL scans every pull request, and SECURITY.md links the private reporting form.
 - Docs: the README film is now a real screen recording of Revit 2026.5 (approve in the panel, one batch write, one Ctrl+Z undo) instead of the illustrative film.
 - `snapshot_compute`: a dotted path projected or grouped without an alias (`params.Mark`) can now be filtered, sorted and selected by later steps.
 - Fix: semantic `level` joins resolve live snapshot level references by element id.
