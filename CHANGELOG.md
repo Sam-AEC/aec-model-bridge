@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Excel round-trip: saved per-project column mappings (`excel_mappings/<name>.json`) for export and import. Fixes #174
 - Docs: README shows a Revit 2026 demo: a 30-storey twisting tower built in Dev mode, frames rendered by Revit.
 - VS Code extension: a registry file endpoint must be loopback HTTP (127.0.0.1, localhost or [::1]); other hosts are ignored. The in-flight settle log strips CR and LF from the tool name. Clears CodeQL alerts #31 and #32.
 - Supply chain: releases carry a `.intoto.jsonl` provenance bundle, CI installs from hash-pinned requirements and a digest-pinned base image, atheris fuzz harnesses run nightly, CodeQL scans every pull request, and SECURITY.md links the private reporting form.

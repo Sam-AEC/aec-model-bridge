@@ -98,3 +98,58 @@ def test_boolean_cells_ignore_surrounding_spaces(cell):
     el = {"uid": "u1", "element_id": 1, "params": {"Is Fire Door": {"storage": "Boolean", "v": True}}}
     planned, blocked, counts = _mod._plan_rows([{"uid": "u1", "Is Fire Door": cell}], [el], skip_unchanged=True)
     assert planned == [] and blocked == [] and counts["unchanged_rows"] == 1
+
+
+def _write_mapping(tmp_path, name, columns):
+    import json
+    folder = tmp_path / "excel_mappings"
+    folder.mkdir(exist_ok=True)
+    (folder / f"{name}.json").write_text(json.dumps({"columns": columns}), encoding="utf-8")
+
+
+def test_mapping_headers_round_trip(pm, workspace, tmp_path):
+    _write_mapping(tmp_path, "nl-doors", {"Deurnummer": "Mark", "Brandwerendheid": "FireRating"})
+    out = pm.export_params_xlsx(element_filter={"category": "OST_Doors"}, mapping="nl-doors",
+                                output_filename="doors.xlsx", workspace=workspace)
+    assert out["param_names"] == ["Mark", "FireRating"]
+    path = tmp_path / "doors.xlsx"
+    wb = load_workbook(path)
+    ws = wb["Parameters"]
+    header = [c.value for c in ws[1]]
+    assert header[5:] == ["Deurnummer", "Brandwerendheid"]
+    ws.cell(row=2, column=header.index("Deurnummer") + 1, value="D-999")
+    wb.save(path)
+
+    res = pm.import_params_xlsx(xlsx_filename="doors.xlsx", mapping="nl-doors", workspace=workspace)
+    assert res["preview"]["planned"][0]["updates"] == {"Mark": {"before": "D-101", "after": "D-999"}}
+    assert res["preview"]["mapping"] == "nl-doors"
+
+
+def test_mapping_with_unknown_parameter_is_refused(pm, workspace, tmp_path):
+    _write_mapping(tmp_path, "bad", {"Nummer": "Mark", "X": "NoSuchParam"})
+    with pytest.raises(ValueError, match="NoSuchParam"):
+        pm.export_params_xlsx(element_filter={"category": "OST_Doors"}, mapping="bad", workspace=workspace)
+    pm.export_params_xlsx(element_filter={"category": "OST_Doors"}, param_names=["Mark"],
+                          output_filename="d.xlsx", workspace=workspace)
+    with pytest.raises(ValueError, match="NoSuchParam"):
+        pm.import_params_xlsx(xlsx_filename="d.xlsx", mapping="bad", workspace=workspace)
+
+
+@pytest.mark.parametrize("columns", [{}, {"uid": "Mark"}, {"A": "Mark", "B": "Mark"}, {"A": 3}, ["Mark"]])
+def test_malformed_mapping_is_refused(pm, workspace, tmp_path, columns):
+    _write_mapping(tmp_path, "m", columns)
+    with pytest.raises(ValueError, match="mapping"):
+        pm.export_params_xlsx(element_filter={"category": "OST_Doors"}, mapping="m", workspace=workspace)
+
+
+@pytest.mark.parametrize("name", ["../x", "a/b", "/etc/passwd", "", "missing"])
+def test_mapping_names_are_plain_and_must_exist(pm, workspace, name):
+    with pytest.raises(ValueError, match="mapping"):
+        pm.export_params_xlsx(element_filter={"category": "OST_Doors"}, mapping=name or " ", workspace=workspace)
+
+
+def test_mapping_and_param_names_together_are_refused(pm, workspace, tmp_path):
+    _write_mapping(tmp_path, "m", {"Nummer": "Mark"})
+    with pytest.raises(ValueError, match="mapping"):
+        pm.export_params_xlsx(element_filter={"category": "OST_Doors"}, mapping="m", param_names=["Mark"],
+                              workspace=workspace)
