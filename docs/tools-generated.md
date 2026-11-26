@@ -180,6 +180,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_update_sheets` | Bulk renumber and rename sheets from a table (number = the current number; new_number and/or new_name). | Yes | sync |
 | `revit_warnings_delta` | Track Revit warnings across a build phase. | No | sync |
 | `schedule_consistency_check_doors_and_rooms` | Check door and room schedules in a saved snapshot for duplicate or missing Marks, missing or identical From/To rooms, unnumbered or duplicate room numbers and zero-area rooms, and optionally Marks that do not fit a pattern you supply. | No | sync |
+| `schedule_diff_compare` | Compare two saved snapshots by their sheet list, sheet revision fields and schedule rows: sheets added, removed, renumbered, renamed or moved in the numbering order, revision fields changed, and schedule rows added, removed, changed or moved. | No | sync |
 | `selection_tools_group_convert_to_detail` | Convert a model group into a detail group. | Yes | sync |
 | `selection_tools_group_rename` | Rename a model group identified by its UniqueId. | Yes | sync |
 | `selection_tools_group_ungroup` | Ungroup a model group identified by its UniqueId. | Yes | sync |

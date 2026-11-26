@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- New module `schedule_diff` (#364). Tool count is now 317 (117 module tools). `schedule_diff_compare` compares two saved snapshots: sheets added, removed, renumbered, renamed or moved in the numbering order, sheet revision fields (`Current Revision*`) changed, and schedule rows added, removed, changed or moved. A block a snapshot does not hold is reported as `not_captured`, never as no change; schedule rows are not captured by the add-in yet (#367), so that part is tested on fixture snapshots only and the row layout is UNVERIFIED against live Revit. Optional `.csv` or `.xlsx` export in the workspace. Read-only. Refs #364.
 - Fix (#340): the panel hub frees a request thread slot before it closes the client socket, so a client that has read the end of a response and reconnects at once never meets a slot the previous request still holds (a 503 on a slow Linux runner).
 - Fix (#380): when the refusal closer queue is full, the hub waits up to 50 ms for the refused client's request to arrive before it closes the socket, so Windows no longer resets the connection and drops the 503 (WinError 10053).
 - Fix (#379): the add-in build for Revit 2025 and 2026 now uses the NuGet Revit API by default instead of a local `RevitAPI.dll`, so `-p:RevitVersion=2026` builds with Revit 2026.5 installed (CS1705 before). Revit 2024 and 2027 are unchanged; `-p:UseLocalRevit=true` forces the local DLL.
