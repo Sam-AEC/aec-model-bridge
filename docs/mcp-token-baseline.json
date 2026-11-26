@@ -1,0 +1,17 @@
+{
+  "threshold_pct": 10,
+  "profiles": {
+    "core": {
+      "tool_count": 58,
+      "catalogue_chars": 70054
+    },
+    "daily": {
+      "tool_count": 246,
+      "catalogue_chars": 280595
+    },
+    "full": {
+      "tool_count": 317,
+      "catalogue_chars": 353548
+    }
+  }
+}
