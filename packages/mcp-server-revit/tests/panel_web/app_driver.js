@@ -931,5 +931,130 @@
     expect(sentOf("plan.reject").map((m) => m.planId).join() === "e2" && sentOf("plan.approve").length === 0, "expired reject wrong");
   });
 
+  // ---- layout: status strip, one Refresh per view, confirm bar trigger, footer, compact empty state ----
+  const visible = (el) => !!el && getComputedStyle(el).display !== "none" && el.getClientRects().length > 0;
+  const nav = (v) => document.querySelector('.nav[data-view="' + v + '"]').click();
+
+  test("confirm bar: closed on load, on render and on view switches; opens only from Reject selected; Confirm alone sends nothing", () => {
+    fresh();
+    nav("plans");
+    plans([PLAN("k1", [SET([1], true)]), PLAN("k2", [SET([1], true)])]);
+    const bar = $("reject-confirm");
+    expect(bar.hidden && !visible(bar), "confirm bar visible before any Reject selected click");
+    tick("k1");
+    tick("k2");
+    nav("chat"); nav("plans");
+    plans([PLAN("k1", [SET([1], true)]), PLAN("k2", [SET([1], true)])]);
+    expect(!visible(bar), "bar opened by a render or a view switch");
+    sent().length = 0;
+    document.querySelector('[data-action="reject-confirm"]').click();
+    expect(sentOf("plan.reject").length === 0, "Confirm rejected a plan although the bar was never opened");
+    bulk().click();
+    expect(visible(bar) && /Reject 2 selected/.test($("reject-confirm-text").textContent), "bar did not open from Reject selected");
+    expect(!visible($("plan-bulk")), "bulk footer and confirm bar are both shown");
+    document.querySelector('[data-action="reject-cancel"]').click();
+    expect(!visible(bar) && sentOf("plan.reject").length === 0, "Cancel left the bar open or rejected");
+  });
+
+  test("confirm bar: a refreshed list closes it", () => {
+    fresh();
+    nav("plans");
+    plans([PLAN("r1", [SET([1], true)]), PLAN("r2", [SET([1], true)])]);
+    tick("r1"); tick("r2");
+    bulk().click();
+    expect(visible($("reject-confirm")), "bar did not open");
+    plans([PLAN("r1", [SET([1], true)]), PLAN("r2", [SET([1], true)])]);
+    expect(!visible($("reject-confirm")), "bar survived a list refresh");
+    sent().length = 0;
+    document.querySelector('[data-action="reject-confirm"]').click();
+    expect(sentOf("plan.reject").length === 0, "stale Confirm rejected a plan");
+  });
+
+  test("bulk footer: hidden with fewer than two ticked plans, shown with two, one row", () => {
+    fresh();
+    nav("plans");
+    plans([PLAN("f1", [SET([1], true)]), PLAN("f2", [SET([1], true)])]);
+    expect(!visible($("plan-bulk")), "footer shown with nothing ticked");
+    tick("f1");
+    expect(!visible($("plan-bulk")), "footer shown for one plan; its card has the buttons");
+    tick("f2");
+    expect(visible($("plan-bulk")) && $("plan-selected-count").textContent === "2 selected", "footer missing for two");
+    const tops = Array.from($("plan-bulk").children).filter(visible).map((n) => n.getBoundingClientRect().top);
+    expect(Math.max(...tops) - Math.min(...tops) < 20, "footer is not one row");
+  });
+
+  test("one Refresh per view: Plans and Reports have no button of their own; the strip Refresh asks for the view's list", () => {
+    fresh();
+    ["plans", "reports", "findings", "log", "settings"].forEach((v) => {
+      nav(v);
+      const shown = Array.from(document.querySelectorAll("button")).filter((b) => visible(b) && /^refresh/i.test(b.textContent.trim()));
+      expect(shown.length === 1 && shown[0].id === "setup-refresh", v + ": " + shown.length + " Refresh buttons");
+    });
+    nav("plans");
+    sent().length = 0;
+    $("setup-refresh").click();
+    expect(sentOf("plans.refresh").length === 1 && sentOf("diagnostics.refresh").length === 1, "Plans refresh not sent: " + JSON.stringify(sent().map((m) => m.type)));
+    nav("reports");
+    sent().length = 0;
+    $("setup-refresh").click();
+    expect(sentOf("reports.refresh").length === 1 && sentOf("plans.refresh").length === 0, "Reports refresh wrong");
+  });
+
+  test("status strip: setup check and snapshot warning share one collapsed strip that expands on click", () => {
+    fresh();
+    nav("plans");
+    host({ snapshotStale: true, dirtyElementCount: 3 });
+    deliver({ type: "diagnostics.updated", diagnostics: { ok: false, approval_mode: "ask_first", checks: [
+      { id: "mode", ok: false, detail: "Hub is in mock mode.", next_step: "Set MCP_REVIT_MODE=bridge." },
+      { id: "hub", ok: true, detail: "Panel hub is running." }] } });
+    const strip = $("setup-check");
+    expect(strip.dataset.state === "blocked" && /2 to fix/.test($("setup-label").textContent), "label: " + $("setup-label").textContent);
+    expect(/Live Revit mode/.test($("setup-summary").textContent) && /Snapshot stale/.test($("setup-summary").textContent), "summary: " + $("setup-summary").textContent);
+    expect(!visible($("setup-body")) && !visible($("system-alerts")) && !visible($("setup-list")), "strip starts expanded");
+    expect(strip.getBoundingClientRect().height < 60, "strip is " + strip.getBoundingClientRect().height + "px tall");
+    $("setup-toggle").click();
+    expect($("setup-toggle").getAttribute("aria-expanded") === "true" && visible($("setup-body")), "did not expand");
+    expect(/Snapshot stale/.test($("system-alerts").textContent) && /MCP_REVIT_MODE=bridge/.test($("setup-list").textContent), "alert or step missing when expanded");
+    $("setup-toggle").click();
+    expect(!visible($("setup-body")), "did not collapse");
+    host({ snapshotStale: false });
+    diag("ask_first");
+    expect(strip.dataset.state === "ready" && $("setup-label").textContent === "Ready", "did not return to Ready");
+  });
+
+  test("empty plans: one compact line, no second block of text", () => {
+    fresh();
+    nav("plans");
+    plans([]);
+    const empty = document.querySelector("#plan-list .empty");
+    expect(empty && empty.classList.contains("is-compact") && /No pending plans/.test(empty.textContent), "compact empty state missing");
+    expect(empty.getBoundingClientRect().height < 56 && empty.querySelectorAll("p").length === 0, "empty state is a box: " + empty.getBoundingClientRect().height);
+    expect(!visible($("plan-bulk")), "footer shown with no plans");
+  });
+
+  test("plan card: Approve and Reject are sticky, so a long review cannot push them off screen", () => {
+    fresh();
+    nav("plans");
+    const long = Array.from({ length: 60 }, (_, i) => "line " + i + " of the review").join("\n");
+    plans([V2("s1", { summary: long, reasoning: long, citations: [], assumptions: [], excluded: [], warnings: [], conflicts: [] })]);
+    const open = $("plan-list").querySelector("[data-open-review]");
+    if (open) open.click();
+    const card = cardOf("s1");
+    const actions = card.querySelector(".item-actions");
+    expect(getComputedStyle(actions).position === "sticky", "actions are " + getComputedStyle(actions).position);
+    const list = $("plan-list");
+    list.scrollTop = 0;
+    expect(card.getBoundingClientRect().height > list.getBoundingClientRect().height, "card is not taller than the list; the test proves nothing");
+    expect(actions.getBoundingClientRect().bottom <= list.getBoundingClientRect().bottom + 1, "Approve/Reject below the visible list at the top of a long card");
+  });
+
+  test("preview: no Element or Parameter column when the hub names neither (no repeated unknown cells)", () => {
+    fresh();
+    plans([V2("pn1", null, { review_view: { status: "none", hash_version: 1, reverts_plan_id: null, review: null, error: "" }, hash_version: undefined,
+      preview: { rows: [ROW(1, { element_id: null, parameter: null, before: "(not captured)", after: "{}" })], row_count: 1, rows_omitted: 0 }, blast_radius: RADIUS })]);
+    const cells = Array.from(cardOf("pn1").querySelectorAll(".plan-preview-table tr")).map((tr) => Array.from(tr.children).map((c) => c.textContent));
+    expect(cells[0].join() === "Before,After,Tool" && cells[1][0] === "(not captured)" && cells[1][1] === "{}", "cells " + JSON.stringify(cells));
+  });
+
   window.addEventListener("load", () => { runAll(); });
 })();

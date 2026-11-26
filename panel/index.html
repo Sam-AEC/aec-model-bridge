@@ -90,18 +90,22 @@
         </div>
       </div>
     </header>
-    <div class="alerts" id="system-alerts" aria-live="polite" hidden></div>
-
-    <section class="setup" id="setup-check" aria-labelledby="setup-title" data-state="checking">
+    <section class="setup" id="setup-check" aria-labelledby="setup-title" data-state="checking" data-notices="0">
+      <h2 id="setup-title" class="sr-only">Setup check</h2>
       <div class="setup-head">
-        <svg class="setup-icon" viewBox="0 0 256 256" aria-hidden="true"><use href="#i-check"/></svg>
-        <h2 id="setup-title" class="sr-only">Setup check</h2>
-        <span class="setup-status" id="setup-status" role="status" aria-live="polite">Checking setup&hellip;</span>
-        <span class="setup-summary" id="setup-summary"></span>
-        <button type="button" class="ghost" id="setup-toggle" aria-expanded="false" aria-controls="setup-list" hidden>Details</button>
-        <button type="button" class="ghost" id="setup-refresh" aria-label="Refresh setup check">Refresh</button>
+        <button type="button" class="strip-main" id="setup-toggle" aria-expanded="false" aria-controls="setup-body">
+          <span class="strip-dot" aria-hidden="true"></span>
+          <span class="setup-label" id="setup-label">Checking&hellip;</span>
+          <span class="setup-summary" id="setup-summary"></span>
+          <svg class="strip-caret" viewBox="0 0 256 256" aria-hidden="true"><use href="#i-caret"/></svg>
+        </button>
+        <button type="button" class="ghost" id="setup-refresh" aria-label="Refresh this view and the setup check">Refresh</button>
       </div>
-      <ol class="setup-list" id="setup-list" hidden></ol>
+      <span class="sr-only" id="setup-status" role="status" aria-live="polite">Checking setup&hellip;</span>
+      <div class="setup-body" id="setup-body" hidden>
+        <div class="alerts" id="system-alerts" hidden></div>
+        <ol class="setup-list" id="setup-list" hidden></ol>
+      </div>
     </section>
 
     <section class="view is-active" id="view-chat" aria-labelledby="view-title">
@@ -109,17 +113,16 @@
     </section>
 
     <section class="view" id="view-plans" aria-labelledby="view-title">
-      <div class="toolbar bulk" id="plan-bulk">
+      <div class="toolbar bulk" id="plan-bulk" hidden>
         <span class="bulk-count" id="plan-selected-count" role="status">0 selected</span>
-        <button type="button" class="ghost" data-action="refresh-plans" aria-label="Refresh pending plans">Refresh</button>
-        <button type="button" class="primary" data-action="approve-selected" aria-label="Approve selected plans" aria-describedby="plan-select-hint">Approve Selected</button>
-        <button type="button" data-action="reject-selected" aria-label="Reject selected plans" aria-describedby="plan-select-hint">Reject Selected</button>
+        <button type="button" data-action="reject-selected" aria-label="Reject selected plans" aria-describedby="plan-select-hint">Reject</button>
+        <button type="button" data-action="approve-selected" aria-label="Approve selected plans" aria-describedby="plan-select-hint">Approve</button>
         <span class="sr-only" id="plan-select-hint">Tick the checkbox on one or more pending plans first.</span>
       </div>
       <div class="toolbar" id="reject-confirm" role="group" aria-label="Confirm bulk reject" hidden>
         <span id="reject-confirm-text" role="alert"></span>
-        <button type="button" data-action="reject-confirm" aria-describedby="reject-confirm-text">Confirm reject</button>
         <button type="button" data-action="reject-cancel">Cancel</button>
+        <button type="button" data-action="reject-confirm" aria-describedby="reject-confirm-text">Confirm</button>
       </div>
       <div class="toolbar" id="expired-bar" hidden>
         <span id="expired-note" role="status" aria-live="polite"></span>
@@ -148,7 +151,6 @@
     <section class="view" id="view-reports" aria-labelledby="view-title">
       <div class="toolbar">
         <button type="button" class="primary" data-action="export-excel">Export Excel</button>
-        <button type="button" data-action="refresh-reports" aria-label="Refresh reports list">Refresh</button>
       </div>
       <div class="list" id="report-list" role="group" aria-label="Reports"></div>
     </section>
