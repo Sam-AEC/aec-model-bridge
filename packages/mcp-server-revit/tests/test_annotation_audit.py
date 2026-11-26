@@ -37,6 +37,7 @@ REVIEWED_READ_ONLY = {
     "parameter_manager_plan_set_params",   # computes a plan proposal; the write goes through plan_actions
     "pyrevit_bridge_plan_run_pyrevit_script",
     "bcf_exchange_import_bcf",             # parses a BCF file and returns the issues
+    "clash_triage_import_clash_report",    # parses a clash report and returns matched groups
     "parameter_manager_import_params_csv", # reads a CSV and returns a change proposal
     "parameter_manager_import_params_xlsx", # reads a workbook and returns a change proposal
 }

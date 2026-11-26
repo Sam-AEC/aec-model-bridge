@@ -16,8 +16,10 @@ Rules (see docs/clash-triage.md):
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 import sqlite3
+import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -160,6 +162,84 @@ def _overall(a: str, b: str) -> str:
     return a if _RANK[a] >= _RANK[b] else b
 
 
+def _bcf(*names: str) -> tuple:
+    """Hardened XML/zip readers from bcf_exchange, loaded by path (the registry owns its module name)."""
+    mod = sys.modules.get("_amb_bcf_exchange_impl")
+    if mod is None:
+        spec = importlib.util.spec_from_file_location("_amb_bcf_exchange_impl", Path(__file__).resolve().parent.parent / "bcf_exchange" / "module.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        sys.modules["_amb_bcf_exchange_impl"] = mod
+    return tuple(getattr(mod, n) for n in names)
+
+
+_GUID_NAMES = {"ifcguid", "ifcglobalid", "guid", "itemguid", "uniqueid"}
+_MAX_REPORT_BYTES = 50 * 1024 * 1024
+
+
+def _named_values(obj: Any) -> Dict[str, str]:
+    """Navisworks objectattribute/smarttag name -> value (normalised names)."""
+    _child_text, _local = _bcf('_child_text', '_local')
+
+    out: Dict[str, str] = {}
+    for el in obj.iter():
+        if _local(el.tag) in ("objectattribute", "smarttag"):
+            name, value = _child_text(el, "name"), _child_text(el, "value")
+            if name and value:
+                out.setdefault(_norm_param_name(name), value)
+    return out
+
+
+def _navisworks_item(obj: Any) -> Dict[str, Any]:
+    _child_text, = _bcf('_child_text')
+
+    values = _named_values(obj)
+    guid = next((values[k] for k in ("ifcguid", "ifcglobalid", "uniqueid", "guid", "itemguid") if k in values), None)
+    item: Dict[str, Any] = {"displayName": values.get("itemname") or values.get("name"),
+                            "ifcGuid": guid, "level": _child_text(obj, "layer") or None}
+    if not guid and values.get("elementid"):
+        item["element_id"] = values["elementid"]
+    return item
+
+
+def _read_navisworks_xml(path: Path) -> List[Dict[str, Any]]:
+    _local, _safe_xml = _bcf('_local', '_safe_xml')
+
+    root = _safe_xml(path.read_bytes(), path.name)
+    results = []
+    for res in root.iter():
+        if _local(res.tag) != "clashresult":
+            continue
+        objs = [o for o in res.iter() if _local(o.tag) == "clashobject"]
+        items = [_navisworks_item(o) for o in objs[:2]]
+        results.append({"guid": res.attrib.get("guid"), "displayName": res.attrib.get("name"),
+                        "status": res.attrib.get("status"), "distance": res.attrib.get("distance"),
+                        "item1": items[0] if items else None, "item2": items[1] if len(items) > 1 else None})
+    if not results:
+        raise ValueError(f"'{path.name}' has no clash results (no <clashresult> elements).")
+    return results
+
+
+def _read_bcf_clashes(path: Path) -> List[Dict[str, Any]]:
+    _read_bcf, = _bcf('_read_bcf')
+
+    results = []
+    for topic in _read_bcf(path)["issues"]:
+        guids = topic["ifc_guids"] or topic["element_uids"]
+        items = [{"displayName": None, "ifcGuid": g} for g in guids[:2]]
+        results.append({"guid": topic["id"], "displayName": topic["title"], "status": topic["status"],
+                        "distance": None, "item1": items[0] if items else None,
+                        "item2": items[1] if len(items) > 1 else None})
+    if not results:
+        raise ValueError(f"'{path.name}' has no BCF topics.")
+    return results
+
+
+def _side_key(side: Dict[str, Any]) -> str:
+    el = side.get("element")
+    return el["uid"] if el else "unmatched:" + str(side.get("item_name") or side.get("ifc_guid") or "?")
+
+
 class ClashTriageModule:
 
     def match_clashes(
@@ -208,6 +288,69 @@ class ClashTriageModule:
             "unverified": "Matching was tested on fixtures only. What Navisworks puts in the GUID field "
                           "for Revit, IFC or NWC sources has not been checked on a live project.",
         }
+
+    def import_clash_report(
+        self,
+        report_path: str = "",
+        snapshot_id: str = "",
+        record_issues: bool = True,
+        workspace: Any = None,
+        **_,
+    ) -> Dict[str, Any]:
+        _resolve_in_workspace, = _bcf('_resolve_in_workspace')
+
+        path = _resolve_in_workspace(report_path, workspace)
+        suffix = path.suffix.lower()
+        if suffix not in (".xml", ".bcfzip", ".bcf"):
+            raise ValueError("report_path must be a Navisworks clash report or BCF file: .xml or .bcfzip.")
+        if not path.is_file():
+            raise ValueError(f"File '{report_path}' not found in the workspace.")
+        if path.stat().st_size > _MAX_REPORT_BYTES:
+            raise ValueError(f"'{path.name}' is larger than {_MAX_REPORT_BYTES // (1024 * 1024)} MB.")
+        if suffix == ".xml":
+            fmt, results = "navisworks_xml", _read_navisworks_xml(path)
+        else:
+            fmt, results = "bcf", _read_bcf_clashes(path)
+
+        out = self.match_clashes(clash_results=results, snapshot_id=snapshot_id,
+                                 record_issues=record_issues, workspace=workspace)
+        groups: Dict[tuple, Dict[str, Any]] = {}
+        unmatched = []
+        for res, clash in zip(results, out["clashes"]):
+            sides = [clash["item1"], clash["item2"]]
+            level = next((i.get("level") for i in (res.get("item1"), res.get("item2")) if isinstance(i, dict)
+                          and i.get("level")), None)
+            if level is None:
+                level = next((s["element"].get("level_uid") for s in sides if s.get("element")), None)
+            key = (tuple(sorted(_side_key(s) for s in sides)), level)
+            group = groups.setdefault(key, {"level": level, "element_uids": [k for k in key[0]
+                                            if not k.startswith("unmatched:")],
+                                            "confidence": "exact", "clash_count": 0, "clash_guids": []})
+            group["clash_count"] += 1
+            group["clash_guids"].append(clash["clash_guid"])
+            group["confidence"] = _overall(group["confidence"], clash["confidence"])
+            if clash["confidence"] == "unmatched":
+                reasons = []
+                for raw, side in zip((res.get("item1"), res.get("item2")), sides):
+                    if side["confidence"] != "unmatched":
+                        continue
+                    if isinstance(raw, dict) and raw.get("element_id"):
+                        reasons.append(f"Only a Revit Element ID ({raw['element_id']}) was given; Element IDs are "
+                                       "not matched because they may come from a linked model.")
+                    else:
+                        reasons.append(side["reason"])
+                unmatched.append({"clash_guid": clash["clash_guid"], "clash_name": clash["clash_name"],
+                                  "reason": " ".join(reasons)})
+        out.update({
+            "format": fmt,
+            "report_path": str(path),
+            "groups": sorted(groups.values(), key=lambda g: (-g["clash_count"], str(g["level"]))),
+            "unmatched": unmatched,
+            "fix_plans": [],
+            "fix_plan_note": "No fix rule applies to these clash groups, so no plan was drafted. Any fix must go "
+                             "through plan_actions and a person's approval before execute_plan.",
+        })
+        return out
 
     def list_clash_issues(
         self,

@@ -287,12 +287,16 @@ DESCRIPTIONS: dict[str, str] = {
     "qaqc_checker_run_check": "Run a QA/QC rule pack against a saved snapshot and record the issues it finds. Take the snapshot first with snapshot_take; read the results with qaqc_checker_list_issues. Does not change the Revit model.",
     "qaqc_checker_list_issues": "List recorded QA/QC issues for a document, optionally filtered by status, severity and snapshot. Hides stale issues (not seen in the latest run) unless include_stale is true. Read-only.",
     "qaqc_checker_resolve_issue": "Mark one recorded QA/QC issue as resolved. It changes only the issue record in the workspace, not the Revit model. Find issue ids with qaqc_checker_list_issues.",
+    "clash_triage_import_clash_report": "Read a Navisworks XML clash report or a BCF .bcfzip from the workspace, match each clash to Revit elements by GUID, group clashes by element pair and level, and list unmatched items with the reason. Never changes the model; records the result as issues in the workspace.",
     "clash_triage_match_clashes": "Match each clash from a Navisworks clash test to the Revit elements it involves, by UniqueId or IFC GUID, and say how sure each match is (exact, ambiguous or unmatched). Never guesses and never changes the model; records the result as issues in the workspace.",
     "clash_triage_list_clash_issues": "List the clash issues recorded by clash triage, optionally filtered by status and match confidence. Read-only.",
     "qaqc_checker_list_rule_packs": "List the built-in QA/QC rule packs and the user packs in the workspace rule_packs folder, with a validity flag for each. Read-only.",
     "qaqc_checker_validate_rule_pack": "Schema-check a YAML rule pack and return actionable errors per rule (id, severity, required fields, unknown operators). Never executes the rules. Read-only.",
     "qaqc_checker_import_rule_pack": "Validate a YAML rule pack inside the workspace and copy it into the workspace rule_packs folder. Refuses invalid packs and existing names unless overwrite is true.",
     "qaqc_checker_export_rule_pack": "Copy a validated built-in or workspace rule pack to a YAML file inside the workspace so it can be shared. Refuses to overwrite unless overwrite is true.",
+    "qaqc_checker_test_naming_rule": "Test a proposed naming rule (category, regex, message, severity) against a saved snapshot and return how many names match and miss, with a capped sample of each. Read-only; saves nothing. Rejects invalid and catastrophic-backtracking regexes.",
+    "qaqc_checker_save_naming_rule": "Save a tested naming rule to the workspace naming_rules folder so it can be replayed without a model. Writes a file, so it runs only as an approved plan action. Refuses invalid or catastrophic regexes and existing ids unless overwrite is true.",
+    "qaqc_checker_replay_naming_rules": "Replay the saved naming rules against a saved snapshot with no model call. The same snapshot gives the same findings. Returns the rule hashes and appends them to the workspace naming rules audit log.",
     "qaqc_checker_list_rules": "List the QA/QC rules that are available, optionally for one rule pack. Use qaqc_checker_list_rule_packs to see the packs first. Read-only.",
     "sheet_view_audit_run_audit": "Check the sheets and views in a saved snapshot for empty sheets, unplaced views, duplicate sheet numbers, missing sheet parameters and default view names. Read-only.",
     "geometry_screening_run_checks": "Screen a saved snapshot with repeatable geometric checks: room area against a brief table, door width against a minimum, a turning circle inside a room outline, and travel distance through doors to exit rooms. Each finding names element ids, the measured value, the threshold and the unit. Refuses when the room outlines or door data a check needs are missing. A screening aid, not a code compliance check. Read-only.",
@@ -679,9 +683,11 @@ NOT_READ_ONLY: dict[str, tuple[bool, bool]] = {
     "bcf_exchange_export_bcf": (True, True),
     "qaqc_checker_run_check": (False, False),
     "clash_triage_match_clashes": (False, True),
+    "clash_triage_import_clash_report": (False, True),
     "qaqc_checker_resolve_issue": (False, True),
     "qaqc_checker_import_rule_pack": (True, False),  # overwrite=true replaces a rule pack
     "qaqc_checker_export_rule_pack": (True, False),  # overwrite=true replaces the destination file
+    "qaqc_checker_replay_naming_rules": (False, False),  # appends to the naming rules audit log
     "recipe_runner_run_recipe": (True, False),
     "aec_register_mapping": (True, True),  # replaces the mapping already held for the same id
     "graph_compile": (True, False),  # replace=true drops the existing graph

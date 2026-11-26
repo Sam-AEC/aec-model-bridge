@@ -182,6 +182,13 @@ jobs:
           -Installer "dist/release/AECModelBridge-Setup-${{ steps.tag.outputs.version }}.exe"
           -AllowOverwrite
 
+      - name: Measure tool catalogue size per profile
+        shell: pwsh
+        run: |
+          # Fails when a profile grows past docs/mcp-token-baseline.json; the JSON ships with the release.
+          python scripts/token_budget.py --output dist/release/token-budget.json
+          if ($LASTEXITCODE -ne 0) { throw "Tool catalogue grew past the token baseline. If intended, run scripts/token_budget.py --update-baseline and commit the baseline." }
+
       - name: Generate the shipped Python SBOM and refresh checksums
         shell: pwsh
         env:

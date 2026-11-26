@@ -10,6 +10,10 @@ Commands:
   list_rules    — Enumerate rules in a pack.
   list_rule_packs / validate_rule_pack / import_rule_pack / export_rule_pack
                 — Shareable packs: built-ins plus <workspace>/rule_packs/*.yaml.
+  test_naming_rule / save_naming_rule / replay_naming_rules
+                — Reviewed naming rules: test a proposed regex rule (read-only), save it as
+                  <workspace>/naming_rules/<id>.json (mutating, so only through an approved
+                  plan), replay saved rules with no model call.
 
 Architecture:
   - Rule packs: YAML files in modules/qaqc_checker/rules/ (P10.2)
@@ -19,8 +23,10 @@ Architecture:
 from __future__ import annotations
 from revit_mcp_server.security.module_permissions import writable_path
 
+import hashlib
 import json
 import logging
+import os
 import re
 import shutil
 import sqlite3
@@ -30,7 +36,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from revit_mcp_server.errors import WorkspaceViolation
-from revit_mcp_server.security.safe_paths import snapshot_file
+from revit_mcp_server.security.safe_paths import safe_child, snapshot_file
 from revit_mcp_server.semantic.compute import QueryError, pipeline_rows, validate_steps
 
 logger = logging.getLogger(__name__)
@@ -512,6 +518,179 @@ def _upsert_issues(
 
 
 # ---------------------------------------------------------------------------
+# Reviewed naming rules
+# ---------------------------------------------------------------------------
+
+NAMING_RULES_DIRNAME = "naming_rules"
+NAMING_AUDIT_FILENAME = "naming_rules_audit.jsonl"
+NAMING_TARGETS = ("type_name", "name", "family", "parameter")
+MAX_REGEX_CHARS = 200
+MAX_NAME_CHARS = 128
+MAX_UNBOUNDED_REPEATS = 3
+MAX_RULE_FILE_BYTES = 20_000
+DEFAULT_SAMPLE = 10
+MAX_SAMPLE = 25
+_RESERVED_DEVICE_RE = re.compile(r"^(con|prn|aux|nul|com[0-9]|lpt[0-9])$", re.IGNORECASE)
+
+
+def _check_rule_id(rule_id: Any) -> str:
+    if (
+        not isinstance(rule_id, str) or not RULE_ID_RE.fullmatch(rule_id) or rule_id.endswith(".")
+        or _RESERVED_DEVICE_RE.match(rule_id.split(".", 1)[0])
+    ):
+        raise ValueError(
+            f"Invalid rule id {rule_id!r}: use letters, digits, '_', '-' or '.' only "
+            "(max 100 chars, start with a letter or digit, no path separators)."
+        )
+    return rule_id
+
+
+def _check_regex(regex: Any) -> "re.Pattern[str]":
+    """Compile a naming regex only if it cannot backtrack catastrophically.
+
+    Python's re has no timeout, so the pattern is checked up front: at most 200 characters, no
+    backreferences or lookarounds, no repeat inside a repeat, no alternation inside a repeat, and at
+    most 3 unbounded repeats. Names longer than 128 characters never reach the regex.
+    """
+    if not isinstance(regex, str) or not regex:
+        raise ValueError("regex is required.")
+    if len(regex) > MAX_REGEX_CHARS:
+        raise ValueError(f"regex is longer than {MAX_REGEX_CHARS} characters.")
+    from re import _constants as const, _parser as parser
+
+    try:
+        tree = parser.parse(regex)
+        compiled = re.compile(regex)
+    except (re.error, RecursionError, OverflowError) as exc:
+        raise ValueError(f"The regex is not valid: {exc}") from exc
+    repeats = (const.MAX_REPEAT, const.MIN_REPEAT, const.POSSESSIVE_REPEAT)
+    banned = (const.GROUPREF, const.GROUPREF_EXISTS, const.ASSERT, const.ASSERT_NOT)
+    unbounded = 0
+
+    def scan(sub: Any, in_repeat: bool) -> None:
+        nonlocal unbounded
+        for op, av in sub:
+            if op in banned:
+                raise ValueError("The regex uses a backreference or lookaround, which is refused.")
+            if op in repeats:
+                low, high, inner = av
+                variable = low != high
+                if in_repeat and variable:
+                    raise ValueError("The regex nests a variable repeat inside a repeat (catastrophic backtracking).")
+                if high > 1 and variable:
+                    unbounded += 1
+                    if unbounded > MAX_UNBOUNDED_REPEATS:
+                        raise ValueError(f"The regex has more than {MAX_UNBOUNDED_REPEATS} variable repeats.")
+                scan(inner, in_repeat or high > 1)
+            elif op == const.BRANCH:
+                if in_repeat:
+                    raise ValueError("The regex puts an alternation inside a repeat (catastrophic backtracking).")
+                for branch in av[1]:
+                    scan(branch, in_repeat)
+            elif op == const.SUBPATTERN:
+                scan(av[-1], in_repeat)
+            elif op == const.ATOMIC_GROUP:
+                scan(av, in_repeat)
+
+    scan(tree, False)
+    return compiled
+
+
+def _naming_rule(category: Any, regex: Any, severity: Any, message: Any, target: Any = "type_name",
+                 parameter: Any = None) -> Dict[str, Any]:
+    if not isinstance(category, str) or not category.strip() or len(category) > 100:
+        raise ValueError("category is required (for example OST_Doors).")
+    if severity not in SEVERITIES:
+        raise ValueError(f"severity must be one of {', '.join(SEVERITIES)}.")
+    if not isinstance(message, str) or not message.strip() or len(message) > 300:
+        raise ValueError("message is required (max 300 characters); it becomes the finding text.")
+    if target not in NAMING_TARGETS:
+        raise ValueError(f"target must be one of {', '.join(NAMING_TARGETS)}.")
+    if target == "parameter":
+        if not isinstance(parameter, str) or not parameter.strip() or len(parameter) > 100:
+            raise ValueError("parameter (a parameter name) is required when target is 'parameter'.")
+    elif parameter:
+        raise ValueError("parameter is only used when target is 'parameter'.")
+    _check_regex(regex)
+    return {
+        "category": category.strip(), "regex": regex, "severity": severity, "message": message.strip(),
+        "target": target, "parameter": parameter if target == "parameter" else None,
+    }
+
+
+def _naming_rule_hash(rule: Dict[str, Any]) -> str:
+    canon = json.dumps(rule, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(canon.encode("ascii")).hexdigest()
+
+
+def _naming_value(el: Dict[str, Any], rule: Dict[str, Any]) -> str:
+    if rule["target"] == "parameter":
+        param = (el.get("params") or {}).get(rule["parameter"])
+        value = param.get("v") if isinstance(param, dict) else None
+    else:
+        value = el.get(rule["target"])
+    return "" if value is None else str(value)
+
+
+def _evaluate_naming_rule(rule: Dict[str, Any], elements: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """One row per element in the category: {uid, value, matched}. Sorted by uid, so it is repeatable."""
+    pattern = _check_regex(rule["regex"])
+    rows = []
+    for el in elements:
+        if el.get("category") != rule["category"]:
+            continue
+        value = _naming_value(el, rule)
+        matched = 0 < len(value) <= MAX_NAME_CHARS and pattern.fullmatch(value) is not None
+        rows.append({"uid": el.get("uid"), "value": value[:MAX_NAME_CHARS], "matched": matched})
+    rows.sort(key=lambda r: (r["uid"] is None, r["uid"] or ""))
+    return rows
+
+
+def _sample(row: Dict[str, Any]) -> Dict[str, Any]:
+    return {"uid": row["uid"], "value": row["value"]}
+
+
+def _naming_rules_dir(workspace: Any) -> Path:
+    return _workspace_root(workspace) / NAMING_RULES_DIRNAME
+
+
+def _naming_rule_path(workspace: Any, rule_id: Any) -> Path:
+    def refuse(_reason: str) -> Exception:
+        return ValueError(f"Invalid rule id {rule_id!r}: it must be a plain name, not a path.")
+
+    _check_rule_id(rule_id)
+    return safe_child(
+        _workspace_root(workspace), rule_id, ".json", RULE_ID_RE, refuse, subdir=NAMING_RULES_DIRNAME
+    )
+
+
+def _load_naming_rule(workspace: Any, rule_id: str) -> Dict[str, Any]:
+    path = _assert_in_workspace(workspace, _naming_rule_path(workspace, rule_id))
+    if not path.is_file():
+        raise ValueError(f"Naming rule '{rule_id}' not found in {NAMING_RULES_DIRNAME}/.")
+    if path.stat().st_size > MAX_RULE_FILE_BYTES:
+        raise ValueError(f"Naming rule '{rule_id}' is larger than {MAX_RULE_FILE_BYTES} bytes.")
+    try:
+        stored = json.loads(path.read_text(encoding="utf-8"))
+        raw = stored["rule"]
+        rule = _naming_rule(raw["category"], raw["regex"], raw["severity"], raw["message"],
+                            raw.get("target", "type_name"), raw.get("parameter"))
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+        raise ValueError(f"Naming rule '{rule_id}' is invalid: {exc}") from exc
+    rule_hash = _naming_rule_hash(rule)
+    if stored.get("rule_id") != rule_id or stored.get("rule_hash") != rule_hash or rule != raw:
+        raise ValueError(f"Naming rule '{rule_id}' does not match its recorded hash; it was edited after it was saved.")
+    return {"rule_id": rule_id, "rule": rule, "rule_hash": rule_hash}
+
+
+def _append_naming_audit(workspace: Any, event: str, **fields: Any) -> None:
+    path = _assert_writable(workspace, _workspace_root(workspace) / NAMING_AUDIT_FILENAME)
+    entry = {"timestamp": _now(), "event": event, **fields}
+    with open(path, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(entry, sort_keys=True, default=str) + "\n")
+
+
+# ---------------------------------------------------------------------------
 # Module class
 # ---------------------------------------------------------------------------
 
@@ -801,6 +980,130 @@ class QaqcCheckerModule:
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(src, dest)
         return {"status": "exported", "name": rule_pack, "path": str(dest), "rules_count": result["rules_count"]}
+
+    # -----------------------------------------------------------------------
+    # Reviewed naming rules
+    # -----------------------------------------------------------------------
+
+    def test_naming_rule(
+        self,
+        category: str = "",
+        regex: str = "",
+        severity: str = "",
+        message: str = "",
+        target: str = "type_name",
+        parameter: str = "",
+        snapshot_id: str = "",
+        sample_limit: int = DEFAULT_SAMPLE,
+        workspace: Any = None,
+        **_,
+    ) -> Dict[str, Any]:
+        """Read-only: run a proposed rule against a snapshot. Nothing is saved."""
+        rule = _naming_rule(category, regex, severity, message, target, parameter or None)
+        limit = max(0, min(int(sample_limit), MAX_SAMPLE))
+        elements, _doc_guid = self._naming_data(snapshot_id, workspace)
+        rows = _evaluate_naming_rule(rule, elements)
+        matches = [r for r in rows if r["matched"]]
+        misses = [r for r in rows if not r["matched"]]
+        return {
+            "rule": rule,
+            "rule_hash": _naming_rule_hash(rule),
+            "snapshot_id": snapshot_id or "mock",
+            "elements_in_category": len(rows),
+            "matches": {"count": len(matches), "sample": [_sample(r) for r in matches[:limit]]},
+            "misses": {"count": len(misses), "sample": [_sample(r) for r in misses[:limit]]},
+            "note": "Not saved. Saving is a plan action (qaqc_checker_save_naming_rule) that a person approves.",
+        }
+
+    def save_naming_rule(
+        self,
+        rule_id: str = "",
+        category: str = "",
+        regex: str = "",
+        severity: str = "",
+        message: str = "",
+        target: str = "type_name",
+        parameter: str = "",
+        overwrite: bool = False,
+        workspace: Any = None,
+        **_,
+    ) -> Dict[str, Any]:
+        """Mutating: runs only as an approved plan action. Writes <workspace>/naming_rules/<rule_id>.json."""
+        path = _naming_rule_path(workspace, rule_id)
+        rule = _naming_rule(category, regex, severity, message, target, parameter or None)
+        rule_hash = _naming_rule_hash(rule)
+        path = _assert_writable(workspace, path)
+        if path.exists() and not overwrite:
+            raise ValueError(f"Naming rule '{rule_id}' already exists; pass overwrite=true to replace it.")
+        body = json.dumps({"rule_id": rule_id, "rule": rule, "rule_hash": rule_hash}, indent=2, sort_keys=True) + "\n"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if overwrite:
+            tmp = path.with_name(path.name + ".tmp")
+            tmp.write_text(body, encoding="utf-8")
+            os.replace(tmp, path)
+        else:
+            with open(path, "x", encoding="utf-8") as fh:
+                fh.write(body)
+        _append_naming_audit(workspace, "rule_saved", rule_id=rule_id, rule_hash=rule_hash, overwrite=bool(overwrite))
+        return {"status": "saved", "rule_id": rule_id, "rule_hash": rule_hash, "path": str(path), "rule": rule}
+
+    def replay_naming_rules(
+        self,
+        snapshot_id: str = "",
+        rule_ids: Optional[List[str]] = None,
+        workspace: Any = None,
+        **_,
+    ) -> Dict[str, Any]:
+        """Replay saved naming rules against a snapshot. No model call; same snapshot, same findings."""
+        udir = _naming_rules_dir(workspace)
+        if rule_ids:
+            ids = sorted({str(i) for i in rule_ids})
+        elif udir.is_dir():
+            ids = sorted(p.stem for p in udir.glob("*.json") if p.is_file() and RULE_ID_RE.fullmatch(p.stem))
+        else:
+            ids = []
+        saved = [_load_naming_rule(workspace, rid) for rid in ids]
+        elements, doc_guid = self._naming_data(snapshot_id, workspace)
+        findings: List[Dict[str, Any]] = []
+        per_rule = []
+        for item in saved:
+            rule = item["rule"]
+            rows = _evaluate_naming_rule(rule, elements)
+            misses = [r for r in rows if not r["matched"]]
+            per_rule.append({
+                "id": item["rule_id"], "rule_hash": item["rule_hash"], "severity": rule["severity"],
+                "elements_checked": len(rows), "findings": len(misses), "passed": not misses,
+            })
+            findings.extend({
+                "rule_id": item["rule_id"], "rule_hash": item["rule_hash"], "severity": rule["severity"],
+                "element_uid": r["uid"], "label": r["value"], "message": rule["message"], "doc_guid": doc_guid,
+            } for r in misses)
+        findings.sort(key=lambda f: (f["rule_id"], f["element_uid"] is None, f["element_uid"] or ""))
+        rule_hashes = {i["rule_id"]: i["rule_hash"] for i in saved}
+        _append_naming_audit(
+            workspace, "rules_run", snapshot_id=snapshot_id or "mock", rule_hashes=rule_hashes,
+            total_findings=len(findings),
+        )
+        return {
+            "doc_guid": doc_guid,
+            "snapshot_id": snapshot_id or "mock",
+            "rules_run": len(saved),
+            "rule_hashes": rule_hashes,
+            "total_findings": len(findings),
+            "by_severity": {sev: sum(1 for f in findings if f["severity"] == sev) for sev in SEVERITIES},
+            "rules": per_rule,
+            "findings": findings,
+        }
+
+    def _naming_data(self, snapshot_id: str, workspace: Any):
+        elements, _types = self._get_data(snapshot_id, workspace)
+        doc_guid = "mock-doc"
+        if snapshot_id:
+            snap_dir = workspace.allowed_directories[0] / "snapshots"
+            with open(snapshot_file(snap_dir, snapshot_id), encoding="utf-8") as f:
+                doc_guid = json.load(f).get("source", {}).get("doc_guid", snapshot_id)
+        return elements, doc_guid
+
 
     # -----------------------------------------------------------------------
     # Helpers
