@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Release builds measure the tool catalogue per profile, attach `token-budget.json` and fail past 10% growth over `docs/mcp-token-baseline.json`. Fixes #173
 - Excel round-trip: saved per-project column mappings (`excel_mappings/<name>.json`) for export and import. Fixes #174
 - Example rule pack `door-fire-rating.yaml`: doors rated below their host wall, and doors or host walls without a rating. Fixes #172
 - Panel: the Reject button on a plan card now asks "Reject this plan?" inline (focus on Cancel, Escape cancels) before it rejects, like bulk Reject.

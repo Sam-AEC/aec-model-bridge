@@ -260,6 +260,14 @@ approval/review/hash invariants, default-response compatibility, invalid options
 error/progress preservation, and real MCP subprocess round trips. All changed
 Python files pass Ruff. Independent review found no remaining concrete defects.
 
+## Per-release measurement
+
+Each release build runs `scripts/token_budget.py`, which measures the `core`, `daily` and `full`
+catalogues and the representative mock calls, and attaches `token-budget.json` to the GitHub
+release. The build fails when a profile's catalogue grows more than `threshold_pct` (10%) over
+`docs/mcp-token-baseline.json`. When the growth is intended, run
+`python scripts/token_budget.py --output token-budget.json --update-baseline` and commit the baseline.
+
 ## Reproduce
 
 ```powershell
