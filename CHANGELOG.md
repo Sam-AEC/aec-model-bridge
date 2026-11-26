@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Docs: README shows a Revit 2026 demo: a 30-storey twisting tower built in Dev mode, frames rendered by Revit.
 - VS Code extension: a registry file endpoint must be loopback HTTP (127.0.0.1, localhost or [::1]); other hosts are ignored. The in-flight settle log strips CR and LF from the tool name. Clears CodeQL alerts #31 and #32.
 - Supply chain: releases carry a `.intoto.jsonl` provenance bundle, CI installs from hash-pinned requirements and a digest-pinned base image, atheris fuzz harnesses run nightly, CodeQL scans every pull request, and SECURITY.md links the private reporting form.
 - Panel layout: setup check and alerts share one expandable status strip with the only Refresh; plan cards are denser, with Approve and Reject pinned to the bottom while a card is in view; the bulk footer shows from two ticked plans; the reject confirm bar opens only from Reject, and Confirm does nothing unless it was opened; the empty state is one line. No approval logic changed. Browser tests cover the layout. Revit look UNVERIFIED.
