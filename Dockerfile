@@ -26,9 +26,10 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 COPY packages/mcp-server-revit/ /app/
 
-# Editable install keeps the module manifests and recipes (non-Python files)
-# next to the code, exactly as in a source checkout.
-RUN pip install -e . \
+# Dependencies come from the hash-pinned export of uv.lock. The editable install
+# keeps the module manifests and recipes next to the code, as in a source checkout.
+RUN pip install --require-hashes -r requirements-docker.txt \
+    && pip install --no-deps -e . \
     && useradd --create-home --uid 10001 mcp \
     && mkdir -p /workspace \
     && chown -R mcp:mcp /workspace
