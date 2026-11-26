@@ -23,11 +23,13 @@ Security fixes go into the latest 1.x release. For the Revit and Python versions
 
 ### Where to Report
 
-Use GitHub's private security advisory feature:
+Use GitHub private vulnerability reporting: <https://github.com/Sam-AEC/aec-model-bridge/security/advisories/new>
 
-1. Navigate to the repository's **Security** tab
+1. Open the link above, or go to the repository's **Security** tab
 2. Click **"Report a vulnerability"**
-3. Provide detailed information
+3. Describe the issue (see below)
+
+The report stays private between you and the maintainers. This policy is also published at <https://github.com/Sam-AEC/aec-model-bridge/security/policy>. Reports that are not about a vulnerability belong in [GitHub issues](https://github.com/Sam-AEC/aec-model-bridge/issues).
 
 ### What to Include
 
@@ -45,6 +47,9 @@ Use GitHub's private security advisory feature:
   - **Critical**: Within 7 days
   - **High**: Within 30 days
   - **Medium**: Within 90 days
+- **Status updates**: At least every 14 days until the report is closed, in the private advisory thread
+
+If a report is declined, we say why in the advisory thread.
 
 ### Disclosure Policy
 
@@ -52,7 +57,7 @@ We follow **coordinated disclosure**:
 1. Private report received
 2. Fix developed and tested
 3. Patched version released
-4. Public disclosure after 30 days
+4. Public disclosure after 30 days, or earlier by agreement with the reporter. Fixed issues are published as a [GitHub security advisory](https://github.com/Sam-AEC/aec-model-bridge/security/advisories) with a CVE where one applies, and credited to the reporter unless they ask not to be.
 
 ## Security Best Practices
 

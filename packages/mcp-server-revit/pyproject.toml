@@ -1,7 +1,7 @@
 [project]
 name = "aec-model-bridge"
 version = "1.6.0"
-description = "Revit MCP server (Model Context Protocol) for Claude, Codex and Cursor: read and edit BIM and IFC models, every change human-approved"
+description = "Revit MCP server: 300+ tools to read and edit BIM and IFC models, every change human-approved."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "GPL-3.0-or-later"
