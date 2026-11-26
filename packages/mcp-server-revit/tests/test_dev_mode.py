@@ -13,6 +13,7 @@ from types import SimpleNamespace
 import pytest
 
 from helpers import human_approve
+from revit_mcp_server.errors import BridgeError
 from revit_mcp_server.panel_server import build_server
 from revit_mcp_server.providers.revit_context import get_context
 from revit_mcp_server.registry_factory import build_registry
@@ -478,3 +479,27 @@ def test_export_image_outside_workspace_refuses_in_dev_and_names_the_workspace(t
     assert "outside the allowed workspace" in text
     assert "Use a path inside the workspace folder" in text
     assert str(ws.resolve()) in text
+
+
+@pytest.mark.parametrize("path", ["check", "claim"])
+def test_missing_plan_refusal_names_workspace_and_why_dev_is_off(tmp_path, path):
+    # Dev is on for workspace A (the panel's); the server resolved workspace B (issue #370).
+    other = ApprovalGate(tmp_path / "a", "ask_first")
+    dev.enable_dev(other.workspace_dir, token=TOKEN, now=1)
+    gate = _gate(tmp_path / "b")
+    call = gate.check_tool_execution if path == "check" else gate.claim_action
+    with pytest.raises(BridgeError) as exc:
+        call("revit_execute_python", {})
+    text = str(exc.value)
+    assert "requires a valid 'plan_id' parameter" in text
+    assert str(gate.workspace_dir) in text
+    assert dev.dev_off_reason(gate.workspace_dir, token=TOKEN) in text
+    assert TOKEN not in text
+
+
+def test_missing_plan_refusal_still_refuses_and_stays_quiet_when_dev_is_on(tmp_path):
+    gate = _gate(tmp_path)
+    dev.enable_dev(gate.workspace_dir, token=TOKEN, now=1)
+    # Dev on: an unplanned call is allowed, so the helper is never the reason for a refusal.
+    gate.check_tool_execution("revit_execute_python", {})
+    assert "Dev mode is off" not in gate.missing_plan_message("revit_execute_python")
