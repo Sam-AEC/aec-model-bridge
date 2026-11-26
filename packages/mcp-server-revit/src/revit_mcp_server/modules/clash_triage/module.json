@@ -36,6 +36,22 @@
       }
     },
     {
+      "id": "import_clash_report",
+      "title": "Import Clash Report",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "report_path": {"type": "string", "description": "Navisworks clash report exported as XML (.xml) or a BCF file (.bcfzip), inside the workspace."},
+          "snapshot_id": {"type": "string", "description": "Snapshot of the Revit model to match against. Required when connected to Revit."},
+          "record_issues": {"type": "boolean", "default": true, "description": "Record each clash as an issue in the workspace."}
+        },
+        "required": ["report_path"]
+      }
+    },
+    {
       "id": "list_clash_issues",
       "title": "List Clash Issues",
       "surface": ["mcp", "panel"],

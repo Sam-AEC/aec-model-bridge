@@ -287,6 +287,7 @@ DESCRIPTIONS: dict[str, str] = {
     "qaqc_checker_run_check": "Run a QA/QC rule pack against a saved snapshot and record the issues it finds. Take the snapshot first with snapshot_take; read the results with qaqc_checker_list_issues. Does not change the Revit model.",
     "qaqc_checker_list_issues": "List recorded QA/QC issues for a document, optionally filtered by status, severity and snapshot. Hides stale issues (not seen in the latest run) unless include_stale is true. Read-only.",
     "qaqc_checker_resolve_issue": "Mark one recorded QA/QC issue as resolved. It changes only the issue record in the workspace, not the Revit model. Find issue ids with qaqc_checker_list_issues.",
+    "clash_triage_import_clash_report": "Read a Navisworks XML clash report or a BCF .bcfzip from the workspace, match each clash to Revit elements by GUID, group clashes by element pair and level, and list unmatched items with the reason. Never changes the model; records the result as issues in the workspace.",
     "clash_triage_match_clashes": "Match each clash from a Navisworks clash test to the Revit elements it involves, by UniqueId or IFC GUID, and say how sure each match is (exact, ambiguous or unmatched). Never guesses and never changes the model; records the result as issues in the workspace.",
     "clash_triage_list_clash_issues": "List the clash issues recorded by clash triage, optionally filtered by status and match confidence. Read-only.",
     "qaqc_checker_list_rule_packs": "List the built-in QA/QC rule packs and the user packs in the workspace rule_packs folder, with a validity flag for each. Read-only.",
@@ -681,6 +682,7 @@ NOT_READ_ONLY: dict[str, tuple[bool, bool]] = {
     "bcf_exchange_export_bcf": (True, True),
     "qaqc_checker_run_check": (False, False),
     "clash_triage_match_clashes": (False, True),
+    "clash_triage_import_clash_report": (False, True),
     "qaqc_checker_resolve_issue": (False, True),
     "qaqc_checker_import_rule_pack": (True, False),  # overwrite=true replaces a rule pack
     "qaqc_checker_export_rule_pack": (True, False),  # overwrite=true replaces the destination file
