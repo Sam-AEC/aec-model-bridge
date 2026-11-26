@@ -29,6 +29,21 @@ updates:
       - dependency-name: specklepy
         versions: [">=2027"]
 
+  - package-ecosystem: pip
+    directory: /docs
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
+    groups:
+      docs-dependencies:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
+
   - package-ecosystem: github-actions
     directory: /
     schedule:

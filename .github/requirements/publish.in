@@ -1,0 +1,4 @@
+# Hash-pinned publish tooling for publish-pypi.yml. Regenerate:
+# uv pip compile --universal --generate-hashes --python-version 3.11 .github/requirements/publish.in -o .github/requirements/publish.txt
+build
+twine
