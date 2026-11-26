@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.6.0 - 2026-11-26
+
 - New module `schedule_diff` (#364). Tool count is now 317 (117 module tools). `schedule_diff_compare` compares two saved snapshots: sheets added, removed, renumbered, renamed or moved in the numbering order, sheet revision fields (`Current Revision*`) changed, and schedule rows added, removed, changed or moved. A block a snapshot does not hold is reported as `not_captured`, never as no change; schedule rows are not captured by the add-in yet (#367), so that part is tested on fixture snapshots only and the row layout is UNVERIFIED against live Revit. Optional `.csv` or `.xlsx` export in the workspace. Read-only. Refs #364.
 - Fix (#340): the panel hub frees a request thread slot before it closes the client socket, so a client that has read the end of a response and reconnects at once never meets a slot the previous request still holds (a 503 on a slow Linux runner).
 - Fix (#380): when the refusal closer queue is full, the hub waits up to 50 ms for the refused client's request to arrive before it closes the socket, so Windows no longer resets the connection and drops the 503 (WinError 10053).
@@ -108,6 +110,7 @@
 - Installer and client setup text is plainer: the welcome page says what is installed and that changes wait for approval, the finish page says to restart Claude Desktop or VS Code, and the WebView2 and client setup messages say what they do. Installer logic is unchanged.
 - `docs/mcp-token-budget.md` no longer links to measurement JSON files that were removed from the repository.
 - Self-hosted nightly live test (#295): `.github/workflows/live-nightly.yml` runs only on schedule or manual dispatch, from `dev` or `main`, on a runner labelled `self-hosted`, `windows` and `revit-live`, with read-only permissions and no secrets. `scripts/revit/nightly/run.py` opens a scratch copy of the canonical model (`prepare-scratch.ps1`), merges the add-in benchmark, makes one write through the plan gate (an unapproved plan must be refused), reverts it with `plan_revert` and compares snapshots, then uploads a JSON report with timings and PASS, FAIL or NOT_RUN per check. Setup is in `docs/release-checklist.md`, section 8. The runner approves its own test plans through the panel route, on a scratch model only. Tested with a fake client and workflow checks; the run itself is UNVERIFIED in live Revit.
+
 
 ## 1.5.1 - 2026-11-24
 
