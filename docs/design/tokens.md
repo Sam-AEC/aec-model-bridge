@@ -12,6 +12,17 @@ Status: **approved**.
 > describe the earlier Span mark (retired in 1.3.0) and are superseded where they
 > conflict. The Pier is the only current brand mark.
 
+> **Update: panel redesign.** `panel/` only. The dark theme is graphite
+> (`--amb-bg` `#0A0C0F`, `--amb-surface` `#0F1216`, `--amb-surface-raised`
+> `#171C23`, `--amb-line` `#232A33`) with one accent blue (`--amb-brand`
+> `#6EA8FF`, `--amb-brand-strong` `#9DC4FF`) and coral (`--amb-warning`
+> `#FF8F6B`) for warnings and approval-off modes. The light theme keeps its
+> neutrals and uses blue `#2F6FDB` / `#2457C5` for the accent. The rail is
+> `#0D1014` in both themes. UI text is Inter, ids and values are JetBrains Mono,
+> both bundled in `panel/vendor/fonts/` (no CDN). Rail icons are Phosphor
+> glyphs (MIT) in `currentColor`. The teal values in sections 3 to 5 still
+> apply to the ribbon, dialogs and the Pier mark; they no longer apply to the panel.
+
 ### One design across surfaces (current)
 
 | Surface | Where | Rules |

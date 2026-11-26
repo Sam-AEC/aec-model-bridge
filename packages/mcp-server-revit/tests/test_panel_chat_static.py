@@ -31,6 +31,7 @@ REQUIRED_CSP = {
     "script-src": "'self'",
     "style-src": "'self'",
     "img-src": "'self' data:",
+    "font-src": "'self'",
     "connect-src": "'none'",
     "object-src": "'none'",
     "base-uri": "'none'",
@@ -118,7 +119,9 @@ def test_panel_never_calls_the_hub_directly():
 def test_panel_css_loads_nothing_external(path):
     text = path.read_text(encoding="utf-8")
     assert "@import" not in text
-    assert not re.search(r"url\(\s*['\"]?(?!data:|#)", text), "css url() fetch"
+    # Only the bundled fonts may be fetched, by relative path.
+    allowed = r"data:|#|\./vendor/fonts/[\w.-]+\.woff2['\"]?\)"
+    assert not re.search(r"url\(\s*(?!['\"]?(?:%s))" % allowed, text), "css url() fetch"
 
 
 def test_html_references_nothing_remote():
