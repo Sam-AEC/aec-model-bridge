@@ -126,225 +126,140 @@ namespace RevitBridge.Bridge
                 // Tab might already exist
             }
 
-            // Create panels
+            RibbonPanel bridgePanel = app.CreateRibbonPanel(tabName, "Model Bridge");
             RibbonPanel connectionPanel = app.CreateRibbonPanel(tabName, "Connection");
-            RibbonPanel workflowPanel = app.CreateRibbonPanel(tabName, "Workflows");
-            RibbonPanel toolsPanel = app.CreateRibbonPanel(tabName, "Tools");
 
             string assemblyPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+            BitmapSource brandIcon32 = IconGenerator.CreateBrandIcon(32);
 
-            // Use pre-existing icon files
-            string iconPath = Path.Combine(
-                Path.GetDirectoryName(assemblyPath) ?? "",
-                "Icons"
-            );
+            PushButtonData Define(
+                string name,
+                string text,
+                string command,
+                string toolTip,
+                string description,
+                Func<int, BitmapSource> icon)
+            {
+                var data = new PushButtonData(name, text, assemblyPath, command)
+                {
+                    ToolTip = toolTip,
+                    LongDescription = description,
+                    Image = icon(16),
+                    LargeImage = icon(32),
+                    ToolTipImage = brandIcon32
+                };
+                data.SetContextualHelp(new ContextualHelp(ContextualHelpType.Url, ProductInfo.DocumentationUrl));
+                return data;
+            }
 
-            string connectIconPath16 = Path.Combine(iconPath, "connect_16.png");
-            string connectIconPath32 = Path.Combine(iconPath, "connect_32.png");
-            string disconnectIconPath16 = Path.Combine(iconPath, "disconnect_16.png");
-            string disconnectIconPath32 = Path.Combine(iconPath, "disconnect_32.png");
-            string statusIconPath16 = Path.Combine(iconPath, "status_16.png");
-            string statusIconPath32 = Path.Combine(iconPath, "status_32.png");
-            string brandIconPath16 = Path.Combine(iconPath, "brand_16.png");
-            string brandIconPath32 = Path.Combine(iconPath, "brand_32.png");
-            string settingsIconPath16 = Path.Combine(iconPath, "settings_16.png");
-            string settingsIconPath32 = Path.Combine(iconPath, "settings_32.png");
-            string helpIconPath16 = Path.Combine(iconPath, "help_16.png");
-            string helpIconPath32 = Path.Combine(iconPath, "help_32.png");
-            string panelIconPath16 = Path.Combine(iconPath, "panel_16.png");
-            string panelIconPath32 = Path.Combine(iconPath, "panel_32.png");
-            string healthIconPath16 = Path.Combine(iconPath, "healthcheck_16.png");
-            string healthIconPath32 = Path.Combine(iconPath, "healthcheck_32.png");
-            string pendingIconPath16 = Path.Combine(iconPath, "pending_16.png");
-            string pendingIconPath32 = Path.Combine(iconPath, "pending_32.png");
-            string reportsIconPath16 = Path.Combine(iconPath, "reports_16.png");
-            string reportsIconPath32 = Path.Combine(iconPath, "reports_32.png");
+            PushButtonData panelBtnData = Define(
+                "cmdOpenPanel", "Panel", "RevitBridge.Bridge.CommandOpenPanel",
+                "Open the AEC Model Bridge panel",
+                "Shows the dockable AEC Model Bridge panel inside Revit.",
+                IconGenerator.CreatePanelIcon);
 
-            // Generate theme-adaptive icons (rewritten each session so they never go stale), then retain
-            // in-memory fallbacks if file I/O fails. RefreshRibbonIcons re-skins the buttons when Revit's theme changes.
+            PushButtonData approveBtnData = Define(
+                "cmdReviewPendingActions", "Approve", "RevitBridge.Bridge.CommandReviewPendingActions",
+                "Review pending plans",
+                "Opens the approval queue in the AEC Model Bridge panel.",
+                IconGenerator.CreateApproveIcon);
+
+            PushButtonData healthBtnData = Define(
+                "cmdRunHealthCheck", "Check model", "RevitBridge.Bridge.CommandRunHealthCheck",
+                "Check the model",
+                "Opens the findings view and requests a QA/QC health check.",
+                IconGenerator.CreateHealthIcon);
+
+            PushButtonData connectionBtnData = Define(
+                "cmdToggleConnection", ConnectionText(), "RevitBridge.Bridge.CommandToggleConnection",
+                ConnectionToolTip(),
+                "Starts or stops the local MCP bridge server. The button shows the current state.",
+                ConnectionIcon);
+
+            PushButtonData statusBtnData = Define(
+                "cmdStatus", "Status", "RevitBridge.Bridge.CommandStatus",
+                "View server status",
+                "Displays detailed information about the Bridge Server including connection status, statistics, and capabilities.",
+                IconGenerator.CreateStatusIcon);
+
+            PushButtonData settingsBtnData = Define(
+                "cmdSettings", "Config", "RevitBridge.Bridge.CommandSettings",
+                "View bridge configuration",
+                "View the local server address, runtime behavior, configuration path, and log path.",
+                IconGenerator.CreateSettingsIcon);
+            settingsBtnData.AvailabilityClassName = "RevitBridge.Bridge.CommandAvailability";
+
+            PushButtonData reportsBtnData = Define(
+                "cmdReports", "Reports", "RevitBridge.Bridge.CommandOpenReports",
+                "Open report tools",
+                "Opens report export controls in the AEC Model Bridge panel.",
+                IconGenerator.CreateReportsIcon);
+
+            PushButtonData helpBtnData = Define(
+                "cmdHelp", "Help", "RevitBridge.Bridge.CommandHelp",
+                "Open the documentation",
+                "Open the AEC Model Bridge documentation and user guide.",
+                IconGenerator.CreateHelpIcon);
+
+            PushButtonData aboutBtnData = Define(
+                "cmdAbout", "About", "RevitBridge.Bridge.CommandAbout",
+                "About AEC Model Bridge",
+                "View the installed version, maintainer, documentation, and support links.",
+                IconGenerator.CreateAboutIcon);
+
+            // Model Bridge: the three everyday actions.
+            Track(bridgePanel.AddItem(panelBtnData), IconGenerator.CreatePanelIcon);
+            Track(bridgePanel.AddItem(approveBtnData), IconGenerator.CreateApproveIcon);
+            Track(bridgePanel.AddItem(healthBtnData), IconGenerator.CreateHealthIcon);
+
+            // Connection: one toggle, the rest in the slide-out.
+            _connectionButton = connectionPanel.AddItem(connectionBtnData) as PushButton;
+            Track(_connectionButton, ConnectionIcon);
+
+            // No Dev panel: the add-in has no reliable signal for Dev mode (the hub signs .dev-mode.json
+            // and only the hub can verify it), so Reports sits in the slide-out.
+            connectionPanel.AddSlideOut();
+            Track(connectionPanel.AddItem(statusBtnData), IconGenerator.CreateStatusIcon);
+            Track(connectionPanel.AddItem(settingsBtnData), IconGenerator.CreateSettingsIcon);
+            Track(connectionPanel.AddItem(reportsBtnData), IconGenerator.CreateReportsIcon);
+            Track(connectionPanel.AddItem(helpBtnData), IconGenerator.CreateHelpIcon);
+            Track(connectionPanel.AddItem(aboutBtnData), IconGenerator.CreateAboutIcon);
+
+            Log.Information("Modern ribbon interface created with icons");
+        }
+
+        private static PushButton? _connectionButton;
+
+        private static bool IsConnected => Server?.IsListening == true;
+
+        private static string ConnectionText() => IsConnected ? "Connected" : "Disconnected";
+
+        private static string ConnectionToolTip() =>
+            IsConnected ? "Connected. Click to stop the bridge server" : "Disconnected. Click to start the bridge server";
+
+        private static BitmapSource ConnectionIcon(int size) =>
+            IsConnected ? IconGenerator.CreateConnectedIcon(size) : IconGenerator.CreateDisconnectedIcon(size);
+
+        /// <summary>Updates the Connection button text, tooltip and icon after the server starts or stops.</summary>
+        internal static void RefreshConnectionButton()
+        {
+            var button = _connectionButton;
+            if (button == null)
+            {
+                return;
+            }
+
             try
             {
-                IconGenerator.GenerateAllIcons(iconPath);
+                button.ItemText = ConnectionText();
+                button.ToolTip = ConnectionToolTip();
+                button.Image = ConnectionIcon(16);
+                button.LargeImage = ConnectionIcon(32);
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Failed to dynamically generate ribbon icons");
+                Log.Debug(ex, "Could not refresh the connection button");
             }
-
-            BitmapSource connectIcon16 = LoadIcon(connectIconPath16, IconGenerator.CreateConnectIcon, 16);
-            BitmapSource connectIcon32 = LoadIcon(connectIconPath32, IconGenerator.CreateConnectIcon, 32);
-            BitmapSource disconnectIcon16 = LoadIcon(disconnectIconPath16, IconGenerator.CreateDisconnectIcon, 16);
-            BitmapSource disconnectIcon32 = LoadIcon(disconnectIconPath32, IconGenerator.CreateDisconnectIcon, 32);
-            BitmapSource statusIcon16 = LoadIcon(statusIconPath16, IconGenerator.CreateStatusIcon, 16);
-            BitmapSource statusIcon32 = LoadIcon(statusIconPath32, IconGenerator.CreateStatusIcon, 32);
-            BitmapSource brandIcon16 = LoadIcon(brandIconPath16, IconGenerator.CreateBrandIcon, 16);
-            BitmapSource brandIcon32 = LoadIcon(brandIconPath32, IconGenerator.CreateBrandIcon, 32);
-            BitmapSource settingsIcon16 = LoadIcon(settingsIconPath16, IconGenerator.CreateSettingsIcon, 16);
-            BitmapSource settingsIcon32 = LoadIcon(settingsIconPath32, IconGenerator.CreateSettingsIcon, 32);
-            BitmapSource helpIcon16 = LoadIcon(helpIconPath16, IconGenerator.CreateHelpIcon, 16);
-            BitmapSource helpIcon32 = LoadIcon(helpIconPath32, IconGenerator.CreateHelpIcon, 32);
-            BitmapSource panelIcon16 = LoadIcon(panelIconPath16, IconGenerator.CreatePanelIcon, 16);
-            BitmapSource panelIcon32 = LoadIcon(panelIconPath32, IconGenerator.CreatePanelIcon, 32);
-            BitmapSource healthIcon16 = LoadIcon(healthIconPath16, IconGenerator.CreateHealthIcon, 16);
-            BitmapSource healthIcon32 = LoadIcon(healthIconPath32, IconGenerator.CreateHealthIcon, 32);
-            BitmapSource pendingIcon16 = LoadIcon(pendingIconPath16, IconGenerator.CreatePendingIcon, 16);
-            BitmapSource pendingIcon32 = LoadIcon(pendingIconPath32, IconGenerator.CreatePendingIcon, 32);
-            BitmapSource reportsIcon16 = LoadIcon(reportsIconPath16, IconGenerator.CreateReportsIcon, 16);
-            BitmapSource reportsIcon32 = LoadIcon(reportsIconPath32, IconGenerator.CreateReportsIcon, 32);
-
-            // === CONNECTION PANEL ===
-
-            // Connect Button
-            PushButtonData connectBtnData = new PushButtonData(
-                "cmdConnect",
-                "Connect",
-                assemblyPath,
-                "RevitBridge.Bridge.CommandConnect"
-            );
-            connectBtnData.ToolTip = "Start the MCP Bridge Server";
-            connectBtnData.LongDescription = "Starts AEC Model Bridge to enable MCP automation for Revit software.";
-            connectBtnData.Image = connectIcon16;
-            connectBtnData.LargeImage = connectIcon32;
-
-            // Disconnect Button
-            PushButtonData disconnectBtnData = new PushButtonData(
-                "cmdDisconnect",
-                "Disconnect",
-                assemblyPath,
-                "RevitBridge.Bridge.CommandDisconnect"
-            );
-            disconnectBtnData.ToolTip = "Stop the MCP Bridge Server";
-            disconnectBtnData.LongDescription = "Stops AEC Model Bridge and closes all active connections.";
-            disconnectBtnData.Image = disconnectIcon16;
-            disconnectBtnData.LargeImage = disconnectIcon32;
-
-            // Status Button
-            PushButtonData statusBtnData = new PushButtonData(
-                "cmdStatus",
-                "Status",
-                assemblyPath,
-                "RevitBridge.Bridge.CommandStatus"
-            );
-            statusBtnData.ToolTip = "View Server Status and Statistics";
-            statusBtnData.LongDescription = "Displays detailed information about the Bridge Server including connection status, statistics, and capabilities.";
-            statusBtnData.Image = statusIcon16;
-            statusBtnData.LargeImage = statusIcon32;
-
-            // Create stacked items for better layout
-            Track(connectionPanel.AddItem(connectBtnData), IconGenerator.CreateConnectIcon);
-            Track(connectionPanel.AddItem(disconnectBtnData), IconGenerator.CreateDisconnectIcon);
-            connectionPanel.AddSeparator();
-            Track(connectionPanel.AddItem(statusBtnData), IconGenerator.CreateStatusIcon);
-
-            // === TOOLS PANEL ===
-
-            // Open Panel Button
-            PushButtonData panelBtnData = new PushButtonData(
-                "cmdOpenPanel",
-                "Open Panel",
-                assemblyPath,
-                "RevitBridge.Bridge.CommandOpenPanel"
-            );
-            panelBtnData.ToolTip = "Open the AEC Model Bridge panel";
-            panelBtnData.LongDescription = "Shows the dockable AEC Model Bridge panel inside Revit.";
-            panelBtnData.Image = panelIcon16;
-            panelBtnData.LargeImage = panelIcon32;
-
-            PushButtonData healthBtnData = new PushButtonData(
-                "cmdRunHealthCheck",
-                "Health Check",
-                assemblyPath,
-                "RevitBridge.Bridge.CommandRunHealthCheck"
-            );
-            healthBtnData.ToolTip = "Open the panel and start a model health check";
-            healthBtnData.LongDescription = "Opens the findings view and requests a QA/QC health check.";
-            healthBtnData.Image = healthIcon16;
-            healthBtnData.LargeImage = healthIcon32;
-
-            PushButtonData pendingBtnData = new PushButtonData(
-                "cmdReviewPendingActions",
-                "Pending Actions",
-                assemblyPath,
-                "RevitBridge.Bridge.CommandReviewPendingActions"
-            );
-            pendingBtnData.ToolTip = "Review pending ActionPlans";
-            pendingBtnData.LongDescription = "Opens the approval queue in the AEC Model Bridge panel.";
-            pendingBtnData.Image = pendingIcon16;
-            pendingBtnData.LargeImage = pendingIcon32;
-
-            PushButtonData reportsBtnData = new PushButtonData(
-                "cmdReports",
-                "Reports",
-                assemblyPath,
-                "RevitBridge.Bridge.CommandOpenReports"
-            );
-            reportsBtnData.ToolTip = "Open report tools";
-            reportsBtnData.LongDescription = "Opens report export controls in the AEC Model Bridge panel.";
-            reportsBtnData.Image = reportsIcon16;
-            reportsBtnData.LargeImage = reportsIcon32;
-
-            // Settings Button (future)
-            PushButtonData settingsBtnData = new PushButtonData(
-                "cmdSettings",
-                "Config",
-                assemblyPath,
-                "RevitBridge.Bridge.CommandSettings"
-            );
-            settingsBtnData.ToolTip = "View Bridge Configuration";
-            settingsBtnData.LongDescription = "View the local server address, runtime behavior, configuration path, and log path.";
-            settingsBtnData.Image = settingsIcon16;
-            settingsBtnData.LargeImage = settingsIcon32;
-            settingsBtnData.AvailabilityClassName = "RevitBridge.Bridge.CommandAvailability";
-
-            // Help Button
-            PushButtonData helpBtnData = new PushButtonData(
-                "cmdHelp",
-                "Help",
-                assemblyPath,
-                "RevitBridge.Bridge.CommandHelp"
-            );
-            helpBtnData.ToolTip = "View Documentation";
-            helpBtnData.LongDescription = "Open the AEC Model Bridge documentation and user guide.";
-            helpBtnData.Image = helpIcon16;
-            helpBtnData.LargeImage = helpIcon32;
-
-            // About Button
-            PushButtonData aboutBtnData = new PushButtonData(
-                "cmdAbout",
-                "About",
-                assemblyPath,
-                "RevitBridge.Bridge.CommandAbout"
-            );
-            aboutBtnData.ToolTip = "About AEC Model Bridge";
-            aboutBtnData.LongDescription = "View the installed version, maintainer, documentation, and support links.";
-            // The About button carries the cut-slate cerberus icon; the brand tile stays the tooltip image.
-            aboutBtnData.Image = LoadIcon(Path.Combine(iconPath, "about_16.png"), IconGenerator.CreateAboutIcon, 16);
-            aboutBtnData.LargeImage = LoadIcon(Path.Combine(iconPath, "about_32.png"), IconGenerator.CreateAboutIcon, 32);
-
-            // Every button: brand tooltip image, F1 opens the docs.
-            foreach (var data in new[]
-            {
-                connectBtnData, disconnectBtnData, statusBtnData, panelBtnData, healthBtnData,
-                pendingBtnData, reportsBtnData, settingsBtnData, helpBtnData, aboutBtnData
-            })
-            {
-                data.ToolTipImage = brandIcon32;
-                data.SetContextualHelp(new ContextualHelp(ContextualHelpType.Url, ProductInfo.DocumentationUrl));
-            }
-
-            // Workflows: one large primary action, the secondary ones stacked at 16 px (Revit's own pattern).
-            Track(workflowPanel.AddItem(panelBtnData), IconGenerator.CreatePanelIcon);
-            var workflowStack = workflowPanel.AddStackedItems(healthBtnData, pendingBtnData, reportsBtnData);
-            Track(workflowStack[0], IconGenerator.CreateHealthIcon);
-            Track(workflowStack[1], IconGenerator.CreatePendingIcon);
-            Track(workflowStack[2], IconGenerator.CreateReportsIcon);
-
-            var toolsStack = toolsPanel.AddStackedItems(settingsBtnData, helpBtnData, aboutBtnData);
-            Track(toolsStack[0], IconGenerator.CreateSettingsIcon);
-            Track(toolsStack[1], IconGenerator.CreateHelpIcon);
-            Track(toolsStack[2], IconGenerator.CreateAboutIcon);
-
-            Log.Information("Modern ribbon interface created with icons");
         }
 
         private static readonly List<(PushButton Button, Func<int, BitmapSource> Factory)> ThemedButtons =
@@ -373,26 +288,6 @@ namespace RevitBridge.Bridge
                     Log.Debug(ex, "Could not refresh ribbon icon for {Button}", button.Name);
                 }
             }
-        }
-
-        private static BitmapSource LoadIcon(
-            string path,
-            Func<int, BitmapSource> fallbackFactory,
-            int size)
-        {
-            if (!File.Exists(path))
-            {
-                Log.Debug("Icon not found at {IconPath}; using generated fallback", path);
-                return fallbackFactory(size);
-            }
-
-            var icon = new BitmapImage();
-            icon.BeginInit();
-            icon.CacheOption = BitmapCacheOption.OnLoad;
-            icon.UriSource = new Uri(path, UriKind.Absolute);
-            icon.EndInit();
-            icon.Freeze();
-            return icon;
         }
 
         public Result OnShutdown(UIControlledApplication application)
