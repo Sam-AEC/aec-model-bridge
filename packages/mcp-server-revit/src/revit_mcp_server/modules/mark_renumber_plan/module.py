@@ -448,7 +448,9 @@ class MarkRenumberPlanModule:
             data = json.load(f)
         counts = data.get("counts") or {}
         partial = None
-        if isinstance(counts, dict) and (counts.get("truncated") or counts.get("params")):
+        if data.get("dirty_only") or (isinstance(counts, dict) and counts.get("dirty_only")):
+            partial = f"Snapshot '{snapshot_id}' is a partial capture (dirty_only: changed elements only)."
+        elif isinstance(counts, dict) and (counts.get("truncated") or counts.get("params")):
             partial = f"Snapshot '{snapshot_id}' is a partial capture (truncated)."
         return data.get("elements", []), partial
 

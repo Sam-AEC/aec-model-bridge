@@ -4,6 +4,7 @@
 
 - `snapshot_compute`: a dotted path projected or grouped without an alias (`params.Mark`) can now be filtered, sorted and selected by later steps. Fixes #345.
 - Fix: semantic `level` joins resolve live snapshot level references by element id.
+- `mark_renumber_plan`: `draft_plan` refuses a `dirty_only` snapshot (top-level or in `counts`) and `analyze` warns, since Marks held by unchanged elements cannot be checked. Take a full snapshot. Fixes #345.
 
 ## 1.6.0 - 2026-11-26
 

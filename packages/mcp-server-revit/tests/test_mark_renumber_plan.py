@@ -177,6 +177,18 @@ def test_partial_snapshot_warns_and_refuses_to_draft(tmp_path):
         Mod().draft_plan(snapshot_id="s", workspace=WS(tmp_path), categories=["doors"])
 
 
+@pytest.mark.parametrize("snap_extra", [{"dirty_only": True}, {"counts": {"dirty_only": True}}])
+def test_dirty_only_snapshot_warns_and_refuses_to_draft(tmp_path, snap_extra):
+    snaps = tmp_path / "snapshots"
+    snaps.mkdir()
+    els = BASE + [door(1, "X", None, "r1")]
+    (snaps / "s.json").write_text(json.dumps({"elements": els, **snap_extra}), encoding="utf-8")
+    res = Mod().analyze(snapshot_id="s", workspace=WS(tmp_path), categories=["doors"])
+    assert "dirty_only" in res["warning"]
+    with pytest.raises(ValueError, match="Plan refused: Snapshot 's' is a partial capture .dirty_only"):
+        Mod().draft_plan(snapshot_id="s", workspace=WS(tmp_path), categories=["doors"])
+
+
 def test_far_out_mark_is_reported_not_enumerated(tmp_path):
     els = BASE + [door(1, "101A", None, "r1"), door(2, "101ENTRY", None, "r1")]
     res = run(tmp_path, els, categories=["doors"])
