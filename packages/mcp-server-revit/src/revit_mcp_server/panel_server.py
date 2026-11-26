@@ -138,7 +138,7 @@ class BoundedThreadingHTTPServer(ThreadingHTTPServer):
     when they are all in use, a connection gets one of the ``reserved_execute`` slots, and its
     thread answers 503 unless the request path is ``/execute``. When every slot is in use, the
     connection is answered 503 with ``Retry-After`` on the accept thread and handed to one shared
-    closer thread that drains and closes it; no thread starts per refused connection. A slot is released when its thread ends, also after an exception.
+    closer thread that drains and closes it; no thread starts per refused connection. A slot is released when its request ends, also after an exception, and before the socket closes.
     """
 
     def __init__(self, server_address, handler_class, max_threads: int = DEFAULT_MAX_THREADS,
@@ -268,13 +268,28 @@ class BoundedThreadingHTTPServer(ThreadingHTTPServer):
 
     def _process_request_in_slot(self, request, client_address, kind: str) -> None:
         self._slot_state.kind = kind
-        try:
-            self.process_request_thread(request, client_address)
-        finally:
+        released = False
+
+        def release() -> None:
+            nonlocal released
+            if released:
+                return
+            released = True
             self._slot_state.kind = "general"
             with self._count_lock:
                 self.active_threads -= 1
             self._release_slot(kind)
+
+        try:
+            try:
+                self.finish_request(request, client_address)
+            except Exception:
+                self.handle_error(request, client_address)
+        finally:
+            # Free the slot before the socket closes. A client that has seen the end of its
+            # response (EOF) can then connect again and always finds this slot free.
+            release()
+            self.shutdown_request(request)
 
 
 class InstanceRoutingError(Exception):
