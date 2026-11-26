@@ -50,7 +50,7 @@ Not copied (read them from the repository):
 > Open-source Revit MCP server (Model Context Protocol) and native Revit add-in. AI assistants such as Claude, Codex and Cursor read and edit the BIM model open in Revit 2024 to 2027. Every model change is a plan that a person approves first (approval gate). Also reads IFC files; Rhino, Grasshopper and Speckle integrations included.
 
 - Protocol: Model Context Protocol, stdio transport. Any MCP client that can start a local server works.
-- Tools: 318 in the default setup, counted in mock mode. Revit has 112 of them.
+- Tools: 321 in the default setup, counted in mock mode. Revit has 112 of them.
 - Safety: tools that change the model are blocked until a plan is approved. An unattended mode exists and is opt-in.
 - Platform: live Revit work needs Windows and a licensed Revit. Mock mode (sample data) needs neither.
 - Licence: GPL-3.0-or-later with the Revit Linking Exception, plus a commercial option.
@@ -159,7 +159,7 @@ python ../../scripts/version.py check       # VERSION, pyproject and manifests m
 
 **AI assistants read the Revit model you have open. By default, nothing in it changes until you approve a plan.**
 
-Open-source Revit MCP server · Revit 2024 – 2027 · 318 tools · Claude, Codex, Cursor and other MCP clients
+Open-source Revit MCP server · Revit 2024 – 2027 · 321 tools · Claude, Codex, Cursor and other MCP clients
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Sam-AEC/aec-model-bridge/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Sam-AEC/aec-model-bridge/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
@@ -315,14 +315,14 @@ status. It is not on the Marketplace.
 | --- | --- | --- |
 | Revit | 112 | Read the model, edit elements, parameters, views, sheets, schedules, exports, worksharing |
 | Approval | 6 | Plan, review, approve, execute and roll back changes; show the workspace policy |
-| Modules | 118 | Snapshot inspection, parameter grids, QA/QC checks, recipes, reports, selections |
+| Modules | 121 | Snapshot inspection, parameter grids, QA/QC checks, recipes, reports, selections |
 | Rhino and Grasshopper | 19 | Geometry, layers, materials, boolean operations |
 | Speckle | 17 | Projects, models, versions, send and receive |
 | Navisworks | 15 | Model tree, viewpoints, clash tests (in progress) |
 | IFC | 7 | Read IFC files without Revit |
 | Graph, snapshots, exports, jobs | 24 | Graph audits, snapshot diffs, SQLite export, background jobs |
 
-318 tools are listed in the default setup (counted from the current server in
+321 tools are listed in the default setup (counted from the current server in
 mock mode). Autodesk Data tools appear when APS credentials are configured. The
 [tool reference](docs/tools-generated.md) lists every tool. Each tool carries
 MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`,
@@ -3606,6 +3606,44 @@ Overwriting a pack refreshes its open issues' severity and message on the next r
 Existing databases migrate without deleting history; older issues without a pack
 identity are assigned to `core`.
 
+## Reviewed naming rules
+
+A rule pack has no regular-expression operator. A naming rule is a separate, saved
+kind of rule: a category, a regex the name must fully match, a message and a severity.
+An agent can write one during a chat. It is kept only after a person approves it, and
+it runs later with no model call.
+
+| Tool | Reads/writes | What it does |
+| --- | --- | --- |
+| `qaqc_checker_test_naming_rule` | read-only | Runs a proposed rule against a snapshot. Returns the rule hash, `matches` and `misses`, each with a count and a sample (default 10, at most 25). Saves nothing. |
+| `qaqc_checker_save_naming_rule` | mutating | Writes `<workspace>/naming_rules/<rule_id>.json`. It is gated like any write: `plan_actions`, a person approves the plan in the panel, then `execute_plan`. It is not a human-only tool, and it cannot run without an approved plan unless the person has switched approval off. Refuses an existing id unless `overwrite=true`. |
+| `qaqc_checker_replay_naming_rules` | appends to a log | Runs every saved rule (or the ids in `rule_ids`) against a snapshot. No model call. The same snapshot gives the same findings, sorted by rule id and element uid. Returns `rule_hashes` and writes them to `<workspace>/naming_rules_audit.jsonl` with the snapshot id. |
+
+`target` picks the value that is checked: `type_name` (default), `name`, `family`, or
+`parameter` together with `parameter` (the parameter name). Elements are matched by
+`category`. An empty value, or a value longer than 128 characters, is a miss and is not
+passed to the regex.
+
+The rule hash is the SHA-256 of the rule fields as sorted compact JSON. The rule file
+stores it. Replay recomputes it and refuses a file that was edited, that has an invalid
+regex, or whose id does not match its file name. Rule ids use the pack-name character
+set and are built with the workspace path-safety helper, so a path never reaches the file
+system.
+
+### Which regexes are refused
+
+Python's `re` has no timeout, so the check is made before the pattern runs. A regex is
+refused when it:
+
+- is empty, longer than 200 characters, or does not compile;
+- uses a backreference or a lookaround;
+- puts a variable repeat (`+`, `*`, `?`, `{m,n}`) inside another repeat, for example `(a+)+` or `(\w+\s?)+`;
+- puts an alternation inside a repeat, for example `(a|aa)+`;
+- has more than 3 unbounded repeats.
+
+Safe patterns such as `[A-Z]{1,3}-\d{3}` or `(A|B)-\d+` pass. Together with the 128
+character cap on names, the work per element stays small.
+
 ## Example pack
 
 [`docs/examples/rule_packs/door-room-basics.yaml`](examples/rule_packs/door-room-basics.yaml)
@@ -3635,7 +3673,7 @@ The result gives pass, fail or skipped per specification (skipped means the spec
 
 Measured 2026-11-05 with `MCP_REVIT_MODE=mock`, the supplied Python interpreter, a temporary workspace, no user modules or provider credentials, and no Revit model execution. Baseline captured at `87d1d1bb5312ccb9868786860cbc66f76c47b895` before production changes; results were reported before edits.
 
-The checkout exposes **318** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
+The checkout exposes **321** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
 
 ## Initial profile and response pass
 

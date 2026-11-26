@@ -117,8 +117,11 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `qaqc_checker_list_issues` | List recorded QA/QC issues for a document, optionally filtered by status, severity and snapshot. | No | sync |
 | `qaqc_checker_list_rule_packs` | List the built-in QA/QC rule packs and the user packs in the workspace rule_packs folder, with a validity flag for each. | No | sync |
 | `qaqc_checker_list_rules` | List the QA/QC rules that are available, optionally for one rule pack. | No | sync |
+| `qaqc_checker_replay_naming_rules` | Replay the saved naming rules against a saved snapshot with no model call. | No | sync |
 | `qaqc_checker_resolve_issue` | Mark one recorded QA/QC issue as resolved. | No | sync |
 | `qaqc_checker_run_check` | Run a QA/QC rule pack against a saved snapshot and record the issues it finds. | No | sync |
+| `qaqc_checker_save_naming_rule` | Save a tested naming rule to the workspace naming_rules folder so it can be replayed without a model. | Yes | sync |
+| `qaqc_checker_test_naming_rule` | Test a proposed naming rule (category, regex, message, severity) against a saved snapshot and return how many names match and miss, with a capped sample of each. | No | sync |
 | `qaqc_checker_validate_rule_pack` | Schema-check a YAML rule pack and return actionable errors per rule (id, severity, required fields, unknown operators). | No | sync |
 | `recipe_runner_get_run_status` | Return the status and results of one recipe run. | No | sync |
 | `recipe_runner_list_recipes` | List the available automation recipes. | No | sync |

@@ -294,6 +294,9 @@ DESCRIPTIONS: dict[str, str] = {
     "qaqc_checker_validate_rule_pack": "Schema-check a YAML rule pack and return actionable errors per rule (id, severity, required fields, unknown operators). Never executes the rules. Read-only.",
     "qaqc_checker_import_rule_pack": "Validate a YAML rule pack inside the workspace and copy it into the workspace rule_packs folder. Refuses invalid packs and existing names unless overwrite is true.",
     "qaqc_checker_export_rule_pack": "Copy a validated built-in or workspace rule pack to a YAML file inside the workspace so it can be shared. Refuses to overwrite unless overwrite is true.",
+    "qaqc_checker_test_naming_rule": "Test a proposed naming rule (category, regex, message, severity) against a saved snapshot and return how many names match and miss, with a capped sample of each. Read-only; saves nothing. Rejects invalid and catastrophic-backtracking regexes.",
+    "qaqc_checker_save_naming_rule": "Save a tested naming rule to the workspace naming_rules folder so it can be replayed without a model. Writes a file, so it runs only as an approved plan action. Refuses invalid or catastrophic regexes and existing ids unless overwrite is true.",
+    "qaqc_checker_replay_naming_rules": "Replay the saved naming rules against a saved snapshot with no model call. The same snapshot gives the same findings. Returns the rule hashes and appends them to the workspace naming rules audit log.",
     "qaqc_checker_list_rules": "List the QA/QC rules that are available, optionally for one rule pack. Use qaqc_checker_list_rule_packs to see the packs first. Read-only.",
     "sheet_view_audit_run_audit": "Check the sheets and views in a saved snapshot for empty sheets, unplaced views, duplicate sheet numbers, missing sheet parameters and default view names. Read-only.",
     "schedule_diff_compare": "Compare two saved snapshots by their sheet list, sheet revision fields and schedule rows: sheets added, removed, renumbered, renamed or moved in the numbering order, revision fields changed, and schedule rows added, removed, changed or moved. A block a snapshot does not hold (schedule rows are not captured yet) is reported as not captured, never as no change. Compact by default; optional .csv or .xlsx export in the workspace. Read-only.",
@@ -683,6 +686,7 @@ NOT_READ_ONLY: dict[str, tuple[bool, bool]] = {
     "qaqc_checker_resolve_issue": (False, True),
     "qaqc_checker_import_rule_pack": (True, False),  # overwrite=true replaces a rule pack
     "qaqc_checker_export_rule_pack": (True, False),  # overwrite=true replaces the destination file
+    "qaqc_checker_replay_naming_rules": (False, False),  # appends to the naming rules audit log
     "recipe_runner_run_recipe": (True, False),
     "aec_register_mapping": (True, True),  # replaces the mapping already held for the same id
     "graph_compile": (True, False),  # replace=true drops the existing graph

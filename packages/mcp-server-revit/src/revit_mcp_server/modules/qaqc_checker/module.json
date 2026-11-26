@@ -221,6 +221,161 @@
           "rule_pack"
         ]
       }
+    },
+    {
+      "id": "test_naming_rule",
+      "title": "Test Naming Rule",
+      "surface": [
+        "mcp"
+      ],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "description": "Revit category of the elements to check, for example OST_Doors."
+          },
+          "regex": {
+            "type": "string",
+            "description": "Python regex the name must fully match. At most 200 characters; no backreferences, lookarounds, repeats inside repeats or alternation inside repeats."
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning",
+              "info"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "description": "Finding text for an element whose name does not match."
+          },
+          "target": {
+            "type": "string",
+            "enum": [
+              "type_name",
+              "name",
+              "family",
+              "parameter"
+            ],
+            "default": "type_name",
+            "description": "Which value is checked."
+          },
+          "parameter": {
+            "type": "string",
+            "description": "Parameter name; only with target 'parameter'."
+          },
+          "snapshot_id": {
+            "type": "string",
+            "description": "Snapshot to test against; omit in mock mode."
+          },
+          "sample_limit": {
+            "type": "integer",
+            "default": 10,
+            "description": "Matches and misses listed, at most 25 each."
+          }
+        },
+        "required": [
+          "category",
+          "regex",
+          "severity",
+          "message"
+        ]
+      }
+    },
+    {
+      "id": "save_naming_rule",
+      "title": "Save Reviewed Naming Rule",
+      "surface": [
+        "mcp"
+      ],
+      "execution_mode": "sync",
+      "is_mutating": true,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "rule_id": {
+            "type": "string",
+            "description": "File name for the rule: letters, digits, '_', '-' or '.'. Saved as naming_rules/<rule_id>.json in the workspace."
+          },
+          "category": {
+            "type": "string",
+            "description": "Revit category of the elements to check, for example OST_Doors."
+          },
+          "regex": {
+            "type": "string",
+            "description": "Python regex the name must fully match. At most 200 characters; no backreferences, lookarounds, repeats inside repeats or alternation inside repeats."
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning",
+              "info"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "description": "Finding text for an element whose name does not match."
+          },
+          "target": {
+            "type": "string",
+            "enum": [
+              "type_name",
+              "name",
+              "family",
+              "parameter"
+            ],
+            "default": "type_name",
+            "description": "Which value is checked."
+          },
+          "parameter": {
+            "type": "string",
+            "description": "Parameter name; only with target 'parameter'."
+          },
+          "overwrite": {
+            "type": "boolean",
+            "default": false,
+            "description": "Replace a saved rule with the same id."
+          }
+        },
+        "required": [
+          "rule_id",
+          "category",
+          "regex",
+          "severity",
+          "message"
+        ]
+      }
+    },
+    {
+      "id": "replay_naming_rules",
+      "title": "Run Saved Naming Rules",
+      "surface": [
+        "mcp"
+      ],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "description": "Snapshot to check; omit in mock mode."
+          },
+          "rule_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Saved rule ids to run; default all."
+          }
+        },
+        "required": []
+      }
     }
   ]
 }
