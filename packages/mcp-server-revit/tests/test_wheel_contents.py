@@ -8,6 +8,7 @@ proof; only the built artifact is.
 from __future__ import annotations
 
 import importlib.util
+import os
 import shutil
 import subprocess
 import sys
@@ -23,10 +24,21 @@ SRC_PACKAGE = PACKAGE_ROOT / "src" / "revit_mcp_server"
 pytestmark = [pytest.mark.timeout(300), pytest.mark.slow]
 
 
+_BUILD_HINT = "the 'build' package is not installed; run 'uv sync --extra dev' or 'pip install build'"
+
+
+def _require_build() -> None:
+    """Skip locally when `build` is missing; fail when CI is set, so the guard cannot vanish silently."""
+    if importlib.util.find_spec("build") is not None:
+        return
+    if os.environ.get("CI"):
+        pytest.fail(_BUILD_HINT, pytrace=False)
+    pytest.skip(_BUILD_HINT)
+
+
 @pytest.fixture(scope="module")
 def built_wheel(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    if importlib.util.find_spec("build") is None:
-        pytest.skip("the 'build' package is not installed (pip install build)")
+    _require_build()
 
     # Build from a copy so the source tree never gains build/, dist/ or *.egg-info.
     work = tmp_path_factory.mktemp("wheel-src")
@@ -93,3 +105,13 @@ def test_wheel_metadata_keeps_mcp_capped_below_2(built_wheel: Path) -> None:
     ]
     assert any(r.startswith("mcp") and "<2" in r for r in requires), requires
     assert any(r.startswith("anthropic") for r in requires), requires
+
+
+def test_missing_build_fails_in_ci_and_skips_locally(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(importlib.util, "find_spec", lambda name, *a, **k: None if name == "build" else object())
+    monkeypatch.setenv("CI", "1")
+    with pytest.raises(pytest.fail.Exception, match="uv sync --extra dev"):
+        _require_build()
+    monkeypatch.delenv("CI")
+    with pytest.raises(pytest.skip.Exception, match="uv sync --extra dev"):
+        _require_build()
