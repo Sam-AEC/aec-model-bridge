@@ -612,8 +612,59 @@ function syncApproveSelected() {
   });
 }
 
+// The inline confirm in a card exists only after a click on that card's Reject; a list
+// refresh rebuilds the cards and clears it, so a Confirm click can never outlive its prompt.
+let singleRejectId = null;
+
+function closeSingleReject(restoreFocus) {
+  const open = singleRejectId;
+  singleRejectId = null;
+  planList.querySelectorAll(".plan-reject-confirm").forEach((node) => node.remove());
+  if (restoreFocus && open) {
+    const card = Array.from(planList.children).find((child) => child.dataset && child.dataset.planId === open);
+    const button = card && card.querySelector('[data-decision="reject"]');
+    if (button && button.focus) button.focus();
+  }
+}
+
+function openSingleReject(planId, hash) {
+  closeSingleReject(false);
+  const card = Array.from(planList.children).find((child) => child.dataset && child.dataset.planId === planId);
+  const actions = card && card.querySelector(".item-actions");
+  if (!actions) return;
+  const box = document.createElement("div");
+  box.className = "plan-reject-confirm";
+  box.setAttribute("role", "group");
+  box.setAttribute("aria-label", "Confirm reject");
+  const text = document.createElement("span");
+  text.setAttribute("role", "alert");
+  text.textContent = "Reject this plan? This cannot be undone.";
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.dataset.rejectSingle = "cancel";
+  cancel.textContent = "Cancel";
+  const confirm = document.createElement("button");
+  confirm.type = "button";
+  confirm.dataset.rejectSingle = "confirm";
+  confirm.dataset.rejectFor = planId;
+  confirm.dataset.hash = hash;
+  confirm.textContent = "Confirm";
+  box.append(text, cancel, confirm);
+  actions.append(box);
+  singleRejectId = planId;
+  if (cancel.focus) cancel.focus();
+}
+
+document.body.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && singleRejectId) {
+    event.preventDefault();
+    closeSingleReject(true);
+  }
+});
+
 function renderPlans() {
   planList.innerHTML = "";
+  singleRejectId = null;
   hideRejectConfirm();
   syncExpiredBar();
   syncOtherBar();
@@ -981,9 +1032,28 @@ document.body.addEventListener("click", (event) => {
     postToHost("reports.exportExcel");
     addLog("Report export requested", "Excel export sent to the host.");
   }
+  const rejectSingle = target.dataset.rejectSingle;
+  if (rejectSingle === "cancel") {
+    closeSingleReject(true);
+    return;
+  }
+  if (rejectSingle === "confirm") {
+    const forId = target.dataset.rejectFor;
+    const open = singleRejectId;
+    closeSingleReject(false);
+    if (!forId || forId !== open) return;
+    postToHost("plan.reject", { planId: forId, planHash: target.dataset.hash || "" });
+    addLog("Plan reject", forId);
+    return;
+  }
+
   const planId = target.dataset.plan;
   if (planId) {
     const decision = target.dataset.decision;
+    if (decision === "reject") {
+      openSingleReject(planId, target.dataset.hash || "");
+      return;
+    }
     const known = state.plans.find((candidate) => candidate.id === planId);
     if (decision === "approve" && (!known || !isPlanApprovable(known))) {
       addLog("Approve blocked", REVIEW_BLOCKED_MESSAGE);

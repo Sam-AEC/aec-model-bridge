@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text;
 using RevitBridge.Bridge;
 
 static class Program
@@ -99,6 +100,33 @@ static class Program
                 PythonEngineFactory.ShutdownQuietly(second);
             }
             Console.WriteLine("PASS: runtime shutdown after a script leaves the next engine working.");
+
+            // #406: with no console (Revit on .NET 8/10) sys.stdout starts as UTF-16LE; output must still be UTF-8.
+            var consoleOut = Console.Out;
+            Console.SetOut(TextWriter.Null);
+            var capture = PythonEngineFactory.Create();
+            try
+            {
+                var stdout = new MemoryStream();
+                var stderr = new MemoryStream();
+                capture.Runtime.IO.SetOutput(stdout, Encoding.UTF8);
+                capture.Runtime.IO.SetErrorOutput(stderr, Encoding.UTF8);
+                if (int.Parse(args[0]) >= 3) PythonEngineFactory.UseUtf8StandardStreams(capture);
+                var scope = capture.CreateScope();
+                capture.Execute("import sys\nprint('box' + (' \\u00e9' if sys.version_info[0] >= 3 else ''))\nsys.stderr.write('err')\nsys.stdout.flush()\nsys.stderr.flush()", scope);
+                var expected = int.Parse(args[0]) >= 3 ? "box é" : "box";
+                Check(PythonEngineFactory.DecodeOutput(stdout.ToArray()).TrimEnd() == expected, "print must come back as UTF-8 text");
+                Check(Array.IndexOf(stdout.ToArray(), (byte)0) < 0, "stdout bytes must not contain NULs");
+                Check(PythonEngineFactory.DecodeOutput(stderr.ToArray()) == "err", "stderr must come back as UTF-8 text");
+            }
+            finally
+            {
+                PythonEngineFactory.ShutdownQuietly(capture);
+                Console.SetOut(consoleOut);
+            }
+            Check(PythonEngineFactory.DecodeOutput(Encoding.Unicode.GetBytes("box")) == "box", "UTF-16LE bytes must decode");
+            Check(PythonEngineFactory.DecodeOutput(Encoding.UTF8.GetBytes("box é")) == "box é", "UTF-8 bytes must decode");
+            Console.WriteLine("PASS: print(\"box\") returns UTF-8 text without NULs when the process has no console.");
 
             var modulesPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "IronPython.Modules.dll");
             var hiddenModules = modulesPath + "-missing-test";
