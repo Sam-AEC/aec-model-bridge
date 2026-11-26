@@ -251,9 +251,12 @@ const approve = (html.match(/<button[^>]*data-decision="approve"[^>]*>/) || ['']
 sent.length = 0;
 fire('click', {{ plan: {json.dumps(plan['plan_id'])}, decision: 'approve', hash: 'x' }});
 fire('click', {{ plan: {json.dumps(plan['plan_id'])}, decision: 'reject', hash: 'x' }});
-console.log(JSON.stringify({{ approve, sent }}));
+const beforeConfirm = sent.length;
+fire('click', {{ rejectSingle: 'confirm', rejectFor: {json.dumps(plan['plan_id'])}, hash: 'x' }});
+console.log(JSON.stringify({{ approve, sent, beforeConfirm }}));
 """)
     assert " disabled" in got["approve"], got
+    assert got["beforeConfirm"] == 0, "Reject sent before the confirm"
     assert [m["type"] for m in got["sent"]] == ["plan.reject"]
 
 
@@ -480,6 +483,7 @@ fire('click', {{ plan: 'v2', decision: 'approve', hash: 'x' }});
 fire('change', {{ selectPlan: 'v2', checked: 'true' }});
 fire('click', {{ action: 'approve-selected' }});
 fire('click', {{ plan: 'v2', decision: 'reject', hash: 'x' }});
+fire('click', {{ rejectSingle: 'confirm', rejectFor: 'v2', hash: 'x' }});
 console.log(JSON.stringify({{ approve, sent, checkbox: html.includes('data-select-plan') }}));
 """)
     assert " disabled" in got["approve"] and 'data-review-blocked="1"' in got["approve"], got
