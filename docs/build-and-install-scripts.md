@@ -14,6 +14,7 @@ Key behavior:
 - prefers MSBuild discovered through `vswhere`
 - falls back to `dotnet build`
 - passes `RevitVersion` into `RevitBridge.csproj`
+- `RevitBridge.csproj` uses the local `RevitAPI.dll` by default only for Revit 2024 and 2027; 2025 and 2026 build against the Nice3point NuGet packages, because a local 2026.5 `RevitAPI.dll` fails with CS1705 on the net8 target. Pass `-p:UseLocalRevit=true` or `-p:UseLocalRevit=false` to choose.
 
 ### `scripts/package.ps1`
 
