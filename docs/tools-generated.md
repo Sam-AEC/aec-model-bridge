@@ -23,7 +23,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `approve_plan` | Approve a pending ActionPlan so that its actions may be executed. | No | sync |
 | `execute_plan` | Run every action in an approved ActionPlan. | No | sync |
 | `get_proof_bundle` | Return the proof bundle (plan hash, approver, document, per-element before and new values, skipped elements and execution outcome) of a finished ActionPlan. | No | sync |
-| `list_pending_plans` | List all ActionPlans that are waiting for review. | No | sync |
+| `list_pending_plans` | List the ActionPlans waiting for human approval, with their plan_id. | No | sync |
 | `plan_actions` | Create a draft ActionPlan describing the model changes you want to make, capturing the before-state of each. | No | sync |
 | `plan_revert` | Draft a new ActionPlan that sets each parameter back to the before value recorded in an executed plan's proof bundle. | No | sync |
 | `policy_show` | Show the effective workspace policy (blocked and allowed tools, allowed categories, blocked parameters, plan size limits) and its hash. | No | sync |
@@ -63,7 +63,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 
 | Tool Name | Description | Mutating? | Execution Type |
 | --- | --- | --- | --- |
-| `job_cancel` | Cancel a running or queued background job. | No | sync |
+| `job_cancel` | Cancel a running or queued background job by job_id. | No | sync |
 | `job_status` | Return the status, progress, result or error of a background job started with run_async. | No | sync |
 
 ## Mcp Proxy Provider
@@ -90,7 +90,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `model_changes_list_snapshots` | List the saved model snapshots with their timestamps, newest first, so you can pick the latest and previous ones to compare. | No | sync |
 | `model_health_score` | Give a 0 to 100 health score for a saved snapshot with its components, and a trend across all saved snapshots of the same document with changes between captures. | No | sync |
 | `model_inspector_ask` | Answer a question about a saved snapshot by filtering its element records with the filter DSL. | No | sync |
-| `model_inspector_inspect_selection` | Return the snapshot records of the given elements (by UniqueId). | No | sync |
+| `model_inspector_inspect_selection` | Return the snapshot records of the given elements (by UniqueId) from a saved snapshot. | No | sync |
 | `model_inspector_list_groups` | List the model groups found in a saved snapshot. | No | sync |
 | `model_inspector_list_saved_queries` | List the saved named queries. | No | sync |
 | `model_inspector_run_saved_query` | Run a previously saved named query against a saved snapshot. | No | sync |
@@ -280,7 +280,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `revit_get_result` | Collect the outcome of an earlier Revit call that returned status 'running' with a request_id. | No | sync |
 | `revit_get_revision_sequences` | List the revision sequences defined in the active Revit document. | No | sync |
 | `revit_get_rvt_links` | List the linked Revit models (link types) in the active document. | No | sync |
-| `revit_get_schedule_data` | Return the rows and columns of an existing schedule. | No | sync |
+| `revit_get_schedule_data` | Return the rows and columns of an existing schedule by schedule_id. | No | sync |
 | `revit_get_selection` | Return the ElementIds, and the matching UniqueIds, of the elements currently selected in the Revit UI. | No | sync |
 | `revit_get_sheet_info` | Return detailed information about one sheet, such as its number, name, title block and placed views. | No | sync |
 | `revit_get_snapshot_delta` | Get lists of unique IDs for elements added, modified, or deleted during the active session. | No | sync |
