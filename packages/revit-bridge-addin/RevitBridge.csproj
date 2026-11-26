@@ -24,8 +24,11 @@
     <RevitInstallPath Condition="'$(RevitVersion)'=='2025'">C:\Program Files\Autodesk\Revit 2025</RevitInstallPath>
     <RevitInstallPath Condition="'$(RevitVersion)'=='2026'">C:\Program Files\Autodesk\Revit 2026</RevitInstallPath>
     <RevitInstallPath Condition="'$(RevitVersion)'=='2027'">C:\Program Files\Autodesk\Revit 2027</RevitInstallPath>
-    <!-- Check if local Revit API exists, otherwise default to NuGet -->
-    <UseLocalRevit Condition="Exists('$(RevitInstallPath)\RevitAPI.dll')">true</UseLocalRevit>
+    <!-- Use the local Revit API for 2024 and 2027 when it exists, otherwise NuGet.
+         2025 and 2026 default to NuGet: a local 2026.5 RevitAPI.dll references
+         System.Runtime 10.0 and fails to compile against net8 (CS1705).
+         Pass -p:UseLocalRevit=true to force the local DLL. -->
+    <UseLocalRevit Condition="'$(UseLocalRevit)'=='' AND '$(RevitVersion)'!='2025' AND '$(RevitVersion)'!='2026' AND Exists('$(RevitInstallPath)\RevitAPI.dll')">true</UseLocalRevit>
     <UseLocalRevit Condition="'$(UseLocalRevit)'==''">false</UseLocalRevit>
   </PropertyGroup>
 
