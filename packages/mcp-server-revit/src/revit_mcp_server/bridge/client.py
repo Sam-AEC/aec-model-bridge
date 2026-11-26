@@ -102,7 +102,7 @@ class BridgeClient:
                 return
         raise BridgeError(
             f"The selected Revit {year} session (process {pid}) changed or closed. "
-            "Reconnect or restart this MCP client to select the current session. "
+            "Call revit_reconnect, or restart this MCP client, to select the current session. "
             "No request was sent to a replacement Revit. Check the model before repeating an earlier write."
         )
 

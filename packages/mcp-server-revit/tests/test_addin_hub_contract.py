@@ -202,7 +202,7 @@ def _hub_tools(provider):
 # existing read commands.
 LOCALLY_HANDLED = frozenset(
     {"revit_raw_command", "revit_list_commands", "revit_get_result", "revit_inspect_elements",
-     "revit_perf_report"}
+     "revit_perf_report", "revit_reconnect"}
 )
 
 

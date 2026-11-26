@@ -116,7 +116,7 @@ Sie nutzen VS Code? Der [Quellcode der Erweiterung und die lokalen Installations
 
 | Bereich | Werkzeuge | Was sie tun |
 | --- | --- | --- |
-| Revit | 111 | Modell lesen, Elemente, Parameter, Ansichten, Pläne und Bauteillisten erstellen und bearbeiten, Exporte, Worksharing |
+| Revit | 112 | Modell lesen, Elemente, Parameter, Ansichten, Pläne und Bauteillisten erstellen und bearbeiten, Exporte, Worksharing |
 | Freigabe | 6 | Modelländerungen planen, prüfen, freigeben, ausführen und zurücksetzen |
 | Module | 116 | Snapshot-Prüfung, Parametertabellen, QA/QC-Prüfungen, Rezepte, Berichte, Auswahlen |
 | Rhino und Grasshopper | 19 | Geometrie, Layer, Materialien, boolesche Operationen |
@@ -125,7 +125,7 @@ Sie nutzen VS Code? Der [Quellcode der Erweiterung und die lokalen Installations
 | IFC | 7 | IFC-Dateien ohne Revit lesen: Struktur, Eigenschaften, Validierung |
 | Graph, Snapshots, Exporte, Jobs | 24 | Audits des semantischen Graphen, Snapshot-Vergleiche, SQLite-Export, Hintergrundjobs |
 
-In der Standardkonfiguration werden 315 Werkzeuge aufgelistet (gezählt am aktuellen Server im Mock-Modus). Die Autodesk-Data-Werkzeuge erscheinen, wenn APS-Zugangsdaten konfiguriert sind. Die [Werkzeugreferenz](../tools-generated.md) listet jedes Werkzeug auf. Jedes Werkzeug trägt MCP-Annotationen (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), sodass Clients Lese- von Schreibzugriffen unterscheiden können.
+In der Standardkonfiguration werden 316 Werkzeuge aufgelistet (gezählt am aktuellen Server im Mock-Modus). Die Autodesk-Data-Werkzeuge erscheinen, wenn APS-Zugangsdaten konfiguriert sind. Die [Werkzeugreferenz](../tools-generated.md) listet jedes Werkzeug auf. Jedes Werkzeug trägt MCP-Annotationen (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), sodass Clients Lese- von Schreibzugriffen unterscheiden können.
 
 ### Erweiterte Revit-Automatisierung
 
