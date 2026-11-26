@@ -84,7 +84,8 @@ export function parseRegistryFile(text: string): RegistryEntry | undefined {
   }
   if (typeof data !== "object" || data === null) return undefined;
   const d = data as Record<string, unknown>;
-  if (typeof d.endpoint !== "string" || !/^https?:\/\//i.test(d.endpoint)) return undefined;
+  // The add-in only listens on loopback; refuse any other host from a tampered registry file.
+  if (typeof d.endpoint !== "string" || !/^http:\/\/(127\.0\.0\.1|localhost|\[::1\]):\d{1,5}\/?$/i.test(d.endpoint)) return undefined;
   return {
     endpoint: d.endpoint.replace(/\/+$/, ""),
     hostVersion: d.host_version !== undefined ? String(d.host_version) : undefined,
