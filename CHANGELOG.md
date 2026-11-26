@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Docs: README leads with the illustrative film (GIF linked to MP4), drops the duplicate workflow image and is about a quarter shorter.
+
 ## 1.6.0 - 2026-11-26
 
 - New module `schedule_diff` (#364). Tool count is now 317 (117 module tools). `schedule_diff_compare` compares two saved snapshots: sheets added, removed, renumbered, renamed or moved in the numbering order, sheet revision fields (`Current Revision*`) changed, and schedule rows added, removed, changed or moved. A block a snapshot does not hold is reported as `not_captured`, never as no change; schedule rows are not captured by the add-in yet (#367), so that part is tested on fixture snapshots only and the row layout is UNVERIFIED against live Revit. Optional `.csv` or `.xlsx` export in the workspace. Read-only. Refs #364.
