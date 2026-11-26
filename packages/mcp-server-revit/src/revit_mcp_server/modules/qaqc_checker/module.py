@@ -30,6 +30,7 @@ import os
 import re
 import shutil
 import sqlite3
+import tempfile
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -550,7 +551,7 @@ def _check_regex(regex: Any) -> "re.Pattern[str]":
 
     Python's re has no timeout, so the pattern is checked up front: at most 200 characters, no
     backreferences or lookarounds, no repeat inside a repeat, no alternation inside a repeat, and at
-    most 3 unbounded repeats. Names longer than 128 characters never reach the regex.
+    most 3 variable repeats, counting ? and {0,n}. Names longer than 128 characters never reach the regex.
     """
     if not isinstance(regex, str) or not regex:
         raise ValueError("regex is required.")
@@ -577,7 +578,7 @@ def _check_regex(regex: Any) -> "re.Pattern[str]":
                 variable = low != high
                 if in_repeat and variable:
                     raise ValueError("The regex nests a variable repeat inside a repeat (catastrophic backtracking).")
-                if high > 1 and variable:
+                if variable:
                     unbounded += 1
                     if unbounded > MAX_UNBOUNDED_REPEATS:
                         raise ValueError(f"The regex has more than {MAX_UNBOUNDED_REPEATS} variable repeats.")
@@ -1038,9 +1039,14 @@ class QaqcCheckerModule:
         body = json.dumps({"rule_id": rule_id, "rule": rule, "rule_hash": rule_hash}, indent=2, sort_keys=True) + "\n"
         path.parent.mkdir(parents=True, exist_ok=True)
         if overwrite:
-            tmp = path.with_name(path.name + ".tmp")
-            tmp.write_text(body, encoding="utf-8")
-            os.replace(tmp, path)
+            fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                    fh.write(body)
+                os.replace(tmp, path)
+            except BaseException:
+                Path(tmp).unlink(missing_ok=True)
+                raise
         else:
             with open(path, "x", encoding="utf-8") as fh:
                 fh.write(body)
