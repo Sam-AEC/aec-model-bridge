@@ -33,6 +33,12 @@ It never changes the Revit model and it proposes no fixes.
 
 In mock mode (`MCP_REVIT_MODE=mock`) the snapshot is optional and generated sample data is used. When connected to Revit a real `snapshot_id` is required; the tool refuses to guess.
 
+## Clash report files
+
+`clash_triage_import_clash_report` reads a report file instead of live results: a Navisworks clash report exported as XML (`.xml`) or a BCF file (`.bcfzip`), inside the workspace. It matches each item as above, then groups clashes by element pair and level (the Navisworks layer, else the element's level). Every clash lands in a group; clashes with an unmatched side are also listed under `unmatched` with the reason. An item that carries only a Revit Element ID stays unmatched. No fix plan is drafted, because no fix rule exists yet; any fix goes through `plan_actions` and a person's approval.
+
+The GUID is read from an object attribute or smart tag named `IfcGUID`, `IFC GlobalId`, `UniqueId`, `GUID` or `Item GUID`. XML must be UTF-8 without a DOCTYPE; files over 50 MB are refused. BCF files use the same reader and limits as `bcf_exchange_import_bcf`; the first two components of each topic are the clash pair.
+
 ## What the confidence labels mean
 
 | Label | Meaning |
@@ -57,3 +63,4 @@ Everything above was tested with fixture data only. Not yet checked on a real pr
 - Whether the Revit snapshot carries an IFC GUID parameter (the module looks for a parameter named `IfcGUID`) in your models.
 - How many clashes map to the right element on both sides. A person should check a sample on one real project.
 - Clashes inside linked models or groups.
+- The XML layout and attribute names of real Navisworks report exports, and BCF files from other clash tools.

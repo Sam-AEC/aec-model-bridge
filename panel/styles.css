@@ -1722,6 +1722,27 @@ h1 {
   grid-row: 2;
 }
 
+.plan-card .item-actions .plan-reject-confirm {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.plan-reject-confirm > span {
+  flex: 1 1 100%;
+  color: var(--amb-ink);
+}
+
+.plan-reject-confirm button {
+  flex: 1 1 0;
+  max-width: 160px;
+}
+
 .plan-card .item-actions-for {
   grid-column: 1 / -1;
   grid-row: 1;

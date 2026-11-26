@@ -17,6 +17,7 @@ import pytest
 
 from revit_mcp_server.modules.clash_triage import module as clash_triage
 from revit_mcp_server.modules.familytype_mapper import module as familytype_mapper
+from revit_mcp_server.modules.geometry_screening import module as geometry_screening
 from revit_mcp_server.modules.links_worksets_audit import module as links_worksets_audit
 from revit_mcp_server.modules.model_bloat import module as model_bloat
 from revit_mcp_server.modules.model_changes import module as model_changes
@@ -105,6 +106,8 @@ def _commands(ws):
         "sheet_view_audit.run_audit": lambda sid: sv.run_audit(snapshot_id=sid, workspace=ws),
         "schedule_diff.compare": lambda sid: schedule_diff.ScheduleDiffModule().compare(
             older_snapshot_id=sid, newer_snapshot_id=sid, workspace=ws),
+        "geometry_screening.run_checks": lambda sid: geometry_screening.GeometryScreeningModule().run_checks(
+            snapshot_id=sid, door_width={"min_clear_width_m": 0.8}, workspace=ws),
         "sheet_set_qa.check": lambda sid: sheet_set_qa.SheetSetQaModule().check(snapshot_id=sid, workspace=ws),
     }
     if mb is not None:

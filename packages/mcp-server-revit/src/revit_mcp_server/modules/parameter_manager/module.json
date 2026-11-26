@@ -110,9 +110,10 @@
           "snapshot_id": {"type": "string"},
           "element_filter": {"type": "object"},
           "param_names": {"type": "array", "items": {"type": "string"}},
-          "output_filename": {"type": "string", "default": "params_export.xlsx"}
+          "output_filename": {"type": "string", "default": "params_export.xlsx"},
+          "mapping": {"type": "string", "description": "Name of excel_mappings/<name>.json ({\"columns\": {\"<header>\": \"<parameter>\"}}). Use instead of param_names."}
         },
-        "required": ["element_filter", "param_names"]
+        "required": ["element_filter"]
       }
     },
     {
@@ -125,7 +126,8 @@
         "type": "object",
         "properties": {
           "xlsx_filename": {"type": "string"},
-          "snapshot_id": {"type": "string"}
+          "snapshot_id": {"type": "string"},
+          "mapping": {"type": "string", "description": "Same mapping name used for the export; unmapped columns are ignored."}
         },
         "required": ["xlsx_filename"]
       }

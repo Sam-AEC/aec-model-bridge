@@ -20,7 +20,7 @@ PROVIDER_PREFIXES = (
     "snapshot_", "speckle_", "autodesk_data_", "proxy_",
 )
 MODULE_PREFIXES = (
-    "bcf_exchange_", "clash_triage_", "familytype_mapper_", "hello_world_", "ids_validator_",
+    "bcf_exchange_", "clash_triage_", "familytype_mapper_", "geometry_screening_", "hello_world_", "ids_validator_",
     "links_worksets_audit_", "mark_renumber_plan_", "model_bloat_", "model_changes_", "model_health_", "model_inspector_",
     "naming_checker_", "param_completeness_", "parameter_manager_", "pyrevit_bridge_",
     "qa_handover_", "qaqc_checker_", "recipe_runner_", "report_generator_",
