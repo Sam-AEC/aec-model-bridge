@@ -93,7 +93,7 @@ namespace RevitBridge.UI
         }
 
         // ---- Ribbon icons ----
-        // The 'cut slate' PNGs (scripts/make_ribbon_icons.py, docs/RIBBON_ICONS.md) are embedded as
+        // The icon PNGs (scripts/make_ribbon_icons.py, docs/RIBBON_ICONS.md) are embedded as
         // RevitBridge.RibbonIcons.<name>_<16|32>_<light|dark>.png; the vector drawings below are the fallback.
 
         /// <summary>Embedded cut-slate icon for the current Revit theme, or null when it is not in the assembly.</summary>
@@ -123,10 +123,10 @@ namespace RevitBridge.UI
         }
 
 
-        /// <summary>Connect: two model blocks joined by the accent link, green "run" badge.</summary>
-        public static BitmapSource CreateConnectIcon(int size = 32)
+        /// <summary>Connected: two model blocks joined by the accent link, green "run" badge.</summary>
+        public static BitmapSource CreateConnectedIcon(int size = 32)
         {
-            return LoadEmbedded("connect", size) ?? Render32(size, (c, p) =>
+            return LoadEmbedded("connected", size) ?? Render32(size, (c, p) =>
             {
                 var ink = P(p.Ink, 2);
                 Shape(c, p.Fill, ink, "M4.5,5 H10.5 A1.5,1.5 0 0 1 12,6.5 V14.5 A1.5,1.5 0 0 1 10.5,16 H4.5 A1.5,1.5 0 0 1 3,14.5 V6.5 A1.5,1.5 0 0 1 4.5,5 Z");
@@ -137,10 +137,10 @@ namespace RevitBridge.UI
             });
         }
 
-        /// <summary>Disconnect: the same blocks with a broken link and a red "stop" badge.</summary>
-        public static BitmapSource CreateDisconnectIcon(int size = 32)
+        /// <summary>Disconnected: the same blocks with a broken link and a red "stop" badge.</summary>
+        public static BitmapSource CreateDisconnectedIcon(int size = 32)
         {
-            return LoadEmbedded("disconnect", size) ?? Render32(size, (c, p) =>
+            return LoadEmbedded("disconnected", size) ?? Render32(size, (c, p) =>
             {
                 var ink = P(p.Ink, 2);
                 Shape(c, p.Face, ink, "M4.5,5 H10.5 A1.5,1.5 0 0 1 12,6.5 V14.5 A1.5,1.5 0 0 1 10.5,16 H4.5 A1.5,1.5 0 0 1 3,14.5 V6.5 A1.5,1.5 0 0 1 4.5,5 Z");
@@ -235,10 +235,10 @@ namespace RevitBridge.UI
             });
         }
 
-        /// <summary>Pending Actions: checklist page with an amber clock badge.</summary>
-        public static BitmapSource CreatePendingIcon(int size = 32)
+        /// <summary>Approve: checklist page with an amber clock badge.</summary>
+        public static BitmapSource CreateApproveIcon(int size = 32)
         {
-            return LoadEmbedded("pending", size) ?? Render32(size, (c, p) =>
+            return LoadEmbedded("approve", size) ?? Render32(size, (c, p) =>
             {
                 var ink = P(p.Ink, 2);
                 c.DrawRoundedRectangle(p.Surface, ink, new Rect(4, 3, 19, 25), 2, 2);
@@ -287,64 +287,6 @@ namespace RevitBridge.UI
             bitmap.Render(visual);
             bitmap.Freeze();
             return bitmap;
-        }
-
-        /// <summary>
-        /// Saves an icon to a file
-        /// </summary>
-        public static void SaveIcon(BitmapSource icon, string filePath)
-        {
-            var encoder = new PngBitmapEncoder();
-            encoder.Frames.Add(BitmapFrame.Create(icon));
-
-            Directory.CreateDirectory(Path.GetDirectoryName(filePath) ?? "");
-
-            using (var stream = new FileStream(filePath, FileMode.Create))
-            {
-                encoder.Save(stream);
-            }
-        }
-
-        /// <summary>
-        /// Generates all ribbon button icons (both 16x16 and 32x32) and saves them to the specified directory
-        /// </summary>
-        public static void GenerateAllIcons(string iconDir)
-        {
-            // 32x32 icons for Revit large buttons and legacy fallbacks.
-            SaveIcon(CreateConnectIcon(32), Path.Combine(iconDir, "connect_32.png"));
-            SaveIcon(CreateConnectIcon(32), Path.Combine(iconDir, "connect.png"));
-            SaveIcon(CreateDisconnectIcon(32), Path.Combine(iconDir, "disconnect_32.png"));
-            SaveIcon(CreateDisconnectIcon(32), Path.Combine(iconDir, "disconnect.png"));
-            SaveIcon(CreateStatusIcon(32), Path.Combine(iconDir, "status_32.png"));
-            SaveIcon(CreateStatusIcon(32), Path.Combine(iconDir, "status.png"));
-            SaveIcon(CreateSettingsIcon(32), Path.Combine(iconDir, "settings_32.png"));
-            SaveIcon(CreateSettingsIcon(32), Path.Combine(iconDir, "settings.png"));
-            SaveIcon(CreateBrandIcon(32), Path.Combine(iconDir, "brand_32.png"));
-            SaveIcon(CreateBrandIcon(32), Path.Combine(iconDir, "brand.png"));
-            SaveIcon(CreateHelpIcon(32), Path.Combine(iconDir, "help_32.png"));
-            SaveIcon(CreateHelpIcon(32), Path.Combine(iconDir, "help.png"));
-            SaveIcon(CreatePanelIcon(32), Path.Combine(iconDir, "panel_32.png"));
-            SaveIcon(CreatePanelIcon(32), Path.Combine(iconDir, "panel.png"));
-            SaveIcon(CreateHealthIcon(32), Path.Combine(iconDir, "healthcheck_32.png"));
-            SaveIcon(CreateHealthIcon(32), Path.Combine(iconDir, "healthcheck.png"));
-            SaveIcon(CreatePendingIcon(32), Path.Combine(iconDir, "pending_32.png"));
-            SaveIcon(CreatePendingIcon(32), Path.Combine(iconDir, "pending.png"));
-            SaveIcon(CreateReportsIcon(32), Path.Combine(iconDir, "reports_32.png"));
-            SaveIcon(CreateReportsIcon(32), Path.Combine(iconDir, "reports.png"));
-            SaveIcon(CreateAboutIcon(32), Path.Combine(iconDir, "about_32.png"));
-
-            // 16x16 icons for Revit small buttons and stacked items.
-            SaveIcon(CreateConnectIcon(16), Path.Combine(iconDir, "connect_16.png"));
-            SaveIcon(CreateDisconnectIcon(16), Path.Combine(iconDir, "disconnect_16.png"));
-            SaveIcon(CreateStatusIcon(16), Path.Combine(iconDir, "status_16.png"));
-            SaveIcon(CreateSettingsIcon(16), Path.Combine(iconDir, "settings_16.png"));
-            SaveIcon(CreateBrandIcon(16), Path.Combine(iconDir, "brand_16.png"));
-            SaveIcon(CreateHelpIcon(16), Path.Combine(iconDir, "help_16.png"));
-            SaveIcon(CreatePanelIcon(16), Path.Combine(iconDir, "panel_16.png"));
-            SaveIcon(CreateHealthIcon(16), Path.Combine(iconDir, "healthcheck_16.png"));
-            SaveIcon(CreatePendingIcon(16), Path.Combine(iconDir, "pending_16.png"));
-            SaveIcon(CreateReportsIcon(16), Path.Combine(iconDir, "reports_16.png"));
-            SaveIcon(CreateAboutIcon(16), Path.Combine(iconDir, "about_16.png"));
         }
     }
 }
