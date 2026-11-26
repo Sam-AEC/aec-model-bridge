@@ -1255,111 +1255,12 @@ h1 {
   order: 2;
 }
 
-#reject-confirm {
-  order: 3;
-}
-
-#plan-bulk {
-  order: 4;
-  border-top: 1px solid var(--amb-line);
-  background: var(--amb-surface);
-  justify-content: flex-end;
-  padding: 10px 16px 12px;
-}
-
-#plan-bulk .bulk-count {
-  margin-right: auto;
-  color: var(--amb-ink-muted);
-  font-size: 12px;
-}
-
 #expired-bar:not([hidden]),
 #other-bar:not([hidden]),
 #reject-confirm:not([hidden]) {
   border-top: 1px solid var(--amb-line);
   background: var(--amb-surface);
   font-size: 12px;
-}
-
-/* Setup: one line while all is well, details on request. */
-.setup {
-  margin: 0;
-  padding: 8px 16px;
-  border: 0;
-  border-bottom: 1px solid var(--amb-line);
-  border-radius: 0;
-  background: var(--amb-bg);
-  box-shadow: none;
-}
-
-.setup-head {
-  gap: 8px;
-  flex-wrap: nowrap;
-}
-
-.setup-icon {
-  flex: none;
-  width: 14px;
-  height: 14px;
-  fill: var(--amb-brand);
-}
-
-.setup[data-state="blocked"] .setup-icon {
-  display: none;
-}
-
-.setup-status {
-  flex: none;
-  color: var(--amb-ink);
-}
-
-.setup[data-state="ready"] .setup-status {
-  color: var(--amb-brand-strong);
-}
-
-.setup-summary {
-  flex: 1 1 auto;
-  min-width: 0;
-  color: var(--amb-ink-muted);
-  font-size: 12px;
-}
-
-.setup[data-state="blocked"] .setup-head,
-.setup[data-state="checking"] .setup-head {
-  flex-wrap: wrap;
-}
-
-.setup[data-state="blocked"] {
-  border-left: 3px solid var(--amb-warning);
-}
-
-.setup[data-state="blocked"] .setup-status {
-  color: var(--amb-warning);
-}
-
-.setup-list {
-  gap: 0;
-  margin: 6px 0 0;
-}
-
-.setup-item {
-  padding: 6px 0;
-  border-top: 1px solid var(--amb-line);
-}
-
-.setup-glyph {
-  background: transparent;
-  color: var(--amb-brand);
-  font-size: 12px;
-}
-
-.setup-item.is-fail .setup-glyph {
-  background: var(--amb-warning);
-  color: var(--amb-on-brand);
-}
-
-.setup-next {
-  border-left-color: var(--amb-warning);
 }
 
 .alert,
@@ -1531,35 +1432,6 @@ h1 {
   white-space: nowrap;
 }
 
-#plan-bulk {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-}
-
-#plan-bulk .bulk-count {
-  grid-column: 1;
-  grid-row: 1;
-  margin: 0;
-}
-
-#plan-bulk [data-action="refresh-plans"] {
-  grid-column: 2;
-  grid-row: 1;
-  justify-self: end;
-}
-
-#plan-bulk [data-action="reject-selected"] {
-  grid-column: 1;
-  grid-row: 2;
-}
-
-#plan-bulk [data-action="approve-selected"] {
-  grid-column: 2;
-  grid-row: 2;
-}
-
 .plan-card,
 .plan-details {
   grid-template-columns: minmax(0, 1fr);
@@ -1571,4 +1443,445 @@ h1 {
 
 .plan-cli code {
   overflow-wrap: anywhere;
+}
+
+/* ---- Panel layout: status strip, plan cards, one footer ---------------------------------- */
+
+/* Status strip: setup check and alerts in one line. Click to expand. State is carried by the
+   label text and the dot, never by colour alone. */
+.setup {
+  margin: 0;
+  padding: 2px 0;
+  border: 0;
+  border-bottom: 1px solid var(--amb-line);
+  border-radius: 0;
+  background: var(--amb-bg);
+  box-shadow: none;
+}
+
+.setup-head {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  flex-wrap: nowrap;
+  padding: 0 8px 0 0;
+}
+
+.setup-head > .strip-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 6px 8px 6px 16px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--amb-ink);
+  font-size: 12px;
+  text-align: left;
+}
+
+.strip-main:hover:not(:disabled) {
+  background: var(--amb-brand-wash);
+}
+
+.strip-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--amb-brand);
+}
+
+.setup[data-state="blocked"] .strip-dot,
+.setup[data-notices]:not([data-notices="0"]) .strip-dot {
+  background: var(--amb-warning);
+}
+
+.setup[data-state="checking"] .strip-dot {
+  background: var(--amb-idle);
+}
+
+.setup-label {
+  flex: none;
+  font-weight: 600;
+  color: var(--amb-ink);
+}
+
+.setup[data-state="ready"][data-notices="0"] .setup-label {
+  color: var(--amb-brand-strong);
+}
+
+.setup[data-state="blocked"] .setup-label,
+.setup[data-notices]:not([data-notices="0"]) .setup-label {
+  color: var(--amb-warning);
+}
+
+.strip-main .setup-summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  white-space: normal;
+  line-height: 1.35;
+  color: var(--amb-ink-muted);
+}
+
+.setup[data-caution="1"] .strip-dot {
+  background: var(--amb-warning);
+}
+
+.setup[data-caution="1"] .setup-label {
+  color: var(--amb-warning);
+}
+
+.strip-caret {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  fill: var(--amb-ink-muted);
+  transform: rotate(90deg);
+  transition: transform var(--amb-motion-fast);
+}
+
+.strip-main[aria-expanded="true"] .strip-caret {
+  transform: rotate(-90deg);
+}
+
+.setup-head > .ghost {
+  align-self: center;
+  min-height: 32px;
+}
+
+.setup-body {
+  max-height: 45vh;
+  overflow: auto;
+  padding: 0 16px 10px;
+  border-top: 1px solid var(--amb-line);
+}
+
+.setup-body .alerts {
+  padding: 8px 0 0;
+  gap: 6px;
+}
+
+.setup-body .alert {
+  border: 0;
+  border-left: 3px solid var(--amb-warning);
+  border-radius: 0;
+  background: transparent;
+  padding: 2px 0 2px 8px;
+}
+
+.setup-body .alert.error {
+  border-left-color: var(--amb-danger);
+}
+
+.setup-body .alert-marker {
+  display: none;
+}
+
+.setup-body .alert {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.setup-body .setup-list {
+  margin: 4px 0 0;
+}
+
+/* Plans footer: one row at the bottom, only while something is ticked. */
+#view-plans #plan-bulk,
+#view-plans #reject-confirm {
+  order: 4;
+}
+
+#plan-bulk,
+#reject-confirm:not([hidden]) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  padding: 8px 16px;
+  border-top: 1px solid var(--amb-line);
+  background: var(--amb-surface);
+}
+
+#plan-bulk[hidden],
+#reject-confirm[hidden] {
+  display: none;
+}
+
+#plan-bulk .bulk-count {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  white-space: nowrap;
+}
+
+#plan-bulk button,
+#reject-confirm button {
+  flex: none;
+  min-height: 36px;
+  padding: 0 16px;
+  white-space: nowrap;
+}
+
+#reject-confirm:not([hidden]) {
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+
+#reject-confirm:not([hidden]) > span {
+  flex: 1 1 100%;
+  color: var(--amb-ink);
+}
+
+#reject-confirm:not([hidden]) {
+  justify-content: flex-end;
+}
+
+#reject-confirm:not([hidden]) button {
+  flex: 1 1 0;
+  max-width: 160px;
+}
+
+/* Empty state: one quiet line, no box. */
+.empty.is-compact {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.empty.is-compact .empty-tile {
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  border-radius: 8px;
+}
+
+.empty.is-compact .empty-tile .ico {
+  width: 16px;
+  height: 16px;
+}
+
+.empty.is-compact strong {
+  color: var(--amb-ink-muted);
+  font-weight: 500;
+}
+
+/* Plan card: dense, with Approve and Reject pinned to the bottom of the list while the card is in view. */
+#view-plans > #plan-list {
+  padding: 12px 16px 0;
+  gap: 12px;
+}
+
+#plan-list > .plan-card:last-child {
+  margin-bottom: 12px;
+}
+
+.plan-card {
+  padding: 12px 14px 0;
+  gap: 8px;
+}
+
+.plan-card .item-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin: 0 -14px;
+  padding: 10px 14px;
+  gap: 8px;
+  border-top: 1px solid var(--amb-line);
+  border-radius: 0 0 12px 12px;
+  background: var(--amb-surface);
+}
+
+.plan-card .item-actions {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 8px;
+}
+
+.plan-card .item-actions [data-decision="reject"] {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.plan-card .item-actions [data-decision="approve"] {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.plan-card .item-actions-for {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--amb-ink-muted);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.plan-card .item-actions button {
+  min-height: 36px;
+}
+
+.plan-card .plan-select {
+  padding: 6px;
+  margin: -6px 0 -6px -6px;
+}
+
+.plan-card .review-blocked {
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.plan-card .review-blocked p {
+  margin: 0;
+}
+
+.plan-card .review-blocked label {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.plan-card .plan-review {
+  max-height: 160px;
+  overflow: auto;
+  margin: 0;
+}
+
+.plan-card .plan-review-block {
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.plan-card .plan-review-block p,
+.plan-card .review-hash-note {
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.plan-card .plan-review-slot button {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.plan-card {
+  max-width: 880px;
+}
+
+.plan-card .review-hash-note {
+  color: var(--amb-ink-muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.plan-card .review-label {
+  margin-right: 4px;
+}
+
+.plan-card li .review-label:not(:first-child) {
+  margin-left: 8px;
+}
+
+.plan-card .link-btn {
+  justify-self: start;
+  min-height: 32px;
+  padding: 0;
+}
+
+.plan-cli {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.plan-cli .review-more {
+  min-height: 28px;
+}
+
+.plan-preview {
+  overflow-x: visible;
+}
+
+.plan-preview-table {
+  width: 100%;
+  table-layout: auto;
+}
+
+.plan-preview-table .head-row {
+  background: transparent;
+}
+
+/* Docked at 360 to 480 px: each row stacks, so nothing scrolls sideways. */
+@media (max-width: 560px) {
+  .plan-preview-table,
+  .plan-preview-table tbody {
+    display: block;
+  }
+
+  .plan-preview-table .head-row {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .plan-preview-table tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 4px 12px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--amb-line);
+  }
+
+  .plan-preview-table tr:last-child {
+    border-bottom: 0;
+  }
+
+  .plan-preview-table td {
+    display: block;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .plan-preview-table td::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--amb-ink-muted);
+    font-family: var(--amb-font);
+    font-size: 10px;
+    font-weight: 500;
+    text-decoration: none;
+  }
+
+  .plan-preview-table td.col-before,
+  .plan-preview-table td.col-after,
+  .plan-preview-table td.col-uid,
+  .plan-preview-table td.col-tool {
+    grid-column: 1 / -1;
+  }
 }

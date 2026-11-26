@@ -172,7 +172,7 @@ def settle_in_flight(gate: Optional[ApprovalGate], tool: str, arguments: Any, re
             return
         gate.settle_in_flight(key, ok=outcome.state == "ok", error=outcome.error)
     except Exception:
-        logger.exception("Could not settle the in-flight action for %s", tool)
+        logger.exception("Could not settle the in-flight action for %s", str(tool).replace("\r", "").replace("\n", ""))
 
 
 def timeout_key() -> str:

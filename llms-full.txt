@@ -170,9 +170,13 @@ Open-source Revit MCP server · Revit 2024 – 2027 · 317 tools · Claude, Code
 
 [Get started](#quick-start) | [Example workflows](#example-workflows) | [Tools](docs/tools-generated.md) | [Documentation](#documentation) | [Download](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
 
-<a href="docs/images/readme/film.mp4"><img src="docs/images/readme/film.gif" alt="The assistant reads the model, drafts a plan, a person approves it in the Revit panel, and Revit applies it." width="800"></a>
+<a href="docs/images/readme/revit-tower.mp4"><img src="docs/images/readme/revit-tower.gif" alt="A 30-storey twisting glass tower built floor by floor in Revit 2026 beside the Snowdon Towers sample, then orbited." width="420"></a>
 
-<sub>Illustrative run on the Autodesk Snowdon Towers sample. [Watch the MP4](docs/images/readme/film.mp4).</sub>
+<sub>Dev mode, Revit 2026.5: 30 floors of slabs, core, columns and curtain wall placed through <code>revit_execute_python</code>. Every frame was rendered by Revit. [Watch the MP4](docs/images/readme/revit-tower.mp4).</sub>
+
+<a href="docs/images/readme/revit-live.mp4"><img src="docs/images/readme/revit-live.gif" alt="Live Revit 2026: a person approves a two-action plan in the panel, Revit writes both values, and one Ctrl+Z undoes the plan." width="800"></a>
+
+<sub>Screen recording of Revit 2026.5 on the Autodesk Snowdon Towers sample, not edited beyond cuts. [Watch the MP4](docs/images/readme/revit-live.mp4).</sub>
 
 </div>
 

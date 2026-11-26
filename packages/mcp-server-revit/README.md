@@ -1,8 +1,7 @@
 # AEC Model Bridge
 
-Python MCP server for reviewing BIM model quality and fixing Revit parameters
-with Claude, Codex and other MCP clients. Read-only tools inspect the model;
-model changes require an approved plan by default.
+Revit MCP server: 300+ tools to read and edit BIM and IFC models, every change human-approved.
+Works with Claude, Codex and Cursor. Read-only tools inspect the model; model changes require an approved plan by default.
 
 [Get started](https://github.com/Sam-AEC/aec-model-bridge#quick-start) |
 [Example workflows](https://github.com/Sam-AEC/aec-model-bridge#example-workflows) |

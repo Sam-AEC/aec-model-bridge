@@ -2,9 +2,15 @@
 
 ## Unreleased
 
+- Docs: README shows a Revit 2026 demo: a 30-storey twisting tower built in Dev mode, frames rendered by Revit.
+- VS Code extension: a registry file endpoint must be loopback HTTP (127.0.0.1, localhost or [::1]); other hosts are ignored. The in-flight settle log strips CR and LF from the tool name. Clears CodeQL alerts #31 and #32.
+- Supply chain: releases carry a `.intoto.jsonl` provenance bundle, CI installs from hash-pinned requirements and a digest-pinned base image, atheris fuzz harnesses run nightly, CodeQL scans every pull request, and SECURITY.md links the private reporting form.
+- Panel layout: setup check and alerts share one expandable status strip with the only Refresh; plan cards are denser, with Approve and Reject pinned to the bottom while a card is in view; the bulk footer shows from two ticked plans; the reject confirm bar opens only from Reject, and Confirm does nothing unless it was opened; the empty state is one line. No approval logic changed. Browser tests cover the layout. Revit look UNVERIFIED.
+- Docs: the README film is now a real screen recording of Revit 2026.5 (approve in the panel, one batch write, one Ctrl+Z undo) instead of the illustrative film.
 - `snapshot_compute`: a dotted path projected or grouped without an alias (`params.Mark`) can now be filtered, sorted and selected by later steps.
 - Fix: semantic `level` joins resolve live snapshot level references by element id.
 - `mark_renumber_plan`: `draft_plan` refuses a `dirty_only` snapshot (top-level or in `counts`) and `analyze` warns, since Marks held by unchanged elements cannot be checked. Take a full snapshot.
+- Directory listings: `server.json` description is now 94 characters (the registry maximum is 100) and matches pyproject, `manifest.json` and the package README; usage hints added to 27 tool descriptions; the Docker image pins its base by digest and starts with `CMD`; Dependabot tracks the Dockerfile.
 
 ## 1.6.0 - 2026-11-26
 

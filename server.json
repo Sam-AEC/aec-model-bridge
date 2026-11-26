@@ -2,7 +2,7 @@
     "$schema":  "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
     "name":  "io.github.Sam-AEC/aec-model-bridge",
     "title":  "AEC Model Bridge",
-    "description":  "Revit MCP server (Model Context Protocol): 300+ tools for Claude, Codex and Cursor to read and edit BIM and IFC models, every change human-approved.",
+    "description":  "Revit MCP server: 300+ tools to read and edit BIM and IFC models, every change human-approved.",
     "websiteUrl":  "https://github.com/Sam-AEC/aec-model-bridge",
     "icons":  [
                   {

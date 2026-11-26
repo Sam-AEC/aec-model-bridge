@@ -58,6 +58,8 @@ const autoMinutesSelect = document.getElementById("auto-minutes");
 const autoOffButton = document.getElementById("auto-off");
 const setupCard = document.getElementById("setup-check");
 const setupStatus = document.getElementById("setup-status");
+const setupLabel = document.getElementById("setup-label");
+const setupBody = document.getElementById("setup-body");
 const setupList = document.getElementById("setup-list");
 const setupToggle = document.getElementById("setup-toggle");
 const setupRefresh = document.getElementById("setup-refresh");
@@ -138,7 +140,10 @@ function modelActionsBlocked() {
   return !isHubOnline() || !hasActiveDocument();
 }
 
+let currentView = "chat";
+
 function setView(viewName) {
+  currentView = viewName;
   document.querySelectorAll(".nav").forEach((button) => {
     const active = button.dataset.view === viewName;
     button.classList.toggle("is-active", active);
@@ -213,6 +218,14 @@ function readySummary() {
   return `${lead}Changes need your approval.`;
 }
 
+// Alerts from renderAlerts(), shown in the status strip next to the failing checks.
+let alertItems = [];
+
+function joinNames(names) {
+  return names.join(" \u00b7 ");
+}
+
+// One compact strip: a label, a one-line summary and a caret. It expands to the alerts and checks.
 function renderSetup() {
   const checks = state.diagnostics?.checks;
   const failing = failingChecks();
@@ -220,23 +233,33 @@ function renderSetup() {
   if (checks) {
     mode = failing.length === 0 ? "ready" : "blocked";
   }
-  setupCard.dataset.state = mode;
-  setupSummary.textContent = mode === "ready" ? readySummary() : "";
-
-  if (mode === "checking") {
-    setupStatus.textContent = "Checking setup\u2026";
+  const notices = alertItems.length;
+  const issueNames = failing.map((check) => CHECK_LABELS[check.id] || check.id).concat(alertItems.map((item) => item[1]));
+  let label;
+  let summary = "";
+  if (mode === "ready" && notices === 0) {
+    label = "Ready";
+    summary = readySummary();
   } else if (mode === "ready") {
-    setupStatus.textContent = "Ready";
+    label = `${notices} notice${notices === 1 ? "" : "s"}`;
+    summary = joinNames(issueNames);
+  } else if (mode === "blocked") {
+    label = `${failing.length + notices} to fix`;
+    summary = joinNames(issueNames);
   } else {
-    setupStatus.textContent = `${failing.length} step${failing.length === 1 ? "" : "s"} to fix`;
+    label = "Checking\u2026";
+    summary = joinNames(issueNames);
   }
-
-  // All passing: collapse to the small indicator, details on demand.
-  const showList = mode === "blocked" || (mode === "ready" && setupExpanded);
-  setupToggle.hidden = mode !== "ready";
-  setupToggle.setAttribute("aria-expanded", String(showList));
-  setupToggle.textContent = setupExpanded ? "Hide" : "Details";
-  setupList.hidden = !showList;
+  setupCard.dataset.state = mode;
+  setupCard.dataset.notices = String(notices);
+  const approvalOff = effectivePanelMode() === "auto" || effectivePanelMode() === "dev";
+  setupCard.dataset.caution = mode === "ready" && notices === 0 && approvalOff ? "1" : "0";
+  setupLabel.textContent = label;
+  setupSummary.textContent = summary;
+  setupStatus.textContent = summary ? `${label}. ${summary}` : label;
+  setupToggle.setAttribute("aria-expanded", String(setupExpanded));
+  setupBody.hidden = !setupExpanded;
+  setupList.hidden = !checks || checks.length === 0;
   setupList.innerHTML = (checks || []).map((check) => `
     <li class="setup-item ${check.ok ? "is-pass" : "is-fail"}">
       <span class="setup-glyph" aria-hidden="true">${check.ok ? "\u2713" : "!"}</span>
@@ -252,6 +275,8 @@ function requestDiagnostics() {
   clearTimeout(diagnosticsRetry);
   diagnosticsRetry = null;
   setupCard.dataset.state = "checking";
+  setupLabel.textContent = "Checking\u2026";
+  setupSummary.textContent = "";
   setupStatus.textContent = "Checking setup\u2026";
   postToHost("diagnostics.refresh");
 }
@@ -302,6 +327,7 @@ function renderAlerts() {
     }
   }
 
+  alertItems = alerts;
   systemAlerts.hidden = alerts.length === 0;
   systemAlerts.innerHTML = alerts.map(([level, heading, detail]) => `
     <div class="alert ${escapeHtml(level)}">
@@ -311,6 +337,7 @@ function renderAlerts() {
         <p>${escapeHtml(detail)}</p>
       </div>
     </div>`).join("");
+  renderSetup();
 }
 
 function updateToolAvailability() {
@@ -510,9 +537,33 @@ function selectedRejectablePlanIds() {
   return Array.from(state.selectedPlanIds).filter((id) => ok.has(id));
 }
 
+// The confirm bar opens only from a click on Reject selected (rejectArmed); a click on Confirm
+// does nothing unless the bar was opened that way.
+let rejectArmed = false;
+
 function hideRejectConfirm() {
+  rejectArmed = false;
   const bar = document.getElementById("reject-confirm");
   if (bar) bar.hidden = true;
+  syncBulkBar();
+}
+
+// The bulk footer shows only while something is ticked, and gives way to the confirm bar.
+function syncBulkBar() {
+  const bulkBar = document.getElementById("plan-bulk");
+  const confirmBar = document.getElementById("reject-confirm");
+  const ids = selectedRejectablePlanIds();
+  if (rejectArmed && ids.length === 0) {
+    rejectArmed = false;
+    if (confirmBar) confirmBar.hidden = true;
+  }
+  if (rejectArmed) {
+    const text = document.getElementById("reject-confirm-text");
+    if (text) text.textContent = `Reject ${ids.length} selected plan(s)? This cannot be undone.`;
+  }
+  // One ticked plan uses its own card buttons; the footer is for two or more.
+  const ticked = new Set(selectedActionablePlanIds().concat(ids)).size;
+  if (bulkBar) bulkBar.hidden = rejectArmed || ticked < 2;
 }
 
 function syncExpiredBar() {
@@ -548,13 +599,16 @@ function syncPlansBadge() {
 
 function syncApproveSelected() {
   const count = document.getElementById("plan-selected-count");
-  if (count) count.textContent = `${selectedActionablePlanIds().length} selected`;
+  if (count) count.textContent = `${new Set(selectedActionablePlanIds().concat(selectedRejectablePlanIds())).size} selected`;
   syncPlansBadge();
+  syncBulkBar();
   document.querySelectorAll('[data-action="approve-selected"]').forEach((button) => {
     button.disabled = modelActionsBlocked() || selectedActionablePlanIds().length === 0;
+    button.textContent = `Approve ${selectedActionablePlanIds().length}`;
   });
   document.querySelectorAll('[data-action="reject-selected"]').forEach((button) => {
     button.disabled = modelActionsBlocked() || selectedRejectablePlanIds().length === 0;
+    button.textContent = `Reject ${selectedRejectablePlanIds().length}`;
   });
 }
 
@@ -564,8 +618,9 @@ function renderPlans() {
   syncExpiredBar();
   syncOtherBar();
   if (state.plans.length === 0) {
-    renderEmpty(planList, "No pending actions", "Approved or rejected ActionPlans will clear from this queue.");
+    renderEmpty(planList, "No pending plans", "", true);
     syncPlansBadge();
+    syncBulkBar();
     return;
   }
 
@@ -635,7 +690,7 @@ function renderPlans() {
     const describedBy = [plan.expired ? `plan-expired-${id}` : "", mismatch ? `plan-warn-${id}` : "", unbound ? `plan-unbound-${id}` : ""].filter(Boolean).join(" ");
     const describedAttr = describedBy ? ` aria-describedby="${describedBy}"` : "";
     const actions = actionable
-      ? `<div class="item-actions">
+      ? `<div class="item-actions"><span class="item-actions-for">${label}</span>
         <button type="button" data-plan="${id}" data-hash="${hash}" class="primary" data-decision="approve" aria-label="Approve plan ${label}"${describedAttr}${blockedAttr}>Approve</button>
         <button type="button" data-plan="${id}" data-hash="${hash}" data-decision="reject" aria-label="Reject plan ${label}">Reject</button>
       </div>`
@@ -657,7 +712,7 @@ function renderPlans() {
         ${select}<div class="plan-title"><h2>${label}</h2><span class="plan-id">${id}</span></div>
         <span class="badge ${planStatusBadgeClass(plan.status)}">${escapeHtml(String(plan.status).replace(/_/g, " "))}</span>
       </div>
-      <p class="plan-detail">${escapeHtml(plan.detail)}</p>
+      ${plan.detail && plan.detail !== plan.title ? `<p class="plan-detail">${escapeHtml(plan.detail)}</p>` : ""}
       ${expiredLine}${warnLine}${unboundLine}
       ${actionable ? '<div data-preview-mount></div>' : ""}
       ${rollbackLoud ? '<div data-rollback-loud></div>' : ""}
@@ -787,14 +842,14 @@ function renderLog() {
   });
 }
 
-function renderEmpty(container, heading, detail) {
+function renderEmpty(container, heading, detail, compact) {
   const item = document.createElement("article");
-  item.className = "empty";
+  item.className = compact ? "empty is-compact" : "empty";
   const iconView = { "plan-list": "plans", "finding-list": "findings", "report-list": "reports", "run-log": "log" }[container.id];
   const icon = iconView
     ? `<span class="empty-tile" aria-hidden="true"><svg class="ico" viewBox="0 0 256 256"><use href="#nav-${iconView}"/></svg></span>`
     : "";
-  item.innerHTML = `${icon}<strong>${escapeHtml(heading)}</strong><p>${escapeHtml(detail)}</p>`;
+  item.innerHTML = `${icon}<strong>${escapeHtml(heading)}</strong>${detail ? `<p>${escapeHtml(detail)}</p>` : ""}`;
   container.appendChild(item);
 }
 
@@ -802,7 +857,17 @@ document.querySelectorAll(".nav").forEach((button) => {
   button.addEventListener("click", () => setView(button.dataset.view));
 });
 
-setupRefresh.addEventListener("click", requestDiagnostics);
+// The one Refresh: setup check plus the list behind the active view.
+setupRefresh.addEventListener("click", () => {
+  requestDiagnostics();
+  if (currentView === "plans") {
+    postToHost("plans.refresh");
+    addLog("Plans refreshed", "Requested pending plans from the host.");
+  } else if (currentView === "reports") {
+    postToHost("reports.refresh");
+    addLog("Reports refreshed", "Requested available reports from the host.");
+  }
+});
 setupToggle.addEventListener("click", () => {
   setupExpanded = !setupExpanded;
   renderSetup();
@@ -853,10 +918,6 @@ document.body.addEventListener("click", (event) => {
   }
 
   const action = target.dataset.action;
-  if (action === "refresh-plans") {
-    postToHost("plans.refresh");
-    addLog("Plans refreshed", "Requested pending plans from the host.");
-  }
   if (action === "approve-selected") {
     // The host has no bulk message: approve each ticked, still-pending plan
     // through the same per-plan plan.approve it already handles.
@@ -879,17 +940,19 @@ document.body.addEventListener("click", (event) => {
     if (ids.length === 0) {
       addLog("Nothing selected", "Tick one or more pending plans first.");
     } else {
+      rejectArmed = true;
       document.getElementById("reject-confirm-text").textContent = `Reject ${ids.length} selected plan(s)? This cannot be undone.`;
       document.getElementById("reject-confirm").hidden = false;
-      const confirmButton = document.querySelector('[data-action="reject-confirm"]');
-      if (confirmButton && confirmButton.focus) confirmButton.focus();
+      syncBulkBar();
+      const cancelButton = document.querySelector('[data-action="reject-cancel"]');
+      if (cancelButton && cancelButton.focus) cancelButton.focus();
     }
   }
   if (action === "reject-cancel") {
     hideRejectConfirm();
   }
   if (action === "reject-confirm") {
-    const ids = selectedRejectablePlanIds();
+    const ids = rejectArmed ? selectedRejectablePlanIds() : [];
     hideRejectConfirm();
     ids.forEach((planId) => {
       const plan = state.plans.find((candidate) => candidate.id === planId);
@@ -918,11 +981,6 @@ document.body.addEventListener("click", (event) => {
     postToHost("reports.exportExcel");
     addLog("Report export requested", "Excel export sent to the host.");
   }
-  if (action === "refresh-reports") {
-    postToHost("reports.refresh");
-    addLog("Reports refreshed", "Requested available reports from the host.");
-  }
-
   const planId = target.dataset.plan;
   if (planId) {
     const decision = target.dataset.decision;
@@ -1416,11 +1474,14 @@ function buildPreviewBlock(preview, radius, planId, rollback) {
       const withUid = rows.some((row) => isKnown(row.unique_id));
       const fills = rollbackBefores(rollback);
       let filled = 0;
+      const withElement = rows.some((row) => isKnown(row.element_id));
+      const withParameter = rows.some((row) => isKnown(row.parameter));
       const cols = [["Element", ""], ["UniqueId", "col-uid"], ["Parameter", ""], ["Before", "col-before"], ["After", "col-after"], ["Tool", "col-tool"]]
-        .filter(([name]) => withUid || name !== "UniqueId");
+        .filter(([name]) => (withUid || name !== "UniqueId") && (withElement || name !== "Element") && (withParameter || name !== "Parameter"));
       const table = reviewEl("table", "plan-preview-table");
       const headRow = reviewEl("tr");
       cols.forEach(([name, cls]) => headRow.append(reviewEl("th", cls, name)));
+      headRow.className = "head-row";
       table.append(headRow);
       rows.slice(0, PREVIEW_ROW_CAP).forEach((row) => {
         let before = row.before;
@@ -1440,7 +1501,9 @@ function buildPreviewBlock(preview, radius, planId, rollback) {
         const tr = reviewEl("tr");
         cols.forEach(([name, cls]) => {
           const cell = values[name];
-          tr.append(reviewEl("td", cls, visibleText(cell === undefined || cell === null ? "" : cell)));
+          const td = reviewEl("td", cls, visibleText(cell === undefined || cell === null ? "" : cell));
+          td.dataset.label = name;
+          tr.append(td);
         });
         table.append(tr);
       });

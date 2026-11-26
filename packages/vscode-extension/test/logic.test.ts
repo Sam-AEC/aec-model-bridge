@@ -109,6 +109,8 @@ describe("parseRegistryFile", () => {
     expect(parseRegistryFile("[]")).toBeUndefined();
     expect(parseRegistryFile("{}")).toBeUndefined();
     expect(parseRegistryFile(JSON.stringify({ endpoint: "file:///x" }))).toBeUndefined();
+    expect(parseRegistryFile(JSON.stringify({ endpoint: "http://evil.example:3000" }))).toBeUndefined();
+    expect(parseRegistryFile(JSON.stringify({ endpoint: "http://127.0.0.1.evil.example:3000" }))).toBeUndefined();
   });
 });
 

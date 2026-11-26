@@ -1,0 +1,4 @@
+# Regenerate the hash-pinned lock: uv pip compile --universal --generate-hashes --python-version 3.12 docs/requirements.in -o docs/requirements.txt
+# Docs site build only (mkdocs.yml, .github/workflows/docs.yml). Not a runtime dependency.
+mkdocs==1.6.1
+mkdocs-material==9.8.2
