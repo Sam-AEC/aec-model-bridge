@@ -22,6 +22,7 @@ import json
 import logging
 import os
 import queue
+import select
 import shutil
 import socket
 import socketserver
@@ -124,8 +125,11 @@ def _busy_response_bytes() -> bytes:
 REFUSAL_DRAIN_SECONDS = 0.25
 REFUSAL_DRAIN_MAX_BYTES = 1024 * 1024
 # Refused sockets wait for one closer thread in a queue of this size. When it is full, a refused
-# socket is closed at once after a non-blocking read, so the accept thread never waits on a client.
+# socket is closed after a non-blocking read, so the accept thread waits on a client for at most
+# REFUSAL_LAST_RESORT_WAIT_SECONDS.
 REFUSAL_CLOSER_QUEUE = 32
+# Last-resort path (closer queue full): wait this long for the request to arrive before closing.
+REFUSAL_LAST_RESORT_WAIT_SECONDS = 0.05
 
 # Request line and headers must arrive this fast on a reserved /execute slot.
 RESERVED_HEADER_TIMEOUT_SECONDS = 2.0
@@ -138,7 +142,7 @@ class BoundedThreadingHTTPServer(ThreadingHTTPServer):
     when they are all in use, a connection gets one of the ``reserved_execute`` slots, and its
     thread answers 503 unless the request path is ``/execute``. When every slot is in use, the
     connection is answered 503 with ``Retry-After`` on the accept thread and handed to one shared
-    closer thread that drains and closes it; no thread starts per refused connection. A slot is released when its thread ends, also after an exception.
+    closer thread that drains and closes it; no thread starts per refused connection. A slot is released when its request ends, also after an exception, and before the socket closes.
     """
 
     def __init__(self, server_address, handler_class, max_threads: int = DEFAULT_MAX_THREADS,
@@ -224,6 +228,11 @@ class BoundedThreadingHTTPServer(ThreadingHTTPServer):
 
     @staticmethod
     def _drain_nonblocking(request) -> None:
+        with contextlib.suppress(OSError, ValueError):
+            # A client that connected a moment ago may not have its request bytes here yet. Closing
+            # with data still arriving makes Windows reset the connection and drop the 503, so wait
+            # briefly (bounded) for the first bytes before draining what is there.
+            select.select([request], [], [], REFUSAL_LAST_RESORT_WAIT_SECONDS)
         with contextlib.suppress(OSError):
             request.setblocking(False)
             for _ in range(16):
@@ -268,13 +277,28 @@ class BoundedThreadingHTTPServer(ThreadingHTTPServer):
 
     def _process_request_in_slot(self, request, client_address, kind: str) -> None:
         self._slot_state.kind = kind
-        try:
-            self.process_request_thread(request, client_address)
-        finally:
+        released = False
+
+        def release() -> None:
+            nonlocal released
+            if released:
+                return
+            released = True
             self._slot_state.kind = "general"
             with self._count_lock:
                 self.active_threads -= 1
             self._release_slot(kind)
+
+        try:
+            try:
+                self.finish_request(request, client_address)
+            except Exception:
+                self.handle_error(request, client_address)
+        finally:
+            # Free the slot before the socket closes. A client that has seen the end of its
+            # response (EOF) can then connect again and always finds this slot free.
+            release()
+            self.shutdown_request(request)
 
 
 class InstanceRoutingError(Exception):
