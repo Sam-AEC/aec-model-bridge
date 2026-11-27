@@ -40,8 +40,14 @@ rules:
       category: OST_Doors
       parameter: {name: Mark, empty: true}
     assertion: "element_count == 0"    # optional, this is the default
-    fix_template: "Set the Mark on '{label}'."   # optional
+    fix_template: "Set the Mark on '{label}'."   # optional, free text for a person
+    fix: {parameter: Mark, value: "D-000"}       # optional, a concrete parameter write
 ```
+
+`fix` names one parameter and one fixed value (text, number or true/false). Findings of a rule with a `fix` can be
+selected by issue id in `qaqc_checker_draft_fix_plan`, which drafts one `plan_actions` list with a
+`revit_set_parameter_value` action per finding. Findings of rules without a `fix` are listed as skipped.
+The tool only drafts: a person approves the plan and `execute_plan` writes it. The validator rejects a pack with an invalid `fix`.
 
 ### Operators the engine supports
 
