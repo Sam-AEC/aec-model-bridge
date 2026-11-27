@@ -50,7 +50,7 @@ Not copied (read them from the repository):
 > Open-source Revit MCP server (Model Context Protocol) and native Revit add-in. AI assistants such as Claude, Codex and Cursor read and edit the BIM model open in Revit 2024 to 2027. Every model change is a plan that a person approves first (approval gate). Also reads IFC files; Rhino, Grasshopper and Speckle integrations included.
 
 - Protocol: Model Context Protocol, stdio transport. Any MCP client that can start a local server works.
-- Tools: 327 in the default setup, counted in mock mode. Revit has 112 of them.
+- Tools: 330 in the default setup, counted in mock mode. Revit has 112 of them.
 - Safety: tools that change the model are blocked until a plan is approved. An unattended mode exists and is opt-in.
 - Platform: live Revit work needs Windows and a licensed Revit. Mock mode (sample data) needs neither.
 - Licence: GPL-3.0-or-later with the Revit Linking Exception, plus a commercial option.
@@ -161,7 +161,7 @@ python ../../scripts/version.py check       # VERSION, pyproject and manifests m
 
 **AI assistants read the Revit model you have open. By default, nothing in it changes until you approve a plan.**
 
-Open-source Revit MCP server · Revit 2024 – 2027 · 327 tools · Claude, Codex, Cursor and other MCP clients
+Open-source Revit MCP server · Revit 2024 – 2027 · 330 tools · Claude, Codex, Cursor and other MCP clients
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Sam-AEC/aec-model-bridge/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Sam-AEC/aec-model-bridge/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
@@ -317,14 +317,14 @@ status. It is not on the Marketplace.
 | --- | --- | --- |
 | Revit | 112 | Read the model, edit elements, parameters, views, sheets, schedules, exports, worksharing |
 | Approval | 6 | Plan, review, approve, execute and roll back changes; show the workspace policy |
-| Modules | 127 | Snapshot inspection, parameter grids, QA/QC checks, recipes, reports, selections |
+| Modules | 130 | Snapshot inspection, parameter grids, QA/QC checks, recipes, reports, selections |
 | Rhino and Grasshopper | 19 | Geometry, layers, materials, boolean operations |
 | Speckle | 17 | Projects, models, versions, send and receive |
 | Navisworks | 15 | Model tree, viewpoints, clash tests (in progress) |
 | IFC | 7 | Read IFC files without Revit |
 | Graph, snapshots, exports, jobs | 24 | Graph audits, snapshot diffs, SQLite export, background jobs |
 
-327 tools are listed in the default setup (counted from the current server in
+330 tools are listed in the default setup (counted from the current server in
 mock mode). Autodesk Data tools appear when APS credentials are configured. The
 [tool reference](docs/tools-generated.md) lists every tool. Each tool carries
 MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`,
@@ -3767,7 +3767,7 @@ The result gives pass, fail or skipped per specification (skipped means the spec
 
 Measured 2026-11-05 with `MCP_REVIT_MODE=mock`, the supplied Python interpreter, a temporary workspace, no user modules or provider credentials, and no Revit model execution. Baseline captured at `87d1d1bb5312ccb9868786860cbc66f76c47b895` before production changes; results were reported before edits.
 
-The checkout exposes **327** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
+The checkout exposes **330** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
 
 ## Initial profile and response pass
 
@@ -4953,8 +4953,8 @@ Ordered list for shipping from `dev` to `main`. Section 2 has no PASS or FAIL re
 
 ## 0. Release flow
 
-- Open one release PR from `dev` into `main` and merge it with a merge commit.
-- `dev` is frozen while that PR is open. PRs into `dev` wait until it lands. The `release-freeze` workflow fails on PRs into `dev` while a `dev` into `main` PR is open; add `release-freeze` as a required check on `dev`.
+- Open one release PR into `main` from `dev`, or from a `release/*` branch of this repository when `dev` conflicts with `main`. Merge it with a merge commit.
+- `dev` is frozen while that PR is open. PRs into `dev` wait until it lands. The `release-freeze` workflow fails on PRs into `dev` while a PR into `main` is open whose head is `dev` or a `release/*` branch of this repository; add `release-freeze` as a required check on `dev`.
 - Tag after the release PR is merged, from the merge commit on `main`.
 - Issues fixed on `dev` carry the `fixed-in-dev` label and close when the release reaches `main`.
 
@@ -4982,6 +4982,7 @@ Run on a Windows machine with Revit, starting with the write test in section 5. 
 5. Windows ACL on `%LOCALAPPDATA%\AECModelBridge\panel-hub.token`: only the current user has access. Windows does not re-verify the ACL on read.
 6. The Revit 2024 Release build and authenticated panel backend passed on 14 October 2026. Build and run the net8 and net10 targets as well, and repeat the release checks on each supported year.
 7. Verify the panel review card and explicit Dev mode (Settings, Dev mode). Dev must stay visibly enabled until switched off, audit its writes, and preserve read-mode guards, filesystem scope and supplied-plan checks.
+8. Image return (issue #211, UNVERIFIED). Call `revit_export_image` with `return_image: true` on a view that has been opened. The result should hold the JSON text and one PNG image block, and the file should stay in the workspace. Then export a large view (more than 2 MB) and check the refusal names the 2 MB cap.
 
 Results for 1.6.0, Revit 2026.5, scratch copy of the Snowdon Towers sample, 2026-11-26:
 - 1 PASS: a two-action `revit_set_parameter_value` plan, approved by the person in the panel, wrote both values. No crash.
@@ -5014,14 +5015,14 @@ Results for 1.6.0, Revit 2026.5, scratch copy of the Snowdon Towers sample, 2026
 ## 4. Steps only the maintainer can do
 
 1. Open the pull request from `dev` to `main` and review it. Do not merge until sections 1 and 2 are done or their gaps are accepted in writing.
-2. Import the repository rulesets in GitHub settings.
+2. Import the repository rulesets in GitHub settings. Once, for CI tagging: create a fine-grained token as a repository admin (this repository only, Contents: read and write) and save it as the repository secret `RELEASE_TAG_TOKEN`. The tag ruleset lets only admins create `v*` tags, and a personal repository cannot add GitHub Actions as a bypass actor. Without the secret `tag-release.yml` skips and the tag is pushed by hand.
 3. Upload `docs/images/readme/social-preview.png` under repository Settings, General, Social preview. Only an admin can set it.
 4. Enable the docs site: repository Settings, Pages, Build and deployment, Source: GitHub Actions. `.github/workflows/docs.yml` then deploys the MkDocs site on the next push to `main` that touches `docs/` or `mkdocs.yml` (or run the workflow by hand). Until then the deploy job fails and the site is not published.
 5. Enable Discussions and create the categories in [maintainer/discussions.md](maintainer/discussions.md).
 6. Have counsel review the licences and the rule packs ([rule-packs.md](rule-packs.md), [LICENSING.md](../LICENSING.md)).
 7. Have native speakers review the 16 translated READMEs in `docs/i18n/`, including the Plans view note, approval and undo wording, and the current screenshot alt text. Source corrections do not establish native-language review.
 8. Run a pilot with BIM coordinators. None has been run yet.
-9. Tag and publish the release ([versioning.md](versioning.md)).
+9. Merge the release PR into `main`. `.github/workflows/tag-release.yml` then creates the annotated tag `v<VERSION>` on the merge commit with `RELEASE_TAG_TOKEN`; that tag push starts `release.yml`. It skips quietly if the tag already exists. Pushing the tag by hand still works ([versioning.md](versioning.md)).
 
 ## 5. Minimal safe write test
 
@@ -5182,6 +5183,8 @@ download to a GitHub release; Marketplace publishing is a separate step.
    git tag v1.4.0
    git push --follow-tags
    ```
+
+   For a release PR merged into `main` from `dev` or `release/*`, `tag-release.yml` creates the tag `v<VERSION>` on the merge commit when the `RELEASE_TAG_TOKEN` secret is set, which starts the release, so the manual tag in step 3 is not needed. A tag pushed by hand also works.
 
 4. The **Build GitHub Release** workflow starts on the tag. It confirms the tag, `VERSION`, every manifest and the changelog agree, runs the Python tests, builds the add-in and installer bundle, and publishes the GitHub release with the changelog section as its notes.
 5. For stable tags the release workflow then starts **Publish MCP Server**, which fills in the bundle hash and publishes to the MCP Registry. Pre-releases are not sent to the registry.

@@ -4,8 +4,8 @@ Ordered list for shipping from `dev` to `main`. Section 2 has no PASS or FAIL re
 
 ## 0. Release flow
 
-- Open one release PR from `dev` into `main` and merge it with a merge commit.
-- `dev` is frozen while that PR is open. PRs into `dev` wait until it lands. The `release-freeze` workflow fails on PRs into `dev` while a `dev` into `main` PR is open; add `release-freeze` as a required check on `dev`.
+- Open one release PR into `main` from `dev`, or from a `release/*` branch of this repository when `dev` conflicts with `main`. Merge it with a merge commit.
+- `dev` is frozen while that PR is open. PRs into `dev` wait until it lands. The `release-freeze` workflow fails on PRs into `dev` while a PR into `main` is open whose head is `dev` or a `release/*` branch of this repository; add `release-freeze` as a required check on `dev`.
 - Tag after the release PR is merged, from the merge commit on `main`.
 - Issues fixed on `dev` carry the `fixed-in-dev` label and close when the release reaches `main`.
 
@@ -33,6 +33,7 @@ Run on a Windows machine with Revit, starting with the write test in section 5. 
 5. Windows ACL on `%LOCALAPPDATA%\AECModelBridge\panel-hub.token`: only the current user has access. Windows does not re-verify the ACL on read.
 6. The Revit 2024 Release build and authenticated panel backend passed on 14 October 2026. Build and run the net8 and net10 targets as well, and repeat the release checks on each supported year.
 7. Verify the panel review card and explicit Dev mode (Settings, Dev mode). Dev must stay visibly enabled until switched off, audit its writes, and preserve read-mode guards, filesystem scope and supplied-plan checks.
+8. Image return (issue #211, UNVERIFIED). Call `revit_export_image` with `return_image: true` on a view that has been opened. The result should hold the JSON text and one PNG image block, and the file should stay in the workspace. Then export a large view (more than 2 MB) and check the refusal names the 2 MB cap.
 
 Results for 1.6.0, Revit 2026.5, scratch copy of the Snowdon Towers sample, 2026-11-26:
 - 1 PASS: a two-action `revit_set_parameter_value` plan, approved by the person in the panel, wrote both values. No crash.
@@ -65,14 +66,14 @@ Results for 1.6.0, Revit 2026.5, scratch copy of the Snowdon Towers sample, 2026
 ## 4. Steps only the maintainer can do
 
 1. Open the pull request from `dev` to `main` and review it. Do not merge until sections 1 and 2 are done or their gaps are accepted in writing.
-2. Import the repository rulesets in GitHub settings.
+2. Import the repository rulesets in GitHub settings. Once, for CI tagging: create a fine-grained token as a repository admin (this repository only, Contents: read and write) and save it as the repository secret `RELEASE_TAG_TOKEN`. The tag ruleset lets only admins create `v*` tags, and a personal repository cannot add GitHub Actions as a bypass actor. Without the secret `tag-release.yml` skips and the tag is pushed by hand.
 3. Upload `docs/images/readme/social-preview.png` under repository Settings, General, Social preview. Only an admin can set it.
 4. Enable the docs site: repository Settings, Pages, Build and deployment, Source: GitHub Actions. `.github/workflows/docs.yml` then deploys the MkDocs site on the next push to `main` that touches `docs/` or `mkdocs.yml` (or run the workflow by hand). Until then the deploy job fails and the site is not published.
 5. Enable Discussions and create the categories in [maintainer/discussions.md](maintainer/discussions.md).
 6. Have counsel review the licences and the rule packs ([rule-packs.md](rule-packs.md), [LICENSING.md](../LICENSING.md)).
 7. Have native speakers review the 16 translated READMEs in `docs/i18n/`, including the Plans view note, approval and undo wording, and the current screenshot alt text. Source corrections do not establish native-language review.
 8. Run a pilot with BIM coordinators. None has been run yet.
-9. Tag and publish the release ([versioning.md](versioning.md)).
+9. Merge the release PR into `main`. `.github/workflows/tag-release.yml` then creates the annotated tag `v<VERSION>` on the merge commit with `RELEASE_TAG_TOKEN`; that tag push starts `release.yml`. It skips quietly if the tag already exists. Pushing the tag by hand still works ([versioning.md](versioning.md)).
 
 ## 5. Minimal safe write test
 

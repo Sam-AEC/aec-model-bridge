@@ -2153,6 +2153,13 @@ class RevitProvider(AECProvider):
                     "output_path": {"type": "string"},
                     "width": {"type": "integer"},
                     "height": {"type": "integer"},
+                    "return_image": {
+                        "type": "boolean",
+                        "description": (
+                            "Also return the exported PNG as an MCP image block next to the JSON result. "
+                            "Images over 2 MB are refused, not truncated; the file stays in the workspace. Default false."
+                        ),
+                    },
                 },
                 "required": ["view_id"],
             },

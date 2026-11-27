@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 1.7.0 - 2026-11-27
+
+- Added BCF 3.0 REST topics to `bcf_exchange`: `bcf_exchange_list_server_topics` (read-only), `bcf_exchange_create_server_topic` and `bcf_exchange_update_server_topic` (both need an approved plan). The server address and bearer token come only from `MCP_REVIT_BCF_URL` and `MCP_REVIT_BCF_TOKEN`; the token is never logged or returned, and remote servers must use https. Tested against a local mock only; UNVERIFIED against real BIMcollab or Revizto servers. Fixes #199. Tool count is now 330.
+- `revit_export_image` takes an opt-in `return_image` argument that returns the exported PNG as an MCP image block next to the JSON result. Images over 2 MB are refused with a plain message naming the cap, and a missing or non-PNG file gives a plain note. Default and tool count unchanged. Fixes #211. Live Revit export UNVERIFIED.
+- The `release-freeze` workflow now also freezes `dev` while a release PR from a `release/*` branch of this repository is open, not only one from `dev`. Fork branches still do not count.
+- CI tags releases: when a release PR from `dev` or `release/*` is merged into `main`, `tag-release.yml` creates the annotated tag `v<VERSION>` on the merge commit with the `RELEASE_TAG_TOKEN` secret (a fine-grained admin token), and that tag push starts `release.yml`. Without the secret it skips with a notice and the tag is pushed by hand. The tag ruleset stays admin-only. No tool count change.
+
 ## 1.6.3 - 2026-11-27
 
 - Three new read-only tools (`param_completeness_loin_report`, `qto_export_run`, `ifc_diff_compare_snapshot`). Tool count is now 327.

@@ -13,7 +13,7 @@ resolution-markers = [
 
 [[package]]
 name = "aec-model-bridge"
-version = "1.6.3"
+version = "1.7.0"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
