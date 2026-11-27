@@ -262,6 +262,8 @@ def compute_loin(
 ) -> List[Dict[str, Any]]:
     """Completeness per (category, stage). A parameter is "not captured" when the snapshot has no
     element of the category that carries it, or its capture filter left the parameter out."""
+    if not isinstance(elements, list):
+        raise ValueError("The snapshot has no 'elements' list.")
     by_cat: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     for el in elements:
         by_cat[el.get("category") or "(none)"].append(el)

@@ -194,3 +194,9 @@ def test_registered_as_read_only_tool(ws):
     manifest = json.loads((Path(pc_module.__file__).parent / "module.json").read_text(encoding="utf-8"))
     cmd = next(c for c in manifest["commands"] if c["id"] == "loin_report")
     assert cmd["is_mutating"] is False
+
+def test_null_elements_is_a_value_error(ws):
+    _snap(ws, elements=None)
+    _req(ws)
+    with pytest.raises(ValueError, match="elements"):
+        _run(ws)
