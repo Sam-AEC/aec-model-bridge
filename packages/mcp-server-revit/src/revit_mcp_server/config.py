@@ -142,6 +142,8 @@ class Config(BaseSettings):
     # MCP Apps plan review view (ui://aec-model-bridge/plan-review) and its tool _meta; read-only.
     # auto: _meta.ui only for clients that declare the extension; always; off.
     mcp_apps: str = Field(default="auto")
+    # Language of tool descriptions (locales/<code>.json); "en" is the default and the fallback.
+    locale: str = Field(default="en")
 
     _auto_dirs: List[Path] = PrivateAttr(default_factory=list)
 
