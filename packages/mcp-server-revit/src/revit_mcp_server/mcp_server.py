@@ -17,7 +17,7 @@ from mcp.types import (
     TextContent,
 )
 
-from . import call_limits, mcp_apps, mcp_logging, mcp_prompts, mcp_resources, mcp_tasks
+from . import call_limits, client_roots, mcp_apps, mcp_logging, mcp_prompts, mcp_resources, mcp_tasks
 
 from .elicitation import (
     MAX_ROUNDS, VIEW_SHEET_REFS, ElicitationForbidden, InputNeeded, check_view_sheet_names, elicit_choice,
@@ -26,6 +26,7 @@ from .elicitation import (
 from .errors import BridgeError, CommandFailed
 from .registry_factory import build_registry
 from .security.approval import HUMAN_ONLY_TOOLS
+from .security.workspace import CLIENT_ROOTS
 from .security.dispatch import (
     GET_RESULT_TOOL, gate_after, gate_after_result, gate_before, mark_timed_out, result_failed,
     settle_in_flight, settle_late_result,
@@ -87,6 +88,7 @@ def _make_server() -> Server:
 
 # Initialize the MCP server
 app = _make_server()
+client_roots.register(app)
 
 # Registry components — populated in main() so importing this module never
 # triggers provider construction (Rhino health probes, Speckle OAuth, SQLite
@@ -192,7 +194,19 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
     the person is asked once per missing input and the call runs again with the answer.
     Otherwise, or on decline, cancel or timeout, the call ends with the plain refusal.
     Approval tools never ask (elicitation.elicitation_allowed).
+
+    The folders this client has open (MCP roots) narrow the workspace sandbox for the call
+    (client_roots.py); they never widen it.
     """
+    roots = await client_roots.for_session(_client_session(), workspace_monitor)
+    token = CLIENT_ROOTS.set(roots)
+    try:
+        return await _call_tool_rounds(name, arguments)
+    finally:
+        CLIENT_ROOTS.reset(token)
+
+
+async def _call_tool_rounds(name: str, arguments: Any) -> list[TextContent] | CallToolResult | CreateTaskResult:
     rounds = 0
     while True:
         try:

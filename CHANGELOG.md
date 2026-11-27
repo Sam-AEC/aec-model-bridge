@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Workspace sandbox follows the folders the MCP client has open: when a client declares roots, path tools are limited to the intersection of those roots and the allowed directories (never wider, re-read on `roots/list_changed`, refused when nothing overlaps); clients without roots are unchanged; real-client behaviour UNVERIFIED. Fixes #202.
 - After `plan_actions` drafts a plan, a client that declared URL mode elicitation gets a loopback link (`/panel?plan=<id>`, no token) to the review panel; the link cannot approve, other clients see no change. Behaviour in real clients is UNVERIFIED. Fixes #193.
 - New module `ifc_diff` (#176). Tool count is now 323 (123 module tools). `ifc_diff_compare` compares two IFC files in the workspace by GlobalId and lists elements added, removed and changed (class, name, property sets and quantities, with a property hash), with complete counts and capped lists. Geometry is not compared. Read-only. Fixes #176
 - `parameter_manager_import_params_csv` also reads a three-column CSV (`element_id,parameter,value`) into a draft plan with a `row_diff`; unknown element ids, unknown or read-only parameters, blank values and conflicting duplicates are listed as blocked and produce no action. Both CSV layouts now refuse empty, header-only and oversize files and CSVs with missing columns. Fixes #186
