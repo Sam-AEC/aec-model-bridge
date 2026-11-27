@@ -26,6 +26,7 @@ from .elicitation import (
 from .errors import BridgeError, CommandFailed
 from .registry_factory import build_registry
 from .security.approval import HUMAN_ONLY_TOOLS
+from .security.policy import name_in_off_tier, off_tiers_for_listing, tool_refusal
 from .security.workspace import CLIENT_ROOTS
 from .security.dispatch import (
     GET_RESULT_TOOL, gate_after, gate_after_result, gate_before, mark_timed_out, result_failed,
