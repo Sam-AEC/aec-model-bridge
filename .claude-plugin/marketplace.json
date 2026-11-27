@@ -12,7 +12,7 @@
       "name": "aec-model-bridge",
       "source": "./packages/claude-plugin",
       "description": "Revit MCP server with an approval gate, plus two skills: revit-review for the safe read, check, propose, approve flow, and aec-model-bridge for working with few calls and small results.",
-      "version": "1.6.3",
+      "version": "1.7.0",
       "license": "GPL-3.0-or-later",
       "homepage": "https://github.com/Sam-AEC/aec-model-bridge",
       "keywords": ["revit", "bim", "aec", "mcp", "autodesk"]
