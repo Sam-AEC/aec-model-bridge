@@ -20,6 +20,7 @@ from typing import Any
 
 from mcp.types import Tool, ToolAnnotations, ToolExecution
 
+from .locale_descriptions import localized_description
 from .mcp_tasks import TASK_TOOLS
 from .output_schemas import output_schema_for
 from .providers.base import ProviderTool
@@ -827,6 +828,7 @@ def enrich_tool(provider_id: str, tool: ProviderTool) -> Tool:
     hint = SIBLING_HINTS.get(tool.name)
     if hint and hint not in description:
         description = f"{description} {hint}"
+    description = localized_description(tool.name, description)
 
     schema = copy.deepcopy(tool.input_schema) if tool.input_schema else {"type": "object"}
     schema.setdefault("type", "object")

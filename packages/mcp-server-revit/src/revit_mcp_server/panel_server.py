@@ -28,6 +28,7 @@ import socket
 import socketserver
 import threading
 import time
+from urllib.parse import parse_qs, urlsplit
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -40,6 +41,7 @@ from .config import config
 from .errors import CommandFailed, RevitMCPError
 from .registry_factory import build_registry
 from .security.approval import HUMAN_ONLY_TOOLS
+from .security.safe_paths import PLAN_ID_RE
 from .security.proof import panel_plans_redacted
 from .security.audit import redact_data, redact_for_approval, redact_known_secrets, register_secret_value
 from .security.dispatch import run_gated_tool
@@ -705,11 +707,43 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"ok": False, "error": str(e)})
             return None
 
+    def _handle_plan_page(self) -> None:
+        """A static page for the link the server hands out after plan_actions (/panel?plan=<id>).
+
+        It needs no token because it holds no plan data and no controls: it names the plan and
+        says where to review it. Approval happens only in the Revit panel or the approve command.
+        """
+        plan_ids = parse_qs(urlsplit(self.path).query, keep_blank_values=True).get("plan", [])
+        if len(plan_ids) != 1 or not PLAN_ID_RE.fullmatch(plan_ids[0]):
+            self._send_html(400, "<p>This link needs one plan id such as plan_0123456789ab.</p>")
+            return
+        self._send_html(200, (
+            f"<h1>Plan {plan_ids[0]} is waiting for review</h1>"
+            "<p>Open the AEC Model Bridge panel in Revit and choose the Plans view. "
+            "Read the plan there, then approve or reject it.</p>"
+            "<p>This page cannot approve, reject or run a plan.</p>"
+        ))
+
+    def _send_html(self, status: int, fragment: str) -> None:
+        body = ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+                "<title>AEC Model Bridge</title></head><body>" + fragment + "</body></html>").encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Content-Security-Policy", "default-src 'none'; style-src 'none'")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self) -> None:  # noqa: N802
         if not self._authorize(is_post=False):
             return
         if self.path == "/health":
             self._send_json(200, {"status": "healthy"})
+            return
+        if self.path.split("?", 1)[0] == "/panel":
+            self._handle_plan_page()
             return
         if not self._check_token():
             return
