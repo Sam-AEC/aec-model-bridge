@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- New tool `qaqc_checker_draft_fix_plan`. Tool count is now 323 (123 module tools). Rules take an optional `fix` (`parameter` and `value`); selected findings whose rule has one become one `plan_actions` list with a `revit_set_parameter_value` action each, and the rest are listed as skipped with the reason. It refuses unknown, resolved, stale or mixed-snapshot findings and a snapshot from another model, and only drafts: a person approves and `execute_plan` writes. Fixture-tested; live apply is UNVERIFIED. Fixes #187
 - Example rule packs `classification-uniclass.yaml`, `classification-omniclass.yaml` and `cobie-completeness.yaml`: presence and format of Uniclass and OmniClass codes and presence of COBie component and type fields on asset categories, with fields the snapshot does not hold reported as not captured. Fixture-tested only; real-model behaviour is UNVERIFIED. Fixes #175
 - Docker image: dependencies install from `requirements-docker.txt`, a hash-pinned export of `uv.lock` (`pip install --require-hashes`), then the package with `--no-deps`. A test fails when the export drifts from the lock. Clears Scorecard alert #36.
 - Tests: the job, Revit job, server and approval tests no longer use real sleeps; they wait on events, and a cancelled job that never stops fails within 2 s. Fixes #242
