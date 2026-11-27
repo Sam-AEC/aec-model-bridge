@@ -40,6 +40,9 @@
         "required_status_checks": [
           {
             "context": "ci-success"
+          },
+          {
+            "context": "release-freeze"
           }
         ]
       }
