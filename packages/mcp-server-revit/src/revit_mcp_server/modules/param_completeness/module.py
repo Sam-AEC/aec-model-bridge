@@ -6,6 +6,10 @@ Command:
             each parameter: filled / total / percent. Optional CSV and a self-contained
             HTML heatmap are written inside the workspace.
 
+  loin_report - Compare a snapshot with a LOIN requirement file (category, stage, required
+            parameters) and report completeness per category and stage. A required parameter
+            that no captured element carries is "not captured", not "empty".
+
 Read-only: nothing in the model is changed. The files are written to the workspace only.
 
 Definitions (also in docs/qa-handover-report.md):
@@ -23,6 +27,8 @@ import csv
 import html
 import importlib.util
 import io
+import json
+import re
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -32,6 +38,11 @@ MAX_TOP_N = 50
 MAX_PARAMETERS = 100
 DEFAULT_MAX_ROWS = 500
 NO_LEVEL = "(no level)"
+LOIN_DIR = "loin"
+LOIN_SUFFIXES = (".yaml", ".yml", ".json")
+LOIN_NAME_RE = re.compile(r"[A-Za-z0-9_-]{1,64}")
+MAX_LOIN_BYTES = 1_000_000
+MAX_LOIN_ENTRIES = 500
 
 
 def _sibling(module_id: str) -> Any:
@@ -189,6 +200,111 @@ def _write(workspace: Any, filename: str, suffix: str, text: str) -> str:
     return str(path)
 
 
+def _loin_file(workspace: Any, name: Any) -> Path:
+    """The requirement file ``<workspace>/loin/<name>`` with .yaml, .yml or .json."""
+    from revit_mcp_server.security.safe_paths import safe_child
+
+    def refuse(_reason: str) -> Exception:
+        return ValueError("requirements must be a plain file name (no extension, no folders) of a file in the workspace loin folder.")
+
+    for suffix in LOIN_SUFFIXES:
+        path = safe_child(rg._ws_dir(workspace), name, suffix, LOIN_NAME_RE, refuse, subdir=LOIN_DIR)
+        if path.is_file():
+            return path
+    raise ValueError(f"Requirement file '{name}' not found. Put {name}.yaml or {name}.json in the workspace '{LOIN_DIR}' folder.")
+
+
+def load_loin_requirements(workspace: Any, name: Any) -> List[Dict[str, Any]]:
+    """Parse and validate a requirement file into ``[{category, stage, parameters}]``."""
+    path = _loin_file(workspace, name)
+    if path.stat().st_size > MAX_LOIN_BYTES:
+        raise ValueError(f"Requirement file '{name}' is larger than {MAX_LOIN_BYTES} bytes.")
+    try:
+        text = path.read_text(encoding="utf-8")
+        if path.suffix == ".json":
+            doc = json.loads(text)
+        else:
+            import yaml
+
+            doc = yaml.safe_load(text)
+    except Exception as exc:
+        raise ValueError(f"Requirement file '{name}' could not be read: {exc}") from None
+    entries = doc.get("requirements") if isinstance(doc, dict) else doc
+    if not isinstance(entries, list) or not entries:
+        raise ValueError("The requirement file must hold a non-empty 'requirements' list.")
+    if len(entries) > MAX_LOIN_ENTRIES:
+        raise ValueError(f"The requirement file may hold at most {MAX_LOIN_ENTRIES} entries.")
+    out: List[Dict[str, Any]] = []
+    for i, entry in enumerate(entries, 1):
+        if not isinstance(entry, dict):
+            raise ValueError(f"Requirement {i} must be a mapping with category, stage and parameters.")
+        category = entry.get("category")
+        params = entry.get("parameters")
+        if not isinstance(category, str) or not category.strip():
+            raise ValueError(f"Requirement {i} needs a category, for example OST_Doors.")
+        if (not isinstance(params, list) or not params
+                or not all(isinstance(p, str) and p.strip() for p in params)):
+            raise ValueError(f"Requirement {i} ({category}) needs 'parameters' as a non-empty list of names.")
+        stage = entry.get("stage")
+        out.append({
+            "category": category.strip(),
+            "stage": "" if stage is None else str(stage).strip(),
+            "parameters": list(dict.fromkeys(p.strip() for p in params)),
+        })
+    return out
+
+
+def compute_loin(
+    elements: List[Dict[str, Any]],
+    requirements: List[Dict[str, Any]],
+    captured_params: Optional[List[str]] = None,
+    captured_categories: Optional[List[str]] = None,
+) -> List[Dict[str, Any]]:
+    """Completeness per (category, stage). A parameter is "not captured" when the snapshot has no
+    element of the category that carries it, or its capture filter left the parameter out."""
+    by_cat: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    for el in elements:
+        by_cat[el.get("category") or "(none)"].append(el)
+    param_filter = set(captured_params or [])
+    category_filter = set(captured_categories or [])
+    result: List[Dict[str, Any]] = []
+    for req in requirements:
+        cat = req["category"]
+        els = by_cat.get(cat, [])
+        cat_captured = bool(els) and (not category_filter or cat in category_filter)
+        rows: List[Dict[str, Any]] = []
+        for name in req["parameters"]:
+            carried = (cat_captured and (not param_filter or name in param_filter)
+                       and any(_param_value(el, name)[0] for el in els))
+            if not carried:
+                rows.append({"parameter": name, "status": "not_captured",
+                             "filled": None, "empty": None, "total": len(els), "percent": None})
+                continue
+            filled = sum(1 for el in els if is_filled(_param_value(el, name)[1]))
+            rows.append({"parameter": name, "status": "captured", "filled": filled,
+                         "empty": len(els) - filled, "total": len(els),
+                         "percent": round(100.0 * filled / len(els), 1)})
+        got = [r for r in rows if r["status"] == "captured"]
+        cells = sum(r["total"] for r in got)
+        filled_cells = sum(r["filled"] for r in got)
+        percent = round(100.0 * filled_cells / cells, 1) if cells else None
+        missing = [r["parameter"] for r in rows if r["status"] == "not_captured"]
+        if not got:
+            status = "not_captured"
+        elif not missing and filled_cells == cells:
+            status = "complete"
+        else:
+            status = "incomplete"
+        result.append({
+            "category": cat, "stage": req["stage"], "status": status, "total": len(els),
+            "percent": percent, "required_parameters": len(rows),
+            "captured_parameters": [r["parameter"] for r in got],
+            "not_captured_parameters": missing,
+            "parameters": rows,
+        })
+    return result
+
+
 class ParamCompletenessModule:
     def heatmap(
         self,
@@ -250,4 +366,48 @@ class ParamCompletenessModule:
             "rows": rows[:max_rows],
             "notes": notes,
             **files,
+        }
+
+    def loin_report(
+        self,
+        snapshot_id: str = "",
+        requirements: str = "",
+        stage: str = "",
+        workspace: Any = None,
+        **_,
+    ) -> Dict[str, Any]:
+        entries = load_loin_requirements(workspace, requirements)
+        stages = list(dict.fromkeys(e["stage"] for e in entries))
+        stage = str(stage or "").strip()
+        if stage:
+            entries = [e for e in entries if e["stage"].casefold() == stage.casefold()]
+            if not entries:
+                raise ValueError(f"The requirement file has no entries for stage '{stage}'. Stages in the file: "
+                                 + ", ".join(s or "(none)" for s in stages))
+        data = rg._load_review_snapshot(snapshot_id, workspace)  # refuses mock data in bridge mode
+        counts = data.get("counts") or {}
+        categories = compute_loin(data["elements"], entries, counts.get("params"), counts.get("categories"))
+        partial = rg._is_partial_snapshot(data)
+        notes = [
+            "not_captured = no captured element of the category carries the parameter, so its value is unknown. "
+            "It is not the same as empty.",
+            "percent counts filled values over the captured parameters only; a category with not captured "
+            "parameters is never complete.",
+        ]
+        if partial:
+            notes.append("The snapshot is a partial capture: figures describe the captured elements only.")
+        if data["is_mock"]:
+            notes.append("MOCK data: generated sample, not a live Revit model.")
+        if not data["elements"]:
+            notes.append("The snapshot has no elements.")
+        return {
+            "read_only": True,
+            "mock": data["is_mock"],
+            "data_source": "MOCK DATA - generated sample, not your model." if data["is_mock"] else "Saved snapshot",
+            "snapshot_id": data["snapshot_id"],
+            "requirements": requirements,
+            "stage": stage or None,
+            "partial": partial,
+            "categories": categories,
+            "notes": notes,
         }
