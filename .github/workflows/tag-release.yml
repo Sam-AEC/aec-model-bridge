@@ -1,11 +1,13 @@
 name: tag-release
 
 # When a release PR (head dev or release/* of this repository) is merged into
-# main, create the annotated tag v<VERSION> on the merge commit and start
-# release.yml for it. A tag pushed with GITHUB_TOKEN does not trigger the tag
-# push event, so the release is dispatched explicitly. Pushing a tag by hand
-# still starts release.yml as before. Needs the GitHub Actions bypass entry in
-# .github/rulesets/protect-tags.json (docs/release-checklist.md, section 4).
+# main, create the annotated tag v<VERSION> on the merge commit. The tag is
+# pushed with the RELEASE_TAG_TOKEN secret (a fine-grained token of a repository
+# admin, Contents: read and write on this repository only): the tag ruleset lets
+# only admins create v* tags, and a personal repository cannot add GitHub Actions
+# as a bypass actor. A tag pushed with that token starts release.yml through its
+# tag push trigger. Without the secret the job skips with a notice and the owner
+# tags by hand as before (docs/release-checklist.md).
 on:
   pull_request:
     types: [closed]
@@ -26,8 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      contents: write
-      actions: write
+      contents: read
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@aebdcf6156ab6691adf63218240e476564a1ed4c # v2.23.0
@@ -38,15 +39,21 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha }}
+          persist-credentials: false
 
-      - name: Tag the merge commit and start the release
+      - name: Tag the merge commit
         env:
-          GH_TOKEN: ${{ github.token }}
+          TAG_TOKEN: ${{ secrets.RELEASE_TAG_TOKEN }}
           GH_REPO: ${{ github.repository }}
           MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
+          if [ -z "${TAG_TOKEN}" ]; then
+            echo "::notice::RELEASE_TAG_TOKEN is not set; no tag created. Push the tag by hand."
+            exit 0
+          fi
+          remote="https://x-access-token:${TAG_TOKEN}@github.com/${GH_REPO}.git"
           version=$(tr -d '[:space:]' < VERSION)
           if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
             echo "::error::VERSION is not MAJOR.MINOR.PATCH; no tag created."
@@ -57,12 +64,11 @@ jobs:
             echo "::error::Checked out commit is not the merge commit; no tag created."
             exit 1
           fi
-          if git ls-remote --exit-code --tags origin "refs/tags/${tag}" > /dev/null; then
+          if git ls-remote --exit-code --tags "$remote" "refs/tags/${tag}" > /dev/null; then
             echo "Tag ${tag} already exists; nothing to do."
             exit 0
           fi
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
             tag -a "$tag" "$MERGE_SHA" -m "Release ${tag} (PR #${PR_NUMBER})"
-          git push origin "refs/tags/${tag}"
-          gh workflow run release.yml --ref "$tag" -f tag="$tag"
-          echo "Created ${tag} and started release.yml."
+          git push "$remote" "refs/tags/${tag}"
+          echo "Created ${tag}; its tag push starts release.yml."

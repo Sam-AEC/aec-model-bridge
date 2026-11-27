@@ -1,4 +1,4 @@
-"""tag-release.yml tags the merge commit of a release PR and starts release.yml."""
+"""tag-release.yml tags the merge commit of a release PR with the RELEASE_TAG_TOKEN secret."""
 from __future__ import annotations
 
 import json
@@ -46,18 +46,28 @@ def test_version_is_validated_and_tag_is_on_the_merge_commit():
 
 def test_existing_tag_is_skipped_without_error():
     run = _run_block()
-    assert 'ls-remote --exit-code --tags origin "refs/tags/${tag}"' in run
+    assert 'ls-remote --exit-code --tags "$remote" "refs/tags/${tag}"' in run
     skip = run.split("ls-remote", 1)[1].split("fi", 1)[0]
     assert "exit 0" in skip
     assert run.index("ls-remote") < run.index("tag -a") < run.index("git push")
 
 
-def test_release_is_dispatched_explicitly_and_release_workflow_accepts_it():
+def test_tag_is_pushed_with_the_secret_and_starts_release_by_tag_push():
+    text = _text()
     run = _run_block()
-    assert 'gh workflow run release.yml --ref "$tag" -f tag="$tag"' in run
+    assert "TAG_TOKEN: ${{ secrets.RELEASE_TAG_TOKEN }}" in text
+    assert "persist-credentials: false" in text
+    assert 'git push "$remote" "refs/tags/${tag}"' in run
+    assert "gh workflow run" not in run, "a token tag push already starts release.yml"
     release = RELEASE.read_text(encoding="utf-8").split("jobs:", 1)[0]
-    assert "workflow_dispatch:" in release
-    assert re.search(r"push:\s+tags:", release), "a manual tag push must still start the release"
+    assert re.search(r"push:\s+tags:", release)
+
+
+def test_missing_secret_skips_without_error():
+    run = _run_block()
+    guard = run.split('if [ -z "${TAG_TOKEN}" ]; then', 1)[1].split("fi", 1)[0]
+    assert "exit 0" in guard
+    assert run.index("TAG_TOKEN") < run.index("git push")
 
 
 def test_no_expression_interpolation_in_run_blocks():
@@ -69,8 +79,8 @@ def test_permissions_are_minimal():
     head, jobs = text.split("jobs:", 1)
     assert re.search(r"^permissions: \{\}$", head, re.MULTILINE)
     job_perms = jobs.split("permissions:", 1)[1].split("steps:", 1)[0]
-    assert "contents: write" in job_perms and "actions: write" in job_perms
-    assert len(re.findall(r"^\s+\w[\w-]*: (read|write)$", job_perms, re.MULTILINE)) == 2
+    assert "contents: read" in job_perms
+    assert len(re.findall(r"^\s+\w[\w-]*: (read|write)$", job_perms, re.MULTILINE)) == 1
 
 
 def test_actions_are_pinned_by_sha_and_runner_is_hardened():
@@ -79,7 +89,7 @@ def test_actions_are_pinned_by_sha_and_runner_is_hardened():
     assert any(u.startswith("step-security/harden-runner@") for u in uses)
 
 
-def test_tag_ruleset_lets_github_actions_create_tags():
+def test_tag_ruleset_keeps_admin_only_bypass():
+    # A personal repository cannot add the GitHub Actions integration as a bypass actor.
     bypass = json.loads(TAG_RULESET.read_text(encoding="utf-8"))["bypass_actors"]
-    assert {"actor_id": 15368, "actor_type": "Integration", "bypass_mode": "always"} in bypass
-    assert {"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always"} in bypass
+    assert bypass == [{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always"}]
