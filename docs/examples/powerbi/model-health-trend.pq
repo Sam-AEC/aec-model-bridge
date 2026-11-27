@@ -3,7 +3,7 @@
 // UNVERIFIED in Power BI Desktop.
 let
     RequiredColumns = {"snapshot_id", "taken_at", "score", "delta", "comparable", "partial", "warnings", "qa_findings", "unplaced_rooms", "unused_types", "completeness", "excluded"},
-    Path = Text.TrimEnd(WorkspaceFolder, "\\") & "\\qa\\model_health.csv",
+    Path = Text.TrimEnd(WorkspaceFolder, "\") & "\qa\model_health.csv",
     Source = Csv.Document(File.Contents(Path), [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
     Promoted = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),
     Present = Table.ColumnNames(Promoted),

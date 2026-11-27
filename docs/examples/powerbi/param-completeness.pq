@@ -5,7 +5,7 @@
 let
     RequiredColumns = {"category", "parameter", "filled", "total", "percent"},
     OptionalColumns = {"level"},
-    Path = Text.TrimEnd(WorkspaceFolder, "\\") & "\\qa\\param_completeness.csv",
+    Path = Text.TrimEnd(WorkspaceFolder, "\") & "\qa\param_completeness.csv",
     Source = Csv.Document(File.Contents(Path), [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
     Promoted = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),
     Present = Table.ColumnNames(Promoted),
