@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Security review follow-up: client roots now narrow caller-supplied paths in `bcf_exchange`, `ifc_diff`, `recipe_runner`, `naming_checker` and the `qaqc_checker` fallback; relative paths start in the first narrowed directory; behaviour without roots is unchanged.
 - Coverage: `[tool.coverage.run]` sets `parallel = true` and `patch = ["subprocess"]`, so child processes (`python -m` and stdio smoke tests) report coverage and `pytest --cov` combines their data; a test checks the setting and that a child's lines reach the report. Fixes #235
 - New tool `qaqc_checker_draft_fix_plan`. Tool count is now 324 (124 module tools). Rules take an optional `fix` (`parameter` and `value`); selected findings whose rule has one become one `plan_actions` list with a `revit_set_parameter_value` action each, and the rest are listed as skipped with the reason. It refuses unknown, resolved, stale or mixed-snapshot findings and a snapshot from another model, and only drafts: a person approves and `execute_plan` writes. Fixture-tested; live apply is UNVERIFIED. Fixes #187
 - Power BI: Power Query M scripts in `docs/examples/powerbi/` load the sheet set QA, parameter completeness and model health CSV exports, with DAX measures and visuals in `docs/powerbi-qa-dashboard.md`. A test checks the script columns against the exporter headers. Text scripts, not a `.pbit`; UNVERIFIED in Power BI Desktop. Fixes #189

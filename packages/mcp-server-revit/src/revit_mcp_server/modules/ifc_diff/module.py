@@ -17,6 +17,9 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from revit_mcp_server.errors import WorkspaceViolation
+from revit_mcp_server.security.workspace import base_directory, confine_path
+
 DEFAULT_MAX_ITEMS = 50
 MAX_ITEMS = 1000
 MAX_IFC_BYTES = 250_000_000
@@ -26,19 +29,18 @@ STEP_MAGIC = b"ISO-10303-21"
 def _input_file(workspace: Any, name: Any, what: str) -> Path:
     if not isinstance(name, str) or not name.strip() or "\x00" in name:
         raise ValueError(f"{what} is required: a workspace path ending in .ifc")
-    roots = [Path(r) for r in getattr(workspace, "allowed_directories", []) or []]
-    if not roots:
+    base = base_directory(workspace)
+    if base is None:
         raise ValueError("A workspace is required.")
     candidate = Path(name)
     if not candidate.is_absolute():
-        candidate = roots[0] / candidate
-    checker = getattr(workspace, "assert_in_workspace", None)
-    if checker is not None:
-        path = Path(checker(candidate))
-    else:
-        path = candidate.resolve()
-        if not any(path.is_relative_to(r.resolve()) for r in roots):
-            raise ValueError(f"{what} is outside the allowed workspace directories.")
+        candidate = base / candidate
+    try:
+        path = confine_path(workspace, candidate)
+    except WorkspaceViolation as exc:
+        if getattr(workspace, "assert_in_workspace", None) is not None:
+            raise
+        raise ValueError(f"{what} is outside the allowed workspace directories.") from exc
     if path.suffix.lower() != ".ifc":
         raise ValueError(f"{what} must be a .ifc file.")
     if not path.is_file():
