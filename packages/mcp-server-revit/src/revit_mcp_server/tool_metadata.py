@@ -278,6 +278,7 @@ DESCRIPTIONS: dict[str, str] = {
     "parameter_manager_import_params_csv": "Read parameter values from a CSV file in the workspace (one column per parameter with a uid column, or three columns element_id, parameter, value) and create a draft ActionPlan that applies them. Does not change the model; review and approve the plan before it runs.",
     "param_completeness_loin_report": "Check a saved snapshot against a LOIN requirement file in the workspace loin folder (YAML or JSON: category, stage, required parameters) and report completeness per category and stage. A required parameter that no captured element carries is reported as not captured, not as empty. Use param_completeness_heatmap for fill rates without a requirement file. Read-only.",
     "param_completeness_heatmap": "Measure how many elements have a value in each parameter, per category (and per level on request), from a saved snapshot: filled, total and percent. Writes an optional CSV and a self-contained HTML heatmap to the workspace, and says when the snapshot is a partial capture. Use model_inspector_summarize_model for plain counts instead. Read-only.",
+    "qto_export_run": "Build a quantity take-off from a saved snapshot: element count and summed length, area and volume (m, m2, m3) per category and type, with no prices. Writes an optional CSV and a BC3 (FIEBDC-3, ANSI) file to the workspace. Elements without a quantity are listed and counted, never added as zero. Use model_inspector_summarize_model for plain counts instead. Read-only.",
     "model_health_score": "Give a 0 to 100 health score for a saved snapshot with its components, and a trend across all saved snapshots of the same document with changes between captures. Inputs the snapshot lacks are listed as excluded, not scored as zero. Optional CSV, and an optional self-contained HTML dashboard (html_filename) that adds top issues from the latest stored QA/QC run and parameter completeness. Read-only.",
     "ids_validator_validate_ifc": "Check an IFC file in the workspace against a buildingSMART IDS file and return pass or fail per specification with the GlobalIds of failing entities (capped, with full counts). Optional HTML or JSON report in the workspace. Needs the optional ids extra (ifctester). Read-only.",
     "parameter_manager_export_params_xlsx": "Export parameters of the matching snapshot elements to an Excel workbook in the workspace for editing. Writes a file; does not change the model.",
@@ -721,6 +722,7 @@ NOT_READ_ONLY: dict[str, tuple[bool, bool]] = {
 REPORT_FILE_WRITERS: dict[str, tuple[bool, bool]] = {
     # Optional named output files; an existing file of the same name is replaced.
     "param_completeness_heatmap": (True, True),
+    "qto_export_run": (True, True),
     "model_health_score": (True, True),
     "ids_validator_validate_ifc": (True, True),
     "sheet_set_qa_check": (True, True),

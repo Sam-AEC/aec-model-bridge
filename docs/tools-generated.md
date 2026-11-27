@@ -128,6 +128,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `qaqc_checker_save_naming_rule` | Save a tested naming rule to the workspace naming_rules folder so it can be replayed without a model. | Yes | sync |
 | `qaqc_checker_test_naming_rule` | Test a proposed naming rule (category, regex, message, severity) against a saved snapshot and return how many names match and miss, with a capped sample of each. | No | sync |
 | `qaqc_checker_validate_rule_pack` | Schema-check a YAML rule pack and return actionable errors per rule (id, severity, required fields, unknown operators). | No | sync |
+| `qto_export_run` | Build a quantity take-off from a saved snapshot: element count and summed length, area and volume (m, m2, m3) per category and type, with no prices. | No | sync |
 | `recipe_runner_get_run_status` | Return the status and results of one recipe run. | No | sync |
 | `recipe_runner_list_recipes` | List the available automation recipes. | No | sync |
 | `recipe_runner_list_runs` | List past recipe runs, optionally for one recipe. | No | sync |
