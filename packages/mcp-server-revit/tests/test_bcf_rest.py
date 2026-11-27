@@ -56,6 +56,11 @@ class _Handler(BaseHTTPRequestHandler):
             return self._send(401, {"message": f"bad token {self.headers.get('Authorization')}"})
         if _State.mode == "html":
             return self._send(200, b"<html>nope</html>", "text/html")
+        if _State.mode == "nested":
+            return self._send(200, b"[" * 200000)
+        if _State.mode == "badstatus":
+            self.wfile.write(b"NOT-HTTP garbage" + bytes([13, 10, 13, 10]))
+            return
         if _State.mode == "redirect":
             self.send_response(302)
             self.send_header("Location", "http://127.0.0.1:9/x")
@@ -244,3 +249,22 @@ def test_gate_refuses_without_approved_plan(registry, tmp_path, tool, args):
 def test_list_needs_no_plan(registry, tmp_path):
     gate = ApprovalGate(workspace_dir=tmp_path, approval_mode="required")
     assert gate_before(registry, gate, "bcf_exchange_list_server_topics", {}) is None
+
+
+@pytest.mark.parametrize("mode, match", [("nested", "did not return JSON"), ("badstatus", "malformed HTTP")])
+def test_hostile_response_gives_plain_error(server, mod, mode, match):
+    _State.mode = mode
+    with pytest.raises(bcf.BcfError, match=match):
+        mod.list_server_topics()
+
+
+def test_topic_guid_with_trailing_newline_refused(server, mod):
+    with pytest.raises(bcf.BcfError):
+        mod.update_server_topic(topic_guid=GUID + chr(10), topic_status="Closed")
+    assert _State.seen == []
+
+
+def test_env_proxy_is_ignored(server, mod, monkeypatch):
+    monkeypatch.setenv("HTTP_PROXY", "http://127.0.0.1:9")
+    monkeypatch.setenv("NO_PROXY", "")
+    assert mod.list_server_topics()["topics"] == []

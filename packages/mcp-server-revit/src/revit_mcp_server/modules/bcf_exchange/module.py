@@ -21,6 +21,7 @@ from revit_mcp_server.security.module_permissions import writable_path
 from revit_mcp_server.errors import WorkspaceViolation
 from revit_mcp_server.security.workspace import base_directory, confine_path
 
+import http.client
 import json
 import logging
 import os
@@ -378,7 +379,7 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-_OPENER = urllib.request.build_opener(_NoRedirect)
+_OPENER = urllib.request.build_opener(_NoRedirect, urllib.request.ProxyHandler({}))  # no env proxy gets the token
 
 
 def _redact(text: str, token: str) -> str:
@@ -476,6 +477,8 @@ def _bcf_request(method: str, path: str, token: str, body: Optional[Dict[str, An
         if 300 <= status < 400:
             raise BcfError(f"The BCF server tried to redirect (HTTP {status}). Redirects are not followed; check {BCF_URL_ENV}.") from None
         raise BcfError(f"The BCF server returned an error (HTTP {status}).") from None
+    except http.client.HTTPException:
+        raise BcfError("The BCF server sent a malformed HTTP response.") from None
     except (urllib.error.URLError, OSError, TimeoutError) as exc:
         reason = getattr(exc, "reason", exc)
         raise BcfError(_redact(f"Could not reach the BCF server: {type(reason).__name__}.", token)) from None
@@ -483,7 +486,7 @@ def _bcf_request(method: str, path: str, token: str, body: Optional[Dict[str, An
         raise BcfError("The BCF server response is too large.")
     try:
         return json.loads(raw.decode("utf-8"))
-    except (ValueError, UnicodeDecodeError):
+    except (ValueError, UnicodeDecodeError, RecursionError):
         raise BcfError("The BCF server did not return JSON.") from None
 
 
@@ -573,7 +576,7 @@ class BcfExchangeModule:
 
     def update_server_topic(self, topic_guid: str = "", project_id: str = "", **fields) -> Dict[str, Any]:
         pid = _project_id(project_id)
-        if not isinstance(topic_guid, str) or not _GUID_RE.match(topic_guid):
+        if not isinstance(topic_guid, str) or not _GUID_RE.fullmatch(topic_guid):
             raise BcfError("topic_guid must be the topic's GUID, for example 3f2b8c1e-0a4d-4c55-9d0e-2b7f5a6c1d10.")
         body = _topic_payload(fields, require_title=False)
         token = _server_token()
