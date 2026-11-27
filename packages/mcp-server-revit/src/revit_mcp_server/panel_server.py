@@ -47,7 +47,14 @@ from .security.audit import redact_data, redact_for_approval, redact_known_secre
 from .security.dispatch import run_gated_tool
 from .security.read_mode import ReadModeViolation
 from .security.dev_mode import set_panel_mode
-from .security.panel_token import TOKEN_HEADER, PanelTokenError, load_or_create_token, read_token
+from .security.panel_token import (
+    REVIEWER_HEADER,
+    TOKEN_HEADER,
+    PanelTokenError,
+    load_or_create_token,
+    read_reviewer_token,
+    read_token,
+)
 from .security.workspace import WorkspaceMonitor
 
 logger = logging.getLogger(__name__)
@@ -68,6 +75,12 @@ NON_REPORT_FILENAMES = {"qaqc_issues.db", "clash_triage.db"}
 # Tools that only touch the hub's own plan files and never call a Revit bridge. With several
 # Revits open they do not need an `instance`; everything else does (see resolve_instance).
 HUB_LOCAL_TOOLS = frozenset({"list_pending_plans", "approve_plan", "reject_plan", "get_proof_bundle"})
+
+# What the read-only reviewer credential may reach. Everything not listed here needs the approving
+# token (default deny): approve, reject, rollback, execute, plan, mode changes, chat, unknown routes.
+REVIEWER_GET_ROUTES = frozenset({"/diagnostics", "/reports"})
+REVIEWER_TOOLS = frozenset({"list_pending_plans", "get_proof_bundle"})
+REVIEWER_REFUSAL = "This is a read-only reviewer credential. Only the approving token can do this."
 
 MAX_BODY_BYTES = 1_048_576
 # Deepest JSON nesting a request body may have. Real panel requests are a few levels deep; a
@@ -421,11 +434,14 @@ APPROVAL_MODE_NOTES = {
 
 
 def collect_diagnostics(workspace_dir: Path, approval_mode: Any = None, auto_window: Any = None,
-                        dev_mode: bool = False, dev_token: Optional[str] = None) -> Dict[str, Any]:
+                        dev_mode: bool = False, dev_token: Optional[str] = None,
+                        reviewer: bool = False) -> Dict[str, Any]:
     """Install-to-first-check status: one entry per thing that can block a first run.
 
     Each check carries a ``next_step`` so the panel can show a specific recovery
     action instead of a generic connection error.
+
+    ``reviewer`` (#210): read-only. No write test, and no absolute workspace path in the answer.
     """
     from .bridge.discovery import available_host_versions
     from .config import BridgeMode, normalize_approval_mode
@@ -465,17 +481,25 @@ def collect_diagnostics(workspace_dir: Path, approval_mode: Any = None, auto_win
             "If Revit is open, check that the add-in matches your Revit version (docs/install.md).",
         )
 
-    try:
-        workspace_dir.mkdir(parents=True, exist_ok=True)
-        probe = workspace_dir / ".diagnostics-write-test"
-        probe.write_text("ok", encoding="utf-8")
-        probe.unlink()
-        add("workspace", True, f"Workspace is writable: {workspace_dir}")
-    except OSError as e:
+    if reviewer:
         add(
-            "workspace", False, f"Workspace is not writable: {workspace_dir} ({e.strerror or e})",
-            "Set MCP_REVIT_WORKSPACE_DIR to a folder you can write to and restart the hub.",
+            "workspace", workspace_dir.is_dir(),
+            "Workspace folder exists. A reviewer does not run the write test." if workspace_dir.is_dir()
+            else "Workspace folder does not exist.",
+            "Ask the approver to run the setup check.",
         )
+    else:
+        try:
+            workspace_dir.mkdir(parents=True, exist_ok=True)
+            probe = workspace_dir / ".diagnostics-write-test"
+            probe.write_text("ok", encoding="utf-8")
+            probe.unlink()
+            add("workspace", True, f"Workspace is writable: {workspace_dir}")
+        except OSError as e:
+            add(
+                "workspace", False, f"Workspace is not writable: {workspace_dir} ({e.strerror or e})",
+                "Set MCP_REVIT_WORKSPACE_DIR to a folder you can write to and restart the hub.",
+            )
 
     ai_ok = (bool(config.anthropic_api_key) or shutil.which("claude") is not None
              or shutil.which("codex") is not None)
@@ -490,7 +514,7 @@ def collect_diagnostics(workspace_dir: Path, approval_mode: Any = None, auto_win
         "Set approval_mode to ask_first (or look_only) so changes need your approval, then restart the hub.",
     )
 
-    return {
+    result = {
         "ok": all(c["ok"] for c in checks),
         "hub_version": __version__,
         "approval_mode": mode_value,
@@ -501,6 +525,9 @@ def collect_diagnostics(workspace_dir: Path, approval_mode: Any = None, auto_win
         "auto_expires_at": auto_window["expires_at"] if not dev_mode and mode_value == "auto" and isinstance(auto_window, dict) else None,
         "checks": checks,
     }
+    if reviewer:
+        del result["workspace_dir"]
+    return result
 
 
 def _reject_constant(name: str) -> Any:
@@ -550,6 +577,8 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
     approval_provider = None
     workspace = None
     token: str | None = None
+    reviewer_token: str | None = None
+    role: str = ""
     failures: FailureLimiter | None = None
     limiter: call_limits.RateLimiter | None = None
     timeout = SOCKET_TIMEOUT_SECONDS
@@ -653,18 +682,32 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
         The response never says whether the header was missing or wrong. A hub with no token
         configured refuses everything (fail closed).
         """
-        expected = self.token or ""
-        supplied = self.headers.get(TOKEN_HEADER) or ""
-        ok = bool(expected) and 0 < len(supplied) <= MAX_TOKEN_HEADER_CHARS and hmac.compare_digest(
-            supplied.encode("utf-8"), expected.encode("utf-8")
-        )
-        if ok:
+        def matches(header: str, expected: str | None) -> bool:
+            supplied = self.headers.get(header) or ""
+            return bool(expected) and 0 < len(supplied) <= MAX_TOKEN_HEADER_CHARS and hmac.compare_digest(
+                supplied.encode("utf-8"), (expected or "").encode("utf-8")
+            )
+
+        self.role = ""
+        if matches(TOKEN_HEADER, self.token):
+            self.role = "approver"
+            return True
+        # A wrong approving token is a failed login even when a valid reviewer header comes with it.
+        if not self.headers.get(TOKEN_HEADER) and matches(REVIEWER_HEADER, getattr(self, "reviewer_token", None)):
+            self.role = "reviewer"
             return True
         limiter = self.failures
         if limiter is not None and not limiter.record_failure():
             return self._reject(429, "Too many failed requests")
         self._warn_if_token_file_changed()
         return self._reject(401, "Unauthorized")
+
+    def _refuse_reviewer(self) -> bool:
+        """403 for a reviewer on anything outside the read allowlist. Returns True if refused."""
+        if self.role != "reviewer":
+            return False
+        self._reject(403, REVIEWER_REFUSAL)
+        return True
 
     def _warn_if_token_file_changed(self) -> None:
         """Log (once, without any token text) when the token file no longer matches this hub."""
@@ -747,6 +790,9 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
             return
         if not self._check_token():
             return
+        if self.role == "reviewer" and self.path not in REVIEWER_GET_ROUTES:
+            self._refuse_reviewer()
+            return
         if self.path == "/diagnostics":
             gate = getattr(self.approval_provider, "gate", None)
             self._send_json(200, collect_diagnostics(
@@ -755,6 +801,7 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
                     gate.auto_window() if gate is not None and hasattr(gate, "auto_window") else None,
                     bool(getattr(gate, "dev_mode", False)),
                     dev_token=getattr(gate, "override_token", None),
+                    reviewer=self.role == "reviewer",
                 ),
             )
             return
@@ -819,9 +866,10 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
 
     def _handle_list_reports(self) -> None:
         workspace_dir = self.workspace.allowed_directories[0]
+        reviewer = self.role == "reviewer"
         reports = [
             {
-                "path": str(entry),
+                **({} if reviewer else {"path": str(entry)}),
                 "name": entry.name,
                 "modified": entry.stat().st_mtime,
             }
@@ -837,6 +885,9 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
         if not self._authorize(is_post=True):
             return
         if not self._check_token():
+            return
+        if self.role == "reviewer" and self.path != "/execute":
+            self._refuse_reviewer()
             return
         if self.path == "/agent/chat":
             self._handle_agent_chat()
@@ -855,6 +906,9 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
 
         tool = body.get("tool")
         arguments = body.get("arguments", {})
+        if self.role == "reviewer" and (not isinstance(tool, str) or tool not in REVIEWER_TOOLS):
+            self._send_json(403, {"ok": False, "error": REVIEWER_REFUSAL})
+            return
         if not tool or not isinstance(tool, str):
             self._send_json(400, {"ok": False, "error": "Request body must include a string 'tool' field"})
             return
@@ -871,7 +925,8 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
             return
 
         try:
-            switch = resolve_instance(body.get("instance"), tool)
+            # A reviewer never picks an instance: a bad one would list the live Revit sessions.
+            switch = resolve_instance(None if self.role == "reviewer" else body.get("instance"), tool)
         except InstanceRoutingError as e:
             self._send_json(409, {"ok": False, "error": str(e)})
             return
@@ -975,7 +1030,7 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
         return result
 
 
-def build_handler(workspace: WorkspaceMonitor | None, token: str) -> type:
+def build_handler(workspace: WorkspaceMonitor | None, token: str, reviewer_token: str | None = None) -> type:
     """The request handler class bound to a fresh registry, approval gate and token. Opens no
     socket: build_server serves it, and tests drive it in memory."""
     registry, approval_provider, _job_manager, _module_registry, resolved_workspace = build_registry(workspace=workspace)
@@ -984,10 +1039,20 @@ def build_handler(workspace: WorkspaceMonitor | None, token: str) -> type:
         "approval_provider": approval_provider,
         "workspace": resolved_workspace,
         "token": token,
+        "reviewer_token": reviewer_token,
         "failures": FailureLimiter(),
         "limiter": call_limits.RateLimiter(),
         "_stale_logged": False,
     })
+
+
+def _load_reviewer_token() -> str | None:
+    """The reviewer token file, or None: off when absent. An unusable file leaves it off (fail closed)."""
+    try:
+        return read_reviewer_token()
+    except PanelTokenError as e:
+        logger.warning("Reviewer access is off: %s", e)
+        return None
 
 
 def build_server(
@@ -995,6 +1060,7 @@ def build_server(
     workspace: WorkspaceMonitor | None = None,
     token: str | None = None,
     max_threads: int | None = None,
+    reviewer_token: str | None = None,
 ) -> BoundedThreadingHTTPServer:
     """Build the hub. ``token`` defaults to the per-user token file (created if this is the first
     hub to start); raises PanelTokenError if that file is unsafe. A hub never runs without a token."""
@@ -1002,7 +1068,12 @@ def build_server(
     if not resolved_token:
         raise PanelTokenError("The panel hub needs an access token.")
     register_secret_value(resolved_token)
-    handler = build_handler(workspace=workspace, token=resolved_token)
+    resolved_reviewer = reviewer_token if reviewer_token is not None else _load_reviewer_token()
+    if resolved_reviewer == resolved_token:
+        resolved_reviewer = None  # one secret must never be both roles
+    if resolved_reviewer:
+        register_secret_value(resolved_reviewer)
+    handler = build_handler(workspace=workspace, token=resolved_token, reviewer_token=resolved_reviewer)
     resolved_port = port if port is not None else int(os.getenv("MCP_PANEL_HTTP_PORT", str(DEFAULT_PORT)))
     resolved_max = max_threads if max_threads is not None else max_threads_from_env()
     return BoundedThreadingHTTPServer(("127.0.0.1", resolved_port), handler, max_threads=resolved_max)

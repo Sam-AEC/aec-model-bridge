@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "schema_version": 1,
   "min_hub_version": "1.2.0",
-  "description": "Read-only fill rate per category and parameter (optionally per level) from a saved snapshot, with optional CSV and HTML heatmap files in the workspace.",
+  "description": "Read-only fill rate per category and parameter (optionally per level) from a saved snapshot, with optional CSV and HTML heatmap files in the workspace. Also checks a snapshot against a LOIN requirement file (category, stage, required parameters) per category; parameters missing from the capture are reported as not captured.",
   "author": "AEC Model Bridge",
   "license": "GPL-3.0-or-later",
   "requires_providers": ["semantic"],
@@ -29,6 +29,22 @@
           "html_filename": {"type": "string", "description": "Optional .html file name inside the workspace (self-contained heatmap)."}
         },
         "required": []
+      }
+    },
+    {
+      "id": "loin_report",
+      "title": "LOIN Completeness Report",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {"type": "string", "description": "Saved snapshot to measure. Required when connected to Revit."},
+          "requirements": {"type": "string", "description": "Plain name (no extension) of a .yaml, .yml or .json requirement file in the workspace loin folder. It holds a requirements list of category, stage and parameters."},
+          "stage": {"type": "string", "description": "Only requirements for this stage, for example S3. Leave empty to report every stage in the file."}
+        },
+        "required": ["requirements"]
       }
     }
   ]

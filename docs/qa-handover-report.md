@@ -44,6 +44,23 @@ A finding is "resolved" when its rule and element UniqueId appear before and no 
 - A truncated, dirty-only or category-filtered snapshot is labelled partial in the result, in `coverage`, and as a banner in the HTML. Its rates describe the captured elements only.
 - The result lists at most `max_rows` rows; the files hold every row. It never changes the model. Without `snapshot_id` it refuses when connected to Revit; in mock mode it uses generated sample data and says so.
 
+## LOIN completeness report
+
+`param_completeness_loin_report` checks a saved snapshot against a level of information need (ISO 19650) requirement file. Put a `.yaml`, `.yml` or `.json` file in the workspace `loin` folder and pass its name without extension as `requirements`. Use `stage` to report one stage; without it every stage in the file is reported.
+
+```yaml
+requirements:
+  - category: OST_Doors
+    stage: S3
+    parameters: [Mark, FireRating]
+```
+
+- Each category and stage gets `percent` (filled values over the captured parameters), `captured_parameters`, `not_captured_parameters` and one row per parameter with `filled`, `empty` and `total`.
+- `not_captured` means no captured element of the category carries the parameter, or the snapshot's parameter or category filter left it out. The value is unknown. It is not counted as empty, and the category status is never `complete` while a parameter is not captured.
+- A category absent from the snapshot is `not_captured` with `total` 0.
+- Filled follows the heatmap rule: blank text and null are empty; `0` and `false` are values. A partial snapshot is labelled `partial`.
+- Read-only. It writes no file and refuses names with folders or extensions.
+
 ## Model health score and trend
 
 `model_health_score` gives a score from 0 to 100 (higher is better) for one snapshot and a trend across all saved snapshots with the same `source.doc_guid`, oldest first by `taken_at`, with the change from the previous point. It is a rough indicator, not a measure of file size or speed.
@@ -70,3 +87,13 @@ An input the snapshot does not have is left out and listed under `excluded` with
 - parameter completeness: the 5 most common parameters per category, up to 400 rows.
 
 The result's `dashboard` key gives the QA status and row counts; `html_file` is the written path. Mock and partial snapshots get a banner. For sheet checks before an issue see [sheet-set-qa.md](sheet-set-qa.md).
+
+## Quantity take-off (CSV and BC3)
+
+`qto_export_run` reads a saved snapshot and returns, per category and type, the element `count` and the summed length, area and volume in m, m2 and m3. `csv_filename` writes a CSV and a second file `<name>_no_quantity.csv`. `bc3_filename` writes a FIEBDC-3 file in ANSI (cp1252) with one chapter per category and one concept per type. It carries no prices.
+
+- Length, Area and Volume come from the element parameters of that name. Set `snapshot_units` to `feet` (default) or `metres` to match the snapshot.
+- A total is empty when no element of that type has the quantity. It is never written as 0. `*_elements` gives how many elements contributed.
+- An element with none of the three quantities is counted, listed under `without_quantity` and written to the `_no_quantity` file.
+- In BC3 each type has one measurement. `bc3_measure` picks it; `auto` uses area for walls, floors, roofs, ceilings and rooms, length for linear MEP and framing, volume for columns and foundations, and count (unit `ud`) otherwise. A type without that quantity falls back to count.
+- IFC files are not read. Output files stay inside the workspace. It never changes the model. BC3 import in a cost tool is UNVERIFIED; the tests check the file with a minimal reader.
