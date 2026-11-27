@@ -1,0 +1,29 @@
+# Label issues that a merge into dev fixes. "Fixes #N" closes an issue only when the
+# release reaches main, so the label shows which open issues are already done.
+name: fixed-in-dev
+
+on:
+  push:
+    branches: [dev]
+
+permissions: {}
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Label referenced issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          MESSAGES: ${{ toJSON(github.event.commits.*.message) }}
+        run: |
+          nums=$(printf '%s' "$MESSAGES" | grep -oiE '(fix|fixes|fixed|close|closes|closed|resolve|resolves|resolved) #[0-9]+' | grep -oE '[0-9]+' | sort -u)
+          for n in $nums; do
+            state=$(gh issue view "$n" --json state --jq .state 2>/dev/null || true)
+            if [ "$state" = "OPEN" ]; then
+              gh issue edit "$n" --add-label fixed-in-dev
+            fi
+          done
