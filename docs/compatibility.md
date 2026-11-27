@@ -22,7 +22,7 @@ Any framework with an MCP stdio client can launch the server and call its tools.
 
 ## What will not work directly
 
-A client that accepts only a remote MCP server over HTTP cannot start a local stdio server. Many browser-based chat apps work this way. A local proxy can expose a stdio server over HTTP. That opens your model to anything that can reach the proxy, so read [Security](security.md) first. The server is designed for a single machine, with the Revit add-in on loopback.
+A client that accepts only a remote MCP server over HTTP cannot start a local stdio server. Many browser-based chat apps work this way. Remote access is not supported. For a client on the same machine, the opt-in Streamable HTTP transport (`MCP_REVIT_HTTP=1`, loopback only, bearer token required) serves the same tools and approval gate; read [Security](security.md) first. Its live behaviour with real clients is UNVERIFIED. A proxy that exposes the server beyond loopback opens your model to anything that can reach it. The server is designed for a single machine, with the Revit add-in on loopback.
 
 Live work always needs the Revit add-in. The server talks to a running copy of Revit on Windows.
 

@@ -17,7 +17,7 @@ from mcp.types import (
     TextContent,
 )
 
-from . import call_limits, client_roots, mcp_apps, mcp_logging, mcp_prompts, mcp_resources, mcp_tasks
+from . import call_limits, client_roots, http_transport, mcp_apps, mcp_logging, mcp_prompts, mcp_resources, mcp_tasks
 
 from .elicitation import (
     MAX_ROUNDS, VIEW_SHEET_REFS, ElicitationForbidden, InputNeeded, check_view_sheet_names, elicit_choice,
@@ -788,6 +788,7 @@ async def main():
     profile = load_tool_profile()  # fail invalid settings before provider construction
     if profile.detail:
         logger.info(profile.detail)
+    http_settings = http_transport.settings_from_env()  # None unless MCP_REVIT_HTTP is on; refuses unsafe settings
     from .config import config
     from .usage_counts import start_counter
     counter = start_counter(config.workspace_dir)  # local file only; MCP_REVIT_USAGE_COUNTS=off disables
@@ -795,12 +796,17 @@ async def main():
     try:
         registry.usage_counter = counter
         registry.freeze_tool_profile(profile)
-        async with stdio_server() as (read_stream, write_stream):
-            await app.run(
-                read_stream,
-                write_stream,
-                app.create_initialization_options()
-            )
+        if http_settings is not None:
+            logger.info("Serving MCP over Streamable HTTP on %s:%d%s", http_settings.host, http_settings.port,
+                        http_transport.MCP_PATH)
+            await http_transport.serve(app, http_settings)
+        else:
+            async with stdio_server() as (read_stream, write_stream):
+                await app.run(
+                    read_stream,
+                    write_stream,
+                    app.create_initialization_options()
+                )
     finally:
         counter.flush()
         await job_manager.shutdown(cancel_running=True)
@@ -821,7 +827,10 @@ def run_mcp_server():
         "AEC Model Bridge MCP server (stdio). MCP clients start it with no arguments; "
         "settings come from MCP_REVIT_* environment variables (see docs/configuration-reference.md).",
     )
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except http_transport.HttpConfigError as exc:
+        sys.exit(f"aec-model-bridge: {exc}")
 
 
 if __name__ == "__main__":

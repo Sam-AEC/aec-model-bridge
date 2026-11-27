@@ -606,5 +606,9 @@
   "class/UsageLockTimeout": {
     "when": "Another server process held the tool usage counts lock (usage/.tool-usage.json.lock) for longer than the 2 s wait. Logged as a warning; it never fails a tool call.",
     "do": "Nothing. The counts stay in memory and are written at the next flush. A lock file older than 30 s is removed as stale."
+  },
+  "class/HttpConfigError": {
+    "when": "MCP_REVIT_HTTP is on but the host is not loopback, the port is invalid, or MCP_REVIT_HTTP_TOKEN is missing or shorter than 16 characters. The server refuses to start.",
+    "do": "Fix the MCP_REVIT_HTTP_* settings, or unset MCP_REVIT_HTTP to use stdio."
   }
 }

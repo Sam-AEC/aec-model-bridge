@@ -12,7 +12,7 @@ A tool failure reaches an MCP client in one of two shapes:
 Refusals never change the model. A refused write needs a new plan that a person approves.
 For logs and connection problems see [troubleshooting](troubleshooting.md).
 
-Entries: 152.
+Entries: 153.
 
 ## Tool error kinds
 
@@ -774,7 +774,7 @@ Set by module tools as `kind` in an `ok: false` result, next to `message`, `elem
 
 ## Exception classes
 
-Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 27.
+Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 28.
 
 ### `ApprovalExpired`
 
@@ -847,6 +847,12 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 - When: Server code tried to ask the person a question for an approval tool, from the approval code, or for something that looks like a secret.
 - What to do: Nothing for the client. Plan approval comes only from a person in the panel or the CLI; this is a server bug if it is ever seen.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/elicitation.py`
+
+### `HttpConfigError`
+
+- When: MCP_REVIT_HTTP is on but the host is not loopback, the port is invalid, or MCP_REVIT_HTTP_TOKEN is missing or shorter than 16 characters. The server refuses to start.
+- What to do: Fix the MCP_REVIT_HTTP_* settings, or unset MCP_REVIT_HTTP to use stdio.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/http_transport.py`
 
 ### `IncrementalMergeError`
 
