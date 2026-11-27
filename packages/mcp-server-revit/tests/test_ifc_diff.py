@@ -186,3 +186,44 @@ def test_result_is_json_serialisable(ws):
 def test_module_manifest_is_read_only():
     manifest = json.loads((Path(mod.__file__).parent / "module.json").read_text(encoding="utf-8"))
     assert [(c["id"], c["is_mutating"]) for c in manifest["commands"]] == [("compare", False)]
+
+
+def _ifc_with_complex_property(ids):
+    p, r, c, v = ids
+    return (
+        HEAD
+        + f"#10=IFCWALL('{WALL_A}',$,'Wall A',$,$,$,$,$,$);\n"
+        + f"#{p}=IFCPROPERTYSET('0iTvm81C1EfwqLKcxlYE9j',$,'Pset_Custom',$,(#{c}));\n"
+        + f"#{r}=IFCRELDEFINESBYPROPERTIES('1CgwfE2pfBR9M8r5KPDFC5',$,$,$,(#10),#{p});\n"
+        + f"#{c}=IFCCOMPLEXPROPERTY('Group',$,'U',(#{v}));\n"
+        + f"#{v}=IFCPROPERTYSINGLEVALUE('A',$,IFCLABEL('x'),$);\n"
+        + TAIL
+    )
+
+
+def test_same_nested_property_with_other_step_ids_is_not_a_change(ws):
+    root = Path(ws.allowed_directories[0])
+    (root / "old.ifc").write_text(_ifc_with_complex_property((90, 91, 92, 93)), encoding="utf-8")
+    (root / "new.ifc").write_text(_ifc_with_complex_property((190, 191, 192, 193)), encoding="utf-8")
+    assert run(ws)["counts"]["changed"] == 0
+
+
+def test_entity_values_compare_by_content_not_step_id(ws, monkeypatch):
+    import ifcopenshell
+    import ifcopenshell.util.element as el_util
+
+    model = ifcopenshell.file(schema="IFC4")
+    first = model.createIfcOrganization(None, "Acme")
+    model.createIfcProject(ifcopenshell.guid.new(), Name="padding")  # shifts the next STEP id
+    second = model.createIfcOrganization(None, "Acme")
+    other = model.createIfcOrganization(None, "Other")
+    assert first.id() != second.id()
+
+    def psets_for(entity):
+        monkeypatch.setattr(el_util, "get_psets", lambda _el: {"P": {"id": 1, "Maker": entity}})
+        return mod._psets(object())
+
+    a, b, c = psets_for(first), psets_for(second), psets_for(other)
+    assert a == b and mod._digest(a) == mod._digest(b)
+    assert a != c and mod._digest(a) != mod._digest(c)
+    assert "#" not in json.dumps(a)

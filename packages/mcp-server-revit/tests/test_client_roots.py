@@ -37,8 +37,10 @@ def tree(tmp_path):
 @pytest.fixture(autouse=True)
 def _clean_cache():
     client_roots._cache.clear()
+    client_roots._failed_until.clear()
     yield
     client_roots._cache.clear()
+    client_roots._failed_until.clear()
 
 
 # --- URI parsing -------------------------------------------------------------
@@ -506,3 +508,62 @@ def test_roots_are_per_session_not_global(server):
     assert not after[0]
     assert not wide[0]
     assert CLIENT_ROOTS.get() is None
+
+
+class _SilentClient:
+    """Declares roots but never answers roots/list."""
+
+    def __init__(self):
+        self.n = 0
+        self.client_params = SimpleNamespace(capabilities=SimpleNamespace(roots={}))
+
+    async def send_request(self, request, result_type):
+        self.n += 1
+        await asyncio.sleep(3600)
+
+
+def test_a_silent_client_is_not_asked_again_on_every_call(monkeypatch):
+    monkeypatch.setattr(client_roots, "FETCH_TIMEOUT_SECONDS", 0.2)
+    s = _SilentClient()
+
+    async def scenario():
+        assert await client_roots.for_session(s) is None
+        loop = asyncio.get_running_loop()
+        start = loop.time()
+        assert await client_roots.for_session(s) is None
+        return loop.time() - start
+
+    assert _run(scenario()) < 0.1
+    assert s.n == 1
+
+
+def test_a_failed_fetch_is_retried_after_the_ttl(monkeypatch):
+    monkeypatch.setattr(client_roots, "FETCH_TIMEOUT_SECONDS", 0.05)
+    s = _SilentClient()
+    _run(client_roots.for_session(s))
+    client_roots._failed_until[s] = 0.0  # the TTL has run out
+    _run(client_roots.for_session(s))
+    assert s.n == 2
+
+
+def test_list_changed_clears_a_remembered_failure(monkeypatch):
+    monkeypatch.setattr(client_roots, "FETCH_TIMEOUT_SECONDS", 0.05)
+    s = _SilentClient()
+    _run(client_roots.for_session(s))
+    _run(client_roots._on_list_changed(None))
+    _run(client_roots.for_session(s))
+    assert s.n == 2
+
+
+def test_a_failure_that_lands_after_list_changed_is_not_remembered(monkeypatch):
+    monkeypatch.setattr(client_roots, "FETCH_TIMEOUT_SECONDS", 0.2)
+    s = _SilentClient()
+
+    async def scenario():
+        task = asyncio.create_task(client_roots.for_session(s))
+        await asyncio.sleep(0.05)
+        await client_roots._on_list_changed(None)
+        await task
+
+    _run(scenario())
+    assert s not in client_roots._failed_until

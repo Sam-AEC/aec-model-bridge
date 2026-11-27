@@ -54,8 +54,16 @@ def call(name, arguments, asker=None):
     async def run():
         kwargs = {"elicitation_callback": asker} if asker is not None else {}
         async with create_connected_server_and_client_session(mcp_server.app, **kwargs) as client:
-            return await client.call_tool(name, arguments)
+            answer = await client.call_tool(name, arguments)
+            await _link_sent()
+            return answer
     return asyncio.run(run())
+
+
+async def _link_sent():
+    """The link goes out in the background after the reply; wait for it before the session closes."""
+    if mcp_server._link_tasks:
+        await asyncio.wait(set(mcp_server._link_tasks), timeout=5)
 
 
 def _plan_id(answer) -> str:
@@ -150,6 +158,48 @@ def test_link_failure_never_fails_the_plan(server):
 
     plan_id = _plan_id(call("plan_actions", PLAN_ARGS, Boom()))
     assert server.approval.gate.load_plan(plan_id)["state"] == "pending"
+
+
+def test_plan_reply_does_not_wait_for_a_slow_link(server, monkeypatch):
+    sent = []
+    release = asyncio.Event()
+
+    class SlowSession:
+        client_params = SimpleNamespace(capabilities=types.ClientCapabilities(
+            elicitation=types.ElicitationCapability(url=types.UrlElicitationCapability())))
+
+        async def elicit_url(self, message, url, elicitation_id, related_request_id=None):
+            sent.append(url)
+            await release.wait()
+
+    monkeypatch.setattr(mcp_server, "_client_session", lambda: SlowSession())
+
+    async def run():
+        answer = await asyncio.wait_for(mcp_server._call_tool_rounds("plan_actions", PLAN_ARGS), timeout=3)
+        await asyncio.sleep(0)
+        assert not release.is_set() and len(mcp_server._link_tasks) == 1  # still asking after the reply
+        release.set()
+        await _link_sent()
+        assert not mcp_server._link_tasks
+        return answer
+
+    result = asyncio.run(run())
+    text = result[0].text
+    plan_id = json.loads(text.split("Result:\n", 1)[1])["plan_id"]
+    assert len(sent) == 1 and parse_qs(urlparse(sent[0]).query) == {"plan": [plan_id]}
+    assert server.approval.gate.load_plan(plan_id)["state"] == "pending"
+
+
+def test_link_task_errors_are_swallowed_and_the_task_is_released(server, monkeypatch, caplog):
+    async def boom(*a, **k):
+        raise RuntimeError("elicitation broke")
+
+    monkeypatch.setattr(mcp_server, "offer_plan_panel_link", boom)
+    with caplog.at_level("INFO", logger="revit_mcp_server.mcp_server"):
+        plan_id = _plan_id(call("plan_actions", PLAN_ARGS, Asker()))
+    assert server.approval.gate.load_plan(plan_id)["state"] == "pending"
+    assert not mcp_server._link_tasks
+    assert "Panel link skipped" in caplog.text
 
 
 def test_other_tools_never_send_a_link(server):

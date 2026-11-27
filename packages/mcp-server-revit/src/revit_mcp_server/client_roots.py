@@ -3,8 +3,9 @@
 Roots only narrow the configured allowed directories (``security.workspace.narrow_directories``);
 they never add one. A client that declares no roots capability, or an empty list, is served exactly
 as before. Roots are read per session on its first tool call and again after the client sends
-``notifications/roots/list_changed``. If the roots cannot be read, the configured directories apply
-and a warning is logged. Only ``file`` URIs count; anything else is ignored and logged.
+``notifications/roots/list_changed``. If the roots cannot be read, the configured directories apply,
+a warning is logged and the failure is remembered for FAILURE_TTL_SECONDS (or until the next
+roots/list_changed), so a silent client does not stall every call. Only ``file`` URIs count; anything else is ignored and logged.
 """
 from __future__ import annotations
 
@@ -12,6 +13,7 @@ import asyncio
 import logging
 import os
 import re
+import time
 import weakref
 from typing import Any
 from urllib.parse import unquote, urlsplit
@@ -25,11 +27,14 @@ from .security.workspace import _real, narrow_directories
 logger = logging.getLogger(__name__)
 
 FETCH_TIMEOUT_SECONDS = 5.0
+FAILURE_TTL_SECONDS = 60.0
 _DRIVE_PATH = re.compile(r"^/[A-Za-z]:")
 _DRIVE_HOST = re.compile(r"^[A-Za-z]:$")
 
 # session -> real root paths that session declared (None: none declared). Missing: not read yet.
 _cache: "weakref.WeakKeyDictionary[Any, tuple[str, ...] | None]" = weakref.WeakKeyDictionary()
+# session -> monotonic time until which a failed fetch is not retried.
+_failed_until: "weakref.WeakKeyDictionary[Any, float]" = weakref.WeakKeyDictionary()
 # Bumped on every roots/list_changed. A fetch that started before a bump is not stored. The
 # notification handler does not know its session, so the counter covers all sessions.
 _generation = 0
@@ -98,6 +103,8 @@ async def for_session(session: Any, monitor: Any = None) -> "tuple[str, ...] | N
         return None
     if session in _cache:
         return _cache[session]
+    if _failed_until.get(session, 0.0) > time.monotonic():
+        return None
     started = _generation
     try:
         result = await asyncio.wait_for(
@@ -107,6 +114,8 @@ async def for_session(session: Any, monitor: Any = None) -> "tuple[str, ...] | N
         uris = [(r.get("uri") if isinstance(r, dict) else getattr(r, "uri", None)) for r in result.roots]
     except Exception as exc:  # the client may not answer; the configured directories still apply
         logger.warning("Could not read the client's roots (%s); using the configured directories.", type(exc).__name__)
+        if started == _generation:
+            _failed_until[session] = time.monotonic() + FAILURE_TTL_SECONDS
         return None
     roots = usable_roots(uris) if uris else None
     if roots and monitor is not None:
@@ -122,6 +131,7 @@ async def for_session(session: Any, monitor: Any = None) -> "tuple[str, ...] | N
 async def _on_list_changed(_notification: Any) -> None:
     global _generation
     _generation += 1
+    _failed_until.clear()
     _cache.clear()  # every session reads again on its next call
 
 
