@@ -1,0 +1,33 @@
+# View template assignment on view elements (OST_Views plans, sections and 3D views).
+# The rules read the 'View Template' parameter of each view. Revit stores it as an element id, which the
+# snapshot keeps as text; '-1' (or an empty value) means no template.
+# The top-level 'views' list of a snapshot (with is_template) is not a rule source and does not say which
+# template a view uses, so assignment cannot be checked from it. A check that does not depend on the
+# 'View Template' parameter needs an add-in change.
+# 'not captured' means the view has no 'View Template' parameter in the snapshot. View templates themselves
+# may have none, so they can also appear under it.
+# Fixture-tested only. Whether live snapshots hold view elements with this parameter is UNVERIFIED.
+rules:
+  - id: view_template_not_captured
+    severity: info
+    category: Views
+    description: "View template was not captured: the view has no 'View Template' parameter in the snapshot."
+    pipeline:
+      - where:
+          - {field: category, value: OST_Views}
+          - {field: class, op: in, value: [ViewPlan, ViewSection, View3D]}
+          - {field: params.View Template, op: exists, value: false}
+
+  - id: view_template_unassigned
+    severity: warning
+    category: Views
+    description: "View has no view template."
+    pipeline:
+      - where:
+          - {field: category, value: OST_Views}
+          - {field: class, op: in, value: [ViewPlan, ViewSection, View3D]}
+          - {field: params.View Template, op: exists}
+          - any:
+              - {field: params.View Template, op: empty}
+              - {field: params.View Template, op: eq, value: "-1"}
+    fix_template: "Assign a view template to '{label}'."
