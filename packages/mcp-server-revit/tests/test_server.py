@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 
 from revit_mcp_server.config import BridgeMode, Config
@@ -52,16 +53,13 @@ def test_deferred_execution_and_job_tools(tmp_path: Path):
         job_id = response["job_id"]
         assert job_id
 
-        # Wait for the job to complete
-        import time
-        for _ in range(100):
-            status_resp = server.handle_tool("job_status", {"job_id": job_id})
-            if status_resp["status"] == "completed":
-                break
-            time.sleep(0.01)
-        else:
-            status_resp = server.handle_tool("job_status", {"job_id": job_id})
-            assert status_resp["status"] == "completed"
+        # Wait for the job task to finish on the server loop
+        async def finished():
+            await server.job_manager._jobs[job_id].task
+
+        asyncio.run_coroutine_threadsafe(finished(), server._loop).result(timeout=5)
+        status_resp = server.handle_tool("job_status", {"job_id": job_id})
+        assert status_resp["status"] == "completed"
 
         assert status_resp["result"]["status"] == "healthy"
 
