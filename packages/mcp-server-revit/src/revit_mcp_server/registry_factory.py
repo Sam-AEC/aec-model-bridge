@@ -126,4 +126,6 @@ def build_registry(
             except Exception as e:
                 logger.warning("Could not initialize McpProxyProvider for %s: %s", target, e)
 
+    from .security import tiers
+    tiers.set_registry(registry)  # plan actions are checked against tier policy by tool name
     return registry, approval_provider, job_manager, module_registry, workspace

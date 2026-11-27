@@ -26,6 +26,7 @@ from .elicitation import (
 from .errors import BridgeError, CommandFailed
 from .registry_factory import build_registry
 from .security.approval import HUMAN_ONLY_TOOLS
+from .security.policy import name_in_off_tier, off_tiers_for_listing, tool_refusal
 from .security.workspace import CLIENT_ROOTS
 from .security.dispatch import (
     GET_RESULT_TOOL, gate_after, gate_after_result, gate_before, mark_timed_out, result_failed,
@@ -128,6 +129,11 @@ def _session_key() -> str:
     return "direct" if session is None else f"session-{id(session)}"
 
 
+def _identity(provider: Any) -> str:
+    getter = getattr(provider, "get_identity", None)
+    return str(getter()) if callable(getter) else ""
+
+
 mcp_logging.install()
 
 
@@ -148,10 +154,16 @@ async def list_tools() -> list[Tool]:
     # For a client that declared the MCP Apps extension (or MCP_REVIT_MCP_APPS=always), plan tools
     # name the read-only plan review view and every tool that is not read-only is marked callable
     # by the model only, never by an app (mcp_apps.py). Worked out per request, never cached.
+    # Tools of a tier that policy turns off are hidden (policy.off_tiers_for_listing). Dev mode lifts
+    # that at list time. This server sends no tools/list_changed, so a client re-lists after Dev mode
+    # or a policy file changes.
+    gate = getattr(approval_provider, "gate", None)
+    off = off_tiers_for_listing(getattr(gate, "workspace_dir", None), bool(getattr(gate, "dev_mode", False)))
     return [
         mcp_apps.listed_tool(provider.get_identity(), t)
         for provider, t in registry.get_tools_with_providers()
         if t.name not in HUMAN_ONLY_TOOLS
+        and not (off and name_in_off_tier(t.name, t, provider.get_identity(), off))
     ]
 
 @app.list_prompts()
@@ -350,6 +362,16 @@ async def _call_tool_once(name: str, arguments: Any) -> list[TextContent] | Call
         return _tool_error("tool_profile_blocked", str(exc))
     if not provider:
         return _tool_error("unknown_tool", f"Error: Unknown tool '{name}'")
+
+    # Tier policy (machine and workspace files). Control tools are never refused.
+    policy_gate = getattr(approval_provider, "gate", None)
+    try:
+        tier_msg = tool_refusal(getattr(policy_gate, "workspace_dir", None), name, registry.lookup_tool(name),
+                                _identity(provider), bool(getattr(policy_gate, "dev_mode", False)))
+    except Exception as exc:  # fail closed: a tool whose tier cannot be worked out is not run
+        tier_msg = f"Policy refused '{name}': its tier could not be worked out ({str(exc)[:120]})."
+    if tier_msg is not None:
+        return _tool_error("policy_refused", tier_msg)
 
     # Rate limits run before the approval gate, so a refused call never uses an approved action.
     # Approval tools never get here: they are human-only and refused above.
