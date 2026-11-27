@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Docker image: dependencies install from `requirements-docker.txt`, a hash-pinned export of `uv.lock` (`pip install --require-hashes`), then the package with `--no-deps`. A test fails when the export drifts from the lock. Clears Scorecard alert #36.
+- Tests: the job, Revit job, server and approval tests no longer use real sleeps; they wait on events, and a cancelled job that never stops fails within 2 s. Fixes #242
 
 ## 1.6.1 - 2026-11-27
 
