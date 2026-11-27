@@ -6,6 +6,7 @@ settings in pyproject.toml make coverage follow children and combine their data 
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tomllib
@@ -44,13 +45,16 @@ def test_child_process_lines_are_measured(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     cmd = [sys.executable, "-m", "coverage"]
+    # Keep the outer --cov run (CI) out of this nested run: no inherited data file or start hook.
+    env = {k: v for k, v in os.environ.items() if not k.startswith("COVERAGE")}
+    env["COVERAGE_FILE"] = str(tmp_path / ".coverage")
     subprocess.run([*cmd, "run", f"--rcfile={rcfile}", str(parent)], check=True, timeout=120,
-                   capture_output=True, cwd=tmp_path)
+                   capture_output=True, cwd=tmp_path, env=env)
     subprocess.run([*cmd, "combine", f"--rcfile={rcfile}"], check=True, timeout=60,
-                   capture_output=True, cwd=tmp_path)
+                   capture_output=True, cwd=tmp_path, env=env)
     report = tmp_path / "report.json"
     subprocess.run([*cmd, "json", f"--rcfile={rcfile}", "-o", str(report)], check=True,
-                   timeout=60, capture_output=True, cwd=tmp_path)
+                   timeout=60, capture_output=True, cwd=tmp_path, env=env)
     files = json.loads(report.read_text(encoding="utf-8"))["files"]
     measured = {Path(name).name: info["summary"]["covered_lines"] for name, info in files.items()}
     assert measured.get("__main__.py", 0) > 0, measured
