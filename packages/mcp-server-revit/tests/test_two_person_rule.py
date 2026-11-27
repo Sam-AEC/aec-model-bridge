@@ -179,3 +179,53 @@ def test_cli_approve_refuses_requester_and_accepts_other(tmp_path, monkeypatch, 
     monkeypatch.setenv(APPROVER_ENV, "bob")
     assert approve_cli.main(["approve", pid, "--yes"]) == 0
     assert gate.load_plan(pid)["approved_by"] == "bob"
+
+
+@pytest.mark.parametrize("requester,approver", [
+    ("alice", "alice@corp"), ("alice@corp", "alice"), (r"CORP\Alice", "alice"), ("alice", r"corp\ALICE"),
+    ("alice@corp.example", r"CORP\alice"),
+])
+def test_names_are_compared_without_domain_or_case(tmp_path, monkeypatch, requester, approver):
+    gate = _on(tmp_path)
+    pid = _draft(gate, monkeypatch, requester)
+    with pytest.raises(ValueError, match="cannot approve"):
+        human_approve(gate, pid, approver=approver)
+    assert gate.load_plan(pid)["state"] == "pending"
+
+
+def test_different_person_with_a_domain_is_accepted(tmp_path, monkeypatch):
+    gate = _on(tmp_path)
+    pid = _draft(gate, monkeypatch, "alice@corp")
+    assert human_approve(gate, pid, approver=r"CORP\bob")["state"] == "approved"
+
+
+def test_plan_approved_before_the_option_was_on_cannot_execute_after(tmp_path, monkeypatch):
+    from revit_mcp_server.errors import BridgeError
+
+    gate = _gate(tmp_path)
+    pid = _draft(gate, monkeypatch, "alice")
+    human_approve(gate, pid, approver="bob")
+    gate.verify_approved(gate.load_plan(pid))  # option off: runs
+    (tmp_path / "ws" / "policy.yaml").write_text("require_second_approver: true\n", encoding="utf-8")
+    with pytest.raises(BridgeError, match="does not record who asked"):
+        gate.verify_approved(gate.load_plan(pid))
+
+
+def test_self_approved_plan_cannot_execute_once_the_option_is_on(tmp_path, monkeypatch):
+    from revit_mcp_server.errors import BridgeError
+
+    gate = _on(tmp_path)
+    pid = _draft(gate, monkeypatch, "alice")
+    policy = tmp_path / "ws" / "policy.yaml"
+    policy.write_text("require_second_approver: false\n", encoding="utf-8")
+    human_approve(gate, pid, approver="alice@corp")  # option off: allowed
+    policy.write_text("require_second_approver: true\n", encoding="utf-8")
+    with pytest.raises(BridgeError, match="approved by the person who asked"):
+        gate.verify_approved(gate.load_plan(pid))
+
+
+def test_second_approver_plan_still_executes_with_the_option_on(tmp_path, monkeypatch):
+    gate = _on(tmp_path)
+    pid = _draft(gate, monkeypatch, "alice")
+    human_approve(gate, pid, approver="bob")
+    gate.verify_approved(gate.load_plan(pid))

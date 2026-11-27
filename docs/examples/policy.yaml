@@ -28,4 +28,7 @@ max_elements_per_plan: 50
 max_actions_per_plan: 20
 
 # Off by default. When true, the person who asked for a plan cannot approve it.
+# This records names and catches mistakes and same-account approval. It is not an authentication control:
+# the approver name comes from MCP_REVIT_APPROVER or the OS account and is not verified. A separate approver
+# needs a separate OS account or a separately configured approving machine.
 # require_second_approver: true
