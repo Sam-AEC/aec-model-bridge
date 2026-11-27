@@ -1,1 +1,0 @@
-- `tag-release.yml` pushes the release tag with the `RELEASE_TAG_TOKEN` secret (a fine-grained admin token) and skips with a notice when it is not set; the tag push starts `release.yml`. GitHub refused the GitHub Actions bypass on the tag ruleset for a personal repository, so `protect-tags.json` keeps the admin-only bypass. No tool count change.
