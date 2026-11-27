@@ -17,7 +17,7 @@ from mcp.types import (
     TextContent,
 )
 
-from . import call_limits, client_roots, mcp_apps, mcp_logging, mcp_prompts, mcp_resources, mcp_tasks
+from . import call_limits, client_roots, image_content, mcp_apps, mcp_logging, mcp_prompts, mcp_resources, mcp_tasks
 
 from .elicitation import (
     MAX_ROUNDS, VIEW_SHEET_REFS, ElicitationForbidden, InputNeeded, check_view_sheet_names, elicit_choice,
@@ -575,6 +575,9 @@ async def _execute_and_present(name, provider, arguments, claim, gate, response_
                 type="resource_link", uri=cursor_ctx.resource_uri, name=f"{name} full result",
                 mimeType=mcp_resources.MIME,
             ))
+        if image_content.wants_image(name, arguments):
+            image, note = image_content.image_block(result, workspace_monitor)
+            content.append(image if image is not None else TextContent(type="text", text=note))
         # Plan tools: the approval mode goes in _meta for the MCP Apps view; the plan JSON is unchanged.
         view_meta = mcp_apps.result_meta(name, gate)
         if output_schema_for(name) is not None:
