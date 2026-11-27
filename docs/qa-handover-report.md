@@ -70,3 +70,13 @@ An input the snapshot does not have is left out and listed under `excluded` with
 - parameter completeness: the 5 most common parameters per category, up to 400 rows.
 
 The result's `dashboard` key gives the QA status and row counts; `html_file` is the written path. Mock and partial snapshots get a banner. For sheet checks before an issue see [sheet-set-qa.md](sheet-set-qa.md).
+
+## Quantity take-off (CSV and BC3)
+
+`qto_export_run` reads a saved snapshot and returns, per category and type, the element `count` and the summed length, area and volume in m, m2 and m3. `csv_filename` writes a CSV and a second file `<name>_no_quantity.csv`. `bc3_filename` writes a FIEBDC-3 file in ANSI (cp1252) with one chapter per category and one concept per type. It carries no prices.
+
+- Length, Area and Volume come from the element parameters of that name. Set `snapshot_units` to `feet` (default) or `metres` to match the snapshot.
+- A total is empty when no element of that type has the quantity. It is never written as 0. `*_elements` gives how many elements contributed.
+- An element with none of the three quantities is counted, listed under `without_quantity` and written to the `_no_quantity` file.
+- In BC3 each type has one measurement. `bc3_measure` picks it; `auto` uses area for walls, floors, roofs, ceilings and rooms, length for linear MEP and framing, volume for columns and foundations, and count (unit `ud`) otherwise. A type without that quantity falls back to count.
+- IFC files are not read. Output files stay inside the workspace. It never changes the model. BC3 import in a cost tool is UNVERIFIED; the tests check the file with a minimal reader.
