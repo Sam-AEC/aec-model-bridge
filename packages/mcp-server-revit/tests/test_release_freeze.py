@@ -54,3 +54,9 @@ def test_filter_selects_expected_prs_with_jq():
         input=json.dumps(prs), capture_output=True, text=True, check=True,
     ).stdout.split()
     assert out == ["1", "2"]
+
+
+def test_lookup_fails_closed():
+    run = WORKFLOW.read_text(encoding="utf-8").split("run: |", 1)[1]
+    assert "set -o pipefail" in run
+    assert "-ge 500" in run and "--limit 500" in run

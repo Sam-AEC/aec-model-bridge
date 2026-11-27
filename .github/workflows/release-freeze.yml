@@ -26,7 +26,12 @@ jobs:
           # A release PR is open when its head is dev or a release/* branch of this
           # repository. A fork branch with the same name does not count.
           filter='.[] | select(.headRepositoryOwner.login == $owner and (.headRefName == "dev" or (.headRefName | startswith("release/")))) | .number'
-          prs=$(gh pr list --base main --state open --limit 100 --json number,headRefName,headRepositoryOwner)
+          set -o pipefail
+          prs=$(gh pr list --base main --state open --limit 500 --json number,headRefName,headRepositoryOwner)
+          if [ "$(printf '%s' "$prs" | jq 'length')" -ge 500 ]; then
+            echo "::error::500 or more open PRs into main; cannot check the freeze reliably."
+            exit 1
+          fi
           open=$(printf '%s' "$prs" | jq -r --arg owner "${OWNER}" "$filter" | head -n 1)
           if [ -n "$open" ]; then
             echo "::error::dev is frozen: release PR #${open} into main is open. Merge or close it, then re-run this check."
