@@ -60,6 +60,24 @@ The C# Revit bridge has two modes:
 ### Named-pipe transport (opt-in, UNVERIFIED)
 Any local process, including one of another Windows user, can connect to a loopback port. With `AEC_BRIDGE_TRANSPORT=pipe` set for Revit, the add-in also opens a named pipe whose ACL allows only the current Windows user, and publishes its name as `pipe_name` in the registry entry. With `MCP_REVIT_BRIDGE_TRANSPORT=pipe` the Python server sends requests over that pipe, with the same JSON and the same session token. The client refuses a pipe that is not served by the Revit process in the registry entry. The HTTP port stays open in this release, so the pipe does not yet remove the loopback exposure. If the selected entry has no pipe, the server warns and uses HTTP. The pipe ACL and live behaviour are UNVERIFIED in a live Windows session. See [ADR 0021](adr/0021-named-pipe-transport.md).
 
+### Streamable HTTP transport (opt-in)
+The MCP server speaks stdio by default and opens no port. Setting `MCP_REVIT_HTTP=1` makes it serve MCP over Streamable HTTP at `http://127.0.0.1:<port>/mcp` instead, for clients that accept only an HTTP server. It serves the same tools from the same registry and the same approval gate as stdio; it adds no write path.
+
+Threat model:
+
+- **Off by default.** Without `MCP_REVIT_HTTP=1` no socket is created. A value other than `1`, `true`, `yes`, `on`, `0`, `false`, `no`, `off` or empty is refused at startup.
+- **Loopback only.** The server binds `127.0.0.1`. `MCP_REVIT_HTTP_HOST` accepts only `127.0.0.1` and `localhost`; any other host, including `0.0.0.0`, stops the server with an error. The port is `MCP_REVIT_HTTP_PORT` (default 8765).
+- **Required bearer token.** `MCP_REVIT_HTTP_TOKEN` must be set to at least 16 characters, otherwise the server does not start. Every request needs `Authorization: Bearer <token>`; a missing or wrong token gets `401` with the same body. The check uses `hmac.compare_digest` and runs on every path. The token is never logged or put in an error message. Generate one with `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
+- **Host and Origin.** `Host` must be `127.0.0.1` or `localhost` (403 otherwise). An `Origin` header, when present, must be an `http` or `https` origin on `127.0.0.1`, `localhost` or `[::1]` (403 otherwise, including `Origin: null`). This blocks DNS rebinding and pages served from other sites. These checks run before the token check.
+- **Approval gate unchanged.** Tools that change a model still need `plan_actions`, a human approval in the panel or with `aec-model-bridge-approve`, and `execute_plan`. The tools that approve, reject or roll back plans stay unreachable from MCP.
+
+What it does not protect against:
+
+- Other local users or processes that can read the token (the client's configuration or the process environment). Anything holding the token can call every tool the stdio server exposes, within the approval gate.
+- Another local process that binds the port first. A client that sends the token to a port it did not start can leak it.
+- Eavesdropping or tampering on the machine: traffic is plain HTTP on loopback and the token is not rotated.
+- Remote access. Do not put this port behind a tunnel, reverse proxy or port forward.
+
 ### Panel HTTP shim (`panel_server.py`)
 The panel hub (`aec-model-bridge-panel-server`, default port 8787) listens on `127.0.0.1` and serves `/execute`, `/agent/chat`, `/diagnostics`, `/reports`, `/agent/providers` and `/health`. Its only intended caller is the add-in's C# `HubClient`. Every request is checked:
 

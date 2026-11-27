@@ -197,3 +197,21 @@ def test_cli_never_runs_in_the_hubs_own_working_directory(monkeypatch, tmp_path)
     agent_bridge.run_agent_turn("claude", "hello", None)
     assert seen and seen[0] == str(tmp_path / "ws") and seen[0] != os.getcwd()
     assert (tmp_path / "ws").is_dir()
+
+
+def test_agent_cli_env_drops_http_transport_settings(monkeypatch):
+    monkeypatch.setenv("MCP_REVIT_HTTP", "1")
+    monkeypatch.setenv("MCP_REVIT_HTTP_TOKEN", "x" * 20)
+    monkeypatch.setenv("MCP_REVIT_MODE", "mock")
+    monkeypatch.setattr(agent_bridge.shutil, "which", lambda _name: "/usr/bin/claude")
+    captured = {}
+
+    def fake_run(args, **kwargs):
+        captured["env"] = kwargs["env"]
+        return _completed(args, stdout=json.dumps({"result": "ok", "session_id": "s"}))
+
+    monkeypatch.setattr(agent_bridge.subprocess, "run", fake_run)
+    agent_bridge.run_agent_turn("claude", "hi", None)
+    assert "MCP_REVIT_HTTP" not in captured["env"]
+    assert "MCP_REVIT_HTTP_TOKEN" not in captured["env"]
+    assert captured["env"]["MCP_REVIT_MODE"] == "mock"

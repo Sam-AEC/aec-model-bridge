@@ -68,6 +68,11 @@ def _neutral_cwd() -> str:
         return tempfile.gettempdir()
 
 
+def _child_env() -> dict:
+    """Environment for agent CLIs. The MCP server they start must use stdio, not the HTTP transport."""
+    return {k: v for k, v in os.environ.items() if not k.upper().startswith("MCP_REVIT_HTTP")}
+
+
 def run_agent_turn(provider: str, message: str, session_id: Optional[str]) -> Dict[str, Any]:
     """Runs one chat turn against the requested CLI provider.
 
@@ -134,7 +139,7 @@ def _run_claude_turn(message: str, session_id: Optional[str]) -> Dict[str, Any]:
     # Revit tools at all, and the model then fabricates a plausible-looking
     # answer instead of reporting that. 30s is comfortably above the observed
     # worst case.
-    env = {**os.environ, "MCP_TIMEOUT": "30000"}
+    env = {**_child_env(), "MCP_TIMEOUT": "30000"}
 
     try:
         proc = subprocess.run(args, capture_output=True, encoding="utf-8", stdin=subprocess.DEVNULL, timeout=_TURN_TIMEOUT_SECONDS, env=env, cwd=_neutral_cwd())
@@ -178,7 +183,7 @@ def _run_codex_turn(message: str, session_id: Optional[str]) -> Dict[str, Any]:
         base += ["--sandbox", "read-only", "--skip-git-repo-check", "--json", "-o", out_path, "--", message]
 
         try:
-            proc = subprocess.run(base, capture_output=True, encoding="utf-8", stdin=subprocess.DEVNULL, timeout=_TURN_TIMEOUT_SECONDS, cwd=_neutral_cwd())
+            proc = subprocess.run(base, capture_output=True, encoding="utf-8", stdin=subprocess.DEVNULL, timeout=_TURN_TIMEOUT_SECONDS, env=_child_env(), cwd=_neutral_cwd())
         except subprocess.TimeoutExpired:
             return {"ok": False, "error": f"codex did not respond within {_TURN_TIMEOUT_SECONDS}s"}
         except OSError as e:

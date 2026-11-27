@@ -1093,7 +1093,7 @@ Any framework with an MCP stdio client can launch the server and call its tools.
 
 ## What will not work directly
 
-A client that accepts only a remote MCP server over HTTP cannot start a local stdio server. Many browser-based chat apps work this way. A local proxy can expose a stdio server over HTTP. That opens your model to anything that can reach the proxy, so read [Security](security.md) first. The server is designed for a single machine, with the Revit add-in on loopback.
+A client that accepts only a remote MCP server over HTTP cannot start a local stdio server. Many browser-based chat apps work this way. Remote access is not supported. For a client on the same machine, the opt-in Streamable HTTP transport (`MCP_REVIT_HTTP=1`, loopback only, bearer token required) serves the same tools and approval gate; read [Security](security.md) first. Its live behaviour with real clients is UNVERIFIED. A proxy that exposes the server beyond loopback opens your model to anything that can reach it. The server is designed for a single machine, with the Revit add-in on loopback.
 
 Live work always needs the Revit add-in. The server talks to a running copy of Revit on Windows.
 
@@ -1327,6 +1327,10 @@ The server has three modes. Set the mode with `MCP_REVIT_MODE`.
 | `MCP_REVIT_TOOL_PROFILE_FILE` | No | unset | JSON file with `include` / `exclude` provider or module ID globs. Required for `custom`; narrows `full`, `daily`, `core` or `learned`. |
 | `MCP_REVIT_LEARNED_TOP_N` | No | `25` | How many of the most used tools of the last 30 days `learned` adds to `core` and the always-loaded tools. Whole number from 1 to 200; any other value stops the server at startup. |
 | `MCP_REVIT_USAGE_COUNTS` | No | `off` | `on` turns on local tool usage counts in `<workspace>/usage/tool-usage.json`: tool names, calls per day and last-used day only. `off` (or `0`, `false`, `no`) counts nothing and writes no file; `learned` then falls back to `daily`. Any other value stops the server at startup. Nothing is sent anywhere. See [Learned profile](learned-profile.md). |
+| `MCP_REVIT_HTTP` | No | `0` | `1` serves MCP over Streamable HTTP at `http://127.0.0.1:<port>/mcp` instead of stdio. Off by default: no port is opened. Any value other than `1`/`0` (also `true`/`false`, `yes`/`no`, `on`/`off`) stops the server at startup. See [Security](security.md). |
+| `MCP_REVIT_HTTP_TOKEN` | Yes, when `MCP_REVIT_HTTP` is on | none | Bearer token for the HTTP transport, at least 16 characters. Clients send `Authorization: Bearer <token>`. The server refuses to start without it and never logs it. |
+| `MCP_REVIT_HTTP_HOST` | No | `127.0.0.1` | Only `127.0.0.1` or `localhost` is accepted (both bind 127.0.0.1). Any other value stops the server at startup. |
+| `MCP_REVIT_HTTP_PORT` | No | `8765` | Port of the HTTP transport, 1 to 65535. |
 | `MCP_REVIT_APPROVAL_TTL` | No | `28800` (8 hours) | Seconds an approved plan stays usable. After that the plan moves to `expired` and a person must approve a new plan; it is never renewed silently. `0` turns the limit off. A negative, fractional or non-numeric value falls back to the default (it never turns the limit off) and logs a warning. Checked when a call runs, not by a timer. See [ADR 0017](adr/0017-approval-document-binding-and-expiry.md). |
 | `MCP_REVIT_PENDING_TTL` | No | `1209600` (14 days) | Seconds a drafted, not yet approved plan can still be approved. Older pending plans are left out of `list` and `list_pending_plans` (counted as `expired_hidden`; `list --all` or `include_expired` shows them), cannot be approved, and are never deleted. `0` turns the limit off. Same fallback rule as above. |
 | `MCP_REVIT_TOOL_TIMEOUT` | No | `300` | Seconds a direct MCP tool call may run. `0` turns the default off. A negative or non-numeric value falls back to `300` and logs a warning. Not applied to `run_async` jobs, MCP tasks or panel hub calls. A read that runs out of time is stopped and refused with kind `tool_timeout`. A write is not stopped and not reported as failed, because it may still be running in Revit: its approved action stays used and is recorded as running (`timeout_<id>`), like a call that came back `running`, so it is never run again. If the write finishes while the server runs, the action is closed with its real result; otherwise a person runs `aec-model-bridge-approve recover`. Read once at startup. See [Timeouts and rate limits](#timeouts-and-rate-limits). |
@@ -1750,7 +1754,7 @@ A tool failure reaches an MCP client in one of two shapes:
 Refusals never change the model. A refused write needs a new plan that a person approves.
 For logs and connection problems see [troubleshooting](troubleshooting.md).
 
-Entries: 152.
+Entries: 153.
 
 ## Tool error kinds
 
@@ -2512,7 +2516,7 @@ Set by module tools as `kind` in an `ok: false` result, next to `message`, `elem
 
 ## Exception classes
 
-Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 27.
+Raised inside the server. The MCP layer turns most of them into one of the tool error kinds above, with the class message as text. Entries: 28.
 
 ### `ApprovalExpired`
 
@@ -2585,6 +2589,12 @@ Raised inside the server. The MCP layer turns most of them into one of the tool 
 - When: Server code tried to ask the person a question for an approval tool, from the approval code, or for something that looks like a secret.
 - What to do: Nothing for the client. Plan approval comes only from a person in the panel or the CLI; this is a server bug if it is ever seen.
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/elicitation.py`
+
+### `HttpConfigError`
+
+- When: MCP_REVIT_HTTP is on but the host is not loopback, the port is invalid, or MCP_REVIT_HTTP_TOKEN is missing or shorter than 16 characters. The server refuses to start.
+- What to do: Fix the MCP_REVIT_HTTP_* settings, or unset MCP_REVIT_HTTP to use stdio.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/http_transport.py`
 
 ### `IncrementalMergeError`
 
@@ -2879,6 +2889,24 @@ The C# Revit bridge has two modes:
 
 ### Named-pipe transport (opt-in, UNVERIFIED)
 Any local process, including one of another Windows user, can connect to a loopback port. With `AEC_BRIDGE_TRANSPORT=pipe` set for Revit, the add-in also opens a named pipe whose ACL allows only the current Windows user, and publishes its name as `pipe_name` in the registry entry. With `MCP_REVIT_BRIDGE_TRANSPORT=pipe` the Python server sends requests over that pipe, with the same JSON and the same session token. The client refuses a pipe that is not served by the Revit process in the registry entry. The HTTP port stays open in this release, so the pipe does not yet remove the loopback exposure. If the selected entry has no pipe, the server warns and uses HTTP. The pipe ACL and live behaviour are UNVERIFIED in a live Windows session. See [ADR 0021](adr/0021-named-pipe-transport.md).
+
+### Streamable HTTP transport (opt-in)
+The MCP server speaks stdio by default and opens no port. Setting `MCP_REVIT_HTTP=1` makes it serve MCP over Streamable HTTP at `http://127.0.0.1:<port>/mcp` instead, for clients that accept only an HTTP server. It serves the same tools from the same registry and the same approval gate as stdio; it adds no write path.
+
+Threat model:
+
+- **Off by default.** Without `MCP_REVIT_HTTP=1` no socket is created. A value other than `1`, `true`, `yes`, `on`, `0`, `false`, `no`, `off` or empty is refused at startup.
+- **Loopback only.** The server binds `127.0.0.1`. `MCP_REVIT_HTTP_HOST` accepts only `127.0.0.1` and `localhost`; any other host, including `0.0.0.0`, stops the server with an error. The port is `MCP_REVIT_HTTP_PORT` (default 8765).
+- **Required bearer token.** `MCP_REVIT_HTTP_TOKEN` must be set to at least 16 characters, otherwise the server does not start. Every request needs `Authorization: Bearer <token>`; a missing or wrong token gets `401` with the same body. The check uses `hmac.compare_digest` and runs on every path. The token is never logged or put in an error message. Generate one with `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
+- **Host and Origin.** `Host` must be `127.0.0.1` or `localhost` (403 otherwise). An `Origin` header, when present, must be an `http` or `https` origin on `127.0.0.1`, `localhost` or `[::1]` (403 otherwise, including `Origin: null`). This blocks DNS rebinding and pages served from other sites. These checks run before the token check.
+- **Approval gate unchanged.** Tools that change a model still need `plan_actions`, a human approval in the panel or with `aec-model-bridge-approve`, and `execute_plan`. The tools that approve, reject or roll back plans stay unreachable from MCP.
+
+What it does not protect against:
+
+- Other local users or processes that can read the token (the client's configuration or the process environment). Anything holding the token can call every tool the stdio server exposes, within the approval gate.
+- Another local process that binds the port first. A client that sends the token to a port it did not start can leak it.
+- Eavesdropping or tampering on the machine: traffic is plain HTTP on loopback and the token is not rotated.
+- Remote access. Do not put this port behind a tunnel, reverse proxy or port forward.
 
 ### Panel HTTP shim (`panel_server.py`)
 The panel hub (`aec-model-bridge-panel-server`, default port 8787) listens on `127.0.0.1` and serves `/execute`, `/agent/chat`, `/diagnostics`, `/reports`, `/agent/providers` and `/health`. Its only intended caller is the add-in's C# `HubClient`. Every request is checked:
