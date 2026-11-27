@@ -41,6 +41,9 @@ jobs:
           results_file: results.sarif
           results_format: sarif
           publish_results: true
+          # Fine-grained PAT with Administration: read, so the Branch-Protection check
+          # can read the rulesets. Without the secret it falls back to the default token.
+          repo_token: ${{ secrets.SCORECARD_TOKEN || github.token }}
 
       - name: Upload SARIF as a run artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

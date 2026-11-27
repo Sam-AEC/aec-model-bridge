@@ -32,6 +32,11 @@ on:
 permissions:
   contents: read
 
+# One release at a time; a running release is never cancelled.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: windows-latest
@@ -43,6 +48,11 @@ jobs:
       attestations: write
 
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@aebdcf6156ab6691adf63218240e476564a1ed4c # v2.23.0
+        with:
+          egress-policy: audit
+
       - name: Resolve tag
         id: tag
         shell: pwsh
@@ -106,8 +116,7 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24   # npm 11; npm 10 cannot install the extension's dependencies
-          cache: npm
-          cache-dependency-path: packages/vscode-extension/package-lock.json
+          package-manager-cache: false
 
       - name: Build and test the VS Code extension
         working-directory: packages/vscode-extension
@@ -129,10 +138,12 @@ jobs:
 
       - name: Build release artifacts
         shell: pwsh
+        env:
+          REVIT_VERSION: ${{ inputs.revit_version || 'All' }}
         run: >
           ./scripts/build-release.ps1
           -Version "${{ steps.tag.outputs.version }}"
-          -RevitVersion "${{ inputs.revit_version || 'All' }}"
+          -RevitVersion $env:REVIT_VERSION
           -VSCodePackage "packages/vscode-extension/aec-model-bridge-${{ steps.tag.outputs.version }}.vsix"
 
       # Issue #159: the bundle must start from a path other than the build path. Copy the staged

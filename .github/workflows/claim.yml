@@ -1,0 +1,40 @@
+name: claim
+
+# A comment that is exactly /claim assigns the issue to the commenter and adds
+# the `claimed` label, if the issue is open, is not a PR and nobody holds it.
+on:
+  issue_comment: # zizmor: ignore[dangerous-triggers] no checkout; the comment goes through env and is only compared to /claim
+    types: [created]
+
+permissions: {}
+
+jobs:
+  claim:
+    if: ${{ !github.event.issue.pull_request && github.event.issue.state == 'open' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Assign the commenter
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.issue.number }}
+          COMMENT: ${{ github.event.comment.body }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          ASSIGNEES: ${{ toJSON(github.event.issue.assignees.*.login) }}
+          LABELS: ${{ toJSON(github.event.issue.labels.*.name) }}
+        run: |
+          trimmed=$(printf '%s' "$COMMENT" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          [ "$trimmed" = "/claim" ] || exit 0
+          if ! printf '%s' "$ASSIGNEES" | jq -e 'length == 0' >/dev/null; then
+            echo "Already assigned."
+            exit 0
+          fi
+          if printf '%s' "$LABELS" | jq -e 'index("claimed")' >/dev/null; then
+            echo "Already claimed."
+            exit 0
+          fi
+          gh issue edit "$NUMBER" --add-assignee "$COMMENTER" --add-label claimed
+          gh issue comment "$NUMBER" --body "Assigned to @${COMMENTER}."

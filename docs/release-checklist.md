@@ -5,7 +5,7 @@ Ordered list for shipping from `dev` to `main`. Section 2 has no PASS or FAIL re
 ## 0. Release flow
 
 - Open one release PR from `dev` into `main` and merge it with a merge commit.
-- `dev` is frozen while that PR is open. PRs into `dev` wait until it lands.
+- `dev` is frozen while that PR is open. PRs into `dev` wait until it lands. The `release-freeze` workflow fails on PRs into `dev` while a `dev` into `main` PR is open; add `release-freeze` as a required check on `dev`.
 - Tag after the release PR is merged, from the merge commit on `main`.
 - Issues fixed on `dev` carry the `fixed-in-dev` label and close when the release reaches `main`.
 

@@ -18,6 +18,8 @@ code contribution, say so in your issue and we will settle the terms first.
 Issue reports, design proposals and documentation corrections are welcome
 without any agreement.
 
+Comment `/claim` on an open issue that nobody holds to be assigned to it. The issue gets the `claimed` label.
+
 ## Dependencies and licences
 
 - Do not vendor or copy GPL-only code into this repository. This includes
