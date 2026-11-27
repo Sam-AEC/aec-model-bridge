@@ -92,7 +92,7 @@
       "input_schema": {
         "type": "object",
         "properties": {
-          "csv_filename": {"type": "string"},
+          "csv_filename": {"type": "string", "description": "CSV in the workspace root: a uid column plus one column per parameter, or the columns element_id, parameter, value."},
           "snapshot_id": {"type": "string"}
         },
         "required": ["csv_filename"]
