@@ -131,6 +131,9 @@ safe_path = monitor.assert_in_workspace(Path("C:\\RevitProjects\\model.rvt"))  #
 unsafe_path = monitor.assert_in_workspace(Path("C:\\Windows\\System32\\cmd.exe"))
 ```
 
+### Client roots narrow the sandbox
+When the MCP client declares the roots capability, the folders it has open (`roots/list`) narrow the allowed directories for that session. The effective set is the intersection of the configured directories and the roots. A root inside an allowed directory narrows to that root. A root that contains an allowed directory leaves it unchanged. A root outside every allowed directory is ignored and logged. Roots never add a directory. If the client declares roots and none overlaps an allowed directory, every tool that takes a path is refused with a plain message. A client with no roots capability, or an empty list, gets the configured directories unchanged. Only `file://` roots count; other schemes are ignored and logged. Roots are read once per session and again after `notifications/roots/list_changed`. If the client does not answer `roots/list`, the configured directories apply and a warning is logged. Plan, proof and reserved folders stay refused. Behaviour with real clients is UNVERIFIED. Code: `client_roots.py`, `security/workspace.py`.
+
 ### Path traversal guard
 The `WorkspaceMonitor` turns each path into an absolute, canonical path. It then:
 - Follows all symbolic links.
@@ -187,6 +190,16 @@ Dev permits unplanned writes while retaining Look only lockdown. Calls supplying
 ### Workspace policy
 
 An optional `policy.yaml` (or `MCP_REVIT_POLICY_FILE`) can block tools or parameters, limit categories and cap plan size. It is checked when a plan is drafted and again just before `execute_plan` runs its first action, so a tightened policy stops plans that were drafted earlier. It only adds refusals: approval stays with a person, and no policy rule approves or runs a plan. An invalid file refuses all plan drafting and execution. See [Policy file](configuration-reference.md#policy-file).
+
+### Machine policy and tiers
+
+An administrator can set a machine policy file: `MCP_REVIT_MACHINE_POLICY_FILE`, else `%PROGRAMDATA%\AECModelBridge\policy.yaml` on Windows or `/etc/aec-model-bridge/policy.yaml` elsewhere. No file at the default location means no machine policy. A file named by `MCP_REVIT_MACHINE_POLICY_FILE` that is missing, and any file that cannot be read or is invalid, refuses every write. It uses the same keys as the workspace policy, and the stricter rule wins: blocked lists are joined, allowed lists are intersected, number limits take the smaller value, and a tier that is off in either file is off. A workspace policy can only tighten the machine policy.
+
+Every tool has one tier. `script`: runs code or reaches arbitrary API members (`revit_execute_python`, invoke and reflect tools, `revit_run_job`, and `revit_raw_command`, which can forward any add-in command). `write`: changes the model, plus `plan_actions`, `execute_plan` and `plan_revert`. `export`: writes files or state outside the model. `read`: everything else. Set `allowed_tiers` or `blocked_tiers` to turn a tier off. Its tools are hidden from `tools/list`, calls are refused with a message naming the policy file by level and file name (through MCP, the panel, the chat assistant and module tools alike), and plan actions that use them are refused. Approve, reject, roll back, list plans, policy show, proof bundle and job status or cancel tools are never hidden or refused, so a person can always reject a plan.
+
+Explicit Dev mode lifts the limits of both files. The AI cannot switch it on. Each bypassed call or plan is written to `dev-mode-audit.jsonl` with the rule it bypassed. Writes still go through `plan_actions`, approval and `execute_plan`. Dev mode does not lift an unreadable or invalid policy file. The server sends no `tools/list_changed`, so a client lists tools again after Dev mode or a policy file changes. `aec-model-bridge-doctor` shows the policy files, their hashes, the tiers that are off and whether the Dev override is active.
+
+UNVERIFIED: the Windows ProgramData path and the ACL that keeps standard users from editing the file were not checked on a live Windows machine. Set the ACL so only administrators can write it. A path set with the environment variable is only as safe as the place that sets it.
 
 ### Plan review in the panel
 

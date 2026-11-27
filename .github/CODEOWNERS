@@ -4,6 +4,11 @@
 # Everything.
 *   @Sam-AEC
 
+# Workflows, the approval and path-safety code, and build and release scripts.
+/.github/                                                                       @Sam-AEC
+/packages/mcp-server-revit/src/revit_mcp_server/security/                       @Sam-AEC
+/scripts/                                                                       @Sam-AEC
+
 # Security-sensitive paths. Listed on their own so the intent stays clear
 # if the default owner ever changes.
 /packages/mcp-server-revit/src/revit_mcp_server/security/                       @Sam-AEC

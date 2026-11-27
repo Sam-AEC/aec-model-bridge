@@ -7,6 +7,9 @@ Commands:
                   seen in the latest run for their document and pack are stale and
                   hidden unless include_stale=true.
   resolve_issue — Mark an issue as resolved.
+  draft_fix_plan — Selected findings whose rule has a `fix` (parameter + value) become ONE
+                  plan_actions-ready list of revit_set_parameter_value calls. Read-only: it only
+                  drafts; a person approves and execute_plan writes. Live apply is UNVERIFIED.
   list_rules    — Enumerate rules in a pack.
   list_rule_packs / validate_rule_pack / import_rule_pack / export_rule_pack
                 — Shareable packs: built-ins plus <workspace>/rule_packs/*.yaml.
@@ -37,6 +40,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from revit_mcp_server.errors import WorkspaceViolation
+from revit_mcp_server.security.workspace import effective_roots
 from revit_mcp_server.security.safe_paths import safe_child, snapshot_file
 from revit_mcp_server.semantic.compute import QueryError, pipeline_rows, validate_steps
 
@@ -45,6 +49,7 @@ logger = logging.getLogger(__name__)
 RULES_DIR = Path(__file__).parent / "rules"
 DB_FILENAME = "qaqc_issues.db"
 UNKNOWN_SNAPSHOT = "unknown"
+MOCK_DOC = "mock-doc"
 
 
 # ---------------------------------------------------------------------------
@@ -73,6 +78,7 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             label TEXT,
             message TEXT NOT NULL,
             fix_template TEXT,
+            fix_json TEXT,
             status TEXT NOT NULL DEFAULT 'open',
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
@@ -91,6 +97,8 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE issues ADD COLUMN snapshot_id TEXT")
     if "last_seen_at" not in columns:
         conn.execute("ALTER TABLE issues ADD COLUMN last_seen_at TEXT")
+    if "fix_json" not in columns:
+        conn.execute("ALTER TABLE issues ADD COLUMN fix_json TEXT")
     # One row per run_check: the reference point for "latest run" and stale detection.
     conn.execute("""
         CREATE TABLE IF NOT EXISTS qaqc_runs (
@@ -121,9 +129,12 @@ SEVERITIES = ("error", "warning", "info")
 # without adding engine support.
 FILTER_KEYS = ("category", "placed", "parameter", "workset", "family_source")
 PARAMETER_KEYS = ("name", "empty", "value")
-RULE_KEYS = ("id", "severity", "category", "description", "filter", "assertion", "fix_template", "pipeline")
+RULE_KEYS = ("id", "severity", "category", "description", "filter", "assertion", "fix_template", "fix", "pipeline")
+FIX_KEYS = ("parameter", "value")
+MAX_FIX_ISSUES = 200
 ASSERTION_COUNT = "element_count == 0"
 ASSERTION_PREFIX = "all elements have "
+STALE_SQL = "(lr.run_at IS NOT NULL AND (i.last_seen_at IS NULL OR i.last_seen_at <> lr.run_at))"
 
 
 def _workspace_root(workspace: Any) -> Path:
@@ -141,7 +152,7 @@ def _assert_in_workspace(workspace: Any, candidate: Path) -> Path:
     if callable(checker):
         return checker(candidate)
     resolved = Path(candidate).resolve()
-    roots = [Path(d).resolve() for d in workspace.allowed_directories]
+    roots = [d.resolve() for d in effective_roots(workspace)]
     if not any(resolved.is_relative_to(r) for r in roots):
         raise WorkspaceViolation(f"{resolved} is outside the allowed workspace directories")
     return resolved
@@ -243,6 +254,31 @@ def _validate_filter(rid: Any, flt: Any, errors: List[Dict[str, Any]]) -> None:
                 errors.append(_err(rid, f"{f}.value", "parameter.value must be a scalar (compared as text)."))
 
 
+def _fix_problem(fix: Any) -> Optional[str]:
+    """Why a rule ``fix`` is not a concrete parameter write, or None when it is."""
+    if not isinstance(fix, dict):
+        return "fix must be a mapping with 'parameter' and 'value'."
+    extra = [k for k in fix if k not in FIX_KEYS]
+    if extra:
+        return f"Unknown fix key(s) {extra}. Supported: {', '.join(FIX_KEYS)}."
+    name = fix.get("parameter")
+    if not isinstance(name, str) or not name.strip():
+        return "fix.parameter is required and must be a non-empty string."
+    value = fix.get("value")
+    if isinstance(value, str):
+        if not value.strip():
+            return "fix.value must not be empty."
+    elif not isinstance(value, (int, float, bool)):
+        return "fix.value is required and must be text, a number or true/false."
+    return None
+
+
+def _validate_fix(rid: Any, fix: Any, errors: List[Dict[str, Any]]) -> None:
+    problem = _fix_problem(fix)
+    if problem:
+        errors.append(_err(rid, "fix", problem))
+
+
 def _validate_pipeline(label: Any, rule: Dict[str, Any], errors: List[Dict[str, Any]]) -> None:
     """A pipeline rule: snapshot_compute steps whose result rows are the issues."""
     for other in ("filter", "assertion"):
@@ -286,6 +322,8 @@ def _validate_pack_data(data: Any) -> Dict[str, Any]:
         for opt in ("category", "fix_template"):
             if opt in rule and not isinstance(rule[opt], str):
                 errors.append(_err(label, opt, f"{opt} must be a string."))
+        if "fix" in rule:
+            _validate_fix(label, rule["fix"], errors)
         for k in rule:
             if k not in RULE_KEYS:
                 warnings.append(_err(label, k, f"Unknown rule field '{k}' is ignored."))
@@ -362,6 +400,22 @@ def _evaluate_assertion(assertion: str, matched: List[Dict[str, Any]]) -> bool:
     return True
 
 def _run_rule(
+    rule: Dict[str, Any],
+    elements: List[Dict[str, Any]],
+    types: List[Dict[str, Any]],
+    doc_guid: str,
+    relations: Optional[List[Dict[str, Any]]] = None,
+) -> List[Dict[str, Any]]:
+    """Evaluate one rule; findings carry the rule's ``fix`` when it has a valid one."""
+    issues = _evaluate_rule(rule, elements, types, doc_guid, relations)
+    fix = rule.get("fix")
+    if fix is not None and _fix_problem(fix) is None:
+        for issue in issues:
+            issue["fix"] = {"parameter": fix["parameter"], "value": fix["value"]}
+    return issues
+
+
+def _evaluate_rule(
     rule: Dict[str, Any],
     elements: List[Dict[str, Any]],
     types: List[Dict[str, Any]],
@@ -471,22 +525,23 @@ def _upsert_issues(
     for f in findings:
         key = (f["rule_id"], f.get("element_uid"))
         new_keys.add(key)
-        
+        fix_json = json.dumps(f["fix"], sort_keys=True) if f.get("fix") else None
+
         if key in existing:
             # An overwritten pack can change severity or wording without changing
             # its rule IDs. Keep the stable issue ID but refresh its current facts.
             conn.execute(
-                "UPDATE issues SET severity=?, label=?, message=?, fix_template=?, updated_at=?, "
+                "UPDATE issues SET severity=?, label=?, message=?, fix_template=?, fix_json=?, updated_at=?, "
                 "snapshot_id=?, last_seen_at=? WHERE id=?",
-                (f["severity"], f.get("label", ""), f["message"], f.get("fix_template", ""), now,
+                (f["severity"], f.get("label", ""), f["message"], f.get("fix_template", ""), fix_json, now,
                  snapshot_id or "", now, existing[key]),
             )
         else:
             # Insert new issue
             conn.execute(
                 """
-                INSERT INTO issues (id, doc_guid, rule_pack, rule_id, severity, element_uid, label, message, fix_template, status, created_at, updated_at, snapshot_id, last_seen_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?)
+                INSERT INTO issues (id, doc_guid, rule_pack, rule_id, severity, element_uid, label, message, fix_template, fix_json, status, created_at, updated_at, snapshot_id, last_seen_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?)
                 """,
                 (
                     str(uuid.uuid4()),
@@ -498,6 +553,7 @@ def _upsert_issues(
                     f.get("label", ""),
                     f["message"],
                     f.get("fix_template", ""),
+                    fix_json,
                     now,
                     now,
                     snapshot_id or "",
@@ -695,6 +751,17 @@ def _append_naming_audit(workspace: Any, event: str, **fields: Any) -> None:
 # Module class
 # ---------------------------------------------------------------------------
 
+def _stored_fix(raw: Any) -> Optional[Dict[str, Any]]:
+    """The fix saved with a finding, or None when there is none or it is not a valid fix."""
+    if not raw:
+        return None
+    try:
+        fix = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    return fix if _fix_problem(fix) is None else None
+
+
 class QaqcCheckerModule:
 
     def run_check(
@@ -782,7 +849,7 @@ class QaqcCheckerModule:
         (those lifecycle states are mostly rows a later run no longer saw).
         """
         include_stale = include_stale is True or str(include_stale).lower() == "true"
-        stale_sql = "(lr.run_at IS NOT NULL AND (i.last_seen_at IS NULL OR i.last_seen_at <> lr.run_at))"
+        stale_sql = STALE_SQL
         conn = _get_conn(workspace)
         query = f"""
             SELECT i.*, CASE WHEN {stale_sql} THEN 1 ELSE 0 END AS stale
@@ -839,6 +906,7 @@ class QaqcCheckerModule:
         for row in rows:
             issue = dict(row)
             issue["stale"] = bool(issue["stale"])
+            issue["fix"] = _stored_fix(issue.pop("fix_json", None))
             issue["snapshot_id"] = issue["snapshot_id"] or UNKNOWN_SNAPSHOT
             issues.append(issue)
         return {
@@ -862,6 +930,149 @@ class QaqcCheckerModule:
             raise ValueError(f"Issue '{issue_id}' not found.")
         
         return {"status": "resolved", "issue_id": issue_id}
+
+    def draft_fix_plan(
+        self,
+        issue_ids: Any = None,
+        snapshot_id: str = "",
+        workspace: Any = None,
+        **_,
+    ) -> Dict[str, Any]:
+        """Draft ONE plan_actions list from selected findings whose rule has a concrete ``fix``.
+
+        Read-only: nothing is written here and nothing is approved. The list goes through
+        plan_actions, human approval and execute_plan. Any problem with the selection refuses
+        the whole draft; findings that cannot become an action are listed in ``skipped``.
+        """
+        if (not isinstance(issue_ids, list) or not issue_ids
+                or not all(isinstance(i, str) and i.strip() for i in issue_ids)):
+            raise ValueError("issue_ids must be a non-empty list of issue ids from qaqc_checker_list_issues.")
+        ids = list(dict.fromkeys(issue_ids))
+        if len(ids) > MAX_FIX_ISSUES:
+            raise ValueError(f"Select at most {MAX_FIX_ISSUES} findings per plan; {len(ids)} were given.")
+
+        conn = _get_conn(workspace)
+        try:
+            marks = ",".join("?" * len(ids))
+            rows = {
+                r["id"]: dict(r) for r in conn.execute(
+                    f"""SELECT i.*, CASE WHEN {STALE_SQL} THEN 1 ELSE 0 END AS stale
+                        FROM issues i
+                        LEFT JOIN qaqc_runs lr ON lr.id = (
+                            SELECT MAX(id) FROM qaqc_runs r
+                            WHERE r.doc_guid = i.doc_guid AND r.rule_pack = i.rule_pack)
+                        WHERE i.id IN ({marks})""", ids)
+            }
+        finally:
+            conn.close()
+
+        unknown = [i for i in ids if i not in rows]
+        if unknown:
+            raise ValueError(f"Unknown issue id(s): {', '.join(unknown)}. Nothing was drafted. "
+                             "Get ids from qaqc_checker_list_issues.")
+        not_open = [i for i in ids if rows[i]["status"] != "open"]
+        if not_open:
+            raise ValueError(f"Finding(s) not open: {', '.join(not_open)}. Nothing was drafted.")
+        stale = [i for i in ids if rows[i]["stale"]]
+        if stale:
+            raise ValueError(f"Finding(s) stale (the latest run no longer saw them): {', '.join(stale)}. "
+                             "Run qaqc_checker_run_check again and select from the new findings.")
+
+        selected = [rows[i] for i in ids]
+        docs = {r["doc_guid"] for r in selected}
+        if len(docs) > 1:
+            raise ValueError("The selected findings come from more than one model. Draft one plan per model.")
+        doc_guid = docs.pop()
+        snaps = {r["snapshot_id"] or "" for r in selected}
+        if len(snaps) > 1:
+            raise ValueError("The selected findings come from more than one snapshot. "
+                             "Draft one plan per snapshot, or run the check again.")
+        bound = snaps.pop()
+        if snapshot_id and bound and snapshot_id != bound:
+            raise ValueError(f"The selected findings come from snapshot '{bound}', not '{snapshot_id}'.")
+        if not bound:
+            no_snapshot = ValueError("The selected findings carry no snapshot, so their element ids cannot be "
+                                     "checked. Run qaqc_checker_run_check with a snapshot_id and select again.")
+            if doc_guid != MOCK_DOC or snapshot_id:
+                raise no_snapshot
+            try:
+                from revit_mcp_server.semantic.engine import require_snapshot_or_mock
+                require_snapshot_or_mock("", "qaqc_checker_draft_fix_plan")
+            except ValueError:
+                raise no_snapshot from None
+
+        elements, snap_doc = self._fix_elements(bound, workspace)
+        if snap_doc != doc_guid:
+            raise ValueError(f"Snapshot '{bound or '(mock)'}' now holds a different model than the findings "
+                             "were made from. Nothing was drafted.")
+        by_uid = {e.get("uid"): e for e in elements if e.get("uid")}
+
+        actions: List[Dict[str, Any]] = []
+        skipped: List[Dict[str, Any]] = []
+        planned: Dict[Any, Any] = {}
+
+        def skip(row: Dict[str, Any], reason: str) -> None:
+            skipped.append({"issue_id": row["id"], "rule_id": row["rule_id"],
+                            "element_uid": row["element_uid"], "reason": reason})
+
+        for row in selected:
+            fix = _stored_fix(row["fix_json"])
+            if fix is None:
+                skip(row, "no fix: the rule has no concrete parameter fix"
+                          + (f" (suggestion: {row['fix_template']})" if row["fix_template"] else ""))
+                continue
+            if not row["element_uid"]:
+                skip(row, "the finding names no element")
+                continue
+            el = by_uid.get(row["element_uid"])
+            element_id = el.get("element_id") if el else None
+            if not isinstance(element_id, int) or isinstance(element_id, bool):
+                skip(row, "element not in snapshot or without an element id")
+                continue
+            key = (element_id, fix["parameter"])
+            if key in planned:
+                if planned[key] != fix["value"]:
+                    raise ValueError(
+                        f"Fixes conflict: element {element_id} parameter '{fix['parameter']}' would be set to "
+                        f"both {planned[key]!r} and {fix['value']!r}. Nothing was drafted; select one finding.")
+                skip(row, "same element, parameter and value as another selected finding")
+                continue
+            planned[key] = fix["value"]
+            actions.append({"tool": "revit_set_parameter_value",
+                            "arguments": {"element_id": element_id, "parameter_name": fix["parameter"],
+                                          "value": fix["value"]}})
+
+        if not actions:
+            reasons = "; ".join(f"{s['issue_id']}: {s['reason']}" for s in skipped)
+            raise ValueError(f"No selected finding has a fix that can be drafted, so nothing was drafted. {reasons}")
+        return {
+            "plan_type": "action_plan_draft",
+            "tool": "qaqc_checker_draft_fix_plan",
+            "requires_approval": True,
+            "read_only": True,
+            "snapshot_id": bound,
+            "doc_guid": doc_guid,
+            "actions": actions,
+            "skipped": skipped,
+            "plan_arguments": {"actions": actions, "snapshot_id": bound, "skipped": skipped},
+            "preview": {"selected": len(ids), "actions": len(actions), "skipped": len(skipped)},
+            "next_step": ("Pass plan_arguments to plan_actions. A person must approve the plan before "
+                          "execute_plan writes anything."),
+            "unverified": "Applying these writes in a live Revit model is UNVERIFIED.",
+        }
+
+    def _fix_elements(self, snapshot_id: str, workspace: Any):
+        """Elements and doc_guid of the snapshot the findings were made from."""
+        if not snapshot_id:
+            from revit_mcp_server.semantic.engine import generate_mock_snapshot
+            snap = generate_mock_snapshot()
+            return [el.model_dump(by_alias=True) for el in snap.elements], MOCK_DOC
+        path = snapshot_file(workspace.allowed_directories[0] / "snapshots", snapshot_id)
+        if not path.exists():
+            raise ValueError(f"Snapshot '{snapshot_id}' not found.")
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        return data.get("elements", []), data.get("source", {}).get("doc_guid", snapshot_id)
 
     def list_rules(self, rule_pack: str = "core", workspace: Any = None, **_) -> Dict[str, Any]:
         rules = _load_rule_pack(rule_pack, workspace)

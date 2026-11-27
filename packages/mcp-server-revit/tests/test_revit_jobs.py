@@ -102,7 +102,7 @@ async def _until(provider, job_id, states, timeout=3.0):
         if status["state"] in states:
             return status
         assert asyncio.get_running_loop().time() < deadline, status
-        await asyncio.sleep(0.02)
+        await asyncio.sleep(0)
 
 
 def test_run_job_returns_output_when_it_finishes_inside_the_wait(parts):

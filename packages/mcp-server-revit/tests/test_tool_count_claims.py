@@ -74,13 +74,37 @@ def test_token_budget_header(counts: dict) -> None:
     assert int(match.group(1)) == counts["tools"]
 
 
+COUNT_RE = re.compile(r"Tool count is now (\d+)|one tool count \((\d+)")
+
+
+def _statements(text: str) -> list[int]:
+    return [int(m.group(1) or m.group(2)) for m in COUNT_RE.finditer(text)]
+
+
 def test_changelog_states_the_current_count(counts: dict) -> None:
-    # The topmost count statement is the newest: "Tool count is now N" in Unreleased, or
-    # a release entry's "one tool count (N, ...)". Released entries are never edited.
+    # Pull requests add changes/*.md fragments and do not edit the changelog, so the count is not
+    # required on every PR. While changes are pending (fragments or lines under "## Unreleased"),
+    # no statement may claim more tools than exist (two PRs can each state their own total, so
+    # equality is not required). Once the pending changes are folded into a release (no fragments,
+    # empty Unreleased), the topmost statement of the newest released section must be exact.
     text = read(ROOT / "CHANGELOG.md")
-    match = re.search(r"Tool count is now (\d+)|one tool count \((\d+)", text)
-    assert match, "CHANGELOG.md no longer states the tool count in a known form"
-    assert int(match.group(1) or match.group(2)) == counts["tools"]
+    unreleased = re.search(r"(?ms)^## Unreleased\s*\n(.*?)(?=^## |\Z)", text)
+    pending = unreleased.group(1) if unreleased else ""
+    fragments = sorted(p for p in (ROOT / "changes").glob("*.md") if p.name != "README.md")
+    pending += "\n".join(read(p) for p in fragments)
+    claimed = _statements(pending)
+    assert all(n <= counts["tools"] for n in claimed), "a pending changelog line claims more tools than exist"
+    if pending.strip():
+        return
+    newest = re.search(r"(?ms)^## \d.*?(?=^## |\Z)", text)
+    assert newest, "CHANGELOG.md has no released section"
+    stated = _statements(newest.group(0))
+    assert stated, "the newest CHANGELOG.md section no longer states the tool count in a known form"
+    assert stated[0] == counts["tools"]
+
+
+def test_count_statement_forms() -> None:
+    assert _statements("- New. Tool count is now 7 (3 module tools).\n- one tool count (9, x)") == [7, 9]
 
 
 @pytest.mark.parametrize(

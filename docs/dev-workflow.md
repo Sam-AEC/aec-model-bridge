@@ -22,11 +22,11 @@ How changes reach `main`, and the habits we keep to a minimum.
 
 The ruleset in [`.github/rulesets/protect-main.json`](../.github/rulesets/protect-main.json) blocks direct pushes, force-pushes and deletion of `main`, and requires:
 
-- a pull request,
+- a pull request with one approving review (stale approvals are dismissed on push), merged with a merge commit,
 - the `ci-success` check, on a branch that is up to date with `main`,
 - every review thread resolved.
 
-No approving review is required, because there is one maintainer today and a person cannot approve their own pull request. Repository admins can bypass the rules **only while merging a pull request**, not by pushing. The second file, [`protect-dev.json`](../.github/rulesets/protect-dev.json), only stops `dev` being deleted or force-pushed.
+Repository admins can bypass the rules **only while merging a pull request**, not by pushing. [`protect-dev.json`](../.github/rulesets/protect-dev.json) stops `dev` being deleted or force-pushed and requires a pull request (squash merge) and the `ci-success` check. [`protect-tags.json`](../.github/rulesets/protect-tags.json) stops `v*` tags being created, moved or deleted except by repository admins. The files mirror the live rulesets; the `rulesets-drift` workflow compares them every week.
 
 To apply them (the repository owner, in GitHub): **Settings → Rules → Rulesets → New ruleset → Import a ruleset**, choose each file, then check the preview and save. The import checks the schema and will say if a field is not accepted.
 

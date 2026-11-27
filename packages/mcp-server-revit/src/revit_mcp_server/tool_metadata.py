@@ -20,6 +20,7 @@ from typing import Any
 
 from mcp.types import Tool, ToolAnnotations, ToolExecution
 
+from .locale_descriptions import localized_description
 from .mcp_tasks import TASK_TOOLS
 from .output_schemas import output_schema_for
 from .providers.base import ProviderTool
@@ -274,7 +275,7 @@ DESCRIPTIONS: dict[str, str] = {
     "parameter_manager_diff_params": "Compare parameter values between two saved snapshots and list the differences. Read-only.",
     "parameter_manager_plan_set_params": "Create a draft ActionPlan that sets parameter values on the elements of a snapshot matching a filter. Review and approve the plan before it runs.",
     "parameter_manager_export_params_csv": "Export parameters of the matching snapshot elements to a CSV file in the workspace. Writes a file; does not change the model.",
-    "parameter_manager_import_params_csv": "Read parameter values from a CSV file in the workspace and create a draft ActionPlan that applies them. Does not change the model; review and approve the plan before it runs.",
+    "parameter_manager_import_params_csv": "Read parameter values from a CSV file in the workspace (one column per parameter with a uid column, or three columns element_id, parameter, value) and create a draft ActionPlan that applies them. Does not change the model; review and approve the plan before it runs.",
     "param_completeness_heatmap": "Measure how many elements have a value in each parameter, per category (and per level on request), from a saved snapshot: filled, total and percent. Writes an optional CSV and a self-contained HTML heatmap to the workspace, and says when the snapshot is a partial capture. Use model_inspector_summarize_model for plain counts instead. Read-only.",
     "model_health_score": "Give a 0 to 100 health score for a saved snapshot with its components, and a trend across all saved snapshots of the same document with changes between captures. Inputs the snapshot lacks are listed as excluded, not scored as zero. Optional CSV, and an optional self-contained HTML dashboard (html_filename) that adds top issues from the latest stored QA/QC run and parameter completeness. Read-only.",
     "ids_validator_validate_ifc": "Check an IFC file in the workspace against a buildingSMART IDS file and return pass or fail per specification with the GlobalIds of failing entities (capped, with full counts). Optional HTML or JSON report in the workspace. Needs the optional ids extra (ifctester). Read-only.",
@@ -286,6 +287,7 @@ DESCRIPTIONS: dict[str, str] = {
     "links_worksets_audit_audit": "Check linked models and worksets for problems (unloaded or missing links, links not pinned or placed Origin to Origin, empty or default-named worksets, worksets owned by someone else, elements on the wrong workset) and give plain next steps. Read-only.",
     "qaqc_checker_run_check": "Run a QA/QC rule pack against a saved snapshot and record the issues it finds. Take the snapshot first with snapshot_take; read the results with qaqc_checker_list_issues. Does not change the Revit model.",
     "qaqc_checker_list_issues": "List recorded QA/QC issues for a document, optionally filtered by status, severity and snapshot. Hides stale issues (not seen in the latest run) unless include_stale is true. Read-only.",
+    "qaqc_checker_draft_fix_plan": "Turn selected QA/QC findings into one draft plan: findings whose rule has a concrete fix (set a parameter to a value) become one revit_set_parameter_value action each; the rest are listed as skipped with the reason. Take issue ids from qaqc_checker_list_issues. Read-only: pass the result to plan_actions, a person must approve the plan.",
     "qaqc_checker_resolve_issue": "Mark one recorded QA/QC issue as resolved. It changes only the issue record in the workspace, not the Revit model. Find issue ids with qaqc_checker_list_issues.",
     "clash_triage_import_clash_report": "Read a Navisworks XML clash report or a BCF .bcfzip from the workspace, match each clash to Revit elements by GUID, group clashes by element pair and level, and list unmatched items with the reason. Never changes the model; records the result as issues in the workspace.",
     "clash_triage_match_clashes": "Match each clash from a Navisworks clash test to the Revit elements it involves, by UniqueId or IFC GUID, and say how sure each match is (exact, ambiguous or unmatched). Never guesses and never changes the model; records the result as issues in the workspace.",
@@ -300,6 +302,7 @@ DESCRIPTIONS: dict[str, str] = {
     "qaqc_checker_list_rules": "List the QA/QC rules that are available, optionally for one rule pack. Use qaqc_checker_list_rule_packs to see the packs first. Read-only.",
     "sheet_view_audit_run_audit": "Check the sheets and views in a saved snapshot for empty sheets, unplaced views, duplicate sheet numbers, missing sheet parameters and default view names. Read-only.",
     "geometry_screening_run_checks": "Screen a saved snapshot with repeatable geometric checks: room area against a brief table, door width against a minimum, a turning circle inside a room outline, and travel distance through doors to exit rooms. Each finding names element ids, the measured value, the threshold and the unit. Refuses when the room outlines or door data a check needs are missing. A screening aid, not a code compliance check. Read-only.",
+    "ifc_diff_compare": "Compare two IFC files in the workspace by GlobalId: elements added, removed and changed (class, name, property sets and quantities, with a property hash), with complete counts and capped lists. Optional IFC class filter. Geometry is not compared. Refuses files outside the workspace, too large, or not IFC. Read-only.",
     "schedule_diff_compare": "Compare two saved snapshots by their sheet list, sheet revision fields and schedule rows: sheets added, removed, renumbered, renamed or moved in the numbering order, revision fields changed, and schedule rows added, removed, changed or moved. A block a snapshot does not hold (schedule rows are not captured yet) is reported as not captured, never as no change. Compact by default; optional .csv or .xlsx export in the workspace. Read-only.",
     "sheet_set_qa_check": "Check the sheets in a saved snapshot before a drawing issue: duplicate or equivalent sheet numbers, gaps in the numbering within a prefix, empty title block fields (configurable, defaults Sheet Number, Sheet Name, Drawn By, Checked By, Sheet Issue Date), sheets with no placed views, and numbers or names that break a regex. Findings have severities; checks the snapshot cannot support are reported as not run. Optional CSV in the workspace. Use sheet_view_audit_run_audit for unplaced views and view names. Read-only.",
     "schedule_consistency_check_doors_and_rooms":"Check door and room schedules in a saved snapshot for duplicate or missing Marks, missing or identical From/To rooms, unnumbered or duplicate room numbers and zero-area rooms, and optionally Marks that do not fit a pattern you supply. Read-only; any suggested Marks are a proposal only.",
@@ -825,6 +828,7 @@ def enrich_tool(provider_id: str, tool: ProviderTool) -> Tool:
     hint = SIBLING_HINTS.get(tool.name)
     if hint and hint not in description:
         description = f"{description} {hint}"
+    description = localized_description(tool.name, description)
 
     schema = copy.deepcopy(tool.input_schema) if tool.input_schema else {"type": "object"}
     schema.setdefault("type", "object")

@@ -17,15 +17,17 @@ from mcp.types import (
     TextContent,
 )
 
-from . import call_limits, mcp_apps, mcp_logging, mcp_prompts, mcp_resources, mcp_tasks
+from . import call_limits, client_roots, mcp_apps, mcp_logging, mcp_prompts, mcp_resources, mcp_tasks
 
 from .elicitation import (
     MAX_ROUNDS, VIEW_SHEET_REFS, ElicitationForbidden, InputNeeded, check_view_sheet_names, elicit_choice,
-    elicitation_allowed, missing_export_path,
+    client_supports_url_elicitation, elicitation_allowed, missing_export_path, offer_plan_panel_link,
 )
 from .errors import BridgeError, CommandFailed
 from .registry_factory import build_registry
 from .security.approval import HUMAN_ONLY_TOOLS
+from .security.policy import name_in_off_tier, off_tiers_for_listing, tool_refusal
+from .security.workspace import CLIENT_ROOTS
 from .security.dispatch import (
     GET_RESULT_TOOL, gate_after, gate_after_result, gate_before, mark_timed_out, result_failed,
     settle_in_flight, settle_late_result,
@@ -87,6 +89,7 @@ def _make_server() -> Server:
 
 # Initialize the MCP server
 app = _make_server()
+client_roots.register(app)
 
 # Registry components — populated in main() so importing this module never
 # triggers provider construction (Rhino health probes, Speckle OAuth, SQLite
@@ -126,6 +129,11 @@ def _session_key() -> str:
     return "direct" if session is None else f"session-{id(session)}"
 
 
+def _identity(provider: Any) -> str:
+    getter = getattr(provider, "get_identity", None)
+    return str(getter()) if callable(getter) else ""
+
+
 mcp_logging.install()
 
 
@@ -146,10 +154,16 @@ async def list_tools() -> list[Tool]:
     # For a client that declared the MCP Apps extension (or MCP_REVIT_MCP_APPS=always), plan tools
     # name the read-only plan review view and every tool that is not read-only is marked callable
     # by the model only, never by an app (mcp_apps.py). Worked out per request, never cached.
+    # Tools of a tier that policy turns off are hidden (policy.off_tiers_for_listing). Dev mode lifts
+    # that at list time. This server sends no tools/list_changed, so a client re-lists after Dev mode
+    # or a policy file changes.
+    gate = getattr(approval_provider, "gate", None)
+    off = off_tiers_for_listing(getattr(gate, "workspace_dir", None), bool(getattr(gate, "dev_mode", False)))
     return [
         mcp_apps.listed_tool(provider.get_identity(), t)
         for provider, t in registry.get_tools_with_providers()
         if t.name not in HUMAN_ONLY_TOOLS
+        and not (off and name_in_off_tier(t.name, t, provider.get_identity(), off))
     ]
 
 @app.list_prompts()
@@ -192,11 +206,26 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
     the person is asked once per missing input and the call runs again with the answer.
     Otherwise, or on decline, cancel or timeout, the call ends with the plain refusal.
     Approval tools never ask (elicitation.elicitation_allowed).
+
+    The folders this client has open (MCP roots) narrow the workspace sandbox for the call
+    (client_roots.py); they never widen it.
     """
+    roots = await client_roots.for_session(_client_session(), workspace_monitor)
+    token = CLIENT_ROOTS.set(roots)
+    try:
+        return await _call_tool_rounds(name, arguments)
+    finally:
+        CLIENT_ROOTS.reset(token)
+
+
+async def _call_tool_rounds(name: str, arguments: Any) -> list[TextContent] | CallToolResult | CreateTaskResult:
     rounds = 0
     while True:
         try:
-            return await _call_tool_once(name, arguments)
+            result = await _call_tool_once(name, arguments)
+            if name == "plan_actions":
+                _offer_panel_link(result)
+            return result
         except InputNeeded as need:
             answer = None
             if rounds < MAX_ROUNDS and _may_elicit(name, arguments):
@@ -214,6 +243,50 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
             except InputNeeded as again:
                 return _tool_error("input_needed", again.refusal)
             rounds += 1
+
+
+def _pending_plan_id(result: Any) -> str | None:
+    """The id of the plan a plan_actions reply drafted, or None when it drafted none."""
+    if isinstance(result, CallToolResult):
+        if result.isError:
+            return None
+        data = result.structuredContent
+        if not isinstance(data, dict):
+            data = None
+        content = result.content
+    else:
+        data, content = None, result
+    if data is None:
+        text = next((c.text for c in content or [] if isinstance(c, TextContent)), "")
+        data = _json_object(text.split("Result:\n", 1)[1]) if "Result:\n" in text else None
+    if isinstance(data, dict) and data.get("state") == "pending" and isinstance(data.get("plan_id"), str):
+        return data["plan_id"]
+    return None
+
+
+_link_tasks: "set[asyncio.Task]" = set()  # strong references, so a running task is not collected
+
+
+def _offer_panel_link(result: Any) -> None:
+    """Send the review panel link for a newly drafted plan to a client that supports URL mode.
+    It runs in the background so the plan_actions reply is not held up by a slow client.
+    The link only points at the panel; it never approves. Any failure leaves the reply as is."""
+    try:
+        plan_id = _pending_plan_id(result)
+        session = _client_session()
+        if plan_id and client_supports_url_elicitation(session):
+            task = asyncio.get_running_loop().create_task(_send_panel_link(session, plan_id, _request_id()))
+            _link_tasks.add(task)
+            task.add_done_callback(_link_tasks.discard)
+    except Exception as exc:  # the plan is drafted; the link is a convenience
+        logger.info("Panel link skipped: %s", type(exc).__name__)
+
+
+async def _send_panel_link(session: Any, plan_id: str, request_id: Any) -> None:
+    try:
+        await offer_plan_panel_link(session, plan_id, related_request_id=request_id)
+    except Exception as exc:
+        logger.info("Panel link skipped: %s", type(exc).__name__)
 
 
 def _client_session() -> Any:
@@ -302,6 +375,16 @@ async def _call_tool_once(name: str, arguments: Any) -> list[TextContent] | Call
         return _tool_error("tool_profile_blocked", str(exc))
     if not provider:
         return _tool_error("unknown_tool", f"Error: Unknown tool '{name}'")
+
+    # Tier policy (machine and workspace files). Control tools are never refused.
+    policy_gate = getattr(approval_provider, "gate", None)
+    try:
+        tier_msg = tool_refusal(getattr(policy_gate, "workspace_dir", None), name, registry.lookup_tool(name),
+                                _identity(provider), bool(getattr(policy_gate, "dev_mode", False)))
+    except Exception as exc:  # fail closed: a tool whose tier cannot be worked out is not run
+        tier_msg = f"Policy refused '{name}': its tier could not be worked out ({str(exc)[:120]})."
+    if tier_msg is not None:
+        return _tool_error("policy_refused", tier_msg)
 
     # Rate limits run before the approval gate, so a refused call never uses an approved action.
     # Approval tools never get here: they are human-only and refused above.

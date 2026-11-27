@@ -1,0 +1,46 @@
+name: rulesets-drift
+
+# Weekly check that .github/rulesets/*.json still match the rulesets live on GitHub.
+# SCORECARD_TOKEN is a fine-grained PAT with Administration: read (the default
+# token cannot read rulesets).
+on:
+  schedule:
+    - cron: "17 6 * * 1" # Mondays 06:17 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: rulesets-drift
+  cancel-in-progress: false
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: maintenance
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+          cache-dependency-glob: packages/mcp-server-revit/uv.lock
+
+      - name: Compare rulesets with GitHub
+        working-directory: packages/mcp-server-revit
+        env:
+          GH_TOKEN: ${{ secrets.SCORECARD_TOKEN }}
+          AMB_LIVE_RULESETS: "1"
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::SCORECARD_TOKEN is not set; the drift test would be skipped."
+            exit 1
+          fi
+          uv run --frozen --all-extras pytest -q -p no:cacheprovider tests/test_rulesets_live.py

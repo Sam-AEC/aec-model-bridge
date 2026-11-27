@@ -39,6 +39,26 @@ CALLS = {
     "revit_system_report": {"tag": "mock"},
     "revit_list_views_sheets_schedules": {},
     "revit_cleanup_audit": {},
+    "revit_warnings_delta": {},
+    "revit_get_parameters": {"items": [{"ids": [1]}]},
+    "naming_checker_check_names": {"convention": {"pattern": "{a}-{b}", "fields": {"a": {}, "b": {}}},
+                                   "snapshot_id": SNAP},
+    "sheet_view_audit_run_audit": {"snapshot_id": SNAP},
+    "schedule_consistency_check_doors_and_rooms": {"snapshot_id": SNAP},
+    "warnings_triage_review_warnings": {},
+    "links_worksets_audit_audit": {},
+    "model_inspector_inspect_selection": {"element_uids": ["a"]},
+    "parameter_manager_filter_params": {"element_filter": {"category": "OST_Walls"}, "param_name": "Mark",
+                                         "snapshot_id": SNAP},
+}
+
+# Core read tools without an outputSchema: they forward to the Revit add-in, whose live result shape
+# this server does not build and mock mode cannot show (a generic mock envelope, or no mock at all).
+FORWARDED_CORE_READS = {
+    "revit_health", "revit_get_document_info", "revit_get_rvt_links", "revit_get_link_instances",
+    "revit_get_worksets", "revit_list_elements", "revit_inspect_elements", "revit_get_element_parameters",
+    "revit_get_element_geometry", "revit_list_levels", "revit_list_views", "revit_list_families",
+    "revit_get_categories", "revit_get_warnings", "revit_get_selection",
 }
 
 
@@ -67,8 +87,8 @@ def _args(name, snapshot_id):
     return json.loads(json.dumps(CALLS[name]).replace(SNAP, snapshot_id))
 
 
-def test_twenty_read_tools_have_schemas_and_test_calls():
-    assert len(OUTPUT_SCHEMAS) == 20
+def test_read_tools_have_schemas_and_test_calls():
+    assert len(OUTPUT_SCHEMAS) == 29
     assert set(CALLS) == set(OUTPUT_SCHEMAS)
 
 
@@ -85,7 +105,14 @@ def test_schema_tools_are_reads_and_mostly_core(server):
         assert tool is not None, name
         assert not tool.is_mutating, name
     # Most come from the core profile; the rest are approval, search and listing reads.
-    assert len(set(OUTPUT_SCHEMAS) & set(CORE_TOOLS)) >= 13
+    assert len(set(OUTPUT_SCHEMAS) & set(CORE_TOOLS)) >= 25
+
+
+def test_every_core_read_tool_has_a_schema_or_is_a_named_forwarder(server):
+    """A new read tool in `core` must get a schema here or be added to FORWARDED_CORE_READS on purpose."""
+    reads = {n for n in CORE_TOOLS
+             if server.lookup_tool(n) is not None and is_read_only_tool(n, server.lookup_tool(n))}
+    assert reads - set(OUTPUT_SCHEMAS) == FORWARDED_CORE_READS
 
 
 def test_list_tools_advertises_output_schema_only_for_listed_tools(server):

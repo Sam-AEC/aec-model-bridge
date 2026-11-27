@@ -280,3 +280,9 @@ riderModule.iml
 
 # Output files written by the read-only check tools
 revit_checks/
+
+# Personal access tokens and secrets must never be committed
+github_pat_*
+*.pat
+*token*.txt
+.secrets/

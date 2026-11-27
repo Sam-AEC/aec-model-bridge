@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Sequence
 
@@ -42,15 +43,96 @@ def is_reserved_path(candidate: Path, base: Path, casefold: "bool | None" = None
     return any(_is_within(candidate_real, os.path.join(base_real, name), casefold) for name in RESERVED_DIRS)
 
 
+# Folders the connected AI client has open (MCP roots), as real paths, for the request being served.
+# None means the client declared none: the configured directories apply unchanged. An empty tuple
+# means it declared roots that cannot be used. Set per request by mcp_server; see client_roots.py.
+CLIENT_ROOTS: "ContextVar[tuple[str, ...] | None]" = ContextVar("client_roots", default=None)
+
+
+def narrow_directories(
+    allowed: Sequence["Path | str"], roots: Sequence[str], casefold: "bool | None" = None,
+    allowed_resolved: bool = False,
+) -> "tuple[list[Path], list[str]]":
+    """The intersection of the allowed directories and the client roots, plus the roots left out.
+
+    A root inside an allowed directory narrows to that root. A root that contains an allowed
+    directory leaves that directory as it is. A root that touches no allowed directory is ignored.
+    The result is never larger than ``allowed``. ``allowed_resolved`` says ``allowed`` already holds
+    real paths (as ``WorkspaceMonitor`` keeps them), so they are not resolved again; roots always are."""
+    allowed_real = [os.fspath(d) for d in allowed] if allowed_resolved else [_real(d) for d in allowed]
+    kept: list[str] = []
+    ignored: list[str] = []
+    for root in roots:
+        root_real = _real(root)
+        hit = False
+        for directory in allowed_real:
+            if _is_within(root_real, directory, casefold):
+                kept.append(root_real)
+                hit = True
+            elif _is_within(directory, root_real, casefold):
+                kept.append(directory)
+                hit = True
+        if not hit:
+            ignored.append(root_real)
+    return [Path(p) for p in dict.fromkeys(kept)], ignored
+
+
 class WorkspaceMonitor:
     def __init__(self, allowed_directories: Sequence[Path], casefold: "bool | None" = None):
         self._casefold = casefold
         self.allowed_directories = [Path(_real(directory)) for directory in allowed_directories]
 
+    def effective_directories(self) -> "list[Path]":
+        """The allowed directories, narrowed to the current client's roots when it declared any."""
+        roots = CLIENT_ROOTS.get()
+        if roots is None:
+            return self.allowed_directories
+        return narrow_directories(self.allowed_directories, roots, self._casefold, allowed_resolved=True)[0]
+
     def assert_in_workspace(self, candidate: Path) -> Path:
         resolved = _real(candidate)
-        if not any(_is_within(resolved, os.fspath(directory), self._casefold) for directory in self.allowed_directories):
-            raise WorkspaceViolation(f"{resolved} is outside the allowed workspace directories")
+        directories = self.effective_directories()
+        narrowed = CLIENT_ROOTS.get() is not None
+        if narrowed and not directories:
+            raise WorkspaceViolation(
+                "The AI client's open folders (roots) do not overlap the allowed workspace directories, "
+                "so file paths are refused. Open a folder inside the workspace in the client, or ask "
+                "the administrator to change the allowed directories."
+            )
+        if not any(_is_within(resolved, os.fspath(directory), self._casefold) for directory in directories):
+            where = " (limited to the folders the AI client has open)" if narrowed else ""
+            raise WorkspaceViolation(f"{resolved} is outside the allowed workspace directories{where}")
         if any(is_reserved_path(Path(resolved), directory, self._casefold) for directory in self.allowed_directories):
             raise WorkspaceViolation(f"{resolved} is in a folder reserved for plans and proofs")
         return Path(resolved)
+
+
+def effective_roots(workspace: object) -> "list[Path]":
+    """Directories a module may use for caller-supplied paths: the narrowed set when the workspace
+    narrows to client roots, else its allowed directories. Empty when the roots overlap nothing."""
+    narrowed = getattr(workspace, "effective_directories", None)
+    if callable(narrowed):
+        return [Path(d) for d in narrowed()]
+    return [Path(d) for d in getattr(workspace, "allowed_directories", None) or []]
+
+
+def base_directory(workspace: object) -> "Path | None":
+    """Where a relative caller path starts: the first narrowed directory. When narrowing left
+    nothing, the first allowed directory, so the check that follows refuses with the plain message."""
+    roots = effective_roots(workspace)
+    if roots:
+        return roots[0]
+    allowed = getattr(workspace, "allowed_directories", None) or []
+    return Path(allowed[0]) if allowed else None
+
+
+def confine_path(workspace: object, candidate: "Path | str") -> Path:
+    """Resolve ``candidate`` and require it inside the narrowed workspace (``WorkspaceViolation`` if not).
+    Uses the workspace's own ``assert_in_workspace`` when it has one."""
+    checker = getattr(workspace, "assert_in_workspace", None)
+    if callable(checker):
+        return Path(checker(Path(candidate)))
+    resolved = Path(candidate).resolve()
+    if not any(resolved.is_relative_to(r.resolve()) for r in effective_roots(workspace)):
+        raise WorkspaceViolation(f"'{resolved}' is outside the allowed workspace directories.")
+    return resolved

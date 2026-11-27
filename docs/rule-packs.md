@@ -40,8 +40,14 @@ rules:
       category: OST_Doors
       parameter: {name: Mark, empty: true}
     assertion: "element_count == 0"    # optional, this is the default
-    fix_template: "Set the Mark on '{label}'."   # optional
+    fix_template: "Set the Mark on '{label}'."   # optional, free text for a person
+    fix: {parameter: Mark, value: "D-000"}       # optional, a concrete parameter write
 ```
+
+`fix` names one parameter and one fixed value (text, number or true/false). Findings of a rule with a `fix` can be
+selected by issue id in `qaqc_checker_draft_fix_plan`, which drafts one `plan_actions` list with a
+`revit_set_parameter_value` action per finding. Findings of rules without a `fix` are listed as skipped.
+The tool only drafts: a person approves the plan and `execute_plan` writes it. The validator rejects a pack with an invalid `fix`.
 
 ### Operators the engine supports
 
@@ -109,6 +115,67 @@ the originals (`tests/test_qaqc_pipeline_rules.py`).
 reports doors rated lower than their host wall, doors without a rating, and doors
 whose host wall has no rating. Ratings must be numbers in one unit. Set the parameter
 name by replacing `Fire Rating` in the pack.
+
+### Classification and COBie packs
+
+Three example packs check asset categories for classification codes and COBie fields:
+
+- [`classification-uniclass.yaml`](examples/rule_packs/classification-uniclass.yaml): Uniclass 2015 code (`Pr_20_93_52`).
+- [`classification-omniclass.yaml`](examples/rule_packs/classification-omniclass.yaml): OmniClass number (`23-13 11 11`).
+- [`cobie-completeness.yaml`](examples/rule_packs/cobie-completeness.yaml): COBie component name and space, and type name, category and manufacturer.
+
+Each field gets separate rules:
+
+- `*_not_captured` (info): the element has no such parameter in the snapshot. The parameter does not exist on it, or the add-in did not read it. COBie type fields are read from the element's type.
+- `*_missing`: the parameter is present but empty.
+- `*_format` (classification packs only): the value has the wrong table prefix or separators.
+
+Limits:
+
+- The parameter names (`Uniclass Code`, `OmniClass Number`, `COBie Component Name` and so on) are assumptions. Replace them in the pack with your names. Pipeline paths split at dots, so a name such as `COBie.Component.Name` cannot be read; use a name without dots.
+- The category list (doors, windows, mechanical, electrical and plumbing fixtures) is a starting point. Edit the `in` list in each rule.
+- The format check looks at the table prefix and the separators only. The engine has no regex operator, so it does not check the digit groups. For the full pattern, save a reviewed naming rule with `target: parameter`.
+- The packs are tested on fixture snapshots only. How the add-in captures these parameters in a live Revit model is UNVERIFIED.
+
+### Model health packs
+
+Four example packs check worksets, levels, shared parameters and view templates:
+
+- [`workset-checks.yaml`](examples/rule_packs/workset-checks.yaml)
+- [`level-checks.yaml`](examples/rule_packs/level-checks.yaml)
+- [`shared-parameter-checks.yaml`](examples/rule_packs/shared-parameter-checks.yaml)
+- [`view-template-checks.yaml`](examples/rule_packs/view-template-checks.yaml)
+
+| Rule | Severity | Reports |
+| --- | --- | --- |
+| `workset_not_captured` | info | No element in the snapshot has a workset (one issue, no element). |
+| `workset_name_empty` | error | Empty workset name. |
+| `workset_default_name` | warning | Element on `Workset1`. |
+| `workset_name_padded` | warning | Workset name with a leading, trailing or double space. |
+| `workset_levels_grids_not_shared` | warning | Level or grid not on `Shared Levels and Grids`. |
+| `level_name_not_captured` | info | Level has no name in the snapshot. |
+| `level_name_empty` | error | Empty level name. |
+| `level_name_padded` | warning | Level name with a leading, trailing or double space. |
+| `level_name_duplicate` | error | Two levels share a name (no element). |
+| `level_elevation_not_captured` | info | Level has no `Elevation` parameter. |
+| `level_elevation_duplicate` | error | Two levels share an exact elevation (no element). |
+| `asset_id_not_captured`, `package_code_not_captured` | info | The parameter is not on the element. |
+| `asset_id_empty` | error | `Asset ID` is empty. |
+| `package_code_empty` | warning | `Package Code` is empty. |
+| `view_template_not_captured` | info | View has no `View Template` parameter. |
+| `view_template_unassigned` | warning | `View Template` is empty or `-1`. |
+
+Not captured by the snapshot, so no rule:
+
+- Shared parameter GUIDs. The snapshot keeps the name, value and storage type only. Checking a GUID needs an add-in change.
+- The view template a view uses. The top-level `views` list has `is_template` but no assignment, and rules cannot read it. The view template pack reads a `View Template` parameter on view elements instead.
+- The add-in snapshot does not write `workset` on elements. On a live snapshot only `workset_not_captured` fires.
+
+Other limits:
+
+- The `Asset ID` and `Package Code` names, the category list and the shared workset name are assumptions. Replace them in the pack.
+- Duplicate rules group levels, so their issues have no element, and the issue store keeps one stored issue per rule for them. Run results list every duplicate.
+- Level and view checks on a live model are UNVERIFIED. The packs are tested on fixture snapshots only (`tests/test_model_health_packs.py`).
 
 Stored findings belong to their rule pack. Running one pack only reconciles that
 pack's issues, and identical rule IDs in different packs stay independent.

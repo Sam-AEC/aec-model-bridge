@@ -1,0 +1,31 @@
+name: release-freeze
+
+# dev is frozen while a release PR (dev into main) is open. Add `release-freeze`
+# as a required check on dev (docs/release-checklist.md, section 0).
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    branches: [dev]
+
+permissions: {}
+
+jobs:
+  release-freeze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    steps:
+      - name: Fail while a release PR is open
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          # Only a dev branch in this repository counts; a fork branch named dev does not.
+          open=$(gh pr list --base main --head dev --state open --json number,headRepositoryOwner             --jq ".[] | select(.headRepositoryOwner.login == \"${OWNER}\") | .number" | head -n 1)
+          if [ -n "$open" ]; then
+            echo "::error::dev is frozen: release PR #${open} (dev into main) is open. Merge or close it, then re-run this check."
+            exit 1
+          fi
+          echo "No open release PR. dev is not frozen."

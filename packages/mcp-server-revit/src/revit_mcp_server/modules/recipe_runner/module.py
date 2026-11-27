@@ -23,6 +23,8 @@ Condition: minimal eval — supports == != >= <= comparisons on {{prev.field}}.
 """
 from __future__ import annotations
 from revit_mcp_server.security.module_permissions import writable_path
+from revit_mcp_server.errors import WorkspaceViolation
+from revit_mcp_server.security.workspace import base_directory, confine_path
 
 import json
 import logging
@@ -90,11 +92,10 @@ def _check_condition(condition: Optional[str], context: Dict[str, Any]) -> bool:
 def _workspace_path(path: Path, workspace: Any) -> Path:
     if not workspace or not getattr(workspace, "allowed_directories", None):
         raise ValueError("Workspace is required to load recipe files.")
-    roots = [Path(root).resolve() for root in workspace.allowed_directories]
-    resolved = path.resolve()
-    if not any(resolved.is_relative_to(root) for root in roots):
-        raise ValueError(f"Recipe file '{resolved}' is outside the allowed workspace.")
-    return resolved
+    try:
+        return confine_path(workspace, path)
+    except WorkspaceViolation as exc:
+        raise ValueError(f"Recipe file '{path.resolve()}' is outside the allowed workspace.") from exc
 
 def _load_recipe(recipe_id: str, workspace: Any = None) -> Dict[str, Any]:
     candidate = Path(recipe_id)
@@ -105,7 +106,7 @@ def _load_recipe(recipe_id: str, workspace: Any = None) -> Dict[str, Any]:
         else:
             if not workspace or not getattr(workspace, "allowed_directories", None):
                 raise ValueError("Workspace is required to load recipe files.")
-            path = _workspace_path(Path(workspace.allowed_directories[0]) / candidate, workspace)
+            path = _workspace_path(base_directory(workspace) / candidate, workspace)
     else:
         path = RECIPES_DIR / f"{recipe_id}.yaml"
     if not path.exists():

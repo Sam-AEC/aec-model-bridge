@@ -2,7 +2,7 @@
 
 Measured 2026-11-05 with `MCP_REVIT_MODE=mock`, the supplied Python interpreter, a temporary workspace, no user modules or provider credentials, and no Revit model execution. Baseline captured at `87d1d1bb5312ccb9868786860cbc66f76c47b895` before production changes; results were reported before edits.
 
-The checkout exposes **322** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
+The checkout exposes **324** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
 
 ## Initial profile and response pass
 
@@ -99,6 +99,8 @@ Twenty read tools advertise an MCP `outputSchema` (`src/revit_mcp_server/output_
 The schemas add about 1,000 tokens in every profile (1.2% of full, 6.6% of core); 19 of the 20 tools are visible in `core` (all but `module_list_commands`). A successful call to one of these tools now carries its result twice: as text (unchanged) and as `structuredContent`. A client that passes only one of them to the model sees no change in response cost.
 
 Every schema object now states `"additionalProperties": true` (about 30 characters per object, under 300 tokens in total; the table above predates it). Every successful reply of these tools carries `structuredContent`, because the Python SDK client rejects a reply without it. When a result does not match its schema, or the reply is a queued job, a call still running or a cursor page, the server sends a fallback object that validates: the result keys that match, required keys filled with empty values of their type, and `structured_fallback` with the reason and the filled and dropped keys. The text content holds the full result.
+
+A later step added schemas for nine more core read tools whose result this server builds (`revit_warnings_delta`, `revit_get_parameters`, `naming_checker_check_names`, `sheet_view_audit_run_audit`, `schedule_consistency_check_doors_and_rooms`, `warnings_triage_review_warnings`, `links_worksets_audit_audit`, `model_inspector_inspect_selection`, `parameter_manager_filter_params`). Measured with `scripts/token_budget.py` on the same tree: `core` 70,054 to 72,813 characters (about +690 tokens, +3.9%), `daily` +2,759 characters, `full` +2,759 characters. All stay inside the 10% growth threshold of `docs/mcp-token-baseline.json`, so the baseline is unchanged. The 15 other read tools in `core` (`revit_health`, `revit_list_*`, `revit_get_*` and `revit_inspect_elements`) forward to the add-in and have no schema: their live shape is not built here and mock mode cannot show it. `tests/test_output_schemas.py` names them, so a new core read tool must either get a schema or be added to that list.
 
 ## Follow-up: deferred loading and the always-loaded set
 

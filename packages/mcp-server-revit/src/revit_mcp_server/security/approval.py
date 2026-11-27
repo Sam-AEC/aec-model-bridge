@@ -840,7 +840,7 @@ class ApprovalGate:
             # cannot run an action the workspace policy has since prohibited.
             from .policy import check_actions, load_policy
             check_actions(load_policy(self.workspace_dir), plan.get("actions", []), self.workspace_dir,
-                          plan.get("snapshot_id"))
+                          plan.get("snapshot_id"), dev_mode=self.dev_mode)
             tried: set = set()
             while True:
                 action = self._find_open_action(plan, tool_name, arguments, skip=tried)

@@ -84,6 +84,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `geometry_screening_run_checks` | Screen a saved snapshot with repeatable geometric checks: room area against a brief table, door width against a minimum, a turning circle inside a room outline, and travel distance through doors to exit rooms. | No | sync |
 | `hello_world_say_hello` | Example module command that returns a greeting; use it to confirm the module system works. | No | sync |
 | `ids_validator_validate_ifc` | Check an IFC file in the workspace against a buildingSMART IDS file and return pass or fail per specification with the GlobalIds of failing entities (capped, with full counts). | No | sync |
+| `ifc_diff_compare` | Compare two IFC files in the workspace by GlobalId: elements added, removed and changed (class, name, property sets and quantities, with a property hash), with complete counts and capped lists. | No | sync |
 | `links_worksets_audit_audit` | Check linked models and worksets for problems (unloaded or missing links, links not pinned or placed Origin to Origin, empty or default-named worksets, worksets owned by someone else, elements on the wrong workset) and give plain next steps. | No | sync |
 | `mark_renumber_plan_analyze` | Find duplicate marks, empty marks, gaps and out-of-order sequences for doors, rooms and windows in a saved snapshot, and propose a new numbering from a small rule file (doors: To room number plus a letter; rooms and windows: level prefix plus sequence). | No | sync |
 | `mark_renumber_plan_draft_plan` | Draft one plan_actions-ready list of parameter writes for the proposed mark numbering. | No | sync |
@@ -106,13 +107,14 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `parameter_manager_export_params_csv` | Export parameters of the matching snapshot elements to a CSV file in the workspace. | No | sync |
 | `parameter_manager_export_params_xlsx` | Export parameters of the matching snapshot elements to an Excel workbook in the workspace for editing. | No | sync |
 | `parameter_manager_filter_params` | Return a parameter grid for the elements of a snapshot that match a filter, optionally including read-only parameters. | No | sync |
-| `parameter_manager_import_params_csv` | Read parameter values from a CSV file in the workspace and create a draft ActionPlan that applies them. | No | sync |
+| `parameter_manager_import_params_csv` | Read parameter values from a CSV file in the workspace (one column per parameter with a uid column, or three columns element_id, parameter, value) and create a draft ActionPlan that applies them. | No | sync |
 | `parameter_manager_import_params_xlsx` | Read an edited Excel workbook from the workspace, diff it against the snapshot and create a draft ActionPlan with a row diff. | No | sync |
 | `parameter_manager_plan_set_params` | Create a draft ActionPlan that sets parameter values on the elements of a snapshot matching a filter. | No | sync |
 | `pyrevit_bridge_list_pyrevit_scripts` | List pyRevit pushbutton scripts found in the directories named by MCP_REVIT_PYREVIT_EXTENSION_DIRS, with tab, panel, description and whether obvious write calls were detected. | No | sync |
 | `pyrevit_bridge_plan_run_pyrevit_script` | Create a draft ActionPlan for running one pyRevit script, showing its path, SHA-256 and detected write-call lines. | No | sync |
 | `pyrevit_bridge_run_pyrevit_script` | Run a pyRevit script inside Revit after its plan was approved and only if its SHA-256 still matches the plan. | Yes | sync |
 | `qa_handover_build_report` | Write a short hand-over report (JSON and Markdown in the workspace) of QA findings per rule, before/after re-check counts, approved parameter changes from plan proof bundles, and an explicit not-verified list; use this instead of qaqc_checker_run_check or model_changes_compare_snapshots when the result must be handed to someone else. | No | sync |
+| `qaqc_checker_draft_fix_plan` | Turn selected QA/QC findings into one draft plan: findings whose rule has a concrete fix (set a parameter to a value) become one revit_set_parameter_value action each; the rest are listed as skipped with the reason. | No | sync |
 | `qaqc_checker_export_rule_pack` | Copy a validated built-in or workspace rule pack to a YAML file inside the workspace so it can be shared. | No | sync |
 | `qaqc_checker_import_rule_pack` | Validate a YAML rule pack inside the workspace and copy it into the workspace rule_packs folder. | No | sync |
 | `qaqc_checker_list_issues` | List recorded QA/QC issues for a document, optionally filtered by status, severity and snapshot. | No | sync |

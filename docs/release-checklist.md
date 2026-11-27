@@ -2,11 +2,18 @@
 
 Ordered list for shipping from `dev` to `main`. Section 2 has no PASS or FAIL recorded. Bounded read-only Revit 2024 checks passed; see [the live validation report](revit-addin-live-validation-2026-10-14.md). Mutating acceptance and other Revit years are UNVERIFIED. Known limits are in section 3 and in [security.md](security.md).
 
+## 0. Release flow
+
+- Open one release PR from `dev` into `main` and merge it with a merge commit.
+- `dev` is frozen while that PR is open. PRs into `dev` wait until it lands. The `release-freeze` workflow fails on PRs into `dev` while a `dev` into `main` PR is open; add `release-freeze` as a required check on `dev`.
+- Tag after the release PR is merged, from the merge commit on `main`.
+- Issues fixed on `dev` carry the `fixed-in-dev` label and close when the release reaches `main`.
+
 ## 1. What CI proves
 
 The workflow in `.github/workflows/ci.yml` runs on every push and pull request, and nightly. Pull requests run Python on Windows 3.11 and Ubuntu 3.13 and build the add-ins only when their C# folders change. Pushes to `main` and `dev`, the nightly run and manual runs use the full matrix (Windows 3.11, 3.12, 3.13; Ubuntu 3.12, 3.13) and every build. It proves:
 
-- Python lint (`ruff check`), the Python test suite with coverage, version consistency (`scripts/version.py check`), `uv.lock` freshness and tool catalog generation.
+- Python lint (`ruff check`), the Python test suite with coverage, version consistency (`scripts/version.py check`), changelog fragments (`scripts/changelog.py check`), tool count claims (`scripts/sync_counts.py --check`), `llms-full.txt` freshness, `uv.lock` freshness and tool catalog generation.
 - Repository metadata validation, wheel and sdist build, `twine check --strict`, and a smoke test of the built wheel in a clean venv.
 - The Revit add-in and the Rhino bridge add-in compile (`dotnet build`).
 - Workflow files pass `actionlint`.
@@ -123,13 +130,18 @@ Do once, signed in to pypi.org and GitHub as the maintainer. Nothing in the repo
 
 The environment name on PyPI and in the workflow must match. If an older pending publisher exists with no environment, delete it and add the one above.
 
+### GitHub environments
+
+- `release`: deployment branches and tags limited to `v*` tags. `release.yml`, `publish-mcp.yml` and the publish job of `vscode-extension.yml` use it, so a manual run from a branch cannot reach OIDC or store tokens. Rebuild an existing tag with `gh workflow run release.yml --ref vX.Y.Z -f tag=vX.Y.Z`; `release.yml` refuses a manual run on a branch. A dry run with the `ref` input is also dispatched on a tag.
+- `maintenance`: deployment branches limited to `main`. `rulesets-drift.yml` uses it, so `SCORECARD_TOKEN` is not exposed to other branches.
+
 ### OpenSSF Scorecard
 
 `.github/workflows/scorecard.yml` runs weekly and on pushes to `main`, uploads results to code scanning and publishes them to the Scorecard API for the README badge. The badge shows "invalid" until the first run on `main` completes.
 
 claude.ai on the web and phones accepts only remote HTTPS connectors, so it cannot reach a local Revit.
 
-Release steps: attach the `.mcpb` and installer to the GitHub release (`scripts/version.py` keeps plugin and marketplace versions in step), update `server.json`, run `mcp-publisher validate`, publish, then check discovery through the registry API.
+Release steps: run `python scripts/changelog.py build --version X.Y.Z` first (folds `changes/*.md` into the release section), then bump versions as in [versioning.md](versioning.md), attach the `.mcpb` and installer to the GitHub release (`scripts/version.py` keeps plugin and marketplace versions in step), update `server.json`, run `mcp-publisher validate`, publish, then check discovery through the registry API.
 
 GitHub releases and tags v0.1.0 to v1.1.0 were deleted on 2026-10-09. The code stays in git history, and the MCP Registry still lists 1.0.1, 1.0.2 and 1.1.0 with dead download links. Releases v1.2.1 to v1.3.3 carry GPL-3.0 licence files in tag, wheel and `.mcpb`.
 
