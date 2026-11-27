@@ -165,6 +165,20 @@ jobs:
         working-directory: packages/mcp-server-revit
         run: uv run --no-sync ruff check src tests ../../scripts/ci_summary.py
 
+      # Contributors add changes/<name>.md instead of editing CHANGELOG.md, and the
+      # tool counts and llms-full.txt are generated, so these never conflict.
+      - name: Check changelog fragments, tool counts and llms-full.txt
+        if: matrix.primary
+        run: |
+          status=0
+          python scripts/changelog.py check || status=1
+          (cd packages/mcp-server-revit && uv run --no-sync python ../../scripts/sync_counts.py --check) || status=1
+          python scripts/make_llms_full.py --check || status=1
+          if [ "$status" -ne 0 ]; then
+            echo "::error::Run 'python scripts/changelog.py check', 'python scripts/sync_counts.py' and 'python scripts/make_llms_full.py' (from packages/mcp-server-revit use 'uv run python ../../scripts/sync_counts.py'), then commit the result."
+          fi
+          exit "$status"
+
       # Not enforced: most of the tree predates ruff format. Reported so the size of
       # the gap stays visible; turn this into a hard check after a one-off reformat.
       - name: Report ruff format drift (not enforced)

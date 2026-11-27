@@ -46,7 +46,7 @@ Do not write "ask the owner" or "needs a decision" in the body. If the approach 
 - Write them as a Markdown checklist, one observable result per line.
 - Each line can be checked by a named test, a command, or a single live run. "Works well" is not a criterion; "returns `complete=true` on the canonical fixture" is.
 - State the negative case where it matters: what must still be refused, what old files must still load.
-- Every behaviour change carries two standing criteria from `AGENTS.md`: a test, and one line under `## Unreleased` in `CHANGELOG.md`. A change to tools also regenerates `docs/tools-generated.md`.
+- Every behaviour change carries two standing criteria from `AGENTS.md`: a test, and one fragment file `changes/<issue-or-branch>.md`. A change to tools also regenerates `docs/tools-generated.md`.
 - Every change that touches model writes carries: no write path skips `plan_actions`, human approval and `execute_plan`.
 - If a criterion needs a live Revit, say so on that line. Code can merge with that line open; the issue then gets `status: needs-live-verification` and stays open until the check is recorded.
 

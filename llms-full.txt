@@ -121,7 +121,7 @@ Revit MCP server (Model Context Protocol) with a native Revit add-in. AI clients
 - `packages/vscode-extension/`: VS Code extension. `packages/claude-plugin/`: Claude Code plugin (listed by `.claude-plugin/marketplace.json`).
 - `panel/`: approval panel (plain HTML and JS in WebView2).
 - `docs/`: reference docs and ADRs (`docs/adr/00NN-*.md`). `docs/examples/rule_packs/`: example QA rule packs.
-- `scripts/`: PowerShell build, release and installer scripts; Python helpers (`version.py`, `count_tools.py`, `make_install_links.py`).
+- `scripts/`: PowerShell build, release and installer scripts; Python helpers (`version.py`, `count_tools.py`, `sync_counts.py`, `changelog.py`, `make_install_links.py`).
 
 ## Commands
 Run from `packages/mcp-server-revit`:
@@ -139,7 +139,7 @@ python ../../scripts/version.py check       # VERSION, pyproject and manifests m
 - Model writes go through plans: `plan_actions`, human approval, `execute_plan`. Never add a write path that skips the gate.
 - Fail closed. Refuse with a plain-language error instead of guessing.
 - Do not claim live-Revit behaviour you did not observe. Mark it UNVERIFIED (see `docs/release-checklist.md`).
-- Every behaviour change needs a test and one line under `## Unreleased` in `CHANGELOG.md`.
+- Every behaviour change needs a test and one fragment file `changes/<issue-or-branch>.md` (see `changes/README.md`); do not edit `CHANGELOG.md`. After adding or removing a tool run `python scripts/sync_counts.py` and `python scripts/make_llms_full.py`.
 - Docs: plain, short, factual sentences. No hype words, no emoji, no personal data, no dated narrative.
 - Commits reference issues (`Fixes #N`). Work on its own branch; PRs target `dev`. PRs into `dev` are squash-merged; `dev` into `main` uses a merge commit.
 - Before taking an issue, read its comments and assignees. Skip issues labelled `claimed` or assigned to someone; a contributor who asks to take one gets assigned and labelled `claimed`.
@@ -4916,7 +4916,7 @@ Ordered list for shipping from `dev` to `main`. Section 2 has no PASS or FAIL re
 
 The workflow in `.github/workflows/ci.yml` runs on every push and pull request, and nightly. Pull requests run Python on Windows 3.11 and Ubuntu 3.13 and build the add-ins only when their C# folders change. Pushes to `main` and `dev`, the nightly run and manual runs use the full matrix (Windows 3.11, 3.12, 3.13; Ubuntu 3.12, 3.13) and every build. It proves:
 
-- Python lint (`ruff check`), the Python test suite with coverage, version consistency (`scripts/version.py check`), `uv.lock` freshness and tool catalog generation.
+- Python lint (`ruff check`), the Python test suite with coverage, version consistency (`scripts/version.py check`), changelog fragments (`scripts/changelog.py check`), tool count claims (`scripts/sync_counts.py --check`), `llms-full.txt` freshness, `uv.lock` freshness and tool catalog generation.
 - Repository metadata validation, wheel and sdist build, `twine check --strict`, and a smoke test of the built wheel in a clean venv.
 - The Revit add-in and the Rhino bridge add-in compile (`dotnet build`).
 - Workflow files pass `actionlint`.
@@ -5039,7 +5039,7 @@ The environment name on PyPI and in the workflow must match. If an older pending
 
 claude.ai on the web and phones accepts only remote HTTPS connectors, so it cannot reach a local Revit.
 
-Release steps: attach the `.mcpb` and installer to the GitHub release (`scripts/version.py` keeps plugin and marketplace versions in step), update `server.json`, run `mcp-publisher validate`, publish, then check discovery through the registry API.
+Release steps: run `python scripts/changelog.py build --version X.Y.Z` first (folds `changes/*.md` into the release section), then bump versions as in [versioning.md](versioning.md), attach the `.mcpb` and installer to the GitHub release (`scripts/version.py` keeps plugin and marketplace versions in step), update `server.json`, run `mcp-publisher validate`, publish, then check discovery through the registry API.
 
 GitHub releases and tags v0.1.0 to v1.1.0 were deleted on 2026-10-09. The code stays in git history, and the MCP Registry still lists 1.0.1, 1.0.2 and 1.1.0 with dead download links. Releases v1.2.1 to v1.3.3 carry GPL-3.0 licence files in tag, wheel and `.mcpb`.
 
@@ -5114,7 +5114,7 @@ download to a GitHub release; Marketplace publishing is a separate step.
 
 ## Cutting a release
 
-1. Make sure `CHANGELOG.md` has your notes under `## Unreleased`.
+1. Fold the changelog fragments into a release section: `python scripts/changelog.py build --version 1.4.0`. This moves every `changes/*.md` file, and any lines still under `## Unreleased`, into `## 1.4.0 - <today>`.
 2. Pick the bump and let the script do the edits:
 
    ```powershell
@@ -5122,7 +5122,7 @@ download to a GitHub release; Marketplace publishing is a separate step.
    python scripts/version.py set 1.4.0-rc.1  # or set an exact version
    ```
 
-   This rewrites every file above and renames `## Unreleased` to `## 1.4.0 - <today>`.
+   This rewrites every file above and keeps the `## 1.4.0` section from step 1 (it renames `## Unreleased` instead when step 1 was skipped).
 3. Check, commit, tag and push:
 
    ```powershell
@@ -5335,7 +5335,7 @@ Do not write "ask the owner" or "needs a decision" in the body. If the approach 
 - Write them as a Markdown checklist, one observable result per line.
 - Each line can be checked by a named test, a command, or a single live run. "Works well" is not a criterion; "returns `complete=true` on the canonical fixture" is.
 - State the negative case where it matters: what must still be refused, what old files must still load.
-- Every behaviour change carries two standing criteria from `AGENTS.md`: a test, and one line under `## Unreleased` in `CHANGELOG.md`. A change to tools also regenerates `docs/tools-generated.md`.
+- Every behaviour change carries two standing criteria from `AGENTS.md`: a test, and one fragment file `changes/<issue-or-branch>.md`. A change to tools also regenerates `docs/tools-generated.md`.
 - Every change that touches model writes carries: no write path skips `plan_actions`, human approval and `execute_plan`.
 - If a criterion needs a live Revit, say so on that line. Code can merge with that line open; the issue then gets `status: needs-live-verification` and stays open until the check is recorded.
 

@@ -41,7 +41,7 @@ download to a GitHub release; Marketplace publishing is a separate step.
 
 ## Cutting a release
 
-1. Make sure `CHANGELOG.md` has your notes under `## Unreleased`.
+1. Fold the changelog fragments into a release section: `python scripts/changelog.py build --version 1.4.0`. This moves every `changes/*.md` file, and any lines still under `## Unreleased`, into `## 1.4.0 - <today>`.
 2. Pick the bump and let the script do the edits:
 
    ```powershell
@@ -49,7 +49,7 @@ download to a GitHub release; Marketplace publishing is a separate step.
    python scripts/version.py set 1.4.0-rc.1  # or set an exact version
    ```
 
-   This rewrites every file above and renames `## Unreleased` to `## 1.4.0 - <today>`.
+   This rewrites every file above and keeps the `## 1.4.0` section from step 1 (it renames `## Unreleased` instead when step 1 was skipped).
 3. Check, commit, tag and push:
 
    ```powershell
