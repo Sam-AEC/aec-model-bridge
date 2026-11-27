@@ -6,6 +6,12 @@ Command:
             Elements are IfcProduct instances matched by GlobalId. "Changed" means a different
             IFC class, name, or property sets and quantities. Geometry is not compared.
 
+  compare_snapshot - a delivered IFC against a saved Revit snapshot, matched by GlobalId. Reports
+            snapshot elements missing from the IFC, IFC elements missing from the snapshot, and matched
+            elements, by category. Snapshot elements with no usable GUID are listed as unmatched.
+            The GUID of a snapshot element is its IfcGUID parameter when the snapshot holds it (take
+            the snapshot with params ["IfcGUID"]), else the one derived from the Revit UniqueId.
+
 Both files must be .ifc files inside the workspace and no larger than MAX_IFC_BYTES. Lists are
 capped; the counts are complete. A GlobalId that appears twice in one file is counted in
 "duplicate_global_ids" and only its first element is compared.
@@ -14,16 +20,22 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
+import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from revit_mcp_server.errors import WorkspaceViolation
+from revit_mcp_server.security.safe_paths import SNAPSHOT_ID_RE, safe_child
 from revit_mcp_server.security.workspace import base_directory, confine_path
 
 DEFAULT_MAX_ITEMS = 50
 MAX_ITEMS = 1000
 MAX_IFC_BYTES = 250_000_000
 STEP_MAGIC = b"ISO-10303-21"
+IFC_GUID_RE = re.compile(r"[0-9A-Za-z_$]{22}")
+SRC_PARAM = "IfcGUID parameter"
+SRC_UNIQUE_ID = "derived from UniqueId"
 
 
 def _input_file(workspace: Any, name: Any, what: str) -> Path:
@@ -141,6 +153,74 @@ def _changes(old: Dict[str, Any], new: Dict[str, Any]) -> Optional[Dict[str, Any
     return change or None
 
 
+def _snapshot_elements(workspace: Any, snapshot_id: Any) -> List[Dict[str, Any]]:
+    def refuse(_reason: str) -> Exception:
+        return ValueError("snapshot_id must be a plain snapshot name inside the workspace snapshots folder.")
+
+    base = base_directory(workspace)
+    if base is None:
+        raise ValueError("A workspace is required.")
+    path = safe_child(base / "snapshots", snapshot_id, ".json", SNAPSHOT_ID_RE, refuse)
+    if not path.is_file():
+        raise ValueError(f"Snapshot '{snapshot_id}' was not found in the workspace snapshots folder.")
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ValueError(f"Snapshot '{snapshot_id}' could not be read: {exc}") from exc
+    elements = data.get("elements") if isinstance(data, dict) else None
+    if not isinstance(elements, list):
+        raise ValueError(f"Snapshot '{snapshot_id}' holds no element list.")
+    return [e for e in elements if isinstance(e, dict)]
+
+
+def _guid_from_param(el: Dict[str, Any]) -> Optional[str]:
+    params = el.get("params")
+    if not isinstance(params, dict):
+        return None
+    for name, val in params.items():
+        if isinstance(name, str) and name.lower() in ("ifcguid", "ifc guid"):
+            raw = val.get("v") if isinstance(val, dict) else val
+            if isinstance(raw, str) and IFC_GUID_RE.fullmatch(raw.strip()):
+                return raw.strip()
+    return None
+
+
+def _guid_from_unique_id(uid: Any) -> Optional[str]:
+    """Revit's IFC export GUID: the episode GUID of the UniqueId with its last four bytes XORed
+    with the element id (the trailing eight hex digits). UNVERIFIED against a live export."""
+    if not isinstance(uid, str):
+        return None
+    m = re.fullmatch(r"([0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12})-([0-9a-fA-F]{8})", uid)
+    if not m:
+        return None
+    try:
+        import ifcopenshell.guid
+    except ImportError:
+        return None
+    raw = bytearray(uuid.UUID(m.group(1)).bytes)
+    for i, b in enumerate(bytes.fromhex(m.group(2))):
+        raw[12 + i] ^= b
+    return ifcopenshell.guid.compress(bytes(raw).hex())
+
+
+def _resolve_guid(el: Dict[str, Any]) -> Tuple[Optional[str], str]:
+    guid = _guid_from_param(el)
+    if guid:
+        return guid, SRC_PARAM
+    guid = _guid_from_unique_id(el.get("uid"))
+    if guid:
+        return guid, SRC_UNIQUE_ID
+    return None, "none"
+
+
+def _snap_brief(el: Dict[str, Any], guid: Optional[str] = None, **extra: Any) -> Dict[str, Any]:
+    out = {"uid": el.get("uid"), "category": el.get("category"), "name": el.get("name")}
+    if guid:
+        out["global_id"] = guid
+    out.update(extra)
+    return out
+
+
 class IfcDiffModule:
     def compare(
         self,
@@ -202,5 +282,108 @@ class IfcDiffModule:
             "added": [_brief(g, new_idx[g]) for g in added[:limit]],
             "removed": [_brief(g, old_idx[g]) for g in removed[:limit]],
             "changed": changed[:limit],
+            "notes": notes,
+        }
+
+    def compare_snapshot(
+        self,
+        snapshot_id: str = "",
+        ifc_path: str = "",
+        categories: Optional[List[str]] = None,
+        ifc_class: str = "",
+        max_items: int = DEFAULT_MAX_ITEMS,
+        workspace: Any = None,
+        **_,
+    ) -> Dict[str, Any]:
+        ifc_file = _input_file(workspace, ifc_path, "ifc_path")
+        if ifc_class is not None and not isinstance(ifc_class, str):
+            raise ValueError("ifc_class must be text such as IfcWall.")
+        ifc_class = (ifc_class or "").strip()
+        if categories is not None and (
+                not isinstance(categories, list) or not all(isinstance(c, str) for c in categories)):
+            raise ValueError("categories must be a list of category names such as OST_Walls.")
+        try:
+            limit = max(1, min(int(max_items or DEFAULT_MAX_ITEMS), MAX_ITEMS))
+        except (TypeError, ValueError):
+            raise ValueError("max_items must be a whole number.") from None
+
+        elements = _snapshot_elements(workspace, snapshot_id)
+        wanted = {c.strip().lower() for c in categories or [] if c.strip()}
+        if wanted:
+            elements = [e for e in elements if str(e.get("category") or "").lower() in wanted]
+        model = _open(ifc_file, "ifc_path")
+        ifc_idx, ifc_dups = _index(model, ifc_class)
+
+        sources = {SRC_PARAM: 0, SRC_UNIQUE_ID: 0, "none": 0}
+        by_cat: Dict[str, Dict[str, int]] = {}
+        matched: List[Dict[str, Any]] = []
+        missing: List[Dict[str, Any]] = []
+        unmatched: List[Dict[str, Any]] = []
+        seen: set = set()
+
+        def bucket(el: Dict[str, Any]) -> Dict[str, int]:
+            return by_cat.setdefault(str(el.get("category") or "(none)"),
+                                     {"matched": 0, "missing_from_ifc": 0, "unmatched_no_guid": 0})
+
+        for el in elements:
+            guid, source = _resolve_guid(el)
+            sources[source] += 1
+            if guid is None:
+                bucket(el)["unmatched_no_guid"] += 1
+                unmatched.append(_snap_brief(el, reason="no IfcGUID parameter and no UniqueId to derive one from"))
+            elif guid in seen:
+                bucket(el)["unmatched_no_guid"] += 1
+                unmatched.append(_snap_brief(el, guid, reason="duplicate GUID"))
+            else:
+                seen.add(guid)
+                if guid in ifc_idx:
+                    bucket(el)["matched"] += 1
+                    matched.append(_snap_brief(el, guid, ifc_class=ifc_idx[guid]["class"], guid_source=source))
+                else:
+                    bucket(el)["missing_from_ifc"] += 1
+                    missing.append(_snap_brief(el, guid, guid_source=source))
+
+        extra = [_brief(g, ifc_idx[g]) for g in sorted(set(ifc_idx) - seen)]
+        extra_by_class: Dict[str, int] = {}
+        for row in extra:
+            extra_by_class[row["class"]] = extra_by_class.get(row["class"], 0) + 1
+
+        notes: List[str] = ["Geometry and properties are not compared."]
+        if sources[SRC_UNIQUE_ID]:
+            notes.append("Some GUIDs were derived from the Revit UniqueId with the Revit IFC exporter rule. "
+                         "UNVERIFIED against a live export; for exact matching take the snapshot with "
+                         'params ["IfcGUID"].')
+        if elements and sources[SRC_PARAM] == 0:
+            notes.append("The snapshot holds no IfcGUID parameter, so no element was matched on it. Take the "
+                         'snapshot with params ["IfcGUID"] to match on the GUID Revit stored.')
+        if wanted or ifc_class:
+            notes.append("Filters narrow one side only: categories the snapshot, ifc_class the IFC file. "
+                         "Elements outside the other side's filter can show as missing or extra.")
+        if ifc_dups:
+            notes.append("Some GlobalIds appear more than once in the IFC file; only the first element of each was used.")
+        if any(len(x) > limit for x in (matched, missing, extra, unmatched)):
+            notes.append(f"Lists are cut at {limit} elements; the counts are complete.")
+        return {
+            "read_only": True,
+            "snapshot_id": snapshot_id,
+            "ifc_file": str(ifc_file),
+            "ifc_schema": model.schema,
+            "ifc_class": ifc_class or "IfcProduct",
+            "counts": {
+                "snapshot_elements": len(elements),
+                "ifc_elements": len(ifc_idx),
+                "matched": len(matched),
+                "missing_from_ifc": len(missing),
+                "extra_in_ifc": len(extra),
+                "unmatched_no_guid": len(unmatched),
+            },
+            "guid_sources": sources,
+            "by_category": by_cat,
+            "extra_by_ifc_class": extra_by_class,
+            "duplicate_global_ids_in_ifc": ifc_dups,
+            "matched": matched[:limit],
+            "missing_from_ifc": missing[:limit],
+            "extra_in_ifc": extra[:limit],
+            "unmatched_no_guid": unmatched[:limit],
             "notes": notes,
         }
