@@ -242,6 +242,51 @@ def test_concurrent_flushes_keep_all_counts(tmp_path):
     assert usage_counts.load(usage_file(tmp_path))["tools"]["a_tool"]["days"]["2026-11-24"] == 30
 
 
+def test_lock_contention_reported_as_permission_error_is_waited_out(tmp_path, monkeypatch):
+    """Windows raises PermissionError (not FileExistsError) on O_EXCL while the holder deletes
+    the lock file; that is contention, not a failed flush, so no count may be dropped."""
+    real_open = usage_counts.os.open
+    calls = {"n": 0}
+
+    def flaky_open(path, flags, *args, **kwargs):
+        if str(path).endswith(".lock") and calls["n"] < 3:
+            calls["n"] += 1
+            raise PermissionError(13, "Permission denied", str(path))
+        return real_open(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr(usage_counts.os, "open", flaky_open)
+    c = counter(tmp_path)
+    c.record("a_tool")
+    c.flush()
+    assert calls["n"] == 3
+    assert c._pending == {}
+    assert usage_counts.load(usage_file(tmp_path))["tools"]["a_tool"]["days"]["2026-11-24"] == 1
+
+
+def test_many_concurrent_flush_rounds_lose_nothing(tmp_path):
+    import threading
+    rounds, workers, per = 8, 8, 3
+    counters = [counter(tmp_path) for _ in range(workers)]
+    for _ in range(rounds):
+        for c in counters:
+            for _ in range(per):
+                c.record("a_tool")
+        barrier = threading.Barrier(workers)
+
+        def run(c):
+            barrier.wait()
+            c.flush()
+
+        threads = [threading.Thread(target=run, args=(c,)) for c in counters]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+    assert all(not c._pending for c in counters)
+    got = usage_counts.load(usage_file(tmp_path))["tools"]["a_tool"]["days"]["2026-11-24"]
+    assert got == rounds * workers * per
+
+
 # ---- learned profile ------------------------------------------------------ #
 
 def test_learned_profile_lists_core_always_loaded_and_top_tools():

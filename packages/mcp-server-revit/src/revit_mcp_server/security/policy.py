@@ -33,6 +33,7 @@ LIST_RULES = ("blocked_tools", "allowed_tools", "allowed_categories", "blocked_p
 UNION_RULES = ("blocked_tools", "blocked_parameters", "blocked_tiers")
 INTERSECT_RULES = ("allowed_tools", "allowed_categories", "allowed_tiers")
 INT_RULES = ("max_elements_per_plan", "max_actions_per_plan")
+BOOL_RULES = ("require_second_approver",)
 MAX_FILE_BYTES = 256 * 1024
 
 
@@ -77,7 +78,7 @@ def _validate(data: Any, where: str) -> Dict[str, Any]:
         return {}
     if not isinstance(data, dict):
         raise PolicyError(f"Invalid policy file {where}: the top level must be a mapping. All writes are refused until it is fixed.")
-    unknown = sorted(str(k) for k in data if k not in LIST_RULES + INT_RULES)
+    unknown = sorted(str(k) for k in data if k not in LIST_RULES + INT_RULES + BOOL_RULES)
     if unknown:
         raise PolicyError(f"Invalid policy file {where}: unknown key(s) {', '.join(unknown)}. All writes are refused until it is fixed.")
     rules: Dict[str, Any] = {}
@@ -99,6 +100,11 @@ def _validate(data: Any, where: str) -> Dict[str, Any]:
             if type(v) is not int or v < 0:
                 raise PolicyError(f"Invalid policy file {where}: '{key}' must be a whole number of 0 or more. All writes are refused until it is fixed.")
             rules[key] = v
+    for key in BOOL_RULES:
+        if key in data and data[key] is not None:
+            if type(data[key]) is not bool:
+                raise PolicyError(f"Invalid policy file {where}: '{key}' must be true or false. All writes are refused until it is fixed.")
+            rules[key] = data[key]
     return rules
 
 
@@ -187,6 +193,10 @@ def merge_rules(layers: List[Layer]) -> Dict[str, Any]:
         vals = [lay.rules[key] for lay in layers if key in lay.rules]
         if vals:
             merged[key] = min(vals)
+    for key in BOOL_RULES:
+        vals = [lay.rules[key] for lay in layers if key in lay.rules]
+        if vals:
+            merged[key] = any(vals)  # on in either file means on
     return merged
 
 
@@ -211,6 +221,11 @@ def load_policy(workspace_dir: Optional[Path]) -> Policy:
     merged = merge_rules(layers)
     return Policy(rules=merged, source="; ".join(lay.source for lay in layers), hash=_hash_rules(merged),
                   layers=tuple(layers))
+
+
+def second_approver_required(policy: Policy) -> bool:
+    """True when the policy asks for a person other than the plan's requester to approve (#203)."""
+    return policy.rules.get("require_second_approver") is True
 
 
 def tiers_off(policy: Policy) -> Dict[str, str]:

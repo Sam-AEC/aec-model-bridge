@@ -23,7 +23,7 @@ MODULE_PREFIXES = (
     "bcf_exchange_", "clash_triage_", "familytype_mapper_", "geometry_screening_", "hello_world_", "ids_validator_",
     "links_worksets_audit_", "mark_renumber_plan_", "model_bloat_", "model_changes_", "model_health_", "model_inspector_",
     "naming_checker_", "param_completeness_", "parameter_manager_", "pyrevit_bridge_",
-    "qa_handover_", "qaqc_checker_", "recipe_runner_", "report_generator_",
+    "qa_handover_", "qaqc_checker_", "qto_export_", "recipe_runner_", "report_generator_",
     "schedule_consistency_", "schedule_diff_", "selection_tools_", "sheet_set_qa_", "sheet_view_audit_",
     "warnings_triage_",
 )

@@ -185,7 +185,7 @@ def test_result_is_json_serialisable(ws):
 
 def test_module_manifest_is_read_only():
     manifest = json.loads((Path(mod.__file__).parent / "module.json").read_text(encoding="utf-8"))
-    assert [(c["id"], c["is_mutating"]) for c in manifest["commands"]] == [("compare", False)]
+    assert [(c["id"], c["is_mutating"]) for c in manifest["commands"]] == [("compare", False), ("compare_snapshot", False)]
 
 
 def _ifc_with_complex_property(ids):

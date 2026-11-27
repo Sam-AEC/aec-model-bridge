@@ -13,11 +13,14 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.server.lowlevel.helper_types import ReadResourceContents
 from mcp.types import (
-    CallToolResult, CreateTaskResult, GetPromptResult, Prompt, Resource, ResourceLink, ResourceTemplate, Tool,
-    TextContent,
+    CallToolResult, Completion, CompletionArgument, CompletionContext, CreateTaskResult, GetPromptResult, Prompt,
+    PromptReference, Resource, ResourceLink, ResourceTemplate, ResourceTemplateReference, Tool, TextContent,
 )
 
-from . import call_limits, client_roots, http_transport, mcp_apps, mcp_logging, mcp_prompts, mcp_resources, mcp_tasks
+from . import (
+    call_limits, client_roots, http_transport, image_content, mcp_apps, mcp_completions, mcp_logging, mcp_prompts,
+    mcp_resources, mcp_tasks,
+)
 
 from .elicitation import (
     MAX_ROUNDS, VIEW_SHEET_REFS, ElicitationForbidden, InputNeeded, check_view_sheet_names, elicit_choice,
@@ -174,6 +177,17 @@ async def list_prompts() -> list[Prompt]:
 @app.get_prompt()
 async def get_prompt(name: str, arguments: dict[str, str] | None) -> GetPromptResult:
     return mcp_prompts.get_prompt(name, arguments)
+
+
+@app.completion()
+async def complete(
+    ref: PromptReference | ResourceTemplateReference,
+    argument: CompletionArgument,
+    context: CompletionContext | None,
+) -> Completion:
+    """completion/complete: category, level and parameter names from the newest snapshot, read-only."""
+    dirs = getattr(workspace_monitor, "allowed_directories", None)
+    return mcp_completions.complete(dirs[0] if dirs else None, argument.name, argument.value)
 
 
 @app.list_resources()
@@ -575,6 +589,9 @@ async def _execute_and_present(name, provider, arguments, claim, gate, response_
                 type="resource_link", uri=cursor_ctx.resource_uri, name=f"{name} full result",
                 mimeType=mcp_resources.MIME,
             ))
+        if image_content.wants_image(name, arguments):
+            image, note = image_content.image_block(result, workspace_monitor)
+            content.append(image if image is not None else TextContent(type="text", text=note))
         # Plan tools: the approval mode goes in _meta for the MCP Apps view; the plan JSON is unchanged.
         view_meta = mcp_apps.result_meta(name, gate)
         if output_schema_for(name) is not None:

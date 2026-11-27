@@ -175,7 +175,9 @@ class _FileLock:
         while True:
             try:
                 fd = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-            except FileExistsError:
+            except (FileExistsError, PermissionError):
+                # Windows raises PermissionError, not FileExistsError, while the holder is
+                # deleting the lock file; both mean another flush is in progress.
                 self._remove_if_stale()
                 if time.monotonic() >= deadline:
                     raise UsageLockTimeout(f"{self.path.name} is held by another process") from None

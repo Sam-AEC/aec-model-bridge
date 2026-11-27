@@ -50,7 +50,7 @@ Not copied (read them from the repository):
 > Open-source Revit MCP server (Model Context Protocol) and native Revit add-in. AI assistants such as Claude, Codex and Cursor read and edit the BIM model open in Revit 2024 to 2027. Every model change is a plan that a person approves first (approval gate). Also reads IFC files; Rhino, Grasshopper and Speckle integrations included.
 
 - Protocol: Model Context Protocol, stdio transport. Any MCP client that can start a local server works.
-- Tools: 324 in the default setup, counted in mock mode. Revit has 112 of them.
+- Tools: 327 in the default setup, counted in mock mode. Revit has 112 of them.
 - Safety: tools that change the model are blocked until a plan is approved. An unattended mode exists and is opt-in.
 - Platform: live Revit work needs Windows and a licensed Revit. Mock mode (sample data) needs neither.
 - Licence: GPL-3.0-or-later with the Revit Linking Exception, plus a commercial option.
@@ -161,7 +161,7 @@ python ../../scripts/version.py check       # VERSION, pyproject and manifests m
 
 **AI assistants read the Revit model you have open. By default, nothing in it changes until you approve a plan.**
 
-Open-source Revit MCP server · Revit 2024 – 2027 · 324 tools · Claude, Codex, Cursor and other MCP clients
+Open-source Revit MCP server · Revit 2024 – 2027 · 327 tools · Claude, Codex, Cursor and other MCP clients
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Sam-AEC/aec-model-bridge/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Sam-AEC/aec-model-bridge/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
@@ -317,14 +317,14 @@ status. It is not on the Marketplace.
 | --- | --- | --- |
 | Revit | 112 | Read the model, edit elements, parameters, views, sheets, schedules, exports, worksharing |
 | Approval | 6 | Plan, review, approve, execute and roll back changes; show the workspace policy |
-| Modules | 124 | Snapshot inspection, parameter grids, QA/QC checks, recipes, reports, selections |
+| Modules | 127 | Snapshot inspection, parameter grids, QA/QC checks, recipes, reports, selections |
 | Rhino and Grasshopper | 19 | Geometry, layers, materials, boolean operations |
 | Speckle | 17 | Projects, models, versions, send and receive |
 | Navisworks | 15 | Model tree, viewpoints, clash tests (in progress) |
 | IFC | 7 | Read IFC files without Revit |
 | Graph, snapshots, exports, jobs | 24 | Graph audits, snapshot diffs, SQLite export, background jobs |
 
-324 tools are listed in the default setup (counted from the current server in
+327 tools are listed in the default setup (counted from the current server in
 mock mode). Autodesk Data tools appear when APS credentials are configured. The
 [tool reference](docs/tools-generated.md) lists every tool. Each tool carries
 MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`,
@@ -1347,6 +1347,7 @@ The server has three modes. Set the mode with `MCP_REVIT_MODE`.
 | `MCP_PANEL_HTTP_PORT` | No | `8787` | Port of the panel hub (loopback only). Read by the hub and by the add-in. |
 | `AEC_PANEL_MAX_THREADS` | No | `32` | Most request threads the panel hub runs at once, `4`-`256`. Two are kept for requests whose path is `/execute` (all tools on that route, since the tool name is in the body). When every slot is in use, a new connection gets HTTP 503 with `Retry-After: 1` and `{"ok": false, "kind": "hub_busy", "error": ...}`, and no thread starts. A non-numeric or out-of-range value falls back to `32` and logs a warning. Read once when the hub starts. See [Timeouts and rate limits](#timeouts-and-rate-limits). |
 | `MCP_PANEL_TOKEN_FILE` | No | `%LOCALAPPDATA%\AECModelBridge\panel-hub.token` | Path of the per-user panel hub token file. The first hub to start creates it (owner-only); the hub and every Revit add-in read it. Delete it and restart the hub to rotate the token. Never copy its contents into a config, chat or log. See [Security](security.md). |
+| `MCP_PANEL_REVIEWER_TOKEN_FILE` | No | `panel-reviewer.token` beside the panel token file | Path of the optional read-only reviewer token file. Off when the file is absent. Create it with `python -m revit_mcp_server.security.panel_token --new-reviewer`. A client sends it as header `X-AMB-Reviewer-Token`; it may list plans and read proofs and is refused (403) on approve, reject and approval-mode changes. See [Security](security.md). |
 | `AEC_BRIDGE_TRANSPORT` | No | unset | Read by the Revit add-in at start-up. Set to `pipe` to open a named pipe for the current Windows user beside the HTTP port, and publish its name in the registry entry. The Python server also reads it when `MCP_REVIT_BRIDGE_TRANSPORT` is unset. UNVERIFIED in live Revit. See [ADR 0021](adr/0021-named-pipe-transport.md). |
 | `MCP_REVIT_LEGACY_PORT` | No | unset | Read by the Revit add-in, not the Python server. Set to `true` or `1` to bind the add-in to fixed port `3000` with no authentication. See [Security](security.md). |
 | `AEC_BRIDGE_TURN_BUDGET_MS` | No | `40` | Read by the Revit add-in when Revit starts. Milliseconds one Revit turn may spend on queued read-only requests before it hands control back to Revit. Clamped to `0`-`200`; `0` runs one request per turn. Writes, unknown commands, exports, `revit.extract_snapshot` and `revit.check_clashes` always run alone in their own turn. A turn can exceed the budget by at most one command. Live behaviour is UNVERIFIED. |
@@ -1426,6 +1427,7 @@ An optional policy adds refusals. It never approves or runs anything, and it can
 | `blocked_parameters` | list of parameter names (case ignored) | any action that sets a listed parameter |
 | `max_elements_per_plan` | whole number | a plan naming more elements, or any action that names none |
 | `max_actions_per_plan` | whole number | a plan with more actions |
+| `require_second_approver` | `true` or `false` (default off) | an approval by the person who asked for the plan (two-person rule). A plan drafted while it is on records `requested_by`, covered by the plan hash. The requester is `MCP_REVIT_REQUESTER` in the server's environment, else the operating-system account; the approver is `MCP_REVIT_APPROVER` in the environment of the panel hub or `aec-model-bridge-approve`, else the account. Names are compared ignoring case and any domain part (`alice`, `alice@corp` and `CORP\alice` are the same person). An unknown requester, an unknown approver, or a plan drafted before the option was on is refused. On in either the machine or the workspace file means on. The rule is checked again at `execute_plan`: a plan with no recorded requester, or approved by its requester, does not run. **Not an authentication control:** the approver name comes from `MCP_REVIT_APPROVER` or the operating-system account and is not verified, so one person with a shell can set another name. A separate approver needs a separate operating-system account or a separately configured approving machine. |
 
 Element, category, level and workset values come from the action arguments and, when the plan names one, the snapshot. Anything not known is reported as `unknown`; a rule that needs an unknown value refuses rather than guesses. An unknown key, a wrong type, a missing file named by `MCP_REVIT_POLICY_FILE` or a parse error is an invalid policy: every `plan_actions` and `execute_plan` call is refused with the reason until it is fixed. Direct writes in Dev or Auto mode do not go through a plan and are not covered.
 
@@ -2927,6 +2929,8 @@ The hub requires the header `X-AMB-Token` on every route except `GET /health`. A
 - **The page never sees it.** The panel's JavaScript does not call the hub. It posts messages to C# (`window.chrome.webview.postMessage`), and only `HubClient` calls the hub; a test checks that `panel/` contains no network calls and no reference to the token.
 - **Rotation.** Stop every hub (end the `revit_mcp_server.panel_server` Python process), delete `panel-hub.token`, then start Revit. The next hub writes a new token. A running hub keeps the token it started with: if the file changes underneath it, the hub logs "token file changed ... restart the hub", and the panel, after one re-read of the file and one retry, shows "token changed" with the same instruction. An older hub (before this change) ignores the header; an older add-in talking to a new hub gets `401`. Update both together.
 
+**Read-only reviewer credential (off by default).** A second secret lets a person or tool follow the queue without approval rights. It lives in `panel-reviewer.token` beside the panel token (`MCP_PANEL_REVIEWER_TOKEN_FILE` overrides the path), has the same format and owner-only file rules, and is created only by `python -m revit_mcp_server.security.panel_token --new-reviewer`. No MCP tool reads, creates or sets it. A client sends it in the header `X-AMB-Reviewer-Token` and the hub compares it with `hmac.compare_digest`. It is read when the hub starts; with no file, a malformed file, or a value equal to the panel token, reviewer access is off and the header gets `401`. A reviewer may call `GET /diagnostics`, `GET /reports`, and `POST /execute` with only `list_pending_plans` or `get_proof_bundle`. Every other route or tool, including approve, reject, rollback, execute, planning, `POST /approval-mode`, chat and unknown paths, gets `403`. If both headers are sent, a valid panel token wins; a wrong panel token is refused with `401` and counted as a failed attempt even when the reviewer header is valid. A reviewer's `instance` field is ignored, `/diagnostics` skips the write test, and `/diagnostics` and `/reports` leave out absolute workspace paths. The reviewer role is a read filter on the hub; it is not a second approver (see the two-person rule) and does not identify a person.
+
 **What the token is, and is not.** It proves "a process running as this Windows user", and it keeps out browser pages (already blocked by the Host/Origin checks) and software that cannot read your profile. It does not by itself keep out another Windows user on a shared machine: that user could bind 127.0.0.1:8787 first and receive the token the add-in sends (see "Before any release: panel token and routing"; UNVERIFIED). It does not prove a person is present. Anything running as the same user, including an AI agent with a shell on your account, can read the file and call the hub. The real boundary is OS user separation plus the human-only approval flow: approving a plan from the panel is still recorded as `approved_via: "panel"` and the tool-call paths (MCP calls, the panel chat's tool calls, recipe steps, `execute_plan`) cannot reach `approve_plan`, `reject_plan` or `rollback_plan`. A command-line agent that can read files and open network connections as you can read the token file and call the hub directly; the hub launches `codex exec --sandbox read-only`, and whether that sandbox blocks reading the file or reaching loopback on Windows is UNVERIFIED. Run such agents with network access disabled where you can. Do not give an AI client a shell on the account you approve plans with. Other limits: the token travels over plain loopback HTTP, and any process that can read your user's files can read it.
 
 #### Several Revits (instance routing)
@@ -3035,7 +3039,7 @@ Dev permits unplanned writes while retaining Look only lockdown. Calls supplying
 
 ### Workspace policy
 
-An optional `policy.yaml` (or `MCP_REVIT_POLICY_FILE`) can block tools or parameters, limit categories and cap plan size. It is checked when a plan is drafted and again just before `execute_plan` runs its first action, so a tightened policy stops plans that were drafted earlier. It only adds refusals: approval stays with a person, and no policy rule approves or runs a plan. An invalid file refuses all plan drafting and execution. See [Policy file](configuration-reference.md#policy-file).
+An optional `policy.yaml` (or `MCP_REVIT_POLICY_FILE`) can block tools or parameters, limit categories and cap plan size. It is checked when a plan is drafted and again just before `execute_plan` runs its first action, so a tightened policy stops plans that were drafted earlier. It only adds refusals: approval stays with a person, and no policy rule approves or runs a plan. The optional `require_second_approver` rule (off by default) records `requested_by` on the plan, inside the hash, and refuses an approval by that same name; an unknown requester or approver is refused. Both names come from the environment of the server and of the approving process (`MCP_REVIT_REQUESTER`, `MCP_REVIT_APPROVER`), never from tool arguments, and they are not verified identities. Names are compared ignoring case and any domain part, so `alice`, `alice@corp` and `CORP\alice` are the same person. The two-person rule records names and catches mistakes and same-account approval. It is not an authentication control: the approver name comes from `MCP_REVIT_APPROVER` or the operating-system account and is not verified, so one person with a shell can set another name. A separate approver needs a separate operating-system account or a separately configured approving machine. The rule is checked again when the plan runs: a plan with no recorded requester, or approved by its requester, does not execute while the option is on. An invalid file refuses all plan drafting and execution. See [Policy file](configuration-reference.md#policy-file).
 
 ### Machine policy and tiers
 
@@ -3791,7 +3795,7 @@ The result gives pass, fail or skipped per specification (skipped means the spec
 
 Measured 2026-11-05 with `MCP_REVIT_MODE=mock`, the supplied Python interpreter, a temporary workspace, no user modules or provider credentials, and no Revit model execution. Baseline captured at `87d1d1bb5312ccb9868786860cbc66f76c47b895` before production changes; results were reported before edits.
 
-The checkout exposes **324** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
+The checkout exposes **327** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
 
 ## Initial profile and response pass
 
@@ -4977,8 +4981,8 @@ Ordered list for shipping from `dev` to `main`. Section 2 has no PASS or FAIL re
 
 ## 0. Release flow
 
-- Open one release PR from `dev` into `main` and merge it with a merge commit.
-- `dev` is frozen while that PR is open. PRs into `dev` wait until it lands. The `release-freeze` workflow fails on PRs into `dev` while a `dev` into `main` PR is open; add `release-freeze` as a required check on `dev`.
+- Open one release PR into `main` from `dev`, or from a `release/*` branch of this repository when `dev` conflicts with `main`. Merge it with a merge commit.
+- `dev` is frozen while that PR is open. PRs into `dev` wait until it lands. The `release-freeze` workflow fails on PRs into `dev` while a PR into `main` is open whose head is `dev` or a `release/*` branch of this repository; add `release-freeze` as a required check on `dev`.
 - Tag after the release PR is merged, from the merge commit on `main`.
 - Issues fixed on `dev` carry the `fixed-in-dev` label and close when the release reaches `main`.
 
@@ -5006,6 +5010,7 @@ Run on a Windows machine with Revit, starting with the write test in section 5. 
 5. Windows ACL on `%LOCALAPPDATA%\AECModelBridge\panel-hub.token`: only the current user has access. Windows does not re-verify the ACL on read.
 6. The Revit 2024 Release build and authenticated panel backend passed on 14 October 2026. Build and run the net8 and net10 targets as well, and repeat the release checks on each supported year.
 7. Verify the panel review card and explicit Dev mode (Settings, Dev mode). Dev must stay visibly enabled until switched off, audit its writes, and preserve read-mode guards, filesystem scope and supplied-plan checks.
+8. Image return (issue #211, UNVERIFIED). Call `revit_export_image` with `return_image: true` on a view that has been opened. The result should hold the JSON text and one PNG image block, and the file should stay in the workspace. Then export a large view (more than 2 MB) and check the refusal names the 2 MB cap.
 
 Results for 1.6.0, Revit 2026.5, scratch copy of the Snowdon Towers sample, 2026-11-26:
 - 1 PASS: a two-action `revit_set_parameter_value` plan, approved by the person in the panel, wrote both values. No crash.
