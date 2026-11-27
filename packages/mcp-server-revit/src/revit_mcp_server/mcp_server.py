@@ -21,7 +21,7 @@ from . import call_limits, client_roots, mcp_apps, mcp_logging, mcp_prompts, mcp
 
 from .elicitation import (
     MAX_ROUNDS, VIEW_SHEET_REFS, ElicitationForbidden, InputNeeded, check_view_sheet_names, elicit_choice,
-    elicitation_allowed, missing_export_path,
+    client_supports_url_elicitation, elicitation_allowed, missing_export_path, offer_plan_panel_link,
 )
 from .errors import BridgeError, CommandFailed
 from .registry_factory import build_registry
@@ -210,7 +210,10 @@ async def _call_tool_rounds(name: str, arguments: Any) -> list[TextContent] | Ca
     rounds = 0
     while True:
         try:
-            return await _call_tool_once(name, arguments)
+            result = await _call_tool_once(name, arguments)
+            if name == "plan_actions":
+                await _offer_panel_link(result)
+            return result
         except InputNeeded as need:
             answer = None
             if rounds < MAX_ROUNDS and _may_elicit(name, arguments):
@@ -228,6 +231,37 @@ async def _call_tool_rounds(name: str, arguments: Any) -> list[TextContent] | Ca
             except InputNeeded as again:
                 return _tool_error("input_needed", again.refusal)
             rounds += 1
+
+
+def _pending_plan_id(result: Any) -> str | None:
+    """The id of the plan a plan_actions reply drafted, or None when it drafted none."""
+    if isinstance(result, CallToolResult):
+        if result.isError:
+            return None
+        data = result.structuredContent
+        if not isinstance(data, dict):
+            data = None
+        content = result.content
+    else:
+        data, content = None, result
+    if data is None:
+        text = next((c.text for c in content or [] if isinstance(c, TextContent)), "")
+        data = _json_object(text.split("Result:\n", 1)[1]) if "Result:\n" in text else None
+    if isinstance(data, dict) and data.get("state") == "pending" and isinstance(data.get("plan_id"), str):
+        return data["plan_id"]
+    return None
+
+
+async def _offer_panel_link(result: Any) -> None:
+    """Send the review panel link for a newly drafted plan to a client that supports URL mode.
+    The link only points at the panel; it never approves. Any failure leaves the reply as is."""
+    try:
+        plan_id = _pending_plan_id(result)
+        session = _client_session()
+        if plan_id and client_supports_url_elicitation(session):
+            await offer_plan_panel_link(session, plan_id, related_request_id=_request_id())
+    except Exception as exc:  # the plan is drafted; the link is a convenience
+        logger.info("Panel link skipped: %s", type(exc).__name__)
 
 
 def _client_session() -> Any:

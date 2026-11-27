@@ -1,0 +1,44 @@
+# Uniclass 2015 classification: presence and format on asset categories.
+# The parameter name 'Uniclass Code' is an assumption: replace every 'Uniclass Code' below with the
+# name your template or shared parameter file uses. Pipeline paths split at dots, so a name with a
+# dot (for example 'Classification.Uniclass.Pr.Number') cannot be used here; use a name without dots.
+# The asset categories are a starting list: edit the 'in' list in every rule to the categories you hand over.
+# Format check: the code starts with a table prefix (Pr_, Ss_, EF_, SL_), has no space and does not end in '_'.
+# It does not check the digit groups of codes such as Pr_20_93_52 (the rule pack engine has no regex
+# operator). For the full pattern use a reviewed naming rule (see docs/rule-packs.md).
+# 'not captured' means the element has no such parameter in the snapshot: the parameter does not exist on
+# the element or the add-in did not read it. A parameter that is present but empty is reported as empty.
+# Copy it into your workspace, then: import_rule_pack -> run_check(rule_pack="classification-uniclass")
+rules:
+  - id: uniclass_code_not_captured
+    severity: info
+    category: Assets
+    description: "Uniclass code was not captured: the element has no 'Uniclass Code' parameter in the snapshot."
+    pipeline:
+      - where:
+          - {field: category, op: in, value: [OST_Doors, OST_Windows, OST_MechanicalEquipment, OST_ElectricalEquipment, OST_PlumbingFixtures]}
+          - {field: params.Uniclass Code, op: exists, value: false}
+    fix_template: "Add the 'Uniclass Code' parameter to the category of '{label}' and take a new snapshot."
+
+  - id: uniclass_code_missing
+    severity: error
+    category: Assets
+    description: "Uniclass code is empty."
+    pipeline:
+      - where:
+          - {field: category, op: in, value: [OST_Doors, OST_Windows, OST_MechanicalEquipment, OST_ElectricalEquipment, OST_PlumbingFixtures]}
+          - {field: params.Uniclass Code, op: exists}
+          - {field: params.Uniclass Code, op: empty}
+    fix_template: "Fill in 'Uniclass Code' on '{label}'."
+
+  - id: uniclass_code_format
+    severity: error
+    category: Assets
+    description: "Uniclass code does not start with a table prefix (Pr_, Ss_, EF_, SL_), or has a space or a trailing underscore."
+    pipeline:
+      - where:
+          - {field: category, op: in, value: [OST_Doors, OST_Windows, OST_MechanicalEquipment, OST_ElectricalEquipment, OST_PlumbingFixtures]}
+          - {field: params.Uniclass Code, op: exists}
+          - {field: params.Uniclass Code, op: empty, value: false}
+          - {any: [{not: {any: [{field: params.Uniclass Code, op: startswith, value: "Pr_"}, {field: params.Uniclass Code, op: startswith, value: "Ss_"}, {field: params.Uniclass Code, op: startswith, value: "EF_"}, {field: params.Uniclass Code, op: startswith, value: "SL_"}]}}, {field: params.Uniclass Code, op: contains, value: " "}, {field: params.Uniclass Code, op: endswith, value: "_"}]}
+    fix_template: "Correct the Uniclass code on '{label}', for example Pr_20_93_52."
