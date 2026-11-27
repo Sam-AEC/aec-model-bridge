@@ -85,6 +85,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `hello_world_say_hello` | Example module command that returns a greeting; use it to confirm the module system works. | No | sync |
 | `ids_validator_validate_ifc` | Check an IFC file in the workspace against a buildingSMART IDS file and return pass or fail per specification with the GlobalIds of failing entities (capped, with full counts). | No | sync |
 | `ifc_diff_compare` | Compare two IFC files in the workspace by GlobalId: elements added, removed and changed (class, name, property sets and quantities, with a property hash), with complete counts and capped lists. | No | sync |
+| `ifc_diff_compare_snapshot` | Compare a delivered IFC file against a saved snapshot by GlobalId: snapshot elements missing from the IFC, IFC elements missing from the snapshot, and matched elements, with counts by category. | No | sync |
 | `links_worksets_audit_audit` | Check linked models and worksets for problems (unloaded or missing links, links not pinned or placed Origin to Origin, empty or default-named worksets, worksets owned by someone else, elements on the wrong workset) and give plain next steps. | No | sync |
 | `mark_renumber_plan_analyze` | Find duplicate marks, empty marks, gaps and out-of-order sequences for doors, rooms and windows in a saved snapshot, and propose a new numbering from a small rule file (doors: To room number plus a letter; rooms and windows: level prefix plus sequence). | No | sync |
 | `mark_renumber_plan_draft_plan` | Draft one plan_actions-ready list of parameter writes for the proposed mark numbering. | No | sync |
@@ -103,6 +104,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `naming_checker_check_names` | Check file names, sheet numbers and names, view names and level or grid names against the naming convention you provide (a pattern of named fields with allowed values per field). | No | sync |
 | `naming_checker_list_example_conventions` | List the bundled example naming conventions. | No | sync |
 | `param_completeness_heatmap` | Measure how many elements have a value in each parameter, per category (and per level on request), from a saved snapshot: filled, total and percent. | No | sync |
+| `param_completeness_loin_report` | Check a saved snapshot against a LOIN requirement file in the workspace loin folder (YAML or JSON: category, stage, required parameters) and report completeness per category and stage. | No | sync |
 | `parameter_manager_diff_params` | Compare parameter values between two saved snapshots and list the differences. | No | sync |
 | `parameter_manager_export_params_csv` | Export parameters of the matching snapshot elements to a CSV file in the workspace. | No | sync |
 | `parameter_manager_export_params_xlsx` | Export parameters of the matching snapshot elements to an Excel workbook in the workspace for editing. | No | sync |
