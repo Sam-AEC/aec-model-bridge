@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Security review follow-up: client roots that name a network (UNC) share are ignored and never resolved; a `roots/list_changed` that lands during a roots fetch no longer lets the stale answer be cached; the parameter manager blocks `nan` and infinite numeric values; the workspace sandbox no longer re-resolves its allowed directories on every check.
 - Security review follow-up: client roots now narrow caller-supplied paths in `bcf_exchange`, `ifc_diff`, `recipe_runner`, `naming_checker` and the `qaqc_checker` fallback; relative paths start in the first narrowed directory; behaviour without roots is unchanged.
 - Coverage: `[tool.coverage.run]` sets `parallel = true` and `patch = ["subprocess"]`, so child processes (`python -m` and stdio smoke tests) report coverage and `pytest --cov` combines their data; a test checks the setting and that a child's lines reach the report. Fixes #235
 - New tool `qaqc_checker_draft_fix_plan`. Tool count is now 324 (124 module tools). Rules take an optional `fix` (`parameter` and `value`); selected findings whose rule has one become one `plan_actions` list with a `revit_set_parameter_value` action each, and the rest are listed as skipped with the reason. It refuses unknown, resolved, stale or mixed-snapshot findings and a snapshot from another model, and only drafts: a person approves and `execute_plan` writes. Fixture-tested; live apply is UNVERIFIED. Fixes #187
