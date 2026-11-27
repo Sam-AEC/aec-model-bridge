@@ -88,6 +88,8 @@ build-backend = "setuptools.build_meta"
 # ~80 module tools that a source checkout has.
 [tool.setuptools.package-data]
 revit_mcp_server = [
+    # Sample tool-description catalogs (MCP_REVIT_LOCALE).
+    "locales/*.json",
     "modules/*/module.json",
     "modules/*/rules/*.yaml",
     "modules/*/recipes/*.yaml",

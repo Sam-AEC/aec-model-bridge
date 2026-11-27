@@ -4,6 +4,7 @@
 
 - Example rule packs `classification-uniclass.yaml`, `classification-omniclass.yaml` and `cobie-completeness.yaml`: presence and format of Uniclass and OmniClass codes and presence of COBie component and type fields on asset categories, with fields the snapshot does not hold reported as not captured. Fixture-tested only; real-model behaviour is UNVERIFIED. Fixes #175
 - Docker image: dependencies install from `requirements-docker.txt`, a hash-pinned export of `uv.lock` (`pip install --require-hashes`), then the package with `--no-deps`. A test fails when the export drifts from the lock. Clears Scorecard alert #36.
+- Optional `MCP_REVIT_LOCALE` selects a language for tool descriptions from `locales/<code>.json`; missing tools, unset, `en` and unknown codes use English, and names, schemas and annotations never change. Ships a small sample `nl` catalog. Fixes #205
 - Tests: the job, Revit job, server and approval tests no longer use real sleeps; they wait on events, and a cancelled job that never stops fails within 2 s. Fixes #242
 
 ## 1.6.1 - 2026-11-27
