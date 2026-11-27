@@ -18,6 +18,7 @@ jobs:
   drift:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment: maintenance
     permissions:
       contents: read
     steps:

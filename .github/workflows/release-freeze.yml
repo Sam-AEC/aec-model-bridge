@@ -20,8 +20,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
         run: |
-          open=$(gh pr list --base main --head dev --state open --json number --jq '.[].number' | head -n 1)
+          # Only a dev branch in this repository counts; a fork branch named dev does not.
+          open=$(gh pr list --base main --head dev --state open --json number,headRepositoryOwner             --jq ".[] | select(.headRepositoryOwner.login == \"${OWNER}\") | .number" | head -n 1)
           if [ -n "$open" ]; then
             echo "::error::dev is frozen: release PR #${open} (dev into main) is open. Merge or close it, then re-run this check."
             exit 1

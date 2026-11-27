@@ -41,6 +41,7 @@ jobs:
   release:
     runs-on: windows-latest
     timeout-minutes: 90
+    environment: release
     permissions:
       contents: write
       actions: write
@@ -52,6 +53,19 @@ jobs:
         uses: step-security/harden-runner@aebdcf6156ab6691adf63218240e476564a1ed4c # v2.23.0
         with:
           egress-policy: audit
+
+      # The release environment only accepts v* tags. A rebuild must be dispatched
+      # with the tag as the ref: gh workflow run release.yml --ref vX.Y.Z -f tag=vX.Y.Z
+      - name: Require a tag ref for manual runs
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        shell: bash
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          if [ "$REF_TYPE" != "tag" ]; then
+            echo "::error::Dispatch release.yml on the tag itself: gh workflow run release.yml --ref vX.Y.Z -f tag=vX.Y.Z"
+            exit 1
+          fi
 
       - name: Resolve tag
         id: tag
@@ -105,7 +119,7 @@ jobs:
       - name: Install Python build tools
         shell: pwsh
         run: |
-          python -m pip install --upgrade build pytest
+          python -m pip install --require-hashes -r .github/requirements/release.txt
           python -m pip install -e "packages/mcp-server-revit[dev,ids]"
 
       - name: Run Python tests
@@ -172,7 +186,7 @@ jobs:
         if: ${{ (inputs.revit_version || 'All') == 'All' }}
         shell: pwsh
         run: |
-          choco install innosetup -y --no-progress
+          choco install innosetup --version 6.7.1 -y --no-progress
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup installation failed" }
 
       - name: Build Windows installer

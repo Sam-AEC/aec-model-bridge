@@ -130,6 +130,11 @@ Do once, signed in to pypi.org and GitHub as the maintainer. Nothing in the repo
 
 The environment name on PyPI and in the workflow must match. If an older pending publisher exists with no environment, delete it and add the one above.
 
+### GitHub environments
+
+- `release`: deployment branches and tags limited to `v*` tags. `release.yml`, `publish-mcp.yml` and the publish job of `vscode-extension.yml` use it, so a manual run from a branch cannot reach OIDC or store tokens. Rebuild an existing tag with `gh workflow run release.yml --ref vX.Y.Z -f tag=vX.Y.Z`; `release.yml` refuses a manual run on a branch. A dry run with the `ref` input is also dispatched on a tag.
+- `maintenance`: deployment branches limited to `main`. `rulesets-drift.yml` uses it, so `SCORECARD_TOKEN` is not exposed to other branches.
+
 ### OpenSSF Scorecard
 
 `.github/workflows/scorecard.yml` runs weekly and on pushes to `main`, uploads results to code scanning and publishes them to the Scorecard API for the README badge. The badge shows "invalid" until the first run on `main` completes.

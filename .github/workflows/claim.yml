@@ -8,6 +8,10 @@ on:
 
 permissions: {}
 
+concurrency:
+  group: claim-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
 jobs:
   claim:
     if: ${{ !github.event.issue.pull_request && github.event.issue.state == 'open' }}
@@ -36,5 +40,10 @@ jobs:
             echo "Already claimed."
             exit 0
           fi
-          gh issue edit "$NUMBER" --add-assignee "$COMMENTER" --add-label claimed
+          gh issue edit "$NUMBER" --add-assignee "$COMMENTER"
+          if ! gh issue view "$NUMBER" --json assignees --jq '.assignees[].login' | grep -qixF "$COMMENTER"; then
+            echo "::error::Assignment failed; the issue is not claimed."
+            exit 1
+          fi
+          gh issue edit "$NUMBER" --add-label claimed
           gh issue comment "$NUMBER" --body "Assigned to @${COMMENTER}."
