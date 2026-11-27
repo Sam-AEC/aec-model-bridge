@@ -17,7 +17,8 @@ breaking clients.
 
 Only tools whose result is built by this Python server are listed. Tools that forward a command
 to the Revit add-in return the add-in's own shape live and a generic envelope in mock mode, so a
-schema for them could not be checked here.
+schema for them could not be checked here. ``tests/test_output_schemas.py`` names the core read
+tools left out for that reason.
 """
 from __future__ import annotations
 
@@ -85,6 +86,37 @@ OUTPUT_SCHEMAS: dict[str, dict[str, Any]] = {
     "revit_system_report": _CHECK,
     "revit_list_views_sheets_schedules": _CHECK,
     "revit_cleanup_audit": _CHECK,
+    "revit_warnings_delta": _CHECK,
+    "revit_get_parameters": _CHECK,
+    "naming_checker_check_names": _obj(
+        {"summary": OBJ, "complete": B, "results": A, "by_kind": OBJ, "not_enough_data": A, "notes": A},
+        ("summary", "complete", "results"),
+    ),
+    "sheet_view_audit_run_audit": _obj(
+        {"status": S, "total_findings": INT, "findings": A, "by_severity": OBJ, "message": S},
+        ("status", "total_findings", "findings"),
+    ),
+    "schedule_consistency_check_doors_and_rooms": _obj(
+        {"read_only": B, "complete": B, "snapshot_id": S, "doors_checked": INT, "rooms_checked": INT,
+         "total_findings": INT, "summary": S, "counts": OBJ, "skipped": A, "findings": A},
+        ("complete", "total_findings", "summary", "findings"),
+    ),
+    "warnings_triage_review_warnings": _obj(
+        {"ok": B, "read_only": B, "total_warnings": INT, "total_groups": INT, "groups": A, "notes": A, "error": S},
+        ("ok",),
+    ),
+    "links_worksets_audit_audit": _obj(
+        {"total_findings": INT, "by_severity": OBJ, "links_checked": INT, "worksets_checked": INT,
+         "findings": A, "notes": A, "gaps": A, "source": S},
+        ("total_findings", "findings"),
+    ),
+    "model_inspector_inspect_selection": _obj(
+        {"inspected_count": INT, "missing_uids": A, "elements": A},
+        ("inspected_count", "missing_uids", "elements"),
+    ),
+    "parameter_manager_filter_params": _obj(
+        {"param_name": S, "element_count": INT, "rows_with_param": INT, "rows": A}, ("param_name", "rows"),
+    ),
 }
 
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -21,6 +22,7 @@ from revit_mcp_server.security.panel_token import TOKEN_HEADER, read_token
 
 ROOT = Path(__file__).resolve().parents[3]
 ARTIFACTS = ROOT / "artifacts" / "revit-acceptance"
+KIT_DIR = ROOT / "artifacts" / "revit-kit"
 REFUSAL = "Read mode refuses scripts that could change the model"
 MAX_RESPONSE = 256 * 1024
 
@@ -287,11 +289,257 @@ def run_checks(client: Any, options: argparse.Namespace, *, clock=time.monotonic
     return report
 
 
+# ---- Kit mode: read-only evidence for the cards in docs/live-verification-kit.md ----
+# The guard below is the safety property: only these tools can be called, and none changes the model.
+# revit_extract_snapshot only writes a snapshot file into the workspace.
+KIT_READ_TOOLS = frozenset({
+    "revit_health", "revit_get_context", "revit_extract_snapshot", "sheet_view_audit_run_audit",
+    "schedule_diff_compare", "model_health_score", "param_completeness_heatmap", "policy_show",
+    "list_pending_plans",
+})
+KIT_CARDS: tuple[dict[str, Any], ...] = (
+    {"issue": 142, "title": "Snapshot has view and sheet records", "writes": False, "auto": True,
+     "manual": "Placed and unplaced view check; run on the real project."},
+    {"issue": 367, "title": "Snapshot holds schedule rows", "writes": False, "auto": True,
+     "manual": "Normal, key and multi-category schedules; truncation flag; snapshot size."},
+    {"issue": 371, "title": "Modal dialog reported by health", "writes": False, "auto": False,
+     "manual": "Open a modal dialog in Revit and read /health."},
+    {"issue": 372, "title": "revit_reconnect after a Revit restart", "writes": False, "auto": False,
+     "manual": "Restart Revit and call revit_reconnect."},
+    {"issue": 397, "title": "Ribbon Dev group follows Dev mode", "writes": False, "auto": False,
+     "manual": "Look at the ribbon with Dev mode on and off."},
+    {"issue": 211, "title": "revit_export_image as MCP image content", "writes": False, "auto": False,
+     "manual": "Needs a multimodal MCP client."},
+    {"issue": 147, "title": "Workshared model with links", "writes": False, "auto": True,
+     "manual": "One block per PR (60, 64, 76, 77, 78, 81, 84); linked files."},
+    {"issue": 281, "title": "Named-pipe transport ACL", "writes": False, "auto": False,
+     "manual": "Pipe ACL and HTTP fallback in a live Windows session."},
+    {"issue": 280, "title": "Live model cache from DocumentChanged", "writes": False, "auto": False,
+     "manual": "Edit one element by hand and time the refresh."},
+    {"issue": 218, "title": "1.6 release checks", "writes": True, "auto": True,
+     "manual": "Launchers, doctor, panel Reject Selected, IDS, policy denial, clients, enforce mode."},
+    {"issue": 150, "title": "Core tool profile in two MCP clients", "writes": True, "auto": False,
+     "manual": "Needs two MCP clients."},
+    {"issue": 148, "title": "qa_handover on before and after snapshots", "writes": True, "auto": False,
+     "manual": "Needs one approved door-Mark plan."},
+    {"issue": 149, "title": "Plan expiry and document binding", "writes": True, "auto": False,
+     "manual": "Two documents, expiry wait, unreachable context."},
+    {"issue": 293, "title": "Rolled-back preview in the panel", "writes": True, "auto": False,
+     "manual": "Draft a plan and read the preview in the panel."},
+)
+KIT_FORBIDDEN = ("plan_actions", "execute_plan", "approve_plan", "reject_plan", "rollback_plan",
+                 "recover", "revit_execute_python")
+SNAPSHOT_BUDGET_SECONDS = 20.0
+
+
+class KitGuard:
+    """Refuse any tool outside KIT_READ_TOOLS and remember every call made."""
+
+    def __init__(self, client: Any):
+        self.client, self.calls = client, []
+
+    def call(self, tool: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        if tool not in KIT_READ_TOOLS or any(word in tool for word in KIT_FORBIDDEN):
+            raise AcceptanceError(f"Kit mode is read-only; refused tool {tool}.")
+        self.calls.append(tool)
+        return self.client.call(tool, arguments)
+
+
+def ascii_safe(text: str) -> str:
+    return text.encode("ascii", "backslashreplace").decode("ascii")
+
+
+def title_hash(title: Any) -> str:
+    return hashlib.sha256(str(title or "").encode("utf-8")).hexdigest()[:16]
+
+
+def dig(value: Any, key: str, depth: int = 0) -> Any:
+    """First value under `key`, searching nested dicts; tool results are sometimes wrapped."""
+    if depth > 4 or not isinstance(value, dict):
+        return None
+    if key in value:
+        return value[key]
+    for inner in value.values():
+        found = dig(inner, key, depth + 1)
+        if found is not None:
+            return found
+    return None
+
+
+def kit_context_fields(context: dict[str, Any]) -> dict[str, Any]:
+    def part(name: str) -> dict[str, Any]:
+        return context[name] if isinstance(context.get(name), dict) else {}
+
+    document = part("document")
+    return {"revit_version": part("revit").get("version"), "addin_version": part("addin").get("version"),
+            "server_version": part("server").get("version"), "approval_mode": part("server").get("approval_mode"),
+            "document": {"title_sha256_16": title_hash(document.get("title")),
+                         "is_workshared": document.get("is_workshared"),
+                         "is_family": document.get("is_family")}}
+
+
+def kit_card(issue: int, status: str, evidence: Any) -> dict[str, Any]:
+    meta = next(c for c in KIT_CARDS if c["issue"] == issue)
+    return {"issue": issue, "title": meta["title"], "status": status, "writes": meta["writes"],
+            "evidence": evidence, "manual_remaining": meta["manual"]}
+
+
+def _auto(issue: int, check: Any) -> dict[str, Any]:
+    try:
+        ok, evidence = check()
+    except AcceptanceError as exc:
+        return kit_card(issue, "AUTO-FAIL", {"error": str(redact_data(str(exc)))})
+    return kit_card(issue, "AUTO-PASS" if ok else "AUTO-FAIL", evidence)
+
+
+def run_kit(client: Any, options: argparse.Namespace, *, clock=time.monotonic) -> dict[str, Any]:
+    guard = KitGuard(client)
+    now = datetime.now(timezone.utc)
+    report: dict[str, Any] = {
+        "kit_version": 1, "run_id": "kit-" + now.strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:6],
+        "timestamp": now.isoformat(), "pid": options.pid,
+        "scope": "read-only; calls only " + ", ".join(sorted(KIT_READ_TOOLS)), "cards": {}}
+    state: dict[str, Any] = {}
+    try:
+        health = guard.call("revit_health", {})
+        context = guard.call("revit_get_context", {})
+        report.update(kit_context_fields(context))
+        report["health_ok"] = bool(health) and health.get("ok", True) is not False
+        if context.get("mock") or context.get("ok") is not True:
+            raise AcceptanceError("Hub is in mock mode or the Revit context is unavailable.")
+        state["context"] = context
+    except AcceptanceError as exc:
+        report["prerequisite_error"] = str(redact_data(str(exc)))
+    if "context" in state:
+        try:
+            started = clock()
+            extracted = guard.call("revit_extract_snapshot", {})
+            state["snapshot_seconds"] = round(clock() - started, 2)
+            state["snapshot_id"] = dig(extracted, "snapshot_id")
+            if not isinstance(state["snapshot_id"], str) or not state["snapshot_id"]:
+                state.pop("snapshot_id")
+                raise AcceptanceError("Snapshot result has no snapshot_id.")
+        except AcceptanceError as exc:
+            report["snapshot_error"] = str(redact_data(str(exc)))
+
+    def need_snapshot() -> str:
+        if "prerequisite_error" in report:
+            raise AcceptanceError("Prerequisite failed: " + report["prerequisite_error"])
+        if "snapshot_id" not in state:
+            raise AcceptanceError("Prerequisite failed: " + report.get("snapshot_error", "no snapshot"))
+        return state["snapshot_id"]
+
+    def card_142() -> tuple[bool, Any]:
+        audit = guard.call("sheet_view_audit_run_audit", {"snapshot_id": need_snapshot()})
+        headline, captured, status = dig(audit, "headline"), dig(audit, "views_captured"), dig(audit, "status")
+        fast = state["snapshot_seconds"] <= SNAPSHOT_BUDGET_SECONDS
+        ok = headline is None and captured is not False and status != "no_sheet_view_data" and fast
+        return ok, {"audit_status": status, "headline": headline, "views_captured": captured,
+                    "rated": dig(audit, "rated"), "snapshot_seconds": state["snapshot_seconds"],
+                    "budget_seconds": SNAPSHOT_BUDGET_SECONDS}
+
+    def card_367() -> tuple[bool, Any]:
+        sid = need_snapshot()
+        diff = guard.call("schedule_diff_compare", {"older_snapshot_id": sid, "newer_snapshot_id": sid,
+                                                    "max_items": 5})
+        schedules = dig(diff, "schedules")
+        status = schedules.get("status") if isinstance(schedules, dict) else None
+        return status in ("compared", "partial"), {"schedules_status": status, "diff_status": dig(diff, "status")}
+
+    def card_147() -> tuple[bool, Any]:
+        if "context" not in state:
+            raise AcceptanceError("Prerequisite failed: " + report.get("prerequisite_error", "no context"))
+        workshared = (state["context"].get("document") or {}).get("is_workshared")
+        return workshared is True, {"is_workshared": workshared}
+
+    def card_218() -> tuple[bool, Any]:
+        sid = need_snapshot()
+        score = dig(guard.call("model_health_score", {"snapshot_id": sid, "include_trend": False}), "score")
+        rows = dig(guard.call("param_completeness_heatmap", {"snapshot_id": sid}), "rows")
+        policy = guard.call("policy_show", {})
+        pending = guard.call("list_pending_plans", {"include_expired": True})
+        ok = (isinstance(score, (int, float)) and not isinstance(score, bool) and 0 <= score <= 100
+              and isinstance(rows, list) and len(rows) > 0)
+        return ok, {"health_score": score, "heatmap_rows": len(rows) if isinstance(rows, list) else None,
+                    "policy_hash": dig(policy, "hash") or dig(policy, "policy_hash"),
+                    "pending_plans_listed": isinstance(pending, dict)}
+
+    checks = {142: card_142, 367: card_367, 147: card_147, 218: card_218}
+    for meta in KIT_CARDS:
+        issue = meta["issue"]
+        report["cards"][str(issue)] = (_auto(issue, checks[issue]) if issue in checks
+                                       else kit_card(issue, "MANUAL", "Not automated; follow the card."))
+    report["calls"] = list(guard.calls)
+    return report
+
+
+def kit_markdown(report: dict[str, Any]) -> str:
+    doc = report.get("document", {})
+    lines = ["# Live verification kit report", "",
+             f"- Run: {report['run_id']}", f"- Time (UTC): {report['timestamp']}",
+             f"- Revit: {report.get('revit_version')}", f"- Add-in: {report.get('addin_version')}",
+             f"- Server: {report.get('server_version')}",
+             f"- Document title hash: {doc.get('title_sha256_16')} (workshared: {doc.get('is_workshared')})",
+             f"- Scope: {report['scope']}", ""]
+    if report.get("prerequisite_error"):
+        lines += [f"Prerequisite failed: {report['prerequisite_error']}", ""]
+    lines += ["| Card | Status | Access | Evidence | Still manual |", "|---|---|---|---|---|"]
+    for key, card in report["cards"].items():
+        evidence = json.dumps(bounded(card["evidence"]), ensure_ascii=True).replace("|", "/")
+        lines.append(f"| #{key} {card['title']} | {card['status']} | {'WRITE' if card['writes'] else 'read'} "
+                     f"| {evidence[:300]} | {card['manual_remaining']} |")
+    lines += ["", "AUTO-PASS covers only the automated part. Do the manual steps in docs/live-verification-kit.md.", ""]
+    return "\n".join(lines)
+
+
+def write_kit_report(report: dict[str, Any], directory: Path | None = None) -> tuple[Path, Path]:
+    directory = (directory or KIT_DIR).resolve()
+    if not directory.is_relative_to((ROOT / "artifacts").resolve()):
+        raise AcceptanceError("Kit reports must stay inside the ignored artifacts directory.")
+    directory.mkdir(parents=True, exist_ok=True)
+    safe = bounded(redact_data(report))
+    payload = json.dumps(safe, indent=2, ensure_ascii=True)
+    if len(payload.encode("utf-8")) > 200 * 1024:
+        raise AcceptanceError("Kit report exceeds 200 KiB.")
+    jpath, mpath = directory / (report["run_id"] + ".json"), directory / (report["run_id"] + ".md")
+    with jpath.open("x", encoding="ascii") as stream:
+        stream.write(payload + "\n")
+    with mpath.open("x", encoding="ascii") as stream:
+        stream.write(ascii_safe(kit_markdown(safe)))
+    return jpath, mpath
+
+
+def kit_summary(report: dict[str, Any], jpath: Path, mpath: Path) -> str:
+    lines = [f"KIT report: {jpath.relative_to(ROOT).as_posix()}", f"KIT report: {mpath.relative_to(ROOT).as_posix()}"]
+    lines += [f"card #{key} {card['status']}" for key, card in report["cards"].items()]
+    return ascii_safe("\n".join(lines))
+
+
+def main_kit(options: argparse.Namespace) -> int:
+    if not options.run:
+        print(ascii_safe(json.dumps({"status": "NOT_RUN", "mode": "kit", "pid": options.pid,
+                                      "tools": sorted(KIT_READ_TOOLS), "cards": [c["issue"] for c in KIT_CARDS],
+                                      "scope": "Read-only. No token read and no live calls without --run."}, indent=2)))
+        return 0
+    try:
+        token = read_token()
+        if not token:
+            raise AcceptanceError("No panel token exists; start the authenticated panel first.")
+        report = run_kit(PanelClient(options.hub, options.pid, token), options)
+        jpath, mpath = write_kit_report(report)
+        print(kit_summary(report, jpath, mpath))
+        failed = "prerequisite_error" in report or any(c["status"] == "AUTO-FAIL" for c in report["cards"].values())
+        return 1 if failed else 0
+    except (AcceptanceError, OSError, ValueError) as exc:
+        print(ascii_safe(json.dumps({"status": "FAIL", "error": redact_data(str(exc))})))
+        return 1
+
+
 def parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--pid", type=int, required=True)
-    p.add_argument("--expected-document", required=True)
-    p.add_argument("--expected-guid", required=True, help="Document CreationGUID, not its path.")
+    p.add_argument("--expected-document")
+    p.add_argument("--expected-guid", help="Document CreationGUID, not its path.")
     p.add_argument("--hub", default="http://127.0.0.1:8787")
     p.add_argument("--run", action="store_true", help="Make live calls; otherwise emit only a plan.")
     p.add_argument("--allow-existing-test-document", action="store_true", help="Owner explicitly designated this exact existing document for tests. Does not permit model writes.")
@@ -300,12 +548,22 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--poll-wait", type=float, default=5, help="Per revit_get_result wait, 0 to 25 seconds.")
     p.add_argument("--resume-request-id", help="Collect an existing request; never resubmit the script.")
     p.add_argument("--expected-marker", help="Marker saved in the earlier T1 evidence; required to resume.")
+    p.add_argument("--kit", action="store_true", help="Read-only kit mode for docs/live-verification-kit.md. Needs only --pid; with --run it writes a JSON and Markdown report under artifacts/revit-kit.")
     return p
 
 
 def main(argv: list[str] | None = None) -> int:
     p = parser()
     options = p.parse_args(argv)
+    if options.kit:
+        if (options.t1_seconds is not None or options.resume_request_id or options.allow_existing_test_document
+                or options.expected_document or options.expected_guid):
+            p.error("--kit takes only --pid, --hub and --run; it is read-only and records no document title.")
+        if options.pid <= 0:
+            p.error("Require a positive PID.")
+        return main_kit(options)
+    if not options.expected_document or not options.expected_guid:
+        p.error("--expected-document and --expected-guid are required unless --kit is used.")
     try:
         options.expected_guid = str(uuid.UUID(options.expected_guid))
     except ValueError:

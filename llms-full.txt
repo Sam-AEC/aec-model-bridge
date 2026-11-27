@@ -3650,6 +3650,46 @@ Limits:
 - The format check looks at the table prefix and the separators only. The engine has no regex operator, so it does not check the digit groups. For the full pattern, save a reviewed naming rule with `target: parameter`.
 - The packs are tested on fixture snapshots only. How the add-in captures these parameters in a live Revit model is UNVERIFIED.
 
+### Model health packs
+
+Four example packs check worksets, levels, shared parameters and view templates:
+
+- [`workset-checks.yaml`](examples/rule_packs/workset-checks.yaml)
+- [`level-checks.yaml`](examples/rule_packs/level-checks.yaml)
+- [`shared-parameter-checks.yaml`](examples/rule_packs/shared-parameter-checks.yaml)
+- [`view-template-checks.yaml`](examples/rule_packs/view-template-checks.yaml)
+
+| Rule | Severity | Reports |
+| --- | --- | --- |
+| `workset_not_captured` | info | No element in the snapshot has a workset (one issue, no element). |
+| `workset_name_empty` | error | Empty workset name. |
+| `workset_default_name` | warning | Element on `Workset1`. |
+| `workset_name_padded` | warning | Workset name with a leading, trailing or double space. |
+| `workset_levels_grids_not_shared` | warning | Level or grid not on `Shared Levels and Grids`. |
+| `level_name_not_captured` | info | Level has no name in the snapshot. |
+| `level_name_empty` | error | Empty level name. |
+| `level_name_padded` | warning | Level name with a leading, trailing or double space. |
+| `level_name_duplicate` | error | Two levels share a name (no element). |
+| `level_elevation_not_captured` | info | Level has no `Elevation` parameter. |
+| `level_elevation_duplicate` | error | Two levels share an exact elevation (no element). |
+| `asset_id_not_captured`, `package_code_not_captured` | info | The parameter is not on the element. |
+| `asset_id_empty` | error | `Asset ID` is empty. |
+| `package_code_empty` | warning | `Package Code` is empty. |
+| `view_template_not_captured` | info | View has no `View Template` parameter. |
+| `view_template_unassigned` | warning | `View Template` is empty or `-1`. |
+
+Not captured by the snapshot, so no rule:
+
+- Shared parameter GUIDs. The snapshot keeps the name, value and storage type only. Checking a GUID needs an add-in change.
+- The view template a view uses. The top-level `views` list has `is_template` but no assignment, and rules cannot read it. The view template pack reads a `View Template` parameter on view elements instead.
+- The add-in snapshot does not write `workset` on elements. On a live snapshot only `workset_not_captured` fires.
+
+Other limits:
+
+- The `Asset ID` and `Package Code` names, the category list and the shared workset name are assumptions. Replace them in the pack.
+- Duplicate rules group levels, so their issues have no element, and the issue store keeps one stored issue per rule for them. Run results list every duplicate.
+- Level and view checks on a live model are UNVERIFIED. The packs are tested on fixture snapshots only (`tests/test_model_health_packs.py`).
+
 Stored findings belong to their rule pack. Running one pack only reconciles that
 pack's issues, and identical rule IDs in different packs stay independent.
 Overwriting a pack refreshes its open issues' severity and message on the next run.
@@ -3820,6 +3860,8 @@ Twenty read tools advertise an MCP `outputSchema` (`src/revit_mcp_server/output_
 The schemas add about 1,000 tokens in every profile (1.2% of full, 6.6% of core); 19 of the 20 tools are visible in `core` (all but `module_list_commands`). A successful call to one of these tools now carries its result twice: as text (unchanged) and as `structuredContent`. A client that passes only one of them to the model sees no change in response cost.
 
 Every schema object now states `"additionalProperties": true` (about 30 characters per object, under 300 tokens in total; the table above predates it). Every successful reply of these tools carries `structuredContent`, because the Python SDK client rejects a reply without it. When a result does not match its schema, or the reply is a queued job, a call still running or a cursor page, the server sends a fallback object that validates: the result keys that match, required keys filled with empty values of their type, and `structured_fallback` with the reason and the filled and dropped keys. The text content holds the full result.
+
+A later step added schemas for nine more core read tools whose result this server builds (`revit_warnings_delta`, `revit_get_parameters`, `naming_checker_check_names`, `sheet_view_audit_run_audit`, `schedule_consistency_check_doors_and_rooms`, `warnings_triage_review_warnings`, `links_worksets_audit_audit`, `model_inspector_inspect_selection`, `parameter_manager_filter_params`). Measured with `scripts/token_budget.py` on the same tree: `core` 70,054 to 72,813 characters (about +690 tokens, +3.9%), `daily` +2,759 characters, `full` +2,759 characters. All stay inside the 10% growth threshold of `docs/mcp-token-baseline.json`, so the baseline is unchanged. The 15 other read tools in `core` (`revit_health`, `revit_list_*`, `revit_get_*` and `revit_inspect_elements`) forward to the add-in and have no schema: their live shape is not built here and mock mode cannot show it. `tests/test_output_schemas.py` names them, so a new core read tool must either get a schema or be added to that list.
 
 ## Follow-up: deferred loading and the always-loaded set
 

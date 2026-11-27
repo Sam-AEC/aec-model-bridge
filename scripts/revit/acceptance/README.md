@@ -67,3 +67,7 @@ transports, no live calls and no real sleeps:
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -c packages/mcp-server-revit/pyproject.toml packages/mcp-server-revit/tests/test_live_acceptance_harness.py -q
 ```
+
+## Kit mode
+
+`--kit --pid <PID>` is a separate read-only mode for [docs/live-verification-kit.md](../../../docs/live-verification-kit.md). It needs no document title or GUID, calls only a fixed list of read tools (never `plan_actions`, `execute_plan`, approval tools or scripts), and with `--run` writes `artifacts/revit-kit/kit-<time>-<id>.json` and `.md`. The report holds a hash of the document title, never the title. Output is ASCII only.

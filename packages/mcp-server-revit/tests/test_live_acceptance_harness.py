@@ -213,3 +213,164 @@ def test_evidence_is_bounded_redacted_exclusive_and_inside_ignored_artifacts(tmp
         harness.write_evidence(report, evidence.parent)
     with pytest.raises(harness.AcceptanceError):
         harness.write_evidence(report, tmp_path / "tracked")
+
+
+# ---- kit mode ----
+KIT_TITLE = "Scratch café model"
+
+
+class FakeKitClient:
+    def __init__(self, *, mock=False, headline=None, title=KIT_TITLE):
+        self.mock, self.headline, self.title = mock, headline, title
+        self.calls = []
+
+    def call(self, tool, args):
+        self.calls.append((tool, args))
+        if tool == "revit_health":
+            return {"ok": True}
+        if tool == "revit_get_context":
+            return {"ok": True, "mock": self.mock,
+                    "document": {"title": self.title, "is_workshared": True, "is_family": False},
+                    "revit": {"version": "2024"}, "addin": {"version": "1.6.0"},
+                    "server": {"version": "1.6.0", "approval_mode": "ask_first"}}
+        if tool == "revit_extract_snapshot":
+            return {"snapshot_id": "01JSNAP"}
+        if tool == "sheet_view_audit_run_audit":
+            return {"status": "ok", "views_captured": True, "rated": True,
+                    **({"headline": self.headline} if self.headline else {})}
+        if tool == "schedule_diff_compare":
+            return {"status": "ok", "schedules": {"status": "compared"}}
+        if tool == "model_health_score":
+            return {"score": 81.5}
+        if tool == "param_completeness_heatmap":
+            return {"rows": [{"category": "OST_Doors"}]}
+        if tool == "policy_show":
+            return {"hash": "abc"}
+        if tool == "list_pending_plans":
+            return {"plans": []}
+        raise AssertionError(f"unexpected tool {tool}")
+
+
+def kit_options(*extra):
+    return harness.parser().parse_args(["--kit", "--pid", "123", *extra])
+
+
+def test_kit_calls_only_read_tools_and_never_a_mutating_one():
+    client = FakeKitClient()
+    harness.run_kit(client, kit_options())
+    names = {name for name, _ in client.calls}
+    assert names <= harness.KIT_READ_TOOLS
+    for word in ("plan_actions", "execute_plan", "approve", "revit_execute_python", "reject", "rollback"):
+        assert not any(word in name for name in names)
+    assert all("plan_id" not in args for _, args in client.calls)
+
+
+def test_kit_guard_refuses_unlisted_tools_before_sending():
+    inner = FakeKitClient()
+    guard = harness.KitGuard(inner)
+    for tool in ("execute_plan", "plan_actions", "approve_plan", "revit_execute_python", "revit_set_parameter_value"):
+        with pytest.raises(harness.AcceptanceError, match="read-only"):
+            guard.call(tool, {})
+    assert inner.calls == [] and guard.calls == []
+
+
+def test_kit_report_shape_and_title_is_hashed_not_stored():
+    report = harness.run_kit(FakeKitClient(), kit_options())
+    assert report["revit_version"] == "2024" and report["addin_version"] == "1.6.0"
+    assert report["timestamp"] and report["run_id"].startswith("kit-")
+    assert list(report["cards"]) == [str(c["issue"]) for c in harness.KIT_CARDS]
+    assert [report["cards"][k]["status"] for k in ("142", "367", "147", "218")] == ["AUTO-PASS"] * 4
+    assert report["cards"]["142"]["evidence"]["snapshot_seconds"] >= 0
+    assert report["document"]["title_sha256_16"] == harness.title_hash(KIT_TITLE)
+    assert "caf" not in json.dumps(report) and "Scratch" not in json.dumps(report)
+    assert report["calls"][:2] == ["revit_health", "revit_get_context"]
+
+
+def test_kit_manual_cards_are_listed_and_write_cards_marked():
+    report = harness.run_kit(FakeKitClient(), kit_options())
+    manual = {k for k, c in report["cards"].items() if c["status"] == "MANUAL"}
+    assert manual == {"371", "372", "397", "211", "281", "280", "150", "148", "149", "293"}
+    assert {k for k, c in report["cards"].items() if c["writes"]} == {"218", "150", "148", "149", "293"}
+    assert "MANUAL" in harness.kit_markdown(report) and "WRITE" in harness.kit_markdown(report)
+
+
+def test_kit_autofail_when_audit_says_views_not_captured():
+    report = harness.run_kit(FakeKitClient(headline="views not captured: result not rated"), kit_options())
+    assert report["cards"]["142"]["status"] == "AUTO-FAIL"
+    assert report["cards"]["367"]["status"] == "AUTO-PASS"
+
+
+def test_kit_mock_hub_fails_auto_cards_and_stops_after_context():
+    client = FakeKitClient(mock=True)
+    report = harness.run_kit(client, kit_options())
+    assert [n for n, _ in client.calls] == ["revit_health", "revit_get_context"]
+    assert "prerequisite_error" in report
+    assert all(report["cards"][k]["status"] == "AUTO-FAIL" for k in ("142", "367", "147", "218"))
+
+
+def test_kit_slow_snapshot_fails_142():
+    ticks = iter([0.0, 25.0])
+    report = harness.run_kit(FakeKitClient(), kit_options(), clock=lambda: next(ticks))
+    assert report["cards"]["142"]["status"] == "AUTO-FAIL"
+
+
+def test_kit_cli_default_is_offline_and_rejects_document_scope(monkeypatch, capsys):
+    monkeypatch.setattr(harness, "read_token", lambda: pytest.fail("Plan read a secret"))
+    assert harness.main(["--kit", "--pid", "123"]) == 0
+    assert json.loads(capsys.readouterr().out)["status"] == "NOT_RUN"
+    with pytest.raises(SystemExit):
+        harness.main(["--kit", "--pid", "123", "--expected-document", "x"])
+
+
+def test_kit_run_writes_ascii_json_and_markdown_under_artifacts(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(harness, "ROOT", tmp_path)
+    monkeypatch.setattr(harness, "KIT_DIR", tmp_path / "artifacts" / "revit-kit")
+    monkeypatch.setattr(harness, "read_token", lambda: "s" * 43)
+    client = FakeKitClient()
+    monkeypatch.setattr(harness, "PanelClient", lambda *a, **k: client)
+    assert harness.main(["--kit", "--pid", "123", "--run"]) == 0
+    out = capsys.readouterr().out
+    out.encode("ascii")
+    files = sorted((tmp_path / "artifacts" / "revit-kit").iterdir())
+    assert [f.suffix for f in files] == [".json", ".md"]
+    for f in files:
+        f.read_bytes().decode("ascii")
+    saved = json.loads(files[0].read_text())
+    assert saved["cards"]["142"]["status"] == "AUTO-PASS" and "caf" not in files[0].read_text()
+    assert "card #371 MANUAL" in out
+
+
+def test_kit_report_refuses_paths_outside_artifacts(tmp_path, monkeypatch):
+    monkeypatch.setattr(harness, "ROOT", tmp_path)
+    with pytest.raises(harness.AcceptanceError):
+        harness.write_kit_report({"run_id": "kit-x"}, tmp_path / "tracked")
+
+
+def test_kit_doc_has_one_card_per_issue_in_order_and_marks_writes():
+    text = (ROOT / "docs/live-verification-kit.md").read_text(encoding="utf-8")
+    import re
+    cards = re.findall(r"^### Card (\d+): #(\d+) ", text, re.M)
+    assert [int(issue) for _, issue in cards] == [c["issue"] for c in harness.KIT_CARDS]
+    assert [int(n) for n, _ in cards] == list(range(1, len(cards) + 1))
+    sections = re.split(r"^### Card ", text, flags=re.M)[1:]
+    for body, meta in zip(sections, harness.KIT_CARDS):
+        assert ("WRITE: owner approves in the panel" in body.split("- Preconditions")[0]) == meta["writes"]
+
+
+def test_kit_non_ascii_error_text_is_escaped_in_output_and_files(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(harness, "ROOT", tmp_path)
+    monkeypatch.setattr(harness, "KIT_DIR", tmp_path / "artifacts" / "revit-kit")
+    monkeypatch.setattr(harness, "read_token", lambda: "s" * 43)
+
+    class Failing(FakeKitClient):
+        def call(self, tool, args):
+            if tool == "schedule_diff_compare":
+                raise harness.AcceptanceError("café ✓ failed")
+            return super().call(tool, args)
+
+    monkeypatch.setattr(harness, "PanelClient", lambda *a, **k: Failing())
+    assert harness.main(["--kit", "--pid", "123", "--run"]) == 1
+    capsys.readouterr().out.encode("ascii")
+    for f in (tmp_path / "artifacts" / "revit-kit").iterdir():
+        text = f.read_bytes().decode("ascii")
+        assert "367" in text

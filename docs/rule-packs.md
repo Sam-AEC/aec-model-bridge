@@ -137,6 +137,46 @@ Limits:
 - The format check looks at the table prefix and the separators only. The engine has no regex operator, so it does not check the digit groups. For the full pattern, save a reviewed naming rule with `target: parameter`.
 - The packs are tested on fixture snapshots only. How the add-in captures these parameters in a live Revit model is UNVERIFIED.
 
+### Model health packs
+
+Four example packs check worksets, levels, shared parameters and view templates:
+
+- [`workset-checks.yaml`](examples/rule_packs/workset-checks.yaml)
+- [`level-checks.yaml`](examples/rule_packs/level-checks.yaml)
+- [`shared-parameter-checks.yaml`](examples/rule_packs/shared-parameter-checks.yaml)
+- [`view-template-checks.yaml`](examples/rule_packs/view-template-checks.yaml)
+
+| Rule | Severity | Reports |
+| --- | --- | --- |
+| `workset_not_captured` | info | No element in the snapshot has a workset (one issue, no element). |
+| `workset_name_empty` | error | Empty workset name. |
+| `workset_default_name` | warning | Element on `Workset1`. |
+| `workset_name_padded` | warning | Workset name with a leading, trailing or double space. |
+| `workset_levels_grids_not_shared` | warning | Level or grid not on `Shared Levels and Grids`. |
+| `level_name_not_captured` | info | Level has no name in the snapshot. |
+| `level_name_empty` | error | Empty level name. |
+| `level_name_padded` | warning | Level name with a leading, trailing or double space. |
+| `level_name_duplicate` | error | Two levels share a name (no element). |
+| `level_elevation_not_captured` | info | Level has no `Elevation` parameter. |
+| `level_elevation_duplicate` | error | Two levels share an exact elevation (no element). |
+| `asset_id_not_captured`, `package_code_not_captured` | info | The parameter is not on the element. |
+| `asset_id_empty` | error | `Asset ID` is empty. |
+| `package_code_empty` | warning | `Package Code` is empty. |
+| `view_template_not_captured` | info | View has no `View Template` parameter. |
+| `view_template_unassigned` | warning | `View Template` is empty or `-1`. |
+
+Not captured by the snapshot, so no rule:
+
+- Shared parameter GUIDs. The snapshot keeps the name, value and storage type only. Checking a GUID needs an add-in change.
+- The view template a view uses. The top-level `views` list has `is_template` but no assignment, and rules cannot read it. The view template pack reads a `View Template` parameter on view elements instead.
+- The add-in snapshot does not write `workset` on elements. On a live snapshot only `workset_not_captured` fires.
+
+Other limits:
+
+- The `Asset ID` and `Package Code` names, the category list and the shared workset name are assumptions. Replace them in the pack.
+- Duplicate rules group levels, so their issues have no element, and the issue store keeps one stored issue per rule for them. Run results list every duplicate.
+- Level and view checks on a live model are UNVERIFIED. The packs are tested on fixture snapshots only (`tests/test_model_health_packs.py`).
+
 Stored findings belong to their rule pack. Running one pack only reconciles that
 pack's issues, and identical rule IDs in different packs stay independent.
 Overwriting a pack refreshes its open issues' severity and message on the next run.

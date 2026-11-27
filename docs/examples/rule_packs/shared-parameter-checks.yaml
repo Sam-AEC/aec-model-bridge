@@ -1,0 +1,52 @@
+# Shared parameter presence on asset categories: the parameter exists and has a value.
+# The parameter names 'Asset ID' and 'Package Code' are assumptions. Replace every occurrence with the names
+# in your shared parameter file. Pipeline paths split at dots, so use names without dots.
+# The category list is a starting point: edit the 'in' list in every rule.
+# 'not captured' means the element has no such parameter in the snapshot: it is not bound to the category
+# or the add-in did not read it. A parameter that is present but empty is reported as empty.
+# Not covered: the shared parameter GUID. The snapshot stores only the parameter name, value and storage
+# type, so a rule cannot tell a shared parameter from a project parameter of the same name. Checking GUIDs
+# needs an add-in change.
+# Fixture-tested only. How the add-in captures these parameters live is UNVERIFIED.
+rules:
+  - id: asset_id_not_captured
+    severity: info
+    category: Shared parameters
+    description: "Asset ID was not captured: the element has no 'Asset ID' parameter in the snapshot."
+    pipeline:
+      - where:
+          - {field: category, op: in, value: [OST_Doors, OST_Windows, OST_MechanicalEquipment, OST_ElectricalEquipment, OST_PlumbingFixtures]}
+          - {field: params.Asset ID, op: exists, value: false}
+    fix_template: "Bind the shared parameter 'Asset ID' to the category of '{label}' and take a new snapshot."
+
+  - id: asset_id_empty
+    severity: error
+    category: Shared parameters
+    description: "Asset ID is empty."
+    pipeline:
+      - where:
+          - {field: category, op: in, value: [OST_Doors, OST_Windows, OST_MechanicalEquipment, OST_ElectricalEquipment, OST_PlumbingFixtures]}
+          - {field: params.Asset ID, op: exists}
+          - {field: params.Asset ID, op: empty}
+    fix_template: "Fill in 'Asset ID' on '{label}'."
+
+  - id: package_code_not_captured
+    severity: info
+    category: Shared parameters
+    description: "Package code was not captured: the element has no 'Package Code' parameter in the snapshot."
+    pipeline:
+      - where:
+          - {field: category, op: in, value: [OST_Doors, OST_Windows, OST_MechanicalEquipment, OST_ElectricalEquipment, OST_PlumbingFixtures]}
+          - {field: params.Package Code, op: exists, value: false}
+    fix_template: "Bind the shared parameter 'Package Code' to the category of '{label}' and take a new snapshot."
+
+  - id: package_code_empty
+    severity: warning
+    category: Shared parameters
+    description: "Package code is empty."
+    pipeline:
+      - where:
+          - {field: category, op: in, value: [OST_Doors, OST_Windows, OST_MechanicalEquipment, OST_ElectricalEquipment, OST_PlumbingFixtures]}
+          - {field: params.Package Code, op: exists}
+          - {field: params.Package Code, op: empty}
+    fix_template: "Fill in 'Package Code' on '{label}'."

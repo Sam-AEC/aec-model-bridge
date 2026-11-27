@@ -36,20 +36,34 @@ def _require_build() -> None:
     pytest.skip(_BUILD_HINT)
 
 
+# Everything the build reads: pyproject.toml, the readme, the license-files and the package.
+# Only these are copied. The package root also holds files that other xdist workers create
+# and delete while the suite runs (`.coverage.*` from pytest-cov, `.hypothesis/`), and
+# copying the whole root failed when one vanished mid-copy (#398).
+BUILD_INPUTS = ("pyproject.toml", "README.md", "LICENSE", "NOTICE", "LICENSING.md", "LICENSES", "src")
+_IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc", "*.egg-info")
+
+
+def _copy_build_inputs(dest: Path, root: Path = PACKAGE_ROOT) -> None:
+    """Copy the build inputs of ``root`` into ``dest``, and nothing else from the root."""
+    dest.mkdir(parents=True)
+    for name in BUILD_INPUTS:
+        path = root / name
+        if path.is_dir():
+            shutil.copytree(path, dest / name, ignore=_IGNORE)
+        else:
+            shutil.copy2(path, dest / name)
+
+
 @pytest.fixture(scope="module")
 def built_wheel(tmp_path_factory: pytest.TempPathFactory) -> Path:
     _require_build()
 
-    # Build from a copy so the source tree never gains build/, dist/ or *.egg-info.
+    # Build from a copy in this worker's own temp folder, so the source tree never gains
+    # build/, dist/ or *.egg-info and parallel builds never share an output folder.
     work = tmp_path_factory.mktemp("wheel-src")
     source = work / "pkg"
-    shutil.copytree(
-        PACKAGE_ROOT,
-        source,
-        ignore=shutil.ignore_patterns(
-            "__pycache__", "*.pyc", "build", "dist", "*.egg-info", ".pytest_cache", ".venv", "tests"
-        ),
-    )
+    _copy_build_inputs(source)
     outdir = work / "dist"
 
     command = [sys.executable, "-m", "build", "--wheel", "--outdir", str(outdir), str(source)]
@@ -57,7 +71,7 @@ def built_wheel(tmp_path_factory: pytest.TempPathFactory) -> Path:
     # `build` create its usual isolated environment.
     if importlib.util.find_spec("setuptools") and importlib.util.find_spec("wheel"):
         command.insert(-1, "--no-isolation")
-    proc = subprocess.run(command, capture_output=True, text=True, timeout=280)
+    proc = subprocess.run(command, capture_output=True, text=True, timeout=280, cwd=work)
     assert proc.returncode == 0, f"wheel build failed:\n{proc.stdout[-2000:]}\n{proc.stderr[-2000:]}"
 
     wheels = sorted(outdir.glob("*.whl"))
@@ -115,3 +129,40 @@ def test_missing_build_fails_in_ci_and_skips_locally(monkeypatch: pytest.MonkeyP
     monkeypatch.delenv("CI")
     with pytest.raises(pytest.skip.Exception, match="uv sync --extra dev"):
         _require_build()
+
+
+def test_build_copy_takes_only_build_inputs(tmp_path: Path) -> None:
+    """Files other workers write into the package root are not copied (#398)."""
+    root = tmp_path / "root"
+    for name in ("pyproject.toml", "README.md", "LICENSE", "NOTICE", "LICENSING.md"):
+        (root / name).parent.mkdir(parents=True, exist_ok=True)
+        (root / name).write_text(name)
+    (root / "LICENSES").mkdir()
+    (root / "LICENSES" / "GPL-3.0-or-later.txt").write_text("gpl")
+    (root / "src" / "pkg" / "__pycache__").mkdir(parents=True)
+    (root / "src" / "pkg" / "__init__.py").write_text("")
+    (root / "src" / "pkg" / "__pycache__" / "__init__.cpython-313.pyc").write_bytes(b"")
+    (root / "tests").mkdir()
+    (root / "tests" / "test_x.py").write_text("")
+    (root / ".hypothesis" / "examples").mkdir(parents=True)
+    (root / ".coverage.host.123.456").write_text("coverage data")
+    # A coverage file that another worker deleted while this one was copying.
+    try:
+        (root / ".coverage.host.789.012").symlink_to(root / "gone")
+    except OSError:  # pragma: no cover - Windows without symlink rights
+        pass
+
+    dest = tmp_path / "copy"
+    _copy_build_inputs(dest, root)
+
+    copied = sorted(p.relative_to(dest).as_posix() for p in dest.rglob("*") if p.is_file())
+    assert copied == [
+        "LICENSE",
+        "LICENSES/GPL-3.0-or-later.txt",
+        "LICENSING.md",
+        "NOTICE",
+        "README.md",
+        "pyproject.toml",
+        "src/pkg/__init__.py",
+    ]
+
