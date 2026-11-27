@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `parameter_manager_import_params_csv` also reads a three-column CSV (`element_id,parameter,value`) into a draft plan with a `row_diff`; unknown element ids, unknown or read-only parameters, blank values and conflicting duplicates are listed as blocked and produce no action. Both CSV layouts now refuse empty, header-only and oversize files and CSVs with missing columns. Fixes #186
 - Docker image: dependencies install from `requirements-docker.txt`, a hash-pinned export of `uv.lock` (`pip install --require-hashes`), then the package with `--no-deps`. A test fails when the export drifts from the lock. Clears Scorecard alert #36.
 
 ## 1.6.1 - 2026-11-27
