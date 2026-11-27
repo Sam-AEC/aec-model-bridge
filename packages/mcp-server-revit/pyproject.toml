@@ -88,6 +88,8 @@ build-backend = "setuptools.build_meta"
 # ~80 module tools that a source checkout has.
 [tool.setuptools.package-data]
 revit_mcp_server = [
+    # Sample tool-description catalogs (MCP_REVIT_LOCALE).
+    "locales/*.json",
     "modules/*/module.json",
     "modules/*/rules/*.yaml",
     "modules/*/recipes/*.yaml",
@@ -160,13 +162,17 @@ branch = true
 # Include modules loaded by file path, not only the canonical package name.
 source = ["src/revit_mcp_server"]
 relative_files = true
+# Child processes (python -m, stdio smoke tests) write their own data files; pytest-cov
+# combines them at the end of a --cov run. Inactive when coverage is not running.
+parallel = true
+patch = ["subprocess"]
 omit = ["*/tests/*", "*/_version.py"]
 
 [tool.coverage.paths]
 source = ["src/revit_mcp_server", "*/site-packages/revit_mcp_server"]
 
 [tool.coverage.report]
-# Measured at 83% (line + branch) in 1.5.1; the floor sits a few points below so
+# Measured at 87% (line + branch) with child processes included; the floor sits a few points below so
 # platform differences do not break CI but a real drop does.
 fail_under = 80
 skip_covered = true

@@ -10,6 +10,8 @@ panel's /execute route all go through here, so a new path cannot forget a check:
 """
 from __future__ import annotations
 
+import os
+
 import logging
 import re
 import uuid
@@ -218,12 +220,34 @@ def settle_late_result(gate: Optional[ApprovalGate], key: Optional[str], tool: s
         logger.exception("Could not settle the timed-out action for %s", tool)
 
 
+def refuse_off_tier(registry: Any, gate: Optional[ApprovalGate], name: str, provider: Any) -> None:
+    """Tier policy for every caller of the shared dispatcher (panel, chat, modules).
+
+    Raises PolicyError when the tool's tier is off, or when its tier cannot be worked out
+    (fail closed). Dev mode lifts the limit with an audit line, as in mcp_server."""
+    from .policy import PolicyError, tool_refusal
+    try:
+        identity = provider.get_identity() if hasattr(provider, "get_identity") else ""
+        workspace = getattr(gate, "workspace_dir", None)
+        if not isinstance(workspace, (str, os.PathLike)):
+            workspace = None  # no workspace policy; the machine policy still applies
+        dev = getattr(gate, "dev_mode", False) is True  # only a real, active Dev mode lifts the limit
+        msg = tool_refusal(workspace, name, registry.lookup_tool(name), str(identity or ""), dev)
+    except PolicyError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - fail closed
+        msg = f"Policy refused '{name}': its tier could not be worked out ({str(exc)[:120]})."
+    if msg is not None:
+        raise PolicyError(msg)
+
+
 async def run_gated_tool(registry: Any, gate: Optional[ApprovalGate], name: str, arguments: Any,
                          not_found: str = "Unknown tool '{name}'") -> Any:
     refuse_human_only(name)
     provider = registry.lookup_tool_provider(name) if registry is not None else None
     if not provider:
         raise ValueError(not_found.format(name=name))
+    refuse_off_tier(registry, gate, name, provider)
     claim = gate_before(registry, gate, name, arguments)
     try:
         with authorized_module_execution(name):

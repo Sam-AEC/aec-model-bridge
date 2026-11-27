@@ -50,7 +50,7 @@ Not copied (read them from the repository):
 > Open-source Revit MCP server (Model Context Protocol) and native Revit add-in. AI assistants such as Claude, Codex and Cursor read and edit the BIM model open in Revit 2024 to 2027. Every model change is a plan that a person approves first (approval gate). Also reads IFC files; Rhino, Grasshopper and Speckle integrations included.
 
 - Protocol: Model Context Protocol, stdio transport. Any MCP client that can start a local server works.
-- Tools: 323 in the default setup, counted in mock mode. Revit has 112 of them.
+- Tools: 324 in the default setup, counted in mock mode. Revit has 112 of them.
 - Safety: tools that change the model are blocked until a plan is approved. An unattended mode exists and is opt-in.
 - Platform: live Revit work needs Windows and a licensed Revit. Mock mode (sample data) needs neither.
 - Licence: GPL-3.0-or-later with the Revit Linking Exception, plus a commercial option.
@@ -159,7 +159,7 @@ python ../../scripts/version.py check       # VERSION, pyproject and manifests m
 
 **AI assistants read the Revit model you have open. By default, nothing in it changes until you approve a plan.**
 
-Open-source Revit MCP server · Revit 2024 – 2027 · 323 tools · Claude, Codex, Cursor and other MCP clients
+Open-source Revit MCP server · Revit 2024 – 2027 · 324 tools · Claude, Codex, Cursor and other MCP clients
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Sam-AEC/aec-model-bridge/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Sam-AEC/aec-model-bridge/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Sam-AEC/aec-model-bridge?style=flat-square&color=0F766E)](https://github.com/Sam-AEC/aec-model-bridge/releases/latest)
@@ -315,14 +315,14 @@ status. It is not on the Marketplace.
 | --- | --- | --- |
 | Revit | 112 | Read the model, edit elements, parameters, views, sheets, schedules, exports, worksharing |
 | Approval | 6 | Plan, review, approve, execute and roll back changes; show the workspace policy |
-| Modules | 123 | Snapshot inspection, parameter grids, QA/QC checks, recipes, reports, selections |
+| Modules | 124 | Snapshot inspection, parameter grids, QA/QC checks, recipes, reports, selections |
 | Rhino and Grasshopper | 19 | Geometry, layers, materials, boolean operations |
 | Speckle | 17 | Projects, models, versions, send and receive |
 | Navisworks | 15 | Model tree, viewpoints, clash tests (in progress) |
 | IFC | 7 | Read IFC files without Revit |
 | Graph, snapshots, exports, jobs | 24 | Graph audits, snapshot diffs, SQLite export, background jobs |
 
-323 tools are listed in the default setup (counted from the current server in
+324 tools are listed in the default setup (counted from the current server in
 mock mode). Autodesk Data tools appear when APS credentials are configured. The
 [tool reference](docs/tools-generated.md) lists every tool. Each tool carries
 MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`,
@@ -1331,7 +1331,9 @@ The server has three modes. Set the mode with `MCP_REVIT_MODE`.
 | `MCP_REVIT_TOOL_TIMEOUTS` | No | unset | JSON object of per-tool timeouts in seconds, for example `{"revit_export_ifc": 1800}`. `0` means no timeout for that tool. An invalid entry is ignored with a warning. Read once at startup. |
 | `MCP_REVIT_RATE_LIMITS` | No | see [Timeouts and rate limits](#timeouts-and-rate-limits) | `off`, or a JSON object that changes the token buckets. A refused call did not run and did not use an approved action; it returns kind `rate_limited` with `retry_after_seconds`. An invalid value keeps the defaults and logs a warning; it never turns a limit off. Read once at startup by the MCP server and by the panel hub. |
 | `MCP_REVIT_POLICY_FILE` | No | unset | Path of a policy file (YAML or JSON) that adds refusals to `plan_actions` and `execute_plan`. Unset: `policy.yaml`, `policy.yml` or `policy.json` in the workspace folder, if present. A file that is named but missing or invalid refuses every write. See [Policy file](#policy-file). |
+| `MCP_REVIT_MACHINE_POLICY_FILE` | No | unset | Path of the machine policy file: the policy keys plus `allowed_tiers` and `blocked_tiers` (`read`, `write`, `script`, `export`). Unset: `%PROGRAMDATA%\AECModelBridge\policy.yaml` on Windows (UNVERIFIED) or `/etc/aec-model-bridge/policy.yaml`. A named file that is missing refuses every write. Merged with the workspace policy; the stricter rule wins. See [Security](security.md). |
 | `MCP_REVIT_MCP_APPS` | No | `auto` | Read-only plan review view `ui://aec-model-bridge/plan-review` (MCP Apps) and the `_meta.ui` keys on tools. The view cannot approve. `auto`: `_meta.ui` only for clients that declare the `io.modelcontextprotocol/ui` extension. `always`: for every client. `off`: no view and no `_meta.ui`. `true` and `false` mean `auto` and `off`. Read at startup. See [MCP Apps plan review view](mcp-apps.md). |
+| `MCP_REVIT_LOCALE` | No | `en` | Language of tool descriptions, as a two-letter code such as `nl`. Only description text changes; tool names, titles, schemas and safety annotations stay the same. A tool with no text in the catalog keeps its English description. An unknown code logs a warning and uses English. Catalogs are `locales/<code>.json` in the server package; `nl` is a small sample of 7 read-only tools, not a full translation. Read at startup. |
 | `MCP_REVIT_VALIDATE_BRIDGE_PAYLOADS` | No | on | Checks each Revit add-in command payload against `contracts/bridge-commands.json` before sending. A payload that does not fit is refused and nothing is sent. `0`, `false`, `off` or `no` turns the check off; any other value keeps it on. Read on each call. See [Add-in command contract](bridge-command-contract.md). |
 | `MCP_REVIT_ENABLE_USER_MODULES` | No | `false` | Set to `true` to load modules from `%LOCALAPPDATA%\AECModelBridge\modules`. See [Module authoring](module-authoring.md). |
 | `MCP_REVIT_ALLOW_PYTHON_HOST` | No | `false` | Set to `true` to allow tools that run raw Python on the host, such as `revit_execute_python`. Leave it off unless you need it. |
@@ -1744,11 +1746,11 @@ A tool failure reaches an MCP client in one of two shapes:
 Refusals never change the model. A refused write needs a new plan that a person approves.
 For logs and connection problems see [troubleshooting](troubleshooting.md).
 
-Entries: 151.
+Entries: 152.
 
 ## Tool error kinds
 
-Set by the MCP layer as `structuredContent.error.kind` when a call fails with `isError`. Entries: 12.
+Set by the MCP layer as `structuredContent.error.kind` when a call fails with `isError`. Entries: 13.
 
 ### `approval_blocked`
 
@@ -1790,6 +1792,12 @@ Set by the MCP layer as `structuredContent.error.kind` when a call fails with `i
 
 - When: The response_options argument is not an object, names an unsupported key, or has a value of the wrong type.
 - What to do: Remove response_options or fix it as the message says, then call again.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
+
+### `policy_refused`
+
+- When: The machine or workspace policy file turns off the tier of this tool (read, write, script or export), or the policy file is invalid and the tool is not a read.
+- What to do: Use a tool of a tier that is on. To use this one, the person who manages the named policy file must change it, or switch on Dev mode in the panel (docs/security.md).
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
 
 ### `rate_limited`
@@ -2999,6 +3007,16 @@ Dev permits unplanned writes while retaining Look only lockdown. Calls supplying
 
 An optional `policy.yaml` (or `MCP_REVIT_POLICY_FILE`) can block tools or parameters, limit categories and cap plan size. It is checked when a plan is drafted and again just before `execute_plan` runs its first action, so a tightened policy stops plans that were drafted earlier. It only adds refusals: approval stays with a person, and no policy rule approves or runs a plan. An invalid file refuses all plan drafting and execution. See [Policy file](configuration-reference.md#policy-file).
 
+### Machine policy and tiers
+
+An administrator can set a machine policy file: `MCP_REVIT_MACHINE_POLICY_FILE`, else `%PROGRAMDATA%\AECModelBridge\policy.yaml` on Windows or `/etc/aec-model-bridge/policy.yaml` elsewhere. No file at the default location means no machine policy. A file named by `MCP_REVIT_MACHINE_POLICY_FILE` that is missing, and any file that cannot be read or is invalid, refuses every write. It uses the same keys as the workspace policy, and the stricter rule wins: blocked lists are joined, allowed lists are intersected, number limits take the smaller value, and a tier that is off in either file is off. A workspace policy can only tighten the machine policy.
+
+Every tool has one tier. `script`: runs code or reaches arbitrary API members (`revit_execute_python`, invoke and reflect tools, `revit_run_job`, and `revit_raw_command`, which can forward any add-in command). `write`: changes the model, plus `plan_actions`, `execute_plan` and `plan_revert`. `export`: writes files or state outside the model. `read`: everything else. Set `allowed_tiers` or `blocked_tiers` to turn a tier off. Its tools are hidden from `tools/list`, calls are refused with a message naming the policy file by level and file name (through MCP, the panel, the chat assistant and module tools alike), and plan actions that use them are refused. Approve, reject, roll back, list plans, policy show, proof bundle and job status or cancel tools are never hidden or refused, so a person can always reject a plan.
+
+Explicit Dev mode lifts the limits of both files. The AI cannot switch it on. Each bypassed call or plan is written to `dev-mode-audit.jsonl` with the rule it bypassed. Writes still go through `plan_actions`, approval and `execute_plan`. Dev mode does not lift an unreadable or invalid policy file. The server sends no `tools/list_changed`, so a client lists tools again after Dev mode or a policy file changes. `aec-model-bridge-doctor` shows the policy files, their hashes, the tiers that are off and whether the Dev override is active.
+
+UNVERIFIED: the Windows ProgramData path and the ACL that keeps standard users from editing the file were not checked on a live Windows machine. Set the ACL so only administrators can write it. A path set with the environment variable is only as safe as the place that sets it.
+
 ### Plan review in the panel
 
 The panel's `/execute` route adds a `review_view` to each plan in a `list_pending_plans` result and drops the raw `review` key from that copy. The hub computes it: `status` is `none` (a hash_version 1 plan with nothing outside its hash), `ok` (a hash_version 2 plan whose review is canonical, whose `reverts_plan_id` has the shape `plan_` plus 12 hex digits, and whose stored hash matches its content) or `invalid`. It also carries `hash_version`, `reverts_plan_id` and the normalised `review`. Through MCP and the chat, `list_pending_plans` is unchanged (no `review_view`); approve, reject and rollback stay human-only.
@@ -3533,8 +3551,14 @@ rules:
       category: OST_Doors
       parameter: {name: Mark, empty: true}
     assertion: "element_count == 0"    # optional, this is the default
-    fix_template: "Set the Mark on '{label}'."   # optional
+    fix_template: "Set the Mark on '{label}'."   # optional, free text for a person
+    fix: {parameter: Mark, value: "D-000"}       # optional, a concrete parameter write
 ```
+
+`fix` names one parameter and one fixed value (text, number or true/false). Findings of a rule with a `fix` can be
+selected by issue id in `qaqc_checker_draft_fix_plan`, which drafts one `plan_actions` list with a
+`revit_set_parameter_value` action per finding. Findings of rules without a `fix` are listed as skipped.
+The tool only drafts: a person approves the plan and `execute_plan` writes it. The validator rejects a pack with an invalid `fix`.
 
 ### Operators the engine supports
 
@@ -3697,7 +3721,7 @@ The result gives pass, fail or skipped per specification (skipped means the spec
 
 Measured 2026-11-05 with `MCP_REVIT_MODE=mock`, the supplied Python interpreter, a temporary workspace, no user modules or provider credentials, and no Revit model execution. Baseline captured at `87d1d1bb5312ccb9868786860cbc66f76c47b895` before production changes; results were reported before edits.
 
-The checkout exposes **323** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
+The checkout exposes **324** tools rather than the estimated 298. Sizes use SDK compact `ListToolsResult` / `CallToolResult` JSON (excluding JSON-RPC framing). Token estimates are characters / 4, not tokenizer counts or billed context. UTF-8 bytes, characters, inputs and per-tool data are retained in the JSON evidence files.
 
 ## Initial profile and response pass
 
