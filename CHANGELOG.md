@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Agent eval tests now check that every argument key in the golden good transcripts, including actions drafted in `plan_actions`, is declared by the tool's input schema; the 30-task eval set and scorer already cover the issue. Fixes #184
 - `parameter_manager_import_params_csv` also reads a three-column CSV (`element_id,parameter,value`) into a draft plan with a `row_diff`; unknown element ids, unknown or read-only parameters, blank values and conflicting duplicates are listed as blocked and produce no action. Both CSV layouts now refuse empty, header-only and oversize files and CSVs with missing columns. Fixes #186
 - Example rule packs `classification-uniclass.yaml`, `classification-omniclass.yaml` and `cobie-completeness.yaml`: presence and format of Uniclass and OmniClass codes and presence of COBie component and type fields on asset categories, with fields the snapshot does not hold reported as not captured. Fixture-tested only; real-model behaviour is UNVERIFIED. Fixes #175
 - Docker image: dependencies install from `requirements-docker.txt`, a hash-pinned export of `uv.lock` (`pip install --require-hashes`), then the package with `--no-deps`. A test fails when the export drifts from the lock. Clears Scorecard alert #36.
