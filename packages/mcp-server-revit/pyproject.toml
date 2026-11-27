@@ -118,6 +118,7 @@ markers = [
     "e2e: marks Revit bridge end-to-end tests (opt in with AEC_MODEL_BRIDGE_E2E=1)",
     "slow: builds a wheel (about 57 s); CI runs it on the primary leg only (deselect with '-m \"not slow\"')",
     "perf: marks tests as performance benchmarks (deselect with '-m \"not perf\"')",
+    "xdist_group(name): keep the tests of one group on one xdist worker (needs --dist loadgroup; registered so --strict-markers works without xdist)",
 ]
 # Later entries win. Warnings are errors, except: third-party deprecations (not
 # ours to fix; they must not break CI), and resource leaks (unclosed files,
