@@ -61,6 +61,15 @@ When the check runs, the server lists views (with schedules) or sheets whose nam
 
 `output_path` and `path` are no longer in the tool schemas' `required` lists, so a call without them reaches the server and gets the plain refusal or the question. They are still required to run.
 
+## Panel link after plan_actions
+
+When `plan_actions` drafts a pending plan and the client declared URL mode elicitation (`elicitation.url` in its capabilities), the server sends one URL mode request. It carries a short message and `http://127.0.0.1:<port>/panel?plan=<plan id>`, where the port is `MCP_PANEL_HTTP_PORT` (default 8787). The link holds the plan id and nothing else: no panel token, no decision.
+
+- The hub serves `/panel` without a token. It returns a static page that names the plan and says to review it in the Revit panel. It has no controls and shows no plan data. It cannot approve, reject or run a plan. Other hub routes still need the token.
+- The client's answer is ignored. Accept, decline, cancel, a timeout (15 seconds) or an error leave the plan pending and the `plan_actions` reply unchanged.
+- A client without URL mode gets no request and no error.
+- Approval stays in the Revit panel or `aec-model-bridge-approve`.
+
 ## What elicitation is never used for
 
 - Plan approval. Answers pass through the AI client, so they are not a person's approval. `elicit_choice` refuses to run for any approval tool (`plan_actions`, `execute_plan`, `approve_plan`, `reject_plan`, `rollback_plan`, `plan_revert`, `list_pending_plans`, `policy_show`, `get_proof_bundle`, and any tool whose name mentions plans, approval, rollback, revert, proof or policy), and when it is called from the approval code (`security/approval.py`, `security/dispatch.py`, `providers/approval_provider.py` and the other modules in `FORBIDDEN_CALLER_MODULES`). Tests check both guards and that those modules never mention elicitation. A person approves plans only in the Revit panel or with `aec-model-bridge-approve`.
@@ -69,4 +78,4 @@ When the check runs, the server lists views (with schedules) or sheets whose nam
 
 ## Client support
 
-Client support for elicitation is UNVERIFIED. The tests use the MCP Python SDK in-memory client (`mcp` 1.30) with and without an elicitation callback. Whether Claude Desktop, Claude Code, Codex, Cursor or VS Code show the question has not been checked. A client that does not support it gets the plain refusal, as before. The view and sheet name check was tested with a fake list of views and sheets; against a live Revit it is UNVERIFIED.
+Client support for elicitation is UNVERIFIED, and so is URL mode in real clients and opening the panel link in a browser. The tests use the MCP Python SDK in-memory client (`mcp` 1.30) with and without an elicitation callback. Whether Claude Desktop, Claude Code, Codex, Cursor or VS Code show the question has not been checked. A client that does not support it gets the plain refusal, as before. The view and sheet name check was tested with a fake list of views and sheets; against a live Revit it is UNVERIFIED.

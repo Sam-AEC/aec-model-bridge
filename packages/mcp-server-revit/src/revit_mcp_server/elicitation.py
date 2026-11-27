@@ -13,6 +13,9 @@ Rules (see docs/elicitation.md):
 - Never for plan approval and never from the approval tools. Answers pass through
   the AI client, so they are not a person's approval. `elicit_choice` refuses to run
   for an approval tool or when called from an approval module.
+- URL mode is used for one thing only: a link to the review panel for a new pending plan
+  (`offer_plan_panel_link`). The link holds the plan id and nothing else. Opening it
+  approves nothing; approval stays in the panel.
 - Never for secrets. Field names and questions that look like a request for a
   password, token or key are refused.
 """
@@ -23,13 +26,15 @@ import copy
 import difflib
 import inspect
 import logging
+import os
 import re
+import uuid
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from .errors import BridgeError
 from .security.approval import HUMAN_ONLY_TOOLS
-from .security.safe_paths import safe_child
+from .security.safe_paths import PLAN_ID_RE, safe_child
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +44,8 @@ ELICITATION_TIMEOUT_S = 120.0
 MAX_ROUNDS = 3
 MAX_OPTIONS = 25
 MAX_TEXT = 200
+# Seconds to wait for the client to show the panel link before the plan reply is sent anyway.
+LINK_TIMEOUT_S = 15.0
 
 # Tools that may never ask: everything that drafts, approves, runs, rejects, rolls back
 # or reports plans. Approval comes from a person in the panel or the CLI, never from an answer.
@@ -110,6 +117,54 @@ def client_supports_elicitation(session: Any) -> bool:
         return False
     # No mode named means form (older clients); a client that names only url cannot show a form.
     return getattr(elicitation, "form", None) is not None or getattr(elicitation, "url", None) is None
+
+
+def client_supports_url_elicitation(session: Any) -> bool:
+    """True only when the client declared URL mode elicitation in its initialize capabilities."""
+    try:
+        return session.client_params.capabilities.elicitation.url is not None
+    except AttributeError:
+        return False
+
+
+def panel_plan_url(plan_id: str, port: Optional[int] = None) -> str:
+    """The loopback address of the panel page for one plan: the plan id, no token, no decision."""
+    if not isinstance(plan_id, str) or not PLAN_ID_RE.fullmatch(plan_id):
+        raise ValueError("The panel link needs a plan id such as plan_0123456789ab.")
+    if port is None:
+        from .panel_server import DEFAULT_PORT  # late: the hub module is heavy
+
+        try:
+            port = int(os.getenv("MCP_PANEL_HTTP_PORT", str(DEFAULT_PORT)))
+        except ValueError:
+            port = DEFAULT_PORT
+    return f"http://127.0.0.1:{port}/panel?plan={plan_id}"
+
+
+async def offer_plan_panel_link(
+    session: Any, plan_id: str, *, related_request_id: Any = None, timeout: float = LINK_TIMEOUT_S,
+) -> bool:
+    """Point the person at the panel for a pending plan. True when the link was sent.
+
+    Sent only to a client that declared URL mode. The answer is ignored: accept, decline,
+    cancel, a timeout or an error all leave the plan pending and the reply unchanged.
+    """
+    if session is None or not client_supports_url_elicitation(session):
+        return False
+    try:
+        url = panel_plan_url(plan_id)
+        await asyncio.wait_for(
+            session.elicit_url(
+                f"Plan {plan_id} is waiting for your review. Open the review panel to read it. "
+                "Opening this link does not approve anything; you approve or reject in the panel.",
+                url, f"plan-{plan_id}-{uuid.uuid4().hex[:8]}", related_request_id,
+            ),
+            timeout=timeout,
+        )
+    except Exception as exc:  # incl. timeout: the plan still waits in the panel
+        logger.info("Panel link for %s was not delivered: %s", plan_id, type(exc).__name__)
+        return False
+    return True
 
 
 def _guard(tool: str, field: str, message: str) -> None:
