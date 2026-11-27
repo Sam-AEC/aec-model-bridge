@@ -256,3 +256,39 @@ def test_cli_reports(tmp_path):
     assert ev.main(["--transcripts", str(empty), "--fail-under", "1"]) == 1
     assert ev.main(["--golden", "--task", "count-doors"]) == 0
     assert ev.main(["--task", "no-such-task"]) == 2
+
+
+def _schemas():
+    from revit_mcp_server.registry_factory import build_registry
+    from revit_mcp_server.security.workspace import WorkspaceMonitor
+
+    import tempfile
+    registry, *_ = build_registry(WorkspaceMonitor([Path(tempfile.mkdtemp(prefix="agent-evals-schema-"))]))
+    return {t.name: t.input_schema or {} for p in registry.get_all_providers() for t in p.get_capabilities()}
+
+
+def test_golden_calls_use_only_argument_keys_in_the_tool_schema(tasks):
+    """Recorded good calls, and actions drafted in plan_actions, name only keys the tool declares."""
+    schemas = _schemas()
+    problems = []
+
+    def check(tool, arguments, where):
+        schema = schemas.get(tool)
+        if schema is None:
+            problems.append(f"{where}: unknown tool {tool}")
+            return
+        props = schema.get("properties")
+        if props is None or schema.get("additionalProperties") is True:
+            return
+        extra = set(arguments) - set(props) - {"plan_id"}
+        if extra:
+            problems.append(f"{where}: {tool} has unknown argument keys {sorted(extra)}")
+
+    for task in tasks:
+        path = ev.TRANSCRIPTS_DIR / task.id / "good.jsonl"
+        for call in ev.load_transcript(path).calls:
+            check(call.tool, call.arguments, task.id)
+            if call.tool == "plan_actions":
+                for action in call.arguments.get("actions", []):
+                    check(action["tool"], action.get("arguments", {}), f"{task.id} (planned)")
+    assert problems == []

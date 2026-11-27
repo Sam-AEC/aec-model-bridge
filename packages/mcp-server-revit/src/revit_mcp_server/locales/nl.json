@@ -1,0 +1,13 @@
+{
+  "_meta": {
+    "sample": true,
+    "note": "Sample locale for a handful of tools. Not a full translation; every other tool keeps its English description."
+  },
+  "revit_health": "Controleer of de Revit-bridge bereikbaar is en geef de statusinformatie terug. Roep dit eerst aan om te bevestigen dat Revit draait.",
+  "revit_list_levels": "Geef alle niveaus van het actieve Revit-project met hun namen en hoogtes. Gebruik dit voor de niveaunamen of id's die aanmaaktools nodig hebben. Alleen lezen.",
+  "revit_list_views": "Geef alle weergaven van het actieve Revit-project met hun namen, id's en weergavetypes. Gebruik revit_list_views_sheets_schedules voor weergaven, bladen en schema's in een aanroep. Alleen lezen.",
+  "revit_list_elements": "Geef de elementen van een Revit-categorie (bijvoorbeeld Walls, Floors, Roofs, Doors of Windows) in het actieve document. Elk element heeft een id en een unique_id. Gebruik dit voor alle elementen van een categorie; gebruik revit_get_elements_by_type om op type of niveau te filteren.",
+  "revit_get_document_info": "Geef metagegevens van het actieve Revit-document, zoals titel, pad en worksharestatus. Gebruik revit_health om te controleren of Revit bereikbaar is. Alleen lezen.",
+  "revit_get_selection": "Geef de ElementIds en de bijbehorende UniqueIds van de elementen die nu in de Revit-interface zijn geselecteerd. Gebruik revit_set_selection om de selectie te wijzigen. Alleen lezen.",
+  "revit_get_warnings": "Geef de huidige waarschuwingen van het actieve Revit-project (bijvoorbeeld overlappende of dubbele elementen). Gebruik warnings_triage_review_warnings voor een gegroepeerde beoordeling. Alleen lezen."
+}

@@ -40,7 +40,7 @@ Checker types:
 
 `mock_count` and `mock_sum` read `generate_mock_snapshot()`, so expected values follow the mock data.
 
-The test checks that every tool named in a task exists in the registry, and that at least one expected tool set is fully visible in the task's profile. The JSON report lists the profiles that show each expected tool (`profile_visibility`).
+The test checks that every tool named in a task exists in the registry, and that at least one expected tool set is fully visible in the task's profile. It also checks that every call in a golden good transcript, and every action drafted in `plan_actions`, uses only argument keys that the tool's input schema declares. The JSON report lists the profiles that show each expected tool (`profile_visibility`).
 
 ## Transcript format
 
