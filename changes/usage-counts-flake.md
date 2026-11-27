@@ -1,1 +1,0 @@
-- Tool usage counts: on Windows a flush that met another flush's lock file mid-delete got `PermissionError` instead of `FileExistsError`, abandoned the lock wait and left its counts unwritten until the next flush (lost at server exit). The lock wait now treats it as contention. Fixes the flaky `test_concurrent_flushes_keep_all_counts`.
