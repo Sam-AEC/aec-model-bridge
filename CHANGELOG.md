@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Code review fixes: a client that does not answer `roots/list` is asked once per 60 s instead of stalling every tool call; the panel link after `plan_actions` is sent in the background and no longer delays the reply; `ifc_diff` compares entity-valued and nested properties without STEP ids; `parameter_manager` blocks Boolean cells other than true/false/1/0/yes/no, refuses CSV files with an oversized cell in plain words, and caps the CSV preview `blocked` list at 200 (`blocked_total` has the full count).
 - Security review follow-up: client roots that name a network (UNC) share are ignored and never resolved; a `roots/list_changed` that lands during a roots fetch no longer lets the stale answer be cached; the parameter manager blocks `nan` and infinite numeric values; the workspace sandbox no longer re-resolves its allowed directories on every check.
 - Security review follow-up: client roots now narrow caller-supplied paths in `bcf_exchange`, `ifc_diff`, `recipe_runner`, `naming_checker` and the `qaqc_checker` fallback; relative paths start in the first narrowed directory; behaviour without roots is unchanged.
 - Coverage: `[tool.coverage.run]` sets `parallel = true` and `patch = ["subprocess"]`, so child processes (`python -m` and stdio smoke tests) report coverage and `pytest --cov` combines their data; a test checks the setting and that a child's lines reach the report. Fixes #235

@@ -134,7 +134,13 @@ def _plan_rows(
                 elif storage == "Integer":
                     new_val = int(val_str)
                 elif storage == "Boolean":
-                    new_val = val_str.strip().lower() in ("true", "1", "yes")
+                    word = val_str.strip().lower()
+                    if word in _TRUE_WORDS:
+                        new_val = True
+                    elif word in _FALSE_WORDS:
+                        new_val = False
+                    else:
+                        raise ValueError(word)
                 else:
                     new_val = val_str
             except (ValueError, TypeError, AttributeError):
@@ -155,6 +161,9 @@ def _plan_rows(
     return planned, blocked, counts
 
 
+_TRUE_WORDS = ("true", "1", "yes")
+_FALSE_WORDS = ("false", "0", "no")
+_MAX_BLOCKED_SHOWN = 200
 _MAX_CSV_BYTES = 5 * 1024 * 1024
 _MAX_CSV_ROWS = 50_000
 _LONG_COLS = ("element_id", "parameter", "value")
@@ -167,14 +176,17 @@ def _read_csv_rows(path: Path, name: str) -> Tuple[List[str], List[Dict[str, str
         raise ValueError(f"CSV file '{name}' is empty.")
     if size > _MAX_CSV_BYTES:
         raise ValueError(f"CSV file '{name}' is too large ({size} bytes; the limit is {_MAX_CSV_BYTES}).")
-    with open(path, "r", encoding="utf-8-sig", newline="") as f:
-        reader = csv.DictReader(f)
-        header = [(h or "").strip() for h in (reader.fieldnames or [])]
-        rows: List[Dict[str, str]] = []
-        for row in reader:
-            if len(rows) >= _MAX_CSV_ROWS:
-                raise ValueError(f"CSV file '{name}' has more than {_MAX_CSV_ROWS} rows.")
-            rows.append({(k or "").strip(): v for k, v in row.items() if k is not None})
+    try:
+        with open(path, "r", encoding="utf-8-sig", newline="") as f:
+            reader = csv.DictReader(f)
+            header = [(h or "").strip() for h in (reader.fieldnames or [])]
+            rows: List[Dict[str, str]] = []
+            for row in reader:
+                if len(rows) >= _MAX_CSV_ROWS:
+                    raise ValueError(f"CSV file '{name}' has more than {_MAX_CSV_ROWS} rows.")
+                rows.append({(k or "").strip(): v for k, v in row.items() if k is not None})
+    except csv.Error as exc:
+        raise ValueError(f"CSV file '{name}' could not be read as CSV ({exc}). Check for a very large cell or a stray quote.") from exc
     if not header or not any(header):
         raise ValueError(f"CSV file '{name}' is empty.")
     if not rows:
@@ -574,7 +586,8 @@ class ParameterManagerModule:
             "csv_filename": csv_filename,
             "planned_count": len(planned),
             "blocked_count": len(blocked),
-            "blocked": blocked,
+            "blocked_total": len(blocked),
+            "blocked": blocked[:_MAX_BLOCKED_SHOWN],
         }
         if row_diff is not None:
             preview["row_diff"] = row_diff

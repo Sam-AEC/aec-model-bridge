@@ -140,3 +140,33 @@ def test_wide_csv_still_works(pm, workspace, tmp_path):
     name = _write(tmp_path, "uid,Mark\nc0326e0e-473d-4952-b8ec-f23696541f44-door-1,D-7\n")
     res = pm.import_params_csv(csv_filename=name, workspace=workspace)
     assert res["preview"]["planned"][0]["updates"]["Mark"]["after"] == "D-7"
+
+
+@pytest.mark.parametrize("cell,expected", [
+    ("true", True), (" TRUE ", True), ("1", True), ("Yes", True),
+    ("false", False), ("0", False), (" No ", False),
+])
+def test_boolean_cells_accept_only_known_words(cell, expected):
+    el = {"uid": "u1", "element_id": 1, "params": {"Flag": {"storage": "Boolean", "v": None}}}
+    planned, blocked, _ = _mod._plan_rows([{"uid": "u1", "Flag": cell}], [el])
+    assert blocked == [] and planned[0]["updates"]["Flag"]["after"] is expected
+
+
+@pytest.mark.parametrize("cell", ["maybe", "2", "y", "on", "truee"])
+def test_boolean_cells_with_other_words_are_blocked(cell):
+    el = {"uid": "u1", "element_id": 1, "params": {"Flag": {"storage": "Boolean", "v": True}}}
+    planned, blocked, _ = _mod._plan_rows([{"uid": "u1", "Flag": cell}], [el])
+    assert planned == [] and "Cannot cast" in blocked[0]["reason"]
+
+
+def test_oversized_cell_is_refused_with_a_plain_message(pm, workspace, tmp_path):
+    name = _write(tmp_path, "element_id,parameter,value\n300,Mark," + "x" * 200_000 + "\n")
+    with pytest.raises(ValueError, match="could not be read as CSV"):
+        pm.import_params_csv(csv_filename=name, workspace=workspace)
+
+
+def test_blocked_list_in_the_preview_is_capped(pm, workspace, tmp_path):
+    name = _write(tmp_path, "element_id,parameter,value\n" + "".join(f"{9000 + i},Mark,X\n" for i in range(450)))
+    prev = pm.import_params_csv(csv_filename=name, workspace=workspace)["preview"]
+    assert prev["blocked_count"] == 450 and prev["blocked_total"] == 450
+    assert len(prev["blocked"]) == 200

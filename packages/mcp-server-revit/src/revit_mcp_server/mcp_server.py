@@ -224,7 +224,7 @@ async def _call_tool_rounds(name: str, arguments: Any) -> list[TextContent] | Ca
         try:
             result = await _call_tool_once(name, arguments)
             if name == "plan_actions":
-                await _offer_panel_link(result)
+                _offer_panel_link(result)
             return result
         except InputNeeded as need:
             answer = None
@@ -264,15 +264,28 @@ def _pending_plan_id(result: Any) -> str | None:
     return None
 
 
-async def _offer_panel_link(result: Any) -> None:
+_link_tasks: "set[asyncio.Task]" = set()  # strong references, so a running task is not collected
+
+
+def _offer_panel_link(result: Any) -> None:
     """Send the review panel link for a newly drafted plan to a client that supports URL mode.
+    It runs in the background so the plan_actions reply is not held up by a slow client.
     The link only points at the panel; it never approves. Any failure leaves the reply as is."""
     try:
         plan_id = _pending_plan_id(result)
         session = _client_session()
         if plan_id and client_supports_url_elicitation(session):
-            await offer_plan_panel_link(session, plan_id, related_request_id=_request_id())
+            task = asyncio.get_running_loop().create_task(_send_panel_link(session, plan_id, _request_id()))
+            _link_tasks.add(task)
+            task.add_done_callback(_link_tasks.discard)
     except Exception as exc:  # the plan is drafted; the link is a convenience
+        logger.info("Panel link skipped: %s", type(exc).__name__)
+
+
+async def _send_panel_link(session: Any, plan_id: str, request_id: Any) -> None:
+    try:
+        await offer_plan_panel_link(session, plan_id, related_request_id=request_id)
+    except Exception as exc:
         logger.info("Panel link skipped: %s", type(exc).__name__)
 
 

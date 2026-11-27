@@ -72,9 +72,26 @@ def _psets(element: Any) -> Dict[str, Dict[str, Any]]:
     except Exception:
         return {}
     return {
-        pset: {k: v for k, v in sorted(props.items()) if k != "id"}
+        pset: {k: _plain(v) for k, v in sorted(props.items()) if k != "id"}
         for pset, props in sorted(raw.items())
     }
+
+
+def _plain(value: Any) -> Any:
+    """A value without STEP ids, so the same data in two files compares and hashes the same.
+
+    Entity instances become (class, GlobalId or Name or wrapped value); the step id of nested
+    property dictionaries (complex properties) is dropped."""
+    if hasattr(value, "is_a") and hasattr(value, "id"):
+        key = (getattr(value, "GlobalId", None) or getattr(value, "Name", None)
+               or getattr(value, "wrappedValue", None))
+        return [value.is_a(), None if key is None else str(key)]
+    if isinstance(value, dict):
+        skip_id = "type" in value
+        return {k: _plain(v) for k, v in sorted(value.items(), key=lambda kv: str(kv[0])) if not (skip_id and k == "id")}
+    if isinstance(value, (list, tuple)):
+        return [_plain(v) for v in value]
+    return value
 
 
 def _digest(value: Any) -> str:
