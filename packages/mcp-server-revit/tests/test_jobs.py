@@ -18,7 +18,7 @@ async def wait_for_status(job_manager: JobManager, job_id: str, statuses: set[st
             return snapshot
         if loop.time() >= deadline:
             raise AssertionError(f"Timed out waiting for {statuses}, last status was {snapshot.status}")
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0)
 
 
 def test_submit_returns_immediately_for_sync_jobs_and_completes():
@@ -75,7 +75,7 @@ def test_async_completion_preserves_json_safe_result():
         manager = JobManager()
 
         async def job():
-            await asyncio.sleep(0.02)
+            await asyncio.sleep(0)
             return {"ok": True, "items": [1, 2, 3]}
 
         reference = await manager.submit(job)
@@ -179,12 +179,12 @@ def test_shutdown_can_cancel_running_jobs():
 
         async def job():
             started.set()
-            await asyncio.sleep(10)
+            await asyncio.Event().wait()
             return {"ok": True}
 
         reference = await manager.submit(job)
         await asyncio.wait_for(started.wait(), 0.5)
-        await manager.shutdown(cancel_running=True)
+        await asyncio.wait_for(manager.shutdown(cancel_running=True), 2)
 
         snapshot = await manager.get(reference.job_id)
         assert snapshot is not None
@@ -302,15 +302,25 @@ def test_retention_prunes_old_terminal_jobs():
 def test_shutdown_waits_for_running_jobs_and_rejects_new_submissions():
     async def main():
         manager = JobManager()
+        started = asyncio.Event()
+        release = asyncio.Event()
         finished = asyncio.Event()
 
         async def job():
-            await asyncio.sleep(0.02)
+            started.set()
+            await release.wait()
             finished.set()
             return {"ok": True}
 
         reference = await manager.submit(job)
-        await manager.shutdown()
+        await asyncio.wait_for(started.wait(), 2)
+        shutdown_task = asyncio.create_task(manager.shutdown())
+        for _ in range(5):
+            await asyncio.sleep(0)
+        assert not shutdown_task.done()
+        assert not finished.is_set()
+        release.set()
+        await asyncio.wait_for(shutdown_task, 2)
         assert finished.is_set()
 
         snapshot = await manager.get(reference.job_id)

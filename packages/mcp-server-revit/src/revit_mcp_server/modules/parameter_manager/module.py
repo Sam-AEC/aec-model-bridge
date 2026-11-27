@@ -6,7 +6,7 @@ Commands:
   diff_params         — Diff parameter values between two snapshots.
   plan_set_params     — Validate params and produce an ActionPlan draft.
   export_params_csv   — Write param values to a CSV file in workspace.
-  import_params_csv   — Read param updates from CSV → ActionPlan draft.
+  import_params_csv   — Read param updates from CSV (wide, or element_id,parameter,value) → ActionPlan draft.
   export_params_xlsx  — Write param values to an .xlsx workbook in workspace.
   import_params_xlsx  — Read an edited workbook, diff vs snapshot → ActionPlan draft.
 
@@ -152,6 +152,82 @@ def _plan_rows(
         else:
             counts["unchanged_rows"] += 1
     return planned, blocked, counts
+
+
+_MAX_CSV_BYTES = 5 * 1024 * 1024
+_MAX_CSV_ROWS = 50_000
+_LONG_COLS = ("element_id", "parameter", "value")
+
+
+def _read_csv_rows(path: Path, name: str) -> Tuple[List[str], List[Dict[str, str]]]:
+    """Header and data rows of a workspace CSV; refuses empty, oversize and header-only files."""
+    size = path.stat().st_size
+    if size == 0:
+        raise ValueError(f"CSV file '{name}' is empty.")
+    if size > _MAX_CSV_BYTES:
+        raise ValueError(f"CSV file '{name}' is too large ({size} bytes; the limit is {_MAX_CSV_BYTES}).")
+    with open(path, "r", encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        header = [(h or "").strip() for h in (reader.fieldnames or [])]
+        rows: List[Dict[str, str]] = []
+        for row in reader:
+            if len(rows) >= _MAX_CSV_ROWS:
+                raise ValueError(f"CSV file '{name}' has more than {_MAX_CSV_ROWS} rows.")
+            rows.append({(k or "").strip(): v for k, v in row.items() if k is not None})
+    if not header or not any(header):
+        raise ValueError(f"CSV file '{name}' is empty.")
+    if not rows:
+        raise ValueError(f"CSV file '{name}' has no data rows.")
+    return header, rows
+
+
+def _plan_long_rows(
+    rows: List[Dict[str, str]], elements: List[Dict[str, Any]]
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, int]]:
+    """Plan (element_id, parameter, value) rows. Unknown ids and bad rows are blocked, never planned."""
+    by_id = {str(el.get("element_id")).strip(): el for el in elements if el.get("element_id") is not None}
+    blocked: List[Dict[str, Any]] = []
+    grouped: Dict[str, Dict[str, str]] = {}
+    seen: Dict[Tuple[str, str], str] = {}
+    conflicts: set = set()
+    unknown_ids: set = set()
+    for row in rows:
+        eid = (row.get("element_id") or "").strip()
+        pname = (row.get("parameter") or "").strip()
+        val = row.get("value")
+        if not eid:
+            blocked.append({"reason": "Row has no element_id."})
+            continue
+        el = by_id.get(eid)
+        if el is None:
+            if eid not in unknown_ids:
+                unknown_ids.add(eid)
+                blocked.append({"element_id": eid, "reason": f"Element id '{eid}' not found in snapshot."})
+            continue
+        if not pname:
+            blocked.append({"element_id": eid, "reason": "Row has no parameter name."})
+            continue
+        if pname in _RESERVED_COLS:
+            blocked.append({"element_id": eid, "param": pname, "reason": f"'{pname}' is a reserved column name, not a parameter."})
+            continue
+        if val is None or val.strip() == "":
+            blocked.append({"element_id": eid, "param": pname, "reason": "Blank value; clearing a parameter is not supported."})
+            continue
+        key = (eid, pname)
+        if key in conflicts:
+            continue
+        if key in seen and seen[key] != val:
+            conflicts.add(key)
+            grouped[el["uid"]].pop(pname, None)
+            blocked.append({"element_id": eid, "param": pname, "reason": "Parameter appears more than once with different values."})
+            continue
+        seen[key] = val
+        grouped.setdefault(el["uid"], {})[pname] = val
+    wide = [{"uid": uid, **vals} for uid, vals in grouped.items()]
+    planned, plan_blocked, counts = _plan_rows(wide, elements, skip_unchanged=True)
+    counts["unknown_rows"] += len(unknown_ids)
+    counts["csv_rows"] = len(rows)
+    return planned, blocked + plan_blocked, counts
 
 
 def _cell_text(value: Any) -> str:
@@ -472,13 +548,23 @@ class ParameterManagerModule:
         **_,
     ) -> Dict[str, Any]:
         csv_path = _confined(workspace, csv_filename)
-        if not csv_path.exists():
+        if not csv_path.is_file():
             raise ValueError(f"CSV file '{csv_filename}' not found in workspace.")
-        
+
+        header, rows = _read_csv_rows(csv_path, csv_filename)
         elements = self._get_elements(snapshot_id, workspace)
-        with open(csv_path, "r", encoding="utf-8") as f:
-            rows = list(csv.DictReader(f))
-        planned, blocked, _ = _plan_rows(rows, elements)
+        row_diff = None
+        if "uid" in header:
+            planned, blocked, _ = _plan_rows(rows, elements)
+        else:
+            lowered = [h.lower() for h in header]
+            if not all(c in lowered for c in _LONG_COLS):
+                raise ValueError(
+                    f"CSV file '{csv_filename}' needs either a 'uid' column with one column per parameter, "
+                    "or the columns element_id, parameter and value."
+                )
+            norm = [{h.lower(): v for h, v in r.items()} for r in rows]
+            planned, blocked, row_diff = _plan_long_rows(norm, elements)
 
         preview = {
             "csv_filename": csv_filename,
@@ -486,7 +572,9 @@ class ParameterManagerModule:
             "blocked_count": len(blocked),
             "blocked": blocked,
         }
-        
+        if row_diff is not None:
+            preview["row_diff"] = row_diff
+
         return _make_action_plan("import_params_csv", {"csv_filename": csv_filename}, {**preview, "planned": planned})
 
     def export_params_xlsx(
