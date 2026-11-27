@@ -13,11 +13,13 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.server.lowlevel.helper_types import ReadResourceContents
 from mcp.types import (
-    CallToolResult, CreateTaskResult, GetPromptResult, Prompt, Resource, ResourceLink, ResourceTemplate, Tool,
-    TextContent,
+    CallToolResult, Completion, CompletionArgument, CompletionContext, CreateTaskResult, GetPromptResult, Prompt,
+    PromptReference, Resource, ResourceLink, ResourceTemplate, ResourceTemplateReference, Tool, TextContent,
 )
 
-from . import call_limits, client_roots, mcp_apps, mcp_logging, mcp_prompts, mcp_resources, mcp_tasks
+from . import (
+    call_limits, client_roots, mcp_apps, mcp_completions, mcp_logging, mcp_prompts, mcp_resources, mcp_tasks,
+)
 
 from .elicitation import (
     MAX_ROUNDS, VIEW_SHEET_REFS, ElicitationForbidden, InputNeeded, check_view_sheet_names, elicit_choice,
@@ -174,6 +176,17 @@ async def list_prompts() -> list[Prompt]:
 @app.get_prompt()
 async def get_prompt(name: str, arguments: dict[str, str] | None) -> GetPromptResult:
     return mcp_prompts.get_prompt(name, arguments)
+
+
+@app.completion()
+async def complete(
+    ref: PromptReference | ResourceTemplateReference,
+    argument: CompletionArgument,
+    context: CompletionContext | None,
+) -> Completion:
+    """completion/complete: category, level and parameter names from the newest snapshot, read-only."""
+    dirs = getattr(workspace_monitor, "allowed_directories", None)
+    return mcp_completions.complete(dirs[0] if dirs else None, argument.name, argument.value)
 
 
 @app.list_resources()
