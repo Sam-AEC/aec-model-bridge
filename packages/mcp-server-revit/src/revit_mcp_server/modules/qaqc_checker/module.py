@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from revit_mcp_server.errors import WorkspaceViolation
+from revit_mcp_server.security.workspace import effective_roots
 from revit_mcp_server.security.safe_paths import safe_child, snapshot_file
 from revit_mcp_server.semantic.compute import QueryError, pipeline_rows, validate_steps
 
@@ -141,7 +142,7 @@ def _assert_in_workspace(workspace: Any, candidate: Path) -> Path:
     if callable(checker):
         return checker(candidate)
     resolved = Path(candidate).resolve()
-    roots = [Path(d).resolve() for d in workspace.allowed_directories]
+    roots = [d.resolve() for d in effective_roots(workspace)]
     if not any(resolved.is_relative_to(r) for r in roots):
         raise WorkspaceViolation(f"{resolved} is outside the allowed workspace directories")
     return resolved

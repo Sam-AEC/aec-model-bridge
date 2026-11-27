@@ -23,6 +23,9 @@ import unicodedata
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from revit_mcp_server.errors import WorkspaceViolation
+from revit_mcp_server.security.workspace import base_directory, confine_path
+
 CONVENTIONS_DIR = Path(__file__).parent / "conventions"
 
 KINDS = (
@@ -570,13 +573,15 @@ class NamingCheckerModule:
             if workspace is None:
                 raise ValueError(f"Convention file '{ref}' not found. Use list_example_conventions for names.")
             path = Path(ref)
-            roots = [Path(d) for d in workspace.allowed_directories]
-            if not path.is_absolute():
-                path = roots[0] / path
-            resolved = path.resolve()
-            if not any(resolved == r.resolve() or r.resolve() in resolved.parents for r in roots):
+            base = base_directory(workspace)
+            if base is None:
                 raise ValueError("The convention file must be inside the workspace.")
-            path = resolved
+            if not path.is_absolute():
+                path = base / path
+            try:
+                path = confine_path(workspace, path)
+            except WorkspaceViolation as exc:
+                raise ValueError("The convention file must be inside the workspace.") from exc
             if not path.is_file():
                 raise ValueError(f"Convention file '{ref}' not found in the workspace.")
         try:

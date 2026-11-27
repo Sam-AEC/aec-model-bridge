@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Security review follow-up: client roots now narrow caller-supplied paths in `bcf_exchange`, `ifc_diff`, `recipe_runner`, `naming_checker` and the `qaqc_checker` fallback; relative paths start in the first narrowed directory; behaviour without roots is unchanged.
 - Workspace sandbox follows the folders the MCP client has open: when a client declares roots, path tools are limited to the intersection of those roots and the allowed directories (never wider, re-read on `roots/list_changed`, refused when nothing overlaps); clients without roots are unchanged; real-client behaviour UNVERIFIED. Fixes #202.
 - After `plan_actions` drafts a plan, a client that declared URL mode elicitation gets a loopback link (`/panel?plan=<id>`, no token) to the review panel; the link cannot approve, other clients see no change. Behaviour in real clients is UNVERIFIED. Fixes #193.
 - New module `ifc_diff` (#176). Tool count is now 323 (123 module tools). `ifc_diff_compare` compares two IFC files in the workspace by GlobalId and lists elements added, removed and changed (class, name, property sets and quantities, with a property hash), with complete counts and capped lists. Geometry is not compared. Read-only. Fixes #176
