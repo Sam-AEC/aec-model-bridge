@@ -98,6 +98,7 @@ nav:
       - Parameter Excel round-trip: parameter-excel-roundtrip.md
       - Sheet set QA: sheet-set-qa.md
       - QA handover report: qa-handover-report.md
+      - Power BI dashboard for QA data: powerbi-qa-dashboard.md
       - Rule packs: rule-packs.md
       - Recipe library: recipes-library.md
       - Python automation helpers: python-automation.md
