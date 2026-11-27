@@ -1,1 +1,0 @@
-- Review fixes: a client that never answers `roots/list` costs one 5 s wait per minute, not per call; the plan link after `plan_actions` is sent in the background; `ifc_diff` ignores STEP ids in entity property values; Boolean casts accept only true/false/1/0/yes/no; an oversized CSV cell is a plain refusal and the blocked preview is capped at 200.
