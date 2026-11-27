@@ -31,7 +31,9 @@ python ../../scripts/version.py check       # VERSION, pyproject and manifests m
 - Do not claim live-Revit behaviour you did not observe. Mark it UNVERIFIED (see `docs/release-checklist.md`).
 - Every behaviour change needs a test and one line under `## Unreleased` in `CHANGELOG.md`.
 - Docs: plain, short, factual sentences. No hype words, no emoji, no personal data, no dated narrative.
-- Commits reference issues (`Fixes #N`). Work on its own branch; PRs target `dev`.
+- Commits reference issues (`Fixes #N`). Work on its own branch; PRs target `dev`. PRs into `dev` are squash-merged; `dev` into `main` uses a merge commit.
+- Before taking an issue, read its comments and assignees. Skip issues labelled `claimed` or assigned to someone; a contributor who asks to take one gets assigned and labelled `claimed`.
+- While a release PR (`dev` into `main`) is open, `dev` is frozen: merge nothing into `dev` until it lands.
 - `README.md` and `docs/i18n/README.*.md` are for humans. Every other doc is written for agents and search. Tests check README structure, tool counts and links, so run the full suite after editing docs.
 
 ## Do not read whole

@@ -2,6 +2,13 @@
 
 Ordered list for shipping from `dev` to `main`. Section 2 has no PASS or FAIL recorded. Bounded read-only Revit 2024 checks passed; see [the live validation report](revit-addin-live-validation-2026-10-14.md). Mutating acceptance and other Revit years are UNVERIFIED. Known limits are in section 3 and in [security.md](security.md).
 
+## 0. Release flow
+
+- Open one release PR from `dev` into `main` and merge it with a merge commit.
+- `dev` is frozen while that PR is open. PRs into `dev` wait until it lands.
+- Tag after the release PR is merged, from the merge commit on `main`.
+- Issues fixed on `dev` carry the `fixed-in-dev` label and close when the release reaches `main`.
+
 ## 1. What CI proves
 
 The workflow in `.github/workflows/ci.yml` runs on every push and pull request, and nightly. Pull requests run Python on Windows 3.11 and Ubuntu 3.13 and build the add-ins only when their C# folders change. Pushes to `main` and `dev`, the nightly run and manual runs use the full matrix (Windows 3.11, 3.12, 3.13; Ubuntu 3.12, 3.13) and every build. It proves:
