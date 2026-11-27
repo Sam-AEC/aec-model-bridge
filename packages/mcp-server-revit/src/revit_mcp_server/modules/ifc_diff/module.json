@@ -1,0 +1,31 @@
+{
+  "id": "ifc_diff",
+  "name": "IFC Diff",
+  "version": "1.0.0",
+  "schema_version": 1,
+  "min_hub_version": "1.2.0",
+  "description": "Compare two IFC files in the workspace by GlobalId: elements added, removed and changed (class, name, property sets and quantities), with counts and capped samples. Geometry is not compared. Read-only.",
+  "author": "AEC Model Bridge",
+  "license": "GPL-3.0-or-later",
+  "requires_providers": ["semantic"],
+  "permissions": ["model.read"],
+  "commands": [
+    {
+      "id": "compare",
+      "title": "Compare Two IFC Files",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "older_ifc_path": {"type": "string", "description": "Path of the earlier .ifc file, inside the workspace."},
+          "newer_ifc_path": {"type": "string", "description": "Path of the later .ifc file, inside the workspace."},
+          "ifc_class": {"type": "string", "description": "Optional IFC class (for example IfcWall) to compare, with its subclasses. Default: every IfcProduct."},
+          "max_items": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 50, "description": "Most elements listed per section; counts are always complete."}
+        },
+        "required": ["older_ifc_path", "newer_ifc_path"]
+      }
+    }
+  ]
+}
