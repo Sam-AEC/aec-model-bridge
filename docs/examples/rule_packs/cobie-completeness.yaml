@@ -1,0 +1,119 @@
+# COBie handover fields: presence on asset categories (no full COBie export).
+# Parameter names are assumptions: replace the names below with the ones your template uses. Use names
+# without dots (for example 'COBie Component Name', not 'COBie.Component.Name'), because pipeline paths
+# split at dots. Component fields are read from the element; type fields from its type (join: [type]).
+# The asset categories are a starting list: edit the 'in' list in every rule to the categories you hand over.
+# 'not captured' means the element (or its type) has no such parameter in the snapshot: the parameter does
+# not exist there or the add-in did not read it. A parameter that is present but empty is reported as empty.
+# Copy it into your workspace, then: import_rule_pack -> run_check(rule_pack="cobie-completeness")
+rules:
+  - id: cobie_component_name_not_captured
+    severity: info
+    category: Assets
+    description: "COBie Component Name was not captured: the element has no 'COBie Component Name' parameter in the snapshot."
+    pipeline:
+      - where:
+          - {field: category, op: in, value: [OST_Doors, OST_Windows, OST_MechanicalEquipment, OST_ElectricalEquipment, OST_PlumbingFixtures]}
+          - {field: params.COBie Component Name, op: exists, value: false}
+    fix_template: "Add the 'COBie Component Name' parameter to the category of '{label}' and take a new snapshot."
+
+  - id: cobie_component_name_missing
+    severity: warning
+    category: Assets
+    description: "COBie Component Name is empty."
+    pipeline:
+      - where:
+          - {field: category, op: in, value: [OST_Doors, OST_Windows, OST_MechanicalEquipment, OST_ElectricalEquipment, OST_PlumbingFixtures]}
+          - {field: params.COBie Component Name, op: exists}
+          - {field: params.COBie Component Name, op: empty}
+    fix_template: "Fill in 'COBie Component Name' on '{label}'."
+
+  - id: cobie_component_space_not_captured
+    severity: info
+    category: Assets
+    description: "COBie Component Space was not captured: the element has no 'COBie Component Space' parameter in the snapshot."
+    pipeline:
+      - where:
+          - {field: category, op: in, value: [OST_Doors, OST_Windows, OST_MechanicalEquipment, OST_ElectricalEquipment, OST_PlumbingFixtures]}
+          - {field: params.COBie Component Space, op: exists, value: false}
+    fix_template: "Add the 'COBie Component Space' parameter to the category of '{label}' and take a new snapshot."
+
+  - id: cobie_component_space_missing
+    severity: warning
+    category: Assets
+    description: "COBie Component Space is empty."
+    pipeline:
+      - where:
+          - {field: category, op: in, value: [OST_Doors, OST_Windows, OST_MechanicalEquipment, OST_ElectricalEquipment, OST_PlumbingFixtures]}
+          - {field: params.COBie Component Space, op: exists}
+          - {field: params.COBie Component Space, op: empty}
+    fix_template: "Fill in 'COBie Component Space' on '{label}'."
+
+  - id: cobie_type_name_not_captured
+    severity: info
+    category: Assets
+    description: "COBie Type Name was not captured: the element has no 'COBie Type Name' parameter in the snapshot."
+    pipeline:
+      - join: [type]
+        where:
+          - {field: category, op: in, value: [OST_Doors, OST_Windows, OST_MechanicalEquipment, OST_ElectricalEquipment, OST_PlumbingFixtures]}
+          - {field: type.params.COBie Type Name, op: exists, value: false}
+    fix_template: "Add the 'COBie Type Name' parameter to the category of '{label}' and take a new snapshot."
+
+  - id: cobie_type_name_missing
+    severity: warning
+    category: Assets
+    description: "COBie Type Name is empty."
+    pipeline:
+      - join: [type]
+        where:
+          - {field: category, op: in, value: [OST_Doors, OST_Windows, OST_MechanicalEquipment, OST_ElectricalEquipment, OST_PlumbingFixtures]}
+          - {field: type.params.COBie Type Name, op: exists}
+          - {field: type.params.COBie Type Name, op: empty}
+    fix_template: "Fill in 'COBie Type Name' on '{label}'."
+
+  - id: cobie_type_category_not_captured
+    severity: info
+    category: Assets
+    description: "COBie Type Category was not captured: the element has no 'COBie Type Category' parameter in the snapshot."
+    pipeline:
+      - join: [type]
+        where:
+          - {field: category, op: in, value: [OST_Doors, OST_Windows, OST_MechanicalEquipment, OST_ElectricalEquipment, OST_PlumbingFixtures]}
+          - {field: type.params.COBie Type Category, op: exists, value: false}
+    fix_template: "Add the 'COBie Type Category' parameter to the category of '{label}' and take a new snapshot."
+
+  - id: cobie_type_category_missing
+    severity: warning
+    category: Assets
+    description: "COBie Type Category is empty."
+    pipeline:
+      - join: [type]
+        where:
+          - {field: category, op: in, value: [OST_Doors, OST_Windows, OST_MechanicalEquipment, OST_ElectricalEquipment, OST_PlumbingFixtures]}
+          - {field: type.params.COBie Type Category, op: exists}
+          - {field: type.params.COBie Type Category, op: empty}
+    fix_template: "Fill in 'COBie Type Category' on '{label}'."
+
+  - id: cobie_type_manufacturer_not_captured
+    severity: info
+    category: Assets
+    description: "COBie Type Manufacturer was not captured: the element has no 'COBie Type Manufacturer' parameter in the snapshot."
+    pipeline:
+      - join: [type]
+        where:
+          - {field: category, op: in, value: [OST_Doors, OST_Windows, OST_MechanicalEquipment, OST_ElectricalEquipment, OST_PlumbingFixtures]}
+          - {field: type.params.COBie Type Manufacturer, op: exists, value: false}
+    fix_template: "Add the 'COBie Type Manufacturer' parameter to the category of '{label}' and take a new snapshot."
+
+  - id: cobie_type_manufacturer_missing
+    severity: warning
+    category: Assets
+    description: "COBie Type Manufacturer is empty."
+    pipeline:
+      - join: [type]
+        where:
+          - {field: category, op: in, value: [OST_Doors, OST_Windows, OST_MechanicalEquipment, OST_ElectricalEquipment, OST_PlumbingFixtures]}
+          - {field: type.params.COBie Type Manufacturer, op: exists}
+          - {field: type.params.COBie Type Manufacturer, op: empty}
+    fix_template: "Fill in 'COBie Type Manufacturer' on '{label}'."

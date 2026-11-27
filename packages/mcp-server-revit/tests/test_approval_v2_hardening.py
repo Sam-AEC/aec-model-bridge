@@ -320,10 +320,11 @@ def test_concurrent_mcp_calls_run_one_approved_action_once(server):
     tool = "selection_tools_set_selection"
     provider = registry.lookup_tool_provider(tool)
     ran = []
+    release = asyncio.Event()
 
     async def slow(name, arguments):
         ran.append(1)
-        await asyncio.sleep(0.05)
+        await release.wait()
         return {"ok": True}
 
     args = {"element_uids": ["u1"]}
@@ -332,7 +333,16 @@ def test_concurrent_mcp_calls_run_one_approved_action_once(server):
     provider.execute_tool, original = slow, provider.execute_tool
     try:
         async def many():
-            return await asyncio.gather(*(mcp_server.call_tool(tool, {**args, "plan_id": pid}) for _ in range(5)))
+            tasks = [asyncio.ensure_future(mcp_server.call_tool(tool, {**args, "plan_id": pid})) for _ in range(5)]
+            # the winner is held inside the tool until the other four calls have been answered
+            async def losers_answered():
+                while sum(t.done() for t in tasks) < 4:
+                    await asyncio.sleep(0)
+            try:
+                await asyncio.wait_for(losers_answered(), 5)
+            finally:
+                release.set()
+            return await asyncio.gather(*tasks)
         asyncio.run(many())
     finally:
         provider.execute_tool = original

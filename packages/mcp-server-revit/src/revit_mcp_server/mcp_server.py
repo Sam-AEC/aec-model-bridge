@@ -17,16 +17,16 @@ from mcp.types import (
     TextContent,
 )
 
-from . import call_limits, mcp_apps, mcp_logging, mcp_prompts, mcp_resources, mcp_tasks
+from . import call_limits, client_roots, mcp_apps, mcp_logging, mcp_prompts, mcp_resources, mcp_tasks
 
 from .elicitation import (
     MAX_ROUNDS, VIEW_SHEET_REFS, ElicitationForbidden, InputNeeded, check_view_sheet_names, elicit_choice,
-    elicitation_allowed, missing_export_path,
+    client_supports_url_elicitation, elicitation_allowed, missing_export_path, offer_plan_panel_link,
 )
 from .errors import BridgeError, CommandFailed
 from .registry_factory import build_registry
 from .security.approval import HUMAN_ONLY_TOOLS
-from .security.policy import name_in_off_tier, off_tiers_for_listing, tool_refusal
+from .security.workspace import CLIENT_ROOTS
 from .security.dispatch import (
     GET_RESULT_TOOL, gate_after, gate_after_result, gate_before, mark_timed_out, result_failed,
     settle_in_flight, settle_late_result,
@@ -88,6 +88,7 @@ def _make_server() -> Server:
 
 # Initialize the MCP server
 app = _make_server()
+client_roots.register(app)
 
 # Registry components — populated in main() so importing this module never
 # triggers provider construction (Rhino health probes, Speckle OAuth, SQLite
@@ -204,11 +205,26 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
     the person is asked once per missing input and the call runs again with the answer.
     Otherwise, or on decline, cancel or timeout, the call ends with the plain refusal.
     Approval tools never ask (elicitation.elicitation_allowed).
+
+    The folders this client has open (MCP roots) narrow the workspace sandbox for the call
+    (client_roots.py); they never widen it.
     """
+    roots = await client_roots.for_session(_client_session(), workspace_monitor)
+    token = CLIENT_ROOTS.set(roots)
+    try:
+        return await _call_tool_rounds(name, arguments)
+    finally:
+        CLIENT_ROOTS.reset(token)
+
+
+async def _call_tool_rounds(name: str, arguments: Any) -> list[TextContent] | CallToolResult | CreateTaskResult:
     rounds = 0
     while True:
         try:
-            return await _call_tool_once(name, arguments)
+            result = await _call_tool_once(name, arguments)
+            if name == "plan_actions":
+                await _offer_panel_link(result)
+            return result
         except InputNeeded as need:
             answer = None
             if rounds < MAX_ROUNDS and _may_elicit(name, arguments):
@@ -226,6 +242,37 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent] | CallToolRe
             except InputNeeded as again:
                 return _tool_error("input_needed", again.refusal)
             rounds += 1
+
+
+def _pending_plan_id(result: Any) -> str | None:
+    """The id of the plan a plan_actions reply drafted, or None when it drafted none."""
+    if isinstance(result, CallToolResult):
+        if result.isError:
+            return None
+        data = result.structuredContent
+        if not isinstance(data, dict):
+            data = None
+        content = result.content
+    else:
+        data, content = None, result
+    if data is None:
+        text = next((c.text for c in content or [] if isinstance(c, TextContent)), "")
+        data = _json_object(text.split("Result:\n", 1)[1]) if "Result:\n" in text else None
+    if isinstance(data, dict) and data.get("state") == "pending" and isinstance(data.get("plan_id"), str):
+        return data["plan_id"]
+    return None
+
+
+async def _offer_panel_link(result: Any) -> None:
+    """Send the review panel link for a newly drafted plan to a client that supports URL mode.
+    The link only points at the panel; it never approves. Any failure leaves the reply as is."""
+    try:
+        plan_id = _pending_plan_id(result)
+        session = _client_session()
+        if plan_id and client_supports_url_elicitation(session):
+            await offer_plan_panel_link(session, plan_id, related_request_id=_request_id())
+    except Exception as exc:  # the plan is drafted; the link is a convenience
+        logger.info("Panel link skipped: %s", type(exc).__name__)
 
 
 def _client_session() -> Any:

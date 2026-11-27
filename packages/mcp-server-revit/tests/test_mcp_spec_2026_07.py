@@ -93,6 +93,7 @@ DEPRECATED = {"logging", "roots", "sampling", "http_sse_transport"}
 # Must match the "Deprecated-feature allowlist" table in ADR 0023.
 DEPRECATED_ALLOWLIST: dict[str, set[str]] = {
     "logging": {"src/revit_mcp_server/mcp_server.py"},
+    "roots": {"src/revit_mcp_server/client_roots.py"},
     "http_sse_transport": {"src/revit_mcp_server/providers/proxy.py"},
 }
 
