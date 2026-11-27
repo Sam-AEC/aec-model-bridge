@@ -109,6 +109,7 @@ def test_test_rule_without_snapshot_uses_mock(module, ws, monkeypatch):
     r"(a)\1", "(?=a)a",
     "a" * 201,
     "",
+    "a?" * 40 + "b", "a{0,2}" * 10 + "b",
 ])
 def test_bad_or_catastrophic_regex_refused(module, ws, snapshot, regex):
     with pytest.raises(ValueError):
@@ -160,6 +161,20 @@ def test_save_refuses_overwrite_unless_asked(module, ws):
     with pytest.raises(ValueError, match="overwrite"):
         module.save_naming_rule(workspace=ws, **dict(RULE, regex=r"L\d"))
     assert module.save_naming_rule(workspace=ws, overwrite=True, **dict(RULE, regex=r"L\d"))["status"] == "saved"
+
+
+def test_overwrite_does_not_follow_planted_tmp_symlink(module, ws, tmp_path):
+    module.save_naming_rule(workspace=ws, **RULE)
+    outside = tmp_path.parent / f"{tmp_path.name}_outside.txt"
+    outside.write_text("keep", encoding="utf-8")
+    try:
+        (tmp_path / "naming_rules" / "level_names.json.tmp").symlink_to(outside)
+    except OSError:
+        pytest.skip("symlinks not permitted")
+    module.save_naming_rule(workspace=ws, overwrite=True, **dict(RULE, regex=r"L\d"))
+    assert outside.read_text(encoding="utf-8") == "keep"
+    stored = json.loads((tmp_path / "naming_rules" / "level_names.json").read_text(encoding="utf-8"))
+    assert stored["rule"]["regex"] == r"L\d"
 
 
 @pytest.mark.parametrize("rule_id", ["../evil", "a/b", "a\\b", "..", ".", "", "x" * 101, "C:evil", "a b", "evil/"])
