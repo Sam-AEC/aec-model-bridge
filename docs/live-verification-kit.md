@@ -205,7 +205,7 @@ WRITE: owner approves in the panel.
   3. Draft and approve a third plan. Make `revit_get_context` unreachable (close the panel hub, or block the bridge port). Call `execute_plan`.
 - Expected: step 1 is refused as a different document. Step 2 is refused with a message that names the expiry. Step 3 is refused (fails closed). The model is unchanged after all three.
 - Evidence: the three refusal messages, and parameter values in A and B before and after. Kit field: none; status stays MANUAL.
-- Pass: three refusals and no change. Then update the "Before any release" entries in [security](security.md) and the status line of [ADR 0017](0017-approval-document-binding-and-expiry.md). Fail: any of the three runs.
+- Pass: three refusals and no change. Then update the "Before any release" entries in [security](security.md) and the status line of [ADR 0017](adr/0017-approval-document-binding-and-expiry.md). Fail: any of the three runs.
 
 ### Card 14: #293 Rolled-back preview in the panel
 
