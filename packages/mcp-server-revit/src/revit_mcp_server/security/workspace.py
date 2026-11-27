@@ -51,13 +51,15 @@ CLIENT_ROOTS: "ContextVar[tuple[str, ...] | None]" = ContextVar("client_roots", 
 
 def narrow_directories(
     allowed: Sequence["Path | str"], roots: Sequence[str], casefold: "bool | None" = None,
+    allowed_resolved: bool = False,
 ) -> "tuple[list[Path], list[str]]":
     """The intersection of the allowed directories and the client roots, plus the roots left out.
 
     A root inside an allowed directory narrows to that root. A root that contains an allowed
     directory leaves that directory as it is. A root that touches no allowed directory is ignored.
-    The result is never larger than ``allowed``."""
-    allowed_real = [_real(directory) for directory in allowed]
+    The result is never larger than ``allowed``. ``allowed_resolved`` says ``allowed`` already holds
+    real paths (as ``WorkspaceMonitor`` keeps them), so they are not resolved again; roots always are."""
+    allowed_real = [os.fspath(d) for d in allowed] if allowed_resolved else [_real(d) for d in allowed]
     kept: list[str] = []
     ignored: list[str] = []
     for root in roots:
@@ -85,7 +87,7 @@ class WorkspaceMonitor:
         roots = CLIENT_ROOTS.get()
         if roots is None:
             return self.allowed_directories
-        return narrow_directories(self.allowed_directories, roots, self._casefold)[0]
+        return narrow_directories(self.allowed_directories, roots, self._casefold, allowed_resolved=True)[0]
 
     def assert_in_workspace(self, candidate: Path) -> Path:
         resolved = _real(candidate)

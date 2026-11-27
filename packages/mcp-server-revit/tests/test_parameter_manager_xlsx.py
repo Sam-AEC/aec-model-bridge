@@ -100,6 +100,21 @@ def test_boolean_cells_ignore_surrounding_spaces(cell):
     assert planned == [] and blocked == [] and counts["unchanged_rows"] == 1
 
 
+@pytest.mark.parametrize("cell", ["nan", "NaN", "inf", "-inf", "Infinity", "-Infinity"])
+def test_non_finite_numbers_are_blocked(cell):
+    el = {"uid": "u1", "element_id": 1, "params": {"Height": {"storage": "Double", "v": 2.0}}}
+    for skip in (False, True):
+        planned, blocked, _ = _mod._plan_rows([{"uid": "u1", "Height": cell}], [el], skip_unchanged=skip)
+        assert planned == []
+        assert len(blocked) == 1 and "finite" in blocked[0]["reason"]
+
+
+def test_finite_numbers_still_pass():
+    el = {"uid": "u1", "element_id": 1, "params": {"Height": {"storage": "Double", "v": 2.0}}}
+    planned, blocked, _ = _mod._plan_rows([{"uid": "u1", "Height": "3.5"}], [el])
+    assert blocked == [] and planned[0]["updates"]["Height"]["after"] == 3.5
+
+
 def _write_mapping(tmp_path, name, columns):
     import json
     folder = tmp_path / "excel_mappings"

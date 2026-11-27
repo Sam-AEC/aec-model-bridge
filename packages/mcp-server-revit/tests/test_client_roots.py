@@ -70,9 +70,31 @@ def test_windows_drive_letter_uris():
     assert uri_to_path("file:///no/drive", windows=True) is None
 
 
-def test_windows_unc_uris():
-    assert uri_to_path("file://server/share/dir", windows=True) == "\\\\server\\share\\dir"
+@pytest.mark.parametrize("uri", [
+    "file://server/share/dir", "file://10.0.0.5/share", "file:////server/share/dir", "file://///server/share",
+])
+@pytest.mark.parametrize("windows", [True, False])
+def test_unc_uris_are_refused(uri, windows):
+    assert uri_to_path(uri, windows=windows) is None
+
+
+@pytest.mark.parametrize("uri", ["file:///%5C%5Cserver/share", "file:///%5C%5C%3F%5CUNC%5Cserver%5Cshare"])
+def test_backslash_unc_paths_are_refused_on_windows(uri):
+    assert uri_to_path(uri, windows=True) is None
+
+
+def test_localhost_uri_is_not_a_unc_root():
     assert uri_to_path("file://localhost/C:/x", windows=True) == "C:\\x"
+
+
+def test_a_unc_root_is_never_resolved_and_is_logged(tree, caplog, monkeypatch):
+    def boom(_path):
+        raise AssertionError("realpath must not run on a network path")
+
+    monkeypatch.setattr(client_roots, "_real", boom)
+    with caplog.at_level(logging.WARNING, logger="revit_mcp_server.client_roots"):
+        assert usable_roots(["file://server/share/x", "file:////server/share/y"]) == ()
+    assert caplog.text.count("Ignoring client root") == 2
 
 
 def test_nul_in_a_uri_is_refused():
@@ -273,6 +295,47 @@ def test_non_file_roots_only_means_everything_is_refused(tree):
     fake = _fake_session({}, answer=[{"uri": "https://evil.example/x"}, {"uri": "ssh://h/p"}])
     s.client_params, s.send_request = fake.client_params, fake.send_request
     assert _run(client_roots.for_session(s)) == ()
+
+
+def test_a_unc_root_as_the_only_root_refuses_everything(tree):
+    class S:
+        pass
+    s = S()
+    fake = _fake_session({}, answer=[{"uri": "file://server/share/x"}])
+    s.client_params, s.send_request = fake.client_params, fake.send_request
+    assert _run(client_roots.for_session(s)) == ()
+
+
+def test_a_list_changed_during_a_fetch_discards_the_stale_answer(tree):
+    class S:
+        pass
+    s = S()
+    state = {"answer": [{"uri": tree.a.as_uri()}], "n": 0}
+    started, release = asyncio.Event(), asyncio.Event()
+
+    async def send_request(request, result_type):
+        state["n"] += 1
+        answer = state["answer"]
+        if state["n"] == 1:
+            started.set()
+            await release.wait()
+        return result_type(roots=answer)
+
+    s.client_params = SimpleNamespace(capabilities=SimpleNamespace(roots={}))
+    s.send_request = send_request
+
+    async def scenario():
+        task = asyncio.create_task(client_roots.for_session(s))
+        await started.wait()
+        state["answer"] = [{"uri": tree.b.as_uri()}]
+        await client_roots._on_list_changed(None)
+        release.set()
+        await task
+        assert s not in client_roots._cache  # the stale answer was not stored
+        return await client_roots.for_session(s)
+
+    assert _run(scenario()) == (os.path.normpath(os.path.realpath(tree.b)),)
+    assert state["n"] == 2
 
 
 def test_roots_are_read_once_per_session_and_again_after_list_changed(tree):
