@@ -103,6 +103,7 @@ This catalog lists all tools exposed by the AEC Model Bridge providers.
 | `naming_checker_check_names` | Check file names, sheet numbers and names, view names and level or grid names against the naming convention you provide (a pattern of named fields with allowed values per field). | No | sync |
 | `naming_checker_list_example_conventions` | List the bundled example naming conventions. | No | sync |
 | `param_completeness_heatmap` | Measure how many elements have a value in each parameter, per category (and per level on request), from a saved snapshot: filled, total and percent. | No | sync |
+| `param_completeness_loin_report` | Check a saved snapshot against a LOIN requirement file in the workspace loin folder (YAML or JSON: category, stage, required parameters) and report completeness per category and stage. | No | sync |
 | `parameter_manager_diff_params` | Compare parameter values between two saved snapshots and list the differences. | No | sync |
 | `parameter_manager_export_params_csv` | Export parameters of the matching snapshot elements to a CSV file in the workspace. | No | sync |
 | `parameter_manager_export_params_xlsx` | Export parameters of the matching snapshot elements to an Excel workbook in the workspace for editing. | No | sync |
