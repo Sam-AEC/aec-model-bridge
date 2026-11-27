@@ -13,7 +13,7 @@ Ordered list for shipping from `dev` to `main`. Section 2 has no PASS or FAIL re
 
 The workflow in `.github/workflows/ci.yml` runs on every push and pull request, and nightly. Pull requests run Python on Windows 3.11 and Ubuntu 3.13 and build the add-ins only when their C# folders change. Pushes to `main` and `dev`, the nightly run and manual runs use the full matrix (Windows 3.11, 3.12, 3.13; Ubuntu 3.12, 3.13) and every build. It proves:
 
-- Python lint (`ruff check`), the Python test suite with coverage, version consistency (`scripts/version.py check`), `uv.lock` freshness and tool catalog generation.
+- Python lint (`ruff check`), the Python test suite with coverage, version consistency (`scripts/version.py check`), changelog fragments (`scripts/changelog.py check`), tool count claims (`scripts/sync_counts.py --check`), `llms-full.txt` freshness, `uv.lock` freshness and tool catalog generation.
 - Repository metadata validation, wheel and sdist build, `twine check --strict`, and a smoke test of the built wheel in a clean venv.
 - The Revit add-in and the Rhino bridge add-in compile (`dotnet build`).
 - Workflow files pass `actionlint`.
@@ -141,7 +141,7 @@ The environment name on PyPI and in the workflow must match. If an older pending
 
 claude.ai on the web and phones accepts only remote HTTPS connectors, so it cannot reach a local Revit.
 
-Release steps: attach the `.mcpb` and installer to the GitHub release (`scripts/version.py` keeps plugin and marketplace versions in step), update `server.json`, run `mcp-publisher validate`, publish, then check discovery through the registry API.
+Release steps: run `python scripts/changelog.py build --version X.Y.Z` first (folds `changes/*.md` into the release section), then bump versions as in [versioning.md](versioning.md), attach the `.mcpb` and installer to the GitHub release (`scripts/version.py` keeps plugin and marketplace versions in step), update `server.json`, run `mcp-publisher validate`, publish, then check discovery through the registry API.
 
 GitHub releases and tags v0.1.0 to v1.1.0 were deleted on 2026-10-09. The code stays in git history, and the MCP Registry still lists 1.0.1, 1.0.2 and 1.1.0 with dead download links. Releases v1.2.1 to v1.3.3 carry GPL-3.0 licence files in tag, wheel and `.mcpb`.
 

@@ -11,7 +11,7 @@ Revit MCP server (Model Context Protocol) with a native Revit add-in. AI clients
 - `packages/vscode-extension/`: VS Code extension. `packages/claude-plugin/`: Claude Code plugin (listed by `.claude-plugin/marketplace.json`).
 - `panel/`: approval panel (plain HTML and JS in WebView2).
 - `docs/`: reference docs and ADRs (`docs/adr/00NN-*.md`). `docs/examples/rule_packs/`: example QA rule packs.
-- `scripts/`: PowerShell build, release and installer scripts; Python helpers (`version.py`, `count_tools.py`, `make_install_links.py`).
+- `scripts/`: PowerShell build, release and installer scripts; Python helpers (`version.py`, `count_tools.py`, `sync_counts.py`, `changelog.py`, `make_install_links.py`).
 
 ## Commands
 Run from `packages/mcp-server-revit`:
@@ -29,7 +29,7 @@ python ../../scripts/version.py check       # VERSION, pyproject and manifests m
 - Model writes go through plans: `plan_actions`, human approval, `execute_plan`. Never add a write path that skips the gate.
 - Fail closed. Refuse with a plain-language error instead of guessing.
 - Do not claim live-Revit behaviour you did not observe. Mark it UNVERIFIED (see `docs/release-checklist.md`).
-- Every behaviour change needs a test and one line under `## Unreleased` in `CHANGELOG.md`.
+- Every behaviour change needs a test and one fragment file `changes/<issue-or-branch>.md` (see `changes/README.md`); do not edit `CHANGELOG.md`. After adding or removing a tool run `python scripts/sync_counts.py` and `python scripts/make_llms_full.py`.
 - Docs: plain, short, factual sentences. No hype words, no emoji, no personal data, no dated narrative.
 - Commits reference issues (`Fixes #N`). Work on its own branch; PRs target `dev`. PRs into `dev` are squash-merged; `dev` into `main` uses a merge commit.
 - Before taking an issue, read its comments and assignees. Skip issues labelled `claimed` or assigned to someone; a contributor who asks to take one gets assigned and labelled `claimed`.
