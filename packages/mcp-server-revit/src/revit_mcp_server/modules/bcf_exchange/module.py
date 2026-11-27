@@ -4,6 +4,8 @@ bcf_exchange module - BCF 2.1 issue export / import.
 Commands:
   export_bcf - write a list of issues (and optionally the QA/QC issue store) to a .bcfzip.
   import_bcf - read a .bcfzip back into a plain list of issues.
+  list_server_topics / create_server_topic / update_server_topic - BCF 3.0 REST topics
+  (see the "BCF 3.0 REST client" section; create and update need an approved plan).
 
 UNVERIFIED: the BCF structure is written from general knowledge of BCF 2.1. It has
 NOT been validated against buildingSMART's XSDs or opened in any other BCF tool.
@@ -19,11 +21,16 @@ from revit_mcp_server.security.module_permissions import writable_path
 from revit_mcp_server.errors import WorkspaceViolation
 from revit_mcp_server.security.workspace import base_directory, confine_path
 
+import json
+import logging
 import os
 import re
 import sqlite3
 import stat
 import tempfile
+import urllib.error
+import urllib.parse
+import urllib.request
 import uuid
 import zipfile
 import xml.etree.ElementTree as ET
@@ -39,6 +46,22 @@ MAX_RATIO = 200  # uncompressed / compressed, for entries over 1 MiB
 MAX_TOPICS = 2000
 MAX_COMPONENTS_PER_TOPIC = 10000
 QAQC_DB = "qaqc_issues.db"
+
+BCF_URL_ENV = "MCP_REVIT_BCF_URL"
+BCF_PROJECT_ENV = "MCP_REVIT_BCF_PROJECT_ID"
+BCF_TOKEN_ENV = "MCP_REVIT_BCF_TOKEN"
+HTTP_TIMEOUT_SECONDS = 15
+MAX_RESPONSE_BYTES = 5 * 1024 * 1024
+MAX_LIST_TOPICS = 500
+_LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
+_TOPIC_STRING_FIELDS = ("title", "description", "topic_type", "topic_status", "priority",
+                        "assigned_to", "due_date", "stage")
+_TOPIC_SUMMARY_FIELDS = ("guid", "title", "description", "topic_type", "topic_status", "priority",
+                         "assigned_to", "creation_date", "creation_author", "modified_date",
+                         "modified_author", "due_date", "stage", "labels")
+_PROJECT_ID_RE = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
+
+logger = logging.getLogger(__name__)
 
 _IFC_GUID_RE = re.compile(r"^[0-9A-Za-z_$]{22}$")
 def _is_bad_xml_char(ch: str) -> bool:
@@ -343,6 +366,134 @@ def _read_bcf(path: Path) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# BCF 3.0 REST client (topics)
+# UNVERIFIED against real BIMcollab or Revizto servers; tested against a local mock only.
+# The server URL and the bearer token come ONLY from the environment, never from tool
+# arguments, so a model cannot point the token at a server of its choosing. The token is
+# never logged, returned or placed in an error message.
+# ---------------------------------------------------------------------------
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):  # a redirect would forward the token to another host
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoRedirect)
+
+
+def _redact(text: str, token: str) -> str:
+    return text.replace(token, "[redacted]") if token else text
+
+
+def _server_base_url() -> str:
+    raw = (os.environ.get(BCF_URL_ENV) or "").strip()
+    if not raw:
+        raise BcfError(f"No BCF server is configured. Set {BCF_URL_ENV} to the server address (for example https://example.test).")
+    try:
+        parts = urllib.parse.urlsplit(raw)
+        host = (parts.hostname or "").lower()
+        parts.port  # raises ValueError on a bad port
+    except ValueError as exc:
+        raise BcfError(f"{BCF_URL_ENV} is not a valid URL.") from exc
+    if parts.username is not None or parts.password is not None:
+        raise BcfError(f"{BCF_URL_ENV} must not contain a user name or password.")
+    if parts.query or parts.fragment:
+        raise BcfError(f"{BCF_URL_ENV} must not contain a query or fragment.")
+    if not (parts.scheme == "https" or (parts.scheme == "http" and host in _LOCAL_HOSTS)):
+        raise BcfError(f"{BCF_URL_ENV} must use https. Plain http is only allowed for 127.0.0.1 and localhost.")
+    if not host:
+        raise BcfError(f"{BCF_URL_ENV} is not a valid URL.")
+    return raw.rstrip("/")
+
+
+def _server_token() -> str:
+    token = (os.environ.get(BCF_TOKEN_ENV) or "").strip()
+    if not token:
+        raise BcfError(
+            f"No BCF credentials. Set {BCF_TOKEN_ENV} in the environment of the server. "
+            "The token is never accepted as a tool argument."
+        )
+    if any(ord(c) < 33 or ord(c) > 126 for c in token):
+        raise BcfError(f"{BCF_TOKEN_ENV} is not a valid bearer token.")
+    return token
+
+
+def _project_id(value: Any) -> str:
+    pid = str(value if value else os.environ.get(BCF_PROJECT_ENV, "")).strip()
+    if not pid:
+        raise BcfError(f"A project_id is required (argument, or set {BCF_PROJECT_ENV}).")
+    if not _PROJECT_ID_RE.match(pid) or pid in (".", ".."):
+        raise BcfError("project_id may only contain letters, digits, '.', '_' and '-'.")
+    return pid
+
+
+def _topic_payload(fields: Dict[str, Any], require_title: bool) -> Dict[str, Any]:
+    body: Dict[str, Any] = {}
+    for key in _TOPIC_STRING_FIELDS:
+        value = fields.get(key)
+        if value is None:
+            continue
+        if not isinstance(value, str) or "\x00" in value:
+            raise BcfError(f"'{key}' must be text.")
+        body[key] = value
+    labels = fields.get("labels")
+    if labels is not None:
+        if not isinstance(labels, list) or not all(isinstance(x, str) for x in labels):
+            raise BcfError("'labels' must be a list of text values.")
+        body["labels"] = list(labels)
+    if require_title and not str(body.get("title", "")).strip():
+        raise BcfError("A topic title is required.")
+    if not require_title and not body:
+        raise BcfError("Give at least one field to update.")
+    return body
+
+
+def _bcf_request(method: str, path: str, token: str, body: Optional[Dict[str, Any]] = None,
+                 query: Optional[Dict[str, Any]] = None) -> Any:
+    url = _server_base_url() + path
+    if query:
+        url += "?" + urllib.parse.urlencode(query)
+    data = None
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+    if body is not None:
+        data = json.dumps(body).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+    request = urllib.request.Request(url, data=data, method=method, headers=headers)
+    logger.info("BCF server request: %s %s", method, path)
+    try:
+        with _OPENER.open(request, timeout=HTTP_TIMEOUT_SECONDS) as resp:
+            raw = resp.read(MAX_RESPONSE_BYTES + 1)
+    except urllib.error.HTTPError as exc:
+        status = exc.code
+        exc.close()
+        if status in (401, 403):
+            raise BcfError(
+                f"The BCF server refused the credentials (HTTP {status}). "
+                f"Check {BCF_TOKEN_ENV} and that the token may access this project."
+            ) from None
+        if status == 404:
+            raise BcfError("The BCF server did not find that project or topic (HTTP 404).") from None
+        if 300 <= status < 400:
+            raise BcfError(f"The BCF server tried to redirect (HTTP {status}). Redirects are not followed; check {BCF_URL_ENV}.") from None
+        raise BcfError(f"The BCF server returned an error (HTTP {status}).") from None
+    except (urllib.error.URLError, OSError, TimeoutError) as exc:
+        reason = getattr(exc, "reason", exc)
+        raise BcfError(_redact(f"Could not reach the BCF server: {type(reason).__name__}.", token)) from None
+    if len(raw) > MAX_RESPONSE_BYTES:
+        raise BcfError("The BCF server response is too large.")
+    try:
+        return json.loads(raw.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        raise BcfError("The BCF server did not return JSON.") from None
+
+
+def _summarise_topic(topic: Any) -> Dict[str, Any]:
+    if not isinstance(topic, dict):
+        raise BcfError("The BCF server returned an unexpected topic shape.")
+    return {k: topic[k] for k in _TOPIC_SUMMARY_FIELDS if k in topic}
+
+
+# ---------------------------------------------------------------------------
 # Module class
 # ---------------------------------------------------------------------------
 
@@ -394,4 +545,40 @@ class BcfExchangeModule:
             "issue_count": len(result["issues"]),
             "issues": result["issues"],
             "warning": "UNVERIFIED: parsing is not validated against buildingSMART XSDs or other BCF tools.",
+        }
+
+    def list_server_topics(self, project_id: str = "", limit: int = 100, **_) -> Dict[str, Any]:
+        pid = _project_id(project_id)
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= MAX_LIST_TOPICS:
+            raise BcfError(f"limit must be a whole number from 1 to {MAX_LIST_TOPICS}.")
+        token = _server_token()
+        data = _bcf_request("GET", f"/bcf/3.0/projects/{pid}/topics", token, query={"$top": limit})
+        if not isinstance(data, list):
+            raise BcfError("The BCF server returned an unexpected answer (a list of topics was expected).")
+        topics = [_summarise_topic(t) for t in data[:limit]]
+        return {
+            "status": "read", "project_id": pid, "topic_count": len(topics), "topics": topics,
+            "warning": "UNVERIFIED against real BIMcollab or Revizto servers.",
+        }
+
+    def create_server_topic(self, project_id: str = "", **fields) -> Dict[str, Any]:
+        pid = _project_id(project_id)
+        body = _topic_payload(fields, require_title=True)
+        token = _server_token()
+        data = _bcf_request("POST", f"/bcf/3.0/projects/{pid}/topics", token, body=body)
+        return {
+            "status": "created", "project_id": pid, "topic": _summarise_topic(data),
+            "warning": "UNVERIFIED against real BIMcollab or Revizto servers.",
+        }
+
+    def update_server_topic(self, topic_guid: str = "", project_id: str = "", **fields) -> Dict[str, Any]:
+        pid = _project_id(project_id)
+        if not isinstance(topic_guid, str) or not _GUID_RE.match(topic_guid):
+            raise BcfError("topic_guid must be the topic's GUID, for example 3f2b8c1e-0a4d-4c55-9d0e-2b7f5a6c1d10.")
+        body = _topic_payload(fields, require_title=False)
+        token = _server_token()
+        data = _bcf_request("PUT", f"/bcf/3.0/projects/{pid}/topics/{topic_guid}", token, body=body)
+        return {
+            "status": "updated", "project_id": pid, "topic": _summarise_topic(data),
+            "warning": "UNVERIFIED against real BIMcollab or Revizto servers.",
         }

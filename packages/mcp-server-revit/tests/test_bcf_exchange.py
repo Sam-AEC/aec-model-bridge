@@ -209,7 +209,8 @@ def test_tools_listed_via_registry(tmp_path):
     reg = ModuleRegistry(config_obj=cfg)
     reg.discover_and_load()
     m = reg.get_module("bcf_exchange")
-    assert m is not None and not any(c.is_mutating for c in m.manifest.commands)
+    mutating = {c.id for c in m.manifest.commands if c.is_mutating}
+    assert m is not None and mutating == {"create_server_topic", "update_server_topic"}
 
 
 # --- BCF 2.1 schema-shape regressions (review findings) ---

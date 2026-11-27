@@ -4,11 +4,11 @@
   "version": "1.0.0",
   "schema_version": 1,
   "min_hub_version": "1.2.0",
-  "description": "Write issues (for example QA/QC findings) to a BCF 2.1 .bcfzip file and read a .bcfzip back into a plain issue list. Never changes the Revit model. UNVERIFIED for interop with other BCF tools.",
+  "description": "Write issues (for example QA/QC findings) to a BCF 2.1 .bcfzip file and read a .bcfzip back into a plain issue list. Also list, create and update topics on a BCF 3.0 REST server (credentials from the environment; create and update need an approved plan). Never changes the Revit model. UNVERIFIED for interop with other BCF tools and real BCF servers.",
   "author": "AEC Model Bridge",
   "license": "GPL-3.0-or-later",
   "requires_providers": [],
-  "permissions": ["files.write"],
+  "permissions": ["files.write", "net.cloud"],
   "commands": [
     {
       "id": "export_bcf",
@@ -61,6 +61,167 @@
           }
         },
         "required": ["bcf_path"]
+      }
+    },
+    {
+      "id": "list_server_topics",
+      "title": "List Topics on a BCF 3.0 Server (read-only, credentials from the environment)",
+      "surface": [
+        "mcp"
+      ],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "permissions": [
+        "net.cloud"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "BCF server project id. Defaults to the MCP_REVIT_BCF_PROJECT_ID environment variable."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100,
+            "description": "Most topics to return."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "id": "create_server_topic",
+      "title": "Create a Topic on a BCF 3.0 Server (needs an approved plan, credentials from the environment)",
+      "surface": [
+        "mcp"
+      ],
+      "execution_mode": "sync",
+      "is_mutating": true,
+      "requires_plan": true,
+      "permissions": [
+        "net.cloud"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "BCF server project id. Defaults to the MCP_REVIT_BCF_PROJECT_ID environment variable."
+          },
+          "title": {
+            "type": "string",
+            "description": "Topic title."
+          },
+          "description": {
+            "type": "string",
+            "description": "Topic description."
+          },
+          "topic_type": {
+            "type": "string",
+            "description": "Topic type, for example Issue or Clash."
+          },
+          "topic_status": {
+            "type": "string",
+            "description": "Topic status, for example Open or Closed."
+          },
+          "priority": {
+            "type": "string",
+            "description": "Priority, for example High."
+          },
+          "assigned_to": {
+            "type": "string",
+            "description": "User the topic is assigned to."
+          },
+          "due_date": {
+            "type": "string",
+            "description": "Due date, ISO 8601."
+          },
+          "stage": {
+            "type": "string",
+            "description": "Project stage."
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Labels."
+          }
+        },
+        "required": [
+          "title"
+        ]
+      }
+    },
+    {
+      "id": "update_server_topic",
+      "title": "Update a Topic on a BCF 3.0 Server (needs an approved plan, credentials from the environment)",
+      "surface": [
+        "mcp"
+      ],
+      "execution_mode": "sync",
+      "is_mutating": true,
+      "requires_plan": true,
+      "permissions": [
+        "net.cloud"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "description": "BCF server project id. Defaults to the MCP_REVIT_BCF_PROJECT_ID environment variable."
+          },
+          "topic_guid": {
+            "type": "string",
+            "description": "GUID of the topic to update."
+          },
+          "title": {
+            "type": "string",
+            "description": "Topic title."
+          },
+          "description": {
+            "type": "string",
+            "description": "Topic description."
+          },
+          "topic_type": {
+            "type": "string",
+            "description": "Topic type, for example Issue or Clash."
+          },
+          "topic_status": {
+            "type": "string",
+            "description": "Topic status, for example Open or Closed."
+          },
+          "priority": {
+            "type": "string",
+            "description": "Priority, for example High."
+          },
+          "assigned_to": {
+            "type": "string",
+            "description": "User the topic is assigned to."
+          },
+          "due_date": {
+            "type": "string",
+            "description": "Due date, ISO 8601."
+          },
+          "stage": {
+            "type": "string",
+            "description": "Project stage."
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Labels."
+          }
+        },
+        "required": [
+          "topic_guid"
+        ]
       }
     }
   ]
