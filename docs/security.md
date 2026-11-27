@@ -189,7 +189,7 @@ Dev permits unplanned writes while retaining Look only lockdown. Calls supplying
 
 ### Workspace policy
 
-An optional `policy.yaml` (or `MCP_REVIT_POLICY_FILE`) can block tools or parameters, limit categories and cap plan size. It is checked when a plan is drafted and again just before `execute_plan` runs its first action, so a tightened policy stops plans that were drafted earlier. It only adds refusals: approval stays with a person, and no policy rule approves or runs a plan. An invalid file refuses all plan drafting and execution. See [Policy file](configuration-reference.md#policy-file).
+An optional `policy.yaml` (or `MCP_REVIT_POLICY_FILE`) can block tools or parameters, limit categories and cap plan size. It is checked when a plan is drafted and again just before `execute_plan` runs its first action, so a tightened policy stops plans that were drafted earlier. It only adds refusals: approval stays with a person, and no policy rule approves or runs a plan. The optional `require_second_approver` rule (off by default) records `requested_by` on the plan, inside the hash, and refuses an approval by that same name; an unknown requester or approver is refused. Both names come from the environment of the server and of the approving process (`MCP_REVIT_REQUESTER`, `MCP_REVIT_APPROVER`), never from tool arguments, and they are not verified identities. An invalid file refuses all plan drafting and execution. See [Policy file](configuration-reference.md#policy-file).
 
 ### Machine policy and tiers
 

@@ -26,3 +26,6 @@ blocked_parameters:
 # Size limits for one plan.
 max_elements_per_plan: 50
 max_actions_per_plan: 20
+
+# Off by default. When true, the person who asked for a plan cannot approve it.
+# require_second_approver: true

@@ -12,7 +12,7 @@ from ..security.plan_review import with_review_aids
 from ..security.policy import check_actions, load_policy
 from ..security.workspace import WorkspaceMonitor
 from ..errors import BridgeError
-from ..security.approval import APPROVAL_CHANNELS, HUMAN_ONLY_TOOLS, ApprovalExpired, ApprovalGate, local_user
+from ..security.approval import APPROVAL_CHANNELS, HUMAN_ONLY_TOOLS, ApprovalExpired, ApprovalGate, approver_identity
 from ..security.dispatch import gate_after_result
 from ..security.module_execution import authorized_module_execution
 from .base import AECProvider, ProviderTool
@@ -292,7 +292,7 @@ class ApprovalProvider(AECProvider):
         plan_id = arguments.get("plan_id")
         if name == "approve_plan":
             return self.gate.update_plan_state(
-                plan_id, "approved", approver=local_user(), via=via,
+                plan_id, "approved", approver=approver_identity(), via=via,
                 expected_hash=arguments.get("expected_hash"),
             )
         if name == "reject_plan":
