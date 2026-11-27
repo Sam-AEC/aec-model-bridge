@@ -1,0 +1,1 @@
+- CI tags releases: `tag-release.yml` creates the annotated tag `v<VERSION>` on the merge commit when a release PR from `dev` or `release/*` is merged into `main`, and starts `release.yml` for it. `protect-tags.json` adds the GitHub Actions integration as a bypass actor; the owner applies it to the live ruleset once. Pushing a tag by hand still works. No tool count change.

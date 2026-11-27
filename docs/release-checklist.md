@@ -66,14 +66,14 @@ Results for 1.6.0, Revit 2026.5, scratch copy of the Snowdon Towers sample, 2026
 ## 4. Steps only the maintainer can do
 
 1. Open the pull request from `dev` to `main` and review it. Do not merge until sections 1 and 2 are done or their gaps are accepted in writing.
-2. Import the repository rulesets in GitHub settings.
+2. Import the repository rulesets in GitHub settings. Once, update the live `Protect release tags` ruleset to match `.github/rulesets/protect-tags.json`: add the bypass actor GitHub Actions (integration 15368), bypass mode Always. Without it `tag-release.yml` cannot create the tag, and `rulesets-drift.yml` reports the difference.
 3. Upload `docs/images/readme/social-preview.png` under repository Settings, General, Social preview. Only an admin can set it.
 4. Enable the docs site: repository Settings, Pages, Build and deployment, Source: GitHub Actions. `.github/workflows/docs.yml` then deploys the MkDocs site on the next push to `main` that touches `docs/` or `mkdocs.yml` (or run the workflow by hand). Until then the deploy job fails and the site is not published.
 5. Enable Discussions and create the categories in [maintainer/discussions.md](maintainer/discussions.md).
 6. Have counsel review the licences and the rule packs ([rule-packs.md](rule-packs.md), [LICENSING.md](../LICENSING.md)).
 7. Have native speakers review the 16 translated READMEs in `docs/i18n/`, including the Plans view note, approval and undo wording, and the current screenshot alt text. Source corrections do not establish native-language review.
 8. Run a pilot with BIM coordinators. None has been run yet.
-9. Tag and publish the release ([versioning.md](versioning.md)).
+9. Merge the release PR into `main`. `.github/workflows/tag-release.yml` then creates the annotated tag `v<VERSION>` on the merge commit and starts `release.yml` for it; the tag is created by CI after the merge. It skips quietly if the tag already exists. Pushing the tag by hand still works ([versioning.md](versioning.md)).
 
 ## 5. Minimal safe write test
 
