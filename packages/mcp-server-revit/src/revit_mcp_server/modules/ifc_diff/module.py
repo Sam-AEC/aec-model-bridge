@@ -185,6 +185,14 @@ def _guid_from_param(el: Dict[str, Any]) -> Optional[str]:
     return None
 
 
+def _can_derive_guids() -> bool:
+    try:
+        import ifcopenshell.guid  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
 def _guid_from_unique_id(uid: Any) -> Optional[str]:
     """Revit's IFC export GUID: the episode GUID of the UniqueId with its last four bytes XORed
     with the element id (the trailing eight hex digits). UNVERIFIED against a live export."""
@@ -319,21 +327,26 @@ class IfcDiffModule:
         matched: List[Dict[str, Any]] = []
         missing: List[Dict[str, Any]] = []
         unmatched: List[Dict[str, Any]] = []
+        duplicates: List[Dict[str, Any]] = []
         seen: set = set()
+        can_derive = _can_derive_guids()
+        no_guid_reason = ("no IfcGUID parameter and no UniqueId to derive one from" if can_derive else
+                          "no IfcGUID parameter and ifcopenshell.guid is not available to derive one from the UniqueId")
 
         def bucket(el: Dict[str, Any]) -> Dict[str, int]:
             return by_cat.setdefault(str(el.get("category") or "(none)"),
-                                     {"matched": 0, "missing_from_ifc": 0, "unmatched_no_guid": 0})
+                                     {"matched": 0, "missing_from_ifc": 0, "unmatched_no_guid": 0,
+                                      "unmatched_duplicate_guid": 0})
 
         for el in elements:
             guid, source = _resolve_guid(el)
             sources[source] += 1
             if guid is None:
                 bucket(el)["unmatched_no_guid"] += 1
-                unmatched.append(_snap_brief(el, reason="no IfcGUID parameter and no UniqueId to derive one from"))
+                unmatched.append(_snap_brief(el, reason=no_guid_reason))
             elif guid in seen:
-                bucket(el)["unmatched_no_guid"] += 1
-                unmatched.append(_snap_brief(el, guid, reason="duplicate GUID"))
+                bucket(el)["unmatched_duplicate_guid"] += 1
+                duplicates.append(_snap_brief(el, guid, reason="duplicate GUID", guid_source=source))
             else:
                 seen.add(guid)
                 if guid in ifc_idx:
@@ -353,6 +366,11 @@ class IfcDiffModule:
             notes.append("Some GUIDs were derived from the Revit UniqueId with the Revit IFC exporter rule. "
                          "UNVERIFIED against a live export; for exact matching take the snapshot with "
                          'params ["IfcGUID"].')
+        if not can_derive and any(
+                _guid_from_param(e) is None and isinstance(e.get("uid"), str) for e in elements):
+            notes.append("ifcopenshell.guid is not available, so GUIDs could not be derived from the UniqueId. "
+                         "Elements without an IfcGUID parameter are listed in unmatched_no_guid for that reason; "
+                         "install ifcopenshell or take the snapshot with params [\"IfcGUID\"].")
         if elements and sources[SRC_PARAM] == 0:
             notes.append("The snapshot holds no IfcGUID parameter, so no element was matched on it. Take the "
                          'snapshot with params ["IfcGUID"] to match on the GUID Revit stored.')
@@ -361,7 +379,10 @@ class IfcDiffModule:
                          "Elements outside the other side's filter can show as missing or extra.")
         if ifc_dups:
             notes.append("Some GlobalIds appear more than once in the IFC file; only the first element of each was used.")
-        if any(len(x) > limit for x in (matched, missing, extra, unmatched)):
+        if duplicates:
+            notes.append("Elements whose GUID repeats an earlier snapshot element are counted in "
+                         "unmatched_duplicate_guid, not in unmatched_no_guid.")
+        if any(len(x) > limit for x in (matched, missing, extra, unmatched, duplicates)):
             notes.append(f"Lists are cut at {limit} elements; the counts are complete.")
         return {
             "read_only": True,
@@ -376,6 +397,7 @@ class IfcDiffModule:
                 "missing_from_ifc": len(missing),
                 "extra_in_ifc": len(extra),
                 "unmatched_no_guid": len(unmatched),
+                "unmatched_duplicate_guid": len(duplicates),
             },
             "guid_sources": sources,
             "by_category": by_cat,
@@ -385,5 +407,6 @@ class IfcDiffModule:
             "missing_from_ifc": missing[:limit],
             "extra_in_ifc": extra[:limit],
             "unmatched_no_guid": unmatched[:limit],
+            "unmatched_duplicate_guid": duplicates[:limit],
             "notes": notes,
         }

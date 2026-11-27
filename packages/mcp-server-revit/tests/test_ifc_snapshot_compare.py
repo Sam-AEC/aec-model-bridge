@@ -1,5 +1,6 @@
 """Tests for ifc_diff.compare_snapshot: a delivered IFC against a saved snapshot, matched by GlobalId."""
 import json
+import sys
 import uuid
 from pathlib import Path
 from types import SimpleNamespace
@@ -97,16 +98,16 @@ def test_missing_extra_matched_and_unmatched(ws):
     assert [e["uid"] for e in res["unmatched_no_guid"]] == ["room-uid-not-hex"]
     assert res["counts"] == {
         "snapshot_elements": 4, "ifc_elements": 3, "matched": 2,
-        "missing_from_ifc": 1, "extra_in_ifc": 1, "unmatched_no_guid": 1,
+        "missing_from_ifc": 1, "extra_in_ifc": 1, "unmatched_no_guid": 1, "unmatched_duplicate_guid": 0,
     }
 
 
 def test_by_category_and_guid_sources(ws):
     res = run(ws)
     assert res["by_category"] == {
-        "OST_Walls": {"matched": 1, "missing_from_ifc": 1, "unmatched_no_guid": 0},
-        "OST_Doors": {"matched": 1, "missing_from_ifc": 0, "unmatched_no_guid": 0},
-        "OST_Rooms": {"matched": 0, "missing_from_ifc": 0, "unmatched_no_guid": 1},
+        "OST_Walls": {"matched": 1, "missing_from_ifc": 1, "unmatched_no_guid": 0, "unmatched_duplicate_guid": 0},
+        "OST_Doors": {"matched": 1, "missing_from_ifc": 0, "unmatched_no_guid": 0, "unmatched_duplicate_guid": 0},
+        "OST_Rooms": {"matched": 0, "missing_from_ifc": 0, "unmatched_no_guid": 1, "unmatched_duplicate_guid": 0},
     }
     assert res["extra_by_ifc_class"] == {"IfcWall": 1}
     assert res["guid_sources"] == {"IfcGUID parameter": 1, "derived from UniqueId": 2, "none": 1}
@@ -138,8 +139,25 @@ def test_duplicate_guid_is_unmatched_not_dropped(ws):
     (Path(ws.allowed_directories[0]) / "snapshots" / "snap1.json").write_text(json.dumps(snap), encoding="utf-8")
     res = run(ws)
     assert res["counts"]["matched"] == 1
-    assert [e["uid"] for e in res["unmatched_no_guid"]] == ["u2"]
-    assert res["unmatched_no_guid"][0]["reason"] == "duplicate GUID"
+    assert res["unmatched_no_guid"] == []
+    assert [e["uid"] for e in res["unmatched_duplicate_guid"]] == ["u2"]
+    assert res["unmatched_duplicate_guid"][0]["reason"] == "duplicate GUID"
+    assert res["counts"]["unmatched_no_guid"] == 0 and res["counts"]["unmatched_duplicate_guid"] == 1
+    assert res["by_category"]["OST_Walls"]["unmatched_duplicate_guid"] == 1
+    assert res["by_category"]["OST_Walls"]["unmatched_no_guid"] == 0
+
+
+def test_missing_guid_library_is_reported_not_silent(ws, monkeypatch):
+    monkeypatch.setitem(sys.modules, "ifcopenshell.guid", None)
+    res = run(ws)
+    assert res["guid_sources"]["derived from UniqueId"] == 0
+    assert res["counts"]["unmatched_no_guid"] == 3
+    assert all("ifcopenshell.guid is not available" in e["reason"] for e in res["unmatched_no_guid"])
+    assert any("ifcopenshell.guid is not available" in n for n in res["notes"])
+
+
+def test_guid_library_present_adds_no_such_note(ws):
+    assert not any("ifcopenshell.guid is not available" in n for n in run(ws)["notes"])
 
 
 def test_lists_are_capped_with_complete_counts(ws):
