@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- After `plan_actions` drafts a plan, a client that declared URL mode elicitation gets a loopback link (`/panel?plan=<id>`, no token) to the review panel; the link cannot approve, other clients see no change. Behaviour in real clients is UNVERIFIED. Fixes #193.
 - Docker image: dependencies install from `requirements-docker.txt`, a hash-pinned export of `uv.lock` (`pip install --require-hashes`), then the package with `--no-deps`. A test fails when the export drifts from the lock. Clears Scorecard alert #36.
 
 ## 1.6.1 - 2026-11-27
