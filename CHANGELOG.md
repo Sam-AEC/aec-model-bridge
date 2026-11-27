@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Docker image: dependencies install from `requirements-docker.txt`, a hash-pinned export of `uv.lock` (`pip install --require-hashes`), then the package with `--no-deps`. A test fails when the export drifts from the lock. Clears Scorecard alert #36.
+- Wheel-contents test copies only the build inputs instead of the whole package root, so parallel xdist workers no longer race on files created or removed mid-copy. Fixes #398.
 
 ## 1.6.1 - 2026-11-27
 

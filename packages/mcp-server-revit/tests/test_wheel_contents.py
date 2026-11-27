@@ -24,6 +24,10 @@ SRC_PACKAGE = PACKAGE_ROOT / "src" / "revit_mcp_server"
 pytestmark = [pytest.mark.timeout(300), pytest.mark.slow]
 
 
+# Everything pyproject.toml references for the build (readme, license-files, sources).
+_BUILD_INPUTS = ("pyproject.toml", "README.md", "LICENSE", "NOTICE", "LICENSING.md", "LICENSES", "src")
+_COPY_IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc", "build", "dist", "*.egg-info")
+
 _BUILD_HINT = "the 'build' package is not installed; run 'uv sync --extra dev' or 'pip install build'"
 
 
@@ -41,15 +45,17 @@ def built_wheel(tmp_path_factory: pytest.TempPathFactory) -> Path:
     _require_build()
 
     # Build from a copy so the source tree never gains build/, dist/ or *.egg-info.
+    # Copy only what the build reads. Copying the whole package root raced with other
+    # xdist workers that create or delete files there (caches, workspaces) mid-copy.
     work = tmp_path_factory.mktemp("wheel-src")
     source = work / "pkg"
-    shutil.copytree(
-        PACKAGE_ROOT,
-        source,
-        ignore=shutil.ignore_patterns(
-            "__pycache__", "*.pyc", "build", "dist", "*.egg-info", ".pytest_cache", ".venv", "tests"
-        ),
-    )
+    source.mkdir()
+    for name in _BUILD_INPUTS:
+        entry = PACKAGE_ROOT / name
+        if entry.is_dir():
+            shutil.copytree(entry, source / name, ignore=_COPY_IGNORE)
+        elif entry.exists():
+            shutil.copy2(entry, source / name)
     outdir = work / "dist"
 
     command = [sys.executable, "-m", "build", "--wheel", "--outdir", str(outdir), str(source)]
