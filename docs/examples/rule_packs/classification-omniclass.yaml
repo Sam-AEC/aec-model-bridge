@@ -1,0 +1,43 @@
+# OmniClass classification: presence and format on asset categories.
+# The parameter name 'OmniClass Number' is an assumption: replace every 'OmniClass Number' below with the
+# name your template uses. Use a name without dots, because pipeline paths split at dots.
+# The asset categories are a starting list: edit the 'in' list in every rule to the categories you hand over.
+# Format check: the number starts with table 21, 22 or 23 and uses the form '23-13 11 11' (no dots,
+# underscores, double spaces or trailing space). It does not check the digit groups or the length (the rule
+# pack engine has no regex operator). For the full pattern use a reviewed naming rule (see docs/rule-packs.md).
+# 'not captured' means the element has no such parameter in the snapshot: the parameter does not exist on
+# the element or the add-in did not read it. A parameter that is present but empty is reported as empty.
+# Copy it into your workspace, then: import_rule_pack -> run_check(rule_pack="classification-omniclass")
+rules:
+  - id: omniclass_number_not_captured
+    severity: info
+    category: Assets
+    description: "OmniClass number was not captured: the element has no 'OmniClass Number' parameter in the snapshot."
+    pipeline:
+      - where:
+          - {field: category, op: in, value: [OST_Doors, OST_Windows, OST_MechanicalEquipment, OST_ElectricalEquipment, OST_PlumbingFixtures]}
+          - {field: params.OmniClass Number, op: exists, value: false}
+    fix_template: "Add the 'OmniClass Number' parameter to the category of '{label}' and take a new snapshot."
+
+  - id: omniclass_number_missing
+    severity: error
+    category: Assets
+    description: "OmniClass number is empty."
+    pipeline:
+      - where:
+          - {field: category, op: in, value: [OST_Doors, OST_Windows, OST_MechanicalEquipment, OST_ElectricalEquipment, OST_PlumbingFixtures]}
+          - {field: params.OmniClass Number, op: exists}
+          - {field: params.OmniClass Number, op: empty}
+    fix_template: "Fill in 'OmniClass Number' on '{label}'."
+
+  - id: omniclass_number_format
+    severity: error
+    category: Assets
+    description: "OmniClass number does not start with table 21, 22 or 23, or is not written like '23-13 11 11'."
+    pipeline:
+      - where:
+          - {field: category, op: in, value: [OST_Doors, OST_Windows, OST_MechanicalEquipment, OST_ElectricalEquipment, OST_PlumbingFixtures]}
+          - {field: params.OmniClass Number, op: exists}
+          - {field: params.OmniClass Number, op: empty, value: false}
+          - {any: [{not: {any: [{field: params.OmniClass Number, op: startswith, value: "21-"}, {field: params.OmniClass Number, op: startswith, value: "22-"}, {field: params.OmniClass Number, op: startswith, value: "23-"}]}}, {field: params.OmniClass Number, op: contains, value: "  "}, {field: params.OmniClass Number, op: endswith, value: " "}, {field: params.OmniClass Number, op: contains, value: "."}, {field: params.OmniClass Number, op: contains, value: "_"}]}
+    fix_template: "Correct the OmniClass number on '{label}', for example 23-13 11 11."

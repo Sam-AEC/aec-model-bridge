@@ -3600,6 +3600,27 @@ reports doors rated lower than their host wall, doors without a rating, and door
 whose host wall has no rating. Ratings must be numbers in one unit. Set the parameter
 name by replacing `Fire Rating` in the pack.
 
+### Classification and COBie packs
+
+Three example packs check asset categories for classification codes and COBie fields:
+
+- [`classification-uniclass.yaml`](examples/rule_packs/classification-uniclass.yaml): Uniclass 2015 code (`Pr_20_93_52`).
+- [`classification-omniclass.yaml`](examples/rule_packs/classification-omniclass.yaml): OmniClass number (`23-13 11 11`).
+- [`cobie-completeness.yaml`](examples/rule_packs/cobie-completeness.yaml): COBie component name and space, and type name, category and manufacturer.
+
+Each field gets separate rules:
+
+- `*_not_captured` (info): the element has no such parameter in the snapshot. The parameter does not exist on it, or the add-in did not read it. COBie type fields are read from the element's type.
+- `*_missing`: the parameter is present but empty.
+- `*_format` (classification packs only): the value has the wrong table prefix or separators.
+
+Limits:
+
+- The parameter names (`Uniclass Code`, `OmniClass Number`, `COBie Component Name` and so on) are assumptions. Replace them in the pack with your names. Pipeline paths split at dots, so a name such as `COBie.Component.Name` cannot be read; use a name without dots.
+- The category list (doors, windows, mechanical, electrical and plumbing fixtures) is a starting point. Edit the `in` list in each rule.
+- The format check looks at the table prefix and the separators only. The engine has no regex operator, so it does not check the digit groups. For the full pattern, save a reviewed naming rule with `target: parameter`.
+- The packs are tested on fixture snapshots only. How the add-in captures these parameters in a live Revit model is UNVERIFIED.
+
 Stored findings belong to their rule pack. Running one pack only reconciles that
 pack's issues, and identical rule IDs in different packs stay independent.
 Overwriting a pack refreshes its open issues' severity and message on the next run.

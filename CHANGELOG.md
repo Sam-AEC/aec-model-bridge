@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Example rule packs `classification-uniclass.yaml`, `classification-omniclass.yaml` and `cobie-completeness.yaml`: presence and format of Uniclass and OmniClass codes and presence of COBie component and type fields on asset categories, with fields the snapshot does not hold reported as not captured. Fixture-tested only; real-model behaviour is UNVERIFIED. Fixes #175
 - Docker image: dependencies install from `requirements-docker.txt`, a hash-pinned export of `uv.lock` (`pip install --require-hashes`), then the package with `--no-deps`. A test fails when the export drifts from the lock. Clears Scorecard alert #36.
 
 ## 1.6.1 - 2026-11-27
