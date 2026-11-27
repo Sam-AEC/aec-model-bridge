@@ -591,6 +591,10 @@
     "when": "A tools/call carried a task field (MCP Tasks) for a tool that does not accept task-augmented calls. Nothing ran and no approved action was used.",
     "do": "Call the tool without the task field, or use a tool whose execution.taskSupport is optional (docs/mcp-tasks.md)."
   },
+  "mcp/policy_refused": {
+    "when": "The machine or workspace policy file turns off the tier of this tool (read, write, script or export), or the policy file is invalid and the tool is not a read.",
+    "do": "Use a tool of a tier that is on. To use this one, the person who manages the named policy file must change it, or switch on Dev mode in the panel (docs/security.md)."
+  },
   "mcp/tool_profile_blocked": {
     "when": "The tool is registered but this server's static MCP tool profile hides it.",
     "do": "Use a tool the profile lists. To use this one, the person must change the tool profile and restart the server (docs/mcp-token-budget.md)."

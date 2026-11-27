@@ -12,11 +12,11 @@ A tool failure reaches an MCP client in one of two shapes:
 Refusals never change the model. A refused write needs a new plan that a person approves.
 For logs and connection problems see [troubleshooting](troubleshooting.md).
 
-Entries: 151.
+Entries: 152.
 
 ## Tool error kinds
 
-Set by the MCP layer as `structuredContent.error.kind` when a call fails with `isError`. Entries: 12.
+Set by the MCP layer as `structuredContent.error.kind` when a call fails with `isError`. Entries: 13.
 
 ### `approval_blocked`
 
@@ -58,6 +58,12 @@ Set by the MCP layer as `structuredContent.error.kind` when a call fails with `i
 
 - When: The response_options argument is not an object, names an unsupported key, or has a value of the wrong type.
 - What to do: Remove response_options or fix it as the message says, then call again.
+- Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
+
+### `policy_refused`
+
+- When: The machine or workspace policy file turns off the tier of this tool (read, write, script or export), or the policy file is invalid and the tool is not a read.
+- What to do: Use a tool of a tier that is on. To use this one, the person who manages the named policy file must change it, or switch on Dev mode in the panel (docs/security.md).
 - Source: `packages/mcp-server-revit/src/revit_mcp_server/mcp_server.py`
 
 ### `rate_limited`

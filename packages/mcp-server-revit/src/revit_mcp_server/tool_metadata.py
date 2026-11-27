@@ -20,6 +20,7 @@ from typing import Any
 
 from mcp.types import Tool, ToolAnnotations, ToolExecution
 
+from .locale_descriptions import localized_description
 from .mcp_tasks import TASK_TOOLS
 from .output_schemas import output_schema_for
 from .providers.base import ProviderTool
@@ -286,6 +287,7 @@ DESCRIPTIONS: dict[str, str] = {
     "links_worksets_audit_audit": "Check linked models and worksets for problems (unloaded or missing links, links not pinned or placed Origin to Origin, empty or default-named worksets, worksets owned by someone else, elements on the wrong workset) and give plain next steps. Read-only.",
     "qaqc_checker_run_check": "Run a QA/QC rule pack against a saved snapshot and record the issues it finds. Take the snapshot first with snapshot_take; read the results with qaqc_checker_list_issues. Does not change the Revit model.",
     "qaqc_checker_list_issues": "List recorded QA/QC issues for a document, optionally filtered by status, severity and snapshot. Hides stale issues (not seen in the latest run) unless include_stale is true. Read-only.",
+    "qaqc_checker_draft_fix_plan": "Turn selected QA/QC findings into one draft plan: findings whose rule has a concrete fix (set a parameter to a value) become one revit_set_parameter_value action each; the rest are listed as skipped with the reason. Take issue ids from qaqc_checker_list_issues. Read-only: pass the result to plan_actions, a person must approve the plan.",
     "qaqc_checker_resolve_issue": "Mark one recorded QA/QC issue as resolved. It changes only the issue record in the workspace, not the Revit model. Find issue ids with qaqc_checker_list_issues.",
     "clash_triage_import_clash_report": "Read a Navisworks XML clash report or a BCF .bcfzip from the workspace, match each clash to Revit elements by GUID, group clashes by element pair and level, and list unmatched items with the reason. Never changes the model; records the result as issues in the workspace.",
     "clash_triage_match_clashes": "Match each clash from a Navisworks clash test to the Revit elements it involves, by UniqueId or IFC GUID, and say how sure each match is (exact, ambiguous or unmatched). Never guesses and never changes the model; records the result as issues in the workspace.",
@@ -826,6 +828,7 @@ def enrich_tool(provider_id: str, tool: ProviderTool) -> Tool:
     hint = SIBLING_HINTS.get(tool.name)
     if hint and hint not in description:
         description = f"{description} {hint}"
+    description = localized_description(tool.name, description)
 
     schema = copy.deepcopy(tool.input_schema) if tool.input_schema else {"type": "object"}
     schema.setdefault("type", "object")

@@ -106,6 +106,37 @@
       }
     },
     {
+      "id": "draft_fix_plan",
+      "title": "Draft Fix Plan From Findings",
+      "surface": [
+        "mcp",
+        "panel"
+      ],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "issue_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "maxItems": 200,
+            "description": "Issue ids from qaqc_checker_list_issues. All must be open, current and from one snapshot."
+          },
+          "snapshot_id": {
+            "type": "string",
+            "description": "Optional. Must equal the snapshot the findings were made from."
+          }
+        },
+        "required": [
+          "issue_ids"
+        ]
+      }
+    },
+    {
       "id": "list_rules",
       "title": "List Available Rules",
       "surface": [

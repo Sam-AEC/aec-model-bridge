@@ -36,6 +36,15 @@ def _isolated_panel_token_file(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _no_machine_policy(tmp_path, monkeypatch):
+    """A test never reads the real machine policy file of the computer it runs on."""
+    from revit_mcp_server.security import policy
+
+    monkeypatch.delenv("MCP_REVIT_MACHINE_POLICY_FILE", raising=False)
+    monkeypatch.setattr(policy, "_platform_default", lambda: str(tmp_path / "no-machine-policy.yaml"))
+
+
+@pytest.fixture(autouse=True)
 def _fresh_call_limits(monkeypatch):
     """Each test starts with full rate-limit buckets and timeouts read from its own environment."""
     from revit_mcp_server import mcp_server

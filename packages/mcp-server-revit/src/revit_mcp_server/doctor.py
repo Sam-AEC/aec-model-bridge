@@ -111,6 +111,37 @@ def check_mode(cfg: Any, error: str | None) -> Check:
     return Check("mode", OK, f"{cfg.mode.value}; approvals: {cfg.approval_mode}")
 
 
+def check_policy(cfg: Any, env: Mapping[str, str]) -> Check:
+    """Active policy files (machine and workspace), their hashes, tiers that are off, Dev override."""
+    from .security import policy as pol
+    from .security.dev_mode import active_dev
+
+    saved = dict(os.environ)
+    try:
+        for key in [k for k in os.environ if k.upper() in (pol.POLICY_ENV, pol.MACHINE_POLICY_ENV, "PROGRAMDATA")]:
+            del os.environ[key]
+        os.environ.update({k: v for k, v in env.items() if k.upper() in (pol.POLICY_ENV, pol.MACHINE_POLICY_ENV, "PROGRAMDATA")})
+        try:
+            policy = pol.load_policy(Path(cfg.workspace_dir))
+        except pol.PolicyError as exc:
+            return Check("policy", FAIL, f"{exc}")
+    finally:
+        os.environ.clear()
+        os.environ.update(saved)
+    try:
+        dev = active_dev(Path(cfg.workspace_dir))
+    except Exception:  # noqa: BLE001 - reporting only
+        dev = False
+    if not policy.layers:
+        files = "no policy file"
+    else:
+        files = "; ".join(f"{lay.level}: {lay.source} ({lay.hash})" for lay in policy.layers)
+    off = pol.tiers_off(policy)
+    tiers = ", ".join(f"{t} (off in {src})" for t, src in sorted(off.items())) or "none"
+    override = "Dev mode override is ACTIVE: policy limits are lifted and audited" if dev else "Dev mode override is not active"
+    return Check("policy", WARN if dev else OK, f"{files}; tiers off: {tiers}; {override}")
+
+
 def check_workspace(cfg: Any) -> Check:
     path = Path(cfg.workspace_dir)
     if not path.exists():
@@ -512,6 +543,7 @@ def run_checks(env: Mapping[str, str] | None = None, platform: str | None = None
     if cfg is not None:
         rows, _folder = read_registry(env, pid_alive) if platform == "win32" else ([], None)
         checks.append(check_workspace(cfg))
+        checks.append(check_policy(cfg, env))
         checks.append(check_addin(env, platform, cfg.mode.value, rows))
         checks.append(check_bridge_port(cfg, rows, probe=probe))
     checks += [check_ifcopenshell(), check_optional_packages()]

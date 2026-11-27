@@ -192,7 +192,8 @@ class ApprovalProvider(AECProvider):
             self.gate.validate_actions(actions)
             self._require_registered_tools(actions)
             policy = load_policy(self.gate.workspace_dir)  # invalid file: PolicyError, nothing drafted
-            check_actions(policy, actions, self.gate.workspace_dir, arguments.get("snapshot_id") or None)
+            check_actions(policy, actions, self.gate.workspace_dir, arguments.get("snapshot_id") or None,
+                          dev_mode=self.gate.dev_mode)
             if self.gate.dev_mode:
                 # Dev mode runs writes directly and audits them. Drafting a plan would be wasted
                 # work that nobody approves, so say so instead of writing a plan file.
@@ -336,7 +337,7 @@ class ApprovalProvider(AECProvider):
 
         # The policy may have tightened since drafting: re-check before the first action runs.
         check_actions(load_policy(self.gate.workspace_dir), plan["actions"], self.gate.workspace_dir,
-                      plan.get("snapshot_id"))
+                      plan.get("snapshot_id"), dev_mode=self.gate.dev_mode)
 
         # A profile is a discovery/dispatch choice, not a failed model action.
         # Refuse the entire pending plan before consuming anything or saving a

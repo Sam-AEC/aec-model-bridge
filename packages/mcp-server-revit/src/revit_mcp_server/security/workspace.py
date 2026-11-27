@@ -105,3 +105,34 @@ class WorkspaceMonitor:
         if any(is_reserved_path(Path(resolved), directory, self._casefold) for directory in self.allowed_directories):
             raise WorkspaceViolation(f"{resolved} is in a folder reserved for plans and proofs")
         return Path(resolved)
+
+
+def effective_roots(workspace: object) -> "list[Path]":
+    """Directories a module may use for caller-supplied paths: the narrowed set when the workspace
+    narrows to client roots, else its allowed directories. Empty when the roots overlap nothing."""
+    narrowed = getattr(workspace, "effective_directories", None)
+    if callable(narrowed):
+        return [Path(d) for d in narrowed()]
+    return [Path(d) for d in getattr(workspace, "allowed_directories", None) or []]
+
+
+def base_directory(workspace: object) -> "Path | None":
+    """Where a relative caller path starts: the first narrowed directory. When narrowing left
+    nothing, the first allowed directory, so the check that follows refuses with the plain message."""
+    roots = effective_roots(workspace)
+    if roots:
+        return roots[0]
+    allowed = getattr(workspace, "allowed_directories", None) or []
+    return Path(allowed[0]) if allowed else None
+
+
+def confine_path(workspace: object, candidate: "Path | str") -> Path:
+    """Resolve ``candidate`` and require it inside the narrowed workspace (``WorkspaceViolation`` if not).
+    Uses the workspace's own ``assert_in_workspace`` when it has one."""
+    checker = getattr(workspace, "assert_in_workspace", None)
+    if callable(checker):
+        return Path(checker(Path(candidate)))
+    resolved = Path(candidate).resolve()
+    if not any(resolved.is_relative_to(r.resolve()) for r in effective_roots(workspace)):
+        raise WorkspaceViolation(f"'{resolved}' is outside the allowed workspace directories.")
+    return resolved
