@@ -141,18 +141,29 @@ def approver_identity() -> str:
     return _named(APPROVER_ENV)
 
 
+def normalize_person(name: Any) -> str:
+    """Compare-form of a person name: casefolded, with a domain part removed. A name written as domain,
+    backslash, user and one written as user, at sign, domain both give ``user``."""
+    value = str(name or "").strip()
+    if "\\" in value:
+        value = value.rsplit("\\", 1)[-1]
+    if "@" in value:
+        value = value.split("@", 1)[0]
+    return value.strip().casefold()
+
+
 def two_person_refusal(plan: Dict[str, Any], approver: Any) -> Optional[str]:
     """Why ``approver`` may not approve ``plan`` under the two-person rule (#203), or None. Fails closed: an
     unknown requester or approver is refused."""
     requester = str(plan.get("requested_by") or "").strip()
     name = str(approver or "").strip()
-    if requester.lower() in _UNKNOWN_NAMES:
+    if normalize_person(requester) in _UNKNOWN_NAMES:
         return ("The policy requires a second approver, but this plan does not record who asked for it, so it cannot "
                 "be approved. Ask for a new plan.")
-    if name.lower() in _UNKNOWN_NAMES:
+    if normalize_person(name) in _UNKNOWN_NAMES:
         return ("The policy requires a second approver, but the name of the approver is not known. Set "
                 f"{APPROVER_ENV} to your name and try again.")
-    if requester.casefold() == name.casefold():
+    if normalize_person(requester) == normalize_person(name):
         return (f"The policy requires a second approver: plan '{plan.get('plan_id')}' was requested by '{requester}', "
                 "who cannot approve it. Ask another person to approve it.")
     return None
@@ -674,9 +685,26 @@ class ApprovalGate:
             raise BridgeError(
                 f"Plan '{plan_id}' is in state '{plan.get('state')}', not 'approved'. Execution blocked.{hint}")
         self._verify_unchanged_since_approval(plan)
+        if policy_mod.second_approver_required(policy_mod.load_policy(self.workspace_dir)):
+            self._verify_second_approver(plan)
         expired = self.expiry_reason(plan)
         if expired:
             raise ApprovalExpired(expired)
+
+    @staticmethod
+    def _verify_second_approver(plan: Dict[str, Any]) -> None:
+        """Two-person rule (#203) at execution: a plan with no recorded requester, or approved by its own
+        requester, does not run, whenever the option was turned on after the approval."""
+        plan_id = plan.get("plan_id")
+        requester = normalize_person(plan.get("requested_by"))
+        if requester in _UNKNOWN_NAMES:
+            raise BridgeError(
+                f"The policy requires a second approver, but plan '{plan_id}' does not record who asked for it. "
+                "Execution blocked; draft a new plan and ask another person to approve it.")
+        if normalize_person(plan.get("approved_by")) == requester:
+            raise BridgeError(
+                f"The policy requires a second approver, but plan '{plan_id}' was approved by the person who "
+                "asked for it. Execution blocked; ask another person to approve it.")
 
     def _verify_unchanged_since_approval(self, plan: Dict[str, Any]) -> None:
         """Refuse unless the plan still hashes to what a person approved (any state) and its
