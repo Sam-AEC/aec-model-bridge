@@ -1,0 +1,34 @@
+{
+  "id": "qto_export",
+  "name": "Quantity Take-off Export",
+  "version": "1.0.0",
+  "schema_version": 1,
+  "min_hub_version": "1.2.0",
+  "description": "Read-only quantity take-off from a saved snapshot: counts, lengths, areas and volumes per category and type, written as CSV and BC3 (FIEBDC-3) files in the workspace.",
+  "author": "AEC Model Bridge",
+  "license": "GPL-3.0-or-later",
+  "requires_providers": ["semantic"],
+  "permissions": ["model.read", "files.write"],
+  "commands": [
+    {
+      "id": "run",
+      "title": "Quantity Take-off Export",
+      "surface": ["mcp", "panel"],
+      "execution_mode": "sync",
+      "is_mutating": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {"type": "string", "description": "Saved snapshot to measure. Required when connected to Revit."},
+          "categories": {"type": "array", "items": {"type": "string"}, "description": "Only these categories, for example OST_Walls."},
+          "snapshot_units": {"type": "string", "enum": ["feet", "metres"], "default": "feet", "description": "Units of the Length, Area and Volume values in the snapshot. Output is always m, m2 and m3."},
+          "bc3_measure": {"type": "string", "enum": ["auto", "count", "length", "area", "volume"], "default": "auto", "description": "Quantity that becomes the BC3 measurement of each type. auto picks one per category."},
+          "max_rows": {"type": "integer", "default": 500, "description": "Rows and listed elements returned in the result; the files always hold everything."},
+          "csv_filename": {"type": "string", "description": "Optional .csv file name inside the workspace. A second file <name>_no_quantity.csv lists elements without a quantity."},
+          "bc3_filename": {"type": "string", "description": "Optional .bc3 file name inside the workspace (FIEBDC-3, ANSI, no prices)."}
+        },
+        "required": []
+      }
+    }
+  ]
+}

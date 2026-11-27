@@ -74,7 +74,10 @@ EXCLUDED_KEYS = ("element_id", "reason")
 # the hash, so it cannot be stripped after approval.
 # ``rollback_preview`` (#293) follows the same rule: hashed only when the key is present, so a preview
 # cannot be added, changed or removed after approval, and plans stored before it hash as before.
-HASHED_PLAN_KEYS_V1 = ("plan_id", "created_at", "snapshot_id", "skipped", "actions", "binding", "rollback_preview")
+# ``requested_by`` (#203, two-person rule) follows the same rule: stored only when the policy asks for a second
+# approver, so it cannot be changed or removed after approval and every other plan hashes as before.
+HASHED_PLAN_KEYS_V1 = ("plan_id", "created_at", "snapshot_id", "skipped", "actions", "binding", "rollback_preview",
+                       "requested_by")
 HASHED_PLAN_KEYS_V2 = HASHED_PLAN_KEYS_V1 + ("hash_version", "review", "reverts_plan_id")
 STATE_PLAN_KEYS = frozenset({
     "state", "plan_hash", "approved_hash", "approved_at", "approved_by", "approved_via",
@@ -200,6 +203,8 @@ def approved_content(plan: Dict[str, Any]) -> Dict[str, Any]:
     compares this before and after output redaction (panel_plans_redacted)."""
     view = plan.get("review_view")
     extra = {"binding": plan["binding"]} if "binding" in plan else {}
+    if "requested_by" in plan:
+        extra["requested_by"] = plan["requested_by"]
     return {
         **extra,
         "actions": plan.get("actions"),
@@ -373,6 +378,8 @@ def plan_content_hash(plan: Dict[str, Any]) -> str:
         content["binding"] = plan["binding"]
     if "rollback_preview" in plan:
         content["rollback_preview"] = rollback_preview.validate(plan["rollback_preview"])
+    if "requested_by" in plan:
+        content["requested_by"] = plan["requested_by"]
     blob = json.dumps(content, sort_keys=True, separators=(",", ":"), default=str)
     return "sha256:" + hashlib.sha256(blob.encode("utf-8")).hexdigest()
 

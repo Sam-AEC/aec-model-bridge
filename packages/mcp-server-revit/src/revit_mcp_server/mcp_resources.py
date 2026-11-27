@@ -83,12 +83,18 @@ def _source(data: dict) -> dict:
     return {k: src.get(k) for k in ("app", "app_version", "doc_guid", "doc_title", "units") if src.get(k) is not None}
 
 
-def _snapshots_list(workspace_dir: Path) -> dict:
+def snapshot_files(workspace_dir: Path) -> list[Path]:
+    """Snapshot files in the workspace, newest first."""
     folder = _snapshots_dir(workspace_dir)
     files = []
     if folder.is_dir():
         files = [p for p in folder.glob("*.json") if SNAPSHOT_ID_RE.fullmatch(p.stem) and p.is_file() and not p.is_symlink()]
     files.sort(key=lambda p: (p.stat().st_mtime, p.name), reverse=True)
+    return files
+
+
+def _snapshots_list(workspace_dir: Path) -> dict:
+    files = snapshot_files(workspace_dir)
     rows = []
     for path in files[:MAX_SNAPSHOTS_LISTED]:
         data = _load_json(path)
