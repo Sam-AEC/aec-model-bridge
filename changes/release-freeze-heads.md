@@ -1,1 +1,0 @@
-- The `release-freeze` workflow now also freezes `dev` while a release PR from a `release/*` branch of this repository is open, not only one from `dev`. Fork branches still do not count.
