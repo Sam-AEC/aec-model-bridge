@@ -21,7 +21,8 @@ PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 SRC_PACKAGE = PACKAGE_ROOT / "src" / "revit_mcp_server"
 
 # Slow (about 57 s each): CI runs these on the primary leg only; the others use -m "not slow".
-pytestmark = [pytest.mark.timeout(300), pytest.mark.slow]
+# One xdist group keeps the module on a single worker, so the wheel is built once (#239).
+pytestmark = [pytest.mark.timeout(300), pytest.mark.slow, pytest.mark.xdist_group("wheel-build")]
 
 
 _BUILD_HINT = "the 'build' package is not installed; run 'uv sync --extra dev' or 'pip install build'"
@@ -68,9 +69,11 @@ def built_wheel(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
     command = [sys.executable, "-m", "build", "--wheel", "--outdir", str(outdir), str(source)]
     # Offline and fast when the build backend is already present; otherwise let
-    # `build` create its usual isolated environment.
+    # `build` create its usual isolated environment, with uv installing into it when found.
     if importlib.util.find_spec("setuptools") and importlib.util.find_spec("wheel"):
         command.insert(-1, "--no-isolation")
+    elif shutil.which("uv"):
+        command[-1:-1] = ["--installer", "uv"]
     proc = subprocess.run(command, capture_output=True, text=True, timeout=280, cwd=work)
     assert proc.returncode == 0, f"wheel build failed:\n{proc.stdout[-2000:]}\n{proc.stderr[-2000:]}"
 

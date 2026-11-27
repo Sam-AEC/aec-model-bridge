@@ -76,6 +76,10 @@ _FLAGS = [
 ]
 LAUNCH_TIMEOUT = 60
 
+# One xdist group keeps these cases on a single worker: the browser probe and the two page
+# runs happen once instead of once per worker (#239). Needs `--dist loadgroup` (set in pyproject).
+pytestmark = pytest.mark.xdist_group("panel-browser")
+
 
 def _dump_dom(chrome: str, page: Path, tmp_path: Path, width: int, height: int, timeout: int) -> tuple[str, str, str]:
     """Run `chrome --dump-dom page`; return (stdout, stderr, problem). `problem` is "" on success.
