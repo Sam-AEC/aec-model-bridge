@@ -1,0 +1,1 @@
+- Add `docs/live-verification-kit.md`, one ordered card per blocked live check (#142, #147, #148, #149, #150, #211, #218, #280, #281, #293, #367, #371, #372, #397), and a read-only `--kit` mode in `scripts/revit/acceptance/run.py` that writes a JSON and Markdown report with AUTO-PASS, AUTO-FAIL or MANUAL per card. UNVERIFIED in live Revit.

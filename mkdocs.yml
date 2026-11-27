@@ -134,6 +134,7 @@ nav:
       - Versioning and releases: versioning.md
       - Deprecation policy: deprecation-policy.md
       - Release checklist: release-checklist.md
+      - Live verification kit: live-verification-kit.md
       - Live validation (Revit 2024): revit-addin-live-validation-2026-10-14.md
       - Discussions setup: maintainer/discussions.md
   - ADRs:
