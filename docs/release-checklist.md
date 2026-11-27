@@ -33,6 +33,7 @@ Run on a Windows machine with Revit, starting with the write test in section 5. 
 5. Windows ACL on `%LOCALAPPDATA%\AECModelBridge\panel-hub.token`: only the current user has access. Windows does not re-verify the ACL on read.
 6. The Revit 2024 Release build and authenticated panel backend passed on 14 October 2026. Build and run the net8 and net10 targets as well, and repeat the release checks on each supported year.
 7. Verify the panel review card and explicit Dev mode (Settings, Dev mode). Dev must stay visibly enabled until switched off, audit its writes, and preserve read-mode guards, filesystem scope and supplied-plan checks.
+8. Image return (issue #211, UNVERIFIED). Call `revit_export_image` with `return_image: true` on a view that has been opened. The result should hold the JSON text and one PNG image block, and the file should stay in the workspace. Then export a large view (more than 2 MB) and check the refusal names the 2 MB cap.
 
 Results for 1.6.0, Revit 2026.5, scratch copy of the Snowdon Towers sample, 2026-11-26:
 - 1 PASS: a two-action `revit_set_parameter_value` plan, approved by the person in the panel, wrote both values. No crash.
