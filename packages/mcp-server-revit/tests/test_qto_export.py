@@ -122,6 +122,9 @@ def test_csv_neutralises_formula_text(ws):
     assert "'=HYPERLINK(1)" in Path(res["csv_file"]).read_text(encoding="utf-8")
 
 
+BS = chr(92)
+
+
 def read_bc3(path):
     """Minimal FIEBDC-3 reader: records are ~X|f|f|...|, subfields split on a backslash."""
     text = Path(path).read_bytes().decode("cp1252")
@@ -142,6 +145,8 @@ def read_bc3(path):
             out["D"].append((fields[0], kids))
         elif kind == "M":
             parent, child = fields[0].split("\\")
+            parts = fields[3].split(BS)
+            assert len(parts) == 7 and parts[0] == "" and parts[-1] == "", fields[3]  # six subfields per line
             out["M"].append({"parent": parent, "child": child, "total": float(fields[2]), "lines": fields[3]})
     return out
 
@@ -240,3 +245,45 @@ def test_read_only_manifest_and_description():
     assert all(not c["is_mutating"] for c in manifest["commands"])
     assert DESCRIPTIONS["qto_export_run"].endswith("Read-only.")
     assert "qto_export_run" in REPORT_FILE_WRITERS
+
+
+def test_bc3_measurement_lines_have_six_subfields(ws):
+    _snap(ws)
+    res = _run(ws, snapshot_id="s1", bc3_filename="a.bc3", bc3_measure="length")
+    bc3 = read_bc3(res["bc3_file"])
+    assert bc3["M"] and all(m["lines"].count(BS) == 6 for m in bc3["M"])
+
+
+def test_bc3_header_has_a_label(ws):
+    _snap(ws)
+    res = _run(ws, snapshot_id="s1", bc3_filename="a.bc3")
+    assert "s1" in read_bc3(res["bc3_file"])["V"][3]
+
+
+def test_unencodable_characters_are_reported(ws):
+    _snap(ws, elements=[_el("x", "OST_Walls", "Wall 中文", "Fam", area=2.0), _el("y", "OST_Walls", "Plain", "Fam", area=1.0)])
+    res = _run(ws, snapshot_id="s1", bc3_filename="a.bc3")
+    note = next(n for n in res["notes"] if "cp1252" in n)
+    assert "2 characters" in note and "Fam: Wall" in note and "Plain" not in note
+    assert b"Fam: Wall ??" in Path(res["bc3_file"]).read_bytes()
+
+
+def test_encodable_text_adds_no_encoding_note(ws):
+    _snap(ws)
+    res = _run(ws, snapshot_id="s1", bc3_filename="a.bc3")
+    assert not any("cp1252" in n for n in res["notes"])
+
+
+def test_csv_keeps_negative_numbers_as_numbers(ws):
+    _snap(ws, elements=[_el("x", "OST_Walls", "-Dash", area=-2.0, length=1.0)])
+    res = _run(ws, snapshot_id="s1", csv_filename="q.csv")
+    rows = list(csv.DictReader(Path(res["csv_file"]).open(encoding="utf-8")))
+    assert rows[0]["area_m2"] == "-2" and rows[0]["type"] == "'-Dash"
+
+
+def test_null_elements_is_a_value_error(ws):
+    d = ws.allowed_directories[0] / "snapshots"
+    d.mkdir(exist_ok=True)
+    (d / "n.json").write_text(json.dumps({"snapshot_id": "n", "elements": None}), encoding="utf-8")
+    with pytest.raises(ValueError, match="elements"):
+        _run(ws, snapshot_id="n")

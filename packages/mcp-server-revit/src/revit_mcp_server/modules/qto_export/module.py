@@ -131,13 +131,17 @@ def _safe(value: Any) -> Any:
     return "'" + value if isinstance(value, str) and value[:1] in ("=", "+", "-", "@") else value
 
 
+def _cell(value: Any) -> Any:
+    return _safe(value) if isinstance(value, str) else _num_text(value)
+
+
 def _csv_text(rows: List[Dict[str, Any]]) -> str:
     cols = ["category", "type", "count", "length_m", "area_m2", "volume_m3", "no_quantity"]
     out = io.StringIO()
     writer = csv.writer(out, lineterminator="\n")
     writer.writerow(cols)
     for r in rows:
-        writer.writerow([_safe(_num_text(r[c])) for c in cols])
+        writer.writerow([_cell(r[c]) for c in cols])
     return out.getvalue()
 
 
@@ -147,7 +151,7 @@ def _missing_csv_text(items: List[Dict[str, Any]]) -> str:
     writer = csv.writer(out, lineterminator="\n")
     writer.writerow(cols)
     for it in items:
-        writer.writerow([_safe(_num_text(it.get(c))) for c in cols])
+        writer.writerow([_cell(it.get(c)) for c in cols])
     return out.getvalue()
 
 
@@ -164,7 +168,8 @@ def _pick_measure(row: Dict[str, Any], category: str, requested: str) -> str:
 
 def _bc3_text(rows: List[Dict[str, Any]], snapshot_id: str, measure: str) -> str:
     lines = [
-        "~V|AEC Model Bridge|FIEBDC-3/2016|AEC Model Bridge||ANSI|"
+        "~V|AEC Model Bridge|FIEBDC-3/2016|AEC Model Bridge|"
+        + _clean(f"QTO {snapshot_id}") + "|ANSI|"
         + _clean(f"Quantity take-off from snapshot {snapshot_id}") + "|",
     ]
     chapters: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
@@ -185,11 +190,23 @@ def _bc3_text(rows: List[Dict[str, Any]], snapshot_id: str, measure: str) -> str
             lines.append(f"~C|{item}|{BC3_UNIT[m]}|{_clean(r['type'])}||||")
             used = r["count"] if m == "count" else r[m + "_elements"]
             comment = _clean(f"{used} of {r['count']} elements")
-            body = f"\\{comment}\\{text}\\\\\\\\" if m == "count" else f"\\{comment}\\1\\{text}\\\\\\\\"
+            body = f"\\{comment}\\{text}\\\\\\\\" if m == "count" else f"\\{comment}\\1\\{text}\\\\\\"
             lines.append(f"~M|{code}\\{item}|{j}|{text}|{body}|")
             items.append(f"{item}\\1\\{text}\\")
         lines.append(f"~D|{code}|" + "".join(items) + "|")
     return "\r\n".join(lines) + "\r\n"
+
+
+def _ansi(text: str) -> Tuple[bytes, int, List[str]]:
+    """cp1252 bytes, the number of characters replaced by '?', and the names they were in."""
+    count, names = 0, []
+    for line in text.split(chr(13) + chr(10)):
+        bad = sum(1 for ch in line if ch != "?" and ch.encode("cp1252", errors="replace") == b"?")
+        if bad:
+            count += bad
+            fields = line.split("|")
+            names.append(fields[3] if line.startswith("~C") and len(fields) > 3 else line[:2])
+    return text.encode("cp1252", errors="replace"), count, names
 
 
 def _check_name(filename: str, suffix: str) -> None:
@@ -227,6 +244,8 @@ class QtoExportModule:
         if bc3_filename:
             _check_name(bc3_filename, ".bc3")
         data = rg._load_review_snapshot(snapshot_id, workspace)  # refuses mock data in bridge mode
+        if not isinstance(data["elements"], list):
+            raise ValueError("The snapshot has no 'elements' list.")
         result = compute_quantities(data["elements"], UNITS[snapshot_units], categories)
         rows, without = result["rows"], result["without_quantity"]
         partial = rg._is_partial_snapshot(data)
@@ -249,7 +268,12 @@ class QtoExportModule:
             files["no_quantity_file"] = _write(workspace, missing_name, _missing_csv_text(without).encode("utf-8"))
         if bc3_filename:
             text = _bc3_text(rows, data["snapshot_id"], bc3_measure)
-            files["bc3_file"] = _write(workspace, bc3_filename, text.encode("cp1252", errors="replace"))
+            raw, replaced, names = _ansi(text)
+            files["bc3_file"] = _write(workspace, bc3_filename, raw)
+            if replaced:
+                notes.append(
+                    f"{replaced} characters cannot be written in the BC3 ANSI (cp1252) character set and became '?' "
+                    f"in {len(names)} records: " + "; ".join(dict.fromkeys(names)) + ".")
         return {
             "read_only": True,
             "mock": data["is_mock"],
