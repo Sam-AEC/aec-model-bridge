@@ -25,6 +25,7 @@ jobs:
         run: |
           # A release PR is open when its head is dev or a release/* branch of this
           # repository. A fork branch with the same name does not count.
+          # shellcheck disable=SC2016 # $owner is a jq variable passed with --arg, not a shell one.
           filter='.[] | select(.headRepositoryOwner.login == $owner and (.headRefName == "dev" or (.headRefName | startswith("release/")))) | .number'
           set -o pipefail
           prs=$(gh pr list --base main --state open --limit 500 --json number,headRefName,headRepositoryOwner)
