@@ -22,6 +22,7 @@ from revit_mcp_server.security.module_permissions import writable_path
 import csv
 import json
 import logging
+import math
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -312,7 +313,10 @@ def _validate_param_update(
                 f"Parameter '{param_name}' has storage type '{storage}' "
                 f"but received value of type '{type(new_value).__name__}'"
             )
-    
+
+    if isinstance(new_value, float) and not math.isfinite(new_value):
+        return False, f"Parameter '{param_name}' needs a finite number; nan and infinity are not allowed."
+
     return True, None
 
 def _make_action_plan(tool_name: str, args: Dict[str, Any], preview: Dict[str, Any]) -> Dict[str, Any]:

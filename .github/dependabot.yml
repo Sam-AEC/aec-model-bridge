@@ -2,10 +2,13 @@
 # request per ecosystem. Security updates are separate and still arrive immediately
 # (Settings -> Code security -> Dependabot security updates), so nothing important
 # is lost by keeping the routine ones quiet.
+# Version updates target dev (PRs flow dev -> main). Security updates always target
+# the default branch; GitHub has no setting for that.
 version: 2
 updates:
   - package-ecosystem: pip
     directory: /packages/mcp-server-revit
+    target-branch: dev
     schedule:
       interval: monthly
     open-pull-requests-limit: 1
@@ -31,6 +34,7 @@ updates:
 
   - package-ecosystem: pip
     directory: /docs
+    target-branch: dev
     schedule:
       interval: monthly
     open-pull-requests-limit: 1
@@ -40,6 +44,7 @@ updates:
 
   - package-ecosystem: docker
     directory: /
+    target-branch: dev
     schedule:
       interval: monthly
     open-pull-requests-limit: 1
@@ -48,6 +53,7 @@ updates:
 
   - package-ecosystem: github-actions
     directory: /
+    target-branch: dev
     schedule:
       interval: monthly
     open-pull-requests-limit: 1

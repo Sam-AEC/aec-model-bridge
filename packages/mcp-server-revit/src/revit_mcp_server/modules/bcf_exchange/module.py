@@ -16,6 +16,8 @@ before parsing, which blocks entity expansion and external entities.
 """
 from __future__ import annotations
 from revit_mcp_server.security.module_permissions import writable_path
+from revit_mcp_server.errors import WorkspaceViolation
+from revit_mcp_server.security.workspace import base_directory, confine_path
 
 import os
 import re
@@ -59,18 +61,18 @@ class BcfError(ValueError):
 # ---------------------------------------------------------------------------
 
 def _resolve_in_workspace(path_str: str, workspace: Any) -> Path:
-    roots = [Path(r).resolve() for r in getattr(workspace, "allowed_directories", []) or []]
-    if not roots:
+    base = base_directory(workspace)
+    if base is None:
         raise BcfError("A workspace is required.")
     if not path_str or "\x00" in path_str:
         raise BcfError("A file path is required.")
     candidate = Path(path_str)
     if not candidate.is_absolute():
-        candidate = roots[0] / candidate
-    resolved = candidate.resolve()
-    if not any(resolved.is_relative_to(r) for r in roots):
-        raise BcfError(f"'{resolved}' is outside the allowed workspace directories.")
-    return resolved
+        candidate = base / candidate
+    try:
+        return confine_path(workspace, candidate)
+    except WorkspaceViolation as exc:
+        raise BcfError(str(exc)) from exc
 
 
 # ---------------------------------------------------------------------------

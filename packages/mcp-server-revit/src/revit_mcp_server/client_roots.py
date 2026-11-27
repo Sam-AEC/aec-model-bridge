@@ -30,6 +30,9 @@ _DRIVE_HOST = re.compile(r"^[A-Za-z]:$")
 
 # session -> real root paths that session declared (None: none declared). Missing: not read yet.
 _cache: "weakref.WeakKeyDictionary[Any, tuple[str, ...] | None]" = weakref.WeakKeyDictionary()
+# Bumped on every roots/list_changed. A fetch that started before a bump is not stored. The
+# notification handler does not know its session, so the counter covers all sessions.
+_generation = 0
 
 
 class _RootsResult(ListRootsResult):
@@ -55,10 +58,8 @@ def uri_to_path(uri: Any, windows: "bool | None" = None) -> "str | None":
         host = ""
     if _DRIVE_HOST.match(host):  # file://C:/dir, a common malformed form
         path, host = "/" + host + path, ""
-    if host:
-        if not windows:
-            return None  # a remote host cannot be a local folder
-        return "\\\\" + host + path.replace("/", "\\")
+    if host or path.startswith(("\\\\", "//")):
+        return None  # a network (UNC) share is never a local folder; it is not resolved
     if windows:
         if _DRIVE_PATH.match(path):
             path = path[1:]
@@ -97,6 +98,7 @@ async def for_session(session: Any, monitor: Any = None) -> "tuple[str, ...] | N
         return None
     if session in _cache:
         return _cache[session]
+    started = _generation
     try:
         result = await asyncio.wait_for(
             session.send_request(types.ServerRequest(types.ListRootsRequest()), _RootsResult),
@@ -109,14 +111,17 @@ async def for_session(session: Any, monitor: Any = None) -> "tuple[str, ...] | N
     roots = usable_roots(uris) if uris else None
     if roots and monitor is not None:
         _, ignored = narrow_directories(
-            monitor.allowed_directories, roots, getattr(monitor, "_casefold", None))
+            monitor.allowed_directories, roots, getattr(monitor, "_casefold", None), allowed_resolved=True)
         for root in ignored:
             logger.warning("Ignoring client root %s: it is outside every allowed workspace directory.", root)
-    _cache[session] = roots
+    if started == _generation:  # else roots/list_changed landed mid-fetch: read again next call
+        _cache[session] = roots
     return roots
 
 
 async def _on_list_changed(_notification: Any) -> None:
+    global _generation
+    _generation += 1
     _cache.clear()  # every session reads again on its next call
 
 

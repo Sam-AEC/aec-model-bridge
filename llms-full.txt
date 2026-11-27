@@ -141,7 +141,9 @@ python ../../scripts/version.py check       # VERSION, pyproject and manifests m
 - Do not claim live-Revit behaviour you did not observe. Mark it UNVERIFIED (see `docs/release-checklist.md`).
 - Every behaviour change needs a test and one fragment file `changes/<issue-or-branch>.md` (see `changes/README.md`); do not edit `CHANGELOG.md`. After adding or removing a tool run `python scripts/sync_counts.py` and `python scripts/make_llms_full.py`.
 - Docs: plain, short, factual sentences. No hype words, no emoji, no personal data, no dated narrative.
-- Commits reference issues (`Fixes #N`). Work on its own branch; PRs target `dev`.
+- Commits reference issues (`Fixes #N`). Work on its own branch; PRs target `dev`. PRs into `dev` are squash-merged; `dev` into `main` uses a merge commit.
+- Before taking an issue, read its comments and assignees. Skip issues labelled `claimed` or assigned to someone; a contributor who asks to take one gets assigned and labelled `claimed`.
+- While a release PR (`dev` into `main`) is open, `dev` is frozen: merge nothing into `dev` until it lands.
 - `README.md` and `docs/i18n/README.*.md` are for humans. Every other doc is written for agents and search. Tests check README structure, tool counts and links, so run the full suite after editing docs.
 
 ## Do not read whole
@@ -4902,6 +4904,13 @@ For each line with a `tool`, the helper calls that tool through the Revit provid
 # Release checklist
 
 Ordered list for shipping from `dev` to `main`. Section 2 has no PASS or FAIL recorded. Bounded read-only Revit 2024 checks passed; see [the live validation report](revit-addin-live-validation-2026-10-14.md). Mutating acceptance and other Revit years are UNVERIFIED. Known limits are in section 3 and in [security.md](security.md).
+
+## 0. Release flow
+
+- Open one release PR from `dev` into `main` and merge it with a merge commit.
+- `dev` is frozen while that PR is open. PRs into `dev` wait until it lands.
+- Tag after the release PR is merged, from the merge commit on `main`.
+- Issues fixed on `dev` carry the `fixed-in-dev` label and close when the release reaches `main`.
 
 ## 1. What CI proves
 
