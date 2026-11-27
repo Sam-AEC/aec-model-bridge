@@ -30,7 +30,7 @@ permissions:
 
 concurrency:
   group: vscode-extension-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -51,13 +51,14 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ matrix.node }}
-          cache: npm
-          cache-dependency-path: packages/vscode-extension/package-lock.json
+          package-manager-cache: false
 
       - name: Install
         run: npm ci
@@ -89,6 +90,7 @@ jobs:
     if: (github.event_name == 'release' && !github.event.release.prerelease) || (github.event_name == 'workflow_dispatch' && inputs.publish_tag != '')
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    environment: release
     permissions:
       contents: read
     env:
@@ -109,8 +111,7 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-          cache: npm
-          cache-dependency-path: packages/vscode-extension/package-lock.json
+          package-manager-cache: false
 
       - name: Check the published stable release matches the extension version
         env:

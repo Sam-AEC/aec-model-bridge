@@ -380,6 +380,15 @@ jobs:
           tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
           "$RUNNER_TEMP/actionlint" -color
 
+      # Security audit of the workflows (injection, unpinned actions, cache poisoning,
+      # excessive permissions). The version is pinned; bump it by hand. The token
+      # lets the online audits (known-vulnerable actions, impostor commits) run.
+      - name: Audit workflows with zizmor
+        env:
+          ZIZMOR_VERSION: "1.33.1"
+          GH_TOKEN: ${{ github.token }}
+        run: pipx run "zizmor==${ZIZMOR_VERSION}" --min-severity medium --no-progress .github/workflows
+
   # CycloneDX SBOM of the Python package's locked runtime dependencies (uv.lock).
   # This lock inventory is distinct from the release SBOM of the shipped bundle.
   sbom:

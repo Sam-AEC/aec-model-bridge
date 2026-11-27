@@ -1,0 +1,4 @@
+# Hash-pinned release build tooling for release.yml. Regenerate:
+# uv pip compile --universal --generate-hashes --python-version 3.11 .github/requirements/release.in -o .github/requirements/release.txt
+build
+pytest

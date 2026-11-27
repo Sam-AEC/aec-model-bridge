@@ -5,7 +5,7 @@ Ordered list for shipping from `dev` to `main`. Section 2 has no PASS or FAIL re
 ## 0. Release flow
 
 - Open one release PR from `dev` into `main` and merge it with a merge commit.
-- `dev` is frozen while that PR is open. PRs into `dev` wait until it lands.
+- `dev` is frozen while that PR is open. PRs into `dev` wait until it lands. The `release-freeze` workflow fails on PRs into `dev` while a `dev` into `main` PR is open; add `release-freeze` as a required check on `dev`.
 - Tag after the release PR is merged, from the merge commit on `main`.
 - Issues fixed on `dev` carry the `fixed-in-dev` label and close when the release reaches `main`.
 
@@ -129,6 +129,11 @@ Do once, signed in to pypi.org and GitHub as the maintainer. Nothing in the repo
 3. Check: run `publish-pypi.yml` by hand with the latest stable tag, or wait for the next stable release. A wrong environment or workflow name fails at the upload step with `invalid-publisher`.
 
 The environment name on PyPI and in the workflow must match. If an older pending publisher exists with no environment, delete it and add the one above.
+
+### GitHub environments
+
+- `release`: deployment branches and tags limited to `v*` tags. `release.yml`, `publish-mcp.yml` and the publish job of `vscode-extension.yml` use it, so a manual run from a branch cannot reach OIDC or store tokens. Rebuild an existing tag with `gh workflow run release.yml --ref vX.Y.Z -f tag=vX.Y.Z`; `release.yml` refuses a manual run on a branch. A dry run with the `ref` input is also dispatched on a tag.
+- `maintenance`: deployment branches limited to `main`. `rulesets-drift.yml` uses it, so `SCORECARD_TOKEN` is not exposed to other branches.
 
 ### OpenSSF Scorecard
 
