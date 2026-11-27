@@ -17,6 +17,7 @@ from ..errors import BridgeError
 from . import approval_signing as signing_mod
 from . import binding as binding_mod
 from . import file_binding
+from . import policy as policy_mod
 from . import proof as proof_mod
 from . import rollback_preview as rollback_preview_mod
 from .approval_override import active_override
@@ -45,7 +46,7 @@ VOLATILE_ARGUMENT_KEYS = frozenset({"plan_id", "run_async", "idempotency_key"})
 # hashed review block (which has its own validated parameter).
 _RESERVED_EXTRA_KEYS = frozenset({
     "review", "hash_version", "plan_hash", "approved_hash", "plan_id", "created_at", "actions", "binding",
-    "rollback_preview",
+    "rollback_preview", "requested_by",
 }) | proof_mod.STATE_PLAN_KEYS | proof_mod.DERIVED_PLAN_KEYS
 
 ACTION_ID_RE = re.compile(r"act_[0-9a-f]{12}")
@@ -118,6 +119,54 @@ def local_user() -> str:
         return getpass.getuser()
     except Exception:
         return "unknown"
+
+
+REQUESTER_ENV = "MCP_REVIT_REQUESTER"
+APPROVER_ENV = "MCP_REVIT_APPROVER"
+_UNKNOWN_NAMES = frozenset({"", "unknown"})
+
+
+def _named(env_name: str) -> str:
+    return (os.environ.get(env_name) or "").strip() or local_user()
+
+
+def requester_identity() -> str:
+    """Who asked for plans drafted by this server: ``MCP_REVIT_REQUESTER``, else the OS account. Read from the
+    environment of the server process, never from a tool argument. Recorded, not authenticated."""
+    return _named(REQUESTER_ENV)
+
+
+def approver_identity() -> str:
+    """Who approves in the panel hub or the command-line tool: ``MCP_REVIT_APPROVER``, else the OS account."""
+    return _named(APPROVER_ENV)
+
+
+def normalize_person(name: Any) -> str:
+    """Compare-form of a person name: casefolded, with a domain part removed. A name written as domain,
+    backslash, user and one written as user, at sign, domain both give ``user``."""
+    value = str(name or "").strip()
+    if "\\" in value:
+        value = value.rsplit("\\", 1)[-1]
+    if "@" in value:
+        value = value.split("@", 1)[0]
+    return value.strip().casefold()
+
+
+def two_person_refusal(plan: Dict[str, Any], approver: Any) -> Optional[str]:
+    """Why ``approver`` may not approve ``plan`` under the two-person rule (#203), or None. Fails closed: an
+    unknown requester or approver is refused."""
+    requester = str(plan.get("requested_by") or "").strip()
+    name = str(approver or "").strip()
+    if normalize_person(requester) in _UNKNOWN_NAMES:
+        return ("The policy requires a second approver, but this plan does not record who asked for it, so it cannot "
+                "be approved. Ask for a new plan.")
+    if normalize_person(name) in _UNKNOWN_NAMES:
+        return ("The policy requires a second approver, but the name of the approver is not known. Set "
+                f"{APPROVER_ENV} to your name and try again.")
+    if normalize_person(requester) == normalize_person(name):
+        return (f"The policy requires a second approver: plan '{plan.get('plan_id')}' was requested by '{requester}', "
+                "who cannot approve it. Ask another person to approve it.")
+    return None
 
 
 def _canonical(value: Any) -> Any:
@@ -439,6 +488,8 @@ class ApprovalGate:
             except ValueError as e:
                 raise BridgeError(str(e))
             plan["binding"] = binding
+        if policy_mod.second_approver_required(policy_mod.load_policy(self.workspace_dir)):
+            plan["requested_by"] = requester_identity()
         if rollback_preview is not None:
             try:
                 plan["rollback_preview"] = rollback_preview_mod.validate(rollback_preview)
@@ -553,6 +604,10 @@ class ApprovalGate:
                 expired = self.expiry_reason(plan)
                 if expired:
                     raise ValueError(expired)
+                if policy_mod.second_approver_required(policy_mod.load_policy(self.workspace_dir)):
+                    refusal = two_person_refusal(plan, approver if approver else local_user())
+                    if refusal:
+                        raise ValueError(refusal)
                 now_hash = plan_hash(plan)
                 if not expected_hash or expected_hash != now_hash:
                     raise ValueError(
@@ -630,9 +685,26 @@ class ApprovalGate:
             raise BridgeError(
                 f"Plan '{plan_id}' is in state '{plan.get('state')}', not 'approved'. Execution blocked.{hint}")
         self._verify_unchanged_since_approval(plan)
+        if policy_mod.second_approver_required(policy_mod.load_policy(self.workspace_dir)):
+            self._verify_second_approver(plan)
         expired = self.expiry_reason(plan)
         if expired:
             raise ApprovalExpired(expired)
+
+    @staticmethod
+    def _verify_second_approver(plan: Dict[str, Any]) -> None:
+        """Two-person rule (#203) at execution: a plan with no recorded requester, or approved by its own
+        requester, does not run, whenever the option was turned on after the approval."""
+        plan_id = plan.get("plan_id")
+        requester = normalize_person(plan.get("requested_by"))
+        if requester in _UNKNOWN_NAMES:
+            raise BridgeError(
+                f"The policy requires a second approver, but plan '{plan_id}' does not record who asked for it. "
+                "Execution blocked; draft a new plan and ask another person to approve it.")
+        if normalize_person(plan.get("approved_by")) == requester:
+            raise BridgeError(
+                f"The policy requires a second approver, but plan '{plan_id}' was approved by the person who "
+                "asked for it. Execution blocked; ask another person to approve it.")
 
     def _verify_unchanged_since_approval(self, plan: Dict[str, Any]) -> None:
         """Refuse unless the plan still hashes to what a person approved (any state) and its

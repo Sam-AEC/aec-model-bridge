@@ -29,7 +29,7 @@ from .approve_review import (build_review, color_supported, is_cut, render_revie
 from .config import config
 from .errors import BridgeError
 from .security import proof as proof_mod
-from .security.approval import STALE_RUNNING_SECONDS, ApprovalGate, local_user, plan_hash, running_actions
+from .security.approval import STALE_RUNNING_SECONDS, ApprovalGate, approver_identity, local_user, plan_hash, running_actions
 from .security.proof import normalize_review
 from .security.recipe_store import RecipeError, RecipeStore, validate_recipe_id
 
@@ -483,7 +483,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     try:
         if verb == "approve":
-            gate.update_plan_state(args.plan_id, "approved", approver=local_user(), via="cli",
+            gate.update_plan_state(args.plan_id, "approved", approver=approver_identity(), via="cli",
                                    expected_hash=shown_hash)
         else:
             gate.update_plan_state(args.plan_id, "rejected", via="cli")

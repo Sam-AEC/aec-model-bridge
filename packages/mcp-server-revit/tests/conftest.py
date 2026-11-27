@@ -31,6 +31,7 @@ if settings is not None:
 def _isolated_panel_token_file(tmp_path, monkeypatch):
     """Never touch the real per-user panel token file from a test."""
     monkeypatch.setenv("MCP_PANEL_TOKEN_FILE", str(tmp_path / "panel-hub.token"))
+    monkeypatch.setenv("MCP_PANEL_REVIEWER_TOKEN_FILE", str(tmp_path / "panel-reviewer.token"))
     # A developer's own recording setting must never make the suite write cassettes.
     monkeypatch.delenv("MCP_REVIT_RECORD", raising=False)
 
