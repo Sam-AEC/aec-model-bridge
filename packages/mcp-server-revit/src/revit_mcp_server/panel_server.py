@@ -434,11 +434,14 @@ APPROVAL_MODE_NOTES = {
 
 
 def collect_diagnostics(workspace_dir: Path, approval_mode: Any = None, auto_window: Any = None,
-                        dev_mode: bool = False, dev_token: Optional[str] = None) -> Dict[str, Any]:
+                        dev_mode: bool = False, dev_token: Optional[str] = None,
+                        reviewer: bool = False) -> Dict[str, Any]:
     """Install-to-first-check status: one entry per thing that can block a first run.
 
     Each check carries a ``next_step`` so the panel can show a specific recovery
     action instead of a generic connection error.
+
+    ``reviewer`` (#210): read-only. No write test, and no absolute workspace path in the answer.
     """
     from .bridge.discovery import available_host_versions
     from .config import BridgeMode, normalize_approval_mode
@@ -478,17 +481,25 @@ def collect_diagnostics(workspace_dir: Path, approval_mode: Any = None, auto_win
             "If Revit is open, check that the add-in matches your Revit version (docs/install.md).",
         )
 
-    try:
-        workspace_dir.mkdir(parents=True, exist_ok=True)
-        probe = workspace_dir / ".diagnostics-write-test"
-        probe.write_text("ok", encoding="utf-8")
-        probe.unlink()
-        add("workspace", True, f"Workspace is writable: {workspace_dir}")
-    except OSError as e:
+    if reviewer:
         add(
-            "workspace", False, f"Workspace is not writable: {workspace_dir} ({e.strerror or e})",
-            "Set MCP_REVIT_WORKSPACE_DIR to a folder you can write to and restart the hub.",
+            "workspace", workspace_dir.is_dir(),
+            "Workspace folder exists. A reviewer does not run the write test." if workspace_dir.is_dir()
+            else "Workspace folder does not exist.",
+            "Ask the approver to run the setup check.",
         )
+    else:
+        try:
+            workspace_dir.mkdir(parents=True, exist_ok=True)
+            probe = workspace_dir / ".diagnostics-write-test"
+            probe.write_text("ok", encoding="utf-8")
+            probe.unlink()
+            add("workspace", True, f"Workspace is writable: {workspace_dir}")
+        except OSError as e:
+            add(
+                "workspace", False, f"Workspace is not writable: {workspace_dir} ({e.strerror or e})",
+                "Set MCP_REVIT_WORKSPACE_DIR to a folder you can write to and restart the hub.",
+            )
 
     ai_ok = (bool(config.anthropic_api_key) or shutil.which("claude") is not None
              or shutil.which("codex") is not None)
@@ -503,7 +514,7 @@ def collect_diagnostics(workspace_dir: Path, approval_mode: Any = None, auto_win
         "Set approval_mode to ask_first (or look_only) so changes need your approval, then restart the hub.",
     )
 
-    return {
+    result = {
         "ok": all(c["ok"] for c in checks),
         "hub_version": __version__,
         "approval_mode": mode_value,
@@ -514,6 +525,9 @@ def collect_diagnostics(workspace_dir: Path, approval_mode: Any = None, auto_win
         "auto_expires_at": auto_window["expires_at"] if not dev_mode and mode_value == "auto" and isinstance(auto_window, dict) else None,
         "checks": checks,
     }
+    if reviewer:
+        del result["workspace_dir"]
+    return result
 
 
 def _reject_constant(name: str) -> Any:
@@ -678,7 +692,8 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
         if matches(TOKEN_HEADER, self.token):
             self.role = "approver"
             return True
-        if matches(REVIEWER_HEADER, getattr(self, "reviewer_token", None)):
+        # A wrong approving token is a failed login even when a valid reviewer header comes with it.
+        if not self.headers.get(TOKEN_HEADER) and matches(REVIEWER_HEADER, getattr(self, "reviewer_token", None)):
             self.role = "reviewer"
             return True
         limiter = self.failures
@@ -786,6 +801,7 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
                     gate.auto_window() if gate is not None and hasattr(gate, "auto_window") else None,
                     bool(getattr(gate, "dev_mode", False)),
                     dev_token=getattr(gate, "override_token", None),
+                    reviewer=self.role == "reviewer",
                 ),
             )
             return
@@ -850,9 +866,10 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
 
     def _handle_list_reports(self) -> None:
         workspace_dir = self.workspace.allowed_directories[0]
+        reviewer = self.role == "reviewer"
         reports = [
             {
-                "path": str(entry),
+                **({} if reviewer else {"path": str(entry)}),
                 "name": entry.name,
                 "modified": entry.stat().st_mtime,
             }
@@ -908,7 +925,8 @@ class PanelRequestHandler(BaseHTTPRequestHandler):
             return
 
         try:
-            switch = resolve_instance(body.get("instance"), tool)
+            # A reviewer never picks an instance: a bad one would list the live Revit sessions.
+            switch = resolve_instance(None if self.role == "reviewer" else body.get("instance"), tool)
         except InstanceRoutingError as e:
             self._send_json(409, {"ok": False, "error": str(e)})
             return

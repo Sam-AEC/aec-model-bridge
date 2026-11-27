@@ -137,11 +137,11 @@ def test_reviewer_secret_is_not_the_approving_token(hub):
     assert status == 401
 
 
-def test_reviewer_header_does_not_upgrade_a_wrong_approving_token(hub):
+def test_wrong_approving_token_is_refused_even_with_a_reviewer_header(hub):
     port, token = hub
     wrong = ("A" if token[0] != "A" else "B") + token[1:]
     status, _ = _execute(port, "approve_plan", {"plan_id": "p", "expected_hash": "h"}, token=wrong, reviewer=REVIEWER)
-    assert status == 403  # still only a reviewer, so still refused
+    assert status == 401  # a wrong approving token is refused outright, not downgraded to a reviewer
 
 
 # --- off when not configured, and the approving token is unchanged ------------------
@@ -263,3 +263,80 @@ def test_only_the_panel_files_handle_the_reviewer_credential():
         and p.name not in {"panel_token.py", "panel_server.py"}
     ]
     assert offenders == []
+
+
+# --- review fixes (#210): wrong approving token, instance, paths, write test ----------
+
+
+def test_wrong_approving_token_with_valid_reviewer_header_is_refused_and_counted(hub):
+    port, token = hub
+    wrong = ("A" if token[0] != "A" else "B") + token[1:]
+    statuses = [_call(port, "GET", "/diagnostics", token=wrong, reviewer=REVIEWER)[0] for _ in range(25)]
+    assert set(statuses) <= {401, 429}
+    assert 429 in statuses
+
+
+def test_wrong_approving_token_is_not_a_reviewer_even_for_reads(hub):
+    port, token = hub
+    wrong = ("A" if token[0] != "A" else "B") + token[1:]
+    assert _call(port, "GET", "/reports", token=wrong, reviewer=REVIEWER)[0] == 401
+    assert _call(port, "GET", "/reports", reviewer=REVIEWER)[0] == 200
+
+
+def test_reviewer_instance_field_is_ignored_and_never_lists_revits(hub, monkeypatch):
+    from revit_mcp_server.config import BridgeMode
+    from revit_mcp_server.bridge.discovery import SwitchInfo
+
+    switch = SwitchInfo(provider_id="revit", endpoint="http://127.0.0.1:4111", pid=4111, host_version="2026",
+                        connector_version="1", protocol_version=2, capability_digest="dynamic",
+                        session_token="bridge-secret", started_at="1")
+    monkeypatch.setattr(panel_server.config, "mode", BridgeMode.bridge)
+    monkeypatch.setattr(panel_server.config, "bridge_url", None)
+    monkeypatch.setattr("revit_mcp_server.bridge.discovery.discover_switch_list", lambda *_a, **_k: [switch])
+    port, _ = hub
+    body = {"tool": "list_pending_plans", "arguments": {}, "instance": {"pid": 999999}}
+    status, parsed = _call(port, "POST", "/execute", reviewer=REVIEWER, body=body)
+    assert status == 200 and "4111" not in json.dumps(parsed) and "2026" not in json.dumps(parsed)
+    # The approving token still gets the routing error with the listing.
+    status, parsed = _call(port, "POST", "/execute", token=hub[1], body=body)
+    assert status == 409 and "4111" in parsed["error"]
+
+
+def test_reviewer_diagnostics_has_no_absolute_path_and_no_write_test(hub, tmp_path):
+    port, token = hub
+    ws = str(tmp_path / "ws")
+    status, body = _call(port, "GET", "/diagnostics", reviewer=REVIEWER)
+    assert status == 200
+    assert "workspace_dir" not in body
+    assert ws not in json.dumps(body)
+    assert not (tmp_path / "ws" / ".diagnostics-write-test").exists()
+    status, full = _call(port, "GET", "/diagnostics", token=token)
+    assert status == 200 and full["workspace_dir"]
+
+
+def test_reviewer_diagnostics_does_not_write(tmp_path, monkeypatch):
+    calls = []
+    real = Path.write_text
+    monkeypatch.setattr(Path, "write_text", lambda self, *a, **k: calls.append(self) or real(self, *a, **k))
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    result = panel_server.collect_diagnostics(ws, reviewer=True)
+    assert calls == []
+    assert "workspace_dir" not in result
+    assert next(c for c in result["checks"] if c["id"] == "workspace")["ok"] is True
+    panel_server.collect_diagnostics(ws)
+    assert calls  # the approver's check still runs the write test
+
+
+def test_reviewer_reports_omit_absolute_paths(hub, tmp_path):
+    port, token = hub
+    ws = tmp_path / "ws"
+    ws.mkdir(exist_ok=True)
+    (ws / "audit.csv").write_text("a,b\n", encoding="utf-8")
+    status, body = _call(port, "GET", "/reports", reviewer=REVIEWER)
+    assert status == 200
+    assert [r["name"] for r in body["reports"]] == ["audit.csv"]
+    assert all("path" not in r for r in body["reports"])
+    assert str(ws) not in json.dumps(body)
+    status, full = _call(port, "GET", "/reports", token=token)
+    assert full["reports"][0]["path"].endswith("audit.csv")
