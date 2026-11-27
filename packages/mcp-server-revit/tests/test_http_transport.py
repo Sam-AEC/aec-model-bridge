@@ -367,3 +367,20 @@ def test_origin_and_host_checks_run_before_the_token_check():
         return await client.post("/mcp", json=INIT, headers={**JSON_HEADERS, "Origin": "https://evil.example"})
 
     assert _run(go).status_code == 403
+
+
+def test_session_limits_are_explicit(monkeypatch):
+    from mcp.server import streamable_http_manager as shm
+    seen = {}
+    real = shm.StreamableHTTPSessionManager.__init__
+
+    def spy(self, *a, **kw):
+        seen.update(kw)
+        real(self, *a, **kw)
+
+    monkeypatch.setattr(shm.StreamableHTTPSessionManager, "__init__", spy)
+    from mcp.server.lowlevel import Server
+    http_transport.build_asgi_app(Server("t"), http_transport.HttpSettings(host="127.0.0.1", port=8765, token="t" * 20))
+    assert seen["max_sessions"] == http_transport.MAX_SESSIONS
+    assert seen["session_idle_timeout"] == http_transport.SESSION_IDLE_SECONDS
+    assert seen["max_request_body_size"] == http_transport.MAX_BODY_BYTES

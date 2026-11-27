@@ -19,6 +19,9 @@ ALLOWED_HOSTS = ("127.0.0.1", "localhost")
 ORIGIN_HOSTS = ("127.0.0.1", "localhost", "::1")
 DEFAULT_PORT = 8765
 MIN_TOKEN_LENGTH = 16
+SESSION_IDLE_SECONDS = 1800
+MAX_SESSIONS = 32  # one machine, a few clients
+MAX_BODY_BYTES = 4 * 1024 * 1024
 MCP_PATH = "/mcp"
 
 _ON = ("1", "true", "yes", "on")
@@ -138,6 +141,9 @@ def build_asgi_app(server, settings: HttpSettings):
 
     manager = StreamableHTTPSessionManager(
         app=server,
+        session_idle_timeout=SESSION_IDLE_SECONDS,
+        max_sessions=MAX_SESSIONS,
+        max_request_body_size=MAX_BODY_BYTES,
         # Second layer; _GuardMiddleware has already refused anything else.
         security_settings=TransportSecuritySettings(
             enable_dns_rebinding_protection=True,
