@@ -1,6 +1,7 @@
 name: release-freeze
 
-# dev is frozen while a release PR (dev into main) is open. Add `release-freeze`
+# dev is frozen while a release PR into main is open. Its head is dev or a
+# release/* branch of this repository. Add `release-freeze`
 # as a required check on dev (docs/release-checklist.md, section 0).
 on:
   pull_request:
@@ -22,10 +23,19 @@ jobs:
           GH_REPO: ${{ github.repository }}
           OWNER: ${{ github.repository_owner }}
         run: |
-          # Only a dev branch in this repository counts; a fork branch named dev does not.
-          open=$(gh pr list --base main --head dev --state open --json number,headRepositoryOwner             --jq ".[] | select(.headRepositoryOwner.login == \"${OWNER}\") | .number" | head -n 1)
+          # A release PR is open when its head is dev or a release/* branch of this
+          # repository. A fork branch with the same name does not count.
+          # shellcheck disable=SC2016 # $owner is a jq variable passed with --arg, not a shell one.
+          filter='.[] | select(.headRepositoryOwner.login == $owner and (.headRefName == "dev" or (.headRefName | startswith("release/")))) | .number'
+          set -o pipefail
+          prs=$(gh pr list --base main --state open --limit 500 --json number,headRefName,headRepositoryOwner)
+          if [ "$(printf '%s' "$prs" | jq 'length')" -ge 500 ]; then
+            echo "::error::500 or more open PRs into main; cannot check the freeze reliably."
+            exit 1
+          fi
+          open=$(printf '%s' "$prs" | jq -r --arg owner "${OWNER}" "$filter" | head -n 1)
           if [ -n "$open" ]; then
-            echo "::error::dev is frozen: release PR #${open} (dev into main) is open. Merge or close it, then re-run this check."
+            echo "::error::dev is frozen: release PR #${open} into main is open. Merge or close it, then re-run this check."
             exit 1
           fi
           echo "No open release PR. dev is not frozen."
