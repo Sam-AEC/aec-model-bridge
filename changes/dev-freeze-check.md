@@ -1,0 +1,1 @@
+- `release-freeze` is a required check on dev; `.github/rulesets/protect-dev.json` matches the live ruleset.
