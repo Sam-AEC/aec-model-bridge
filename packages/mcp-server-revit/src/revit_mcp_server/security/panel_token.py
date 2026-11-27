@@ -42,6 +42,9 @@ logger = logging.getLogger(__name__)
 TOKEN_FILENAME = "panel-hub.token"
 TOKEN_ENV_FILE = "MCP_PANEL_TOKEN_FILE"
 TOKEN_HEADER = "X-AMB-Token"
+REVIEWER_FILENAME = "panel-reviewer.token"
+REVIEWER_ENV_FILE = "MCP_PANEL_REVIEWER_TOKEN_FILE"
+REVIEWER_HEADER = "X-AMB-Reviewer-Token"
 
 _TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{43}$")
 _READ_RETRIES = 20
@@ -218,8 +221,44 @@ def load_or_create_token(path: Path | None = None) -> str:
     return created
 
 
+def reviewer_token_path() -> Path:
+    override = os.environ.get(REVIEWER_ENV_FILE)
+    return Path(override) if override else token_path().with_name(REVIEWER_FILENAME)
+
+
+def read_reviewer_token() -> str | None:
+    """The read-only reviewer token, or None when no reviewer is configured (the default).
+
+    Same file rules as the panel token. Raises PanelTokenError if the file is unsafe or malformed.
+    """
+    return read_token(reviewer_token_path())
+
+
+def create_reviewer_token() -> str:
+    """Create the reviewer token file if it is missing and return the token. Never rotates an
+    existing one: delete the file and restart the hub to rotate. Only a person at the command line
+    calls this; no tool does."""
+    path = reviewer_token_path()
+    existing = read_token(path)
+    if existing is not None:
+        return existing
+    _create_token_file(path)
+    created = read_token(path)
+    if created is None:  # pragma: no cover - vanished between create and read
+        raise PanelTokenError(f"The reviewer token file {path} could not be created.")
+    return created
+
+
 if __name__ == "__main__":  # pragma: no cover
     # Not a way to print the token: only reports whether a usable file exists.
+    if "--new-reviewer" in sys.argv[1:]:
+        try:
+            create_reviewer_token()
+            print("reviewer token file:", reviewer_token_path())
+        except (PanelTokenError, OSError) as e:
+            print(e, file=sys.stderr)
+            sys.exit(1)
+        sys.exit(0)
     try:
         print("token file:", "present" if read_token() else "absent")
     except PanelTokenError as e:
