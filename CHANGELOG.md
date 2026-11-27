@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Machine policy and tiers (#363): an administrator policy file (`MCP_REVIT_MACHINE_POLICY_FILE`, else ProgramData or `/etc`) merges with the workspace policy, stricter wins (a named file that is missing or invalid refuses every write); tool tiers `read`, `write`, `script`, `export` can be turned off with `allowed_tiers` or `blocked_tiers` (hidden from `tools/list`; calls refused through MCP, the panel, the chat assistant and module tools; `revit_raw_command` counts as `script`; approval tools stay callable); explicit Dev mode lifts the limits with an audit line per bypass; `aec-model-bridge-doctor` reports files, hashes and tiers. Tested in mock mode; Windows ProgramData path and ACL UNVERIFIED.
+- Docker image: dependencies install from `requirements-docker.txt`, a hash-pinned export of `uv.lock` (`pip install --require-hashes`), then the package with `--no-deps`. A test fails when the export drifts from the lock. Clears Scorecard alert #36.
 
 ## 1.6.1 - 2026-11-27
 
