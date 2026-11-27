@@ -131,6 +131,9 @@ safe_path = monitor.assert_in_workspace(Path("C:\\RevitProjects\\model.rvt"))  #
 unsafe_path = monitor.assert_in_workspace(Path("C:\\Windows\\System32\\cmd.exe"))
 ```
 
+### Client roots narrow the sandbox
+When the MCP client declares the roots capability, the folders it has open (`roots/list`) narrow the allowed directories for that session. The effective set is the intersection of the configured directories and the roots. A root inside an allowed directory narrows to that root. A root that contains an allowed directory leaves it unchanged. A root outside every allowed directory is ignored and logged. Roots never add a directory. If the client declares roots and none overlaps an allowed directory, every tool that takes a path is refused with a plain message. A client with no roots capability, or an empty list, gets the configured directories unchanged. Only `file://` roots count; other schemes are ignored and logged. Roots are read once per session and again after `notifications/roots/list_changed`. If the client does not answer `roots/list`, the configured directories apply and a warning is logged. Plan, proof and reserved folders stay refused. Behaviour with real clients is UNVERIFIED. Code: `client_roots.py`, `security/workspace.py`.
+
 ### Path traversal guard
 The `WorkspaceMonitor` turns each path into an absolute, canonical path. It then:
 - Follows all symbolic links.

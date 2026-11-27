@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Workspace sandbox follows the folders the MCP client has open: when a client declares roots, path tools are limited to the intersection of those roots and the allowed directories (never wider, re-read on `roots/list_changed`, refused when nothing overlaps); clients without roots are unchanged; real-client behaviour UNVERIFIED. Fixes #202.
 - Docker image: dependencies install from `requirements-docker.txt`, a hash-pinned export of `uv.lock` (`pip install --require-hashes`), then the package with `--no-deps`. A test fails when the export drifts from the lock. Clears Scorecard alert #36.
 
 ## 1.6.1 - 2026-11-27
