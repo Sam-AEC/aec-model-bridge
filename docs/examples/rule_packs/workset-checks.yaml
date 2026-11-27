@@ -1,0 +1,63 @@
+# Workset checks on the 'workset' field of each element (the workset name).
+# 'not captured' means no element in the snapshot has a workset: the model is not workshared or the
+# snapshot did not read it. The Revit add-in snapshot code in this repo does not write 'workset' on
+# elements, so on a live snapshot the first rule reports it and the others find nothing. Live capture is
+# UNVERIFIED. The pack is tested on fixture snapshots only.
+# 'Shared Levels and Grids' is the Revit default name of the shared workset. Replace it in
+# workset_levels_grids_not_shared if your standard uses another name.
+rules:
+  - id: workset_not_captured
+    severity: info
+    category: Worksharing
+    description: "Worksets were not captured: no element in the snapshot has a workset."
+    pipeline:
+      - name: with_workset
+        where:
+          - {field: workset, op: exists}
+        aggregate: {n: count}
+      - from: $with_workset
+        where:
+          - {field: n, op: eq, value: 0}
+
+  - id: workset_name_empty
+    severity: error
+    category: Worksharing
+    description: "Element has an empty workset name."
+    pipeline:
+      - where:
+          - {field: workset, op: exists}
+          - {field: workset, op: empty}
+    fix_template: "Move '{label}' to a named workset."
+
+  - id: workset_default_name
+    severity: warning
+    category: Worksharing
+    description: "Element is still on a default workset ('Workset1')."
+    pipeline:
+      - where:
+          - {field: workset, op: in, value: [Workset1, Workset 1], ci: true}
+    fix_template: "Move '{label}' from the default workset to a discipline workset."
+
+  - id: workset_name_padded
+    severity: warning
+    category: Worksharing
+    description: "Workset name starts or ends with a space, or has a double space."
+    pipeline:
+      - where:
+          - any:
+              - {field: workset, op: startswith, value: " "}
+              - {field: workset, op: endswith, value: " "}
+              - {field: workset, op: contains, value: "  "}
+    fix_template: "Rename the workset of '{label}' without extra spaces."
+
+  - id: workset_levels_grids_not_shared
+    severity: warning
+    category: Worksharing
+    description: "Level or grid is not on the workset 'Shared Levels and Grids'."
+    pipeline:
+      - where:
+          - {field: category, op: in, value: [OST_Levels, OST_Grids]}
+          - {field: workset, op: exists}
+          - {field: workset, op: empty, value: false}
+          - {field: workset, op: ne, value: "Shared Levels and Grids"}
+    fix_template: "Move '{label}' to the workset 'Shared Levels and Grids'."

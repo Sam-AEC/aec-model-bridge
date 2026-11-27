@@ -1,0 +1,88 @@
+# Level checks on OST_Levels elements: name and elevation.
+# The level name is the element 'name'. The elevation is the 'Elevation' parameter, compared as the
+# exact number the snapshot holds, with no tolerance. Replace 'Elevation' if your snapshot uses another name.
+# 'not captured' means the level has no such field in the snapshot (the add-in did not read it).
+# Duplicate rules group the levels, so their issues name the duplicated value but have no element.
+# The engine has no regex operator, so a firm naming pattern (for example 'L01') needs a reviewed naming rule.
+# Fixture-tested only. How the add-in captures level names and elevations live is UNVERIFIED.
+rules:
+  - id: level_name_not_captured
+    severity: info
+    category: Levels
+    description: "Level name was not captured: the level has no name in the snapshot."
+    pipeline:
+      - where:
+          - {field: category, value: OST_Levels}
+          - {field: name, op: exists, value: false}
+
+  - id: level_name_empty
+    severity: error
+    category: Levels
+    description: "Level has an empty name."
+    pipeline:
+      - where:
+          - {field: category, value: OST_Levels}
+          - {field: name, op: exists}
+          - {field: name, op: empty}
+    fix_template: "Name the level '{label}'."
+
+  - id: level_name_padded
+    severity: warning
+    category: Levels
+    description: "Level name starts or ends with a space, or has a double space."
+    pipeline:
+      - where:
+          - {field: category, value: OST_Levels}
+          - any:
+              - {field: name, op: startswith, value: " "}
+              - {field: name, op: endswith, value: " "}
+              - {field: name, op: contains, value: "  "}
+    fix_template: "Rename level '{label}' without extra spaces."
+
+  - id: level_name_duplicate
+    severity: error
+    category: Levels
+    description: "Two or more levels have the same name."
+    pipeline:
+      - name: named
+        where:
+          - {field: category, value: OST_Levels}
+          - {field: name, op: exists}
+          - {field: name, op: empty, value: false}
+        group_by: name
+        aggregate: {count: count}
+      - from: $named
+        where:
+          - {field: count, op: gt, value: 1}
+        select:
+          - {field: name, as: label}
+          - count
+
+  - id: level_elevation_not_captured
+    severity: info
+    category: Levels
+    description: "Level elevation was not captured: the level has no 'Elevation' parameter in the snapshot."
+    pipeline:
+      - where:
+          - {field: category, value: OST_Levels}
+          - {field: params.Elevation, op: exists, value: false}
+
+  - id: level_elevation_duplicate
+    severity: error
+    category: Levels
+    description: "Two or more levels have the same elevation."
+    pipeline:
+      - name: elevated
+        where:
+          - {field: category, value: OST_Levels}
+          - {field: params.Elevation, op: exists}
+        group_by: params.Elevation
+        aggregate:
+          count: count
+          label: {op: list, field: name}
+      - from: $elevated
+        where:
+          - {field: count, op: gt, value: 1}
+        select:
+          - label
+          - count
